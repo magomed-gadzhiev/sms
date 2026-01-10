@@ -1,0 +1,116 @@
+{
+  "dashboard": {
+    "title": "SMPP Server - Worker",
+    "tags": ["smpp", "worker"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Messages Processed",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(worker_messages_processed_total[5m])) by (worker_id, status)",
+            "legendFormat": "{{worker_id}} - {{status}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Messages/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Processing Duration",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(worker_processing_duration_seconds_bucket[5m])) by (le, worker_id, operation))",
+            "legendFormat": "p95 {{worker_id}} - {{operation}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(worker_processing_duration_seconds_bucket[5m])) by (le, worker_id, operation))",
+            "legendFormat": "p99 {{worker_id}} - {{operation}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Provider Throughput",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "smpp_provider_throughput",
+            "legendFormat": "{{provider_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Messages/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Messages Sent by Provider",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(smpp_messages_sent_total[5m])) by (provider_name, status)",
+            "legendFormat": "{{provider_name}} - {{status}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Messages/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Messages Failed by Provider",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(smpp_messages_failed_total[5m])) by (provider_name, reason)",
+            "legendFormat": "{{provider_name}} - {{reason}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Errors/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Kafka Publish Duration",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kafka_publish_duration_seconds_bucket[5m])) by (le, topic))",
+            "legendFormat": "p95 {{topic}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(kafka_publish_duration_seconds_bucket[5m])) by (le, topic))",
+            "legendFormat": "p99 {{topic}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

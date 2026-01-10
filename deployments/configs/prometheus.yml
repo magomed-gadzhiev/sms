@@ -1,0 +1,50 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'api-gateway-1'
+    static_configs:
+      - targets: ['api-gateway-1:8080']
+        labels:
+          service: 'api-gateway'
+          instance: '1'
+
+  - job_name: 'api-gateway-2'
+    static_configs:
+      - targets: ['api-gateway-2:8080']
+        labels:
+          service: 'api-gateway'
+          instance: '2'
+
+  - job_name: 'smpp-server'
+    static_configs:
+      - targets: ['smpp-server:2112']
+        labels:
+          service: 'smpp-server'
+
+  - job_name: 'worker-1'
+    static_configs:
+      - targets: ['worker-1:2112']
+        labels:
+          service: 'worker'
+          instance: '1'
+
+  - job_name: 'worker-2'
+    static_configs:
+      - targets: ['worker-2:2112']
+        labels:
+          service: 'worker'
+          instance: '2'
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+        labels:
+          service: 'kafka'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+        labels:
+          service: 'postgres'

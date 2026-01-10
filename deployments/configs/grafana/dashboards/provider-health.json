@@ -1,0 +1,96 @@
+{
+  "dashboard": {
+    "title": "SMPP Server - Provider Health",
+    "tags": ["smpp", "provider"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Provider Throughput",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+        "targets": [
+          {
+            "expr": "smpp_provider_throughput",
+            "legendFormat": "{{provider_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Messages/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Success Rate by Provider",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(smpp_messages_sent_total{status=\"success\"}[5m])) by (provider_name) / sum(rate(smpp_messages_sent_total[5m])) by (provider_name) * 100",
+            "legendFormat": "{{provider_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "Success Rate", "max": 100, "min": 0},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Error Rate by Provider",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(smpp_messages_failed_total[5m])) by (provider_name, reason)",
+            "legendFormat": "{{provider_name}} - {{reason}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Errors/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Messages Sent by Provider",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(smpp_messages_sent_total[5m])) by (provider_name)",
+            "legendFormat": "{{provider_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Messages/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Processing Duration by Provider",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(smpp_processing_duration_seconds_bucket{operation=\"send_to_provider\"}[5m])) by (le, provider_name))",
+            "legendFormat": "p95 {{provider_name}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(smpp_processing_duration_seconds_bucket{operation=\"send_to_provider\"}[5m])) by (le, provider_name))",
+            "legendFormat": "p99 {{provider_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

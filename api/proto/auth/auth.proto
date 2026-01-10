@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/authv1";
+
+import "google/protobuf/timestamp.proto";
+
+// AuthService предоставляет методы для аутентификации и авторизации
+service AuthService {
+  // Authenticate выполняет аутентификацию пользователя
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+  
+  // ValidateToken проверяет валидность токена
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  
+  // RefreshToken обновляет токен доступа
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  
+  // GetPermissions получает права доступа пользователя
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
+  
+  // CreateAPIKey создает новый API ключ
+  rpc CreateAPIKey(CreateAPIKeyRequest) returns (CreateAPIKeyResponse);
+  
+  // RevokeAPIKey отзывает API ключ
+  rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
+  
+  // ListAPIKeys получает список API ключей пользователя
+  rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
+}
+
+// AuthenticateRequest представляет запрос на аутентификацию
+message AuthenticateRequest {
+  string username = 1;        // Имя пользователя или email
+  string password = 2;        // Пароль
+  string api_key = 3;         // API ключ (альтернатива username/password)
+}
+
+// AuthenticateResponse представляет ответ на аутентификацию
+message AuthenticateResponse {
+  string access_token = 1;          // JWT токен доступа
+  string refresh_token = 2;         // Refresh токен
+  google.protobuf.Timestamp expires_at = 3;  // Время истечения токена
+  UserInfo user = 4;                // Информация о пользователе
+}
+
+// ValidateTokenRequest представляет запрос на валидацию токена
+message ValidateTokenRequest {
+  string token = 1;           // JWT токен или API ключ
+}
+
+// ValidateTokenResponse представляет ответ на валидацию токена
+message ValidateTokenResponse {
+  bool valid = 1;             // Валидность токена
+  UserInfo user = 2;          // Информация о пользователе (если токен валиден)
+  string error = 3;           // Ошибка (если токен невалиден)
+}
+
+// RefreshTokenRequest представляет запрос на обновление токена
+message RefreshTokenRequest {
+  string refresh_token = 1;   // Refresh токен
+}
+
+// RefreshTokenResponse представляет ответ на обновление токена
+message RefreshTokenResponse {
+  string access_token = 1;          // Новый JWT токен доступа
+  string refresh_token = 2;         // Новый refresh токен
+  google.protobuf.Timestamp expires_at = 3;  // Время истечения токена
+}
+
+// GetPermissionsRequest представляет запрос на получение прав доступа
+message GetPermissionsRequest {
+  string user_id = 1;         // ID пользователя
+}
+
+// GetPermissionsResponse представляет ответ с правами доступа
+message GetPermissionsResponse {
+  repeated Permission permissions = 1;  // Список прав доступа
+  Role role = 2;                       // Роль пользователя
+}
+
+// CreateAPIKeyRequest представляет запрос на создание API ключа
+message CreateAPIKeyRequest {
+  string user_id = 1;         // ID пользователя
+  string name = 2;            // Название ключа
+  google.protobuf.Timestamp expires_at = 3;  // Время истечения (опционально)
+  repeated string scopes = 4; // Права доступа (опционально)
+}
+
+// CreateAPIKeyResponse представляет ответ на создание API ключа
+message CreateAPIKeyResponse {
+  string api_key = 1;         // Созданный API ключ
+  string api_key_id = 2;      // ID ключа
+  google.protobuf.Timestamp created_at = 3;  // Время создания
+  google.protobuf.Timestamp expires_at = 4;  // Время истечения
+}
+
+// RevokeAPIKeyRequest представляет запрос на отзыв API ключа
+message RevokeAPIKeyRequest {
+  string api_key_id = 1;      // ID ключа для отзыва
+}
+
+// RevokeAPIKeyResponse представляет ответ на отзыв API ключа
+message RevokeAPIKeyResponse {
+  bool success = 1;           // Успешность операции
+}
+
+// ListAPIKeysRequest представляет запрос на получение списка API ключей
+message ListAPIKeysRequest {
+  string user_id = 1;         // ID пользователя
+}
+
+// ListAPIKeysResponse представляет ответ со списком API ключей
+message ListAPIKeysResponse {
+  repeated APIKeyInfo keys = 1;  // Список API ключей
+}
+
+// UserInfo представляет информацию о пользователе
+message UserInfo {
+  string id = 1;              // ID пользователя
+  string username = 2;        // Имя пользователя
+  string email = 3;           // Email
+  Role role = 4;              // Роль пользователя
+  bool active = 5;            // Активен ли пользователь
+  google.protobuf.Timestamp created_at = 6;  // Время создания
+}
+
+// Role представляет роль пользователя
+message Role {
+  string id = 1;              // ID роли
+  string name = 2;            // Название роли (admin, client, operator)
+  string description = 3;     // Описание роли
+}
+
+// Permission представляет право доступа
+message Permission {
+  string id = 1;              // ID права
+  string resource = 2;        // Ресурс (messages, clients, providers, etc.)
+  string action = 3;          // Действие (read, write, delete, etc.)
+}
+
+// APIKeyInfo представляет информацию об API ключе
+message APIKeyInfo {
+  string id = 1;              // ID ключа
+  string name = 2;            // Название ключа
+  string prefix = 3;          // Префикс ключа (для безопасности)
+  bool active = 4;            // Активен ли ключ
+  google.protobuf.Timestamp created_at = 5;  // Время создания
+  google.protobuf.Timestamp expires_at = 6;  // Время истечения
+  google.protobuf.Timestamp last_used_at = 7;  // Время последнего использования
+  repeated string scopes = 8; // Права доступа
+}

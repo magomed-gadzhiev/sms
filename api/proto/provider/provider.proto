@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+package provider.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/providerv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ProviderService предоставляет методы для управления SMSC провайдерами
+service ProviderService {
+  // CreateProvider создает нового провайдера
+  rpc CreateProvider(CreateProviderRequest) returns (CreateProviderResponse);
+  
+  // UpdateProvider обновляет провайдера
+  rpc UpdateProvider(UpdateProviderRequest) returns (UpdateProviderResponse);
+  
+  // GetProvider получает информацию о провайдере
+  rpc GetProvider(GetProviderRequest) returns (GetProviderResponse);
+  
+  // ListProviders получает список провайдеров
+  rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
+  
+  // DeleteProvider удаляет провайдера
+  rpc DeleteProvider(DeleteProviderRequest) returns (DeleteProviderRequest);
+  
+  // GetProviderHealth получает статус здоровья провайдера
+  rpc GetProviderHealth(GetProviderHealthRequest) returns (GetProviderHealthResponse);
+  
+  // SendToProvider отправляет сообщение через провайдера
+  rpc SendToProvider(SendToProviderRequest) returns (SendToProviderResponse);
+}
+
+// CreateProviderRequest представляет запрос на создание провайдера
+message CreateProviderRequest {
+  string name = 1;                // Название провайдера
+  string host = 2;                // Хост SMSC
+  int32 port = 3;                 // Порт SMSC
+  string system_id = 4;           // System ID для bind
+  string password = 5;            // Пароль для bind
+  string system_type = 6;         // System Type (опционально)
+  int32 addr_ton = 7;             // Address TON (опционально)
+  int32 addr_npi = 8;             // Address NPI (опционально)
+  int32 bind_type = 9;            // Тип bind (1=TX, 2=RX, 3=TRX)
+  int32 max_connections = 10;     // Максимальное количество соединений
+  int32 window_size = 11;         // Размер окна (опционально)
+  bool active = 12;               // Активен ли провайдер
+  map<string, string> settings = 13;  // Дополнительные настройки
+}
+
+// CreateProviderResponse представляет ответ на создание провайдера
+message CreateProviderResponse {
+  string provider_id = 1;         // ID созданного провайдера
+  google.protobuf.Timestamp created_at = 2;  // Время создания
+}
+
+// UpdateProviderRequest представляет запрос на обновление провайдера
+message UpdateProviderRequest {
+  string provider_id = 1;         // ID провайдера
+  string name = 2;                // Название провайдера (опционально)
+  string host = 3;                // Хост SMSC (опционально)
+  int32 port = 4;                 // Порт SMSC (опционально)
+  string system_id = 5;           // System ID (опционально)
+  string password = 6;            // Пароль (опционально)
+  int32 max_connections = 7;      // Максимальное количество соединений (опционально)
+  bool active = 8;                // Активен ли провайдер (опционально)
+  map<string, string> settings = 9;  // Дополнительные настройки (опционально)
+}
+
+// UpdateProviderResponse представляет ответ на обновление провайдера
+message UpdateProviderResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// GetProviderRequest представляет запрос на получение провайдера
+message GetProviderRequest {
+  string provider_id = 1;         // ID провайдера
+}
+
+// GetProviderResponse представляет ответ с информацией о провайдере
+message GetProviderResponse {
+  ProviderInfo provider = 1;      // Информация о провайдере
+}
+
+// ListProvidersRequest представляет запрос на получение списка провайдеров
+message ListProvidersRequest {
+  bool active_only = 1;           // Только активные провайдеры
+  int32 limit = 2;                // Лимит записей
+  int32 offset = 3;               // Смещение для пагинации
+}
+
+// ListProvidersResponse представляет ответ со списком провайдеров
+message ListProvidersResponse {
+  repeated ProviderInfo providers = 1;  // Список провайдеров
+  int32 total = 2;                // Общее количество
+}
+
+// DeleteProviderRequest представляет запрос на удаление провайдера
+message DeleteProviderRequest {
+  string provider_id = 1;         // ID провайдера
+}
+
+// GetProviderHealthRequest представляет запрос на получение статуса здоровья
+message GetProviderHealthRequest {
+  string provider_id = 1;         // ID провайдера
+}
+
+// GetProviderHealthResponse представляет ответ со статусом здоровья
+message GetProviderHealthResponse {
+  string provider_id = 1;         // ID провайдера
+  string status = 2;              // Статус (healthy, unhealthy, degraded)
+  int32 active_connections = 3;   // Количество активных соединений
+  int32 total_connections = 4;    // Общее количество соединений
+  int32 success_rate = 5;         // Процент успешных отправок (0-100)
+  int64 messages_sent_24h = 6;    // Количество отправленных сообщений за 24 часа
+  int64 messages_failed_24h = 7;  // Количество неудачных сообщений за 24 часа
+  google.protobuf.Timestamp last_success = 8;  // Время последней успешной отправки
+  google.protobuf.Timestamp last_failure = 9;  // Время последней неудачи
+  string last_error = 10;         // Последняя ошибка (опционально)
+}
+
+// SendToProviderRequest представляет запрос на отправку через провайдера
+message SendToProviderRequest {
+  string provider_id = 1;         // ID провайдера
+  string message_id = 2;          // ID сообщения
+  string source = 3;              // Отправитель
+  string destination = 4;         // Получатель
+  string text = 5;                // Текст сообщения
+  map<string, string> smpp_params = 6;  // Дополнительные SMPP параметры
+}
+
+// SendToProviderResponse представляет ответ на отправку
+message SendToProviderResponse {
+  bool success = 1;               // Успешность отправки
+  string smpp_message_id = 2;     // SMPP message ID (если успешно)
+  string error = 3;               // Ошибка (если неуспешно)
+}
+
+// ProviderInfo представляет информацию о провайдере
+message ProviderInfo {
+  string provider_id = 1;         // ID провайдера
+  string name = 2;                // Название провайдера
+  string host = 3;                // Хост SMSC
+  int32 port = 4;                 // Порт SMSC
+  string system_id = 5;           // System ID
+  string system_type = 6;         // System Type
+  int32 bind_type = 7;            // Тип bind
+  int32 max_connections = 8;      // Максимальное количество соединений
+  int32 window_size = 9;          // Размер окна
+  bool active = 10;               // Активен ли провайдер
+  map<string, string> settings = 11;  // Дополнительные настройки
+  google.protobuf.Timestamp created_at = 12;  // Время создания
+  google.protobuf.Timestamp updated_at = 13;  // Время обновления
+}

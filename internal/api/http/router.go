@@ -1,0 +1,40 @@
+package http
+
+import (
+	"net/http"
+
+	"github.com/gorilla/mux"
+)
+
+// SetupRouter настраивает HTTP роутер
+func SetupRouter(
+	handler *Handler,
+	authMiddleware func(http.Handler) http.Handler,
+	rateLimitMiddleware func(http.Handler) http.Handler,
+	loggingMiddleware func(http.Handler) http.Handler,
+	recoveryMiddleware func(http.Handler) http.Handler,
+	corsMiddleware func(http.Handler) http.Handler,
+) *mux.Router {
+	router := mux.NewRouter()
+
+	// Применяем middleware в правильном порядке
+	router.Use(recoveryMiddleware)
+	router.Use(loggingMiddleware)
+	router.Use(corsMiddleware)
+	router.Use(authMiddleware)
+	router.Use(rateLimitMiddleware)
+
+	// API v1
+	v1 := router.PathPrefix("/api/v1").Subrouter()
+	
+	// SMS endpoints
+	v1.HandleFunc("/sms/send", handler.SendSMS).Methods("POST")
+	v1.HandleFunc("/sms/batch", handler.SendBatchSMS).Methods("POST")
+	v1.HandleFunc("/sms/status", handler.GetStatus).Methods("GET")
+	v1.HandleFunc("/sms/history", handler.GetHistory).Methods("GET")
+
+	// Health check endpoints (без аутентификации)
+	router.HandleFunc("/health", handler.Health).Methods("GET")
+
+	return router
+}

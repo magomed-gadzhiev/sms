@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package billing.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/billingv1";
+
+import "google/protobuf/timestamp.proto";
+
+// BillingService предоставляет методы для работы с биллингом
+service BillingService {
+  // GetBalance получает баланс клиента
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  
+  // ChargeMessage списывает средства за сообщение
+  rpc ChargeMessage(ChargeMessageRequest) returns (ChargeMessageResponse);
+  
+  // AddCredits добавляет средства на счет клиента
+  rpc AddCredits(AddCreditsRequest) returns (AddCreditsResponse);
+  
+  // DeductCredits списывает средства со счета клиента
+  rpc DeductCredits(DeductCreditsRequest) returns (DeductCreditsResponse);
+  
+  // GetTransactionHistory получает историю транзакций
+  rpc GetTransactionHistory(GetTransactionHistoryRequest) returns (GetTransactionHistoryResponse);
+  
+  // GetPricingRules получает правила тарификации для клиента
+  rpc GetPricingRules(GetPricingRulesRequest) returns (GetPricingRulesResponse);
+  
+  // CreatePricingRule создает правило тарификации
+  rpc CreatePricingRule(CreatePricingRuleRequest) returns (CreatePricingRuleResponse);
+}
+
+// GetBalanceRequest представляет запрос на получение баланса
+message GetBalanceRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// GetBalanceResponse представляет ответ с балансом
+message GetBalanceResponse {
+  string client_id = 1;           // ID клиента
+  string balance = 2;             // Баланс (в виде строки для точности)
+  string currency = 3;            // Валюта (по умолчанию "USD")
+  google.protobuf.Timestamp updated_at = 4;  // Время последнего обновления
+}
+
+// ChargeMessageRequest представляет запрос на списание за сообщение
+message ChargeMessageRequest {
+  string client_id = 1;           // ID клиента
+  string message_id = 2;          // ID сообщения
+  string amount = 3;              // Сумма для списания
+  string currency = 4;            // Валюта (по умолчанию "USD")
+  string description = 5;         // Описание транзакции
+}
+
+// ChargeMessageResponse представляет ответ на списание
+message ChargeMessageResponse {
+  string transaction_id = 1;      // ID транзакции
+  string new_balance = 2;         // Новый баланс
+  bool success = 3;               // Успешность операции
+  string error = 4;               // Ошибка (если неуспешно)
+}
+
+// AddCreditsRequest представляет запрос на добавление средств
+message AddCreditsRequest {
+  string client_id = 1;           // ID клиента
+  string amount = 2;              // Сумма для добавления
+  string currency = 3;            // Валюта (по умолчанию "USD")
+  string description = 4;         // Описание транзакции
+  string payment_method = 5;      // Способ оплаты (опционально)
+}
+
+// AddCreditsResponse представляет ответ на добавление средств
+message AddCreditsResponse {
+  string transaction_id = 1;      // ID транзакции
+  string new_balance = 2;         // Новый баланс
+  bool success = 3;               // Успешность операции
+  string error = 4;               // Ошибка (если неуспешно)
+}
+
+// DeductCreditsRequest представляет запрос на списание средств
+message DeductCreditsRequest {
+  string client_id = 1;           // ID клиента
+  string amount = 2;              // Сумма для списания
+  string currency = 3;            // Валюта (по умолчанию "USD")
+  string description = 4;         // Описание транзакции
+}
+
+// DeductCreditsResponse представляет ответ на списание средств
+message DeductCreditsResponse {
+  string transaction_id = 1;      // ID транзакции
+  string new_balance = 2;         // Новый баланс
+  bool success = 3;               // Успешность операции
+  string error = 4;               // Ошибка (если неуспешно)
+}
+
+// GetTransactionHistoryRequest представляет запрос на получение истории транзакций
+message GetTransactionHistoryRequest {
+  string client_id = 1;           // ID клиента
+  google.protobuf.Timestamp from = 2;  // Начало периода (опционально)
+  google.protobuf.Timestamp to = 3;    // Конец периода (опционально)
+  string transaction_type = 4;    // Тип транзакции (charge, credit, refund) (опционально)
+  int32 limit = 5;                // Лимит записей
+  int32 offset = 6;               // Смещение для пагинации
+}
+
+// GetTransactionHistoryResponse представляет ответ с историей транзакций
+message GetTransactionHistoryResponse {
+  repeated Transaction transactions = 1;  // Список транзакций
+  int32 total = 2;                // Общее количество
+  int32 limit = 3;                // Лимит записей
+  int32 offset = 4;               // Смещение
+}
+
+// GetPricingRulesRequest представляет запрос на получение правил тарификации
+message GetPricingRulesRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// GetPricingRulesResponse представляет ответ с правилами тарификации
+message GetPricingRulesResponse {
+  repeated PricingRule rules = 1; // Список правил тарификации
+}
+
+// CreatePricingRuleRequest представляет запрос на создание правила тарификации
+message CreatePricingRuleRequest {
+  string client_id = 1;           // ID клиента (пусто для глобального правила)
+  string destination_pattern = 2; // Паттерн номера получателя (regex)
+  string price_per_message = 3;   // Цена за сообщение
+  string currency = 4;            // Валюта (по умолчанию "USD")
+  int32 priority = 5;             // Приоритет правила
+  bool active = 6;                // Активно ли правило
+}
+
+// CreatePricingRuleResponse представляет ответ на создание правила тарификации
+message CreatePricingRuleResponse {
+  string rule_id = 1;             // ID созданного правила
+  google.protobuf.Timestamp created_at = 2;  // Время создания
+}
+
+// Transaction представляет транзакцию
+message Transaction {
+  string transaction_id = 1;      // ID транзакции
+  string client_id = 2;           // ID клиента
+  string type = 3;                // Тип транзакции (charge, credit, refund)
+  string amount = 4;              // Сумма
+  string currency = 5;            // Валюта
+  string balance_before = 6;      // Баланс до транзакции
+  string balance_after = 7;       // Баланс после транзакции
+  string description = 8;         // Описание
+  string message_id = 9;          // ID сообщения (если связано)
+  google.protobuf.Timestamp created_at = 10; // Время создания
+}
+
+// PricingRule представляет правило тарификации
+message PricingRule {
+  string rule_id = 1;             // ID правила
+  string client_id = 2;           // ID клиента (пусто для глобального правила)
+  string destination_pattern = 3; // Паттерн номера получателя
+  string price_per_message = 4;   // Цена за сообщение
+  string currency = 5;            // Валюта
+  int32 priority = 6;             // Приоритет правила
+  bool active = 7;                // Активно ли правило
+  google.protobuf.Timestamp created_at = 8;  // Время создания
+  google.protobuf.Timestamp updated_at = 9;  // Время обновления
+}

@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package client.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/clientv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ClientService предоставляет методы для управления клиентами
+service ClientService {
+  // CreateClient создает нового клиента
+  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse);
+  
+  // UpdateClient обновляет клиента
+  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
+  
+  // GetClient получает информацию о клиенте
+  rpc GetClient(GetClientRequest) returns (GetClientResponse);
+  
+  // ListClients получает список клиентов
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse);
+  
+  // DeleteClient удаляет клиента
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
+  
+  // GetClientConfig получает конфигурацию клиента
+  rpc GetClientConfig(GetClientConfigRequest) returns (GetClientConfigResponse);
+  
+  // UpdateClientConfig обновляет конфигурацию клиента
+  rpc UpdateClientConfig(UpdateClientConfigRequest) returns (UpdateClientConfigResponse);
+  
+  // UpdateClientRateLimits обновляет rate limits клиента
+  rpc UpdateClientRateLimits(UpdateClientRateLimitsRequest) returns (UpdateClientRateLimitsResponse);
+}
+
+// CreateClientRequest представляет запрос на создание клиента
+message CreateClientRequest {
+  string name = 1;                // Название клиента
+  string email = 2;               // Email клиента
+  string contact_person = 3;      // Контактное лицо (опционально)
+  string phone = 4;               // Телефон (опционально)
+  bool active = 5;                // Активен ли клиент
+  map<string, string> metadata = 6;  // Дополнительные метаданные
+}
+
+// CreateClientResponse представляет ответ на создание клиента
+message CreateClientResponse {
+  string client_id = 1;           // ID созданного клиента
+  google.protobuf.Timestamp created_at = 2;  // Время создания
+}
+
+// UpdateClientRequest представляет запрос на обновление клиента
+message UpdateClientRequest {
+  string client_id = 1;           // ID клиента
+  string name = 2;                // Название клиента (опционально)
+  string email = 3;               // Email клиента (опционально)
+  string contact_person = 4;      // Контактное лицо (опционально)
+  string phone = 5;               // Телефон (опционально)
+  bool active = 6;                // Активен ли клиент (опционально)
+  map<string, string> metadata = 7;  // Дополнительные метаданные (опционально)
+}
+
+// UpdateClientResponse представляет ответ на обновление клиента
+message UpdateClientResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// GetClientRequest представляет запрос на получение клиента
+message GetClientRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// GetClientResponse представляет ответ с информацией о клиенте
+message GetClientResponse {
+  ClientInfo client = 1;          // Информация о клиенте
+}
+
+// ListClientsRequest представляет запрос на получение списка клиентов
+message ListClientsRequest {
+  bool active_only = 1;           // Только активные клиенты
+  string search = 2;              // Поисковый запрос (опционально)
+  int32 limit = 3;                // Лимит записей
+  int32 offset = 4;               // Смещение для пагинации
+}
+
+// ListClientsResponse представляет ответ со списком клиентов
+message ListClientsResponse {
+  repeated ClientInfo clients = 1;  // Список клиентов
+  int32 total = 2;                // Общее количество
+}
+
+// DeleteClientRequest представляет запрос на удаление клиента
+message DeleteClientRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// DeleteClientResponse представляет ответ на удаление клиента
+message DeleteClientResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// GetClientConfigRequest представляет запрос на получение конфигурации
+message GetClientConfigRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// GetClientConfigResponse представляет ответ с конфигурацией
+message GetClientConfigResponse {
+  ClientConfig config = 1;        // Конфигурация клиента
+}
+
+// UpdateClientConfigRequest представляет запрос на обновление конфигурации
+message UpdateClientConfigRequest {
+  string client_id = 1;           // ID клиента
+  ClientConfig config = 2;        // Новая конфигурация
+}
+
+// UpdateClientConfigResponse представляет ответ на обновление конфигурации
+message UpdateClientConfigResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// UpdateClientRateLimitsRequest представляет запрос на обновление rate limits
+message UpdateClientRateLimitsRequest {
+  string client_id = 1;           // ID клиента
+  RateLimits rate_limits = 2;     // Новые rate limits
+}
+
+// UpdateClientRateLimitsResponse представляет ответ на обновление rate limits
+message UpdateClientRateLimitsResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// ClientInfo представляет информацию о клиенте
+message ClientInfo {
+  string client_id = 1;           // ID клиента
+  string name = 2;                // Название клиента
+  string email = 3;               // Email клиента
+  string contact_person = 4;      // Контактное лицо
+  string phone = 5;               // Телефон
+  bool active = 6;                // Активен ли клиент
+  RateLimits rate_limits = 7;     // Rate limits
+  map<string, string> metadata = 8;  // Дополнительные метаданные
+  google.protobuf.Timestamp created_at = 9;  // Время создания
+  google.protobuf.Timestamp updated_at = 10; // Время обновления
+}
+
+// ClientConfig представляет конфигурацию клиента
+message ClientConfig {
+  string client_id = 1;           // ID клиента
+  RateLimits rate_limits = 2;     // Rate limits
+  repeated string allowed_sources = 3;  // Разрешенные номера отправителей
+  repeated string blocked_destinations = 4;  // Заблокированные номера получателей
+  map<string, string> settings = 5;  // Дополнительные настройки
+  google.protobuf.Timestamp updated_at = 6;  // Время обновления
+}
+
+// RateLimits представляет rate limits клиента
+message RateLimits {
+  int32 messages_per_second = 1;  // Сообщений в секунду
+  int32 messages_per_minute = 2;  // Сообщений в минуту
+  int32 messages_per_hour = 3;    // Сообщений в час
+  int32 messages_per_day = 4;     // Сообщений в день
+}

@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package analytics.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/analyticsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// AnalyticsService предоставляет методы для аналитики и отчетов
+service AnalyticsService {
+  // GetStatistics получает статистику по заданным фильтрам
+  rpc GetStatistics(GetStatisticsRequest) returns (GetStatisticsResponse);
+  
+  // GenerateReport генерирует отчет указанного типа
+  rpc GenerateReport(GenerateReportRequest) returns (GenerateReportResponse);
+  
+  // GetRealtimeMetrics получает метрики в реальном времени
+  rpc GetRealtimeMetrics(GetRealtimeMetricsRequest) returns (GetRealtimeMetricsResponse);
+  
+  // GetProviderPerformance получает статистику производительности провайдера
+  rpc GetProviderPerformance(GetProviderPerformanceRequest) returns (GetProviderPerformanceResponse);
+}
+
+// GetStatisticsRequest представляет запрос на получение статистики
+message GetStatisticsRequest {
+  string client_id = 1;           // ID клиента (опционально, для фильтрации)
+  google.protobuf.Timestamp from = 2;  // Начало периода
+  google.protobuf.Timestamp to = 3;    // Конец периода
+  string group_by = 4;            // Группировка (day, hour, provider, status)
+  repeated string provider_ids = 5;  // Фильтр по провайдерам (опционально)
+}
+
+// GetStatisticsResponse представляет ответ со статистикой
+message GetStatisticsResponse {
+  repeated StatisticGroup groups = 1;  // Группы статистики
+  TotalStats totals = 2;           // Общая статистика
+}
+
+// GenerateReportRequest представляет запрос на генерацию отчета
+message GenerateReportRequest {
+  string report_type = 1;         // Тип отчета (daily, monthly, provider, client)
+  google.protobuf.Timestamp from = 2;  // Начало периода
+  google.protobuf.Timestamp to = 3;    // Конец периода
+  string client_id = 4;           // ID клиента (опционально)
+  string provider_id = 5;         // ID провайдера (опционально)
+  string format = 6;              // Формат отчета (json, csv, pdf)
+}
+
+// GenerateReportResponse представляет ответ с отчетом
+message GenerateReportResponse {
+  string report_id = 1;           // ID отчета
+  string format = 2;              // Формат отчета
+  bytes data = 3;                 // Данные отчета
+  google.protobuf.Timestamp generated_at = 4;  // Время генерации
+}
+
+// GetRealtimeMetricsRequest представляет запрос на получение метрик в реальном времени
+message GetRealtimeMetricsRequest {
+  // Пустой запрос - возвращает все метрики
+}
+
+// GetRealtimeMetricsResponse представляет ответ с метриками в реальном времени
+message GetRealtimeMetricsResponse {
+  int64 messages_per_second = 1;  // Сообщений в секунду
+  int64 total_messages_queued = 2;  // Всего сообщений в очереди
+  int64 total_messages_processing = 3;  // Всего сообщений в обработке
+  int64 active_providers = 4;     // Количество активных провайдеров
+  int64 active_connections = 5;   // Количество активных соединений
+  map<string, int64> provider_metrics = 6;  // Метрики по провайдерам
+  google.protobuf.Timestamp timestamp = 7;  // Время сбора метрик
+}
+
+// GetProviderPerformanceRequest представляет запрос на получение производительности провайдера
+message GetProviderPerformanceRequest {
+  string provider_id = 1;         // ID провайдера
+  google.protobuf.Timestamp from = 2;  // Начало периода
+  google.protobuf.Timestamp to = 3;    // Конец периода
+}
+
+// GetProviderPerformanceResponse представляет ответ с производительностью провайдера
+message GetProviderPerformanceResponse {
+  string provider_id = 1;         // ID провайдера
+  int64 total_sent = 2;           // Всего отправлено
+  int64 total_delivered = 3;      // Всего доставлено
+  int64 total_failed = 4;         // Всего неудачных
+  int32 success_rate = 5;         // Процент успешных (0-100)
+  int64 avg_delivery_time_ms = 6; // Среднее время доставки в миллисекундах
+  map<string, int64> status_breakdown = 7;  // Разбивка по статусам
+  repeated PerformancePoint points = 8;  // Точки производительности (для графиков)
+}
+
+// StatisticGroup представляет группу статистики
+message StatisticGroup {
+  string key = 1;                 // Ключ группы (дата, провайдер, статус)
+  TotalStats stats = 2;           // Статистика для этой группы
+}
+
+// TotalStats представляет общую статистику
+message TotalStats {
+  int64 total_sent = 1;           // Всего отправлено
+  int64 total_delivered = 2;      // Всего доставлено
+  int64 total_failed = 3;         // Всего неудачных
+  int64 total_pending = 4;        // Всего в ожидании
+  int64 total_queued = 5;         // Всего в очереди
+  int32 success_rate = 6;         // Процент успешных (0-100)
+  int64 avg_delivery_time_ms = 7; // Среднее время доставки в миллисекундах
+}
+
+// PerformancePoint представляет точку производительности
+message PerformancePoint {
+  google.protobuf.Timestamp timestamp = 1;  // Время точки
+  int64 sent = 2;                // Отправлено
+  int64 delivered = 3;           // Доставлено
+  int64 failed = 4;              // Неудачных
+  int32 success_rate = 5;        // Процент успешных
+}

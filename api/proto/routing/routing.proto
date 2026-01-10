@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package routing.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/routingv1";
+
+import "google/protobuf/timestamp.proto";
+
+// RoutingService предоставляет методы для управления маршрутизацией
+service RoutingService {
+  // GetRoute получает маршрут для сообщения
+  rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
+  
+  // SelectProvider выбирает оптимального провайдера для маршрута
+  rpc SelectProvider(SelectProviderRequest) returns (SelectProviderResponse);
+  
+  // CreateRoute создает новое правило маршрутизации
+  rpc CreateRoute(CreateRouteRequest) returns (CreateRouteResponse);
+  
+  // UpdateRoute обновляет правило маршрутизации
+  rpc UpdateRoute(UpdateRouteRequest) returns (UpdateRouteResponse);
+  
+  // DeleteRoute удаляет правило маршрутизации
+  rpc DeleteRoute(DeleteRouteRequest) returns (DeleteRouteResponse);
+  
+  // ListRoutes получает список правил маршрутизации
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+}
+
+// GetRouteRequest представляет запрос на получение маршрута
+message GetRouteRequest {
+  string destination = 1;         // Номер получателя
+  string client_id = 2;           // ID клиента (опционально)
+  string source = 3;              // Номер отправителя (опционально)
+}
+
+// GetRouteResponse представляет ответ с информацией о маршруте
+message GetRouteResponse {
+  RouteInfo route = 1;            // Информация о маршруте
+}
+
+// SelectProviderRequest представляет запрос на выбор провайдера
+message SelectProviderRequest {
+  RouteInfo route = 1;            // Информация о маршруте
+  string client_id = 2;           // ID клиента (опционально)
+  int32 priority = 3;             // Приоритет сообщения (опционально)
+}
+
+// SelectProviderResponse представляет ответ с выбранным провайдером
+message SelectProviderResponse {
+  string provider_id = 1;         // ID выбранного провайдера
+  string strategy = 2;            // Использованная стратегия выбора
+  repeated string backup_providers = 3;  // Резервные провайдеры
+}
+
+// CreateRouteRequest представляет запрос на создание маршрута
+message CreateRouteRequest {
+  string name = 1;                // Название маршрута
+  string pattern = 2;             // Паттерн номера (regex)
+  int32 priority = 3;             // Приоритет маршрута
+  repeated string provider_ids = 4;  // Список ID провайдеров
+  string load_balance_strategy = 5;  // Стратегия балансировки (round_robin, least_loaded, cheapest)
+  bool failover_enabled = 6;      // Включен ли failover
+  map<string, string> metadata = 7;  // Дополнительные метаданные
+}
+
+// CreateRouteResponse представляет ответ на создание маршрута
+message CreateRouteResponse {
+  string route_id = 1;            // ID созданного маршрута
+  google.protobuf.Timestamp created_at = 2;  // Время создания
+}
+
+// UpdateRouteRequest представляет запрос на обновление маршрута
+message UpdateRouteRequest {
+  string route_id = 1;            // ID маршрута
+  string name = 2;                // Название маршрута (опционально)
+  string pattern = 3;             // Паттерн номера (опционально)
+  int32 priority = 4;             // Приоритет маршрута (опционально)
+  repeated string provider_ids = 5;  // Список ID провайдеров (опционально)
+  string load_balance_strategy = 6;  // Стратегия балансировки (опционально)
+  bool failover_enabled = 7;      // Включен ли failover (опционально)
+  bool active = 8;                // Активен ли маршрут (опционально)
+  map<string, string> metadata = 9;  // Дополнительные метаданные (опционально)
+}
+
+// UpdateRouteResponse представляет ответ на обновление маршрута
+message UpdateRouteResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// DeleteRouteRequest представляет запрос на удаление маршрута
+message DeleteRouteRequest {
+  string route_id = 1;            // ID маршрута
+}
+
+// DeleteRouteResponse представляет ответ на удаление маршрута
+message DeleteRouteResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// ListRoutesRequest представляет запрос на получение списка маршрутов
+message ListRoutesRequest {
+  bool active_only = 1;           // Только активные маршруты
+  int32 limit = 2;                // Лимит записей
+  int32 offset = 3;               // Смещение для пагинации
+}
+
+// ListRoutesResponse представляет ответ со списком маршрутов
+message ListRoutesResponse {
+  repeated RouteInfo routes = 1;  // Список маршрутов
+  int32 total = 2;                // Общее количество
+}
+
+// RouteInfo представляет информацию о маршруте
+message RouteInfo {
+  string route_id = 1;            // ID маршрута
+  string name = 2;                // Название маршрута
+  string pattern = 3;             // Паттерн номера
+  int32 priority = 4;             // Приоритет маршрута
+  repeated string provider_ids = 5;  // Список ID провайдеров
+  string load_balance_strategy = 6;  // Стратегия балансировки
+  bool failover_enabled = 7;      // Включен ли failover
+  bool active = 8;                // Активен ли маршрут
+  map<string, string> metadata = 9;  // Дополнительные метаданные
+  google.protobuf.Timestamp created_at = 10;  // Время создания
+  google.protobuf.Timestamp updated_at = 11;  // Время обновления
+}

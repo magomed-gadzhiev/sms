@@ -1,0 +1,29 @@
+Аналог smpp сервера Kanel + smsbox, с поддержкой grpc + http на языке go
+
+- все скрипты и инталяции выполняй в docker контейнерах
+- все сервисы запускай в docker контейнерах
+- текущая операционная система windows
+
+## Документация
+
+- [Архитектура](docs/architecture/)
+  - [Обзор](docs/architecture/overview.md)
+  - [Микросервисы](docs/architecture/microservices.md)
+  - [Потоки данных](docs/architecture/data-flow.md)
+- [API документация](docs/api/)
+  - [API Gateway](docs/api/api-gateway.md)
+  - [gRPC API](docs/api/grpc.md)
+  - [OpenAPI спецификация](api/openapi/openapi.yaml)
+- [Развертывание](docs/deployment/)
+  - [Docker Compose](docs/deployment/docker-compose.md)
+  - [Конфигурация](docs/deployment/configuration.md)
+  - [Масштабирование](docs/deployment/scaling.md)
+  - [Мониторинг](docs/deployment/monitoring.md)
+- [Разработка](docs/development/)
+  - [Настройка окружения](docs/development/setup.md)
+  - [Руководство для контрибьюторов](docs/development/contributing.md)
+  - [Тестирование](docs/development/testing.md)
+  - [Бенчмарки и профилирование](docs/development/benchmarking.md)
+  - [Решение проблем](docs/development/troubleshooting.md)
+  - [Kafka интеграция](docs/development/kafka.md)
+  - [SMPP протокол](docs/development/smpp-protocol.md)

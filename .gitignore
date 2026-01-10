@@ -1,0 +1,71 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.log
+.env
+.env.local
+
+# Docker
+docker-compose.override.yml
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+test.exit
+*.exit
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated files (if you want to exclude generated proto files, uncomment)
+# api/proto/**/*.pb.go
+# api/proto/**/*_grpc.pb.go
+
+# Coverage
+coverage.txt
+coverage.html
+*.coverprofile
+
+# Profiling
+*.prof
+cpu.prof
+mem.prof
+
+# Local configuration overrides
+configs/*.yaml
+!configs/*.example.yaml

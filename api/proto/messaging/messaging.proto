@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package messaging.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/messagingv1";
+
+import "google/protobuf/timestamp.proto";
+
+// MessagingService предоставляет методы для работы с SMS сообщениями
+service MessagingService {
+  // SendMessage отправляет одно SMS сообщение
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  
+  // SendBatch отправляет пакет SMS сообщений
+  rpc SendBatch(SendBatchRequest) returns (SendBatchResponse);
+  
+  // GetMessageStatus получает статус сообщения по ID
+  rpc GetMessageStatus(GetMessageStatusRequest) returns (GetMessageStatusResponse);
+  
+  // GetMessageHistory получает историю сообщений с фильтрацией
+  rpc GetMessageHistory(GetMessageHistoryRequest) returns (GetMessageHistoryResponse);
+  
+  // ProcessDLR обрабатывает delivery receipt
+  rpc ProcessDLR(ProcessDLRRequest) returns (ProcessDLRResponse);
+}
+
+// SendMessageRequest представляет запрос на отправку SMS
+message SendMessageRequest {
+  string client_id = 1;           // ID клиента
+  string source = 2;              // Отправитель
+  string destination = 3;         // Получатель
+  string text = 4;                // Текст сообщения
+  string external_id = 5;         // Внешний ID (опционально)
+  int32 priority = 6;             // Приоритет (0-3)
+  bool registered_delivery = 7;   // Требовать DLR
+  google.protobuf.Timestamp validity_period = 8;  // Срок действия (опционально)
+  string service_type = 9;        // Тип сервиса (опционально)
+  int32 source_addr_ton = 10;     // TON отправителя (опционально)
+  int32 source_addr_npi = 11;     // NPI отправителя (опционально)
+  int32 dest_addr_ton = 12;       // TON получателя (опционально)
+  int32 dest_addr_npi = 13;       // NPI получателя (опционально)
+  int32 data_coding = 14;         // Кодировка данных (опционально)
+}
+
+// SendMessageResponse представляет ответ на отправку SMS
+message SendMessageResponse {
+  string message_id = 1;          // ID сообщения
+  string status = 2;              // Статус (queued, sent, failed)
+  string error = 3;               // Ошибка (если есть)
+  google.protobuf.Timestamp created_at = 4;  // Время создания
+}
+
+// SendBatchRequest представляет запрос на пакетную отправку SMS
+message SendBatchRequest {
+  string client_id = 1;           // ID клиента
+  repeated SendMessageRequest messages = 2;  // Список сообщений
+}
+
+// SendBatchResponse представляет ответ на пакетную отправку
+message SendBatchResponse {
+  repeated SendMessageResponse results = 1;  // Результаты для каждого сообщения
+  int32 success_count = 2;        // Количество успешных
+  int32 failed_count = 3;         // Количество неудачных
+}
+
+// GetMessageStatusRequest представляет запрос на получение статуса
+message GetMessageStatusRequest {
+  string message_id = 1;          // ID сообщения
+  string client_id = 2;           // ID клиента (для проверки прав)
+}
+
+// GetMessageStatusResponse представляет ответ со статусом
+message GetMessageStatusResponse {
+  string message_id = 1;          // ID сообщения
+  string status = 2;              // Статус (pending, queued, sent, delivered, failed, expired, rejected)
+  string status_message = 3;      // Сообщение о статусе
+  google.protobuf.Timestamp created_at = 4;    // Время создания
+  google.protobuf.Timestamp submitted_at = 5;  // Время отправки (опционально)
+  google.protobuf.Timestamp delivered_at = 6;  // Время доставки (опционально)
+  google.protobuf.Timestamp failed_at = 7;     // Время ошибки (опционально)
+  string smpp_message_id = 8;     // SMPP message ID (опционально)
+  string error_code = 9;          // Код ошибки (опционально)
+  string error_message = 10;      // Сообщение об ошибке (опционально)
+}
+
+// GetMessageHistoryRequest представляет запрос на получение истории
+message GetMessageHistoryRequest {
+  string client_id = 1;           // ID клиента
+  google.protobuf.Timestamp from = 2;  // Начало периода (опционально)
+  google.protobuf.Timestamp to = 3;    // Конец периода (опционально)
+  string status = 4;              // Фильтр по статусу (опционально)
+  string destination = 5;         // Фильтр по получателю (опционально)
+  int32 limit = 6;                // Лимит записей (по умолчанию 100)
+  int32 offset = 7;               // Смещение для пагинации
+}
+
+// GetMessageHistoryResponse представляет ответ с историей сообщений
+message GetMessageHistoryResponse {
+  repeated MessageInfo messages = 1;  // Список сообщений
+  int32 total = 2;                    // Общее количество
+  int32 limit = 3;                    // Лимит записей
+  int32 offset = 4;                   // Смещение
+}
+
+// ProcessDLRRequest представляет запрос на обработку DLR
+message ProcessDLRRequest {
+  string message_id = 1;          // ID сообщения
+  string smpp_message_id = 2;     // SMPP message ID
+  string stat = 3;                // Статус доставки (DELIVRD, UNDELIV, EXPIRED, etc.)
+  google.protobuf.Timestamp done_date = 4;  // Время доставки
+  int32 err = 5;                  // Код ошибки (опционально)
+  string text = 6;                // Текст ошибки (опционально)
+  string provider_id = 7;         // ID провайдера (опционально)
+}
+
+// ProcessDLRResponse представляет ответ на обработку DLR
+message ProcessDLRResponse {
+  bool success = 1;               // Успешность обработки
+  string updated_status = 2;      // Обновленный статус сообщения
+}
+
+// MessageInfo представляет информацию о сообщении
+message MessageInfo {
+  string message_id = 1;          // ID сообщения
+  string client_id = 2;           // ID клиента
+  string source = 3;              // Отправитель
+  string destination = 4;         // Получатель
+  string text = 5;                // Текст сообщения
+  string status = 6;              // Статус
+  string external_id = 7;         // Внешний ID
+  google.protobuf.Timestamp created_at = 8;    // Время создания
+  google.protobuf.Timestamp submitted_at = 9;  // Время отправки
+  google.protobuf.Timestamp delivered_at = 10; // Время доставки
+  google.protobuf.Timestamp failed_at = 11;    // Время ошибки
+  string provider_id = 12;        // ID провайдера
+  string route_id = 13;           // ID маршрута
+}
