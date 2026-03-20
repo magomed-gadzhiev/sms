@@ -91,6 +91,33 @@ func (s *MessageService) SendMessage(
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Apply scheduled_at from options
+	if options != nil && options.ScheduledAt != nil {
+		scheduledAt := *options.ScheduledAt
+		tolerance := 30 * time.Second
+
+		// If scheduled_at is more than tolerance in the future → schedule it
+		if scheduledAt.After(time.Now().Add(tolerance)) {
+			// Validate: not more than 7 days ahead
+			maxSchedule := time.Now().Add(7 * 24 * time.Hour)
+			if scheduledAt.After(maxSchedule) {
+				return nil, fmt.Errorf("scheduled_at cannot be more than 7 days in the future")
+			}
+
+			msg.MarkAsScheduled(scheduledAt)
+
+			// Save to DB but do NOT publish to Kafka
+			if err := s.messageRepo.Create(ctx, msg); err != nil {
+				return nil, fmt.Errorf("failed to create scheduled message: %w", err)
+			}
+
+			// Skip PublishMessageCreated and PublishMessageQueued
+			// These publish to sms.outgoing which would bypass scheduling
+			return msg, nil
+		}
+		// If within tolerance, treat as immediate send (fall through to normal flow)
+	}
+
 	// Сохраняем в БД
 	if err := s.messageRepo.Create(ctx, msg); err != nil {
 		log.Error().Err(err).Msg("ошибка сохранения сообщения")
@@ -124,11 +151,17 @@ func (s *MessageService) SendMessage(
 	return msg, nil
 }
 
+// CancelMessage cancels a scheduled message
+func (s *MessageService) CancelMessage(ctx context.Context, messageID, clientID uuid.UUID) error {
+	return s.messageRepo.CancelByIDAndStatus(ctx, messageID, clientID)
+}
+
 // SendBatch отправляет пакет сообщений
 func (s *MessageService) SendBatch(
 	ctx context.Context,
 	clientID uuid.UUID,
 	requests []*SendMessageRequest,
+	scheduledAt *time.Time,
 ) ([]*BatchResult, error) {
 	results := make([]*BatchResult, 0, len(requests))
 
@@ -145,6 +178,7 @@ func (s *MessageService) SendBatch(
 			DestAddrNPI:        req.DestAddrNPI,
 			DataCoding:         req.DataCoding,
 			MaxRetries:         req.MaxRetries,
+			ScheduledAt:        scheduledAt,
 		}
 
 		msg, err := s.SendMessage(ctx, clientID, req.Source, req.Destination, req.Text, options)
@@ -278,6 +312,7 @@ type SendMessageOptions struct {
 	DestAddrNPI        int
 	DataCoding         int
 	MaxRetries         int
+	ScheduledAt        *time.Time
 }
 
 // SendMessageRequest представляет запрос на отправку сообщения
@@ -296,6 +331,7 @@ type SendMessageRequest struct {
 	DestAddrNPI        int
 	DataCoding         int
 	MaxRetries         int
+	ScheduledAt        *time.Time
 }
 
 // BatchResult представляет результат обработки одного сообщения в пакете
