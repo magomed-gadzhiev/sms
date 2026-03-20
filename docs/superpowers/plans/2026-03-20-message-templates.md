@@ -325,7 +325,7 @@ const (
 	MaxRenderedLength      = 1600
 )
 
-var VariableRegex = regexp.MustCompile(`\{\{(\w+)\}\}`)
+var variableRegex = regexp.MustCompile(`\{\{(\w+)\}\}`)
 
 // Template represents a message template
 type Template struct {
@@ -355,7 +355,7 @@ type AuditEntry struct {
 
 // ExtractVariables parses {{variable}} placeholders from template body
 func ExtractVariables(body string) []string {
-	matches := VariableRegex.FindAllStringSubmatch(body, -1)
+	matches := variableRegex.FindAllStringSubmatch(body, -1)
 	seen := make(map[string]bool)
 	var vars []string
 	for _, match := range matches {
@@ -795,12 +795,14 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID
 
 	// Audit log
 	templateID := created.ID
-	s.auditRepo.Create(ctx, &domain.AuditEntry{
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
 		TemplateID: &templateID,
 		Action:     "created",
 		NewBody:    body,
 		ActorType:  "client",
-	})
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", templateID.String()).Msg("failed to write audit log")
+	}
 
 	return created, nil
 }
@@ -861,18 +863,22 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.
 		entry.OldBody = oldBody
 		entry.NewBody = existing.Body
 	}
-	s.auditRepo.Create(ctx, entry)
+	if err := s.auditRepo.Create(ctx, entry); err != nil {
+		s.logger.Error().Err(err).Str("template_id", id.String()).Msg("failed to write audit log")
+	}
 
 	return updated, nil
 }
 
 func (s *TemplateService) DeleteTemplate(ctx context.Context, id, clientID uuid.UUID) error {
 	// Write audit entry before delete (FK becomes NULL via ON DELETE SET NULL)
-	s.auditRepo.Create(ctx, &domain.AuditEntry{
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
 		TemplateID: &id,
 		Action:     "deleted",
 		ActorType:  "client",
-	})
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", id.String()).Msg("failed to write audit log")
+	}
 
 	return s.templateRepo.Delete(ctx, id, clientID)
 }
@@ -891,12 +897,14 @@ func (s *TemplateService) ApproveTemplate(ctx context.Context, id uuid.UUID, act
 		return nil, err
 	}
 
-	s.auditRepo.Create(ctx, &domain.AuditEntry{
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
 		TemplateID: &id,
 		Action:     "approved",
 		ActorID:    actorID,
 		ActorType:  "admin",
-	})
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", id.String()).Msg("failed to write audit log")
+	}
 
 	return updated, nil
 }
@@ -915,13 +923,15 @@ func (s *TemplateService) RejectTemplate(ctx context.Context, id uuid.UUID, acto
 		return nil, err
 	}
 
-	s.auditRepo.Create(ctx, &domain.AuditEntry{
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
 		TemplateID: &id,
 		Action:     "rejected",
 		ActorID:    actorID,
 		ActorType:  "admin",
 		Reason:     reason,
-	})
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", id.String()).Msg("failed to write audit log")
+	}
 
 	return updated, nil
 }
@@ -1201,7 +1211,15 @@ if req.TemplateID != "" {
 }
 ```
 
-Then use `text` instead of `req.Text` when building `protoReq`.
+Then in the `protoReq` construction, change `Text: req.Text,` to `Text: text,`:
+
+```go
+protoReq := &messagingv1.SendMessageRequest{
+    // ... all existing fields ...
+    Text: text,  // was req.Text — now uses rendered template text if applicable
+    // ...
+}
+```
 
 - [ ] **Step 4: Apply same logic to SendBatch**
 
