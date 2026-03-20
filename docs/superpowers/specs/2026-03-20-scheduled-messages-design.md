@@ -22,6 +22,7 @@ Extend the existing **Messaging Service** with a `scheduled_at` field in SendMes
 - Campaign management (separate feature)
 - Time zone conversion (client sends UTC)
 - Admin API for managing scheduled messages
+- Per-message `scheduled_at` in batch (batch-level only for simplicity; per-message is a future enhancement)
 
 ## Architecture
 
@@ -35,48 +36,82 @@ No new microservice. Messaging Service already owns the message lifecycle and wr
 **Message lifecycle with scheduling:**
 ```
 scheduled → pending → queued → sent → delivered
-                                  ↘ failed
-                                  ↘ expired
+    ↓                              ↘ failed
+ cancelled                         ↘ expired
 ```
 
-The `scheduled` status is cancellable. Once a message transitions to `pending`, the normal delivery flow takes over.
+The `scheduled` status is cancellable via DELETE. Once a message transitions to `pending`, the normal delivery flow takes over.
 
 ## Data Model
 
-### Migration: `migrations/000010_add_scheduled_at_to_messages.up.sql`
+### Migration: `migrations/000010_add_scheduled_messages.up.sql`
 
 ```sql
+-- Add scheduled_at column
 ALTER TABLE messages ADD COLUMN scheduled_at TIMESTAMPTZ;
 
+-- Update CHECK constraint to include 'scheduled' and 'cancelled' statuses
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_status_check;
+ALTER TABLE messages ADD CONSTRAINT messages_status_check
+    CHECK (status IN ('pending', 'queued', 'sent', 'delivered', 'failed', 'expired', 'rejected', 'scheduled', 'cancelled'));
+
+-- Partial index for scheduler queries
 CREATE INDEX idx_messages_scheduled ON messages(status, scheduled_at)
     WHERE status = 'scheduled';
 ```
 
-Down migration drops the index and column.
+Down migration:
+```sql
+DROP INDEX IF EXISTS idx_messages_scheduled;
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_status_check;
+ALTER TABLE messages ADD CONSTRAINT messages_status_check
+    CHECK (status IN ('pending', 'queued', 'sent', 'delivered', 'failed', 'expired', 'rejected'));
+ALTER TABLE messages DROP COLUMN IF EXISTS scheduled_at;
+```
 
 ### Constraints
 - `scheduled_at` is nullable — `NULL` means immediate delivery
-- Must be in the future (validated at API level, not DB constraint)
+- Must be in the future with 30-second tolerance for clock skew
 - Must be within 7 days from now (configurable)
 - Partial index covers only `scheduled` messages — zero overhead on existing queries
+
+### Cancellation approach: soft-delete
+
+Instead of physically deleting messages, cancellation sets `status = 'cancelled'`. This:
+- Avoids complexity of DELETE on partitioned table (composite PK `(id, created_at)` requires `created_at`)
+- Preserves audit trail
+- Is consistent with existing status-based lifecycle
 
 ### Changes to shared models
 
 In `internal/shared/models.go`:
 - Add `ScheduledAt *time.Time` field to `Message` struct
 - Add `MessageStatusScheduled = "scheduled"` constant
+- Add `MessageStatusCancelled = "cancelled"` constant
+
+### Changes to domain models
+
+In `internal/services/messaging/domain/`:
+- Add `ScheduledAt *time.Time` to `domain.Message`
+- Update `ToShared()` and `MessageFromShared()` conversion methods
+- Update `NewMessage()` / `SendMessageOptions` to accept `ScheduledAt`
 
 ### Changes to messagingv1 proto
 
 In `api/proto/messaging/messaging.proto`:
-- Add `google.protobuf.Timestamp scheduled_at = 20;` to `SendMessageRequest`
-- Add `google.protobuf.Timestamp scheduled_at = 5;` to `SendBatchRequest` (batch-level, applies to all messages)
-- Add `google.protobuf.Timestamp scheduled_at = 15;` to `GetMessageStatusResponse`
-- Add new RPC: `rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);`
-- Add `DeleteMessageRequest { string message_id = 1; string client_id = 2; }`
-- Add `DeleteMessageResponse { bool success = 1; }`
+- Add `google.protobuf.Timestamp scheduled_at` to `SendMessageRequest` (verify field number)
+- Add `google.protobuf.Timestamp scheduled_at` to `SendBatchRequest` (batch-level, applies to all messages)
+- Add `google.protobuf.Timestamp scheduled_at` to `SendMessageResponse`
+- Add `google.protobuf.Timestamp scheduled_at` to `GetMessageStatusResponse`
+- Add new RPC: `rpc CancelMessage(CancelMessageRequest) returns (CancelMessageResponse);`
+- `CancelMessageRequest { string message_id = 1; string client_id = 2; }`
+- `CancelMessageResponse { bool success = 1; }`
 
 Field numbers must not conflict with existing fields — verify actual proto before implementation.
+
+### Batch scheduling semantics
+
+`scheduled_at` in `SendBatchRequest` is batch-level only. Per-message `scheduled_at` in `SendMessageRequest` is ignored when called via batch. The batch-level value is propagated to each individual message during processing. If batch `scheduled_at` is not set, all messages are sent immediately.
 
 ## Scheduler Implementation
 
@@ -84,52 +119,70 @@ Field numbers must not conflict with existing fields — verify actual proto bef
 
 ```
 Scheduler struct {
-    messageRepo  *repository.MessageRepository
+    messageRepo   MessageRepository (interface)
     kafkaProducer *queue.Producer
-    logger       zerolog.Logger
-    interval     time.Duration
-    batchSize    int
-    ctx          context.Context
-    cancel       context.CancelFunc
+    logger        zerolog.Logger
+    interval      time.Duration
+    batchSize     int
+    ctx           context.Context
+    cancel        context.CancelFunc
 }
 ```
 
 **Run loop:**
 1. Sleep for `interval` (default 10s, configurable)
-2. Query: `SELECT * FROM messages WHERE status = 'scheduled' AND scheduled_at <= NOW() ORDER BY scheduled_at ASC LIMIT $batchSize`
+2. Query: `SELECT * FROM messages WHERE status = 'scheduled' AND scheduled_at <= NOW() AND created_at >= NOW() - INTERVAL '7 days' ORDER BY scheduled_at ASC LIMIT $batchSize FOR UPDATE SKIP LOCKED`
 3. For each message:
-   - Update status to `pending`
+   - Update status to `pending` in the same transaction
    - Publish to Kafka `sms.outgoing` (same format as normal send)
    - If Kafka publish fails: revert status back to `scheduled`, log error
-4. Repeat
+4. Commit transaction
+5. Repeat
 
-**Concurrency safety:** Only one Messaging Service instance should run the scheduler to avoid double-sends. Options:
-- Use `SELECT ... FOR UPDATE SKIP LOCKED` to safely handle multiple instances
-- This allows horizontal scaling without a distributed lock
+**Partition pruning:** The `created_at >= NOW() - INTERVAL '7 days'` filter enables PostgreSQL to skip old partitions. This aligns with the 7-day max schedule window.
+
+**Concurrency safety:** `SELECT ... FOR UPDATE SKIP LOCKED` ensures multiple Messaging Service instances can run schedulers without double-processing. Locked rows are skipped, not blocked on.
+
+**Stuck message recovery:** The scheduler also picks up messages with `status = 'pending'` AND `scheduled_at IS NOT NULL` AND `updated_at < NOW() - INTERVAL '5 minutes'` — these are messages where Kafka publish may have failed after status update. They are re-published to Kafka.
 
 **Graceful shutdown:** Scheduler respects context cancellation, finishes current batch, then stops.
 
 ### Changes to `internal/services/messaging/application/messaging_service.go`
 
 In `SendMessage`:
-1. If `scheduled_at` is not nil and in the future:
+1. If `scheduled_at` is not nil and more than 30 seconds in the future:
    - Set `status = scheduled`
    - Save to DB
-   - Do NOT publish to Kafka
-   - Return response with `status: "scheduled"`
-2. If `scheduled_at` is nil or in the past:
+   - Publish `MessageCreated` event (for observability) but NOT `MessageQueued`
+   - Return response with `status: "scheduled"` and `scheduled_at`
+2. If `scheduled_at` is nil or within 30 seconds of now:
    - Current behavior (status `pending`, publish to Kafka)
 
 Validation:
-- `scheduled_at` in the past → error
 - `scheduled_at` more than 7 days ahead → error
+- `scheduled_at` is set but NULL → treated as immediate (no error)
+
+New method `CancelMessage(ctx, messageID, clientID)`:
+- Atomic update: `UPDATE messages SET status = 'cancelled' WHERE id = $1 AND client_id = $2 AND status = 'scheduled'`
+- If no rows affected → error (message not found or not in scheduled status)
+
+### Changes to `SendMessageOptions` / `SendMessageRequest`
+
+Add `ScheduledAt *time.Time` to both `SendMessageOptions` and internal `SendMessageRequest` structs.
+
+### Event publishing behavior for scheduled messages
+
+- `PublishMessageCreated` → YES (message exists in DB)
+- `PublishMessageQueued` → NO (not yet in Kafka queue)
+- When scheduler picks up and transitions to pending → `PublishMessageQueued` fires normally
 
 ### Changes to message repository
 
 In `internal/services/messaging/infrastructure/repository/message_repository.go`:
-- Add `GetScheduledReady(ctx, limit int) ([]*shared.Message, error)` — fetches scheduled messages ready for delivery using `FOR UPDATE SKIP LOCKED`
-- Add `DeleteByIDAndStatus(ctx, id, clientID uuid.UUID, status string) error` — deletes message only if it matches the given status (for cancel)
+- Add `GetScheduledReady(ctx, limit int) ([]*Message, error)` — fetches ready messages with `FOR UPDATE SKIP LOCKED` and `created_at` filter for partition pruning
+- Add `CancelByIDAndStatus(ctx, id, clientID uuid.UUID) error` — atomic `UPDATE ... SET status = 'cancelled' WHERE status = 'scheduled'`
 - Modify existing `Create` method to persist `scheduled_at`
+- Add `GetStuckPending(ctx, threshold time.Duration, limit int) ([]*Message, error)` — for stuck message recovery
 
 ## HTTP API
 
@@ -167,28 +220,29 @@ New batch-level field (applies to all messages):
 
 ### New: `DELETE /api/v1/sms/{id}`
 
-- Cancels a scheduled message
+- Cancels a scheduled message (soft-delete: sets status to `cancelled`)
 - Only works for `status = scheduled`
-- Other statuses → HTTP 409 Conflict ("message already in processing")
-- Physically deletes the record from DB
+- Other statuses → HTTP 409 Conflict ("message already in processing or delivered")
+- Atomic operation — no race condition with scheduler
 - Client gateway validates ownership via `client_id` from auth context
 
 ## Integration Points
 
 ### Messaging Service (modified)
 - New `scheduler.go` in application layer
-- Modified `messaging_service.go` — scheduled_at logic in SendMessage
-- Modified `message_repository.go` — new query methods
-- Modified `grpc/server.go` — handle scheduled_at field, implement DeleteMessage RPC
-- Started in `main.go` — launch scheduler goroutine
+- Modified `messaging_service.go` — scheduled_at logic in SendMessage, new CancelMessage method
+- Modified domain models — ScheduledAt field, conversion methods
+- Modified `message_repository.go` — new query methods (GetScheduledReady, CancelByIDAndStatus, GetStuckPending)
+- Modified `grpc/server.go` — handle scheduled_at field, implement CancelMessage RPC
+- Modified `main.go` — launch scheduler goroutine
 
 ### Client Gateway (modified)
-- Modified `handlers/sms.go` — add `scheduled_at` to SendSMSRequest/SendBatchSMSRequest, validate, pass to gRPC
-- New handler method `DeleteSMS` for `DELETE /api/v1/sms/{id}`
+- Modified `handlers/sms.go` — add `scheduled_at` to SendSMSRequest/SendBatchSMSRequest, validate (future, max 7 days), pass to gRPC
+- New handler method `CancelSMS` for `DELETE /api/v1/sms/{id}`
 - Modified `router.go` — add DELETE route
 
 ### Proto (modified)
-- Modified `api/proto/messaging/messaging.proto` — new fields + DeleteMessage RPC
+- Modified `api/proto/messaging/messaging.proto` — new fields + CancelMessage RPC
 - Regenerate `api/proto/messagingv1/`
 
 ### Docker Compose — No changes (no new services)
@@ -205,9 +259,11 @@ messaging:
     interval: 10s
     batch_size: 100
     max_schedule_days: 7
+    stuck_threshold: 5m
 ```
 
 Environment variables for Docker:
 - `SCHEDULER_INTERVAL=10s`
 - `SCHEDULER_BATCH_SIZE=100`
 - `SCHEDULER_MAX_DAYS=7`
+- `SCHEDULER_STUCK_THRESHOLD=5m`
