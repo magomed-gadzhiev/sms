@@ -117,6 +117,56 @@ func main() {
 	scheduler := application.NewScheduler(messageRepo, eventPublisher, schedulerInterval, schedulerBatchSize, stuckThreshold)
 	scheduler.Start()
 
+	// Start data purger for automatic partition cleanup
+	messagesRetention := 90
+	if v := os.Getenv("DATA_RETENTION_MESSAGES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			messagesRetention = n
+		}
+	}
+	auditRetention := 365
+	if v := os.Getenv("DATA_RETENTION_AUDIT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			auditRetention = n
+		}
+	}
+	purgeInterval := 24 * time.Hour
+	if v := os.Getenv("DATA_PURGE_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			purgeInterval = d
+		}
+	}
+
+	dataPurger := application.NewDataPurger(dbConn.DB, application.DataPurgerConfig{
+		MessagesRetentionDays: messagesRetention,
+		AuditRetentionDays:    auditRetention,
+		PurgeInterval:         purgeInterval,
+	})
+	dataPurger.Start()
+
+	// Start DLR expiry goroutine
+	dlrExpiryTimeout := 24 * time.Hour
+	if timeoutStr := os.Getenv("DLR_EXPIRY_TIMEOUT"); timeoutStr != "" {
+		if d, err := time.ParseDuration(timeoutStr); err == nil {
+			dlrExpiryTimeout = d
+		}
+	}
+	dlrExpiryCheckInterval := 5 * time.Minute
+	if intervalStr := os.Getenv("DLR_EXPIRY_CHECK_INTERVAL"); intervalStr != "" {
+		if d, err := time.ParseDuration(intervalStr); err == nil {
+			dlrExpiryCheckInterval = d
+		}
+	}
+	dlrExpiryBatchSize := 500
+	if batchStr := os.Getenv("DLR_EXPIRY_BATCH_SIZE"); batchStr != "" {
+		if n, err := strconv.Atoi(batchStr); err == nil && n > 0 {
+			dlrExpiryBatchSize = n
+		}
+	}
+
+	dlrExpiry := application.NewDLRExpiry(messageRepo, dlrExpiryTimeout, dlrExpiryCheckInterval, dlrExpiryBatchSize)
+	dlrExpiry.Start()
+
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("messaging-service", cfg.Service.Version)
 	healthChecker.SetDatabase(dbConn.DB)
@@ -197,6 +247,14 @@ func main() {
 	// Остановка планировщика
 	scheduler.Stop()
 	logger.Info().Msg("scheduler остановлен")
+
+	// Остановка data purger
+	dataPurger.Stop()
+	logger.Info().Msg("data purger остановлен")
+
+	// Остановка DLR expiry
+	dlrExpiry.Stop()
+	logger.Info().Msg("DLR expiry остановлен")
 
 	// Остановка gRPC сервера
 	grpcServer.GracefulStop()

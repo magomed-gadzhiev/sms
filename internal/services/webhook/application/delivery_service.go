@@ -190,11 +190,12 @@ func (ds *DeliveryService) HandleDLR(ctx context.Context, dlr *queue.DLRMessage)
 		EventType: eventType,
 		Timestamp: time.Now(),
 		Data: domain.EventData{
-			MessageID:   dlr.MessageID.String(),
-			ExternalID:  enrichment.ExternalID,
-			Source:      source,
-			Destination: destination,
-			Status:      eventType,
+			MessageID:    dlr.MessageID.String(),
+			ExternalID:   enrichment.ExternalID,
+			Source:       source,
+			Destination:  destination,
+			Status:       eventType,
+			SegmentCount: enrichment.SegmentCount,
 		},
 	}
 
@@ -241,6 +242,7 @@ func (ds *DeliveryService) HandleFailed(ctx context.Context, failed *queue.Faile
 			Destination:   enrichment.Destination,
 			Status:        "failed",
 			StatusMessage: failed.Error,
+			SegmentCount:  enrichment.SegmentCount,
 			FailedAt:      &failed.FailedAt,
 		},
 	}

@@ -129,9 +129,10 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 
 	// Формируем ответ
 	response := map[string]interface{}{
-		"message_id": resp.MessageId,
-		"status":     resp.Status,
-		"created_at": resp.CreatedAt.AsTime(),
+		"message_id":    resp.MessageId,
+		"status":        resp.Status,
+		"created_at":    resp.CreatedAt.AsTime(),
+		"segment_count": resp.SegmentCount,
 	}
 	if resp.Error != "" {
 		response["error"] = resp.Error
@@ -237,9 +238,10 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 	results := make([]map[string]interface{}, 0, len(resp.Results))
 	for _, result := range resp.Results {
 		r := map[string]interface{}{
-			"message_id": result.MessageId,
-			"status":     result.Status,
-			"created_at": result.CreatedAt.AsTime(),
+			"message_id":    result.MessageId,
+			"status":        result.Status,
+			"created_at":    result.CreatedAt.AsTime(),
+			"segment_count": result.SegmentCount,
 		}
 		if result.Error != "" {
 			r["error"] = result.Error
@@ -309,6 +311,9 @@ func (h *SMSHandlers) GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if resp.ErrorMessage != "" {
 		response["error_message"] = resp.ErrorMessage
+	}
+	if resp.ExpiredAt != nil {
+		response["expired_at"] = resp.ExpiredAt.AsTime()
 	}
 
 	respondJSON(w, http.StatusOK, response)

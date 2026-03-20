@@ -224,6 +224,8 @@ type Message struct {
 	DeliveredAt    *time.Time    `json:"delivered_at,omitempty" db:"delivered_at"`
 	FailedAt       *time.Time    `json:"failed_at,omitempty" db:"failed_at"`
 	ScheduledAt    *time.Time    `json:"scheduled_at,omitempty" db:"scheduled_at"`
+	ExpiredAt      *time.Time    `json:"expired_at,omitempty" db:"expired_at"`
+	SegmentCount   int           `json:"segment_count" db:"segment_count"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }

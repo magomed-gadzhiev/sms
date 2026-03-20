@@ -171,6 +171,40 @@ var (
 		[]string{"worker_id", "operation"},
 	)
 
+	// Multipart SMS метрики
+	SMSSegmentsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "sms_segments_total",
+			Help: "Общее количество SMS-сегментов",
+		},
+		[]string{"client_id"},
+	)
+
+	SMSSegmentsPerMessage = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "sms_segments_per_message",
+			Help:    "Распределение количества сегментов на сообщение",
+			Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		},
+	)
+
+	// DLR Expiry метрики
+	DLRExpiredMessagesTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "dlr_expired_messages_total",
+			Help: "Общее количество сообщений с истёкшим DLR таймаутом",
+		},
+	)
+
+	// Data Purging метрики
+	DataPurgePartitionsDropped = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "data_purge_partitions_dropped_total",
+			Help: "Количество удалённых партиций при очистке данных",
+		},
+		[]string{"table"},
+	)
+
 	// Database метрики
 	DatabaseConnectionsActive = promauto.NewGauge(
 		prometheus.GaugeOpts{

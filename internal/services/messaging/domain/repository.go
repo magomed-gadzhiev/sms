@@ -21,6 +21,8 @@ type MessageRepository interface {
 	GetScheduledReady(ctx context.Context, limit int) ([]*Message, error)
 	GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*Message, error)
 	CancelByIDAndStatus(ctx context.Context, id uuid.UUID, clientID uuid.UUID) error
+	GetSentExpired(ctx context.Context, timeout time.Duration, limit int) ([]*Message, error)
+	BulkUpdateStatusToExpired(ctx context.Context, messages []*Message) error
 }
 
 // DLRRepository определяет интерфейс репозитория DLR receipts

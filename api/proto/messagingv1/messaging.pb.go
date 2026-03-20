@@ -187,6 +187,7 @@ type SendMessageResponse struct {
 	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                          // Ошибка (если есть)
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`    // Время создания
 	ScheduledAt   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"` // Время запланированной отправки (опционально)
+	SegmentCount  int32                  `protobuf:"varint,6,opt,name=segment_count,json=segmentCount,proto3" json:"segment_count,omitempty"` // Количество сегментов SMS
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -254,6 +255,13 @@ func (x *SendMessageResponse) GetScheduledAt() *timestamppb.Timestamp {
 		return x.ScheduledAt
 	}
 	return nil
+}
+
+func (x *SendMessageResponse) GetSegmentCount() int32 {
+	if x != nil {
+		return x.SegmentCount
+	}
+	return 0
 }
 
 // SendBatchRequest представляет запрос на пакетную отправку SMS
@@ -445,6 +453,8 @@ type GetMessageStatusResponse struct {
 	ErrorCode     string                 `protobuf:"bytes,9,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`                // Код ошибки (опционально)
 	ErrorMessage  string                 `protobuf:"bytes,10,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`      // Сообщение об ошибке (опционально)
 	ScheduledAt   *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`         // Время запланированной отправки (опционально)
+	SegmentCount  int32                  `protobuf:"varint,12,opt,name=segment_count,json=segmentCount,proto3" json:"segment_count,omitempty"`   // Количество сегментов SMS
+	ExpiredAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=expired_at,json=expiredAt,proto3" json:"expired_at,omitempty"`             // Время истечения DLR (опционально)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -552,6 +562,20 @@ func (x *GetMessageStatusResponse) GetErrorMessage() string {
 func (x *GetMessageStatusResponse) GetScheduledAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ScheduledAt
+	}
+	return nil
+}
+
+func (x *GetMessageStatusResponse) GetSegmentCount() int32 {
+	if x != nil {
+		return x.SegmentCount
+	}
+	return 0
+}
+
+func (x *GetMessageStatusResponse) GetExpiredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiredAt
 	}
 	return nil
 }
@@ -881,6 +905,8 @@ type MessageInfo struct {
 	ProviderId    string                 `protobuf:"bytes,12,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`    // ID провайдера
 	RouteId       string                 `protobuf:"bytes,13,opt,name=route_id,json=routeId,proto3" json:"route_id,omitempty"`             // ID маршрута
 	ScheduledAt   *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"` // Время запланированной отправки (опционально)
+	SegmentCount  int32                  `protobuf:"varint,15,opt,name=segment_count,json=segmentCount,proto3" json:"segment_count,omitempty"` // Количество сегментов SMS
+	ExpiredAt     *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=expired_at,json=expiredAt,proto3" json:"expired_at,omitempty"`             // Время истечения DLR (опционально)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1009,6 +1035,20 @@ func (x *MessageInfo) GetRouteId() string {
 func (x *MessageInfo) GetScheduledAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ScheduledAt
+	}
+	return nil
+}
+
+func (x *MessageInfo) GetSegmentCount() int32 {
+	if x != nil {
+		return x.SegmentCount
+	}
+	return 0
+}
+
+func (x *MessageInfo) GetExpiredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiredAt
 	}
 	return nil
 }

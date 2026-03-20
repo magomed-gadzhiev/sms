@@ -352,6 +352,12 @@ services:
       - SCHEDULER_INTERVAL=10s
       - SCHEDULER_BATCH_SIZE=100
       - SCHEDULER_STUCK_THRESHOLD=5m
+      - DLR_EXPIRY_TIMEOUT=24h
+      - DLR_EXPIRY_CHECK_INTERVAL=5m
+      - DLR_EXPIRY_BATCH_SIZE=500
+      - DATA_RETENTION_MESSAGES=90
+      - DATA_RETENTION_AUDIT=365
+      - DATA_PURGE_INTERVAL=24h
     networks:
       - smpp-network
     depends_on:

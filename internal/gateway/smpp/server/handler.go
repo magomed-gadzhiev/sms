@@ -267,33 +267,55 @@ func (h *Handler) handleSubmitSM(pdu *protocol.PDU) error {
 		return h.sendSubmitSMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN, "")
 	}
 	
+	// Обработка UDH для multipart SMS
+	messageText := string(submit.ShortMessage)
+	hasUDH := (submit.ESMClass & 0x40) != 0
+	var udhRefNum, udhTotalParts, udhPartNum int
+	if hasUDH && len(submit.ShortMessage) > 6 {
+		udhLen := int(submit.ShortMessage[0])
+		if udhLen >= 5 && len(submit.ShortMessage) > udhLen+1 {
+			udhRefNum = int(submit.ShortMessage[3])
+			udhTotalParts = int(submit.ShortMessage[4])
+			udhPartNum = int(submit.ShortMessage[5])
+			// Извлекаем текст после UDH
+			messageText = string(submit.ShortMessage[udhLen+1:])
+		}
+	}
+
 	// Создаем сообщение для Kafka
 	msgID := uuid.New()
 	messageID := fmt.Sprintf("%s-%d", h.session.ID, pdu.SequenceNumber)
-	
+
+	metadata := map[string]interface{}{
+		"smpp_session_id":     h.session.ID,
+		"smpp_sequence":       pdu.SequenceNumber,
+		"source_ton":          submit.SourceAddrTON,
+		"source_npi":          submit.SourceAddrNPI,
+		"dest_ton":            submit.DestAddrTON,
+		"dest_npi":            submit.DestAddrNPI,
+		"data_coding":         submit.DataCoding,
+		"esm_class":           submit.ESMClass,
+		"registered_delivery": submit.RegisteredDelivery,
+		"user_id":             h.session.UserID,
+	}
+	if hasUDH {
+		metadata["udh_ref_num"] = udhRefNum
+		metadata["udh_total_parts"] = udhTotalParts
+		metadata["udh_part_num"] = udhPartNum
+	}
+
 	kafkaMsg := &queue.KafkaMessage{
 		ID:          msgID.String(),
 		MessageID:   msgID,
 		Source:      submit.SourceAddr,
 		Destination: submit.DestinationAddr,
-		Text:        string(submit.ShortMessage),
+		Text:        messageText,
 		ClientID:    h.session.ClientID,
 		Priority:    int(submit.PriorityFlag),
 		RetryCount:  0,
 		MaxRetries:  5,
 		CreatedAt:   time.Now(),
-		Metadata: map[string]interface{}{
-			"smpp_session_id": h.session.ID,
-			"smpp_sequence":    pdu.SequenceNumber,
-			"source_ton":       submit.SourceAddrTON,
-			"source_npi":       submit.SourceAddrNPI,
-			"dest_ton":         submit.DestAddrTON,
-			"dest_npi":         submit.DestAddrNPI,
-			"data_coding":      submit.DataCoding,
-			"esm_class":        submit.ESMClass,
-			"registered_delivery": submit.RegisteredDelivery,
-			"user_id":          h.session.UserID,
-		},
+		Metadata:    metadata,
 	}
 	
 	// Публикуем в Kafka

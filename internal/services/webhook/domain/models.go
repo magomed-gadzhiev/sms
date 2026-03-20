@@ -52,9 +52,11 @@ type EventData struct {
 	Status        string     `json:"status"`
 	StatusMessage string     `json:"status_message,omitempty"`
 	ProviderID    string     `json:"provider_id,omitempty"`
+	SegmentCount  int        `json:"segment_count"`
 	SubmittedAt   *time.Time `json:"submitted_at,omitempty"`
 	DeliveredAt   *time.Time `json:"delivered_at,omitempty"`
 	FailedAt      *time.Time `json:"failed_at,omitempty"`
+	ExpiredAt     *time.Time `json:"expired_at,omitempty"`
 }
 
 // SMPPStatToEventType maps SMPP DLR stat values to webhook event types

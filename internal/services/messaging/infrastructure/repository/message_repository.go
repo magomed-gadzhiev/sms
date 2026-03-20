@@ -151,3 +151,27 @@ func (r *MessageRepository) GetStuckPending(ctx context.Context, threshold time.
 func (r *MessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientID uuid.UUID) error {
 	return r.repo.CancelByIDAndStatus(ctx, id, clientID)
 }
+
+// GetSentExpired fetches messages in "sent" status older than timeout
+func (r *MessageRepository) GetSentExpired(ctx context.Context, timeout time.Duration, limit int) ([]*domain.Message, error) {
+	sharedMessages, err := r.repo.GetSentExpired(ctx, timeout, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	messages := make([]*domain.Message, len(sharedMessages))
+	for i, sm := range sharedMessages {
+		messages[i] = domain.MessageFromShared(sm)
+	}
+
+	return messages, nil
+}
+
+// BulkUpdateStatusToExpired updates a batch of messages to expired status
+func (r *MessageRepository) BulkUpdateStatusToExpired(ctx context.Context, messages []*domain.Message) error {
+	ids := make([]uuid.UUID, len(messages))
+	for i, msg := range messages {
+		ids[i] = msg.ID
+	}
+	return r.repo.BulkUpdateStatusToExpired(ctx, ids)
+}
