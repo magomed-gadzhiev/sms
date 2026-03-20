@@ -545,33 +545,33 @@ services:
       context: ..
       dockerfile: deployments/docker/service-base.Dockerfile
       args:
-        - SERVICE_NAME=webhook-service
-    container_name: sms-webhook-service
+        SERVICE_NAME: webhook-service
+        SERVICE_PATH: cmd/services/webhook-service
+    container_name: webhook-service
     ports:
-      - "9098:9098"
-      - "2119:2119"
+      - "9098:9098"  # gRPC
+      - "2119:2119"  # Metrics
     environment:
       - SERVICE_NAME=webhook-service
-      - SERVICE_ENV=development
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_USER=sms_user
-      - DATABASE_PASSWORD=sms_password
-      - DATABASE_NAME=sms_platform
       - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    networks:
-      - smpp-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2119/health/live"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2119/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
 
   # Zookeeper (required for Kafka)
   zookeeper:

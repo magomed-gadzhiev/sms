@@ -23,7 +23,8 @@ COPY . .
 
 # Generate proto files - генерируем все proto файлы для совместимости
 RUN mkdir -p api/proto/authv1 api/proto/messagingv1 api/proto/routingv1 \
-    api/proto/providerv1 api/proto/clientv1 api/proto/analyticsv1 api/proto/billingv1
+    api/proto/providerv1 api/proto/clientv1 api/proto/analyticsv1 api/proto/billingv1 \
+    api/proto/webhookv1 && mv api/proto/billingv1/billing/* api/proto/billingv1/ 2>/dev/null || true && rm -rf api/proto/billingv1/billing || true
 
 RUN protoc \
     --go_out=api/proto/authv1 \
@@ -31,7 +32,9 @@ RUN protoc \
     --go-grpc_out=api/proto/authv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/auth/auth.proto || true
+    api/proto/auth/auth.proto && \
+    mv api/proto/authv1/auth/* api/proto/authv1/ 2>/dev/null || true && \
+    rm -rf api/proto/authv1/auth || true
 
 RUN protoc \
     --go_out=api/proto/messagingv1 \
@@ -39,7 +42,9 @@ RUN protoc \
     --go-grpc_out=api/proto/messagingv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/messaging/messaging.proto || true
+    api/proto/messaging/messaging.proto && \
+    mv api/proto/messagingv1/messaging/* api/proto/messagingv1/ 2>/dev/null || true && \
+    rm -rf api/proto/messagingv1/messaging || true
 
 RUN protoc \
     --go_out=api/proto/routingv1 \
@@ -47,7 +52,9 @@ RUN protoc \
     --go-grpc_out=api/proto/routingv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/routing/routing.proto || true
+    api/proto/routing/routing.proto && \
+    mv api/proto/routingv1/routing/* api/proto/routingv1/ 2>/dev/null || true && \
+    rm -rf api/proto/routingv1/routing || true
 
 RUN protoc \
     --go_out=api/proto/providerv1 \
@@ -55,7 +62,9 @@ RUN protoc \
     --go-grpc_out=api/proto/providerv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/provider/provider.proto || true
+    api/proto/provider/provider.proto && \
+    mv api/proto/providerv1/provider/* api/proto/providerv1/ 2>/dev/null || true && \
+    rm -rf api/proto/providerv1/provider || true
 
 RUN protoc \
     --go_out=api/proto/clientv1 \
@@ -63,7 +72,9 @@ RUN protoc \
     --go-grpc_out=api/proto/clientv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/client/client.proto || true
+    api/proto/client/client.proto && \
+    mv api/proto/clientv1/client/* api/proto/clientv1/ 2>/dev/null || true && \
+    rm -rf api/proto/clientv1/client || true
 
 RUN protoc \
     --go_out=api/proto/analyticsv1 \
@@ -71,7 +82,9 @@ RUN protoc \
     --go-grpc_out=api/proto/analyticsv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/analytics/analytics.proto || true
+    api/proto/analytics/analytics.proto && \
+    mv api/proto/analyticsv1/analytics/* api/proto/analyticsv1/ 2>/dev/null || true && \
+    rm -rf api/proto/analyticsv1/analytics || true
 
 RUN protoc \
     --go_out=api/proto/billingv1 \
@@ -79,10 +92,23 @@ RUN protoc \
     --go-grpc_out=api/proto/billingv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/billing/billing.proto || true
+    api/proto/billing/billing.proto && \
+    mv api/proto/billingv1/billing/* api/proto/billingv1/ 2>/dev/null || true && \
+    rm -rf api/proto/billingv1/billing || true
 
-# Update dependencies
-RUN go mod tidy
+RUN mkdir -p api/proto/webhookv1 && \
+    protoc \
+    --go_out=api/proto/webhookv1 \
+    --go_opt=paths=source_relative \
+    --go-grpc_out=api/proto/webhookv1 \
+    --go-grpc_opt=paths=source_relative \
+    --proto_path=api/proto \
+    api/proto/webhook/webhook.proto && \
+    mv api/proto/webhookv1/webhook/* api/proto/webhookv1/ 2>/dev/null || true && \
+    rm -rf api/proto/webhookv1/webhook || true
+
+# Обновление кеша пакетов после генерации proto файлов
+RUN go list -e ./api/proto/... > /dev/null 2>&1 || true
 
 # Build the application
 ARG SERVICE_NAME
@@ -101,4 +127,5 @@ ARG SERVICE_NAME
 COPY --from=builder /app/${SERVICE_NAME} .
 
 # Run the binary
-CMD ["./${SERVICE_NAME}"]
+# Используем shell форму, чтобы переменная SERVICE_NAME подставлялась из переменных окружения
+CMD sh -c "./${SERVICE_NAME}"

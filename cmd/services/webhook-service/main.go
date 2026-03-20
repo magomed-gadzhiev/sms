@@ -96,11 +96,13 @@ func main() {
 	}
 	logger.Info().Msg("Kafka consumer инициализирован")
 
-	// Start consuming DLR and failed topics
+	// Start consuming DLR and failed topics in separate goroutines
 	go func() {
 		if err := kafkaConsumer.ConsumeDLR(); err != nil {
 			logger.Error().Err(err).Msg("ошибка запуска consumer для DLR")
 		}
+	}()
+	go func() {
 		if err := kafkaConsumer.ConsumeFailed(); err != nil {
 			logger.Error().Err(err).Msg("ошибка запуска consumer для failed")
 		}
@@ -171,6 +173,12 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Stop Kafka consumer
+	if err := kafkaConsumer.Close(); err != nil {
+		logger.Error().Err(err).Msg("ошибка при остановке Kafka consumer")
+	}
+	logger.Info().Msg("Kafka consumer остановлен")
 
 	grpcServer.GracefulStop()
 	logger.Info().Msg("gRPC сервер остановлен")
