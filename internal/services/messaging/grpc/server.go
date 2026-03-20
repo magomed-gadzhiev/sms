@@ -85,6 +85,10 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 	if req.DataCoding >= 0 {
 		options.DataCoding = int(req.DataCoding)
 	}
+	if req.ScheduledAt != nil {
+		scheduledAt := req.ScheduledAt.AsTime()
+		options.ScheduledAt = &scheduledAt
+	}
 
 	// Отправляем сообщение
 	msg, err := s.messageService.SendMessage(ctx, clientID, req.Source, req.Destination, req.Text, options)
@@ -93,11 +97,15 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &messagingv1.SendMessageResponse{
+	resp := &messagingv1.SendMessageResponse{
 		MessageId: msg.ID.String(),
 		Status:    string(msg.Status),
 		CreatedAt: timestamppb.New(msg.CreatedAt),
-	}, nil
+	}
+	if msg.ScheduledAt != nil {
+		resp.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
+	}
+	return resp, nil
 }
 
 // SendBatch отправляет пакет SMS сообщений
@@ -155,8 +163,15 @@ func (s *Server) SendBatch(ctx context.Context, req *messagingv1.SendBatchReques
 		requests[i] = req
 	}
 
+	// Извлекаем batch-level scheduled_at
+	var scheduledAt *time.Time
+	if req.ScheduledAt != nil {
+		t := req.ScheduledAt.AsTime()
+		scheduledAt = &t
+	}
+
 	// Отправляем пакет
-	results, err := s.messageService.SendBatch(ctx, clientID, requests)
+	results, err := s.messageService.SendBatch(ctx, clientID, requests, scheduledAt)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка пакетной отправки сообщений")
 		return nil, status.Error(codes.Internal, err.Error())
@@ -241,6 +256,9 @@ func (s *Server) GetMessageStatus(ctx context.Context, req *messagingv1.GetMessa
 	if msg.SMPPMessageID != "" {
 		response.SmppMessageId = msg.SMPPMessageID
 	}
+	if msg.ScheduledAt != nil {
+		response.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
+	}
 
 	return response, nil
 }
@@ -320,6 +338,9 @@ func (s *Server) GetMessageHistory(ctx context.Context, req *messagingv1.GetMess
 		if msg.RouteID != nil {
 			protoMsg.RouteId = msg.RouteID.String()
 		}
+		if msg.ScheduledAt != nil {
+			protoMsg.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
+		}
 
 		protoMessages[i] = protoMsg
 	}
@@ -392,4 +413,29 @@ func (s *Server) ProcessDLR(ctx context.Context, req *messagingv1.ProcessDLRRequ
 		Success:       true,
 		UpdatedStatus: string(msg.Status),
 	}, nil
+}
+
+// CancelMessage отменяет запланированное сообщение
+func (s *Server) CancelMessage(ctx context.Context, req *messagingv1.CancelMessageRequest) (*messagingv1.CancelMessageResponse, error) {
+	if req.MessageId == "" {
+		return nil, status.Error(codes.InvalidArgument, "message_id is required")
+	}
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id format")
+	}
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	if err := s.messageService.CancelMessage(ctx, messageID, clientID); err != nil {
+		return nil, status.Error(codes.FailedPrecondition, "message not found or not in scheduled status")
+	}
+
+	return &messagingv1.CancelMessageResponse{Success: true}, nil
 }
