@@ -22,6 +22,9 @@ service MessagingService {
   
   // ProcessDLR обрабатывает delivery receipt
   rpc ProcessDLR(ProcessDLRRequest) returns (ProcessDLRResponse);
+
+  // CancelMessage отменяет запланированное сообщение
+  rpc CancelMessage(CancelMessageRequest) returns (CancelMessageResponse);
 }
 
 // SendMessageRequest представляет запрос на отправку SMS
@@ -40,6 +43,7 @@ message SendMessageRequest {
   int32 dest_addr_ton = 12;       // TON получателя (опционально)
   int32 dest_addr_npi = 13;       // NPI получателя (опционально)
   int32 data_coding = 14;         // Кодировка данных (опционально)
+  google.protobuf.Timestamp scheduled_at = 15; // Время запланированной отправки (опционально)
 }
 
 // SendMessageResponse представляет ответ на отправку SMS
@@ -48,12 +52,14 @@ message SendMessageResponse {
   string status = 2;              // Статус (queued, sent, failed)
   string error = 3;               // Ошибка (если есть)
   google.protobuf.Timestamp created_at = 4;  // Время создания
+  google.protobuf.Timestamp scheduled_at = 5; // Время запланированной отправки (опционально)
 }
 
 // SendBatchRequest представляет запрос на пакетную отправку SMS
 message SendBatchRequest {
   string client_id = 1;           // ID клиента
   repeated SendMessageRequest messages = 2;  // Список сообщений
+  google.protobuf.Timestamp scheduled_at = 3; // Время запланированной отправки (опционально)
 }
 
 // SendBatchResponse представляет ответ на пакетную отправку
@@ -81,6 +87,7 @@ message GetMessageStatusResponse {
   string smpp_message_id = 8;     // SMPP message ID (опционально)
   string error_code = 9;          // Код ошибки (опционально)
   string error_message = 10;      // Сообщение об ошибке (опционально)
+  google.protobuf.Timestamp scheduled_at = 11; // Время запланированной отправки (опционально)
 }
 
 // GetMessageHistoryRequest представляет запрос на получение истории
@@ -134,4 +141,14 @@ message MessageInfo {
   google.protobuf.Timestamp failed_at = 11;    // Время ошибки
   string provider_id = 12;        // ID провайдера
   string route_id = 13;           // ID маршрута
+  google.protobuf.Timestamp scheduled_at = 14; // Время запланированной отправки (опционально)
+}
+
+message CancelMessageRequest {
+  string message_id = 1;
+  string client_id = 2;
+}
+
+message CancelMessageResponse {
+  bool success = 1;
 }
