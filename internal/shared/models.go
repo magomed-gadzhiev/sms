@@ -177,6 +177,8 @@ const (
 	MessageStatusFailed    MessageStatus = "failed"
 	MessageStatusExpired   MessageStatus = "expired"
 	MessageStatusRejected  MessageStatus = "rejected"
+	MessageStatusScheduled MessageStatus = "scheduled"
+	MessageStatusCancelled MessageStatus = "cancelled"
 )
 
 // MessageEncoding представляет кодировку сообщения
@@ -221,6 +223,7 @@ type Message struct {
 	SubmittedAt    *time.Time    `json:"submitted_at,omitempty" db:"submitted_at"`
 	DeliveredAt    *time.Time    `json:"delivered_at,omitempty" db:"delivered_at"`
 	FailedAt       *time.Time    `json:"failed_at,omitempty" db:"failed_at"`
+	ScheduledAt    *time.Time    `json:"scheduled_at,omitempty" db:"scheduled_at"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }
