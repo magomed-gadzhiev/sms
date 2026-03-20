@@ -349,6 +349,9 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - SCHEDULER_INTERVAL=10s
+      - SCHEDULER_BATCH_SIZE=100
+      - SCHEDULER_STUCK_THRESHOLD=5m
     networks:
       - smpp-network
     depends_on:
