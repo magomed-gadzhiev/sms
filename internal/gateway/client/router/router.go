@@ -12,6 +12,7 @@ import (
 func SetupRouter(
 	smsHandlers *handlers.SMSHandlers,
 	accountHandlers *handlers.AccountHandlers,
+	webhookHandlers *handlers.WebhookHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -40,6 +41,14 @@ func SetupRouter(
 	account := apiV1.PathPrefix("/account").Subrouter()
 	account.HandleFunc("/balance", accountHandlers.GetBalance).Methods("GET")
 	account.HandleFunc("/stats", accountHandlers.GetStats).Methods("GET")
+
+	// Webhook endpoints
+	webhooks := apiV1.PathPrefix("/webhooks").Subrouter()
+	webhooks.HandleFunc("", webhookHandlers.CreateWebhook).Methods("POST")
+	webhooks.HandleFunc("", webhookHandlers.ListWebhooks).Methods("GET")
+	webhooks.HandleFunc("/{id}", webhookHandlers.GetWebhook).Methods("GET")
+	webhooks.HandleFunc("/{id}", webhookHandlers.UpdateWebhook).Methods("PUT")
+	webhooks.HandleFunc("/{id}", webhookHandlers.DeleteWebhook).Methods("DELETE")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

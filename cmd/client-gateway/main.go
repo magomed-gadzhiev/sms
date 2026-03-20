@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/config"
-	clientgateway 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/client"
 	clientgrpc "github.com/smpp-server/smpp-server/internal/gateway/client/grpc"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/handlers"
@@ -67,15 +67,16 @@ func main() {
 		Msg("запуск Client Gateway")
 
 	// Получение адресов сервисов из переменных окружения или использование значений по умолчанию
-	serviceAddresses := clientgateway.ServiceAddresses{
+	serviceAddresses := client.ServiceAddresses{
 		Auth:      getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
 		Messaging: getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
 		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
 		Billing:   getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
+		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
 	}
 
 	// Инициализация gRPC клиентов
-	serviceClients, err := clientgateway.NewServiceClients(serviceAddresses)
+	serviceClients, err := client.NewServiceClients(serviceAddresses)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("ошибка создания gRPC клиентов")
 	}
@@ -92,6 +93,7 @@ func main() {
 		serviceClients.BillingClient,
 		serviceClients.AnalyticsClient,
 	)
+	webhookHandlers := handlers.NewWebhookHandlers(serviceClients.WebhookClient)
 
 	// Создание middleware
 	authMiddleware := clientmiddleware.ClientAuthMiddleware(serviceClients.AuthClient)
@@ -103,6 +105,7 @@ func main() {
 	router := clientrouter.SetupRouter(
 		smsHandlers,
 		accountHandlers,
+		webhookHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,
