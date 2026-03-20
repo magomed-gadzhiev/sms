@@ -8,16 +8,17 @@ import (
 
 // Metric представляет доменную модель метрики
 type Metric struct {
-	ID          uuid.UUID
-	Type        MetricType
-	ClientID    *uuid.UUID
-	ProviderID  *uuid.UUID
-	MessageID   *uuid.UUID
-	Status      string
-	Value       int64
-	Timestamp   time.Time
-	Metadata    map[string]interface{}
-	CreatedAt   time.Time
+	ID           uuid.UUID
+	Type         MetricType
+	ClientID     *uuid.UUID
+	ProviderID   *uuid.UUID
+	MessageID    *uuid.UUID
+	Status       string
+	Value        int64
+	SegmentCount int
+	Timestamp    time.Time
+	Metadata     map[string]interface{}
+	CreatedAt    time.Time
 }
 
 // MetricType представляет тип метрики

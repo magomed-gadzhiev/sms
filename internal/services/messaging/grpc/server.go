@@ -98,9 +98,10 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 	}
 
 	resp := &messagingv1.SendMessageResponse{
-		MessageId: msg.ID.String(),
-		Status:    string(msg.Status),
-		CreatedAt: timestamppb.New(msg.CreatedAt),
+		MessageId:    msg.ID.String(),
+		Status:       string(msg.Status),
+		CreatedAt:    timestamppb.New(msg.CreatedAt),
+		SegmentCount: int32(msg.SegmentCount),
 	}
 	if msg.ScheduledAt != nil {
 		resp.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
@@ -186,8 +187,9 @@ func (s *Server) SendBatch(ctx context.Context, req *messagingv1.SendBatchReques
 		if result.Success {
 			successCount++
 			protoResults[i] = &messagingv1.SendMessageResponse{
-				MessageId: result.MessageID.String(),
-				Status:    "queued",
+				MessageId:    result.MessageID.String(),
+				Status:       "queued",
+				SegmentCount: int32(result.SegmentCount),
 			}
 		} else {
 			failedCount++
@@ -242,6 +244,7 @@ func (s *Server) GetMessageStatus(ctx context.Context, req *messagingv1.GetMessa
 		Status:        string(msg.Status),
 		StatusMessage: msg.StatusMessage,
 		CreatedAt:     timestamppb.New(msg.CreatedAt),
+		SegmentCount:  int32(msg.SegmentCount),
 	}
 
 	if msg.SubmittedAt != nil {
@@ -258,6 +261,9 @@ func (s *Server) GetMessageStatus(ctx context.Context, req *messagingv1.GetMessa
 	}
 	if msg.ScheduledAt != nil {
 		response.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
+	}
+	if msg.ExpiredAt != nil {
+		response.ExpiredAt = timestamppb.New(*msg.ExpiredAt)
 	}
 
 	return response, nil
@@ -311,13 +317,14 @@ func (s *Server) GetMessageHistory(ctx context.Context, req *messagingv1.GetMess
 	protoMessages := make([]*messagingv1.MessageInfo, len(messages))
 	for i, msg := range messages {
 		protoMsg := &messagingv1.MessageInfo{
-			MessageId:  msg.ID.String(),
-			Source:     msg.Source,
-			Destination: msg.Destination,
-			Text:       msg.Text,
-			Status:     string(msg.Status),
-			ExternalId: msg.ExternalID,
-			CreatedAt:  timestamppb.New(msg.CreatedAt),
+			MessageId:    msg.ID.String(),
+			Source:       msg.Source,
+			Destination:  msg.Destination,
+			Text:         msg.Text,
+			Status:       string(msg.Status),
+			ExternalId:   msg.ExternalID,
+			CreatedAt:    timestamppb.New(msg.CreatedAt),
+			SegmentCount: int32(msg.SegmentCount),
 		}
 
 		if msg.ClientID != nil {
@@ -340,6 +347,9 @@ func (s *Server) GetMessageHistory(ctx context.Context, req *messagingv1.GetMess
 		}
 		if msg.ScheduledAt != nil {
 			protoMsg.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
+		}
+		if msg.ExpiredAt != nil {
+			protoMsg.ExpiredAt = timestamppb.New(*msg.ExpiredAt)
 		}
 
 		protoMessages[i] = protoMsg

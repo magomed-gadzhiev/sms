@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -413,6 +414,40 @@ func (r *MessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientI
 	}
 
 	return nil
+}
+
+// GetSentExpired fetches messages in "sent" status older than timeout (no DLR received)
+func (r *MessageRepository) GetSentExpired(ctx context.Context, timeout time.Duration, limit int) ([]*shared.Message, error) {
+	var messages []*shared.Message
+	cutoff := time.Now().Add(-timeout)
+	query := `SELECT * FROM messages
+		WHERE status = 'sent'
+		AND updated_at < $1
+		ORDER BY updated_at ASC
+		LIMIT $2
+		FOR UPDATE SKIP LOCKED`
+
+	err := r.db.SelectContext(ctx, &messages, query, cutoff, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
+
+// BulkUpdateStatusToExpired updates a batch of messages to expired status
+func (r *MessageRepository) BulkUpdateStatusToExpired(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	query := `UPDATE messages
+		SET status = 'expired', expired_at = $1, updated_at = $1
+		WHERE id = ANY($2)`
+
+	_, err := r.db.ExecContext(ctx, query, now, pq.Array(ids))
+	return err
 }
 
 // joinSetFields вспомогательная функция для объединения SET полей

@@ -77,6 +77,21 @@ worker:
   batch_timeout: 5s
   health_check_period: 30s
 
+scheduler:
+  interval: 10s
+  batch_size: 100
+  stuck_threshold: 5m
+
+dlr_expiry:
+  timeout: 24h        # Таймаут ожидания DLR перед переводом в статус expired
+  check_interval: 5m  # Интервал проверки истёкших сообщений
+  batch_size: 500      # Размер пакета для обработки
+
+data_retention:
+  messages_days: 90    # Срок хранения данных сообщений (дни)
+  audit_days: 365      # Срок хранения логов аудита (дни)
+  purge_interval: 24h  # Интервал запуска очистки
+
 monitoring:
   enabled: true
   prometheus:

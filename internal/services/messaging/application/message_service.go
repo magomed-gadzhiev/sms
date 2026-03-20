@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // MessageService предоставляет бизнес-логику для работы с сообщениями
@@ -86,6 +87,9 @@ func (s *MessageService) SendMessage(
 	// Определяем кодировку
 	msg.Encoding = domain.DetectEncoding(msg.Text)
 
+	// Подсчитываем количество сегментов
+	msg.SegmentCount = shared.CountSegments(msg.Text)
+
 	// Валидация
 	if err := s.validator.Validate(msg); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
@@ -98,10 +102,10 @@ func (s *MessageService) SendMessage(
 
 		// If scheduled_at is more than tolerance in the future → schedule it
 		if scheduledAt.After(time.Now().Add(tolerance)) {
-			// Validate: not more than 7 days ahead
-			maxSchedule := time.Now().Add(7 * 24 * time.Hour)
+			// Validate: not more than 30 days ahead
+			maxSchedule := time.Now().Add(30 * 24 * time.Hour)
 			if scheduledAt.After(maxSchedule) {
-				return nil, fmt.Errorf("scheduled_at cannot be more than 7 days in the future")
+				return nil, fmt.Errorf("scheduled_at cannot be more than 30 days in the future")
 			}
 
 			msg.MarkAsScheduled(scheduledAt)
@@ -191,8 +195,9 @@ func (s *MessageService) SendBatch(
 		}
 
 		results = append(results, &BatchResult{
-			Success:   true,
-			MessageID: msg.ID,
+			Success:      true,
+			MessageID:    msg.ID,
+			SegmentCount: msg.SegmentCount,
 		})
 	}
 
@@ -336,9 +341,10 @@ type SendMessageRequest struct {
 
 // BatchResult представляет результат обработки одного сообщения в пакете
 type BatchResult struct {
-	Success   bool
-	MessageID uuid.UUID
-	Error     string
+	Success      bool
+	MessageID    uuid.UUID
+	SegmentCount int
+	Error        string
 }
 
 // MessageHistoryFilters содержит фильтры для истории сообщений

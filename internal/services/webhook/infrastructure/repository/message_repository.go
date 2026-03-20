@@ -12,11 +12,12 @@ import (
 
 // MessageEnrichment contains fields needed to build webhook payload
 type MessageEnrichment struct {
-	ClientID    *uuid.UUID
-	ExternalID  string
-	Source      string
-	Destination string
-	SubmittedAt *time.Time
+	ClientID     *uuid.UUID
+	ExternalID   string
+	Source       string
+	Destination  string
+	SubmittedAt  *time.Time
+	SegmentCount int
 }
 
 type MessageRepository struct {
@@ -28,16 +29,17 @@ func NewMessageRepository(db *sqlx.DB) *MessageRepository {
 }
 
 func (r *MessageRepository) GetEnrichment(ctx context.Context, messageID uuid.UUID) (*MessageEnrichment, error) {
-	query := `SELECT client_id, external_id, source, destination, submitted_at
+	query := `SELECT client_id, external_id, source, destination, submitted_at, segment_count
 		FROM messages WHERE id = $1 LIMIT 1`
 
 	var clientID *uuid.UUID
 	var externalID sql.NullString
 	var source, destination string
 	var submittedAt sql.NullTime
+	var segmentCount int
 
 	err := r.db.QueryRowContext(ctx, query, messageID).Scan(
-		&clientID, &externalID, &source, &destination, &submittedAt,
+		&clientID, &externalID, &source, &destination, &submittedAt, &segmentCount,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil // message not found, caller handles this
@@ -47,9 +49,10 @@ func (r *MessageRepository) GetEnrichment(ctx context.Context, messageID uuid.UU
 	}
 
 	enrichment := &MessageEnrichment{
-		ClientID:    clientID,
-		Source:      source,
-		Destination: destination,
+		ClientID:     clientID,
+		Source:       source,
+		Destination:  destination,
+		SegmentCount: segmentCount,
 	}
 	if externalID.Valid {
 		enrichment.ExternalID = externalID.String

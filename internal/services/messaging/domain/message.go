@@ -41,6 +41,8 @@ type Message struct {
 	DeliveredAt       *time.Time
 	FailedAt          *time.Time
 	ScheduledAt       *time.Time
+	ExpiredAt         *time.Time
+	SegmentCount      int
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -98,11 +100,11 @@ func (m *Message) MarkAsFailed(reason string) {
 	m.UpdatedAt = now
 }
 
-// MarkAsExpired помечает сообщение как истекшее
+// MarkAsExpired помечает сообщение как истекшее (DLR timeout)
 func (m *Message) MarkAsExpired() {
 	m.Status = shared.MessageStatusExpired
 	now := time.Now()
-	m.FailedAt = &now
+	m.ExpiredAt = &now
 	m.UpdatedAt = now
 }
 
@@ -177,6 +179,8 @@ func (m *Message) ToShared() *shared.Message {
 		DeliveredAt:       m.DeliveredAt,
 		FailedAt:          m.FailedAt,
 		ScheduledAt:       m.ScheduledAt,
+		ExpiredAt:         m.ExpiredAt,
+		SegmentCount:      m.SegmentCount,
 		CreatedAt:         m.CreatedAt,
 		UpdatedAt:         m.UpdatedAt,
 	}
@@ -217,6 +221,8 @@ func MessageFromShared(msg *shared.Message) *Message {
 		DeliveredAt:       msg.DeliveredAt,
 		FailedAt:          msg.FailedAt,
 		ScheduledAt:       msg.ScheduledAt,
+		ExpiredAt:         msg.ExpiredAt,
+		SegmentCount:      msg.SegmentCount,
 		CreatedAt:         msg.CreatedAt,
 		UpdatedAt:         msg.UpdatedAt,
 	}

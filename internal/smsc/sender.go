@@ -27,50 +27,8 @@ func NewSender(pool *Pool) *Sender {
 	}
 }
 
-// SendMessage отправляет SMS сообщение через провайдера
-func (s *Sender) SendMessage(ctx context.Context, msg *shared.Message, provider *shared.Provider) (string, error) {
-	startTime := time.Now()
-	defer func() {
-		monitoring.SMPPProcessingDuration.WithLabelValues("send_to_provider").Observe(time.Since(startTime).Seconds())
-	}()
-
-	// Получаем соединение
-	conn, err := s.pool.GetConnection(provider.ID)
-	if err != nil {
-		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "connection_error").Inc()
-		return "", fmt.Errorf("ошибка получения соединения: %w", err)
-	}
-
-	// Проверяем throttling
-	if !conn.throttler.Allow() {
-		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "throttle_exceeded").Inc()
-		return "", fmt.Errorf("превышен лимит скорости для провайдера %s", provider.Name)
-	}
-
-	// Подготавливаем submit_sm PDU
-	submitSM := &smppprotocol.SubmitSMPDU{
-		ServiceType:          msg.ServiceType,
-		SourceAddrTON:        byte(msg.SourceAddrTON),
-		SourceAddrNPI:        byte(msg.SourceAddrNPI),
-		SourceAddr:           msg.Source,
-		DestAddrTON:          byte(msg.DestAddrTON),
-		DestAddrNPI:          byte(msg.DestAddrNPI),
-		DestinationAddr:      msg.Destination,
-		ESMClass:             byte(msg.ESMClass),
-		ProtocolID:           byte(msg.ProtocolID),
-		PriorityFlag:         byte(msg.PriorityFlag),
-		ScheduleDeliveryTime: "",
-		ValidityPeriod:       "",
-		RegisteredDelivery:   byte(msg.RegisteredDelivery),
-		ReplaceIfPresent:     byte(msg.ReplaceIfPresent),
-		DataCoding:           byte(msg.DataCoding),
-		SMDefaultMsgID:       0,
-		SMLength:             byte(len(msg.Text)),
-		ShortMessage:         []byte(msg.Text),
-		TLV:                  make(map[uint16][]byte),
-	}
-
-	// Кодируем submit_sm PDU
+// sendSinglePDU отправляет один submit_sm PDU и возвращает SMPP message ID
+func (s *Sender) sendSinglePDU(conn *Connection, submitSM *smppprotocol.SubmitSMPDU, provider *shared.Provider) (string, error) {
 	encoder := smppprotocol.NewEncoder()
 	body, err := encoder.EncodeSubmitSM(submitSM)
 	if err != nil {
@@ -140,17 +98,147 @@ func (s *Sender) SendMessage(ctx context.Context, msg *shared.Message, provider 
 		return "", fmt.Errorf("ошибка декодирования ответа submit_sm: %w", err)
 	}
 
+	return resp.MessageID, nil
+}
+
+// SendMessage отправляет SMS сообщение через провайдера
+func (s *Sender) SendMessage(ctx context.Context, msg *shared.Message, provider *shared.Provider) (string, error) {
+	startTime := time.Now()
+	defer func() {
+		monitoring.SMPPProcessingDuration.WithLabelValues("send_to_provider").Observe(time.Since(startTime).Seconds())
+	}()
+
+	// Получаем соединение
+	conn, err := s.pool.GetConnection(provider.ID)
+	if err != nil {
+		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "connection_error").Inc()
+		return "", fmt.Errorf("ошибка получения соединения: %w", err)
+	}
+
+	// Проверяем throttling
+	if !conn.throttler.Allow() {
+		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "throttle_exceeded").Inc()
+		return "", fmt.Errorf("превышен лимит скорости для провайдера %s", provider.Name)
+	}
+
+	// Проверяем, нужно ли разделять сообщение на сегменты
+	if msg.SegmentCount > 1 {
+		return s.sendMultipart(ctx, conn, msg, provider)
+	}
+
+	// Одиночное сообщение — отправляем как раньше
+	submitSM := &smppprotocol.SubmitSMPDU{
+		ServiceType:          msg.ServiceType,
+		SourceAddrTON:        byte(msg.SourceAddrTON),
+		SourceAddrNPI:        byte(msg.SourceAddrNPI),
+		SourceAddr:           msg.Source,
+		DestAddrTON:          byte(msg.DestAddrTON),
+		DestAddrNPI:          byte(msg.DestAddrNPI),
+		DestinationAddr:      msg.Destination,
+		ESMClass:             byte(msg.ESMClass),
+		ProtocolID:           byte(msg.ProtocolID),
+		PriorityFlag:         byte(msg.PriorityFlag),
+		ScheduleDeliveryTime: "",
+		ValidityPeriod:       "",
+		RegisteredDelivery:   byte(msg.RegisteredDelivery),
+		ReplaceIfPresent:     byte(msg.ReplaceIfPresent),
+		DataCoding:           byte(msg.DataCoding),
+		SMDefaultMsgID:       0,
+		SMLength:             byte(len(msg.Text)),
+		ShortMessage:         []byte(msg.Text),
+		TLV:                  make(map[uint16][]byte),
+	}
+
+	smppMsgID, err := s.sendSinglePDU(conn, submitSM, provider)
+	if err != nil {
+		return "", err
+	}
+
 	// Увеличиваем счетчик успешных отправок
 	monitoring.SMPPMessagesSent.WithLabelValues(provider.ID.String(), provider.Name, "success").Inc()
-	
+
 	// Обновляем throughput провайдера
 	monitoring.SMPPProviderThroughput.WithLabelValues(provider.ID.String(), provider.Name).Set(float64(provider.ThroughputPerSec))
 
 	s.logger.Debug().
 		Str("message_id", msg.ID.String()).
-		Str("smpp_message_id", resp.MessageID).
+		Str("smpp_message_id", smppMsgID).
 		Str("provider", provider.Name).
 		Msg("сообщение отправлено успешно")
 
-	return resp.MessageID, nil
+	return smppMsgID, nil
+}
+
+// sendMultipart отправляет многочастное SMS с UDH заголовками
+func (s *Sender) sendMultipart(ctx context.Context, conn *Connection, msg *shared.Message, provider *shared.Provider) (string, error) {
+	segments := shared.SplitMessage(msg.Text)
+	var firstMessageID string
+
+	for i, segment := range segments {
+		// Формируем ShortMessage с UDH-заголовком
+		var shortMessage []byte
+		if segment.UDH != nil {
+			shortMessage = append(segment.UDH, []byte(segment.Text)...)
+		} else {
+			shortMessage = []byte(segment.Text)
+		}
+
+		// ESMClass = 0x40 указывает на наличие UDH в ShortMessage
+		esmClass := byte(msg.ESMClass) | 0x40
+
+		submitSM := &smppprotocol.SubmitSMPDU{
+			ServiceType:          msg.ServiceType,
+			SourceAddrTON:        byte(msg.SourceAddrTON),
+			SourceAddrNPI:        byte(msg.SourceAddrNPI),
+			SourceAddr:           msg.Source,
+			DestAddrTON:          byte(msg.DestAddrTON),
+			DestAddrNPI:          byte(msg.DestAddrNPI),
+			DestinationAddr:      msg.Destination,
+			ESMClass:             esmClass,
+			ProtocolID:           byte(msg.ProtocolID),
+			PriorityFlag:         byte(msg.PriorityFlag),
+			ScheduleDeliveryTime: "",
+			ValidityPeriod:       "",
+			RegisteredDelivery:   byte(msg.RegisteredDelivery),
+			ReplaceIfPresent:     byte(msg.ReplaceIfPresent),
+			DataCoding:           byte(msg.DataCoding),
+			SMDefaultMsgID:       0,
+			SMLength:             byte(len(shortMessage)),
+			ShortMessage:         shortMessage,
+			TLV:                  make(map[uint16][]byte),
+		}
+
+		smppMsgID, err := s.sendSinglePDU(conn, submitSM, provider)
+		if err != nil {
+			monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "multipart_segment_error").Inc()
+			return firstMessageID, fmt.Errorf("ошибка отправки сегмента %d/%d: %w", i+1, len(segments), err)
+		}
+
+		// Сохраняем ID первого сегмента как основной ID сообщения
+		if i == 0 {
+			firstMessageID = smppMsgID
+		}
+
+		monitoring.SMPPMessagesSent.WithLabelValues(provider.ID.String(), provider.Name, "success").Inc()
+
+		s.logger.Debug().
+			Str("message_id", msg.ID.String()).
+			Str("smpp_message_id", smppMsgID).
+			Int("segment", i+1).
+			Int("total_segments", len(segments)).
+			Str("provider", provider.Name).
+			Msg("сегмент multipart SMS отправлен")
+	}
+
+	// Обновляем throughput провайдера
+	monitoring.SMPPProviderThroughput.WithLabelValues(provider.ID.String(), provider.Name).Set(float64(provider.ThroughputPerSec))
+
+	s.logger.Debug().
+		Str("message_id", msg.ID.String()).
+		Str("smpp_message_id", firstMessageID).
+		Int("segments", len(segments)).
+		Str("provider", provider.Name).
+		Msg("multipart SMS отправлено успешно")
+
+	return firstMessageID, nil
 }

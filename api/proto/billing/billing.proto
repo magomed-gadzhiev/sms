@@ -47,9 +47,10 @@ message GetBalanceResponse {
 message ChargeMessageRequest {
   string client_id = 1;           // ID клиента
   string message_id = 2;          // ID сообщения
-  string amount = 3;              // Сумма для списания
+  string amount = 3;              // Сумма за один сегмент
   string currency = 4;            // Валюта (по умолчанию "USD")
   string description = 5;         // Описание транзакции
+  int32 segment_count = 6;        // Количество сегментов (умножается на amount)
 }
 
 // ChargeMessageResponse представляет ответ на списание
@@ -149,6 +150,7 @@ message Transaction {
   string description = 8;         // Описание
   string message_id = 9;          // ID сообщения (если связано)
   google.protobuf.Timestamp created_at = 10; // Время создания
+  int32 segment_count = 11;       // Количество сегментов SMS
 }
 
 // PricingRule представляет правило тарификации

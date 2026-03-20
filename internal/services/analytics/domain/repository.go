@@ -62,6 +62,7 @@ type TotalStats struct {
 	TotalFailed         int64
 	TotalPending        int64
 	TotalQueued         int64
+	TotalSegments       int64
 	SuccessRate         int32
 	AvgDeliveryTimeMs   int64
 }

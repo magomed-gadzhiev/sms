@@ -53,6 +53,7 @@ message SendMessageResponse {
   string error = 3;               // Ошибка (если есть)
   google.protobuf.Timestamp created_at = 4;  // Время создания
   google.protobuf.Timestamp scheduled_at = 5; // Время запланированной отправки (опционально)
+  int32 segment_count = 6;        // Количество сегментов SMS
 }
 
 // SendBatchRequest представляет запрос на пакетную отправку SMS
@@ -88,6 +89,8 @@ message GetMessageStatusResponse {
   string error_code = 9;          // Код ошибки (опционально)
   string error_message = 10;      // Сообщение об ошибке (опционально)
   google.protobuf.Timestamp scheduled_at = 11; // Время запланированной отправки (опционально)
+  int32 segment_count = 12;       // Количество сегментов SMS
+  google.protobuf.Timestamp expired_at = 13;   // Время истечения DLR (опционально)
 }
 
 // GetMessageHistoryRequest представляет запрос на получение истории
@@ -142,6 +145,8 @@ message MessageInfo {
   string provider_id = 12;        // ID провайдера
   string route_id = 13;           // ID маршрута
   google.protobuf.Timestamp scheduled_at = 14; // Время запланированной отправки (опционально)
+  int32 segment_count = 15;       // Количество сегментов SMS
+  google.protobuf.Timestamp expired_at = 16;   // Время истечения DLR (опционально)
 }
 
 message CancelMessageRequest {
