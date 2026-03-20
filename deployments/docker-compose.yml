@@ -40,6 +40,7 @@ services:
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -62,6 +63,8 @@ services:
       billing-service:
         condition: service_healthy
       webhook-service:
+        condition: service_healthy
+      template-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -94,6 +97,7 @@ services:
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -116,6 +120,8 @@ services:
       billing-service:
         condition: service_healthy
       webhook-service:
+        condition: service_healthy
+      template-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -150,6 +156,7 @@ services:
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -174,6 +181,8 @@ services:
       billing-service:
         condition: service_healthy
       webhook-service:
+        condition: service_healthy
+      template-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -206,6 +215,7 @@ services:
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -230,6 +240,8 @@ services:
       billing-service:
         condition: service_healthy
       webhook-service:
+        condition: service_healthy
+      template-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -569,6 +581,37 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2119/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Template Service
+  template-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: template-service
+        SERVICE_PATH: cmd/services/template-service
+    container_name: template-service
+    ports:
+      - "9099:9099"
+      - "2120:2120"
+    environment:
+      - SERVICE_NAME=template-service
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2120/health"]
       interval: 10s
       timeout: 5s
       retries: 3

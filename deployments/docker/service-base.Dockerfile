@@ -24,7 +24,7 @@ COPY . .
 # Generate proto files - генерируем все proto файлы для совместимости
 RUN mkdir -p api/proto/authv1 api/proto/messagingv1 api/proto/routingv1 \
     api/proto/providerv1 api/proto/clientv1 api/proto/analyticsv1 api/proto/billingv1 \
-    api/proto/webhookv1 && mv api/proto/billingv1/billing/* api/proto/billingv1/ 2>/dev/null || true && rm -rf api/proto/billingv1/billing || true
+    api/proto/webhookv1 api/proto/templatev1 && mv api/proto/billingv1/billing/* api/proto/billingv1/ 2>/dev/null || true && rm -rf api/proto/billingv1/billing || true
 
 RUN protoc \
     --go_out=api/proto/authv1 \
@@ -106,6 +106,17 @@ RUN mkdir -p api/proto/webhookv1 && \
     api/proto/webhook/webhook.proto && \
     mv api/proto/webhookv1/webhook/* api/proto/webhookv1/ 2>/dev/null || true && \
     rm -rf api/proto/webhookv1/webhook || true
+
+RUN mkdir -p api/proto/templatev1 && \
+    protoc \
+    --go_out=api/proto/templatev1 \
+    --go_opt=paths=source_relative \
+    --go-grpc_out=api/proto/templatev1 \
+    --go-grpc_opt=paths=source_relative \
+    --proto_path=api/proto \
+    api/proto/template/template.proto && \
+    mv api/proto/templatev1/template/* api/proto/templatev1/ 2>/dev/null || true && \
+    rm -rf api/proto/templatev1/template || true
 
 # Обновление кеша пакетов после генерации proto файлов
 RUN go list -e ./api/proto/... > /dev/null 2>&1 || true
