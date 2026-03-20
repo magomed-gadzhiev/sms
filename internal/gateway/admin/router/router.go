@@ -17,6 +17,9 @@ func SetupRouter(
 	billingHandlers *handlers.BillingHandlers,
 	webhookHandlers *handlers.WebhookHandlers,
 	templateHandlers *handlers.TemplateHandlers,
+	countryHandlers *handlers.CountryHandler,
+	operatorHandlers *handlers.OperatorHandler,
+	tarificationHandlers *handlers.TarificationHandler,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -91,6 +94,38 @@ func SetupRouter(
 	templates.HandleFunc("/{id}/approve", templateHandlers.ApproveTemplate).Methods("POST")
 	templates.HandleFunc("/{id}/reject", templateHandlers.RejectTemplate).Methods("POST")
 	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAudit).Methods("GET")
+
+	// Country endpoints
+	countries := adminV1.PathPrefix("/countries").Subrouter()
+	countries.HandleFunc("", countryHandlers.CreateCountry).Methods("POST")
+	countries.HandleFunc("", countryHandlers.ListCountries).Methods("GET")
+	countries.HandleFunc("/{id}", countryHandlers.GetCountry).Methods("GET")
+	countries.HandleFunc("/{id}", countryHandlers.UpdateCountry).Methods("PUT")
+
+	// Operator endpoints
+	operators := adminV1.PathPrefix("/operators").Subrouter()
+	operators.HandleFunc("", operatorHandlers.CreateOperator).Methods("POST")
+	operators.HandleFunc("", operatorHandlers.ListOperators).Methods("GET")
+	operators.HandleFunc("/{id}", operatorHandlers.GetOperator).Methods("GET")
+	operators.HandleFunc("/{id}", operatorHandlers.UpdateOperator).Methods("PUT")
+	operators.HandleFunc("/{id}/prefixes", operatorHandlers.CreateOperatorPrefix).Methods("POST")
+	operators.HandleFunc("/{id}/prefixes", operatorHandlers.ListOperatorPrefixes).Methods("GET")
+	operators.HandleFunc("/{id}/prefixes/{prefix_id}", operatorHandlers.DeleteOperatorPrefix).Methods("DELETE")
+
+	// Tarification endpoints
+	tarification := adminV1.PathPrefix("/tarification").Subrouter()
+	tarification.HandleFunc("/sender-registrations", tarificationHandlers.CreateSenderRegistration).Methods("POST")
+	tarification.HandleFunc("/sender-registrations", tarificationHandlers.ListSenderRegistrations).Methods("GET")
+	tarification.HandleFunc("/sender-registrations/{id}", tarificationHandlers.UpdateSenderRegistration).Methods("PUT")
+	tarification.HandleFunc("/tariff-plans", tarificationHandlers.CreateTariffPlan).Methods("POST")
+	tarification.HandleFunc("/tariff-plans", tarificationHandlers.ListTariffPlans).Methods("GET")
+	tarification.HandleFunc("/tariff-plans/{id}", tarificationHandlers.UpdateTariffPlan).Methods("PUT")
+	tarification.HandleFunc("/tariff-periods", tarificationHandlers.CreateTariffPeriod).Methods("POST")
+	tarification.HandleFunc("/tariff-tiers", tarificationHandlers.CreateTariffTier).Methods("POST")
+	tarification.HandleFunc("/tariff-tiers/{id}", tarificationHandlers.UpdateTariffTier).Methods("PUT")
+	tarification.HandleFunc("/pricing-periods", tarificationHandlers.CreatePricingPeriod).Methods("POST")
+	tarification.HandleFunc("/prepaid-fees", tarificationHandlers.CreatePrepaidFee).Methods("POST")
+	tarification.HandleFunc("/usage", tarificationHandlers.ListUsageCounters).Methods("GET")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

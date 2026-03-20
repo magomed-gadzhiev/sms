@@ -86,12 +86,16 @@ func main() {
 	// Инициализация репозиториев
 	routeRepo := routingrepo.NewRouteRepository(dbx)
 	providerRepo := routingrepo.NewProviderRepository(dbx)
+	countryRepo := routingrepo.NewCountryRepository(dbx)
+	operatorRepo := routingrepo.NewOperatorRepository(dbx)
+	operatorPrefixRepo := routingrepo.NewOperatorPrefixRepository(dbx)
 
 	// Инициализация event publisher
 	eventPublisher := routingqueue.NewEventPublisher(kafkaProducer)
 
 	// Инициализация сервисов
 	routingService := routingapp.NewRoutingService(routeRepo, providerRepo, eventPublisher)
+	operatorResolver := routingapp.NewOperatorResolver(operatorPrefixRepo, operatorRepo, countryRepo)
 
 	// Создаем handler для обработки сообщений из очереди после создания routing service
 	messageHandler := func(ctx context.Context, kafkaMsg *queue.KafkaMessage) error {
@@ -173,7 +177,7 @@ func main() {
 	)
 
 	// Регистрация gRPC сервиса
-	routingGrpcServer := routinggrpc.NewServer(routingService)
+	routingGrpcServer := routinggrpc.NewServer(routingService, countryRepo, operatorRepo, operatorPrefixRepo, operatorResolver)
 	routingv1.RegisterRoutingServiceServer(grpcServer, routingGrpcServer)
 
 	// Включение reflection для разработки

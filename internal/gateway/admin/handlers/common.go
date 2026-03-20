@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -70,4 +71,17 @@ func respondGRPCError(w http.ResponseWriter, err error) {
 	}
 
 	respondError(w, appErr)
+}
+
+// parseIntParam извлекает целочисленный query-параметр с дефолтным значением
+func parseIntParam(r *http.Request, name string, defaultVal int32) int32 {
+	val := r.URL.Query().Get(name)
+	if val == "" {
+		return defaultVal
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultVal
+	}
+	return int32(n)
 }
