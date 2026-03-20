@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
@@ -19,21 +19,25 @@ import (
 // SMSHandlers содержит handlers для SMS операций
 type SMSHandlers struct {
 	messagingClient messagingv1.MessagingServiceClient
+	templateClient  templatev1.TemplateServiceClient
 }
 
 // NewSMSHandlers создает новый SMSHandlers
-func NewSMSHandlers(messagingClient messagingv1.MessagingServiceClient) *SMSHandlers {
+func NewSMSHandlers(messagingClient messagingv1.MessagingServiceClient, templateClient templatev1.TemplateServiceClient) *SMSHandlers {
 	return &SMSHandlers{
 		messagingClient: messagingClient,
+		templateClient:  templateClient,
 	}
 }
 
 // SendSMSRequest представляет запрос на отправку SMS
 type SendSMSRequest struct {
-	Source            string    `json:"source"`
-	Destination       string    `json:"destination"`
-	Text              string    `json:"text"`
-	ExternalID        string    `json:"external_id,omitempty"`
+	Source            string            `json:"source"`
+	Destination       string            `json:"destination"`
+	Text              string            `json:"text"`
+	TemplateID        string            `json:"template_id,omitempty"`
+	Variables         map[string]string `json:"variables,omitempty"`
+	ExternalID        string            `json:"external_id,omitempty"`
 	Priority          int32     `json:"priority,omitempty"`
 	RegisteredDelivery bool     `json:"registered_delivery,omitempty"`
 	ValidityPeriod    *time.Time `json:"validity_period,omitempty"`
@@ -61,9 +65,33 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Валидация
-	if req.Source == "" || req.Destination == "" || req.Text == "" {
-		respondError(w, shared.ErrInvalidInput("Поля source, destination и text обязательны"))
+	// Validate source and destination
+	if req.Source == "" || req.Destination == "" {
+		respondError(w, shared.ErrInvalidInput("Поля source и destination обязательны"))
 		return
+	}
+
+	// Resolve text: either from template or direct
+	text := req.Text
+	if req.TemplateID != "" && req.Text != "" {
+		respondError(w, shared.ErrInvalidInput("Нельзя указать одновременно text и template_id"))
+		return
+	}
+	if req.TemplateID == "" && req.Text == "" {
+		respondError(w, shared.ErrInvalidInput("Необходимо указать text или template_id"))
+		return
+	}
+	if req.TemplateID != "" {
+		renderResp, err := h.templateClient.RenderTemplate(r.Context(), &templatev1.RenderTemplateRequest{
+			TemplateId: req.TemplateID,
+			ClientId:   clientID.String(),
+			Variables:  req.Variables,
+		})
+		if err != nil {
+			respondGRPCError(w, err)
+			return
+		}
+		text = renderResp.RenderedText
 	}
 
 	// Преобразуем в proto запрос
@@ -71,7 +99,7 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		ClientId:          clientID.String(),
 		Source:            req.Source,
 		Destination:       req.Destination,
-		Text:              req.Text,
+		Text:              text,
 		ExternalId:        req.ExternalID,
 		Priority:          req.Priority,
 		RegisteredDelivery: req.RegisteredDelivery,
@@ -136,15 +164,33 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 	// Преобразуем в proto сообщения
 	protoMessages := make([]*messagingv1.SendMessageRequest, 0, len(req.Messages))
 	for _, msg := range req.Messages {
-		if msg.Source == "" || msg.Destination == "" || msg.Text == "" {
-			continue // Пропускаем невалидные сообщения
+		if msg.Source == "" || msg.Destination == "" {
+			continue
+		}
+		msgText := msg.Text
+		if msg.TemplateID != "" && msg.Text != "" {
+			continue // skip: mutually exclusive
+		}
+		if msg.TemplateID == "" && msg.Text == "" {
+			continue // skip: neither provided
+		}
+		if msg.TemplateID != "" {
+			renderResp, err := h.templateClient.RenderTemplate(r.Context(), &templatev1.RenderTemplateRequest{
+				TemplateId: msg.TemplateID,
+				ClientId:   clientID.String(),
+				Variables:  msg.Variables,
+			})
+			if err != nil {
+				continue // skip failed renders in batch
+			}
+			msgText = renderResp.RenderedText
 		}
 
 		protoMsg := &messagingv1.SendMessageRequest{
 			ClientId:          clientID.String(),
 			Source:            msg.Source,
 			Destination:       msg.Destination,
-			Text:              msg.Text,
+			Text:              msgText,
 			ExternalId:        msg.ExternalID,
 			Priority:          msg.Priority,
 			RegisteredDelivery: msg.RegisteredDelivery,

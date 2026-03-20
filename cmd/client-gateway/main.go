@@ -89,7 +89,7 @@ func main() {
 	healthChecker := monitoring.NewHealthChecker("client-gateway", cfg.Service.Version)
 
 	// Создание handlers
-	smsHandlers := handlers.NewSMSHandlers(serviceClients.MessagingClient)
+	smsHandlers := handlers.NewSMSHandlers(serviceClients.MessagingClient, serviceClients.TemplateClient)
 	accountHandlers := handlers.NewAccountHandlers(
 		serviceClients.BillingClient,
 		serviceClients.AnalyticsClient,
