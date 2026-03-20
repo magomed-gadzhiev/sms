@@ -72,7 +72,8 @@ func main() {
 		Messaging: getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
 		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
 		Billing:   getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Webhook:  getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Template: getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -94,6 +95,7 @@ func main() {
 		serviceClients.AnalyticsClient,
 	)
 	webhookHandlers := handlers.NewWebhookHandlers(serviceClients.WebhookClient)
+	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 
 	// Создание middleware
 	authMiddleware := clientmiddleware.ClientAuthMiddleware(serviceClients.AuthClient)
@@ -106,6 +108,7 @@ func main() {
 		smsHandlers,
 		accountHandlers,
 		webhookHandlers,
+		templateHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,

@@ -13,6 +13,7 @@ func SetupRouter(
 	smsHandlers *handlers.SMSHandlers,
 	accountHandlers *handlers.AccountHandlers,
 	webhookHandlers *handlers.WebhookHandlers,
+	templateHandlers *handlers.TemplateHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -49,6 +50,15 @@ func SetupRouter(
 	webhooks.HandleFunc("/{id}", webhookHandlers.GetWebhook).Methods("GET")
 	webhooks.HandleFunc("/{id}", webhookHandlers.UpdateWebhook).Methods("PUT")
 	webhooks.HandleFunc("/{id}", webhookHandlers.DeleteWebhook).Methods("DELETE")
+
+	// Template endpoints
+	templates := apiV1.PathPrefix("/templates").Subrouter()
+	templates.HandleFunc("", templateHandlers.CreateTemplate).Methods("POST")
+	templates.HandleFunc("", templateHandlers.ListTemplates).Methods("GET")
+	templates.HandleFunc("/{id}", templateHandlers.GetTemplate).Methods("GET")
+	templates.HandleFunc("/{id}", templateHandlers.UpdateTemplate).Methods("PUT")
+	templates.HandleFunc("/{id}", templateHandlers.DeleteTemplate).Methods("DELETE")
+	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAudit).Methods("GET")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")
