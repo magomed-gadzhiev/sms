@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -93,6 +94,29 @@ func main() {
 	messageService := application.NewMessageService(messageRepo, dlrRepo, eventPublisher)
 	dlrService := application.NewDLRService(messageRepo, dlrRepo, eventPublisher)
 
+	// Start scheduler for scheduled messages
+	schedulerInterval := 10 * time.Second
+	if intervalStr := os.Getenv("SCHEDULER_INTERVAL"); intervalStr != "" {
+		if d, err := time.ParseDuration(intervalStr); err == nil {
+			schedulerInterval = d
+		}
+	}
+	schedulerBatchSize := 100
+	if batchStr := os.Getenv("SCHEDULER_BATCH_SIZE"); batchStr != "" {
+		if n, err := strconv.Atoi(batchStr); err == nil && n > 0 {
+			schedulerBatchSize = n
+		}
+	}
+	stuckThreshold := 5 * time.Minute
+	if thresholdStr := os.Getenv("SCHEDULER_STUCK_THRESHOLD"); thresholdStr != "" {
+		if d, err := time.ParseDuration(thresholdStr); err == nil {
+			stuckThreshold = d
+		}
+	}
+
+	scheduler := application.NewScheduler(messageRepo, eventPublisher, schedulerInterval, schedulerBatchSize, stuckThreshold)
+	scheduler.Start()
+
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("messaging-service", cfg.Service.Version)
 	healthChecker.SetDatabase(dbConn.DB)
@@ -169,6 +193,10 @@ func main() {
 	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Остановка планировщика
+	scheduler.Stop()
+	logger.Info().Msg("scheduler остановлен")
 
 	// Остановка gRPC сервера
 	grpcServer.GracefulStop()
