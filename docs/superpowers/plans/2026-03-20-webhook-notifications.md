@@ -42,9 +42,11 @@
 |------|--------|
 | `internal/gateway/client/clients.go` | Add WebhookClient field + connection |
 | `internal/gateway/client/router/router.go` | Add webhookHandlers param + routes |
+| `internal/gateway/client/handlers/common.go` | Add `codes.ResourceExhausted` → HTTP 429 mapping |
 | `cmd/client-gateway/main.go` | Add WEBHOOK_SERVICE_ADDR, create webhook handlers |
 | `internal/gateway/admin/clients.go` | Add WebhookClient field + connection |
 | `internal/gateway/admin/router/router.go` | Add webhookHandlers param + routes |
+| `internal/gateway/admin/handlers/common.go` | Add `codes.ResourceExhausted` → HTTP 429 mapping |
 | `cmd/admin-gateway/main.go` | Add WEBHOOK_SERVICE_ADDR, create webhook handlers |
 | `deployments/docker-compose.yml` | Add webhook-service, add env vars to gateways |
 
@@ -146,7 +148,7 @@ message UpdateSubscriptionRequest {
   string client_id = 2;
   string url = 3;
   repeated string event_types = 4;
-  bool active = 5;
+  optional bool active = 5; // optional to distinguish "not sent" from "set to false"
 }
 
 message UpdateSubscriptionResponse {
@@ -726,15 +728,22 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/webhook/infrastructure/repository"
 )
 
-type WebhookService struct {
-	subRepo *repository.SubscriptionRepository
-	logger  zerolog.Logger
+// CacheInvalidator allows WebhookService to invalidate the delivery cache on CRUD ops
+type CacheInvalidator interface {
+	InvalidateCache(clientID uuid.UUID)
 }
 
-func NewWebhookService(subRepo *repository.SubscriptionRepository) *WebhookService {
+type WebhookService struct {
+	subRepo          *repository.SubscriptionRepository
+	cacheInvalidator CacheInvalidator
+	logger           zerolog.Logger
+}
+
+func NewWebhookService(subRepo *repository.SubscriptionRepository, cacheInvalidator CacheInvalidator) *WebhookService {
 	return &WebhookService{
-		subRepo: subRepo,
-		logger:  log.With().Str("component", "webhook-service").Logger(),
+		subRepo:          subRepo,
+		cacheInvalidator: cacheInvalidator,
+		logger:           log.With().Str("component", "webhook-service").Logger(),
 	}
 }
 
@@ -780,6 +789,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, clientID uuid.U
 	if err != nil {
 		return nil, err
 	}
+	s.cacheInvalidator.InvalidateCache(clientID)
 	// Preserve the secret for the response (repo returns it but caller needs it)
 	created.Secret = secret
 	return created, nil
@@ -835,12 +845,17 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, id, clientID uu
 	if err != nil {
 		return nil, err
 	}
+	s.cacheInvalidator.InvalidateCache(clientID)
 	updated.Secret = ""
 	return updated, nil
 }
 
 func (s *WebhookService) DeleteSubscription(ctx context.Context, id, clientID uuid.UUID) error {
-	return s.subRepo.Delete(ctx, id, clientID)
+	if err := s.subRepo.Delete(ctx, id, clientID); err != nil {
+		return err
+	}
+	s.cacheInvalidator.InvalidateCache(clientID)
+	return nil
 }
 ```
 
@@ -866,6 +881,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -901,6 +917,16 @@ var (
 		Name: "webhook_delivery_failed",
 		Help: "Webhooks that exhausted all retries",
 	}, []string{"event_type"})
+
+	workerPoolSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "webhook_worker_pool_size",
+		Help: "Current worker pool utilization",
+	})
+
+	subscriptionsTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "webhook_subscriptions_total",
+		Help: "Active subscriptions count",
+	})
 )
 
 var retryBackoff = []time.Duration{15 * time.Second, 30 * time.Second, 1 * time.Minute, 5 * time.Minute, 15 * time.Minute}
@@ -1025,21 +1051,29 @@ func (ds *DeliveryService) HandleDLR(ctx context.Context, dlr *queue.DLRMessage)
 		return nil
 	}
 
+	// Prefer enriched values from DB (always populated); DLR fields may be empty (omitempty)
+	source := enrichment.Source
+	if source == "" {
+		source = dlr.Source
+	}
+	destination := enrichment.Destination
+	if destination == "" {
+		destination = dlr.Destination
+	}
+
 	event := &domain.WebhookEvent{
 		EventID:   uuid.New().String(),
 		EventType: eventType,
 		Timestamp: time.Now(),
 		Data: domain.EventData{
 			MessageID:   dlr.MessageID.String(),
-			Source:      dlr.Source,
-			Destination: dlr.Destination,
+			ExternalID:  enrichment.ExternalID,
+			Source:      source,
+			Destination: destination,
 			Status:      eventType,
 		},
 	}
 
-	if enrichment.ExternalID != "" {
-		event.Data.ExternalID = enrichment.ExternalID
-	}
 	if enrichment.SubmittedAt != nil {
 		event.Data.SubmittedAt = enrichment.SubmittedAt
 	}
@@ -1153,14 +1187,19 @@ func (ds *DeliveryService) getSubscriptions(ctx context.Context, clientID uuid.U
 	return subs, nil
 }
 
+// InvalidateCache removes cached subscriptions for a client (called by WebhookService on CRUD)
+func (ds *DeliveryService) InvalidateCache(clientID uuid.UUID) {
+	ds.cacheMu.Lock()
+	delete(ds.cache, clientID)
+	ds.cacheMu.Unlock()
+}
+
 // Close drains the worker pool
 func (ds *DeliveryService) Close() {
 	close(ds.workCh)
 	ds.wg.Wait()
 }
 ```
-
-Note: add `"fmt"` to imports (used in retry logging).
 
 - [ ] **Step 2: Commit**
 
@@ -1184,6 +1223,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -1288,8 +1328,9 @@ func (s *Server) UpdateSubscription(ctx context.Context, req *webhookv1.UpdateSu
 		urlPtr = &req.Url
 	}
 	var activePtr *bool
-	// Proto3: bool default is false, so we pass it if explicitly set
-	activePtr = &req.Active
+	if req.Active != nil {
+		activePtr = req.Active
+	}
 
 	var eventTypes []string
 	if len(req.EventTypes) > 0 {
@@ -1338,14 +1379,14 @@ func (s *Server) parseIDs(idStr, clientIDStr string) (uuid.UUID, uuid.UUID, erro
 }
 
 func (s *Server) mapError(err error) error {
-	switch err {
-	case domain.ErrSubscriptionNotFound:
+	switch {
+	case errors.Is(err, domain.ErrSubscriptionNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case domain.ErrMaxSubscriptionsReached:
+	case errors.Is(err, domain.ErrMaxSubscriptionsReached):
 		return status.Error(codes.ResourceExhausted, err.Error())
-	case domain.ErrInvalidURL:
+	case errors.Is(err, domain.ErrInvalidURL):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case domain.ErrInvalidEventType:
+	case errors.Is(err, domain.ErrInvalidEventType):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		s.logger.Error().Err(err).Msg("internal error")
@@ -1464,8 +1505,8 @@ func main() {
 	httpClient := webhookhttp.NewDeliveryClient(5 * time.Second)
 
 	// Application services
-	webhookService := application.NewWebhookService(subRepo)
 	deliveryService := application.NewDeliveryService(subRepo, msgRepo, httpClient, 50)
+	webhookService := application.NewWebhookService(subRepo, deliveryService)
 	defer deliveryService.Close()
 
 	// Kafka consumer
@@ -1774,7 +1815,18 @@ func subscriptionToMap(sub *webhookv1.SubscriptionInfo) map[string]interface{} {
 }
 ```
 
-- [ ] **Step 2: Add WebhookClient to client gateway ServiceClients**
+- [ ] **Step 2: Add `codes.ResourceExhausted` to respondGRPCError**
+
+In both `internal/gateway/client/handlers/common.go` and `internal/gateway/admin/handlers/common.go`, add a case to the `respondGRPCError` switch:
+
+```go
+	case codes.ResourceExhausted:
+		appErr = &shared.AppError{Code: "TOO_MANY_REQUESTS", Message: st.Message(), HTTPStatus: http.StatusTooManyRequests}
+```
+
+Add this after the `codes.AlreadyExists` case.
+
+- [ ] **Step 3: Add WebhookClient to client gateway ServiceClients**
 
 In `internal/gateway/client/clients.go`, add:
 - Import `webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"`
@@ -1782,7 +1834,7 @@ In `internal/gateway/client/clients.go`, add:
 - Field `Webhook string` in `ServiceAddresses`
 - Connection block for Webhook (same pattern as Billing)
 
-- [ ] **Step 3: Add webhook routes to client router**
+- [ ] **Step 4: Add webhook routes to client router**
 
 In `internal/gateway/client/router/router.go`:
 - Add `webhookHandlers *handlers.WebhookHandlers` parameter to `SetupRouter`
@@ -1798,17 +1850,18 @@ webhooks.HandleFunc("/{id}", webhookHandlers.UpdateWebhook).Methods("PUT")
 webhooks.HandleFunc("/{id}", webhookHandlers.DeleteWebhook).Methods("DELETE")
 ```
 
-- [ ] **Step 4: Update client-gateway main.go**
+- [ ] **Step 5: Update client-gateway main.go**
 
 In `cmd/client-gateway/main.go`:
 - Add `Webhook` to `serviceAddresses`: `Webhook: getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098")`
 - Create webhook handlers: `webhookHandlers := handlers.NewWebhookHandlers(serviceClients.WebhookClient)`
 - Pass to `clientrouter.SetupRouter(..., webhookHandlers)`
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add internal/gateway/client/handlers/webhooks.go \
+  internal/gateway/client/handlers/common.go \
   internal/gateway/client/clients.go \
   internal/gateway/client/router/router.go \
   cmd/client-gateway/main.go
@@ -2132,7 +2185,15 @@ ls api/proto/webhookv1/
 
 If generated files don't exist yet, generate them now.
 
-- [ ] **Step 2: Verify Go build**
+- [ ] **Step 2: Update Go module dependencies**
+
+```bash
+go mod tidy
+```
+
+Expected: `go.mod` and `go.sum` updated with any new dependencies (e.g., `github.com/lib/pq` for `pq.StringArray`).
+
+- [ ] **Step 3: Verify Go build**
 
 ```bash
 go build ./...
@@ -2140,7 +2201,7 @@ go build ./...
 
 Expected: no compilation errors.
 
-- [ ] **Step 3: Verify go vet**
+- [ ] **Step 4: Verify go vet**
 
 ```bash
 go vet ./...
@@ -2148,11 +2209,11 @@ go vet ./...
 
 Expected: no issues.
 
-- [ ] **Step 4: Fix any issues found**
+- [ ] **Step 5: Fix any issues found**
 
 Address any compilation or vet errors.
 
-- [ ] **Step 5: Commit fixes if any**
+- [ ] **Step 6: Commit fixes if any**
 
 ```bash
 git add -A
