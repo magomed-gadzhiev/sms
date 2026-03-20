@@ -14,6 +14,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/providerv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
 
 // ServiceClients содержит gRPC клиенты для всех сервисов
@@ -24,7 +25,8 @@ type ServiceClients struct {
 	RoutingClient   routingv1.RoutingServiceClient
 	AnalyticsClient analyticsv1.AnalyticsServiceClient
 	BillingClient   billingv1.BillingServiceClient
-	
+	WebhookClient   webhookv1.WebhookServiceClient
+
 	conns []*grpc.ClientConn
 }
 
@@ -36,6 +38,7 @@ type ServiceAddresses struct {
 	Routing   string
 	Analytics string
 	Billing   string
+	Webhook   string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -113,7 +116,18 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		clients.BillingClient = billingv1.NewBillingServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
-	
+
+	// Подключение к Webhook Service
+	if addresses.Webhook != "" {
+		conn, err := grpc.Dial(addresses.Webhook, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Webhook Service: %w", err)
+		}
+		clients.WebhookClient = webhookv1.NewWebhookServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
 	return clients, nil
 }
 

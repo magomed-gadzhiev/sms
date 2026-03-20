@@ -5,7 +5,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/handlers"
-	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 )
 
@@ -16,6 +15,7 @@ func SetupRouter(
 	routingHandlers *handlers.RoutingHandlers,
 	analyticsHandlers *handlers.AnalyticsHandlers,
 	billingHandlers *handlers.BillingHandlers,
+	webhookHandlers *handlers.WebhookHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -74,6 +74,14 @@ func SetupRouter(
 	billing.HandleFunc("/transactions", billingHandlers.GetTransactionHistory).Methods("GET")
 	billing.HandleFunc("/pricing-rules", billingHandlers.GetPricingRules).Methods("GET")
 	billing.HandleFunc("/pricing-rules", billingHandlers.CreatePricingRule).Methods("POST")
+
+	// Webhook endpoints
+	webhooks := adminV1.PathPrefix("/webhooks").Subrouter()
+	webhooks.HandleFunc("", webhookHandlers.CreateWebhook).Methods("POST")
+	webhooks.HandleFunc("", webhookHandlers.ListWebhooks).Methods("GET")
+	webhooks.HandleFunc("/{id}", webhookHandlers.GetWebhook).Methods("GET")
+	webhooks.HandleFunc("/{id}", webhookHandlers.UpdateWebhook).Methods("PUT")
+	webhooks.HandleFunc("/{id}", webhookHandlers.DeleteWebhook).Methods("DELETE")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")
