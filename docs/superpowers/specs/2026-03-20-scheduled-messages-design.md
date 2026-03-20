@@ -172,9 +172,17 @@ Add `ScheduledAt *time.Time` to both `SendMessageOptions` and internal `SendMess
 
 ### Event publishing behavior for scheduled messages
 
-- `PublishMessageCreated` → YES (message exists in DB)
-- `PublishMessageQueued` → NO (not yet in Kafka queue)
-- When scheduler picks up and transitions to pending → `PublishMessageQueued` fires normally
+**IMPORTANT:** The current `PublishMessageCreated` implementation publishes to `sms.outgoing` (the delivery queue). For scheduled messages, we must NOT call `PublishMessageCreated` — it would push the message into the delivery pipeline immediately, defeating scheduling.
+
+- `PublishMessageCreated` → **NO** for scheduled messages (publishes to delivery queue)
+- `PublishMessageQueued` → **NO** (not yet in Kafka queue)
+- When scheduler picks up and transitions to pending → normal flow: `PublishMessageCreated` + `PublishMessageQueued` fire as usual
+
+### Transaction infrastructure note
+
+The scheduler requires atomic DB-update-then-Kafka-publish with rollback. The current repository layer does not expose transaction handles. The implementation will need to either:
+- Add a `BeginTx` / unit-of-work pattern to the repository, or
+- Use a simpler approach: update status to `pending` first, publish to Kafka, and if publish fails, update back to `scheduled` (two separate operations, not a true transaction). This is acceptable because the stuck-message recovery mechanism handles the edge case where status is `pending` but Kafka publish never succeeded.
 
 ### Changes to message repository
 
