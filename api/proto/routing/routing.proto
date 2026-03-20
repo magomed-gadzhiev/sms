@@ -25,6 +25,26 @@ service RoutingService {
   
   // ListRoutes получает список правил маршрутизации
   rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+
+  // Управление странами
+  rpc CreateCountry(CreateCountryRequest) returns (Country);
+  rpc GetCountry(GetCountryRequest) returns (Country);
+  rpc ListCountries(ListCountriesRequest) returns (ListCountriesResponse);
+  rpc UpdateCountry(UpdateCountryRequest) returns (Country);
+
+  // Управление операторами
+  rpc CreateOperator(CreateOperatorRequest) returns (Operator);
+  rpc GetOperator(GetOperatorRequest) returns (Operator);
+  rpc ListOperators(ListOperatorsRequest) returns (ListOperatorsResponse);
+  rpc UpdateOperator(UpdateOperatorRequest) returns (Operator);
+
+  // Управление префиксами операторов
+  rpc CreateOperatorPrefix(CreateOperatorPrefixRequest) returns (OperatorPrefix);
+  rpc ListOperatorPrefixes(ListOperatorPrefixesRequest) returns (ListOperatorPrefixesResponse);
+  rpc DeleteOperatorPrefix(DeleteOperatorPrefixRequest) returns (DeleteOperatorPrefixResponse);
+
+  // Определение оператора по номеру
+  rpc ResolveOperator(ResolveOperatorRequest) returns (ResolveOperatorResponse);
 }
 
 // GetRouteRequest представляет запрос на получение маршрута
@@ -124,4 +144,152 @@ message RouteInfo {
   map<string, string> metadata = 9;  // Дополнительные метаданные
   google.protobuf.Timestamp created_at = 10;  // Время создания
   google.protobuf.Timestamp updated_at = 11;  // Время обновления
+}
+
+// Country представляет страну
+message Country {
+  string id = 1;                              // ID страны
+  string name = 2;                            // Название страны
+  string iso_code = 3;                        // ISO-код страны
+  string phone_code = 4;                      // Телефонный код страны
+  string currency = 5;                        // Валюта страны
+  google.protobuf.Timestamp created_at = 6;   // Время создания
+  google.protobuf.Timestamp updated_at = 7;   // Время обновления
+}
+
+// CreateCountryRequest представляет запрос на создание страны
+message CreateCountryRequest {
+  string name = 1;                            // Название страны
+  string iso_code = 2;                        // ISO-код страны
+  string phone_code = 3;                      // Телефонный код страны
+  string currency = 4;                        // Валюта страны
+}
+
+// GetCountryRequest представляет запрос на получение страны
+message GetCountryRequest {
+  string id = 1;                              // ID страны
+}
+
+// ListCountriesRequest представляет запрос на получение списка стран
+message ListCountriesRequest {
+  int32 limit = 1;                            // Лимит записей
+  int32 offset = 2;                           // Смещение для пагинации
+}
+
+// ListCountriesResponse представляет ответ со списком стран
+message ListCountriesResponse {
+  repeated Country countries = 1;             // Список стран
+  int32 total = 2;                            // Общее количество
+}
+
+// UpdateCountryRequest представляет запрос на обновление страны
+message UpdateCountryRequest {
+  string id = 1;                              // ID страны
+  string name = 2;                            // Название страны
+  string iso_code = 3;                        // ISO-код страны
+  string phone_code = 4;                      // Телефонный код страны
+  string currency = 5;                        // Валюта страны
+}
+
+// Operator представляет мобильного оператора
+message Operator {
+  string id = 1;                              // ID оператора
+  string country_id = 2;                      // ID страны
+  string name = 3;                            // Название оператора
+  string code = 4;                            // Код оператора
+  bool supports_paid_sender = 5;              // Поддержка платного отправителя
+  bool supports_free_sender = 6;              // Поддержка бесплатного отправителя
+  bool active = 7;                            // Активен ли оператор
+  google.protobuf.Timestamp created_at = 8;   // Время создания
+  google.protobuf.Timestamp updated_at = 9;   // Время обновления
+}
+
+// CreateOperatorRequest представляет запрос на создание оператора
+message CreateOperatorRequest {
+  string country_id = 1;                      // ID страны
+  string name = 2;                            // Название оператора
+  string code = 3;                            // Код оператора
+  bool supports_paid_sender = 4;              // Поддержка платного отправителя
+  bool supports_free_sender = 5;              // Поддержка бесплатного отправителя
+}
+
+// GetOperatorRequest представляет запрос на получение оператора
+message GetOperatorRequest {
+  string id = 1;                              // ID оператора
+}
+
+// ListOperatorsRequest представляет запрос на получение списка операторов
+message ListOperatorsRequest {
+  string country_id = 1;                      // ID страны (фильтр)
+  bool active_only = 2;                       // Только активные операторы
+  int32 limit = 3;                            // Лимит записей
+  int32 offset = 4;                           // Смещение для пагинации
+}
+
+// ListOperatorsResponse представляет ответ со списком операторов
+message ListOperatorsResponse {
+  repeated Operator operators = 1;            // Список операторов
+  int32 total = 2;                            // Общее количество
+}
+
+// UpdateOperatorRequest представляет запрос на обновление оператора
+message UpdateOperatorRequest {
+  string id = 1;                              // ID оператора
+  string name = 2;                            // Название оператора
+  string code = 3;                            // Код оператора
+  bool supports_paid_sender = 4;              // Поддержка платного отправителя
+  bool supports_free_sender = 5;              // Поддержка бесплатного отправителя
+  bool active = 6;                            // Активен ли оператор
+}
+
+// OperatorPrefix представляет префикс номера оператора
+message OperatorPrefix {
+  string id = 1;                              // ID префикса
+  string operator_id = 2;                     // ID оператора
+  string prefix = 3;                          // Префикс номера
+  int32 priority = 4;                         // Приоритет префикса
+  google.protobuf.Timestamp created_at = 5;   // Время создания
+}
+
+// CreateOperatorPrefixRequest представляет запрос на создание префикса оператора
+message CreateOperatorPrefixRequest {
+  string operator_id = 1;                     // ID оператора
+  string prefix = 2;                          // Префикс номера
+  int32 priority = 3;                         // Приоритет префикса
+}
+
+// ListOperatorPrefixesRequest представляет запрос на получение префиксов оператора
+message ListOperatorPrefixesRequest {
+  string operator_id = 1;                     // ID оператора
+}
+
+// ListOperatorPrefixesResponse представляет ответ со списком префиксов оператора
+message ListOperatorPrefixesResponse {
+  repeated OperatorPrefix prefixes = 1;       // Список префиксов
+}
+
+// DeleteOperatorPrefixRequest представляет запрос на удаление префикса оператора
+message DeleteOperatorPrefixRequest {
+  string id = 1;                              // ID префикса
+}
+
+// DeleteOperatorPrefixResponse представляет ответ на удаление префикса оператора
+message DeleteOperatorPrefixResponse {
+  bool success = 1;                           // Успешность операции
+}
+
+// ResolveOperatorRequest представляет запрос на определение оператора по номеру
+message ResolveOperatorRequest {
+  string phone_number = 1;                    // Номер телефона
+  bool use_mnp = 2;                           // Использовать MNP (перенос номера)
+}
+
+// ResolveOperatorResponse представляет ответ с информацией об определённом операторе
+message ResolveOperatorResponse {
+  string operator_id = 1;                     // ID оператора
+  string country_id = 2;                      // ID страны
+  string operator_code = 3;                   // Код оператора
+  string country_code = 4;                    // Код страны
+  string currency = 5;                        // Валюта
+  string resolved_by = 6;                     // Метод определения (prefix, mnp)
 }
