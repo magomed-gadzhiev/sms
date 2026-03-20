@@ -790,6 +790,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, clientID uuid.U
 		return nil, err
 	}
 	s.cacheInvalidator.InvalidateCache(clientID)
+	subscriptionsTotal.Inc()
 	// Preserve the secret for the response (repo returns it but caller needs it)
 	created.Secret = secret
 	return created, nil
@@ -855,6 +856,7 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, id, clientID uu
 		return err
 	}
 	s.cacheInvalidator.InvalidateCache(clientID)
+	subscriptionsTotal.Dec()
 	return nil
 }
 ```
@@ -985,7 +987,9 @@ func NewDeliveryService(
 func (ds *DeliveryService) worker() {
 	defer ds.wg.Done()
 	for job := range ds.workCh {
+		workerPoolSize.Inc()
 		ds.deliverWithRetry(job.sub, job.event, 0)
+		workerPoolSize.Dec()
 	}
 }
 
@@ -1755,20 +1759,24 @@ func (h *WebhookHandlers) UpdateWebhook(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		URL        string   `json:"url"`
 		EventTypes []string `json:"event_types"`
-		Active     bool     `json:"active"`
+		Active     *bool    `json:"active,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
 
-	resp, err := h.webhookClient.UpdateSubscription(r.Context(), &webhookv1.UpdateSubscriptionRequest{
+	grpcReq := &webhookv1.UpdateSubscriptionRequest{
 		Id:         id,
 		ClientId:   clientID.String(),
 		Url:        req.URL,
 		EventTypes: req.EventTypes,
-		Active:     req.Active,
-	})
+	}
+	if req.Active != nil {
+		grpcReq.Active = req.Active
+	}
+
+	resp, err := h.webhookClient.UpdateSubscription(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -1997,7 +2005,7 @@ func (h *WebhookHandlers) UpdateWebhook(w http.ResponseWriter, r *http.Request) 
 		ClientID   string   `json:"client_id"`
 		URL        string   `json:"url"`
 		EventTypes []string `json:"event_types"`
-		Active     bool     `json:"active"`
+		Active     *bool    `json:"active,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
@@ -2008,13 +2016,17 @@ func (h *WebhookHandlers) UpdateWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := h.webhookClient.UpdateSubscription(r.Context(), &webhookv1.UpdateSubscriptionRequest{
+	grpcReq := &webhookv1.UpdateSubscriptionRequest{
 		Id:         id,
 		ClientId:   req.ClientID,
 		Url:        req.URL,
 		EventTypes: req.EventTypes,
-		Active:     req.Active,
-	})
+	}
+	if req.Active != nil {
+		grpcReq.Active = req.Active
+	}
+
+	resp, err := h.webhookClient.UpdateSubscription(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
