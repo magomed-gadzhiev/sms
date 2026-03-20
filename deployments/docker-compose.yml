@@ -39,6 +39,7 @@ services:
       - MESSAGING_SERVICE_ADDR=messaging-service:9092
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -59,6 +60,8 @@ services:
       analytics-service:
         condition: service_healthy
       billing-service:
+        condition: service_healthy
+      webhook-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -90,6 +93,7 @@ services:
       - MESSAGING_SERVICE_ADDR=messaging-service:9092
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -110,6 +114,8 @@ services:
       analytics-service:
         condition: service_healthy
       billing-service:
+        condition: service_healthy
+      webhook-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -143,6 +149,7 @@ services:
       - ROUTING_SERVICE_ADDR=routing-service:9093
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -165,6 +172,8 @@ services:
       analytics-service:
         condition: service_healthy
       billing-service:
+        condition: service_healthy
+      webhook-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -196,6 +205,7 @@ services:
       - ROUTING_SERVICE_ADDR=routing-service:9093
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -218,6 +228,8 @@ services:
       analytics-service:
         condition: service_healthy
       billing-service:
+        condition: service_healthy
+      webhook-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -313,7 +325,7 @@ services:
         SERVICE_PATH: cmd/services/messaging-service
     container_name: messaging-service
     ports:
-      - "9092:9092"  # gRPC
+      - "19092:9092"  # gRPC (избегаем конфликт с Kafka на порту 9092)
       - "2113:2113"  # Metrics
     environment:
       - SERVICE_NAME=messaging-service
@@ -526,6 +538,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  # Webhook Service
+  webhook-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        - SERVICE_NAME=webhook-service
+    container_name: sms-webhook-service
+    ports:
+      - "9098:9098"
+      - "2119:2119"
+    environment:
+      - SERVICE_NAME=webhook-service
+      - SERVICE_ENV=development
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=sms_user
+      - DATABASE_PASSWORD=sms_password
+      - DATABASE_NAME=sms_platform
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - smpp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2119/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Zookeeper (required for Kafka)
   zookeeper:
