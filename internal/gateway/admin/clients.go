@@ -14,6 +14,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/providerv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	"github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
@@ -27,7 +28,8 @@ type ServiceClients struct {
 	AnalyticsClient analyticsv1.AnalyticsServiceClient
 	BillingClient   billingv1.BillingServiceClient
 	WebhookClient   webhookv1.WebhookServiceClient
-	TemplateClient  templatev1.TemplateServiceClient
+	TemplateClient       templatev1.TemplateServiceClient
+	TarificationClient   tarificationv1.TarificationServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -41,7 +43,8 @@ type ServiceAddresses struct {
 	Analytics string
 	Billing   string
 	Webhook   string
-	Template  string
+	Template       string
+	Tarification   string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -139,6 +142,17 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Template Service: %w", err)
 		}
 		clients.TemplateClient = templatev1.NewTemplateServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Tarification Service
+	if addresses.Tarification != "" {
+		conn, err := grpc.Dial(addresses.Tarification, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Tarification Service: %w", err)
+		}
+		clients.TarificationClient = tarificationv1.NewTarificationServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
