@@ -34,11 +34,11 @@ func (r *MessageRepository) Create(ctx context.Context, msg *shared.Message) err
 			source_addr_ton, source_addr_npi, dest_addr_ton, dest_addr_npi,
 			status, status_message, provider_id, route_id, client_id,
 			retry_count, max_retries, next_retry_at, smpp_message_id,
-			submitted_at, delivered_at, failed_at, created_at, updated_at
+			submitted_at, delivered_at, failed_at, created_at, updated_at, scheduled_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
 			$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-			$29, $30, $31, $32, $33
+			$29, $30, $31, $32, $33, $34
 		)
 	`
 
@@ -50,7 +50,7 @@ func (r *MessageRepository) Create(ctx context.Context, msg *shared.Message) err
 		msg.DestAddrTON, msg.DestAddrNPI, msg.Status, msg.StatusMessage,
 		msg.ProviderID, msg.RouteID, msg.ClientID, msg.RetryCount, msg.MaxRetries,
 		msg.NextRetryAt, msg.SMPPMessageID, msg.SubmittedAt, msg.DeliveredAt,
-		msg.FailedAt, msg.CreatedAt, msg.UpdatedAt,
+		msg.FailedAt, msg.CreatedAt, msg.UpdatedAt, msg.ScheduledAt,
 	)
 
 	return err
@@ -352,6 +352,64 @@ func (r *MessageRepository) IncrementRetryCount(ctx context.Context, id uuid.UUI
 
 	if rowsAffected == 0 {
 		return ErrNotFound
+	}
+
+	return nil
+}
+
+// GetScheduledReady fetches messages ready for scheduled delivery
+func (r *MessageRepository) GetScheduledReady(ctx context.Context, limit int) ([]*shared.Message, error) {
+	var messages []*shared.Message
+	query := `SELECT * FROM messages
+		WHERE status = 'scheduled'
+		AND scheduled_at <= NOW()
+		AND created_at >= NOW() - INTERVAL '7 days'
+		ORDER BY scheduled_at ASC
+		LIMIT $1
+		FOR UPDATE SKIP LOCKED`
+
+	err := r.db.SelectContext(ctx, &messages, query, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
+
+// GetStuckPending fetches messages stuck in pending with scheduled_at set
+func (r *MessageRepository) GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*shared.Message, error) {
+	var messages []*shared.Message
+	thresholdTime := time.Now().Add(-threshold)
+	query := `SELECT * FROM messages
+		WHERE status = 'pending'
+		AND scheduled_at IS NOT NULL
+		AND updated_at < $1
+		AND created_at >= NOW() - INTERVAL '7 days'
+		ORDER BY updated_at ASC
+		LIMIT $2
+		FOR UPDATE SKIP LOCKED`
+
+	err := r.db.SelectContext(ctx, &messages, query, thresholdTime, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
+
+// CancelByIDAndStatus atomically cancels a scheduled message
+func (r *MessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientID uuid.UUID) error {
+	query := `UPDATE messages SET status = 'cancelled', updated_at = NOW()
+		WHERE id = $1 AND client_id = $2 AND status = 'scheduled'`
+
+	result, err := r.db.ExecContext(ctx, query, id, clientID)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("message not found or not in scheduled status")
 	}
 
 	return nil

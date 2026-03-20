@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -114,4 +115,39 @@ func (r *MessageRepository) GetPendingForRetry(ctx context.Context, limit int) (
 	}
 
 	return messages, nil
+}
+
+// GetScheduledReady fetches scheduled messages ready for delivery
+func (r *MessageRepository) GetScheduledReady(ctx context.Context, limit int) ([]*domain.Message, error) {
+	sharedMessages, err := r.repo.GetScheduledReady(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	messages := make([]*domain.Message, len(sharedMessages))
+	for i, sm := range sharedMessages {
+		messages[i] = domain.MessageFromShared(sm)
+	}
+
+	return messages, nil
+}
+
+// GetStuckPending fetches stuck pending messages for recovery
+func (r *MessageRepository) GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*domain.Message, error) {
+	sharedMessages, err := r.repo.GetStuckPending(ctx, threshold, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	messages := make([]*domain.Message, len(sharedMessages))
+	for i, sm := range sharedMessages {
+		messages[i] = domain.MessageFromShared(sm)
+	}
+
+	return messages, nil
+}
+
+// CancelByIDAndStatus cancels a scheduled message
+func (r *MessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientID uuid.UUID) error {
+	return r.repo.CancelByIDAndStatus(ctx, id, clientID)
 }
