@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
@@ -13,7 +14,7 @@ import (
 // PricingService предоставляет бизнес-логику для тарификации
 type PricingService struct {
 	pricingRepo domain.PricingRuleRepository
-	logger      log.Logger
+	logger      zerolog.Logger
 }
 
 // NewPricingService создает новый сервис тарификации

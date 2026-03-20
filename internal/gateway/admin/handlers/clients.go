@@ -8,9 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -123,14 +120,32 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var name, email, contactPerson, phone string
+	var active bool
+	if req.Name != nil {
+		name = *req.Name
+	}
+	if req.Email != nil {
+		email = *req.Email
+	}
+	if req.ContactPerson != nil {
+		contactPerson = *req.ContactPerson
+	}
+	if req.Phone != nil {
+		phone = *req.Phone
+	}
+	if req.Active != nil {
+		active = *req.Active
+	}
+
 	grpcReq := &clientv1.UpdateClientRequest{
-		ClientId:     clientID,
-		Name:         req.Name,
-		Email:        req.Email,
-		ContactPerson: req.ContactPerson,
-		Phone:        req.Phone,
-		Active:       req.Active,
-		Metadata:     req.Metadata,
+		ClientId:      clientID,
+		Name:          name,
+		Email:         email,
+		ContactPerson: contactPerson,
+		Phone:         phone,
+		Active:        active,
+		Metadata:      req.Metadata,
 	}
 
 	resp, err := h.clientClient.UpdateClient(r.Context(), grpcReq)

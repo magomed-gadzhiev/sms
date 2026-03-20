@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -222,7 +221,7 @@ func (s *Server) GetProviderHealth(ctx context.Context, req *providerv1.GetProvi
 		return nil, status.Error(codes.InvalidArgument, "invalid provider_id")
 	}
 
-	provider, err := s.providerService.GetProvider(ctx, providerID)
+	_, err = s.providerService.GetProvider(ctx, providerID)
 	if err != nil {
 		if err == domain.ErrProviderNotFound {
 			return nil, status.Error(codes.NotFound, "provider not found")
@@ -257,13 +256,13 @@ func (s *Server) GetProviderHealth(ctx context.Context, req *providerv1.GetProvi
 	healthStatus := health.CalculateStatus()
 
 	resp := &providerv1.GetProviderHealthResponse{
-		ProviderId:        providerID.String(),
-		Status:            string(healthStatus),
-		ActiveConnections: int32(activeConnections),
-		TotalConnections:  int32(totalConnections),
-		SuccessRate:       successRate,
-		MessagesSent24H:   health.MessagesSent24h,
-		MessagesFailed24H: health.MessagesFailed24h,
+		ProviderId:         providerID.String(),
+		Status:             string(healthStatus),
+		ActiveConnections:  int32(activeConnections),
+		TotalConnections:   int32(totalConnections),
+		SuccessRate:        successRate,
+		MessagesSent_24H:   health.MessagesSent24h,
+		MessagesFailed_24H: health.MessagesFailed24h,
 	}
 
 	// Добавляем LastSuccess и LastFailure если они есть

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/analytics/domain"
 )
@@ -24,12 +23,6 @@ func NewAggregationService(metricRepo domain.MetricRepository) *AggregationServi
 // AggregateMetrics агрегирует метрики за период
 func (s *AggregationService) AggregateMetrics(ctx context.Context, period string, from, to time.Time) error {
 	// Получаем агрегированные метрики из таблицы messages
-	filters := &domain.AggregateFilters{
-		Period:      period,
-		PeriodStart: from,
-		PeriodEnd:   to,
-	}
-
 	// Для простоты реализации, агрегируем данные напрямую из messages таблицы
 	// В реальной системе это должно делаться через отдельный процесс/worker
 

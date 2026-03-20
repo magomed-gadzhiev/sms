@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -13,7 +12,6 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/internal/services/client/application"
 	"github.com/smpp-server/smpp-server/internal/services/client/domain"
-	clientrepo "github.com/smpp-server/smpp-server/internal/services/client/infrastructure/repository"
 )
 
 // Server реализует gRPC сервис для управления клиентами

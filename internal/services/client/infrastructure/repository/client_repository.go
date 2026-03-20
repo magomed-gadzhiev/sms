@@ -3,12 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/client/domain"
 	"github.com/smpp-server/smpp-server/internal/shared/database"

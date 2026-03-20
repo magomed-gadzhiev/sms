@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	apiBaseURL = "http://localhost:8080"
+	apiBaseURL = "http://localhost:18080"
 	apiKey     = "test-api-key"
 )
 

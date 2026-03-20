@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/config"
-	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
 
 // EventPublisher реализует domain.EventPublisher
@@ -17,7 +17,7 @@ type EventPublisher struct {
 	producer sarama.SyncProducer
 	topicBalance    string
 	topicTransaction string
-	logger   log.Logger
+	logger   zerolog.Logger
 }
 
 // NewEventPublisher создает новый publisher событий биллинга

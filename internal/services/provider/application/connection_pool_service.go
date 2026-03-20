@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/provider/domain"
 )
@@ -50,11 +51,7 @@ type SendMessageParams struct {
 type SMPPConnectionPool struct {
 	pool   SMPPPool
 	mu     sync.RWMutex
-	logger interface {
-		Info() *log.Event
-		Error() *log.Event
-		Debug() *log.Event
-	}
+	logger zerolog.Logger
 }
 
 // SMPPPool интерфейс для существующего smsc.Pool

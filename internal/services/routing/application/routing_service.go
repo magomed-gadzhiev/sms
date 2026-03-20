@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
 )
@@ -15,7 +16,7 @@ type RoutingService struct {
 	providerRepo domain.ProviderRepository
 	eventPublisher domain.EventPublisher
 	selectors    map[domain.LoadBalanceStrategy]ProviderSelector
-	logger       log.Logger
+	logger       zerolog.Logger
 }
 
 // NewRoutingService создает новый сервис маршрутизации

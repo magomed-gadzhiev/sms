@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -124,16 +123,41 @@ func (h *ProviderHandlers) UpdateProvider(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var name, host, systemID, password string
+	var port, maxConnections int32
+	var active bool
+	if req.Name != nil {
+		name = *req.Name
+	}
+	if req.Host != nil {
+		host = *req.Host
+	}
+	if req.Port != nil {
+		port = *req.Port
+	}
+	if req.SystemID != nil {
+		systemID = *req.SystemID
+	}
+	if req.Password != nil {
+		password = *req.Password
+	}
+	if req.MaxConnections != nil {
+		maxConnections = *req.MaxConnections
+	}
+	if req.Active != nil {
+		active = *req.Active
+	}
+
 	grpcReq := &providerv1.UpdateProviderRequest{
-		ProviderId:    providerID,
-		Name:          req.Name,
-		Host:          req.Host,
-		Port:          req.Port,
-		SystemId:      req.SystemID,
-		Password:      req.Password,
-		MaxConnections: req.MaxConnections,
-		Active:        req.Active,
-		Settings:      req.Settings,
+		ProviderId:     providerID,
+		Name:           name,
+		Host:           host,
+		Port:           port,
+		SystemId:       systemID,
+		Password:       password,
+		MaxConnections: maxConnections,
+		Active:         active,
+		Settings:       req.Settings,
 	}
 
 	resp, err := h.providerClient.UpdateProvider(r.Context(), grpcReq)
@@ -188,15 +212,17 @@ func (h *ProviderHandlers) GetProviderHealth(w http.ResponseWriter, r *http.Requ
 		ActiveConnections: int(resp.ActiveConnections),
 		TotalConnections:  int(resp.TotalConnections),
 		SuccessRate:       int(resp.SuccessRate),
-		MessagesSent24h:   resp.MessagesSent24H,
-		MessagesFailed24h: resp.MessagesFailed24H,
+		MessagesSent24h:   resp.MessagesSent_24H,
+		MessagesFailed24h: resp.MessagesFailed_24H,
 	}
-	
+
 	if resp.LastSuccess != nil {
-		health.LastSuccess = resp.LastSuccess.AsTime()
+		t := resp.LastSuccess.AsTime()
+		health.LastSuccess = &t
 	}
 	if resp.LastFailure != nil {
-		health.LastFailure = resp.LastFailure.AsTime()
+		t := resp.LastFailure.AsTime()
+		health.LastFailure = &t
 	}
 	if resp.LastError != "" {
 		health.LastError = &resp.LastError

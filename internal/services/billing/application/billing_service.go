@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
@@ -15,7 +16,7 @@ type BillingService struct {
 	accountRepo     domain.AccountRepository
 	transactionRepo domain.TransactionRepository
 	eventPublisher  domain.EventPublisher
-	logger          log.Logger
+	logger          zerolog.Logger
 }
 
 // NewBillingService создает новый сервис биллинга

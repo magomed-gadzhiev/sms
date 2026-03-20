@@ -100,47 +100,11 @@ func main() {
 
 	// Создаем обработчики событий для DLR (доставленных сообщений)
 	dlrHandler := func(ctx context.Context, dlr *queue.DLRMessage) error {
-		// Обрабатываем только доставленные сообщения для тарификации
-		if dlr.Stat == "DELIVRD" {
-			if dlr.ClientID == nil {
-				logger.Warn().
-					Str("message_id", dlr.MessageID.String()).
-					Msg("DLR без client_id, пропускаем")
-				return nil
-			}
-
-			// Получаем цену для сообщения
-			price, currency, err := pricingService.GetPriceForDestination(ctx, dlr.ClientID, dlr.Destination)
-			if err != nil {
-				logger.Error().Err(err).
-					Str("message_id", dlr.MessageID.String()).
-					Msg("ошибка получения цены для сообщения")
-				return err
-			}
-
-			// Списываем средства
-			_, err = billingService.ChargeMessage(
-				ctx,
-				*dlr.ClientID,
-				dlr.MessageID,
-				price,
-				currency,
-				fmt.Sprintf("Charge for delivered message to %s", dlr.Destination),
-			)
-			if err != nil {
-				logger.Error().Err(err).
-					Str("message_id", dlr.MessageID.String()).
-					Str("client_id", dlr.ClientID.String()).
-					Msg("ошибка списания средств за доставленное сообщение")
-				return err
-			}
-
-			logger.Info().
-				Str("message_id", dlr.MessageID.String()).
-				Str("client_id", dlr.ClientID.String()).
-				Str("amount", price).
-				Msg("средства списаны за доставленное сообщение")
-		}
+		// DLRMessage не содержит ClientID - биллинг по DLR не реализован
+		logger.Debug().
+			Str("message_id", dlr.MessageID.String()).
+			Str("stat", dlr.Stat).
+			Msg("DLR получен")
 		return nil
 	}
 
@@ -173,8 +137,6 @@ func main() {
 
 	// Запуск Kafka consumers для обработки событий
 	go func() {
-		ctx := context.Background()
-
 		// Обрабатываем DLR (доставленные сообщения) для тарификации
 		if err := kafkaConsumer.ConsumeDLR(); err != nil {
 			logger.Error().Err(err).Msg("ошибка запуска consumer для DLR сообщений")

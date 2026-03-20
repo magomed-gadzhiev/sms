@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 // RealtimeMetrics представляет метрики в реальном времени

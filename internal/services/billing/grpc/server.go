@@ -2,10 +2,9 @@ package grpc
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,7 +20,7 @@ type Server struct {
 	billingv1.UnimplementedBillingServiceServer
 	billingService *application.BillingService
 	pricingService *application.PricingService
-	logger         log.Logger
+	logger         zerolog.Logger
 }
 
 // NewServer создает новый gRPC сервер для Billing Service

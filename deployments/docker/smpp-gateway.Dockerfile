@@ -24,12 +24,11 @@ RUN protoc \
     --go-grpc_out=api/proto/authv1 \
     --go-grpc_opt=paths=source_relative \
     --proto_path=api/proto \
-    api/proto/auth/auth.proto
+    api/proto/auth/auth.proto && \
+    mv api/proto/authv1/auth/* api/proto/authv1/ 2>/dev/null || true && \
+    rm -rf api/proto/authv1/auth
 
-# Update dependencies
-RUN go mod tidy
-
-# Build the application
+# Собираем приложение
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o smpp-gateway ./cmd/smpp-gateway
 
 # Final stage

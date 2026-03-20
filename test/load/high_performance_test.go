@@ -14,9 +14,7 @@ import (
 )
 
 const (
-	apiBaseURL = "http://localhost:8080"
-	apiKey     = "test-api-key"
-	targetTPS  = 10000 // Цель: 10,000 сообщений в секунду
+	targetTPS = 10000 // Цель: 10,000 сообщений в секунду
 )
 
 // TestHighPerformanceLoad тест для достижения 10K сообщений/сек

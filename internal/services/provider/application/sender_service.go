@@ -3,13 +3,11 @@ package application
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/provider/domain"
 	"github.com/smpp-server/smpp-server/internal/shared"
-	"github.com/smpp-server/smpp-server/internal/smsc"
 )
 
 // SMSCSender интерфейс для smsc.Sender
@@ -20,11 +18,7 @@ type SMSCSender interface {
 // SenderService предоставляет сервис для отправки сообщений через провайдеров
 type SenderService struct {
 	sender SMSCSender
-	logger interface {
-		Info() *log.Event
-		Error() *log.Event
-		Debug() *log.Event
-	}
+	logger zerolog.Logger
 }
 
 // NewSenderService создает новый сервис отправителя

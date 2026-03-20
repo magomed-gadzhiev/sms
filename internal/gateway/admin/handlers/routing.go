@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -128,16 +127,38 @@ func (h *RoutingHandlers) UpdateRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var name, pattern, loadBalanceStrategy string
+	var priority int32
+	var failoverEnabled, active bool
+	if req.Name != nil {
+		name = *req.Name
+	}
+	if req.Pattern != nil {
+		pattern = *req.Pattern
+	}
+	if req.Priority != nil {
+		priority = *req.Priority
+	}
+	if req.LoadBalanceStrategy != nil {
+		loadBalanceStrategy = *req.LoadBalanceStrategy
+	}
+	if req.FailoverEnabled != nil {
+		failoverEnabled = *req.FailoverEnabled
+	}
+	if req.Active != nil {
+		active = *req.Active
+	}
+
 	grpcReq := &routingv1.UpdateRouteRequest{
-		RouteId:            routeID,
-		Name:               req.Name,
-		Pattern:            req.Pattern,
-		Priority:           req.Priority,
-		ProviderIds:        req.ProviderIDs,
-		LoadBalanceStrategy: req.LoadBalanceStrategy,
-		FailoverEnabled:    req.FailoverEnabled,
-		Active:             req.Active,
-		Metadata:           req.Metadata,
+		RouteId:             routeID,
+		Name:                name,
+		Pattern:             pattern,
+		Priority:            priority,
+		ProviderIds:         req.ProviderIDs,
+		LoadBalanceStrategy: loadBalanceStrategy,
+		FailoverEnabled:     failoverEnabled,
+		Active:              active,
+		Metadata:            req.Metadata,
 	}
 
 	resp, err := h.routingClient.UpdateRoute(r.Context(), grpcReq)
@@ -247,7 +268,7 @@ func routeInfoToResponse(route *routingv1.RouteInfo) RouteInfo {
 		Name:                route.Name,
 		Pattern:             route.Pattern,
 		Priority:            route.Priority,
-		ProviderIds:         route.ProviderIds,
+		ProviderIDs:         route.ProviderIds,
 		LoadBalanceStrategy: route.LoadBalanceStrategy,
 		FailoverEnabled:     route.FailoverEnabled,
 		Active:              route.Active,

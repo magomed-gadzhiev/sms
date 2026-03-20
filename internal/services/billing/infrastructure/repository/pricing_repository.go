@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -177,7 +176,7 @@ func (r *PricingRuleRepository) GetMatchingRule(ctx context.Context, clientID *u
 		}
 	}
 
-	return nil, ErrPricingRuleNotFound
+	return nil, domain.ErrPricingRuleNotFound
 }
 
 // Update обновляет правило

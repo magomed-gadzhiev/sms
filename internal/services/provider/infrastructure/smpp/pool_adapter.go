@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/services/provider/application"
@@ -22,11 +23,7 @@ type PoolAdapter struct {
 	sender            *smsc.Sender
 	providerConnCount map[uuid.UUID]int // отслеживаем количество соединений для каждого провайдера
 	mu                sync.RWMutex
-	logger            interface {
-		Info() *log.Event
-		Error() *log.Event
-		Debug() *log.Event
-	}
+	logger            zerolog.Logger
 }
 
 // GetSender возвращает smsc.Sender для использования в SenderService

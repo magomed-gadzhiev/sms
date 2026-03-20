@@ -174,8 +174,6 @@ func main() {
 
 	// Запуск Kafka consumers для обработки событий
 	go func() {
-		ctx := context.Background()
-
 		// Запускаем потребление из всех нужных топиков
 		if err := kafkaConsumer.ConsumeOutgoing(); err != nil {
 			logger.Error().Err(err).Msg("ошибка запуска consumer для outgoing сообщений")

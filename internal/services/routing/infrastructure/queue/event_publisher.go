@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/queue"
-	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
 )
 
 // EventPublisher реализует domain.EventPublisher

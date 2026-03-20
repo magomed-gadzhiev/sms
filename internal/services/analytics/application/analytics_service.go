@@ -2,11 +2,9 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/analytics/domain"
 )
 
@@ -84,6 +82,6 @@ func (s *AnalyticsService) createMetric(metricType domain.MetricType, status str
 		}
 	}
 
-	metricTime := time.Unix(timestamp, 0)
+	_ = time.Unix(timestamp, 0)
 	return domain.NewMetric(metricType, status, 1, clientUUID, providerUUID, messageUUID)
 }

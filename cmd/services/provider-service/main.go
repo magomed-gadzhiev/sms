@@ -79,7 +79,7 @@ func main() {
 
 	// Инициализация соединений к активным провайдерам (мигрировано из worker)
 	ctx := context.Background()
-	providers, err := providerRepo.List(ctx, true, 1000, 0)
+	providers, _, err := providerRepo.List(ctx, true, 1000, 0)
 	if err == nil && len(providers) > 0 {
 		logger.Info().Int("count", len(providers)).Msg("инициализация соединений к провайдерам")
 		for _, provider := range providers {

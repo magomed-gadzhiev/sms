@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -210,7 +209,8 @@ func (s *Server) CreateAPIKey(ctx context.Context, req *authv1.CreateAPIKeyReque
 
 	var expiresAt *time.Time
 	if req.ExpiresAt != nil {
-		expiresAt = &req.ExpiresAt.AsTime()
+		t := req.ExpiresAt.AsTime()
+		expiresAt = &t
 	}
 
 	key, apiKey, err := s.authService.CreateAPIKey(ctx, userID, req.Name, expiresAt, req.Scopes)

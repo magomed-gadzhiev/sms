@@ -126,10 +126,9 @@ func (s *TokenService) ValidateToken(tokenString string) (*TokenClaims, error) {
 	})
 
 	if err != nil {
-		if ve, ok := err.(*jwt.ValidationError); ok {
-			if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				return nil, ErrExpiredToken
-			}
+		// В jwt/v5 используем errors.Is для проверки типа ошибки
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrExpiredToken
 		}
 		return nil, ErrInvalidToken
 	}
