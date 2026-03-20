@@ -37,6 +37,7 @@ func SetupRouter(
 	sms.HandleFunc("/batch", smsHandlers.SendBatch).Methods("POST")
 	sms.HandleFunc("/status/{id}", smsHandlers.GetStatus).Methods("GET")
 	sms.HandleFunc("/history", smsHandlers.GetHistory).Methods("GET")
+	sms.HandleFunc("/{id}", smsHandlers.CancelSMS).Methods("DELETE")
 
 	// Account endpoints
 	account := apiV1.PathPrefix("/account").Subrouter()

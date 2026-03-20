@@ -47,6 +47,7 @@ type SendSMSRequest struct {
 	DestAddrTON       int32     `json:"dest_addr_ton,omitempty"`
 	DestAddrNPI       int32     `json:"dest_addr_npi,omitempty"`
 	DataCoding        int32     `json:"data_coding,omitempty"`
+	ScheduledAt       *time.Time `json:"scheduled_at,omitempty"`
 }
 
 // SendSMS обрабатывает запрос на отправку одного SMS
@@ -114,6 +115,9 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 	if req.ValidityPeriod != nil {
 		protoReq.ValidityPeriod = timestamppb.New(*req.ValidityPeriod)
 	}
+	if req.ScheduledAt != nil {
+		protoReq.ScheduledAt = timestamppb.New(*req.ScheduledAt)
+	}
 
 	// Вызываем Messaging Service
 	resp, err := h.messagingClient.SendMessage(r.Context(), protoReq)
@@ -132,13 +136,17 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 	if resp.Error != "" {
 		response["error"] = resp.Error
 	}
+	if resp.ScheduledAt != nil {
+		response["scheduled_at"] = resp.ScheduledAt.AsTime()
+	}
 
 	respondJSON(w, http.StatusOK, response)
 }
 
 // SendBatchSMSRequest представляет запрос на пакетную отправку SMS
 type SendBatchSMSRequest struct {
-	Messages []SendSMSRequest `json:"messages"`
+	Messages    []SendSMSRequest `json:"messages"`
+	ScheduledAt *time.Time       `json:"scheduled_at,omitempty"`
 }
 
 // SendBatch обрабатывает запрос на пакетную отправку SMS
@@ -213,6 +221,9 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 	protoReq := &messagingv1.SendBatchRequest{
 		ClientId:  clientID.String(),
 		Messages:  protoMessages,
+	}
+	if req.ScheduledAt != nil {
+		protoReq.ScheduledAt = timestamppb.New(*req.ScheduledAt)
 	}
 
 	resp, err := h.messagingClient.SendBatch(r.Context(), protoReq)
@@ -409,4 +420,31 @@ func (h *SMSHandlers) GetHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, response)
+}
+
+// CancelSMS отменяет запланированное сообщение
+func (h *SMSHandlers) CancelSMS(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	vars := mux.Vars(r)
+	messageID := vars["id"]
+	if messageID == "" {
+		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
+		return
+	}
+
+	_, err := h.messagingClient.CancelMessage(r.Context(), &messagingv1.CancelMessageRequest{
+		MessageId: messageID,
+		ClientId:  clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
