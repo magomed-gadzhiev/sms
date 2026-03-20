@@ -40,6 +40,7 @@ type Message struct {
 	SubmittedAt       *time.Time
 	DeliveredAt       *time.Time
 	FailedAt          *time.Time
+	ScheduledAt       *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -114,6 +115,19 @@ func (m *Message) MarkAsRejected(reason string) {
 	m.UpdatedAt = now
 }
 
+// MarkAsScheduled marks the message as scheduled for future delivery
+func (m *Message) MarkAsScheduled(scheduledAt time.Time) {
+	m.Status = shared.MessageStatusScheduled
+	m.ScheduledAt = &scheduledAt
+	m.UpdatedAt = time.Now()
+}
+
+// MarkAsCancelled marks a scheduled message as cancelled
+func (m *Message) MarkAsCancelled() {
+	m.Status = shared.MessageStatusCancelled
+	m.UpdatedAt = time.Now()
+}
+
 // IncrementRetry увеличивает счетчик попыток
 func (m *Message) IncrementRetry(nextRetryAt time.Time) {
 	m.RetryCount++
@@ -162,6 +176,7 @@ func (m *Message) ToShared() *shared.Message {
 		SubmittedAt:       m.SubmittedAt,
 		DeliveredAt:       m.DeliveredAt,
 		FailedAt:          m.FailedAt,
+		ScheduledAt:       m.ScheduledAt,
 		CreatedAt:         m.CreatedAt,
 		UpdatedAt:         m.UpdatedAt,
 	}
@@ -201,6 +216,7 @@ func MessageFromShared(msg *shared.Message) *Message {
 		SubmittedAt:       msg.SubmittedAt,
 		DeliveredAt:       msg.DeliveredAt,
 		FailedAt:          msg.FailedAt,
+		ScheduledAt:       msg.ScheduledAt,
 		CreatedAt:         msg.CreatedAt,
 		UpdatedAt:         msg.UpdatedAt,
 	}

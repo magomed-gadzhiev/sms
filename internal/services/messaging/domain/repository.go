@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -17,6 +18,9 @@ type MessageRepository interface {
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string, statusMessage string) error
 	GetByClientID(ctx context.Context, clientID uuid.UUID, limit, offset int, status *string) ([]*Message, error)
 	GetPendingForRetry(ctx context.Context, limit int) ([]*Message, error)
+	GetScheduledReady(ctx context.Context, limit int) ([]*Message, error)
+	GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*Message, error)
+	CancelByIDAndStatus(ctx context.Context, id uuid.UUID, clientID uuid.UUID) error
 }
 
 // DLRRepository определяет интерфейс репозитория DLR receipts
