@@ -54,8 +54,22 @@
 -- Add scheduled_at column to messages table
 ALTER TABLE messages ADD COLUMN scheduled_at TIMESTAMPTZ;
 
--- Update CHECK constraint to include 'scheduled' and 'cancelled' statuses
-ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_status_check;
+-- Drop existing CHECK constraint (name may vary: messages_status_check or messages_check)
+-- Use DO block to find and drop it dynamically
+DO $$
+DECLARE
+    constraint_name TEXT;
+BEGIN
+    SELECT conname INTO constraint_name
+    FROM pg_constraint
+    WHERE conrelid = 'messages'::regclass AND contype = 'c' AND conname LIKE '%status%'
+    LIMIT 1;
+    IF constraint_name IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE messages DROP CONSTRAINT ' || constraint_name;
+    END IF;
+END $$;
+
+-- Re-create with new statuses
 ALTER TABLE messages ADD CONSTRAINT messages_status_check
     CHECK (status IN ('pending', 'queued', 'sent', 'delivered', 'failed', 'expired', 'rejected', 'scheduled', 'cancelled'));
 
@@ -118,6 +132,11 @@ Add `scheduled_at` field to `SendMessageResponse` (field 5):
 Add `scheduled_at` field to `GetMessageStatusResponse` (field 11):
 ```protobuf
   google.protobuf.Timestamp scheduled_at = 11; // Время запланированной отправки
+```
+
+Add `scheduled_at` field to `MessageInfo` (field 14):
+```protobuf
+  google.protobuf.Timestamp scheduled_at = 14; // Время запланированной отправки
 ```
 
 Add new messages at the end of the file:
@@ -226,8 +245,11 @@ In `internal/services/messaging/domain/repository.go`, add to the `MessageReposi
 
 ```go
 GetScheduledReady(ctx context.Context, limit int) ([]*Message, error)
+GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*Message, error)
 CancelByIDAndStatus(ctx context.Context, id uuid.UUID, clientID uuid.UUID) error
 ```
+
+Add `"time"` to imports if not present.
 
 - [ ] **Step 3: Verify build**
 
@@ -255,11 +277,12 @@ git commit -m "feat(scheduled): add ScheduledAt to domain model and new repo int
 - [ ] **Step 1: Update storage layer Create method**
 
 In `internal/storage/message_repository.go`, modify the `Create` method:
-- Add `scheduled_at` to the column list in the INSERT query (after `failed_at`)
-- Add `$34` placeholder
-- Add `msg.ScheduledAt` to the ExecContext args
+- Add `scheduled_at` at the END of the column list (after `updated_at`), not in the middle
+- Add `$34` as the last placeholder in VALUES
+- Add `msg.ScheduledAt` as the last arg in ExecContext
+- This avoids shifting existing placeholder numbers ($1-$33 stay the same)
 
-Also add a new method to the storage layer:
+Also add new methods to the storage layer:
 ```go
 // GetScheduledReady fetches messages ready for scheduled delivery
 func (r *MessageRepository) GetScheduledReady(ctx context.Context, limit int) ([]*shared.Message, error) {
@@ -282,6 +305,21 @@ func (r *MessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientI
 }
 ```
 
+```go
+// GetStuckPending fetches messages stuck in pending with scheduled_at set
+func (r *MessageRepository) GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*shared.Message, error) {
+	query := `SELECT * FROM messages
+		WHERE status = 'pending'
+		AND scheduled_at IS NOT NULL
+		AND updated_at < NOW() - $1::interval
+		AND created_at >= NOW() - INTERVAL '7 days'
+		ORDER BY updated_at ASC
+		LIMIT $2
+		FOR UPDATE SKIP LOCKED`
+	// threshold as string like "5m0s" → pass as interval
+}
+```
+
 Read the existing storage repository methods carefully to follow the exact scan pattern (it uses `scanMessage` helper).
 
 - [ ] **Step 2: Update messaging-level repository**
@@ -292,6 +330,19 @@ In `internal/services/messaging/infrastructure/repository/message_repository.go`
 // GetScheduledReady fetches scheduled messages ready for delivery
 func (r *MessageRepository) GetScheduledReady(ctx context.Context, limit int) ([]*domain.Message, error) {
 	sharedMessages, err := r.repo.GetScheduledReady(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	messages := make([]*domain.Message, len(sharedMessages))
+	for i, sm := range sharedMessages {
+		messages[i] = domain.MessageFromShared(sm)
+	}
+	return messages, nil
+}
+
+// GetStuckPending fetches stuck pending messages for recovery
+func (r *MessageRepository) GetStuckPending(ctx context.Context, threshold time.Duration, limit int) ([]*domain.Message, error) {
+	sharedMessages, err := r.repo.GetStuckPending(ctx, threshold, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -433,6 +484,7 @@ type Scheduler struct {
 	logger         zerolog.Logger
 	interval       time.Duration
 	batchSize      int
+	stuckThreshold time.Duration
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
@@ -442,6 +494,7 @@ func NewScheduler(
 	eventPublisher domain.EventPublisher,
 	interval time.Duration,
 	batchSize int,
+	stuckThreshold time.Duration,
 ) *Scheduler {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Scheduler{
@@ -450,6 +503,7 @@ func NewScheduler(
 		logger:         log.With().Str("component", "scheduler").Logger(),
 		interval:       interval,
 		batchSize:      batchSize,
+		stuckThreshold: stuckThreshold,
 		ctx:            ctx,
 		cancel:         cancel,
 	}
@@ -479,6 +533,7 @@ func (s *Scheduler) run() {
 			return
 		case <-ticker.C:
 			s.processBatch()
+			s.recoverStuckMessages()
 		}
 	}
 }
@@ -506,9 +561,10 @@ func (s *Scheduler) processBatch() {
 			continue
 		}
 
-		// Publish to Kafka (PublishMessageCreated sends to sms.outgoing)
+		// Publish to Kafka via PublishMessageQueued (not PublishMessageCreated — both send to
+		// sms.outgoing, but Queued is semantically correct for the scheduler flow)
 		msg.Status = "pending"
-		if err := s.eventPublisher.PublishMessageCreated(ctx, msg); err != nil {
+		if err := s.eventPublisher.PublishMessageQueued(ctx, msg); err != nil {
 			s.logger.Error().Err(err).Str("message_id", msg.ID.String()).Msg("failed to publish to Kafka, reverting to scheduled")
 			// Revert status back to scheduled
 			if revertErr := s.messageRepo.UpdateStatus(ctx, msg.ID, "scheduled", ""); revertErr != nil {
@@ -523,6 +579,37 @@ func (s *Scheduler) processBatch() {
 		}
 
 		s.logger.Debug().Str("message_id", msg.ID.String()).Msg("scheduled message dispatched")
+	}
+}
+```
+
+Add a `recoverStuckMessages` method after `processBatch`:
+
+```go
+func (s *Scheduler) recoverStuckMessages() {
+	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
+	defer cancel()
+
+	messages, err := s.messageRepo.GetStuckPending(ctx, s.stuckThreshold, s.batchSize)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to fetch stuck pending messages")
+		return
+	}
+	if len(messages) == 0 {
+		return
+	}
+
+	s.logger.Warn().Int("count", len(messages)).Msg("recovering stuck pending messages")
+
+	for _, msg := range messages {
+		if err := s.eventPublisher.PublishMessageQueued(ctx, msg); err != nil {
+			s.logger.Error().Err(err).Str("message_id", msg.ID.String()).Msg("failed to re-publish stuck message")
+			continue
+		}
+		// Update updated_at to prevent re-processing
+		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, "pending", ""); err != nil {
+			s.logger.Warn().Err(err).Str("message_id", msg.ID.String()).Msg("failed to update stuck message timestamp")
+		}
 	}
 }
 ```
@@ -760,8 +847,14 @@ if batchStr := os.Getenv("SCHEDULER_BATCH_SIZE"); batchStr != "" {
         schedulerBatchSize = n
     }
 }
+stuckThreshold := 5 * time.Minute
+if thresholdStr := os.Getenv("SCHEDULER_STUCK_THRESHOLD"); thresholdStr != "" {
+    if d, err := time.ParseDuration(thresholdStr); err == nil {
+        stuckThreshold = d
+    }
+}
 
-scheduler := application.NewScheduler(messageRepo, eventPublisher, schedulerInterval, schedulerBatchSize)
+scheduler := application.NewScheduler(messageRepo, eventPublisher, schedulerInterval, schedulerBatchSize, stuckThreshold)
 scheduler.Start()
 ```
 
@@ -800,6 +893,7 @@ In `deployments/docker-compose.yml`, find the `messaging-service` service and ad
 ```yaml
       - SCHEDULER_INTERVAL=10s
       - SCHEDULER_BATCH_SIZE=100
+      - SCHEDULER_STUCK_THRESHOLD=5m
 ```
 
 - [ ] **Step 2: Regenerate messagingv1 proto in Dockerfile**
