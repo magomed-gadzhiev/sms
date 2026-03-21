@@ -296,6 +296,10 @@ func buildUserInfoResponse(user *authv1.UserInfo) map[string]interface{} {
 
 // publishAuditEvent публикует audit event
 func (h *AuthHandlers) publishAuditEvent(r *http.Request, user *authv1.UserInfo, action string, resourceID string) {
+	if h.auditPublisher == nil {
+		return
+	}
+
 	userID := ""
 	tenantID := ""
 	if user != nil {

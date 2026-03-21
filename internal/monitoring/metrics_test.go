@@ -7,53 +7,65 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetricsRegistration(t *testing.T) {
-	// Проверяем, что метрики зарегистрированы
-	registry := prometheus.NewRegistry()
+func TestMetrics(t *testing.T) {
+	t.Run("registration", func(t *testing.T) {
+		// Проверяем, что метрики зарегистрированы
+		registry := prometheus.NewRegistry()
 
-	// Проверяем HTTP метрики
-	assert.NotNil(t, HTTPRequestsTotal)
-	assert.NotNil(t, HTTPRequestDuration)
+		t.Run("HTTP metrics are not nil", func(t *testing.T) {
+			assert.NotNil(t, HTTPRequestsTotal)
+			assert.NotNil(t, HTTPRequestDuration)
+		})
 
-	// Проверяем gRPC метрики
-	assert.NotNil(t, GRPCRequestsTotal)
-	assert.NotNil(t, GRPCRequestDuration)
+		t.Run("gRPC metrics are not nil", func(t *testing.T) {
+			assert.NotNil(t, GRPCRequestsTotal)
+			assert.NotNil(t, GRPCRequestDuration)
+		})
 
-	// Проверяем SMS метрики
-	assert.NotNil(t, SMSMessagesReceived)
-	assert.NotNil(t, SMSMessagesQueued)
-	assert.NotNil(t, SMSMessagesFailed)
+		t.Run("SMS metrics are not nil", func(t *testing.T) {
+			assert.NotNil(t, SMSMessagesReceived)
+			assert.NotNil(t, SMSMessagesQueued)
+			assert.NotNil(t, SMSMessagesFailed)
+		})
 
-	// Проверяем, что метрики можно собрать
-	_, err := registry.Gather()
-	assert.NoError(t, err)
+		t.Run("metrics can be gathered", func(t *testing.T) {
+			_, err := registry.Gather()
+			assert.NoError(t, err)
+		})
+	})
 }
 
 func TestHealthChecker(t *testing.T) {
-	checker := NewHealthChecker("test-service", "1.0.0")
+	t.Run("creation", func(t *testing.T) {
+		t.Run("initializes with correct fields", func(t *testing.T) {
+			checker := NewHealthChecker("test-service", "1.0.0")
 
-	assert.NotNil(t, checker)
-	assert.Equal(t, "test-service", checker.serviceName)
-	assert.Equal(t, "1.0.0", checker.version)
-}
+			assert.NotNil(t, checker)
+			assert.Equal(t, "test-service", checker.serviceName)
+			assert.Equal(t, "1.0.0", checker.version)
+		})
+	})
 
-func TestHealthChecker_Handler(t *testing.T) {
-	checker := NewHealthChecker("test-service", "1.0.0")
-	handler := checker.Handler()
+	t.Run("handlers", func(t *testing.T) {
+		t.Run("Handler returns non-nil handler", func(t *testing.T) {
+			checker := NewHealthChecker("test-service", "1.0.0")
+			handler := checker.Handler()
 
-	assert.NotNil(t, handler)
-}
+			assert.NotNil(t, handler)
+		})
 
-func TestHealthChecker_LivenessHandler(t *testing.T) {
-	checker := NewHealthChecker("test-service", "1.0.0")
-	handler := checker.LivenessHandler()
+		t.Run("LivenessHandler returns non-nil handler", func(t *testing.T) {
+			checker := NewHealthChecker("test-service", "1.0.0")
+			handler := checker.LivenessHandler()
 
-	assert.NotNil(t, handler)
-}
+			assert.NotNil(t, handler)
+		})
 
-func TestHealthChecker_ReadinessHandler(t *testing.T) {
-	checker := NewHealthChecker("test-service", "1.0.0")
-	handler := checker.ReadinessHandler()
+		t.Run("ReadinessHandler returns non-nil handler", func(t *testing.T) {
+			checker := NewHealthChecker("test-service", "1.0.0")
+			handler := checker.ReadinessHandler()
 
-	assert.NotNil(t, handler)
+			assert.NotNil(t, handler)
+		})
+	})
 }

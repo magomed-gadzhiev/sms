@@ -121,10 +121,12 @@ func (h *APIKeyHandlers) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Публикуем audit event
-	event := audit.NewAuditEvent("", userID.String(), audit.ActionAPIKeyCreated, audit.ResourceAPIKey, resp.ApiKeyId)
-	event.IPAddress = getIPAddress(r)
-	if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
-		log.Error().Err(err).Msg("ошибка публикации audit event")
+	if h.auditPublisher != nil {
+		event := audit.NewAuditEvent("", userID.String(), audit.ActionAPIKeyCreated, audit.ResourceAPIKey, resp.ApiKeyId)
+		event.IPAddress = getIPAddress(r)
+		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
+			log.Error().Err(err).Msg("ошибка публикации audit event")
+		}
 	}
 
 	result := map[string]interface{}{
@@ -164,10 +166,12 @@ func (h *APIKeyHandlers) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Публикуем audit event
-	event := audit.NewAuditEvent("", userID.String(), audit.ActionAPIKeyRevoked, audit.ResourceAPIKey, keyID)
-	event.IPAddress = getIPAddress(r)
-	if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
-		log.Error().Err(err).Msg("ошибка публикации audit event")
+	if h.auditPublisher != nil {
+		event := audit.NewAuditEvent("", userID.String(), audit.ActionAPIKeyRevoked, audit.ResourceAPIKey, keyID)
+		event.IPAddress = getIPAddress(r)
+		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
+			log.Error().Err(err).Msg("ошибка публикации audit event")
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)

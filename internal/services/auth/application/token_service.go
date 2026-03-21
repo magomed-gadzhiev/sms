@@ -15,6 +15,9 @@ import (
 	authrepo "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure/repository"
 )
 
+// Ensure authrepo is used (re-export sentinel error for callers).
+var ErrRefreshTokenNotFound = authrepo.ErrRefreshTokenNotFound
+
 var (
 	ErrInvalidToken      = errors.New("invalid token")
 	ErrExpiredToken      = errors.New("token expired")
@@ -33,7 +36,7 @@ type TokenService struct {
 	secret           []byte
 	accessExpiry     time.Duration
 	refreshExpiry    time.Duration
-	refreshTokenRepo *authrepo.RefreshTokenRepository
+	refreshTokenRepo RefreshTokenRepository
 }
 
 // NewTokenService создает новый сервис токенов
@@ -41,7 +44,7 @@ func NewTokenService(
 	secret string,
 	accessExpiry time.Duration,
 	refreshExpiry time.Duration,
-	refreshTokenRepo *authrepo.RefreshTokenRepository,
+	refreshTokenRepo RefreshTokenRepository,
 ) *TokenService {
 	return &TokenService{
 		secret:           []byte(secret),

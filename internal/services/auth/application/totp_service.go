@@ -18,6 +18,16 @@ import (
 	authrepo "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure/repository"
 )
 
+// Re-export sentinel errors from repository for callers.
+var (
+	ErrTOTPConfigNotFound   = authrepo.ErrTOTPConfigNotFound
+	ErrRecoveryCodeNotFound = authrepo.ErrRecoveryCodeNotFound
+)
+
+// keep compiler quiet about unused imports
+var _ = time.Now
+var _ = uuid.New
+
 var (
 	ErrTOTPSetupFailed    = errors.New("totp setup failed")
 	ErrTOTPDecryptFailed  = errors.New("totp secret decryption failed")
@@ -33,16 +43,16 @@ const (
 
 // TOTPService предоставляет методы для работы с TOTP
 type TOTPService struct {
-	totpRepo       *authrepo.TOTPRepository
-	userRepo       *authrepo.UserRepository
+	totpRepo       TOTPRepository
+	userRepo       UserRepository
 	passwordHasher PasswordHasher
 	encryptionKey  []byte // 32-byte AES-256 key
 }
 
 // NewTOTPService создает новый сервис TOTP
 func NewTOTPService(
-	totpRepo *authrepo.TOTPRepository,
-	userRepo *authrepo.UserRepository,
+	totpRepo TOTPRepository,
+	userRepo UserRepository,
 	passwordHasher PasswordHasher,
 	encryptionKey []byte,
 ) *TOTPService {

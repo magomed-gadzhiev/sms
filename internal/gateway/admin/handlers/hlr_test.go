@@ -1,0 +1,471 @@
+package handlers
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+)
+
+// --- Mock RoutingServiceClient for HLR ---
+
+type mockRoutingClientForHLR struct {
+	mock.Mock
+}
+
+// Routing methods (not used by HLR handlers, stubs only)
+func (m *mockRoutingClientForHLR) GetRoute(ctx context.Context, in *routingv1.GetRouteRequest, opts ...grpc.CallOption) (*routingv1.GetRouteResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) SelectProvider(ctx context.Context, in *routingv1.SelectProviderRequest, opts ...grpc.CallOption) (*routingv1.SelectProviderResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) CreateRoute(ctx context.Context, in *routingv1.CreateRouteRequest, opts ...grpc.CallOption) (*routingv1.CreateRouteResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) UpdateRoute(ctx context.Context, in *routingv1.UpdateRouteRequest, opts ...grpc.CallOption) (*routingv1.UpdateRouteResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) DeleteRoute(ctx context.Context, in *routingv1.DeleteRouteRequest, opts ...grpc.CallOption) (*routingv1.DeleteRouteResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ListRoutes(ctx context.Context, in *routingv1.ListRoutesRequest, opts ...grpc.CallOption) (*routingv1.ListRoutesResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) CreateCountry(ctx context.Context, in *routingv1.CreateCountryRequest, opts ...grpc.CallOption) (*routingv1.Country, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) GetCountry(ctx context.Context, in *routingv1.GetCountryRequest, opts ...grpc.CallOption) (*routingv1.Country, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ListCountries(ctx context.Context, in *routingv1.ListCountriesRequest, opts ...grpc.CallOption) (*routingv1.ListCountriesResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) UpdateCountry(ctx context.Context, in *routingv1.UpdateCountryRequest, opts ...grpc.CallOption) (*routingv1.Country, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) CreateOperator(ctx context.Context, in *routingv1.CreateOperatorRequest, opts ...grpc.CallOption) (*routingv1.Operator, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) GetOperator(ctx context.Context, in *routingv1.GetOperatorRequest, opts ...grpc.CallOption) (*routingv1.Operator, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ListOperators(ctx context.Context, in *routingv1.ListOperatorsRequest, opts ...grpc.CallOption) (*routingv1.ListOperatorsResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) UpdateOperator(ctx context.Context, in *routingv1.UpdateOperatorRequest, opts ...grpc.CallOption) (*routingv1.Operator, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) CreateOperatorPrefix(ctx context.Context, in *routingv1.CreateOperatorPrefixRequest, opts ...grpc.CallOption) (*routingv1.OperatorPrefix, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ListOperatorPrefixes(ctx context.Context, in *routingv1.ListOperatorPrefixesRequest, opts ...grpc.CallOption) (*routingv1.ListOperatorPrefixesResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) DeleteOperatorPrefix(ctx context.Context, in *routingv1.DeleteOperatorPrefixRequest, opts ...grpc.CallOption) (*routingv1.DeleteOperatorPrefixResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ResolveOperator(ctx context.Context, in *routingv1.ResolveOperatorRequest, opts ...grpc.CallOption) (*routingv1.ResolveOperatorResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) NumberLookup(ctx context.Context, in *routingv1.NumberLookupRequest, opts ...grpc.CallOption) (*routingv1.NumberLookupResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) BulkNumberLookup(ctx context.Context, in *routingv1.BulkNumberLookupRequest, opts ...grpc.CallOption) (*routingv1.BulkNumberLookupResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) GetLookupHistory(ctx context.Context, in *routingv1.GetLookupHistoryRequest, opts ...grpc.CallOption) (*routingv1.GetLookupHistoryResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) RouteMessageWithHLR(ctx context.Context, in *routingv1.RouteMessageWithHLRRequest, opts ...grpc.CallOption) (*routingv1.RouteMessageWithHLRResponse, error) {
+	return nil, nil
+}
+
+// HLR-specific methods (used by HLRHandlers)
+func (m *mockRoutingClientForHLR) CreateHLRProvider(ctx context.Context, in *routingv1.CreateHLRProviderRequest, opts ...grpc.CallOption) (*routingv1.HLRProviderProto, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.HLRProviderProto), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) UpdateHLRProvider(ctx context.Context, in *routingv1.UpdateHLRProviderRequest, opts ...grpc.CallOption) (*routingv1.HLRProviderProto, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.HLRProviderProto), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) DeleteHLRProvider(ctx context.Context, in *routingv1.DeleteHLRProviderRequest, opts ...grpc.CallOption) (*routingv1.DeleteRouteResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.DeleteRouteResponse), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) GetHLRProvider(ctx context.Context, in *routingv1.GetHLRProviderRequest, opts ...grpc.CallOption) (*routingv1.HLRProviderProto, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.HLRProviderProto), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) ListHLRProviders(ctx context.Context, in *routingv1.ListHLRProvidersRequest, opts ...grpc.CallOption) (*routingv1.ListHLRProvidersResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.ListHLRProvidersResponse), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) SetSmartRouteWeights(ctx context.Context, in *routingv1.SetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.SmartRouteWeightProto), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) GetSmartRouteWeights(ctx context.Context, in *routingv1.GetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
+	return nil, nil
+}
+
+func (m *mockRoutingClientForHLR) ListSmartRouteWeights(ctx context.Context, in *routingv1.ListSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.ListSmartRouteWeightsResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.ListSmartRouteWeightsResponse), args.Error(1)
+}
+
+func (m *mockRoutingClientForHLR) DeleteSmartRouteWeights(ctx context.Context, in *routingv1.DeleteSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.DeleteRouteResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*routingv1.DeleteRouteResponse), args.Error(1)
+}
+
+var _ routingv1.RoutingServiceClient = (*mockRoutingClientForHLR)(nil)
+
+// --- Tests ---
+
+func TestHLRHandlers(t *testing.T) {
+	t.Run("ListProviders", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			client.On("ListHLRProviders", mock.Anything, mock.MatchedBy(func(req *routingv1.ListHLRProvidersRequest) bool {
+				return req.ActiveOnly == true
+			})).Return(&routingv1.ListHLRProvidersResponse{
+				Providers: []*routingv1.HLRProviderProto{
+					{
+						Id:          "hlr-1",
+						Name:        "Infobip HLR",
+						AdapterType: "infobip",
+						Priority:    1,
+						Status:      "healthy",
+						Active:      true,
+						CreatedAt:   timestamppb.Now(),
+					},
+					{
+						Id:          "hlr-2",
+						Name:        "TMT HLR",
+						AdapterType: "tmt",
+						Priority:    2,
+						Status:      "healthy",
+						Active:      true,
+						CreatedAt:   timestamppb.Now(),
+					},
+				},
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/hlr/providers?active_only=true", nil)
+
+			rr := httptest.NewRecorder()
+			handler.ListProviders(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			providers := resp["providers"].([]interface{})
+			assert.Len(t, providers, 2)
+			assert.Equal(t, float64(2), resp["total"])
+
+			first := providers[0].(map[string]interface{})
+			assert.Equal(t, "hlr-1", first["id"])
+			assert.Equal(t, "Infobip HLR", first["name"])
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns error when service fails", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			client.On("ListHLRProviders", mock.Anything, mock.Anything).
+				Return(nil, status.Error(codes.Unavailable, "service down"))
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/hlr/providers", nil)
+
+			rr := httptest.NewRecorder()
+			handler.ListProviders(rr, req)
+
+			assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+		})
+	})
+
+	t.Run("CreateProvider", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			client.On("CreateHLRProvider", mock.Anything, mock.MatchedBy(func(req *routingv1.CreateHLRProviderRequest) bool {
+				return req.Name == "New HLR" && req.AdapterType == "infobip"
+			})).Return(&routingv1.HLRProviderProto{
+				Id:          "hlr-new-1",
+				Name:        "New HLR",
+				AdapterType: "infobip",
+				Priority:    1,
+				Active:      true,
+				CreatedAt:   timestamppb.Now(),
+			}, nil)
+
+			body, _ := json.Marshal(CreateHLRProviderRequest{
+				Name:        "New HLR",
+				AdapterType: "infobip",
+				Priority:    1,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/hlr/providers", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreateProvider(rr, req)
+
+			assert.Equal(t, http.StatusCreated, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, "hlr-new-1", resp["id"])
+			assert.Equal(t, "New HLR", resp["name"])
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns 400 when name is empty", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			body, _ := json.Marshal(CreateHLRProviderRequest{
+				Name:        "",
+				AdapterType: "infobip",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/hlr/providers", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreateProvider(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+
+		t.Run("returns 400 when adapter_type is empty", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			body, _ := json.Marshal(CreateHLRProviderRequest{
+				Name:        "My HLR",
+				AdapterType: "",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/hlr/providers", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreateProvider(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+
+		t.Run("returns 400 for invalid JSON", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/hlr/providers", bytes.NewReader([]byte("bad")))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreateProvider(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+	})
+
+	t.Run("DeleteProvider", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			client.On("DeleteHLRProvider", mock.Anything, mock.MatchedBy(func(req *routingv1.DeleteHLRProviderRequest) bool {
+				return req.Id == "hlr-to-delete"
+			})).Return(&routingv1.DeleteRouteResponse{
+				Success: true,
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodDelete, "/admin/v1/hlr/providers/hlr-to-delete", nil)
+			req = mux.SetURLVars(req, map[string]string{"id": "hlr-to-delete"})
+
+			rr := httptest.NewRecorder()
+			handler.DeleteProvider(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, true, resp["success"])
+
+			client.AssertExpectations(t)
+		})
+	})
+
+	t.Run("SetWeights", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			client.On("SetSmartRouteWeights", mock.Anything, mock.MatchedBy(func(req *routingv1.SetSmartRouteWeightsRequest) bool {
+				return req.OperatorCode == "MTS" && req.CountryCode == "RU"
+			})).Return(&routingv1.SmartRouteWeightProto{
+				Id:            "weight-1",
+				OperatorCode:  "MTS",
+				CountryCode:   "RU",
+				CostWeight:    "0.7",
+				QualityWeight: "0.3",
+				Active:        true,
+				CreatedAt:     timestamppb.Now(),
+			}, nil)
+
+			body, _ := json.Marshal(SetWeightsRequest{
+				OperatorCode:  "MTS",
+				CountryCode:   "RU",
+				CostWeight:    "0.7",
+				QualityWeight: "0.3",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/routing/weights", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.SetWeights(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, "weight-1", resp["id"])
+			assert.Equal(t, "MTS", resp["operator_code"])
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns 400 when operator_code is empty", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			body, _ := json.Marshal(SetWeightsRequest{
+				OperatorCode: "",
+				CountryCode:  "RU",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/routing/weights", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.SetWeights(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+
+		t.Run("returns 400 when country_code is empty", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			body, _ := json.Marshal(SetWeightsRequest{
+				OperatorCode: "MTS",
+				CountryCode:  "",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/routing/weights", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.SetWeights(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+	})
+
+	t.Run("ListWeights", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockRoutingClientForHLR)
+			handler := NewHLRHandlers(client)
+
+			client.On("ListSmartRouteWeights", mock.Anything, mock.MatchedBy(func(req *routingv1.ListSmartRouteWeightsRequest) bool {
+				return req.CountryCode == "RU"
+			})).Return(&routingv1.ListSmartRouteWeightsResponse{
+				Weights: []*routingv1.SmartRouteWeightProto{
+					{
+						Id:            "w-1",
+						OperatorCode:  "MTS",
+						CountryCode:   "RU",
+						CostWeight:    "0.7",
+						QualityWeight: "0.3",
+						Active:        true,
+						CreatedAt:     timestamppb.Now(),
+					},
+				},
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/routing/weights?country_code=RU", nil)
+
+			rr := httptest.NewRecorder()
+			handler.ListWeights(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			weights := resp["weights"].([]interface{})
+			assert.Len(t, weights, 1)
+			assert.Equal(t, float64(1), resp["total"])
+
+			client.AssertExpectations(t)
+		})
+	})
+}

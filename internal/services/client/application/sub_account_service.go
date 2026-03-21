@@ -19,18 +19,26 @@ var (
 	ErrSubAccountNotFound = errors.New("sub-account not found")
 )
 
+// SubAccountRepositoryInterface определяет интерфейс для работы с суб-аккаунтами
+type SubAccountRepositoryInterface interface {
+	ListByParentID(ctx context.Context, parentID uuid.UUID) ([]*domain.Client, error)
+	CountByParentID(ctx context.Context, parentID uuid.UUID) (int, error)
+	GetSubAccount(ctx context.Context, subAccountID, parentID uuid.UUID) (*domain.Client, error)
+	DeleteSubAccount(ctx context.Context, subAccountID uuid.UUID) error
+}
+
 // SubAccountService предоставляет методы для управления суб-аккаунтами
 type SubAccountService struct {
-	clientRepo     *clientrepo.ClientRepository
-	subAccountRepo *clientrepo.SubAccountRepository
-	configRepo     *clientrepo.ConfigRepository
+	clientRepo     ClientRepositoryInterface
+	subAccountRepo SubAccountRepositoryInterface
+	configRepo     ConfigRepositoryInterface
 }
 
 // NewSubAccountService создает новый сервис управления суб-аккаунтами
 func NewSubAccountService(
-	clientRepo *clientrepo.ClientRepository,
-	subAccountRepo *clientrepo.SubAccountRepository,
-	configRepo *clientrepo.ConfigRepository,
+	clientRepo ClientRepositoryInterface,
+	subAccountRepo SubAccountRepositoryInterface,
+	configRepo ConfigRepositoryInterface,
 ) *SubAccountService {
 	return &SubAccountService{
 		clientRepo:     clientRepo,

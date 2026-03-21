@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -92,4 +94,19 @@ func MustQuery(t *testing.T, db *storage.DB, query string, args ...interface{}) 
 		t.Fatalf("Failed to query: %v", err)
 	}
 	return rows
+}
+
+// BeginTestTx starts a transaction and registers t.Cleanup to rollback.
+// Returns a pgx.Tx that can be used as a database connection for the test.
+func BeginTestTx(t *testing.T, pool *pgxpool.Pool) pgx.Tx {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("failed to begin test transaction: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = tx.Rollback(context.Background())
+	})
+	return tx
 }

@@ -7,79 +7,89 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAppError_Error(t *testing.T) {
-	tests := []struct {
-		name    string
-		err     *AppError
-		wantMsg string
-	}{
-		{
-			name: "error without details",
-			err: &AppError{
-				Code:    ErrCodeInvalidInput,
-				Message: "Invalid input",
+func TestAppError(t *testing.T) {
+	t.Run("Error", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			err     *AppError
+			wantMsg string
+		}{
+			{
+				name: "error without details",
+				err: &AppError{
+					Code:    ErrCodeInvalidInput,
+					Message: "Invalid input",
+				},
+				wantMsg: "INVALID_INPUT: Invalid input",
 			},
-			wantMsg: "INVALID_INPUT: Invalid input",
-		},
-		{
-			name: "error with details",
-			err: &AppError{
-				Code:    ErrCodeInvalidInput,
-				Message: "Invalid input",
-				Details: "Field 'email' is required",
+			{
+				name: "error with details",
+				err: &AppError{
+					Code:    ErrCodeInvalidInput,
+					Message: "Invalid input",
+					Details: "Field 'email' is required",
+				},
+				wantMsg: "INVALID_INPUT: Invalid input (Field 'email' is required)",
 			},
-			wantMsg: "INVALID_INPUT: Invalid input (Field 'email' is required)",
-		},
-	}
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantMsg, tt.err.Error())
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				assert.Equal(t, tt.wantMsg, tt.err.Error())
+			})
+		}
+	})
+
+	t.Run("Unwrap", func(t *testing.T) {
+		t.Run("returns inner error", func(t *testing.T) {
+			innerErr := &AppError{
+				Code:    ErrCodeDatabase,
+				Message: "Database error",
+			}
+
+			err := &AppError{
+				Code:    ErrCodeInternal,
+				Message: "Internal error",
+				Err:     innerErr,
+			}
+
+			assert.Equal(t, innerErr, err.Unwrap())
 		})
-	}
-}
+	})
 
-func TestAppError_Unwrap(t *testing.T) {
-	innerErr := &AppError{
-		Code:    ErrCodeDatabase,
-		Message: "Database error",
-	}
+	t.Run("NewAppError", func(t *testing.T) {
+		t.Run("creates error with correct fields", func(t *testing.T) {
+			err := NewAppError(ErrCodeNotFound, "Resource not found", http.StatusNotFound)
 
-	err := &AppError{
-		Code:    ErrCodeInternal,
-		Message: "Internal error",
-		Err:     innerErr,
-	}
+			assert.Equal(t, ErrCodeNotFound, err.Code)
+			assert.Equal(t, "Resource not found", err.Message)
+			assert.Equal(t, http.StatusNotFound, err.HTTPStatus)
+		})
+	})
 
-	assert.Equal(t, innerErr, err.Unwrap())
-}
+	t.Run("WithDetails", func(t *testing.T) {
+		t.Run("adds details to error", func(t *testing.T) {
+			err := NewAppError(ErrCodeInvalidInput, "Invalid input", http.StatusBadRequest)
+			err = err.WithDetails("Field validation failed")
 
-func TestNewAppError(t *testing.T) {
-	err := NewAppError(ErrCodeNotFound, "Resource not found", http.StatusNotFound)
+			assert.Equal(t, "Field validation failed", err.Details)
+		})
+	})
 
-	assert.Equal(t, ErrCodeNotFound, err.Code)
-	assert.Equal(t, "Resource not found", err.Message)
-	assert.Equal(t, http.StatusNotFound, err.HTTPStatus)
-}
+	t.Run("WithError", func(t *testing.T) {
+		t.Run("wraps inner error", func(t *testing.T) {
+			innerErr := &AppError{
+				Code:    ErrCodeDatabase,
+				Message: "Database connection failed",
+			}
 
-func TestAppError_WithDetails(t *testing.T) {
-	err := NewAppError(ErrCodeInvalidInput, "Invalid input", http.StatusBadRequest)
-	err = err.WithDetails("Field validation failed")
+			err := NewAppError(ErrCodeInternal, "Internal error", http.StatusInternalServerError)
+			err = err.WithError(innerErr)
 
-	assert.Equal(t, "Field validation failed", err.Details)
-}
-
-func TestAppError_WithError(t *testing.T) {
-	innerErr := &AppError{
-		Code:    ErrCodeDatabase,
-		Message: "Database connection failed",
-	}
-
-	err := NewAppError(ErrCodeInternal, "Internal error", http.StatusInternalServerError)
-	err = err.WithError(innerErr)
-
-	assert.Equal(t, innerErr, err.Unwrap())
-	assert.Contains(t, err.Details, "Database connection failed")
+			assert.Equal(t, innerErr, err.Unwrap())
+			assert.Contains(t, err.Details, "Database connection failed")
+		})
+	})
 }
 
 func TestPredefinedErrors(t *testing.T) {

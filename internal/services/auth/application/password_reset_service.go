@@ -27,15 +27,15 @@ const (
 
 // PasswordResetService предоставляет методы для сброса пароля
 type PasswordResetService struct {
-	resetRepo      *authrepo.PasswordResetRepository
-	userRepo       *authrepo.UserRepository
+	resetRepo      PasswordResetRepository
+	userRepo       UserRepository
 	passwordHasher PasswordHasher
 }
 
 // NewPasswordResetService создает новый сервис сброса пароля
 func NewPasswordResetService(
-	resetRepo *authrepo.PasswordResetRepository,
-	userRepo *authrepo.UserRepository,
+	resetRepo PasswordResetRepository,
+	userRepo UserRepository,
 	passwordHasher PasswordHasher,
 ) *PasswordResetService {
 	return &PasswordResetService{

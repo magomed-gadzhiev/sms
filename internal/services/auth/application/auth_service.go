@@ -14,6 +14,12 @@ import (
 	authrepo "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure/repository"
 )
 
+// Sentinel errors, re-exported from repository for callers that don't import the repo package.
+var (
+	ErrUserNotFound   = authrepo.ErrUserNotFound
+	ErrAPIKeyNotFound = authrepo.ErrAPIKeyNotFound
+)
+
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUserInactive       = errors.New("user is inactive")
@@ -22,8 +28,8 @@ var (
 
 // AuthService предоставляет методы для аутентификации
 type AuthService struct {
-	userRepo          *authrepo.UserRepository
-	apiKeyRepo        *authrepo.APIKeyRepository
+	userRepo          UserRepository
+	apiKeyRepo        APIKeyRepository
 	tokenService      *TokenService
 	passwordHasher    PasswordHasher
 	apiKeyGenerator   APIKeyGenerator
@@ -43,8 +49,8 @@ type APIKeyGenerator interface {
 
 // NewAuthService создает новый сервис аутентификации
 func NewAuthService(
-	userRepo *authrepo.UserRepository,
-	apiKeyRepo *authrepo.APIKeyRepository,
+	userRepo UserRepository,
+	apiKeyRepo APIKeyRepository,
 	tokenService *TokenService,
 ) *AuthService {
 	return &AuthService{
@@ -53,6 +59,23 @@ func NewAuthService(
 		tokenService:    tokenService,
 		passwordHasher:  &authinfra.PasswordHasherImpl{},
 		apiKeyGenerator: &authinfra.APIKeyGeneratorImpl{},
+	}
+}
+
+// NewAuthServiceWithDeps создает AuthService с явно указанными зависимостями (для тестов)
+func NewAuthServiceWithDeps(
+	userRepo UserRepository,
+	apiKeyRepo APIKeyRepository,
+	tokenService *TokenService,
+	passwordHasher PasswordHasher,
+	apiKeyGenerator APIKeyGenerator,
+) *AuthService {
+	return &AuthService{
+		userRepo:        userRepo,
+		apiKeyRepo:      apiKeyRepo,
+		tokenService:    tokenService,
+		passwordHasher:  passwordHasher,
+		apiKeyGenerator: apiKeyGenerator,
 	}
 }
 
