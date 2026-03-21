@@ -38,6 +38,7 @@ func SetupRouter(
 	webhookHandlers *handlers.WebhookHandlers,
 	subAccountHandlers *handlers.SubAccountHandlers,
 	auditHandlers *handlers.AuditHandlers,
+	lookupHandlers *handlers.LookupHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -122,6 +123,11 @@ func SetupRouter(
 	subAccounts.HandleFunc("/{id}/analytics", subAccountHandlers.GetSubAccountAnalytics).Methods("GET")
 	subAccounts.HandleFunc("/{id}/api-keys", subAccountHandlers.GetSubAccountAPIKeys).Methods("GET")
 	subAccounts.HandleFunc("/{id}/webhooks", subAccountHandlers.GetSubAccountWebhooks).Methods("GET")
+
+	// Lookup endpoints
+	lookup := protected.PathPrefix("/lookup").Subrouter()
+	lookup.HandleFunc("/history", lookupHandlers.GetLookupHistory).Methods("GET")
+	lookup.HandleFunc("/stats", lookupHandlers.GetLookupStats).Methods("GET")
 
 	// Audit log endpoints
 	protected.HandleFunc("/audit-log", auditHandlers.ListAuditLog).Methods("GET")

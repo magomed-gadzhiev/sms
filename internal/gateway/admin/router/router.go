@@ -20,6 +20,7 @@ func SetupRouter(
 	countryHandlers *handlers.CountryHandler,
 	operatorHandlers *handlers.OperatorHandler,
 	tarificationHandlers *handlers.TarificationHandler,
+	hlrHandlers *handlers.HLRHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -126,6 +127,21 @@ func SetupRouter(
 	tarification.HandleFunc("/pricing-periods", tarificationHandlers.CreatePricingPeriod).Methods("POST")
 	tarification.HandleFunc("/prepaid-fees", tarificationHandlers.CreatePrepaidFee).Methods("POST")
 	tarification.HandleFunc("/usage", tarificationHandlers.ListUsageCounters).Methods("GET")
+
+	// HLR Provider endpoints
+	hlrProviders := adminV1.PathPrefix("/hlr/providers").Subrouter()
+	hlrProviders.HandleFunc("", hlrHandlers.CreateProvider).Methods("POST")
+	hlrProviders.HandleFunc("", hlrHandlers.ListProviders).Methods("GET")
+	hlrProviders.HandleFunc("/{id}", hlrHandlers.GetProvider).Methods("GET")
+	hlrProviders.HandleFunc("/{id}", hlrHandlers.UpdateProvider).Methods("PUT")
+	hlrProviders.HandleFunc("/{id}", hlrHandlers.DeleteProvider).Methods("DELETE")
+	hlrProviders.HandleFunc("/{id}/health", hlrHandlers.GetProviderHealth).Methods("GET")
+
+	// Smart Route Weight endpoints
+	weights := adminV1.PathPrefix("/routing/weights").Subrouter()
+	weights.HandleFunc("", hlrHandlers.SetWeights).Methods("POST")
+	weights.HandleFunc("", hlrHandlers.ListWeights).Methods("GET")
+	weights.HandleFunc("/{id}", hlrHandlers.DeleteWeights).Methods("DELETE")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

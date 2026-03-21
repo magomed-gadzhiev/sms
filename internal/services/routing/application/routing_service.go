@@ -12,11 +12,13 @@ import (
 
 // RoutingService предоставляет бизнес-логику для маршрутизации сообщений
 type RoutingService struct {
-	routeRepo    domain.RouteRepository
-	providerRepo domain.ProviderRepository
+	routeRepo      domain.RouteRepository
+	providerRepo   domain.ProviderRepository
 	eventPublisher domain.EventPublisher
-	selectors    map[domain.LoadBalanceStrategy]ProviderSelector
-	logger       zerolog.Logger
+	selectors      map[domain.LoadBalanceStrategy]ProviderSelector
+	hlrService     *HLRService
+	smartRouter    *SmartRoutingService
+	logger         zerolog.Logger
 }
 
 // NewRoutingService создает новый сервис маршрутизации
@@ -196,6 +198,77 @@ func (s *RoutingService) RouteMessage(
 		Msg("сообщение маршрутизировано")
 
 	return route.ID, providerID, nil
+}
+
+// SetHLRService устанавливает HLR сервис для маршрутизации
+func (s *RoutingService) SetHLRService(hlr *HLRService) {
+	s.hlrService = hlr
+}
+
+// SetSmartRouter устанавливает сервис smart routing
+func (s *RoutingService) SetSmartRouter(sr *SmartRoutingService) {
+	s.smartRouter = sr
+}
+
+// RouteMessageResult представляет результат маршрутизации с HLR данными
+type RouteMessageResult struct {
+	RouteID      uuid.UUID
+	ProviderID   uuid.UUID
+	HLRResult    *domain.LookupResult
+	HLRUsed      bool
+	RoutingScore float64
+}
+
+// RouteMessageWithHLR маршрутизирует сообщение с предварительным HLR lookup
+func (s *RoutingService) RouteMessageWithHLR(
+	ctx context.Context,
+	messageID uuid.UUID,
+	destination string,
+	clientID *uuid.UUID,
+	existingRouteID *uuid.UUID,
+	existingProviderID *uuid.UUID,
+) (*RouteMessageResult, error) {
+	result := &RouteMessageResult{}
+
+	// HLR lookup если сервис сконфигурирован
+	if s.hlrService != nil && clientID != nil {
+		hlrResult, err := s.hlrService.LookupNumber(
+			ctx, destination, false, *clientID,
+			messageID.String(), domain.LookupSourceSMSRouting, &messageID,
+		)
+		if err == nil && hlrResult != nil {
+			result.HLRResult = hlrResult
+			result.HLRUsed = true
+
+			// Блокируем невалидные номера
+			if hlrResult.IsInvalid() {
+				s.logger.Info().
+					Str("message_id", messageID.String()).
+					Str("destination", destination).
+					Str("status", string(hlrResult.NumberStatus)).
+					Msg("номер определён как invalid, отправка заблокирована")
+				return nil, domain.ErrNumberInvalid
+			}
+		}
+		// Если HLR не удался — продолжаем с prefix-based routing (fallback)
+		if err != nil {
+			s.logger.Debug().Err(err).
+				Str("message_id", messageID.String()).
+				Str("destination", destination).
+				Msg("HLR lookup не удался, fallback на prefix routing")
+		}
+	}
+
+	// Основная маршрутизация (существующая логика)
+	routeID, providerID, err := s.RouteMessage(ctx, messageID, destination, clientID, existingRouteID, existingProviderID)
+	if err != nil {
+		return nil, err
+	}
+
+	result.RouteID = routeID
+	result.ProviderID = providerID
+
+	return result, nil
 }
 
 // CreateRoute создает новый маршрут

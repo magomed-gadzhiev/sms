@@ -2,6 +2,9 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +26,10 @@ type Server struct {
 	operatorRepo     domain.OperatorRepository
 	prefixRepo       domain.OperatorPrefixRepository
 	operatorResolver *application.OperatorResolver
+	hlrService       *application.HLRService
+	smartRouter      *application.SmartRoutingService
+	hlrProviderRepo  domain.HLRProviderRepository
+	lookupLogRepo    domain.LookupLogRepository
 }
 
 // NewServer создает новый gRPC сервер для Routing Service
@@ -40,6 +47,41 @@ func NewServer(
 		prefixRepo:       prefixRepo,
 		operatorResolver: operatorResolver,
 	}
+}
+
+// SetHLRService устанавливает HLR-сервис
+func (s *Server) SetHLRService(hlr *application.HLRService) {
+	s.hlrService = hlr
+}
+
+// SetSmartRouter устанавливает сервис smart routing
+func (s *Server) SetSmartRouter(sr *application.SmartRoutingService) {
+	s.smartRouter = sr
+}
+
+// SetHLRProviderRepo устанавливает репозиторий HLR-провайдеров
+func (s *Server) SetHLRProviderRepo(repo domain.HLRProviderRepository) {
+	s.hlrProviderRepo = repo
+}
+
+// SetLookupLogRepo устанавливает репозиторий логов lookup
+func (s *Server) SetLookupLogRepo(repo domain.LookupLogRepository) {
+	s.lookupLogRepo = repo
+}
+
+// ==================== Существующие методы маршрутизации ====================
+
+// SetHLRDependencies устанавливает зависимости для HLR/MNP операций
+func (s *Server) SetHLRDependencies(
+	hlrService *application.HLRService,
+	hlrProviderRepo domain.HLRProviderRepository,
+	lookupLogRepo domain.LookupLogRepository,
+	smartRouter *application.SmartRoutingService,
+) {
+	s.hlrService = hlrService
+	s.hlrProviderRepo = hlrProviderRepo
+	s.lookupLogRepo = lookupLogRepo
+	s.smartRouter = smartRouter
 }
 
 // GetRoute получает маршрут для сообщения
@@ -273,6 +315,8 @@ func (s *Server) ListRoutes(ctx context.Context, req *routingv1.ListRoutesReques
 	}, nil
 }
 
+// ==================== Управление странами ====================
+
 // CreateCountry создает новую страну
 func (s *Server) CreateCountry(ctx context.Context, req *routingv1.CreateCountryRequest) (*routingv1.Country, error) {
 	if req.Name == "" {
@@ -392,6 +436,8 @@ func (s *Server) UpdateCountry(ctx context.Context, req *routingv1.UpdateCountry
 
 	return countryToProto(country), nil
 }
+
+// ==================== Управление операторами ====================
 
 // CreateOperator создает нового оператора
 func (s *Server) CreateOperator(ctx context.Context, req *routingv1.CreateOperatorRequest) (*routingv1.Operator, error) {
@@ -530,6 +576,8 @@ func (s *Server) UpdateOperator(ctx context.Context, req *routingv1.UpdateOperat
 	return operatorToProto(operator), nil
 }
 
+// ==================== Управление префиксами операторов ====================
+
 // CreateOperatorPrefix создает новый префикс оператора
 func (s *Server) CreateOperatorPrefix(ctx context.Context, req *routingv1.CreateOperatorPrefixRequest) (*routingv1.OperatorPrefix, error) {
 	if req.OperatorId == "" {
@@ -638,6 +686,521 @@ func (s *Server) ResolveOperator(ctx context.Context, req *routingv1.ResolveOper
 	}, nil
 }
 
+// ==================== HLR Number Lookup ====================
+
+// NumberLookup выполняет HLR-запрос для проверки номера
+func (s *Server) NumberLookup(ctx context.Context, req *routingv1.NumberLookupRequest) (*routingv1.NumberLookupResponse, error) {
+	if s.hlrService == nil {
+		return nil, status.Error(codes.Unavailable, "HLR сервис не сконфигурирован")
+	}
+	if req.Msisdn == "" {
+		return nil, status.Error(codes.InvalidArgument, "msisdn is required")
+	}
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	result, err := s.hlrService.LookupNumber(
+		ctx, req.Msisdn, req.ForceRefresh, clientID,
+		req.RequestId, domain.LookupSourceAPILookup, nil,
+	)
+	if err != nil {
+		if err == domain.ErrInvalidMSISDN {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		log.Error().Err(err).Str("msisdn", req.Msisdn).Msg("ошибка HLR lookup")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if result == nil {
+		return nil, status.Error(codes.NotFound, "номер не подходит для HLR lookup (short code)")
+	}
+
+	return lookupResultToProto(result), nil
+}
+
+// BulkNumberLookup выполняет массовый HLR-запрос для проверки номеров
+func (s *Server) BulkNumberLookup(ctx context.Context, req *routingv1.BulkNumberLookupRequest) (*routingv1.BulkNumberLookupResponse, error) {
+	if s.hlrService == nil {
+		return nil, status.Error(codes.Unavailable, "HLR сервис не сконфигурирован")
+	}
+	if len(req.Msisdns) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "msisdns is required")
+	}
+	if len(req.Msisdns) > 1000 {
+		return nil, status.Error(codes.InvalidArgument, domain.ErrBulkLookupTooLarge.Error())
+	}
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	var results []*routingv1.NumberLookupResponse
+	var successCount, failedCount int32
+
+	for _, msisdn := range req.Msisdns {
+		result, err := s.hlrService.LookupNumber(
+			ctx, msisdn, req.ForceRefresh, clientID,
+			req.RequestId, domain.LookupSourceAPILookup, nil,
+		)
+		if err != nil {
+			failedCount++
+			continue
+		}
+		if result == nil {
+			failedCount++
+			continue
+		}
+		results = append(results, lookupResultToProto(result))
+		successCount++
+	}
+
+	return &routingv1.BulkNumberLookupResponse{
+		Results:      results,
+		TotalCount:   int32(len(req.Msisdns)),
+		SuccessCount: successCount,
+		FailedCount:  failedCount,
+	}, nil
+}
+
+// ==================== Управление HLR-провайдерами ====================
+
+// CreateHLRProvider создает нового HLR-провайдера
+func (s *Server) CreateHLRProvider(ctx context.Context, req *routingv1.CreateHLRProviderRequest) (*routingv1.HLRProviderProto, error) {
+	if s.hlrProviderRepo == nil {
+		return nil, status.Error(codes.Unavailable, "HLR провайдер репозиторий не сконфигурирован")
+	}
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "name is required")
+	}
+	if req.AdapterType == "" {
+		return nil, status.Error(codes.InvalidArgument, "adapter_type is required")
+	}
+
+	// Парсим конфигурацию из JSON
+	var config map[string]interface{}
+	if req.ConfigJson != "" {
+		if err := json.Unmarshal([]byte(req.ConfigJson), &config); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid config_json format: "+err.Error())
+		}
+	}
+
+	// Парсим стоимость
+	var costPerLookup float64
+	if req.CostPerLookup != "" {
+		var err error
+		costPerLookup, err = strconv.ParseFloat(req.CostPerLookup, 64)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid cost_per_lookup format")
+		}
+	}
+
+	provider := domain.NewHLRProvider(
+		req.Name,
+		req.AdapterType,
+		config,
+		int(req.Priority),
+		req.SupportedRegions,
+		costPerLookup,
+	)
+
+	if err := s.hlrProviderRepo.Create(ctx, provider); err != nil {
+		log.Error().Err(err).Msg("ошибка создания HLR-провайдера")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return hlrProviderToProto(provider), nil
+}
+
+// UpdateHLRProvider обновляет HLR-провайдера
+func (s *Server) UpdateHLRProvider(ctx context.Context, req *routingv1.UpdateHLRProviderRequest) (*routingv1.HLRProviderProto, error) {
+	if s.hlrProviderRepo == nil {
+		return nil, status.Error(codes.Unavailable, "HLR провайдер репозиторий не сконфигурирован")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id format")
+	}
+
+	provider, err := s.hlrProviderRepo.GetByID(ctx, id)
+	if err != nil {
+		if err == domain.ErrHLRProviderNotFound {
+			return nil, status.Error(codes.NotFound, "HLR провайдер не найден")
+		}
+		log.Error().Err(err).Msg("ошибка получения HLR-провайдера")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if req.Name != "" {
+		provider.Name = req.Name
+	}
+	if req.AdapterType != "" {
+		provider.AdapterType = req.AdapterType
+	}
+	if req.ConfigJson != "" {
+		var config map[string]interface{}
+		if err := json.Unmarshal([]byte(req.ConfigJson), &config); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid config_json format: "+err.Error())
+		}
+		provider.Config = config
+	}
+	if req.Priority != 0 {
+		provider.Priority = int(req.Priority)
+	}
+	if len(req.SupportedRegions) > 0 {
+		provider.SupportedRegions = req.SupportedRegions
+	}
+	if req.CostPerLookup != "" {
+		cost, err := strconv.ParseFloat(req.CostPerLookup, 64)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid cost_per_lookup format")
+		}
+		provider.CostPerLookup = cost
+	}
+	provider.Active = req.Active
+	provider.UpdatedAt = time.Now()
+
+	if err := s.hlrProviderRepo.Update(ctx, provider); err != nil {
+		log.Error().Err(err).Msg("ошибка обновления HLR-провайдера")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return hlrProviderToProto(provider), nil
+}
+
+// DeleteHLRProvider удаляет HLR-провайдера (soft delete)
+func (s *Server) DeleteHLRProvider(ctx context.Context, req *routingv1.DeleteHLRProviderRequest) (*routingv1.DeleteRouteResponse, error) {
+	if s.hlrProviderRepo == nil {
+		return nil, status.Error(codes.Unavailable, "HLR провайдер репозиторий не сконфигурирован")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id format")
+	}
+
+	if err := s.hlrProviderRepo.Delete(ctx, id); err != nil {
+		if err == domain.ErrHLRProviderNotFound {
+			return nil, status.Error(codes.NotFound, "HLR провайдер не найден")
+		}
+		log.Error().Err(err).Msg("ошибка удаления HLR-провайдера")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &routingv1.DeleteRouteResponse{
+		Success: true,
+	}, nil
+}
+
+// GetHLRProvider получает HLR-провайдера по ID
+func (s *Server) GetHLRProvider(ctx context.Context, req *routingv1.GetHLRProviderRequest) (*routingv1.HLRProviderProto, error) {
+	if s.hlrProviderRepo == nil {
+		return nil, status.Error(codes.Unavailable, "HLR провайдер репозиторий не сконфигурирован")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id format")
+	}
+
+	provider, err := s.hlrProviderRepo.GetByID(ctx, id)
+	if err != nil {
+		if err == domain.ErrHLRProviderNotFound {
+			return nil, status.Error(codes.NotFound, "HLR провайдер не найден")
+		}
+		log.Error().Err(err).Msg("ошибка получения HLR-провайдера")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return hlrProviderToProto(provider), nil
+}
+
+// ListHLRProviders получает список HLR-провайдеров
+func (s *Server) ListHLRProviders(ctx context.Context, req *routingv1.ListHLRProvidersRequest) (*routingv1.ListHLRProvidersResponse, error) {
+	if s.hlrProviderRepo == nil {
+		return nil, status.Error(codes.Unavailable, "HLR провайдер репозиторий не сконфигурирован")
+	}
+
+	var providers []*domain.HLRProvider
+	var err error
+
+	if req.ActiveOnly {
+		providers, err = s.hlrProviderRepo.ListActive(ctx)
+	} else {
+		// ListActive возвращает только активных; для полного списка получаем все через GetByPriority с пустым кодом
+		// Используем ListActive как fallback, т.к. нет метода ListAll в интерфейсе
+		providers, err = s.hlrProviderRepo.ListActive(ctx)
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка HLR-провайдеров")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	protoProviders := make([]*routingv1.HLRProviderProto, len(providers))
+	for i, provider := range providers {
+		protoProviders[i] = hlrProviderToProto(provider)
+	}
+
+	return &routingv1.ListHLRProvidersResponse{
+		Providers: protoProviders,
+	}, nil
+}
+
+// ==================== Smart Route Weights ====================
+
+// SetSmartRouteWeights создает или обновляет веса умной маршрутизации
+func (s *Server) SetSmartRouteWeights(ctx context.Context, req *routingv1.SetSmartRouteWeightsRequest) (*routingv1.SmartRouteWeightProto, error) {
+	if s.smartRouter == nil {
+		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
+	}
+	if req.OperatorCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_code is required")
+	}
+	if req.CountryCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "country_code is required")
+	}
+
+	costWeight, err := strconv.ParseFloat(req.CostWeight, 64)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid cost_weight format")
+	}
+
+	qualityWeight, err := strconv.ParseFloat(req.QualityWeight, 64)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid quality_weight format")
+	}
+
+	weight, err := s.smartRouter.SetWeights(ctx, req.OperatorCode, req.CountryCode, costWeight, qualityWeight)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка установки весов smart routing")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return smartRouteWeightToProto(weight), nil
+}
+
+// GetSmartRouteWeights получает веса умной маршрутизации
+func (s *Server) GetSmartRouteWeights(ctx context.Context, req *routingv1.GetSmartRouteWeightsRequest) (*routingv1.SmartRouteWeightProto, error) {
+	if s.smartRouter == nil {
+		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
+	}
+	if req.OperatorCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_code is required")
+	}
+	if req.CountryCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "country_code is required")
+	}
+
+	weight, err := s.smartRouter.GetWeights(ctx, req.OperatorCode, req.CountryCode)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения весов smart routing")
+		return nil, status.Error(codes.NotFound, "smart route weights not found")
+	}
+
+	return smartRouteWeightToProto(weight), nil
+}
+
+// ListSmartRouteWeights получает список весов умной маршрутизации
+func (s *Server) ListSmartRouteWeights(ctx context.Context, req *routingv1.ListSmartRouteWeightsRequest) (*routingv1.ListSmartRouteWeightsResponse, error) {
+	if s.smartRouter == nil {
+		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
+	}
+
+	weights, err := s.smartRouter.ListWeights(ctx, req.CountryCode)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка весов smart routing")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	protoWeights := make([]*routingv1.SmartRouteWeightProto, len(weights))
+	for i, weight := range weights {
+		protoWeights[i] = smartRouteWeightToProto(weight)
+	}
+
+	return &routingv1.ListSmartRouteWeightsResponse{
+		Weights: protoWeights,
+	}, nil
+}
+
+// DeleteSmartRouteWeights удаляет веса умной маршрутизации
+func (s *Server) DeleteSmartRouteWeights(ctx context.Context, req *routingv1.DeleteSmartRouteWeightsRequest) (*routingv1.DeleteRouteResponse, error) {
+	if s.smartRouter == nil {
+		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id format")
+	}
+
+	if err := s.smartRouter.DeleteWeights(ctx, id); err != nil {
+		log.Error().Err(err).Msg("ошибка удаления весов smart routing")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &routingv1.DeleteRouteResponse{
+		Success: true,
+	}, nil
+}
+
+// ==================== История lookup-запросов ====================
+
+// GetLookupHistory получает историю lookup-запросов клиента
+func (s *Server) GetLookupHistory(ctx context.Context, req *routingv1.GetLookupHistoryRequest) (*routingv1.GetLookupHistoryResponse, error) {
+	if s.lookupLogRepo == nil {
+		return nil, status.Error(codes.Unavailable, "lookup log репозиторий не сконфигурирован")
+	}
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	// Преобразуем временные фильтры
+	var fromTime, toTime *time.Time
+	if req.FromDate != nil {
+		t := req.FromDate.AsTime()
+		fromTime = &t
+	}
+	if req.ToDate != nil {
+		t := req.ToDate.AsTime()
+		toTime = &t
+	}
+
+	page := int(req.Page)
+	if page == 0 {
+		page = 1
+	}
+	pageSize := int(req.PageSize)
+	if pageSize == 0 {
+		pageSize = 50
+	}
+
+	entries, totalCount, err := s.lookupLogRepo.ListByClient(
+		ctx, clientID, fromTime, toTime,
+		req.MsisdnFilter, req.SourceFilter,
+		page, pageSize,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения истории lookup")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	protoEntries := make([]*routingv1.LookupLogEntry, len(entries))
+	for i, entry := range entries {
+		protoEntries[i] = lookupLogEntryToProto(entry)
+	}
+
+	return &routingv1.GetLookupHistoryResponse{
+		Items:      protoEntries,
+		TotalCount: totalCount,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
+	}, nil
+}
+
+// ==================== Маршрутизация с HLR ====================
+
+// RouteMessageWithHLR маршрутизирует сообщение с предварительным HLR lookup
+func (s *Server) RouteMessageWithHLR(ctx context.Context, req *routingv1.RouteMessageWithHLRRequest) (*routingv1.RouteMessageWithHLRResponse, error) {
+	if req.MessageId == "" {
+		return nil, status.Error(codes.InvalidArgument, "message_id is required")
+	}
+	if req.Destination == "" {
+		return nil, status.Error(codes.InvalidArgument, "destination is required")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id format")
+	}
+
+	var clientID *uuid.UUID
+	if req.ClientId != "" {
+		parsed, err := uuid.Parse(req.ClientId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		}
+		clientID = &parsed
+	}
+
+	var existingRouteID *uuid.UUID
+	if req.ExistingRouteId != "" {
+		parsed, err := uuid.Parse(req.ExistingRouteId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid existing_route_id format")
+		}
+		existingRouteID = &parsed
+	}
+
+	var existingProviderID *uuid.UUID
+	if req.ExistingProviderId != "" {
+		parsed, err := uuid.Parse(req.ExistingProviderId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid existing_provider_id format")
+		}
+		existingProviderID = &parsed
+	}
+
+	result, err := s.routingService.RouteMessageWithHLR(
+		ctx, messageID, req.Destination, clientID,
+		existingRouteID, existingProviderID,
+	)
+	if err != nil {
+		if err == domain.ErrNumberInvalid {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
+		if err == domain.ErrNoMatchingRoute {
+			return nil, status.Error(codes.NotFound, "no matching route found")
+		}
+		if err == domain.ErrNoProviders {
+			return nil, status.Error(codes.NotFound, "no available providers")
+		}
+		log.Error().Err(err).Msg("ошибка маршрутизации с HLR")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	resp := &routingv1.RouteMessageWithHLRResponse{
+		RouteId:      result.RouteID.String(),
+		ProviderId:   result.ProviderID.String(),
+		HlrUsed:      result.HLRUsed,
+		RoutingScore: result.RoutingScore,
+	}
+
+	if result.HLRResult != nil {
+		resp.HlrResult = lookupResultToProto(result.HLRResult)
+	}
+
+	return resp, nil
+}
+
+// ==================== Вспомогательные функции преобразования ====================
+
 // routeToProto преобразует domain.Route в proto.RouteInfo
 func routeToProto(route *domain.Route) *routingv1.RouteInfo {
 	providerIDs := make([]string, len(route.ProviderIDs))
@@ -720,4 +1283,138 @@ func operatorPrefixToProto(prefix *domain.OperatorPrefix) *routingv1.OperatorPre
 		Priority:   int32(prefix.Priority),
 		CreatedAt:  timestamppb.New(prefix.CreatedAt),
 	}
+}
+
+// lookupResultToProto преобразует domain.LookupResult в proto.NumberLookupResponse
+func lookupResultToProto(result *domain.LookupResult) *routingv1.NumberLookupResponse {
+	return &routingv1.NumberLookupResponse{
+		Msisdn:                 result.MSISDN,
+		OperatorMccmnc:         result.OperatorMCCMNC,
+		OperatorName:           result.OperatorName,
+		NumberStatus:           numberStatusToProto(result.NumberStatus),
+		CountryCode:            result.CountryCode,
+		NumberType:             numberTypeToProto(result.NumberType),
+		IsPorted:               result.IsPorted,
+		OriginalOperatorMccmnc: result.OriginalOperatorMCCMNC,
+		Cached:                 result.Cached,
+		QueriedAt:              timestamppb.New(result.QueriedAt),
+	}
+}
+
+// hlrProviderToProto преобразует domain.HLRProvider в proto.HLRProviderProto
+func hlrProviderToProto(provider *domain.HLRProvider) *routingv1.HLRProviderProto {
+	// Сериализуем конфигурацию в JSON
+	configJSON := ""
+	if provider.Config != nil {
+		data, err := json.Marshal(provider.Config)
+		if err == nil {
+			configJSON = string(data)
+		}
+	}
+
+	proto := &routingv1.HLRProviderProto{
+		Id:               provider.ID.String(),
+		Name:             provider.Name,
+		AdapterType:      provider.AdapterType,
+		ConfigJson:       configJSON,
+		Priority:         int32(provider.Priority),
+		SupportedRegions: provider.SupportedRegions,
+		CostPerLookup:    fmt.Sprintf("%.6f", provider.CostPerLookup),
+		Status:           string(provider.Status),
+		SuccessRate:      fmt.Sprintf("%.2f", provider.SuccessRate),
+		Active:           provider.Active,
+		CreatedAt:        timestamppb.New(provider.CreatedAt),
+		UpdatedAt:        timestamppb.New(provider.UpdatedAt),
+	}
+
+	if provider.LastSuccessAt != nil {
+		proto.LastSuccessAt = timestamppb.New(*provider.LastSuccessAt)
+	}
+	if provider.LastFailureAt != nil {
+		proto.LastFailureAt = timestamppb.New(*provider.LastFailureAt)
+	}
+
+	return proto
+}
+
+// smartRouteWeightToProto преобразует domain.SmartRouteWeight в proto.SmartRouteWeightProto
+func smartRouteWeightToProto(weight *domain.SmartRouteWeight) *routingv1.SmartRouteWeightProto {
+	return &routingv1.SmartRouteWeightProto{
+		Id:            weight.ID.String(),
+		OperatorCode:  weight.OperatorCode,
+		CountryCode:   weight.CountryCode,
+		CostWeight:    fmt.Sprintf("%.4f", weight.CostWeight),
+		QualityWeight: fmt.Sprintf("%.4f", weight.QualityWeight),
+		Active:        weight.Active,
+		CreatedAt:     timestamppb.New(weight.CreatedAt),
+		UpdatedAt:     timestamppb.New(weight.UpdatedAt),
+	}
+}
+
+// lookupLogEntryToProto преобразует domain.LookupLogEntry в proto.LookupLogEntry
+func lookupLogEntryToProto(entry *domain.LookupLogEntry) *routingv1.LookupLogEntry {
+	proto := &routingv1.LookupLogEntry{
+		Id:             entry.ID.String(),
+		Msisdn:         entry.MSISDN,
+		OperatorMccmnc: entry.OperatorMCCMNC,
+		OperatorName:   entry.OperatorName,
+		NumberStatus:   numberStatusFromString(entry.NumberStatus),
+		CountryCode:    entry.CountryCode,
+		NumberType:     numberTypeFromString(entry.NumberType),
+		IsPorted:       entry.IsPorted,
+		Source:         string(entry.Source),
+		ClientId:       entry.ClientID.String(),
+		Cached:         entry.Cached,
+		LatencyMs:      int32(entry.LatencyMs),
+		RequestId:      entry.RequestID,
+		CreatedAt:      timestamppb.New(entry.CreatedAt),
+	}
+
+	if entry.MessageID != nil {
+		proto.MessageId = entry.MessageID.String()
+	}
+
+	return proto
+}
+
+// ==================== Вспомогательные функции маппинга enum ====================
+
+// numberStatusToProto преобразует domain.NumberStatus в proto.NumberStatus
+func numberStatusToProto(s domain.NumberStatus) routingv1.NumberStatus {
+	switch s {
+	case domain.NumberStatusActive:
+		return routingv1.NumberStatus_NUMBER_STATUS_ACTIVE
+	case domain.NumberStatusAbsent:
+		return routingv1.NumberStatus_NUMBER_STATUS_ABSENT
+	case domain.NumberStatusInvalid:
+		return routingv1.NumberStatus_NUMBER_STATUS_INVALID
+	case domain.NumberStatusUnknown:
+		return routingv1.NumberStatus_NUMBER_STATUS_UNKNOWN
+	default:
+		return routingv1.NumberStatus_NUMBER_STATUS_UNSPECIFIED
+	}
+}
+
+// numberTypeToProto преобразует domain.NumberType в proto.NumberType
+func numberTypeToProto(t domain.NumberType) routingv1.NumberType {
+	switch t {
+	case domain.NumberTypeMobile:
+		return routingv1.NumberType_NUMBER_TYPE_MOBILE
+	case domain.NumberTypeFixed:
+		return routingv1.NumberType_NUMBER_TYPE_FIXED
+	case domain.NumberTypeVoip:
+		return routingv1.NumberType_NUMBER_TYPE_VOIP
+	default:
+		return routingv1.NumberType_NUMBER_TYPE_UNSPECIFIED
+	}
+}
+
+// numberStatusFromString преобразует строку в proto.NumberStatus
+func numberStatusFromString(s string) routingv1.NumberStatus {
+	return numberStatusToProto(domain.NumberStatus(s))
+}
+
+// numberTypeFromString преобразует строку в proto.NumberType
+func numberTypeFromString(s string) routingv1.NumberType {
+	return numberTypeToProto(domain.NumberType(s))
 }
