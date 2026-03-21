@@ -31,6 +31,21 @@ service ClientService {
   
   // UpdateClientRateLimits обновляет rate limits клиента
   rpc UpdateClientRateLimits(UpdateClientRateLimitsRequest) returns (UpdateClientRateLimitsResponse);
+
+  // CreateSubAccount создает суб-аккаунт для реселлера
+  rpc CreateSubAccount(CreateSubAccountRequest) returns (CreateSubAccountResponse);
+
+  // ListSubAccounts получает список суб-аккаунтов реселлера
+  rpc ListSubAccounts(ListSubAccountsRequest) returns (ListSubAccountsResponse);
+
+  // GetSubAccount получает информацию о суб-аккаунте
+  rpc GetSubAccount(GetSubAccountRequest) returns (GetSubAccountResponse);
+
+  // DeleteSubAccount удаляет суб-аккаунт
+  rpc DeleteSubAccount(DeleteSubAccountRequest) returns (DeleteSubAccountResponse);
+
+  // UpdateSubAccountLimits обновляет лимиты суб-аккаунта
+  rpc UpdateSubAccountLimits(UpdateSubAccountLimitsRequest) returns (UpdateSubAccountLimitsResponse);
 }
 
 // CreateClientRequest представляет запрос на создание клиента
@@ -143,6 +158,9 @@ message ClientInfo {
   map<string, string> metadata = 8;  // Дополнительные метаданные
   google.protobuf.Timestamp created_at = 9;  // Время создания
   google.protobuf.Timestamp updated_at = 10; // Время обновления
+  string parent_client_id = 11;     // ID родительского клиента (для суб-аккаунтов)
+  bool is_reseller = 12;            // Является ли клиент реселлером
+  int32 max_sub_accounts = 13;      // Максимальное количество суб-аккаунтов
 }
 
 // ClientConfig представляет конфигурацию клиента
@@ -161,4 +179,83 @@ message RateLimits {
   int32 messages_per_minute = 2;  // Сообщений в минуту
   int32 messages_per_hour = 3;    // Сообщений в час
   int32 messages_per_day = 4;     // Сообщений в день
+}
+
+// SubAccount представляет суб-аккаунт реселлера
+message SubAccount {
+  string id = 1;                    // ID суб-аккаунта
+  string name = 2;                  // Название суб-аккаунта
+  string email = 3;                 // Email суб-аккаунта
+  string contact_person = 4;        // Контактное лицо
+  bool active = 5;                  // Активен ли суб-аккаунт
+  string balance = 6;               // Баланс (в виде строки для точности)
+  string currency = 7;              // Валюта
+  int32 daily_limit = 8;            // Дневной лимит сообщений
+  int32 monthly_limit = 9;          // Месячный лимит сообщений
+  int32 messages_today = 10;        // Отправлено сообщений сегодня
+  int32 messages_this_month = 11;   // Отправлено сообщений в этом месяце
+  google.protobuf.Timestamp created_at = 12;  // Время создания
+}
+
+// CreateSubAccountRequest представляет запрос на создание суб-аккаунта
+message CreateSubAccountRequest {
+  string parent_client_id = 1;      // ID родительского клиента (реселлера)
+  string name = 2;                  // Название суб-аккаунта
+  string email = 3;                 // Email суб-аккаунта
+  string contact_person = 4;        // Контактное лицо
+  string initial_balance = 5;       // Начальный баланс
+  int32 daily_limit = 6;            // Дневной лимит сообщений
+  int32 monthly_limit = 7;          // Месячный лимит сообщений
+}
+
+// CreateSubAccountResponse представляет ответ на создание суб-аккаунта
+message CreateSubAccountResponse {
+  SubAccount sub_account = 1;       // Созданный суб-аккаунт
+}
+
+// ListSubAccountsRequest представляет запрос на получение списка суб-аккаунтов
+message ListSubAccountsRequest {
+  string parent_client_id = 1;      // ID родительского клиента (реселлера)
+}
+
+// ListSubAccountsResponse представляет ответ со списком суб-аккаунтов
+message ListSubAccountsResponse {
+  repeated SubAccount sub_accounts = 1;  // Список суб-аккаунтов
+  int32 max_sub_accounts = 2;       // Максимальное количество суб-аккаунтов
+  int32 current_count = 3;          // Текущее количество суб-аккаунтов
+}
+
+// GetSubAccountRequest представляет запрос на получение суб-аккаунта
+message GetSubAccountRequest {
+  string sub_account_id = 1;        // ID суб-аккаунта
+  string parent_client_id = 2;      // ID родительского клиента (реселлера)
+}
+
+// GetSubAccountResponse представляет ответ с информацией о суб-аккаунте
+message GetSubAccountResponse {
+  SubAccount sub_account = 1;       // Суб-аккаунт
+}
+
+// DeleteSubAccountRequest представляет запрос на удаление суб-аккаунта
+message DeleteSubAccountRequest {
+  string sub_account_id = 1;        // ID суб-аккаунта
+  string parent_client_id = 2;      // ID родительского клиента (реселлера)
+}
+
+// DeleteSubAccountResponse представляет ответ на удаление суб-аккаунта
+message DeleteSubAccountResponse {
+  string returned_balance = 1;      // Возвращенный баланс
+}
+
+// UpdateSubAccountLimitsRequest представляет запрос на обновление лимитов суб-аккаунта
+message UpdateSubAccountLimitsRequest {
+  string sub_account_id = 1;        // ID суб-аккаунта
+  string parent_client_id = 2;      // ID родительского клиента (реселлера)
+  int32 daily_limit = 3;            // Дневной лимит сообщений
+  int32 monthly_limit = 4;          // Месячный лимит сообщений
+}
+
+// UpdateSubAccountLimitsResponse представляет ответ на обновление лимитов суб-аккаунта
+message UpdateSubAccountLimitsResponse {
+  SubAccount sub_account = 1;       // Обновленный суб-аккаунт
 }

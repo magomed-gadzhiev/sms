@@ -92,5 +92,7 @@ func (t *Transaction) IsValidType() bool {
 	return t.Type == TransactionTypeCharge ||
 		t.Type == TransactionTypeCredit ||
 		t.Type == TransactionTypeRefund ||
-		t.Type == TransactionTypeAdjustment
+		t.Type == TransactionTypeAdjustment ||
+		t.Type == TransactionTypeTransferOut ||
+		t.Type == TransactionTypeTransferIn
 }

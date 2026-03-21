@@ -1,22 +1,17 @@
 <!--
 Sync Impact Report
-- Version change: 0.0.0 (template) → 1.0.0 (initial ratification)
-- Added principles:
-  I. Domain-Driven Design
-  II. Event-Driven Architecture
-  III. Contract-First APIs
-  IV. Observability
-  V. Data Safety
-  VI. Simplicity
+- Version change: 1.0.0 → 1.1.0
+- Modified principles:
+  VI. Simplicity — refined "New services MUST NOT be created" to allow
+  query-only bounded contexts with Complexity Tracking justification
 - Added sections:
-  Technical Constraints
-  Development Workflow
-  Governance
-- Removed sections: none (template placeholders replaced)
+  Technical Constraints: Frontend stack (React 19, TypeScript, Vite)
+  Technical Constraints: Session auth (cookies, CSRF) for web portals
+- Removed sections: none
 - Templates requiring updates:
-  ✅ plan-template.md — Constitution Check section references principles
-  ✅ spec-template.md — no changes needed (already aligned)
-  ✅ tasks-template.md — no changes needed (already aligned)
+  ✅ plan-template.md — no changes needed (Constitution Check is dynamic)
+  ✅ spec-template.md — no changes needed
+  ✅ tasks-template.md — no changes needed
 - Follow-up TODOs: none
 -->
 
@@ -62,28 +57,35 @@ MUST have dedicated Prometheus counters/histograms.
 Messages MUST NOT be lost once accepted by the system (acknowledged to client).
 Database tables with high write volume MUST use monthly partitioning.
 Data retention policies MUST be enforced automatically (90 days for messages,
-1 year for audit logs). Sensitive data (API keys, provider passwords) MUST
-be stored encrypted or hashed — never in plaintext logs.
+1 year for audit logs). Sensitive data (API keys, provider passwords, TOTP
+secrets) MUST be stored encrypted or hashed — never in plaintext logs.
 Balance operations MUST be atomic — no partial charges or double billing.
 
 ### VI. Simplicity
 
-Prefer the simplest solution that meets requirements. New services MUST NOT
-be created when existing services can be extended. Background goroutines
-MUST follow the established Start/Stop pattern (see scheduler.go).
+Prefer the simplest solution that meets requirements. Existing services
+SHOULD be extended rather than creating new ones. New services MUST be
+justified in the plan's Complexity Tracking section with rationale for why
+extending an existing service is insufficient (e.g., distinct bounded
+context, separate data lifecycle, incompatible scaling profile). Background
+goroutines MUST follow the established Start/Stop pattern (see scheduler.go).
 Configuration MUST use environment variables with sensible defaults.
 Avoid premature abstraction — three similar lines are better than one
 premature helper.
 
 ## Technical Constraints
 
-- **Language**: Go 1.24+ for all services
+- **Language**: Go 1.24+ for all backend services
+- **Frontend**: React 19 + TypeScript + Vite for web portals; served via
+  nginx in separate container
 - **Database**: PostgreSQL 15+ with pgx driver, monthly partitioning for
   high-volume tables
 - **Cache**: Redis 7+ for rate limiting, API key caching, session storage
 - **Messaging**: Apache Kafka via Sarama for all async communication
 - **Protocols**: SMPP v3.4 (custom implementation), HTTP REST (gorilla/mux),
   gRPC (google.golang.org/grpc)
+- **Auth**: JWT + API keys for machine-to-machine (client-gateway);
+  session cookies + CSRF tokens for web portals (portal-gateway)
 - **Deployment**: Docker Compose with HAProxy load balancing
 - **Monitoring**: Prometheus + Grafana; all services expose /metrics
 
@@ -106,4 +108,4 @@ MUST be justified in the plan's Complexity Tracking section.
 Amendments require: (1) documented rationale, (2) version bump,
 (3) propagation to dependent templates.
 
-**Version**: 1.0.0 | **Ratified**: 2026-03-20 | **Last Amended**: 2026-03-20
+**Version**: 1.1.0 | **Ratified**: 2026-03-20 | **Last Amended**: 2026-03-21

@@ -15,6 +15,7 @@ import (
 type BillingService struct {
 	accountRepo     domain.AccountRepository
 	transactionRepo domain.TransactionRepository
+	transferRepo    domain.TransferRepository
 	eventPublisher  domain.EventPublisher
 	logger          zerolog.Logger
 }
@@ -31,6 +32,11 @@ func NewBillingService(
 		eventPublisher:  eventPublisher,
 		logger:          log.With().Str("component", "billing-service").Logger(),
 	}
+}
+
+// SetTransferRepo устанавливает репозиторий переводов
+func (s *BillingService) SetTransferRepo(transferRepo domain.TransferRepository) {
+	s.transferRepo = transferRepo
 }
 
 // GetBalance получает баланс клиента
@@ -258,6 +264,123 @@ func (s *BillingService) GetTransactionHistory(
 	limit, offset int,
 ) ([]*domain.Transaction, error) {
 	return s.transactionRepo.GetByClientID(ctx, clientID, limit, offset)
+}
+
+// TransferBalance переводит средства между клиентами (атомарная операция)
+func (s *BillingService) TransferBalance(
+	ctx context.Context,
+	fromClientID, toClientID uuid.UUID,
+	amount, currency string,
+) (transferID, fromBalance, toBalance string, err error) {
+	// Получаем счёт отправителя
+	fromAccount, err := s.accountRepo.GetByClientID(ctx, fromClientID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to get sender account: %w", err)
+	}
+
+	// Проверяем валюту
+	if fromAccount.Currency != currency {
+		return "", "", "", fmt.Errorf("currency mismatch: sender account has %s, but %s provided", fromAccount.Currency, currency)
+	}
+
+	// Проверяем баланс отправителя
+	newFromBalance, err := s.subtract(fromAccount.Balance, amount)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to calculate sender balance: %w", err)
+	}
+
+	if s.isNegative(newFromBalance) {
+		return "", "", "", domain.ErrInsufficientBalance
+	}
+
+	// Получаем или создаем счёт получателя
+	toAccount, err := s.accountRepo.GetByClientID(ctx, toClientID)
+	if err != nil {
+		if err != domain.ErrAccountNotFound {
+			return "", "", "", fmt.Errorf("failed to get receiver account: %w", err)
+		}
+		// Создаем новый счёт для получателя
+		toAccount = domain.NewAccount(toClientID, currency)
+		if err := s.accountRepo.Create(ctx, toAccount); err != nil {
+			return "", "", "", fmt.Errorf("failed to create receiver account: %w", err)
+		}
+	}
+
+	if toAccount.Currency != currency {
+		return "", "", "", fmt.Errorf("currency mismatch: receiver account has %s, but %s provided", toAccount.Currency, currency)
+	}
+
+	newToBalance, err := s.add(toAccount.Balance, amount)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to calculate receiver balance: %w", err)
+	}
+
+	// Списываем со счёта отправителя
+	if err := s.accountRepo.UpdateBalance(ctx, fromClientID, newFromBalance); err != nil {
+		return "", "", "", fmt.Errorf("failed to debit sender: %w", err)
+	}
+
+	// Зачисляем на счёт получателя
+	if err := s.accountRepo.UpdateBalance(ctx, toClientID, newToBalance); err != nil {
+		return "", "", "", fmt.Errorf("failed to credit receiver: %w", err)
+	}
+
+	// Создаем транзакцию списания (transfer_out)
+	fromTx := domain.NewTransaction(
+		fromClientID,
+		domain.TransactionTypeTransferOut,
+		amount,
+		fromAccount.Balance,
+		newFromBalance,
+		currency,
+	).WithDescription(fmt.Sprintf("Transfer to %s", toClientID.String()))
+
+	if err := s.transactionRepo.Create(ctx, fromTx); err != nil {
+		return "", "", "", fmt.Errorf("failed to create transfer_out transaction: %w", err)
+	}
+
+	// Создаем транзакцию зачисления (transfer_in)
+	toTx := domain.NewTransaction(
+		toClientID,
+		domain.TransactionTypeTransferIn,
+		amount,
+		toAccount.Balance,
+		newToBalance,
+		currency,
+	).WithDescription(fmt.Sprintf("Transfer from %s", fromClientID.String()))
+
+	if err := s.transactionRepo.Create(ctx, toTx); err != nil {
+		return "", "", "", fmt.Errorf("failed to create transfer_in transaction: %w", err)
+	}
+
+	// Создаем запись о переводе
+	transfer := domain.NewBalanceTransfer(fromClientID, toClientID, amount, currency, fromTx.ID, toTx.ID)
+
+	if s.transferRepo != nil {
+		if err := s.transferRepo.Create(ctx, transfer); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to save balance transfer record")
+		}
+	}
+
+	// Публикуем события
+	if s.eventPublisher != nil {
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, fromClientID.String(), newFromBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish sender balance changed event")
+		}
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, toClientID.String(), newToBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish receiver balance changed event")
+		}
+	}
+
+	s.logger.Info().
+		Str("transfer_id", transfer.ID.String()).
+		Str("from_client_id", fromClientID.String()).
+		Str("to_client_id", toClientID.String()).
+		Str("amount", amount).
+		Str("currency", currency).
+		Msg("balance transfer completed")
+
+	return transfer.ID.String(), newFromBalance, newToBalance, nil
 }
 
 // add складывает два числа в строковом формате

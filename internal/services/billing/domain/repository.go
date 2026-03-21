@@ -25,6 +25,12 @@ type TransactionRepository interface {
 	GetByMessageID(ctx context.Context, messageID uuid.UUID) (*Transaction, error)
 }
 
+// TransferRepository определяет интерфейс репозитория переводов
+type TransferRepository interface {
+	Create(ctx context.Context, transfer *BalanceTransfer) error
+	GetByID(ctx context.Context, id uuid.UUID) (*BalanceTransfer, error)
+}
+
 // PricingRuleRepository определяет интерфейс репозитория правил тарификации
 type PricingRuleRepository interface {
 	Create(ctx context.Context, rule *PricingRule) error
