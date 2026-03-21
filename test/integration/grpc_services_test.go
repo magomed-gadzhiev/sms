@@ -45,261 +45,267 @@ func getGRPCConn(t *testing.T, addr string) *grpc.ClientConn {
 	return conn
 }
 
-// TestAuthService_ValidateToken тестирует валидацию токена через Auth Service
-func TestAuthService_ValidateToken(t *testing.T) {
-	conn := getGRPCConn(t, authServiceAddr)
-	defer conn.Close()
+func TestGRPCServices(t *testing.T) {
+	t.Run("AuthService", func(t *testing.T) {
+		t.Run("ValidateToken", func(t *testing.T) {
+			conn := getGRPCConn(t, authServiceAddr)
+			defer conn.Close()
 
-	client := authv1.NewAuthServiceClient(conn)
-	ctx := context.Background()
+			client := authv1.NewAuthServiceClient(conn)
+			ctx := context.Background()
 
-	// Сначала аутентифицируемся
-	authResp, err := client.Authenticate(ctx, &authv1.AuthenticateRequest{
-		Username: "test",
-		Password: "test",
-	})
-	if err != nil {
-		t.Skipf("Skipping test: authentication failed: %v", err)
-	}
+			// Сначала аутентифицируемся
+			authResp, err := client.Authenticate(ctx, &authv1.AuthenticateRequest{
+				Username: "test",
+				Password: "test",
+			})
+			if err != nil {
+				t.Skipf("Skipping test: authentication failed: %v", err)
+			}
 
-	require.NotEmpty(t, authResp.Token)
+			require.NotEmpty(t, authResp.Token)
 
-	// Затем валидируем токен
-	validateResp, err := client.ValidateToken(ctx, &authv1.ValidateTokenRequest{
-		Token: authResp.Token,
-	})
+			// Затем валидируем токен
+			validateResp, err := client.ValidateToken(ctx, &authv1.ValidateTokenRequest{
+				Token: authResp.Token,
+			})
 
-	require.NoError(t, err)
-	assert.True(t, validateResp.Valid)
-	assert.NotEmpty(t, validateResp.UserId)
-}
-
-// TestMessagingService_SendMessage тестирует отправку сообщения через Messaging Service
-func TestMessagingService_SendMessage(t *testing.T) {
-	conn := getGRPCConn(t, messagingServiceAddr)
-	defer conn.Close()
-
-	client := messagingv1.NewMessagingServiceClient(conn)
-	ctx := context.Background()
-
-	clientID := uuid.New().String()
-	msgID := uuid.New()
-
-	resp, err := client.SendMessage(ctx, &messagingv1.SendMessageRequest{
-		ClientId:    clientID,
-		MessageId:   msgID.String(),
-		Source:      "12345",
-		Destination: "79001234567",
-		Text:        "Integration test message",
+			require.NoError(t, err)
+			assert.True(t, validateResp.Valid)
+			assert.NotEmpty(t, validateResp.UserId)
+		})
 	})
 
-	if err != nil {
-		t.Logf("SendMessage error (may be expected if service not fully configured): %v", err)
-		return
-	}
+	t.Run("MessagingService", func(t *testing.T) {
+		t.Run("SendMessage", func(t *testing.T) {
+			conn := getGRPCConn(t, messagingServiceAddr)
+			defer conn.Close()
 
-	require.NoError(t, err)
-	assert.NotEmpty(t, resp.MessageId)
-	assert.Equal(t, msgID.String(), resp.MessageId)
-}
+			client := messagingv1.NewMessagingServiceClient(conn)
+			ctx := context.Background()
 
-// TestMessagingService_GetMessageStatus тестирует получение статуса сообщения
-func TestMessagingService_GetMessageStatus(t *testing.T) {
-	conn := getGRPCConn(t, messagingServiceAddr)
-	defer conn.Close()
+			clientID := uuid.New().String()
+			msgID := uuid.New()
 
-	client := messagingv1.NewMessagingServiceClient(conn)
-	ctx := context.Background()
+			resp, err := client.SendMessage(ctx, &messagingv1.SendMessageRequest{
+				ClientId:    clientID,
+				MessageId:   msgID.String(),
+				Source:      "12345",
+				Destination: "79001234567",
+				Text:        "Integration test message",
+			})
 
-	clientID := uuid.New().String()
-	msgID := uuid.New()
+			if err != nil {
+				t.Logf("SendMessage error (may be expected if service not fully configured): %v", err)
+				return
+			}
 
-	// Сначала создаем сообщение
-	_, err := client.SendMessage(ctx, &messagingv1.SendMessageRequest{
-		ClientId:    clientID,
-		MessageId:   msgID.String(),
-		Source:      "12345",
-		Destination: "79001234567",
-		Text:        "Status test message",
+			require.NoError(t, err)
+			assert.NotEmpty(t, resp.MessageId)
+			assert.Equal(t, msgID.String(), resp.MessageId)
+		})
+
+		t.Run("GetMessageStatus", func(t *testing.T) {
+			conn := getGRPCConn(t, messagingServiceAddr)
+			defer conn.Close()
+
+			client := messagingv1.NewMessagingServiceClient(conn)
+			ctx := context.Background()
+
+			clientID := uuid.New().String()
+			msgID := uuid.New()
+
+			// Сначала создаем сообщение
+			_, err := client.SendMessage(ctx, &messagingv1.SendMessageRequest{
+				ClientId:    clientID,
+				MessageId:   msgID.String(),
+				Source:      "12345",
+				Destination: "79001234567",
+				Text:        "Status test message",
+			})
+
+			if err != nil {
+				t.Skipf("Skipping test: SendMessage failed: %v", err)
+			}
+
+			// Даем время на обработку
+			time.Sleep(1 * time.Second)
+
+			// Получаем статус
+			statusResp, err := client.GetMessageStatus(ctx, &messagingv1.GetMessageStatusRequest{
+				MessageId: msgID.String(),
+			})
+
+			require.NoError(t, err)
+			assert.Equal(t, msgID.String(), statusResp.MessageId)
+			assert.NotEmpty(t, statusResp.Status)
+		})
 	})
 
-	if err != nil {
-		t.Skipf("Skipping test: SendMessage failed: %v", err)
-	}
+	t.Run("RoutingService", func(t *testing.T) {
+		t.Run("GetRoute", func(t *testing.T) {
+			conn := getGRPCConn(t, routingServiceAddr)
+			defer conn.Close()
 
-	// Даем время на обработку
-	time.Sleep(1 * time.Second)
+			client := routingv1.NewRoutingServiceClient(conn)
+			ctx := context.Background()
 
-	// Получаем статус
-	statusResp, err := client.GetMessageStatus(ctx, &messagingv1.GetMessageStatusRequest{
-		MessageId: msgID.String(),
+			clientID := uuid.New().String()
+
+			resp, err := client.GetRoute(ctx, &routingv1.GetRouteRequest{
+				Destination: "79001234567",
+				ClientId:    clientID,
+			})
+
+			if err != nil {
+				t.Logf("GetRoute error (may be expected if no routes configured): %v", err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.NotEmpty(t, resp.RouteId)
+		})
 	})
 
-	require.NoError(t, err)
-	assert.Equal(t, msgID.String(), statusResp.MessageId)
-	assert.NotEmpty(t, statusResp.Status)
-}
+	t.Run("ProviderService", func(t *testing.T) {
+		t.Run("ListProviders", func(t *testing.T) {
+			conn := getGRPCConn(t, providerServiceAddr)
+			defer conn.Close()
 
-// TestRoutingService_GetRoute тестирует получение маршрута
-func TestRoutingService_GetRoute(t *testing.T) {
-	conn := getGRPCConn(t, routingServiceAddr)
-	defer conn.Close()
+			client := providerv1.NewProviderServiceClient(conn)
+			ctx := context.Background()
 
-	client := routingv1.NewRoutingServiceClient(conn)
-	ctx := context.Background()
+			resp, err := client.ListProviders(ctx, &providerv1.ListProvidersRequest{
+				Limit:  10,
+				Offset: 0,
+			})
 
-	clientID := uuid.New().String()
+			if err != nil {
+				t.Logf("ListProviders error (may be expected if service not configured): %v", err)
+				return
+			}
 
-	resp, err := client.GetRoute(ctx, &routingv1.GetRouteRequest{
-		Destination: "79001234567",
-		ClientId:    clientID,
+			require.NoError(t, err)
+			assert.NotNil(t, resp.Providers)
+		})
 	})
 
-	if err != nil {
-		t.Logf("GetRoute error (may be expected if no routes configured): %v", err)
-		return
-	}
+	t.Run("ClientService", func(t *testing.T) {
+		t.Run("GetClient", func(t *testing.T) {
+			conn := getGRPCConn(t, clientServiceAddr)
+			defer conn.Close()
 
-	require.NoError(t, err)
-	assert.NotEmpty(t, resp.RouteId)
-}
+			client := clientv1.NewClientServiceClient(conn)
+			ctx := context.Background()
 
-// TestProviderService_ListProviders тестирует получение списка провайдеров
-func TestProviderService_ListProviders(t *testing.T) {
-	conn := getGRPCConn(t, providerServiceAddr)
-	defer conn.Close()
+			// Сначала создаем тестовую БД и клиента
+			dsn := testutil.GetTestDSN()
+			db, cleanup := testutil.SetupTestDB(t, dsn)
+			defer cleanup()
 
-	client := providerv1.NewProviderServiceClient(conn)
-	ctx := context.Background()
+			testClient := testutil.NewTestClient()
+			testClient.ID = uuid.New()
+			err := db.ExecContext(ctx, `
+				INSERT INTO clients (id, name, api_key, status, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, NOW(), NOW())
+			`, testClient.ID, testClient.Name, testClient.APIKey, "active")
+			if err != nil {
+				t.Skipf("Skipping test: failed to create test client: %v", err)
+			}
 
-	resp, err := client.ListProviders(ctx, &providerv1.ListProvidersRequest{
-		Limit:  10,
-		Offset: 0,
+			// Получаем клиента
+			resp, err := client.GetClient(ctx, &clientv1.GetClientRequest{
+				ClientId: testClient.ID.String(),
+			})
+
+			if err != nil {
+				t.Logf("GetClient error: %v", err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, testClient.ID.String(), resp.Client.Id)
+			assert.Equal(t, testClient.Name, resp.Client.Name)
+		})
 	})
 
-	if err != nil {
-		t.Logf("ListProviders error (may be expected if service not configured): %v", err)
-		return
-	}
+	t.Run("BillingService", func(t *testing.T) {
+		t.Run("GetBalance", func(t *testing.T) {
+			conn := getGRPCConn(t, billingServiceAddr)
+			defer conn.Close()
 
-	require.NoError(t, err)
-	assert.NotNil(t, resp.Providers)
-}
+			client := billingv1.NewBillingServiceClient(conn)
+			ctx := context.Background()
 
-// TestClientService_GetClient тестирует получение клиента
-func TestClientService_GetClient(t *testing.T) {
-	conn := getGRPCConn(t, clientServiceAddr)
-	defer conn.Close()
+			clientID := uuid.New().String()
 
-	client := clientv1.NewClientServiceClient(conn)
-	ctx := context.Background()
+			resp, err := client.GetBalance(ctx, &billingv1.GetBalanceRequest{
+				ClientId: clientID,
+			})
 
-	// Сначала создаем тестовую БД и клиента
-	dsn := testutil.GetTestDSN()
-	db, cleanup := testutil.SetupTestDB(t, dsn)
-	defer cleanup()
+			if err != nil {
+				t.Logf("GetBalance error (may be expected if account doesn't exist): %v", err)
+				return
+			}
 
-	testClient := testutil.NewTestClient()
-	testClient.ID = uuid.New()
-	err := db.ExecContext(ctx, `
-		INSERT INTO clients (id, name, api_key, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
-	`, testClient.ID, testClient.Name, testClient.APIKey, "active")
-	if err != nil {
-		t.Skipf("Skipping test: failed to create test client: %v", err)
-	}
-
-	// Получаем клиента
-	resp, err := client.GetClient(ctx, &clientv1.GetClientRequest{
-		ClientId: testClient.ID.String(),
+			require.NoError(t, err)
+			assert.Equal(t, clientID, resp.ClientId)
+			assert.NotNil(t, resp.Balance)
+		})
 	})
 
-	if err != nil {
-		t.Logf("GetClient error: %v", err)
-		return
-	}
+	t.Run("EndToEndFlow", func(t *testing.T) {
+		// Подключаемся к необходимым сервисам
+		messagingConn := getGRPCConn(t, messagingServiceAddr)
+		defer messagingConn.Close()
 
-	require.NoError(t, err)
-	assert.Equal(t, testClient.ID.String(), resp.Client.Id)
-	assert.Equal(t, testClient.Name, resp.Client.Name)
-}
+		messagingClient := messagingv1.NewMessagingServiceClient(messagingConn)
+		ctx := context.Background()
 
-// TestBillingService_GetBalance тестирует получение баланса
-func TestBillingService_GetBalance(t *testing.T) {
-	conn := getGRPCConn(t, billingServiceAddr)
-	defer conn.Close()
+		clientID := uuid.New().String()
+		msgID := uuid.New()
 
-	client := billingv1.NewBillingServiceClient(conn)
-	ctx := context.Background()
+		// 1. Отправляем сообщение
+		sendResp, err := messagingClient.SendMessage(ctx, &messagingv1.SendMessageRequest{
+			ClientId:    clientID,
+			MessageId:   msgID.String(),
+			Source:      "12345",
+			Destination: "79001234567",
+			Text:        "E2E test message",
+		})
 
-	clientID := uuid.New().String()
+		if err != nil {
+			t.Skipf("Skipping test: SendMessage failed: %v", err)
+		}
 
-	resp, err := client.GetBalance(ctx, &billingv1.GetBalanceRequest{
-		ClientId: clientID,
+		require.NoError(t, err)
+		assert.Equal(t, msgID.String(), sendResp.MessageId)
+
+		// 2. Ждем обработки
+		time.Sleep(2 * time.Second)
+
+		// 3. Получаем статус
+		statusResp, err := messagingClient.GetMessageStatus(ctx, &messagingv1.GetMessageStatusRequest{
+			MessageId: msgID.String(),
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, msgID.String(), statusResp.MessageId)
+		assert.NotEmpty(t, statusResp.Status)
+
+		// 4. Получаем историю
+		historyResp, err := messagingClient.GetMessageHistory(ctx, &messagingv1.GetMessageHistoryRequest{
+			ClientId: clientID,
+			Limit:    10,
+			Offset:   0,
+		})
+
+		if err != nil {
+			t.Logf("GetMessageHistory error: %v", err)
+			return
+		}
+
+		require.NoError(t, err)
+		assert.NotNil(t, historyResp.Messages)
 	})
-
-	if err != nil {
-		t.Logf("GetBalance error (may be expected if account doesn't exist): %v", err)
-		return
-	}
-
-	require.NoError(t, err)
-	assert.Equal(t, clientID, resp.ClientId)
-	assert.NotNil(t, resp.Balance)
-}
-
-// TestServiceIntegration_EndToEndFlow тестирует полный поток от отправки до получения статуса
-func TestServiceIntegration_EndToEndFlow(t *testing.T) {
-	// Подключаемся к необходимым сервисам
-	messagingConn := getGRPCConn(t, messagingServiceAddr)
-	defer messagingConn.Close()
-
-	messagingClient := messagingv1.NewMessagingServiceClient(messagingConn)
-	ctx := context.Background()
-
-	clientID := uuid.New().String()
-	msgID := uuid.New()
-
-	// 1. Отправляем сообщение
-	sendResp, err := messagingClient.SendMessage(ctx, &messagingv1.SendMessageRequest{
-		ClientId:    clientID,
-		MessageId:   msgID.String(),
-		Source:      "12345",
-		Destination: "79001234567",
-		Text:        "E2E test message",
-	})
-
-	if err != nil {
-		t.Skipf("Skipping test: SendMessage failed: %v", err)
-	}
-
-	require.NoError(t, err)
-	assert.Equal(t, msgID.String(), sendResp.MessageId)
-
-	// 2. Ждем обработки
-	time.Sleep(2 * time.Second)
-
-	// 3. Получаем статус
-	statusResp, err := messagingClient.GetMessageStatus(ctx, &messagingv1.GetMessageStatusRequest{
-		MessageId: msgID.String(),
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, msgID.String(), statusResp.MessageId)
-	assert.NotEmpty(t, statusResp.Status)
-
-	// 4. Получаем историю
-	historyResp, err := messagingClient.GetMessageHistory(ctx, &messagingv1.GetMessageHistoryRequest{
-		ClientId: clientID,
-		Limit:    10,
-		Offset:   0,
-	})
-
-	if err != nil {
-		t.Logf("GetMessageHistory error: %v", err)
-		return
-	}
-
-	require.NoError(t, err)
-	assert.NotNil(t, historyResp.Messages)
 }

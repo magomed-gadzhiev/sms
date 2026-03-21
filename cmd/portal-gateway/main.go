@@ -62,6 +62,7 @@ func main() {
 		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
 		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
 		Audit:     getEnvOrDefault("AUDIT_SERVICE_ADDR", ""),
+		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -143,6 +144,7 @@ func main() {
 		auditPublisher,
 	)
 	auditHandlers := handlers.NewAuditHandlers(serviceClients.AuditClient)
+	lookupHandlers := handlers.NewLookupHandlers(serviceClients.RoutingClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -161,6 +163,7 @@ func main() {
 		webhookHandlers,
 		subAccountHandlers,
 		auditHandlers,
+		lookupHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

@@ -1,0 +1,53 @@
+package mocks
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/smpp-server/smpp-server/internal/services/provider/domain"
+	"github.com/stretchr/testify/mock"
+)
+
+// MockProviderRepository is a mock implementation of domain.ProviderRepository
+type MockProviderRepository struct {
+	mock.Mock
+}
+
+func (m *MockProviderRepository) Create(ctx context.Context, provider *domain.Provider) error {
+	args := m.Called(ctx, provider)
+	return args.Error(0)
+}
+
+func (m *MockProviderRepository) Update(ctx context.Context, provider *domain.Provider) error {
+	args := m.Called(ctx, provider)
+	return args.Error(0)
+}
+
+func (m *MockProviderRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Provider, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Provider), args.Error(1)
+}
+
+func (m *MockProviderRepository) GetByName(ctx context.Context, name string) (*domain.Provider, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Provider), args.Error(1)
+}
+
+func (m *MockProviderRepository) List(ctx context.Context, activeOnly bool, limit, offset int) ([]*domain.Provider, int, error) {
+	args := m.Called(ctx, activeOnly, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*domain.Provider), args.Int(1), args.Error(2)
+}
+
+func (m *MockProviderRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}

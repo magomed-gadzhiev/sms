@@ -66,7 +66,9 @@ func main() {
 	configRepo := clientrepo.NewConfigRepository(db)
 
 	// Инициализация сервисов
+	subAccountRepo := clientrepo.NewSubAccountRepository(db)
 	clientService := application.NewClientService(clientRepo, configRepo)
+	subAccountService := application.NewSubAccountService(clientRepo, subAccountRepo, configRepo)
 
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("client-service", cfg.Service.Version)
@@ -79,7 +81,7 @@ func main() {
 	)
 
 	// Регистрация gRPC сервиса
-	clientGrpcServer := clientgrpc.NewServer(clientService)
+	clientGrpcServer := clientgrpc.NewServer(clientService, subAccountService)
 	clientv1.RegisterClientServiceServer(grpcServer, clientGrpcServer)
 
 	// Включение reflection для разработки

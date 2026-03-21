@@ -18,16 +18,34 @@ var (
 	ErrConfigNotFound     = errors.New("client config not found")
 )
 
+// ClientRepositoryInterface определяет интерфейс для работы с клиентами
+type ClientRepositoryInterface interface {
+	Create(ctx context.Context, client *domain.Client) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error)
+	Update(ctx context.Context, client *domain.Client) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	List(ctx context.Context, activeOnly bool, search string, limit, offset int) ([]*domain.Client, int, error)
+}
+
+// ConfigRepositoryInterface определяет интерфейс для работы с конфигурациями
+type ConfigRepositoryInterface interface {
+	Create(ctx context.Context, config *domain.ClientConfig) error
+	GetByClientID(ctx context.Context, clientID uuid.UUID) (*domain.ClientConfig, error)
+	Update(ctx context.Context, config *domain.ClientConfig) error
+	Upsert(ctx context.Context, config *domain.ClientConfig) error
+	UpdateRateLimits(ctx context.Context, clientID uuid.UUID, limits *domain.RateLimits) error
+}
+
 // ClientService предоставляет методы для управления клиентами
 type ClientService struct {
-	clientRepo *clientrepo.ClientRepository
-	configRepo *clientrepo.ConfigRepository
+	clientRepo ClientRepositoryInterface
+	configRepo ConfigRepositoryInterface
 }
 
 // NewClientService создает новый сервис управления клиентами
 func NewClientService(
-	clientRepo *clientrepo.ClientRepository,
-	configRepo *clientrepo.ConfigRepository,
+	clientRepo ClientRepositoryInterface,
+	configRepo ConfigRepositoryInterface,
 ) *ClientService {
 	return &ClientService{
 		clientRepo: clientRepo,

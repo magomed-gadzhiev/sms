@@ -22,64 +22,66 @@ func TestRateLimitMiddleware(t *testing.T) {
 		RateLimitPerHour:   1000,
 	}
 
-	tests := []struct {
-		name           string
-		request        func() *http.Request
-		redisClient    *redis.Client
-		expectedStatus int
-		checkHeaders   func(t *testing.T, w *httptest.ResponseRecorder)
-	}{
-		{
-			name: "skip health endpoint",
-			request: func() *http.Request {
-				return httptest.NewRequest("GET", "/health", nil)
+	t.Run("skip endpoints", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			request        func() *http.Request
+			redisClient    *redis.Client
+			expectedStatus int
+		}{
+			{
+				name: "skip health endpoint",
+				request: func() *http.Request {
+					return httptest.NewRequest("GET", "/health", nil)
+				},
+				redisClient:    nil,
+				expectedStatus: http.StatusOK,
 			},
-			redisClient:    nil,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name: "skip metrics endpoint",
-			request: func() *http.Request {
-				return httptest.NewRequest("GET", "/metrics", nil)
+			{
+				name: "skip metrics endpoint",
+				request: func() *http.Request {
+					return httptest.NewRequest("GET", "/metrics", nil)
+				},
+				redisClient:    nil,
+				expectedStatus: http.StatusOK,
 			},
-			redisClient:    nil,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name: "no client in context - skip rate limit",
-			request: func() *http.Request {
-				return httptest.NewRequest("GET", "/api/v1/sms/status", nil)
-			},
-			redisClient:    nil,
-			expectedStatus: http.StatusOK,
-		},
-	}
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			middleware := RateLimitMiddleware(tt.redisClient)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				middleware := RateLimitMiddleware(tt.redisClient)
 
-			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			}))
+				handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
 
-			req := tt.request()
-			if tt.name != "no client in context - skip rate limit" {
+				req := tt.request()
 				ctx := context.WithValue(req.Context(), ClientKey, client)
 				req = req.WithContext(ctx)
-			}
 
-			w := httptest.NewRecorder()
+				w := httptest.NewRecorder()
 
-			handler.ServeHTTP(w, req)
+				handler.ServeHTTP(w, req)
 
-			assert.Equal(t, tt.expectedStatus, w.Code)
+				assert.Equal(t, tt.expectedStatus, w.Code)
+			})
+		}
+	})
 
-			if tt.checkHeaders != nil {
-				tt.checkHeaders(t, w)
-			}
-		})
-	}
+	t.Run("no client in context - skip rate limit", func(t *testing.T) {
+		middleware := RateLimitMiddleware(nil)
+
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		req := httptest.NewRequest("GET", "/api/v1/sms/status", nil)
+		w := httptest.NewRecorder()
+
+		handler.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
 }
 
 func TestCheckRateLimit(t *testing.T) {
@@ -92,11 +94,13 @@ func TestCheckRateLimit(t *testing.T) {
 }
 
 func TestRateLimitError(t *testing.T) {
-	err := ErrRateLimitExceeded
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Превышен лимит запросов")
+	t.Run("error contains correct message", func(t *testing.T) {
+		err := ErrRateLimitExceeded
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Превышен лимит запросов")
 
-	var rateLimitErr *RateLimitError
-	require.ErrorAs(t, err, &rateLimitErr)
-	assert.Equal(t, "Превышен лимит запросов", rateLimitErr.Message)
+		var rateLimitErr *RateLimitError
+		require.ErrorAs(t, err, &rateLimitErr)
+		assert.Equal(t, "Превышен лимит запросов", rateLimitErr.Message)
+	})
 }

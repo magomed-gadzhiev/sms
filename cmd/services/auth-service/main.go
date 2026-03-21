@@ -13,11 +13,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/services/auth/application"
 	authgrpc "github.com/smpp-server/smpp-server/internal/services/auth/grpc"
+	authinfra "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure"
 	authrepo "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/database"
@@ -92,6 +95,34 @@ func main() {
 		tokenService,
 	)
 
+	// Password hasher
+	passwordHasher := &authinfra.PasswordHasherImpl{}
+
+	// Инициализация TOTP репозитория и сервиса
+	totpRepo := authrepo.NewTOTPRepository(db)
+	encryptionKeyStr := os.Getenv("TOTP_ENCRYPTION_KEY")
+	if encryptionKeyStr == "" {
+		encryptionKeyStr = "default-encryption-key-32bytes!!"
+	}
+	totpService := application.NewTOTPService(totpRepo, userRepo, passwordHasher, []byte(encryptionKeyStr))
+
+	// Инициализация Password Reset репозитория и сервиса
+	passwordResetRepo := authrepo.NewPasswordResetRepository(db)
+	passwordResetService := application.NewPasswordResetService(passwordResetRepo, userRepo, passwordHasher)
+
+	// Инициализация Redis и Session Manager
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: os.Getenv("REDIS_PASSWORD"),
+	})
+	defer redisClient.Close()
+
+	sessionManager := authinfra.NewSessionManager(redisClient, db, 10)
+
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("auth-service", cfg.Service.Version)
 	healthChecker.SetDatabase(db.DB)
@@ -106,6 +137,9 @@ func main() {
 	authGrpcServer := authgrpc.NewServer(
 		authService,
 		tokenService,
+		totpService,
+		passwordResetService,
+		sessionManager,
 		userRepo,
 		roleRepo,
 	)

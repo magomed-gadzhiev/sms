@@ -12,6 +12,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 	"github.com/smpp-server/smpp-server/api/proto/billingv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	"github.com/smpp-server/smpp-server/api/proto/routingv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
@@ -24,6 +25,7 @@ type ServiceClients struct {
 	BillingClient   billingv1.BillingServiceClient
 	WebhookClient   webhookv1.WebhookServiceClient
 	TemplateClient  templatev1.TemplateServiceClient
+	RoutingClient   routingv1.RoutingServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -36,6 +38,7 @@ type ServiceAddresses struct {
 	Billing   string
 	Webhook   string
 	Template  string
+	Routing   string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -100,6 +103,17 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Webhook Service: %w", err)
 		}
 		clients.WebhookClient = webhookv1.NewWebhookServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Routing Service
+	if addresses.Routing != "" {
+		conn, err := grpc.Dial(addresses.Routing, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Routing Service: %w", err)
+		}
+		clients.RoutingClient = routingv1.NewRoutingServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
