@@ -14,6 +14,7 @@ func SetupRouter(
 	accountHandlers *handlers.AccountHandlers,
 	webhookHandlers *handlers.WebhookHandlers,
 	templateHandlers *handlers.TemplateHandlers,
+	lookupHandlers *handlers.LookupHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -51,6 +52,12 @@ func SetupRouter(
 	webhooks.HandleFunc("/{id}", webhookHandlers.GetWebhook).Methods("GET")
 	webhooks.HandleFunc("/{id}", webhookHandlers.UpdateWebhook).Methods("PUT")
 	webhooks.HandleFunc("/{id}", webhookHandlers.DeleteWebhook).Methods("DELETE")
+
+	// Lookup endpoints
+	lookup := apiV1.PathPrefix("/lookup").Subrouter()
+	lookup.HandleFunc("", lookupHandlers.SingleLookup).Methods("POST")
+	lookup.HandleFunc("/bulk", lookupHandlers.BulkLookup).Methods("POST")
+	lookup.HandleFunc("/history", lookupHandlers.GetLookupHistory).Methods("GET")
 
 	// Template endpoints
 	templates := apiV1.PathPrefix("/templates").Subrouter()

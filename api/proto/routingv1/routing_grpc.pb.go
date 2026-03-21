@@ -19,24 +19,37 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RoutingService_GetRoute_FullMethodName             = "/routing.v1.RoutingService/GetRoute"
-	RoutingService_SelectProvider_FullMethodName       = "/routing.v1.RoutingService/SelectProvider"
-	RoutingService_CreateRoute_FullMethodName          = "/routing.v1.RoutingService/CreateRoute"
-	RoutingService_UpdateRoute_FullMethodName          = "/routing.v1.RoutingService/UpdateRoute"
-	RoutingService_DeleteRoute_FullMethodName          = "/routing.v1.RoutingService/DeleteRoute"
-	RoutingService_ListRoutes_FullMethodName           = "/routing.v1.RoutingService/ListRoutes"
-	RoutingService_CreateCountry_FullMethodName        = "/routing.v1.RoutingService/CreateCountry"
-	RoutingService_GetCountry_FullMethodName           = "/routing.v1.RoutingService/GetCountry"
-	RoutingService_ListCountries_FullMethodName        = "/routing.v1.RoutingService/ListCountries"
-	RoutingService_UpdateCountry_FullMethodName        = "/routing.v1.RoutingService/UpdateCountry"
-	RoutingService_CreateOperator_FullMethodName       = "/routing.v1.RoutingService/CreateOperator"
-	RoutingService_GetOperator_FullMethodName          = "/routing.v1.RoutingService/GetOperator"
-	RoutingService_ListOperators_FullMethodName        = "/routing.v1.RoutingService/ListOperators"
-	RoutingService_UpdateOperator_FullMethodName       = "/routing.v1.RoutingService/UpdateOperator"
-	RoutingService_CreateOperatorPrefix_FullMethodName = "/routing.v1.RoutingService/CreateOperatorPrefix"
-	RoutingService_ListOperatorPrefixes_FullMethodName = "/routing.v1.RoutingService/ListOperatorPrefixes"
-	RoutingService_DeleteOperatorPrefix_FullMethodName = "/routing.v1.RoutingService/DeleteOperatorPrefix"
-	RoutingService_ResolveOperator_FullMethodName      = "/routing.v1.RoutingService/ResolveOperator"
+	RoutingService_GetRoute_FullMethodName                = "/routing.v1.RoutingService/GetRoute"
+	RoutingService_SelectProvider_FullMethodName          = "/routing.v1.RoutingService/SelectProvider"
+	RoutingService_CreateRoute_FullMethodName             = "/routing.v1.RoutingService/CreateRoute"
+	RoutingService_UpdateRoute_FullMethodName             = "/routing.v1.RoutingService/UpdateRoute"
+	RoutingService_DeleteRoute_FullMethodName             = "/routing.v1.RoutingService/DeleteRoute"
+	RoutingService_ListRoutes_FullMethodName              = "/routing.v1.RoutingService/ListRoutes"
+	RoutingService_CreateCountry_FullMethodName           = "/routing.v1.RoutingService/CreateCountry"
+	RoutingService_GetCountry_FullMethodName              = "/routing.v1.RoutingService/GetCountry"
+	RoutingService_ListCountries_FullMethodName           = "/routing.v1.RoutingService/ListCountries"
+	RoutingService_UpdateCountry_FullMethodName           = "/routing.v1.RoutingService/UpdateCountry"
+	RoutingService_CreateOperator_FullMethodName          = "/routing.v1.RoutingService/CreateOperator"
+	RoutingService_GetOperator_FullMethodName             = "/routing.v1.RoutingService/GetOperator"
+	RoutingService_ListOperators_FullMethodName           = "/routing.v1.RoutingService/ListOperators"
+	RoutingService_UpdateOperator_FullMethodName          = "/routing.v1.RoutingService/UpdateOperator"
+	RoutingService_CreateOperatorPrefix_FullMethodName    = "/routing.v1.RoutingService/CreateOperatorPrefix"
+	RoutingService_ListOperatorPrefixes_FullMethodName    = "/routing.v1.RoutingService/ListOperatorPrefixes"
+	RoutingService_DeleteOperatorPrefix_FullMethodName    = "/routing.v1.RoutingService/DeleteOperatorPrefix"
+	RoutingService_ResolveOperator_FullMethodName         = "/routing.v1.RoutingService/ResolveOperator"
+	RoutingService_NumberLookup_FullMethodName            = "/routing.v1.RoutingService/NumberLookup"
+	RoutingService_BulkNumberLookup_FullMethodName        = "/routing.v1.RoutingService/BulkNumberLookup"
+	RoutingService_CreateHLRProvider_FullMethodName       = "/routing.v1.RoutingService/CreateHLRProvider"
+	RoutingService_UpdateHLRProvider_FullMethodName       = "/routing.v1.RoutingService/UpdateHLRProvider"
+	RoutingService_DeleteHLRProvider_FullMethodName       = "/routing.v1.RoutingService/DeleteHLRProvider"
+	RoutingService_GetHLRProvider_FullMethodName          = "/routing.v1.RoutingService/GetHLRProvider"
+	RoutingService_ListHLRProviders_FullMethodName        = "/routing.v1.RoutingService/ListHLRProviders"
+	RoutingService_SetSmartRouteWeights_FullMethodName    = "/routing.v1.RoutingService/SetSmartRouteWeights"
+	RoutingService_GetSmartRouteWeights_FullMethodName    = "/routing.v1.RoutingService/GetSmartRouteWeights"
+	RoutingService_ListSmartRouteWeights_FullMethodName   = "/routing.v1.RoutingService/ListSmartRouteWeights"
+	RoutingService_DeleteSmartRouteWeights_FullMethodName = "/routing.v1.RoutingService/DeleteSmartRouteWeights"
+	RoutingService_GetLookupHistory_FullMethodName        = "/routing.v1.RoutingService/GetLookupHistory"
+	RoutingService_RouteMessageWithHLR_FullMethodName     = "/routing.v1.RoutingService/RouteMessageWithHLR"
 )
 
 // RoutingServiceClient is the client API for RoutingService service.
@@ -73,6 +86,24 @@ type RoutingServiceClient interface {
 	DeleteOperatorPrefix(ctx context.Context, in *DeleteOperatorPrefixRequest, opts ...grpc.CallOption) (*DeleteOperatorPrefixResponse, error)
 	// Определение оператора по номеру
 	ResolveOperator(ctx context.Context, in *ResolveOperatorRequest, opts ...grpc.CallOption) (*ResolveOperatorResponse, error)
+	// HLR/MNP Number Lookup
+	NumberLookup(ctx context.Context, in *NumberLookupRequest, opts ...grpc.CallOption) (*NumberLookupResponse, error)
+	BulkNumberLookup(ctx context.Context, in *BulkNumberLookupRequest, opts ...grpc.CallOption) (*BulkNumberLookupResponse, error)
+	// Управление HLR-провайдерами
+	CreateHLRProvider(ctx context.Context, in *CreateHLRProviderRequest, opts ...grpc.CallOption) (*HLRProviderProto, error)
+	UpdateHLRProvider(ctx context.Context, in *UpdateHLRProviderRequest, opts ...grpc.CallOption) (*HLRProviderProto, error)
+	DeleteHLRProvider(ctx context.Context, in *DeleteHLRProviderRequest, opts ...grpc.CallOption) (*DeleteRouteResponse, error)
+	GetHLRProvider(ctx context.Context, in *GetHLRProviderRequest, opts ...grpc.CallOption) (*HLRProviderProto, error)
+	ListHLRProviders(ctx context.Context, in *ListHLRProvidersRequest, opts ...grpc.CallOption) (*ListHLRProvidersResponse, error)
+	// Управление весами умной маршрутизации
+	SetSmartRouteWeights(ctx context.Context, in *SetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*SmartRouteWeightProto, error)
+	GetSmartRouteWeights(ctx context.Context, in *GetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*SmartRouteWeightProto, error)
+	ListSmartRouteWeights(ctx context.Context, in *ListSmartRouteWeightsRequest, opts ...grpc.CallOption) (*ListSmartRouteWeightsResponse, error)
+	DeleteSmartRouteWeights(ctx context.Context, in *DeleteSmartRouteWeightsRequest, opts ...grpc.CallOption) (*DeleteRouteResponse, error)
+	// История lookup-запросов
+	GetLookupHistory(ctx context.Context, in *GetLookupHistoryRequest, opts ...grpc.CallOption) (*GetLookupHistoryResponse, error)
+	// Маршрутизация сообщения с использованием HLR
+	RouteMessageWithHLR(ctx context.Context, in *RouteMessageWithHLRRequest, opts ...grpc.CallOption) (*RouteMessageWithHLRResponse, error)
 }
 
 type routingServiceClient struct {
@@ -263,6 +294,136 @@ func (c *routingServiceClient) ResolveOperator(ctx context.Context, in *ResolveO
 	return out, nil
 }
 
+func (c *routingServiceClient) NumberLookup(ctx context.Context, in *NumberLookupRequest, opts ...grpc.CallOption) (*NumberLookupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NumberLookupResponse)
+	err := c.cc.Invoke(ctx, RoutingService_NumberLookup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) BulkNumberLookup(ctx context.Context, in *BulkNumberLookupRequest, opts ...grpc.CallOption) (*BulkNumberLookupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkNumberLookupResponse)
+	err := c.cc.Invoke(ctx, RoutingService_BulkNumberLookup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) CreateHLRProvider(ctx context.Context, in *CreateHLRProviderRequest, opts ...grpc.CallOption) (*HLRProviderProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HLRProviderProto)
+	err := c.cc.Invoke(ctx, RoutingService_CreateHLRProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) UpdateHLRProvider(ctx context.Context, in *UpdateHLRProviderRequest, opts ...grpc.CallOption) (*HLRProviderProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HLRProviderProto)
+	err := c.cc.Invoke(ctx, RoutingService_UpdateHLRProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) DeleteHLRProvider(ctx context.Context, in *DeleteHLRProviderRequest, opts ...grpc.CallOption) (*DeleteRouteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRouteResponse)
+	err := c.cc.Invoke(ctx, RoutingService_DeleteHLRProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) GetHLRProvider(ctx context.Context, in *GetHLRProviderRequest, opts ...grpc.CallOption) (*HLRProviderProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HLRProviderProto)
+	err := c.cc.Invoke(ctx, RoutingService_GetHLRProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) ListHLRProviders(ctx context.Context, in *ListHLRProvidersRequest, opts ...grpc.CallOption) (*ListHLRProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListHLRProvidersResponse)
+	err := c.cc.Invoke(ctx, RoutingService_ListHLRProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) SetSmartRouteWeights(ctx context.Context, in *SetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*SmartRouteWeightProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SmartRouteWeightProto)
+	err := c.cc.Invoke(ctx, RoutingService_SetSmartRouteWeights_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) GetSmartRouteWeights(ctx context.Context, in *GetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*SmartRouteWeightProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SmartRouteWeightProto)
+	err := c.cc.Invoke(ctx, RoutingService_GetSmartRouteWeights_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) ListSmartRouteWeights(ctx context.Context, in *ListSmartRouteWeightsRequest, opts ...grpc.CallOption) (*ListSmartRouteWeightsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSmartRouteWeightsResponse)
+	err := c.cc.Invoke(ctx, RoutingService_ListSmartRouteWeights_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) DeleteSmartRouteWeights(ctx context.Context, in *DeleteSmartRouteWeightsRequest, opts ...grpc.CallOption) (*DeleteRouteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRouteResponse)
+	err := c.cc.Invoke(ctx, RoutingService_DeleteSmartRouteWeights_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) GetLookupHistory(ctx context.Context, in *GetLookupHistoryRequest, opts ...grpc.CallOption) (*GetLookupHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetLookupHistoryResponse)
+	err := c.cc.Invoke(ctx, RoutingService_GetLookupHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) RouteMessageWithHLR(ctx context.Context, in *RouteMessageWithHLRRequest, opts ...grpc.CallOption) (*RouteMessageWithHLRResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RouteMessageWithHLRResponse)
+	err := c.cc.Invoke(ctx, RoutingService_RouteMessageWithHLR_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RoutingServiceServer is the server API for RoutingService service.
 // All implementations must embed UnimplementedRoutingServiceServer
 // for forward compatibility.
@@ -297,6 +458,24 @@ type RoutingServiceServer interface {
 	DeleteOperatorPrefix(context.Context, *DeleteOperatorPrefixRequest) (*DeleteOperatorPrefixResponse, error)
 	// Определение оператора по номеру
 	ResolveOperator(context.Context, *ResolveOperatorRequest) (*ResolveOperatorResponse, error)
+	// HLR/MNP Number Lookup
+	NumberLookup(context.Context, *NumberLookupRequest) (*NumberLookupResponse, error)
+	BulkNumberLookup(context.Context, *BulkNumberLookupRequest) (*BulkNumberLookupResponse, error)
+	// Управление HLR-провайдерами
+	CreateHLRProvider(context.Context, *CreateHLRProviderRequest) (*HLRProviderProto, error)
+	UpdateHLRProvider(context.Context, *UpdateHLRProviderRequest) (*HLRProviderProto, error)
+	DeleteHLRProvider(context.Context, *DeleteHLRProviderRequest) (*DeleteRouteResponse, error)
+	GetHLRProvider(context.Context, *GetHLRProviderRequest) (*HLRProviderProto, error)
+	ListHLRProviders(context.Context, *ListHLRProvidersRequest) (*ListHLRProvidersResponse, error)
+	// Управление весами умной маршрутизации
+	SetSmartRouteWeights(context.Context, *SetSmartRouteWeightsRequest) (*SmartRouteWeightProto, error)
+	GetSmartRouteWeights(context.Context, *GetSmartRouteWeightsRequest) (*SmartRouteWeightProto, error)
+	ListSmartRouteWeights(context.Context, *ListSmartRouteWeightsRequest) (*ListSmartRouteWeightsResponse, error)
+	DeleteSmartRouteWeights(context.Context, *DeleteSmartRouteWeightsRequest) (*DeleteRouteResponse, error)
+	// История lookup-запросов
+	GetLookupHistory(context.Context, *GetLookupHistoryRequest) (*GetLookupHistoryResponse, error)
+	// Маршрутизация сообщения с использованием HLR
+	RouteMessageWithHLR(context.Context, *RouteMessageWithHLRRequest) (*RouteMessageWithHLRResponse, error)
 	mustEmbedUnimplementedRoutingServiceServer()
 }
 
@@ -360,6 +539,45 @@ func (UnimplementedRoutingServiceServer) DeleteOperatorPrefix(context.Context, *
 }
 func (UnimplementedRoutingServiceServer) ResolveOperator(context.Context, *ResolveOperatorRequest) (*ResolveOperatorResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ResolveOperator not implemented")
+}
+func (UnimplementedRoutingServiceServer) NumberLookup(context.Context, *NumberLookupRequest) (*NumberLookupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NumberLookup not implemented")
+}
+func (UnimplementedRoutingServiceServer) BulkNumberLookup(context.Context, *BulkNumberLookupRequest) (*BulkNumberLookupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkNumberLookup not implemented")
+}
+func (UnimplementedRoutingServiceServer) CreateHLRProvider(context.Context, *CreateHLRProviderRequest) (*HLRProviderProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateHLRProvider not implemented")
+}
+func (UnimplementedRoutingServiceServer) UpdateHLRProvider(context.Context, *UpdateHLRProviderRequest) (*HLRProviderProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateHLRProvider not implemented")
+}
+func (UnimplementedRoutingServiceServer) DeleteHLRProvider(context.Context, *DeleteHLRProviderRequest) (*DeleteRouteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteHLRProvider not implemented")
+}
+func (UnimplementedRoutingServiceServer) GetHLRProvider(context.Context, *GetHLRProviderRequest) (*HLRProviderProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetHLRProvider not implemented")
+}
+func (UnimplementedRoutingServiceServer) ListHLRProviders(context.Context, *ListHLRProvidersRequest) (*ListHLRProvidersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListHLRProviders not implemented")
+}
+func (UnimplementedRoutingServiceServer) SetSmartRouteWeights(context.Context, *SetSmartRouteWeightsRequest) (*SmartRouteWeightProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetSmartRouteWeights not implemented")
+}
+func (UnimplementedRoutingServiceServer) GetSmartRouteWeights(context.Context, *GetSmartRouteWeightsRequest) (*SmartRouteWeightProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSmartRouteWeights not implemented")
+}
+func (UnimplementedRoutingServiceServer) ListSmartRouteWeights(context.Context, *ListSmartRouteWeightsRequest) (*ListSmartRouteWeightsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSmartRouteWeights not implemented")
+}
+func (UnimplementedRoutingServiceServer) DeleteSmartRouteWeights(context.Context, *DeleteSmartRouteWeightsRequest) (*DeleteRouteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteSmartRouteWeights not implemented")
+}
+func (UnimplementedRoutingServiceServer) GetLookupHistory(context.Context, *GetLookupHistoryRequest) (*GetLookupHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLookupHistory not implemented")
+}
+func (UnimplementedRoutingServiceServer) RouteMessageWithHLR(context.Context, *RouteMessageWithHLRRequest) (*RouteMessageWithHLRResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RouteMessageWithHLR not implemented")
 }
 func (UnimplementedRoutingServiceServer) mustEmbedUnimplementedRoutingServiceServer() {}
 func (UnimplementedRoutingServiceServer) testEmbeddedByValue()                        {}
@@ -706,6 +924,240 @@ func _RoutingService_ResolveOperator_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RoutingService_NumberLookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NumberLookupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).NumberLookup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_NumberLookup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).NumberLookup(ctx, req.(*NumberLookupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_BulkNumberLookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkNumberLookupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).BulkNumberLookup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_BulkNumberLookup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).BulkNumberLookup(ctx, req.(*BulkNumberLookupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_CreateHLRProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateHLRProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).CreateHLRProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_CreateHLRProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).CreateHLRProvider(ctx, req.(*CreateHLRProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_UpdateHLRProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateHLRProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).UpdateHLRProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_UpdateHLRProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).UpdateHLRProvider(ctx, req.(*UpdateHLRProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_DeleteHLRProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteHLRProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).DeleteHLRProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_DeleteHLRProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).DeleteHLRProvider(ctx, req.(*DeleteHLRProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_GetHLRProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHLRProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).GetHLRProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_GetHLRProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).GetHLRProvider(ctx, req.(*GetHLRProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_ListHLRProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListHLRProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).ListHLRProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_ListHLRProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).ListHLRProviders(ctx, req.(*ListHLRProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_SetSmartRouteWeights_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSmartRouteWeightsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).SetSmartRouteWeights(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_SetSmartRouteWeights_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).SetSmartRouteWeights(ctx, req.(*SetSmartRouteWeightsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_GetSmartRouteWeights_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSmartRouteWeightsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).GetSmartRouteWeights(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_GetSmartRouteWeights_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).GetSmartRouteWeights(ctx, req.(*GetSmartRouteWeightsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_ListSmartRouteWeights_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSmartRouteWeightsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).ListSmartRouteWeights(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_ListSmartRouteWeights_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).ListSmartRouteWeights(ctx, req.(*ListSmartRouteWeightsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_DeleteSmartRouteWeights_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSmartRouteWeightsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).DeleteSmartRouteWeights(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_DeleteSmartRouteWeights_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).DeleteSmartRouteWeights(ctx, req.(*DeleteSmartRouteWeightsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_GetLookupHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLookupHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).GetLookupHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_GetLookupHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).GetLookupHistory(ctx, req.(*GetLookupHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_RouteMessageWithHLR_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RouteMessageWithHLRRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).RouteMessageWithHLR(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_RouteMessageWithHLR_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).RouteMessageWithHLR(ctx, req.(*RouteMessageWithHLRRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RoutingService_ServiceDesc is the grpc.ServiceDesc for RoutingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -784,6 +1236,58 @@ var RoutingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResolveOperator",
 			Handler:    _RoutingService_ResolveOperator_Handler,
+		},
+		{
+			MethodName: "NumberLookup",
+			Handler:    _RoutingService_NumberLookup_Handler,
+		},
+		{
+			MethodName: "BulkNumberLookup",
+			Handler:    _RoutingService_BulkNumberLookup_Handler,
+		},
+		{
+			MethodName: "CreateHLRProvider",
+			Handler:    _RoutingService_CreateHLRProvider_Handler,
+		},
+		{
+			MethodName: "UpdateHLRProvider",
+			Handler:    _RoutingService_UpdateHLRProvider_Handler,
+		},
+		{
+			MethodName: "DeleteHLRProvider",
+			Handler:    _RoutingService_DeleteHLRProvider_Handler,
+		},
+		{
+			MethodName: "GetHLRProvider",
+			Handler:    _RoutingService_GetHLRProvider_Handler,
+		},
+		{
+			MethodName: "ListHLRProviders",
+			Handler:    _RoutingService_ListHLRProviders_Handler,
+		},
+		{
+			MethodName: "SetSmartRouteWeights",
+			Handler:    _RoutingService_SetSmartRouteWeights_Handler,
+		},
+		{
+			MethodName: "GetSmartRouteWeights",
+			Handler:    _RoutingService_GetSmartRouteWeights_Handler,
+		},
+		{
+			MethodName: "ListSmartRouteWeights",
+			Handler:    _RoutingService_ListSmartRouteWeights_Handler,
+		},
+		{
+			MethodName: "DeleteSmartRouteWeights",
+			Handler:    _RoutingService_DeleteSmartRouteWeights_Handler,
+		},
+		{
+			MethodName: "GetLookupHistory",
+			Handler:    _RoutingService_GetLookupHistory_Handler,
+		},
+		{
+			MethodName: "RouteMessageWithHLR",
+			Handler:    _RoutingService_RouteMessageWithHLR_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

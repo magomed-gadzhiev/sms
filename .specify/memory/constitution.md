@@ -1,13 +1,12 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Modified principles:
-  VI. Simplicity — refined "New services MUST NOT be created" to allow
-  query-only bounded contexts with Complexity Tracking justification
-- Added sections:
-  Technical Constraints: Frontend stack (React 19, TypeScript, Vite)
-  Technical Constraints: Session auth (cookies, CSRF) for web portals
+- Version change: 1.1.0 → 1.1.1
+- Modified principles: none
+- Added sections: none
 - Removed sections: none
+- Clarifications:
+  Technical Constraints: Cache — expanded Redis usage description to include
+  domain data caching (HLR lookup results), reflecting 004-hlr-smart-routing
 - Templates requiring updates:
   ✅ plan-template.md — no changes needed (Constitution Check is dynamic)
   ✅ spec-template.md — no changes needed
@@ -80,7 +79,8 @@ premature helper.
   nginx in separate container
 - **Database**: PostgreSQL 15+ with pgx driver, monthly partitioning for
   high-volume tables
-- **Cache**: Redis 7+ for rate limiting, API key caching, session storage
+- **Cache**: Redis 7+ for rate limiting, API key caching, session storage,
+  and domain data caching (e.g., HLR lookup results with TTL)
 - **Messaging**: Apache Kafka via Sarama for all async communication
 - **Protocols**: SMPP v3.4 (custom implementation), HTTP REST (gorilla/mux),
   gRPC (google.golang.org/grpc)
@@ -108,4 +108,4 @@ MUST be justified in the plan's Complexity Tracking section.
 Amendments require: (1) documented rationale, (2) version bump,
 (3) propagation to dependent templates.
 
-**Version**: 1.1.0 | **Ratified**: 2026-03-20 | **Last Amended**: 2026-03-21
+**Version**: 1.1.1 | **Ratified**: 2026-03-20 | **Last Amended**: 2026-03-21

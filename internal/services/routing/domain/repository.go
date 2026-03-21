@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -66,4 +67,43 @@ type OperatorPrefixRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListByOperatorID(ctx context.Context, operatorID uuid.UUID) ([]*OperatorPrefix, error)
 	FindByNumber(ctx context.Context, phoneNumber string) (*OperatorPrefix, error)
+}
+
+// HLRProviderRepository определяет интерфейс репозитория HLR-провайдеров
+type HLRProviderRepository interface {
+	Create(ctx context.Context, provider *HLRProvider) error
+	Update(ctx context.Context, provider *HLRProvider) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetByID(ctx context.Context, id uuid.UUID) (*HLRProvider, error)
+	ListActive(ctx context.Context) ([]*HLRProvider, error)
+	GetByPriority(ctx context.Context, countryCode string) ([]*HLRProvider, error)
+}
+
+// HLRCache определяет интерфейс кеша HLR результатов
+type HLRCache interface {
+	Get(ctx context.Context, msisdn string) (*LookupResult, error)
+	Set(ctx context.Context, msisdn string, result *LookupResult) error
+	Delete(ctx context.Context, msisdn string) error
+}
+
+// LookupLogRepository определяет интерфейс репозитория логов lookup
+type LookupLogRepository interface {
+	Insert(ctx context.Context, entry *LookupLogEntry) error
+	ListByClient(ctx context.Context, clientID uuid.UUID, from, to *time.Time, msisdnFilter, sourceFilter string, page, pageSize int) ([]*LookupLogEntry, int64, error)
+	CountByClient(ctx context.Context, clientID uuid.UUID) (int64, error)
+}
+
+// SmartRouteWeightRepository определяет интерфейс репозитория весов smart route
+type SmartRouteWeightRepository interface {
+	Upsert(ctx context.Context, weight *SmartRouteWeight) error
+	GetByOperatorAndCountry(ctx context.Context, operatorCode, countryCode string) (*SmartRouteWeight, error)
+	List(ctx context.Context, countryCode string) ([]*SmartRouteWeight, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// HLRProviderAdapter определяет интерфейс адаптера HLR-провайдера
+type HLRProviderAdapter interface {
+	Lookup(ctx context.Context, msisdn string) (*LookupResult, error)
+	Ping(ctx context.Context) error
+	Name() string
 }

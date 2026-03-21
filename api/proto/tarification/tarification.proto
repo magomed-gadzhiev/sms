@@ -47,6 +47,9 @@ service TarificationService {
   // CreatePrepaidFee создает предоплаченный сбор
   rpc CreatePrepaidFee(CreatePrepaidFeeRequest) returns (PrepaidFee);
 
+  // TarifyLookup выполняет тарификацию lookup-запроса (per-number)
+  rpc TarifyLookup(TarifyLookupRequest) returns (TarifyLookupResponse);
+
   // GetUsageCounter получает счетчик использования
   rpc GetUsageCounter(GetUsageCounterRequest) returns (UsageCounter);
 
@@ -74,6 +77,23 @@ message TarifyMessageResponse {
   string rejection_reason = 6;      // Причина отклонения (если не одобрено)
   bool threshold_crossed = 7;       // Пересечён ли порог
   string recalc_amount = 8;         // Сумма пересчёта
+}
+
+// TarifyLookupRequest представляет запрос на тарификацию lookup-запроса
+message TarifyLookupRequest {
+  string client_id = 1;             // ID клиента
+  int32 number_count = 2;           // Количество номеров для lookup
+  string idempotency_key = 3;       // Ключ идемпотентности
+}
+
+// TarifyLookupResponse представляет ответ на тарификацию lookup-запроса
+message TarifyLookupResponse {
+  bool approved = 1;                // Одобрено ли
+  string cost_per_number = 2;       // Стоимость за номер (строка для точности)
+  string total_amount = 3;          // Общая сумма (cost_per_number * number_count)
+  string currency = 4;              // Валюта
+  string rejection_reason = 5;      // Причина отклонения (если не одобрено)
+  int32 affordable_count = 6;       // Сколько номеров можно оплатить при недостаточном балансе
 }
 
 // SenderRegistration представляет регистрацию отправителя

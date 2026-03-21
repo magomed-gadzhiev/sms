@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/queue"
 	routingapp "github.com/smpp-server/smpp-server/internal/services/routing/application"
 	routinggrpc "github.com/smpp-server/smpp-server/internal/services/routing/grpc"
+	"github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
 	routingqueue "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure/queue"
 	routingrepo "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -90,12 +92,86 @@ func main() {
 	operatorRepo := routingrepo.NewOperatorRepository(dbx)
 	operatorPrefixRepo := routingrepo.NewOperatorPrefixRepository(dbx)
 
+	// Инициализация Redis клиента для HLR кеша
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:         cfg.Redis.GetAddr(),
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+		DialTimeout:  cfg.Redis.DialTimeout,
+		ReadTimeout:  cfg.Redis.ReadTimeout,
+		WriteTimeout: cfg.Redis.WriteTimeout,
+	})
+	defer redisClient.Close()
+
+	// Проверка соединения с Redis
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := redisClient.Ping(ctx).Err(); err != nil {
+			logger.Warn().Err(err).Msg("Redis недоступен, HLR кеш будет работать без кеширования")
+		} else {
+			logger.Info().Msg("подключение к Redis установлено")
+		}
+		cancel()
+	}
+
+	// Инициализация HLR кеша
+	hlrCacheTTL := 24 * time.Hour
+	if ttlStr := os.Getenv("HLR_CACHE_TTL"); ttlStr != "" {
+		if d, err := time.ParseDuration(ttlStr); err == nil {
+			hlrCacheTTL = d
+		}
+	}
+	hlrCache := infrastructure.NewHLRCache(redisClient, hlrCacheTTL)
+
+	// Инициализация HLR репозиториев
+	hlrProviderRepo := routingrepo.NewHLRProviderRepository(dbx)
+	lookupLogRepo := routingrepo.NewLookupLogRepository(dbx)
+	smartRouteWeightRepo := routingrepo.NewSmartRouteWeightRepository(dbx)
+
+	// Инициализация адаптер-фабрики HLR провайдеров
+	adapterFactory := infrastructure.NewHLRProviderAdapterFactory()
+
+	// Инициализация HLR сервиса
+	hlrProviderTimeout := 200 * time.Millisecond
+	if timeoutStr := os.Getenv("HLR_PROVIDER_TIMEOUT"); timeoutStr != "" {
+		if d, err := time.ParseDuration(timeoutStr); err == nil {
+			hlrProviderTimeout = d
+		}
+	}
+	hlrService := routingapp.NewHLRService(hlrCache, hlrProviderRepo, lookupLogRepo, adapterFactory, hlrProviderTimeout)
+
+	// Инициализация Smart Routing сервиса
+	smartRoutingService := routingapp.NewSmartRoutingService(smartRouteWeightRepo)
+
 	// Инициализация event publisher
 	eventPublisher := routingqueue.NewEventPublisher(kafkaProducer)
 
 	// Инициализация сервисов
 	routingService := routingapp.NewRoutingService(routeRepo, providerRepo, eventPublisher)
 	operatorResolver := routingapp.NewOperatorResolver(operatorPrefixRepo, operatorRepo, countryRepo)
+
+	// Подключаем HLR и Smart Routing к routing service
+	routingService.SetHLRService(hlrService)
+	routingService.SetSmartRouter(smartRoutingService)
+
+	// Запуск Health Monitor для HLR провайдеров
+	hlrHealthInterval := 30 * time.Second
+	if intervalStr := os.Getenv("HLR_HEALTH_CHECK_INTERVAL"); intervalStr != "" {
+		if d, err := time.ParseDuration(intervalStr); err == nil {
+			hlrHealthInterval = d
+		}
+	}
+	healthMonitor := routingapp.NewHealthMonitor(
+		hlrProviderRepo,
+		hlrService.GetAdapters(),
+		hlrService.GetAdaptersMu(),
+		adapterFactory,
+		hlrHealthInterval,
+	)
+	healthMonitor.Start()
+	defer healthMonitor.Stop()
 
 	// Создаем handler для обработки сообщений из очереди после создания routing service
 	messageHandler := func(ctx context.Context, kafkaMsg *queue.KafkaMessage) error {
@@ -178,6 +254,7 @@ func main() {
 
 	// Регистрация gRPC сервиса
 	routingGrpcServer := routinggrpc.NewServer(routingService, countryRepo, operatorRepo, operatorPrefixRepo, operatorResolver)
+	routingGrpcServer.SetHLRDependencies(hlrService, hlrProviderRepo, lookupLogRepo, smartRoutingService)
 	routingv1.RegisterRoutingServiceServer(grpcServer, routingGrpcServer)
 
 	// Включение reflection для разработки

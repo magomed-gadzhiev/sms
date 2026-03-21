@@ -45,6 +45,29 @@ service RoutingService {
 
   // Определение оператора по номеру
   rpc ResolveOperator(ResolveOperatorRequest) returns (ResolveOperatorResponse);
+
+  // HLR/MNP Number Lookup
+  rpc NumberLookup(NumberLookupRequest) returns (NumberLookupResponse);
+  rpc BulkNumberLookup(BulkNumberLookupRequest) returns (BulkNumberLookupResponse);
+
+  // Управление HLR-провайдерами
+  rpc CreateHLRProvider(CreateHLRProviderRequest) returns (HLRProviderProto);
+  rpc UpdateHLRProvider(UpdateHLRProviderRequest) returns (HLRProviderProto);
+  rpc DeleteHLRProvider(DeleteHLRProviderRequest) returns (DeleteRouteResponse);
+  rpc GetHLRProvider(GetHLRProviderRequest) returns (HLRProviderProto);
+  rpc ListHLRProviders(ListHLRProvidersRequest) returns (ListHLRProvidersResponse);
+
+  // Управление весами умной маршрутизации
+  rpc SetSmartRouteWeights(SetSmartRouteWeightsRequest) returns (SmartRouteWeightProto);
+  rpc GetSmartRouteWeights(GetSmartRouteWeightsRequest) returns (SmartRouteWeightProto);
+  rpc ListSmartRouteWeights(ListSmartRouteWeightsRequest) returns (ListSmartRouteWeightsResponse);
+  rpc DeleteSmartRouteWeights(DeleteSmartRouteWeightsRequest) returns (DeleteRouteResponse);
+
+  // История lookup-запросов
+  rpc GetLookupHistory(GetLookupHistoryRequest) returns (GetLookupHistoryResponse);
+
+  // Маршрутизация сообщения с использованием HLR
+  rpc RouteMessageWithHLR(RouteMessageWithHLRRequest) returns (RouteMessageWithHLRResponse);
 }
 
 // GetRouteRequest представляет запрос на получение маршрута
@@ -292,4 +315,226 @@ message ResolveOperatorResponse {
   string country_code = 4;                    // Код страны
   string currency = 5;                        // Валюта
   string resolved_by = 6;                     // Метод определения (prefix, mnp)
+}
+
+// ==================== HLR/MNP Number Lookup ====================
+
+// NumberStatus представляет статус номера
+enum NumberStatus {
+  NUMBER_STATUS_UNSPECIFIED = 0;
+  NUMBER_STATUS_ACTIVE = 1;
+  NUMBER_STATUS_ABSENT = 2;
+  NUMBER_STATUS_INVALID = 3;
+  NUMBER_STATUS_UNKNOWN = 4;
+}
+
+// NumberType представляет тип номера
+enum NumberType {
+  NUMBER_TYPE_UNSPECIFIED = 0;
+  NUMBER_TYPE_MOBILE = 1;
+  NUMBER_TYPE_FIXED = 2;
+  NUMBER_TYPE_VOIP = 3;
+}
+
+// NumberLookupRequest представляет запрос на проверку номера через HLR
+message NumberLookupRequest {
+  string msisdn = 1;                           // Номер телефона (MSISDN)
+  string client_id = 2;                        // ID клиента
+  bool force_refresh = 3;                      // Принудительное обновление (игнорировать кеш)
+  string request_id = 4;                       // ID запроса
+}
+
+// NumberLookupResponse представляет ответ с результатом проверки номера
+message NumberLookupResponse {
+  string msisdn = 1;                           // Номер телефона (MSISDN)
+  string operator_mccmnc = 2;                  // MCC/MNC оператора
+  string operator_name = 3;                    // Название оператора
+  NumberStatus number_status = 4;              // Статус номера
+  string country_code = 5;                     // Код страны
+  NumberType number_type = 6;                  // Тип номера
+  bool is_ported = 7;                          // Перенесён ли номер (MNP)
+  string original_operator_mccmnc = 8;         // Исходный MCC/MNC оператора (до переноса)
+  bool cached = 9;                             // Результат из кеша
+  google.protobuf.Timestamp queried_at = 10;   // Время запроса
+}
+
+// BulkNumberLookupRequest представляет запрос на массовую проверку номеров
+message BulkNumberLookupRequest {
+  repeated string msisdns = 1;                 // Список номеров телефонов
+  string client_id = 2;                        // ID клиента
+  bool force_refresh = 3;                      // Принудительное обновление (игнорировать кеш)
+  string request_id = 4;                       // ID запроса
+}
+
+// BulkNumberLookupResponse представляет ответ с результатами массовой проверки
+message BulkNumberLookupResponse {
+  repeated NumberLookupResponse results = 1;   // Результаты проверки
+  int32 total_count = 2;                       // Общее количество номеров
+  int32 success_count = 3;                     // Количество успешных проверок
+  int32 failed_count = 4;                      // Количество неудачных проверок
+}
+
+// ==================== HLR-провайдеры ====================
+
+// HLRProviderProto представляет HLR-провайдера
+message HLRProviderProto {
+  string id = 1;                               // ID провайдера
+  string name = 2;                             // Название провайдера
+  string adapter_type = 3;                     // Тип адаптера
+  string config_json = 4;                      // Конфигурация в формате JSON
+  int32 priority = 5;                          // Приоритет провайдера
+  repeated string supported_regions = 6;       // Поддерживаемые регионы
+  string cost_per_lookup = 7;                  // Стоимость одного запроса
+  string status = 8;                           // Статус провайдера
+  string success_rate = 9;                     // Процент успешных запросов
+  google.protobuf.Timestamp last_success_at = 10;  // Время последнего успешного запроса
+  google.protobuf.Timestamp last_failure_at = 11;  // Время последнего неудачного запроса
+  bool active = 12;                            // Активен ли провайдер
+  google.protobuf.Timestamp created_at = 13;   // Время создания
+  google.protobuf.Timestamp updated_at = 14;   // Время обновления
+}
+
+// CreateHLRProviderRequest представляет запрос на создание HLR-провайдера
+message CreateHLRProviderRequest {
+  string name = 1;                             // Название провайдера
+  string adapter_type = 2;                     // Тип адаптера
+  string config_json = 3;                      // Конфигурация в формате JSON
+  int32 priority = 4;                          // Приоритет провайдера
+  repeated string supported_regions = 5;       // Поддерживаемые регионы
+  string cost_per_lookup = 6;                  // Стоимость одного запроса
+}
+
+// UpdateHLRProviderRequest представляет запрос на обновление HLR-провайдера
+message UpdateHLRProviderRequest {
+  string id = 1;                               // ID провайдера
+  string name = 2;                             // Название провайдера
+  string adapter_type = 3;                     // Тип адаптера
+  string config_json = 4;                      // Конфигурация в формате JSON
+  int32 priority = 5;                          // Приоритет провайдера
+  repeated string supported_regions = 6;       // Поддерживаемые регионы
+  string cost_per_lookup = 7;                  // Стоимость одного запроса
+  bool active = 8;                             // Активен ли провайдер
+}
+
+// DeleteHLRProviderRequest представляет запрос на удаление HLR-провайдера
+message DeleteHLRProviderRequest {
+  string id = 1;                               // ID провайдера
+}
+
+// GetHLRProviderRequest представляет запрос на получение HLR-провайдера
+message GetHLRProviderRequest {
+  string id = 1;                               // ID провайдера
+}
+
+// ListHLRProvidersRequest представляет запрос на получение списка HLR-провайдеров
+message ListHLRProvidersRequest {
+  bool active_only = 1;                        // Только активные провайдеры
+}
+
+// ListHLRProvidersResponse представляет ответ со списком HLR-провайдеров
+message ListHLRProvidersResponse {
+  repeated HLRProviderProto providers = 1;     // Список провайдеров
+}
+
+// ==================== Умная маршрутизация (Smart Route Weights) ====================
+
+// SmartRouteWeightProto представляет веса умной маршрутизации
+message SmartRouteWeightProto {
+  string id = 1;                               // ID записи
+  string operator_code = 2;                    // Код оператора
+  string country_code = 3;                     // Код страны
+  string cost_weight = 4;                      // Вес стоимости
+  string quality_weight = 5;                   // Вес качества
+  bool active = 6;                             // Активна ли запись
+  google.protobuf.Timestamp created_at = 7;    // Время создания
+  google.protobuf.Timestamp updated_at = 8;    // Время обновления
+}
+
+// SetSmartRouteWeightsRequest представляет запрос на установку весов маршрутизации
+message SetSmartRouteWeightsRequest {
+  string operator_code = 1;                    // Код оператора
+  string country_code = 2;                     // Код страны
+  string cost_weight = 3;                      // Вес стоимости
+  string quality_weight = 4;                   // Вес качества
+}
+
+// GetSmartRouteWeightsRequest представляет запрос на получение весов маршрутизации
+message GetSmartRouteWeightsRequest {
+  string operator_code = 1;                    // Код оператора
+  string country_code = 2;                     // Код страны
+}
+
+// ListSmartRouteWeightsRequest представляет запрос на получение списка весов маршрутизации
+message ListSmartRouteWeightsRequest {
+  string country_code = 1;                     // Код страны (фильтр, опционально)
+}
+
+// ListSmartRouteWeightsResponse представляет ответ со списком весов маршрутизации
+message ListSmartRouteWeightsResponse {
+  repeated SmartRouteWeightProto weights = 1;  // Список весов
+}
+
+// DeleteSmartRouteWeightsRequest представляет запрос на удаление весов маршрутизации
+message DeleteSmartRouteWeightsRequest {
+  string id = 1;                               // ID записи
+}
+
+// ==================== История lookup-запросов ====================
+
+// LookupLogEntry представляет запись в журнале lookup-запросов
+message LookupLogEntry {
+  string id = 1;                               // ID записи
+  string msisdn = 2;                           // Номер телефона (MSISDN)
+  string operator_mccmnc = 3;                  // MCC/MNC оператора
+  string operator_name = 4;                    // Название оператора
+  NumberStatus number_status = 5;              // Статус номера
+  string country_code = 6;                     // Код страны
+  NumberType number_type = 7;                  // Тип номера
+  bool is_ported = 8;                          // Перенесён ли номер (MNP)
+  string source = 9;                           // Источник запроса
+  string client_id = 10;                       // ID клиента
+  bool cached = 11;                            // Результат из кеша
+  int32 latency_ms = 12;                       // Задержка запроса (мс)
+  string request_id = 13;                      // ID запроса
+  string message_id = 14;                      // ID сообщения
+  google.protobuf.Timestamp created_at = 15;   // Время создания
+}
+
+// GetLookupHistoryRequest представляет запрос на получение истории lookup-запросов
+message GetLookupHistoryRequest {
+  string client_id = 1;                        // ID клиента
+  google.protobuf.Timestamp from_date = 2;     // Начало периода
+  google.protobuf.Timestamp to_date = 3;       // Конец периода
+  string msisdn_filter = 4;                    // Фильтр по номеру (опционально)
+  string source_filter = 5;                    // Фильтр по источнику (опционально)
+  int32 page = 6;                              // Номер страницы
+  int32 page_size = 7;                         // Размер страницы
+}
+
+// GetLookupHistoryResponse представляет ответ с историей lookup-запросов
+message GetLookupHistoryResponse {
+  repeated LookupLogEntry items = 1;           // Список записей
+  int64 total_count = 2;                       // Общее количество записей
+  int32 page = 3;                              // Номер страницы
+  int32 page_size = 4;                         // Размер страницы
+}
+
+// ==================== Маршрутизация с HLR ====================
+
+// RouteMessageWithHLRRequest представляет запрос на маршрутизацию сообщения с HLR
+message RouteMessageWithHLRRequest {
+  string message_id = 1;                       // ID сообщения
+  string destination = 2;                      // Номер получателя
+  string client_id = 3;                        // ID клиента
+  string existing_route_id = 4;                // ID существующего маршрута (опционально)
+  string existing_provider_id = 5;             // ID существующего провайдера (опционально)
+}
+
+// RouteMessageWithHLRResponse представляет ответ на маршрутизацию сообщения с HLR
+message RouteMessageWithHLRResponse {
+  string route_id = 1;                         // ID маршрута
+  string provider_id = 2;                      // ID провайдера
+  NumberLookupResponse hlr_result = 3;         // Результат HLR-запроса
+  bool hlr_used = 4;                           // Использовался ли HLR
+  double routing_score = 5;                    // Оценка маршрутизации
 }
