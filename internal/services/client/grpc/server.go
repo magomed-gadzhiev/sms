@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -17,13 +18,15 @@ import (
 // Server реализует gRPC сервис для управления клиентами
 type Server struct {
 	clientv1.UnimplementedClientServiceServer
-	clientService *application.ClientService
+	clientService     *application.ClientService
+	subAccountService *application.SubAccountService
 }
 
 // NewServer создает новый gRPC сервер для Client Service
-func NewServer(clientService *application.ClientService) *Server {
+func NewServer(clientService *application.ClientService, subAccountService *application.SubAccountService) *Server {
 	return &Server{
-		clientService: clientService,
+		clientService:     clientService,
+		subAccountService: subAccountService,
 	}
 }
 
@@ -302,6 +305,231 @@ func (s *Server) UpdateClientRateLimits(ctx context.Context, req *clientv1.Updat
 	}, nil
 }
 
+// CreateSubAccount создает суб-аккаунт для реселлера
+func (s *Server) CreateSubAccount(ctx context.Context, req *clientv1.CreateSubAccountRequest) (*clientv1.CreateSubAccountResponse, error) {
+	if req.ParentClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "parent_client_id is required")
+	}
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "name is required")
+	}
+
+	parentClientID, err := uuid.Parse(req.ParentClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+	}
+
+	subAccount, err := s.subAccountService.CreateSubAccount(
+		ctx,
+		parentClientID,
+		req.Name,
+		req.Email,
+		req.ContactPerson,
+		int(req.DailyLimit),
+		int(req.MonthlyLimit),
+	)
+	if err != nil {
+		switch err {
+		case application.ErrClientNotFound:
+			return nil, status.Error(codes.NotFound, "parent client not found")
+		case application.ErrNotReseller:
+			return nil, status.Error(codes.PermissionDenied, "client is not a reseller")
+		case application.ErrMaxSubAccounts:
+			return nil, status.Error(codes.ResourceExhausted, "maximum number of sub-accounts reached")
+		case application.ErrInvalidClientData:
+			return nil, status.Error(codes.InvalidArgument, "invalid sub-account data")
+		}
+		log.Error().Err(err).Msg("ошибка создания суб-аккаунта")
+		return nil, status.Error(codes.Internal, "failed to create sub-account")
+	}
+
+	return &clientv1.CreateSubAccountResponse{
+		SubAccount: s.domainClientToSubAccount(subAccount),
+	}, nil
+}
+
+// ListSubAccounts получает список суб-аккаунтов реселлера
+func (s *Server) ListSubAccounts(ctx context.Context, req *clientv1.ListSubAccountsRequest) (*clientv1.ListSubAccountsResponse, error) {
+	if req.ParentClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "parent_client_id is required")
+	}
+
+	parentClientID, err := uuid.Parse(req.ParentClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+	}
+
+	subAccounts, err := s.subAccountService.ListSubAccounts(ctx, parentClientID)
+	if err != nil {
+		if err == application.ErrClientNotFound {
+			return nil, status.Error(codes.NotFound, "parent client not found")
+		}
+		if err == application.ErrNotReseller {
+			return nil, status.Error(codes.PermissionDenied, "client is not a reseller")
+		}
+		log.Error().Err(err).Msg("ошибка получения списка суб-аккаунтов")
+		return nil, status.Error(codes.Internal, "failed to list sub-accounts")
+	}
+
+	// Получаем информацию о лимитах
+	parent, _ := s.clientService.GetClient(ctx, parentClientID)
+	var maxSubAccounts int32
+	if parent != nil {
+		maxSubAccounts = int32(parent.MaxSubAccounts)
+	}
+
+	protoSubAccounts := make([]*clientv1.SubAccount, len(subAccounts))
+	for i, sa := range subAccounts {
+		protoSubAccounts[i] = s.domainClientToSubAccount(sa)
+	}
+
+	return &clientv1.ListSubAccountsResponse{
+		SubAccounts:    protoSubAccounts,
+		MaxSubAccounts: maxSubAccounts,
+		CurrentCount:   int32(len(subAccounts)),
+	}, nil
+}
+
+// GetSubAccount получает информацию о суб-аккаунте
+func (s *Server) GetSubAccount(ctx context.Context, req *clientv1.GetSubAccountRequest) (*clientv1.GetSubAccountResponse, error) {
+	if req.SubAccountId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sub_account_id is required")
+	}
+	if req.ParentClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "parent_client_id is required")
+	}
+
+	subAccountID, err := uuid.Parse(req.SubAccountId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid sub_account_id format")
+	}
+
+	parentClientID, err := uuid.Parse(req.ParentClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+	}
+
+	subAccount, err := s.subAccountService.GetSubAccount(ctx, subAccountID, parentClientID)
+	if err != nil {
+		if err == application.ErrSubAccountNotFound {
+			return nil, status.Error(codes.NotFound, "sub-account not found")
+		}
+		log.Error().Err(err).Msg("ошибка получения суб-аккаунта")
+		return nil, status.Error(codes.Internal, "failed to get sub-account")
+	}
+
+	return &clientv1.GetSubAccountResponse{
+		SubAccount: s.domainClientToSubAccount(subAccount),
+	}, nil
+}
+
+// DeleteSubAccount удаляет суб-аккаунт
+func (s *Server) DeleteSubAccount(ctx context.Context, req *clientv1.DeleteSubAccountRequest) (*clientv1.DeleteSubAccountResponse, error) {
+	if req.SubAccountId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sub_account_id is required")
+	}
+	if req.ParentClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "parent_client_id is required")
+	}
+
+	subAccountID, err := uuid.Parse(req.SubAccountId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid sub_account_id format")
+	}
+
+	parentClientID, err := uuid.Parse(req.ParentClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+	}
+
+	err = s.subAccountService.DeleteSubAccount(ctx, subAccountID, parentClientID)
+	if err != nil {
+		if err == application.ErrSubAccountNotFound {
+			return nil, status.Error(codes.NotFound, "sub-account not found")
+		}
+		log.Error().Err(err).Msg("ошибка удаления суб-аккаунта")
+		return nil, status.Error(codes.Internal, "failed to delete sub-account")
+	}
+
+	return &clientv1.DeleteSubAccountResponse{
+		ReturnedBalance: "0",
+	}, nil
+}
+
+// UpdateSubAccountLimits обновляет лимиты суб-аккаунта
+func (s *Server) UpdateSubAccountLimits(ctx context.Context, req *clientv1.UpdateSubAccountLimitsRequest) (*clientv1.UpdateSubAccountLimitsResponse, error) {
+	if req.SubAccountId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sub_account_id is required")
+	}
+	if req.ParentClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "parent_client_id is required")
+	}
+
+	subAccountID, err := uuid.Parse(req.SubAccountId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid sub_account_id format")
+	}
+
+	parentClientID, err := uuid.Parse(req.ParentClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+	}
+
+	subAccount, err := s.subAccountService.UpdateSubAccountLimits(
+		ctx,
+		subAccountID,
+		parentClientID,
+		int(req.DailyLimit),
+		int(req.MonthlyLimit),
+	)
+	if err != nil {
+		if err == application.ErrSubAccountNotFound {
+			return nil, status.Error(codes.NotFound, "sub-account not found")
+		}
+		log.Error().Err(err).Msg("ошибка обновления лимитов суб-аккаунта")
+		return nil, status.Error(codes.Internal, "failed to update sub-account limits")
+	}
+
+	return &clientv1.UpdateSubAccountLimitsResponse{
+		SubAccount: s.domainClientToSubAccount(subAccount),
+	}, nil
+}
+
+// domainClientToSubAccount преобразует domain.Client в proto SubAccount
+func (s *Server) domainClientToSubAccount(client *domain.Client) *clientv1.SubAccount {
+	if client == nil {
+		return nil
+	}
+
+	sa := &clientv1.SubAccount{
+		Id:            client.ID.String(),
+		Name:          client.Name,
+		Email:         client.Email,
+		ContactPerson: client.ContactPerson,
+		Active:        client.Active,
+		CreatedAt:     timestamppb.New(client.CreatedAt),
+	}
+
+	if client.Config != nil {
+		sa.DailyLimit = int32(client.Config.RateLimitPerDay)
+		settings := client.Config.GetSettings()
+		if ml, ok := settings["monthly_limit"]; ok {
+			if v, err := parseIntFromString(ml); err == nil {
+				sa.MonthlyLimit = int32(v)
+			}
+		}
+	}
+
+	return sa
+}
+
+// parseIntFromString парсит int из строки
+func parseIntFromString(s string) (int, error) {
+	var v int
+	_, err := fmt.Sscanf(s, "%d", &v)
+	return v, err
+}
+
 // domainClientToProto преобразует domain.Client в proto ClientInfo
 func (s *Server) domainClientToProto(client *domain.Client) *clientv1.ClientInfo {
 	if client == nil {
@@ -309,15 +537,21 @@ func (s *Server) domainClientToProto(client *domain.Client) *clientv1.ClientInfo
 	}
 
 	info := &clientv1.ClientInfo{
-		ClientId:     client.ID.String(),
-		Name:         client.Name,
-		Email:        client.Email,
-		ContactPerson: client.ContactPerson,
-		Phone:        client.Phone,
-		Active:       client.Active,
-		Metadata:     client.GetMetadata(),
-		CreatedAt:    timestamppb.New(client.CreatedAt),
-		UpdatedAt:    timestamppb.New(client.UpdatedAt),
+		ClientId:       client.ID.String(),
+		Name:           client.Name,
+		Email:          client.Email,
+		ContactPerson:  client.ContactPerson,
+		Phone:          client.Phone,
+		Active:         client.Active,
+		Metadata:       client.GetMetadata(),
+		CreatedAt:      timestamppb.New(client.CreatedAt),
+		UpdatedAt:      timestamppb.New(client.UpdatedAt),
+		IsReseller:     client.IsReseller,
+		MaxSubAccounts: int32(client.MaxSubAccounts),
+	}
+
+	if client.ParentClientID != nil {
+		info.ParentClientId = client.ParentClientID.String()
 	}
 
 	// Добавляем rate limits из конфигурации

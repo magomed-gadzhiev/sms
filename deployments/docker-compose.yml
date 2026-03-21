@@ -10,6 +10,8 @@ services:
       - "8081:8081"  # Admin Gateway HTTP
       - "9090:9090"  # Client Gateway gRPC
       - "9091:9091"  # Admin Gateway gRPC
+      - "8082:8082"  # Portal Gateway HTTP
+      - "8083:8083"  # Portal Frontend HTTP
       - "8404:8404"  # HAProxy stats
     volumes:
       - ./configs/haproxy-new.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
@@ -20,6 +22,8 @@ services:
       - client-gateway-2
       - admin-gateway-1
       - admin-gateway-2
+      - portal-gateway
+      - portal-frontend
     restart: unless-stopped
 
   # Client Gateway Instance 1
@@ -662,6 +666,78 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2121/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Portal Gateway
+  portal-gateway:
+    build:
+      context: ..
+      dockerfile: deployments/docker/portal-gateway.Dockerfile
+    container_name: portal-gateway
+    ports:
+      - "18084:8082"  # HTTP (internal)
+    environment:
+      - SERVICE_NAME=portal-gateway
+      - PORTAL_HTTP_PORT=8082
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - MESSAGING_SERVICE_ADDR=messaging-service:9092
+      - ANALYTICS_SERVICE_ADDR=analytics-service:9096
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      webhook-service:
+        condition: service_healthy
+      template-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Portal Frontend
+  portal-frontend:
+    build:
+      context: ../portal-frontend
+      dockerfile: Dockerfile
+    container_name: portal-frontend
+    ports:
+      - "18085:80"  # Nginx HTTP (internal)
+    networks:
+      - smpp-network
+    depends_on:
+      - portal-gateway
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:80/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

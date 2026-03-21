@@ -32,15 +32,18 @@ func NewClientRepository(db *database.DB) *ClientRepository {
 func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) error {
 	query := `
 		INSERT INTO clients (
-			id, name, email, contact_person, phone, active, metadata, created_at, updated_at
+			id, name, email, contact_person, phone, active, metadata,
+			parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 		)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
-		client.Active, client.Metadata, client.CreatedAt, client.UpdatedAt,
+		client.Active, client.Metadata,
+		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
+		client.CreatedAt, client.UpdatedAt,
 	)
 
 	if err != nil {
@@ -55,13 +58,16 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error) {
 	var client domain.Client
 	query := `
-		SELECT id, name, email, contact_person, phone, active, metadata, created_at, updated_at
+		SELECT id, name, email, contact_person, phone, active, metadata,
+		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
 		FROM clients WHERE id = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&client.ID, &client.Name, &client.Email, &client.ContactPerson, &client.Phone,
-		&client.Active, &client.Metadata, &client.CreatedAt, &client.UpdatedAt,
+		&client.Active, &client.Metadata,
+		&client.ParentClientID, &client.IsReseller, &client.MaxSubAccounts,
+		&client.CreatedAt, &client.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -78,13 +84,17 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 	query := `
 		UPDATE clients SET
 			name = $2, email = $3, contact_person = $4, phone = $5,
-			active = $6, metadata = $7, updated_at = $8
+			active = $6, metadata = $7,
+			parent_client_id = $8, is_reseller = $9, max_sub_accounts = $10,
+			updated_at = $11
 		WHERE id = $1
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
 		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
-		client.Active, client.Metadata, client.UpdatedAt,
+		client.Active, client.Metadata,
+		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
+		client.UpdatedAt,
 	)
 
 	if err != nil {
@@ -135,7 +145,8 @@ func (r *ClientRepository) List(ctx context.Context, activeOnly bool, search str
 
 	// Базовый запрос для получения клиентов
 	baseQuery := `
-		SELECT id, name, email, contact_person, phone, active, metadata, created_at, updated_at
+		SELECT id, name, email, contact_person, phone, active, metadata,
+		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
 		FROM clients
 		WHERE 1=1
 	`

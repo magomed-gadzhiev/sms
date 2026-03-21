@@ -19,6 +19,11 @@ type Client struct {
 	CreatedAt     time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time       `json:"updated_at" db:"updated_at"`
 
+	// Суб-аккаунты
+	ParentClientID *uuid.UUID `json:"parent_client_id,omitempty" db:"parent_client_id"`
+	IsReseller     bool       `json:"is_reseller" db:"is_reseller"`
+	MaxSubAccounts int        `json:"max_sub_accounts" db:"max_sub_accounts"`
+
 	// Связи
 	Config *ClientConfig `json:"config,omitempty" db:"-"`
 }
@@ -40,6 +45,16 @@ func (c *Client) GetMetadata() map[string]string {
 	}
 
 	return metadata
+}
+
+// IsSubAccount проверяет, является ли клиент суб-аккаунтом
+func (c *Client) IsSubAccount() bool {
+	return c.ParentClientID != nil
+}
+
+// CanCreateSubAccount проверяет, может ли клиент создать ещё один суб-аккаунт
+func (c *Client) CanCreateSubAccount(currentCount int) bool {
+	return c.IsReseller && currentCount < c.MaxSubAccounts
 }
 
 // SetMetadata устанавливает метаданные из map

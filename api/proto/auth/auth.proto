@@ -28,6 +28,30 @@ service AuthService {
   
   // ListAPIKeys получает список API ключей пользователя
   rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
+
+  // SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
+  rpc SetupTOTP(SetupTOTPRequest) returns (SetupTOTPResponse);
+
+  // VerifyTOTP проверяет TOTP код для включения 2FA
+  rpc VerifyTOTP(VerifyTOTPRequest) returns (VerifyTOTPResponse);
+
+  // DisableTOTP отключает 2FA (требует пароль)
+  rpc DisableTOTP(DisableTOTPRequest) returns (DisableTOTPResponse);
+
+  // RequestPasswordReset генерирует токен сброса пароля
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+
+  // ResetPassword сбрасывает пароль по токену
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+
+  // LoginWithSession выполняет аутентификацию и создает сессию (вместо JWT)
+  rpc LoginWithSession(LoginWithSessionRequest) returns (LoginWithSessionResponse);
+
+  // ValidateSession проверяет валидность сессии
+  rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
+
+  // Logout уничтожает сессию
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
 }
 
 // AuthenticateRequest представляет запрос на аутентификацию
@@ -86,6 +110,7 @@ message CreateAPIKeyRequest {
   string name = 2;            // Название ключа
   google.protobuf.Timestamp expires_at = 3;  // Время истечения (опционально)
   repeated string scopes = 4; // Права доступа (опционально)
+  repeated string allowed_ips = 5; // Разрешенные IP адреса (опционально)
 }
 
 // CreateAPIKeyResponse представляет ответ на создание API ключа
@@ -150,4 +175,101 @@ message APIKeyInfo {
   google.protobuf.Timestamp expires_at = 6;  // Время истечения
   google.protobuf.Timestamp last_used_at = 7;  // Время последнего использования
   repeated string scopes = 8; // Права доступа
+  repeated string allowed_ips = 9; // Разрешенные IP адреса
+}
+
+// SetupTOTPRequest представляет запрос на настройку TOTP
+message SetupTOTPRequest {
+  string user_id = 1;         // ID пользователя
+}
+
+// SetupTOTPResponse представляет ответ на настройку TOTP
+message SetupTOTPResponse {
+  string secret = 1;                    // TOTP секрет
+  string qr_code_url = 2;              // URL для QR кода
+  repeated string recovery_codes = 3;  // Коды восстановления
+}
+
+// VerifyTOTPRequest представляет запрос на проверку TOTP кода
+message VerifyTOTPRequest {
+  string user_id = 1;         // ID пользователя
+  string totp_code = 2;       // TOTP код
+}
+
+// VerifyTOTPResponse представляет ответ на проверку TOTP кода
+message VerifyTOTPResponse {
+  bool success = 1;            // Успешность проверки
+  bool totp_enabled = 2;      // Включен ли TOTP
+}
+
+// DisableTOTPRequest представляет запрос на отключение 2FA
+message DisableTOTPRequest {
+  string user_id = 1;         // ID пользователя
+  string password = 2;        // Пароль для подтверждения
+}
+
+// DisableTOTPResponse представляет ответ на отключение 2FA
+message DisableTOTPResponse {
+  bool success = 1;            // Успешность операции
+}
+
+// RequestPasswordResetRequest представляет запрос на сброс пароля
+message RequestPasswordResetRequest {
+  string email = 1;           // Email пользователя
+}
+
+// RequestPasswordResetResponse представляет ответ на запрос сброса пароля
+message RequestPasswordResetResponse {
+  bool success = 1;            // Всегда true для предотвращения перечисления
+  string reset_token = 2;     // Токен сброса (для отправки по email)
+}
+
+// ResetPasswordRequest представляет запрос на установку нового пароля
+message ResetPasswordRequest {
+  string token = 1;           // Токен сброса пароля
+  string new_password = 2;    // Новый пароль
+}
+
+// ResetPasswordResponse представляет ответ на установку нового пароля
+message ResetPasswordResponse {
+  bool success = 1;            // Успешность операции
+}
+
+// LoginWithSessionRequest представляет запрос на аутентификацию с созданием сессии
+message LoginWithSessionRequest {
+  string email = 1;            // Email пользователя
+  string password = 2;        // Пароль
+  string totp_code = 3;       // TOTP код (опционально, для 2FA)
+  string ip_address = 4;      // IP адрес клиента
+  string user_agent = 5;      // User-Agent клиента
+}
+
+// LoginWithSessionResponse представляет ответ на аутентификацию с сессией
+message LoginWithSessionResponse {
+  string session_id = 1;      // ID сессии
+  UserInfo user = 2;          // Информация о пользователе
+  bool requires_2fa = 3;      // Требуется ли 2FA
+  string login_ticket = 4;    // Временный тикет для 2FA потока
+}
+
+// ValidateSessionRequest представляет запрос на валидацию сессии
+message ValidateSessionRequest {
+  string session_id = 1;      // ID сессии
+}
+
+// ValidateSessionResponse представляет ответ на валидацию сессии
+message ValidateSessionResponse {
+  bool valid = 1;              // Валидность сессии
+  UserInfo user = 2;          // Информация о пользователе
+  string client_id = 3;       // ID клиента
+}
+
+// LogoutRequest представляет запрос на выход (уничтожение сессии)
+message LogoutRequest {
+  string session_id = 1;      // ID сессии
+}
+
+// LogoutResponse представляет ответ на выход
+message LogoutResponse {
+  bool success = 1;            // Успешность операции
 }

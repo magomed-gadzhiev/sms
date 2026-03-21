@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package audit.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/auditv1";
+
+import "google/protobuf/timestamp.proto";
+
+// AuditService предоставляет методы для работы с аудит-логами
+service AuditService {
+  // QueryAuditLog запрашивает записи аудит-лога
+  rpc QueryAuditLog(QueryAuditLogRequest) returns (QueryAuditLogResponse);
+}
+
+// QueryAuditLogRequest представляет запрос на получение записей аудит-лога
+message QueryAuditLogRequest {
+  string tenant_id = 1;            // ID тенанта
+  string action = 2;               // Фильтр по действию (опционально)
+  string user_id = 3;              // Фильтр по ID пользователя (опционально)
+  google.protobuf.Timestamp date_from = 4;  // Начало периода (опционально)
+  google.protobuf.Timestamp date_to = 5;    // Конец периода (опционально)
+  int32 page = 6;                  // Номер страницы
+  int32 per_page = 7;              // Количество записей на странице
+}
+
+// QueryAuditLogResponse представляет ответ с записями аудит-лога
+message QueryAuditLogResponse {
+  repeated AuditLogEntry entries = 1;  // Список записей аудит-лога
+  int32 total = 2;                 // Общее количество записей
+  int32 page = 3;                  // Текущая страница
+  int32 total_pages = 4;           // Общее количество страниц
+}
+
+// AuditLogEntry представляет запись аудит-лога
+message AuditLogEntry {
+  string id = 1;                   // ID записи
+  string tenant_id = 2;           // ID тенанта
+  string user_id = 3;             // ID пользователя
+  string action = 4;              // Действие
+  string resource_type = 5;       // Тип ресурса
+  string resource_id = 6;         // ID ресурса
+  string details = 7;             // Детали (JSON)
+  string ip_address = 8;          // IP-адрес
+  google.protobuf.Timestamp created_at = 9;  // Время создания
+}

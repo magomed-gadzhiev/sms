@@ -69,3 +69,8 @@ mem.prof
 # Local configuration overrides
 configs/*.yaml
 !configs/*.example.yaml
+
+# Frontend (portal-frontend)
+portal-frontend/node_modules/
+portal-frontend/dist/
+portal-frontend/.vite/

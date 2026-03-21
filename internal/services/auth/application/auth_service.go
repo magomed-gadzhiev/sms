@@ -108,10 +108,15 @@ func (s *AuthService) AuthenticateByCredentials(
 	return user, accessToken, refreshToken, nil
 }
 
-// AuthenticateByAPIKey аутентифицирует пользователя по API ключу
+// ErrIPNotAllowed ошибка при попытке доступа с запрещённого IP
+var ErrIPNotAllowed = errors.New("ip address not allowed")
+
+// AuthenticateByAPIKey аутентифицирует пользователя по API ключу.
+// requestIP — IP адрес запроса (опционально, пустая строка = без проверки).
 func (s *AuthService) AuthenticateByAPIKey(
 	ctx context.Context,
 	apiKey string,
+	requestIP ...string,
 ) (*domain.User, error) {
 	// Хешируем ключ для поиска
 	keyHash := s.hashAPIKey(apiKey)
@@ -128,6 +133,13 @@ func (s *AuthService) AuthenticateByAPIKey(
 	// Проверяем валидность ключа
 	if !key.IsValid() {
 		return nil, ErrAPIKeyInvalid
+	}
+
+	// Проверяем IP whitelist
+	if len(requestIP) > 0 && requestIP[0] != "" {
+		if !key.IsIPAllowed(requestIP[0]) {
+			return nil, ErrIPNotAllowed
+		}
 	}
 
 	// Обновляем время последнего использования
@@ -183,6 +195,7 @@ func (s *AuthService) CreateAPIKey(
 	name string,
 	expiresAt *time.Time,
 	scopes []string,
+	allowedIPs []string,
 ) (*domain.APIKey, string, error) {
 	// Проверяем существование пользователя
 	_, err := s.userRepo.GetByID(ctx, userID)
@@ -202,16 +215,17 @@ func (s *AuthService) CreateAPIKey(
 
 	// Создаем запись API ключа
 	key := &domain.APIKey{
-		ID:        uuid.New(),
-		UserID:    userID,
-		Name:      name,
-		KeyHash:   keyHash,
-		KeyPrefix: keyPrefix,
-		Active:    true,
-		ExpiresAt: expiresAt,
-		Scopes:    scopes,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:         uuid.New(),
+		UserID:     userID,
+		Name:       name,
+		KeyHash:    keyHash,
+		KeyPrefix:  keyPrefix,
+		Active:     true,
+		ExpiresAt:  expiresAt,
+		Scopes:     scopes,
+		AllowedIPs: allowedIPs,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
 	if err := s.apiKeyRepo.Create(ctx, key); err != nil {

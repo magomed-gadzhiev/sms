@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/services/auth/domain"
 	"github.com/smpp-server/smpp-server/internal/shared/database"
 )
@@ -36,15 +37,15 @@ func (r *APIKeyRepository) Create(ctx context.Context, apiKey *domain.APIKey) er
 	// Вставляем API ключ
 	query := `
 		INSERT INTO api_keys (
-			id, user_id, name, key_hash, key_prefix, active, expires_at, created_at, updated_at
+			id, user_id, name, key_hash, key_prefix, active, expires_at, allowed_ips, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
 	`
 
 	_, err = tx.ExecContext(ctx, query,
 		apiKey.ID, apiKey.UserID, apiKey.Name, apiKey.KeyHash, apiKey.KeyPrefix,
-		apiKey.Active, apiKey.ExpiresAt, apiKey.CreatedAt, apiKey.UpdatedAt,
+		apiKey.Active, apiKey.ExpiresAt, pq.Array(apiKey.AllowedIPs), apiKey.CreatedAt, apiKey.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -68,14 +69,14 @@ func (r *APIKeyRepository) Create(ctx context.Context, apiKey *domain.APIKey) er
 func (r *APIKeyRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
 	var apiKey domain.APIKey
 	query := `
-		SELECT id, user_id, name, key_hash, key_prefix, active, expires_at, last_used_at, created_at, updated_at
+		SELECT id, user_id, name, key_hash, key_prefix, active, expires_at, last_used_at, allowed_ips, created_at, updated_at
 		FROM api_keys WHERE id = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&apiKey.ID, &apiKey.UserID, &apiKey.Name, &apiKey.KeyHash, &apiKey.KeyPrefix,
 		&apiKey.Active, &apiKey.ExpiresAt, &apiKey.LastUsedAt,
-		&apiKey.CreatedAt, &apiKey.UpdatedAt,
+		pq.Array(&apiKey.AllowedIPs), &apiKey.CreatedAt, &apiKey.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -98,14 +99,14 @@ func (r *APIKeyRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 func (r *APIKeyRepository) GetByKeyHash(ctx context.Context, keyHash string) (*domain.APIKey, error) {
 	var apiKey domain.APIKey
 	query := `
-		SELECT id, user_id, name, key_hash, key_prefix, active, expires_at, last_used_at, created_at, updated_at
+		SELECT id, user_id, name, key_hash, key_prefix, active, expires_at, last_used_at, allowed_ips, created_at, updated_at
 		FROM api_keys WHERE key_hash = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, keyHash).Scan(
 		&apiKey.ID, &apiKey.UserID, &apiKey.Name, &apiKey.KeyHash, &apiKey.KeyPrefix,
 		&apiKey.Active, &apiKey.ExpiresAt, &apiKey.LastUsedAt,
-		&apiKey.CreatedAt, &apiKey.UpdatedAt,
+		pq.Array(&apiKey.AllowedIPs), &apiKey.CreatedAt, &apiKey.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -126,15 +127,32 @@ func (r *APIKeyRepository) GetByKeyHash(ctx context.Context, keyHash string) (*d
 
 // ListByUserID получает список API ключей пользователя
 func (r *APIKeyRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
-	var apiKeys []*domain.APIKey
 	query := `
-		SELECT id, user_id, name, key_hash, key_prefix, active, expires_at, last_used_at, created_at, updated_at
+		SELECT id, user_id, name, key_hash, key_prefix, active, expires_at, last_used_at, allowed_ips, created_at, updated_at
 		FROM api_keys WHERE user_id = $1
 		ORDER BY created_at DESC
 	`
 
-	err := r.db.SelectContext(ctx, &apiKeys, query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var apiKeys []*domain.APIKey
+	for rows.Next() {
+		var key domain.APIKey
+		err := rows.Scan(
+			&key.ID, &key.UserID, &key.Name, &key.KeyHash, &key.KeyPrefix,
+			&key.Active, &key.ExpiresAt, &key.LastUsedAt,
+			pq.Array(&key.AllowedIPs), &key.CreatedAt, &key.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		apiKeys = append(apiKeys, &key)
+	}
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 

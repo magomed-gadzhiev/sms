@@ -13,30 +13,40 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 	"github.com/smpp-server/smpp-server/internal/services/auth/application"
 	"github.com/smpp-server/smpp-server/internal/services/auth/domain"
+	authinfra "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure"
 	authrepo "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure/repository"
 )
 
 // Server реализует gRPC сервис для аутентификации
 type Server struct {
 	authv1.UnimplementedAuthServiceServer
-	authService   *application.AuthService
-	tokenService  *application.TokenService
-	userRepo      *authrepo.UserRepository
-	roleRepo      *authrepo.RoleRepository
+	authService          *application.AuthService
+	tokenService         *application.TokenService
+	totpService          *application.TOTPService
+	passwordResetService *application.PasswordResetService
+	sessionManager       *authinfra.SessionManager
+	userRepo             *authrepo.UserRepository
+	roleRepo             *authrepo.RoleRepository
 }
 
 // NewServer создает новый gRPC сервер для Auth Service
 func NewServer(
 	authService *application.AuthService,
 	tokenService *application.TokenService,
+	totpService *application.TOTPService,
+	passwordResetService *application.PasswordResetService,
+	sessionManager *authinfra.SessionManager,
 	userRepo *authrepo.UserRepository,
 	roleRepo *authrepo.RoleRepository,
 ) *Server {
 	return &Server{
-		authService:  authService,
-		tokenService: tokenService,
-		userRepo:     userRepo,
-		roleRepo:     roleRepo,
+		authService:          authService,
+		tokenService:         tokenService,
+		totpService:          totpService,
+		passwordResetService: passwordResetService,
+		sessionManager:       sessionManager,
+		userRepo:             userRepo,
+		roleRepo:             roleRepo,
 	}
 }
 
@@ -213,7 +223,7 @@ func (s *Server) CreateAPIKey(ctx context.Context, req *authv1.CreateAPIKeyReque
 		expiresAt = &t
 	}
 
-	key, apiKey, err := s.authService.CreateAPIKey(ctx, userID, req.Name, expiresAt, req.Scopes)
+	key, apiKey, err := s.authService.CreateAPIKey(ctx, userID, req.Name, expiresAt, req.Scopes, req.AllowedIps)
 	if err != nil {
 		if err == authrepo.ErrUserNotFound {
 			return nil, status.Error(codes.NotFound, "user not found")
@@ -280,12 +290,13 @@ func (s *Server) ListAPIKeys(ctx context.Context, req *authv1.ListAPIKeysRequest
 	apiKeys := make([]*authv1.APIKeyInfo, len(keys))
 	for i, key := range keys {
 		apiKeys[i] = &authv1.APIKeyInfo{
-			Id:        key.ID.String(),
-			Name:      key.Name,
-			Prefix:    key.KeyPrefix,
-			Active:    key.Active,
-			CreatedAt: timestamppb.New(key.CreatedAt),
-			Scopes:    key.Scopes,
+			Id:         key.ID.String(),
+			Name:       key.Name,
+			Prefix:     key.KeyPrefix,
+			Active:     key.Active,
+			CreatedAt:  timestamppb.New(key.CreatedAt),
+			Scopes:     key.Scopes,
+			AllowedIps: key.AllowedIPs,
 		}
 
 		if key.ExpiresAt != nil {
@@ -299,6 +310,316 @@ func (s *Server) ListAPIKeys(ctx context.Context, req *authv1.ListAPIKeysRequest
 	return &authv1.ListAPIKeysResponse{
 		Keys: apiKeys,
 	}, nil
+}
+
+// SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
+func (s *Server) SetupTOTP(ctx context.Context, req *authv1.SetupTOTPRequest) (*authv1.SetupTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	// Получаем пользователя для account name
+	user, err := s.userRepo.GetByIDWithRole(ctx, userID)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to get user")
+	}
+
+	secret, qrURL, recoveryCodes, err := s.totpService.SetupTOTP(ctx, userID, user.Email)
+	if err != nil {
+		if err == domain.ErrTOTPAlreadyEnabled {
+			return nil, status.Error(codes.AlreadyExists, "TOTP is already enabled")
+		}
+		log.Error().Err(err).Msg("ошибка настройки TOTP")
+		return nil, status.Error(codes.Internal, "failed to setup TOTP")
+	}
+
+	return &authv1.SetupTOTPResponse{
+		Secret:        secret,
+		QrCodeUrl:     qrURL,
+		RecoveryCodes: recoveryCodes,
+	}, nil
+}
+
+// VerifyTOTP проверяет TOTP код для включения 2FA
+func (s *Server) VerifyTOTP(ctx context.Context, req *authv1.VerifyTOTPRequest) (*authv1.VerifyTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.TotpCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "totp_code is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = s.totpService.VerifyAndEnable(ctx, userID, req.TotpCode)
+	if err != nil {
+		if err == domain.ErrTOTPAlreadyEnabled {
+			return nil, status.Error(codes.AlreadyExists, "TOTP is already enabled")
+		}
+		if err == domain.ErrTOTPNotEnabled {
+			return nil, status.Error(codes.FailedPrecondition, "TOTP setup not initiated")
+		}
+		if err == domain.ErrInvalidTOTPCode {
+			return &authv1.VerifyTOTPResponse{
+				Success:     false,
+				TotpEnabled: false,
+			}, nil
+		}
+		log.Error().Err(err).Msg("ошибка верификации TOTP")
+		return nil, status.Error(codes.Internal, "failed to verify TOTP")
+	}
+
+	return &authv1.VerifyTOTPResponse{
+		Success:     true,
+		TotpEnabled: true,
+	}, nil
+}
+
+// DisableTOTP отключает 2FA (требует пароль)
+func (s *Server) DisableTOTP(ctx context.Context, req *authv1.DisableTOTPRequest) (*authv1.DisableTOTPResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.Password == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = s.totpService.Disable(ctx, userID, req.Password)
+	if err != nil {
+		if err == application.ErrPasswordMismatch {
+			return nil, status.Error(codes.Unauthenticated, "invalid password")
+		}
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка отключения TOTP")
+		return nil, status.Error(codes.Internal, "failed to disable TOTP")
+	}
+
+	return &authv1.DisableTOTPResponse{
+		Success: true,
+	}, nil
+}
+
+// RequestPasswordReset генерирует токен сброса пароля
+func (s *Server) RequestPasswordReset(ctx context.Context, req *authv1.RequestPasswordResetRequest) (*authv1.RequestPasswordResetResponse, error) {
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	token, _, err := s.passwordResetService.RequestReset(ctx, req.Email)
+	if err != nil {
+		// Всегда возвращаем success=true для предотвращения перечисления email
+		if err == authrepo.ErrUserNotFound {
+			return &authv1.RequestPasswordResetResponse{
+				Success: true,
+			}, nil
+		}
+		if err == application.ErrPasswordResetRateLimit {
+			return nil, status.Error(codes.ResourceExhausted, "too many reset requests")
+		}
+		log.Error().Err(err).Msg("ошибка запроса сброса пароля")
+		return nil, status.Error(codes.Internal, "failed to request password reset")
+	}
+
+	return &authv1.RequestPasswordResetResponse{
+		Success:    true,
+		ResetToken: token,
+	}, nil
+}
+
+// ResetPassword сбрасывает пароль по токену
+func (s *Server) ResetPassword(ctx context.Context, req *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) {
+	if req.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "token is required")
+	}
+	if req.NewPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "new_password is required")
+	}
+
+	err := s.passwordResetService.ResetPassword(ctx, req.Token, req.NewPassword)
+	if err != nil {
+		if err == application.ErrPasswordResetInvalid {
+			return nil, status.Error(codes.InvalidArgument, "invalid or expired reset token")
+		}
+		if err == domain.ErrPasswordResetTokenUsed {
+			return nil, status.Error(codes.InvalidArgument, "reset token already used")
+		}
+		if err == domain.ErrPasswordResetTokenExpired {
+			return nil, status.Error(codes.InvalidArgument, "reset token expired")
+		}
+		log.Error().Err(err).Msg("ошибка сброса пароля")
+		return nil, status.Error(codes.Internal, "failed to reset password")
+	}
+
+	return &authv1.ResetPasswordResponse{
+		Success: true,
+	}, nil
+}
+
+// LoginWithSession выполняет аутентификацию и создает сессию
+func (s *Server) LoginWithSession(ctx context.Context, req *authv1.LoginWithSessionRequest) (*authv1.LoginWithSessionResponse, error) {
+	if req.Email == "" || req.Password == "" {
+		return nil, status.Error(codes.InvalidArgument, "email and password are required")
+	}
+
+	// Аутентифицируем пользователя по credentials (без генерации JWT)
+	user, _, _, err := s.authService.AuthenticateByCredentials(ctx, req.Email, req.Password)
+	if err != nil {
+		if err == application.ErrInvalidCredentials {
+			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+		}
+		if err == application.ErrUserInactive {
+			return nil, status.Error(codes.PermissionDenied, "user is inactive")
+		}
+		log.Error().Err(err).Msg("ошибка аутентификации при LoginWithSession")
+		return nil, status.Error(codes.Internal, "authentication failed")
+	}
+
+	// Проверяем, включен ли TOTP
+	totpEnabled := s.isTOTPEnabled(ctx, user.ID)
+
+	if totpEnabled {
+		if req.TotpCode == "" {
+			// TOTP включен, но код не предоставлен - возвращаем login_ticket
+			ticket, err := s.sessionManager.StoreLoginTicket(ctx, user.ID)
+			if err != nil {
+				log.Error().Err(err).Msg("ошибка создания login ticket")
+				return nil, status.Error(codes.Internal, "failed to create login ticket")
+			}
+
+			return &authv1.LoginWithSessionResponse{
+				Requires_2Fa:  true,
+				LoginTicket: ticket,
+			}, nil
+		}
+
+		// TOTP включен и код предоставлен - валидируем
+		valid, err := s.totpService.ValidateCode(ctx, user.ID, req.TotpCode)
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка валидации TOTP кода")
+			return nil, status.Error(codes.Internal, "failed to validate TOTP code")
+		}
+		if !valid {
+			// Попробуем как код восстановления
+			valid, err = s.totpService.ValidateRecoveryCode(ctx, user.ID, req.TotpCode)
+			if err != nil {
+				log.Error().Err(err).Msg("ошибка валидации кода восстановления")
+				return nil, status.Error(codes.Internal, "failed to validate recovery code")
+			}
+			if !valid {
+				return nil, status.Error(codes.Unauthenticated, "invalid TOTP code")
+			}
+		}
+	}
+
+	// Создаем сессию
+	clientID := uuid.Nil // client_id может быть привязан к пользователю позже
+	roleName := ""
+	if user.Role != nil {
+		roleName = user.Role.Name
+	}
+
+	sessionID, err := s.sessionManager.CreateSession(
+		ctx, user.ID, clientID, roleName, req.IpAddress, req.UserAgent,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка создания сессии")
+		return nil, status.Error(codes.Internal, "failed to create session")
+	}
+
+	return &authv1.LoginWithSessionResponse{
+		SessionId:    sessionID,
+		User:         s.domainUserToProto(user),
+		Requires_2Fa: false,
+	}, nil
+}
+
+// ValidateSession проверяет валидность сессии
+func (s *Server) ValidateSession(ctx context.Context, req *authv1.ValidateSessionRequest) (*authv1.ValidateSessionResponse, error) {
+	if req.SessionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "session_id is required")
+	}
+
+	userID, clientID, _, err := s.sessionManager.ValidateSession(ctx, req.SessionId)
+	if err != nil {
+		if err == authinfra.ErrSessionNotFound || err == authinfra.ErrSessionExpired {
+			return &authv1.ValidateSessionResponse{
+				Valid: false,
+			}, nil
+		}
+		log.Error().Err(err).Msg("ошибка валидации сессии")
+		return nil, status.Error(codes.Internal, "failed to validate session")
+	}
+
+	// Загружаем информацию о пользователе
+	user, err := s.userRepo.GetByIDWithRole(ctx, userID)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return &authv1.ValidateSessionResponse{
+				Valid: false,
+			}, nil
+		}
+		return nil, status.Error(codes.Internal, "failed to get user")
+	}
+
+	// Проверяем активность пользователя
+	if !user.IsActive() {
+		return &authv1.ValidateSessionResponse{
+			Valid: false,
+		}, nil
+	}
+
+	return &authv1.ValidateSessionResponse{
+		Valid:    true,
+		User:     s.domainUserToProto(user),
+		ClientId: clientID.String(),
+	}, nil
+}
+
+// Logout уничтожает сессию
+func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
+	if req.SessionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "session_id is required")
+	}
+
+	err := s.sessionManager.DestroySession(ctx, req.SessionId)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка уничтожения сессии")
+		return nil, status.Error(codes.Internal, "failed to destroy session")
+	}
+
+	return &authv1.LogoutResponse{
+		Success: true,
+	}, nil
+}
+
+// isTOTPEnabled проверяет, включен ли TOTP для пользователя
+func (s *Server) isTOTPEnabled(ctx context.Context, userID uuid.UUID) bool {
+	// Пробуем валидировать с пустым кодом - если TOTP не включен, получим ErrTOTPNotEnabled
+	_, err := s.totpService.ValidateCode(ctx, userID, "000000")
+	if err == domain.ErrTOTPNotEnabled {
+		return false
+	}
+	// Если ошибка другая (включая "invalid code") - значит TOTP включен
+	// Если нет ошибки (маловероятно) - тоже включен
+	return true
 }
 
 // domainUserToProto преобразует domain.User в proto UserInfo

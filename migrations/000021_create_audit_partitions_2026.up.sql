@@ -1,0 +1,21 @@
+-- Add 2027 Q2-Q4 partitions for audit_log
+-- (2026 all months and 2027 Q1 already created in migration 000017)
+
+CREATE TABLE audit_log_y2027m04 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-04-01') TO ('2027-05-01');
+CREATE TABLE audit_log_y2027m05 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-05-01') TO ('2027-06-01');
+CREATE TABLE audit_log_y2027m06 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-06-01') TO ('2027-07-01');
+CREATE TABLE audit_log_y2027m07 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-07-01') TO ('2027-08-01');
+CREATE TABLE audit_log_y2027m08 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
+CREATE TABLE audit_log_y2027m09 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+CREATE TABLE audit_log_y2027m10 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-10-01') TO ('2027-11-01');
+CREATE TABLE audit_log_y2027m11 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-11-01') TO ('2027-12-01');
+CREATE TABLE audit_log_y2027m12 PARTITION OF audit_log
+    FOR VALUES FROM ('2027-12-01') TO ('2028-01-01');

@@ -28,6 +28,9 @@ service BillingService {
   
   // CreatePricingRule создает правило тарификации
   rpc CreatePricingRule(CreatePricingRuleRequest) returns (CreatePricingRuleResponse);
+
+  // TransferBalance переводит средства между клиентами
+  rpc TransferBalance(TransferBalanceRequest) returns (TransferBalanceResponse);
 }
 
 // GetBalanceRequest представляет запрос на получение баланса
@@ -164,4 +167,19 @@ message PricingRule {
   bool active = 7;                // Активно ли правило
   google.protobuf.Timestamp created_at = 8;  // Время создания
   google.protobuf.Timestamp updated_at = 9;  // Время обновления
+}
+
+// TransferBalanceRequest представляет запрос на перевод средств между клиентами
+message TransferBalanceRequest {
+  string from_client_id = 1;      // ID клиента-отправителя
+  string to_client_id = 2;        // ID клиента-получателя
+  string amount = 3;              // Сумма перевода (в виде строки для точности)
+  string currency = 4;            // Валюта
+}
+
+// TransferBalanceResponse представляет ответ на перевод средств
+message TransferBalanceResponse {
+  string transfer_id = 1;         // ID перевода
+  string from_balance = 2;        // Баланс отправителя после перевода
+  string to_balance = 3;          // Баланс получателя после перевода
 }

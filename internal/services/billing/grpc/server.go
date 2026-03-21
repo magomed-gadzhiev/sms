@@ -297,6 +297,53 @@ func (s *Server) GetPricingRules(ctx context.Context, req *billingv1.GetPricingR
 	}, nil
 }
 
+// TransferBalance переводит средства между клиентами
+func (s *Server) TransferBalance(ctx context.Context, req *billingv1.TransferBalanceRequest) (*billingv1.TransferBalanceResponse, error) {
+	if req.FromClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "from_client_id is required")
+	}
+	if req.ToClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "to_client_id is required")
+	}
+	if req.Amount == "" {
+		return nil, status.Error(codes.InvalidArgument, "amount is required")
+	}
+
+	fromClientID, err := uuid.Parse(req.FromClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid from_client_id format")
+	}
+
+	toClientID, err := uuid.Parse(req.ToClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid to_client_id format")
+	}
+
+	currency := req.Currency
+	if currency == "" {
+		currency = "USD"
+	}
+
+	transferID, fromBalance, toBalance, err := s.billingService.TransferBalance(ctx, fromClientID, toClientID, req.Amount, currency)
+	if err != nil {
+		if err == domain.ErrInsufficientBalance {
+			return nil, status.Error(codes.FailedPrecondition, "insufficient balance")
+		}
+		s.logger.Error().Err(err).
+			Str("from_client_id", req.FromClientId).
+			Str("to_client_id", req.ToClientId).
+			Str("amount", req.Amount).
+			Msg("ошибка перевода средств")
+		return nil, status.Error(codes.Internal, "failed to transfer balance")
+	}
+
+	return &billingv1.TransferBalanceResponse{
+		TransferId:  transferID,
+		FromBalance: fromBalance,
+		ToBalance:   toBalance,
+	}, nil
+}
+
 // CreatePricingRule создает правило тарификации
 func (s *Server) CreatePricingRule(ctx context.Context, req *billingv1.CreatePricingRuleRequest) (*billingv1.CreatePricingRuleResponse, error) {
 	if req.DestinationPattern == "" {
