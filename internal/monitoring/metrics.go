@@ -286,6 +286,18 @@ var (
 		},
 		[]string{"provider_id"},
 	)
+
+	// Route cache metrics
+	RouteCacheRefreshDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "route_cache_refresh_duration_seconds",
+		Help:    "Time to refresh route/provider cache from DB",
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5},
+	})
+
+	RouteCacheSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "route_cache_size",
+		Help: "Number of items in route/provider cache",
+	}, []string{"type"})
 )
 
 // StartConsumerLagMonitor starts a goroutine that periodically polls consumer lag

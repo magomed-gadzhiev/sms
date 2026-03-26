@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -100,6 +101,8 @@ func matchesPattern(route *shared.Route, destination string) bool {
 }
 
 func (c *RouteCache) refresh(ctx context.Context) error {
+	start := time.Now()
+
 	routes, err := c.routeRepo.GetAllActive(ctx)
 	if err != nil {
 		return err
@@ -124,6 +127,10 @@ func (c *RouteCache) refresh(ctx context.Context) error {
 	c.routesByID = routesByID
 	c.providers = providerMap
 	c.mu.Unlock()
+
+	monitoring.RouteCacheRefreshDuration.Observe(time.Since(start).Seconds())
+	monitoring.RouteCacheSize.WithLabelValues("routes").Set(float64(len(routes)))
+	monitoring.RouteCacheSize.WithLabelValues("providers").Set(float64(len(providers)))
 
 	c.logger.Debug().Int("routes", len(routes)).Int("providers", len(providers)).Msg("cache refreshed")
 	return nil
