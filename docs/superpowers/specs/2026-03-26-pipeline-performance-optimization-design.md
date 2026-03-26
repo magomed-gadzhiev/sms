@@ -108,7 +108,7 @@ API Request → Validate → Kafka publish (sms.outgoing) → Response 202 Accep
 
 ### Новый pipeline stage: Persist
 
-- Отдельная consumer group на `sms.outgoing`
+- Отдельная consumer group (`persist-group`) на `sms.outgoing` — Router stage использует свою (`router-group`), оба читают один топик независимо
 - Потребляет параллельно с Router stage
 - Накапливает батч: **2000 сообщений или 100ms timeout**
 - Пишет через **pgx `CopyFrom`** — бинарный протокол, одна операция на весь батч
@@ -182,7 +182,8 @@ Sender stage:   batch_size=500,  timeout=10ms   (SMPP window лимитируе�
 Вместо `UPDATE ... FROM (VALUES ...)` с тысячами inline параметров:
 
 ```sql
--- 1. Temp table (создаётся один раз при старте connection)
+-- 1. Temp table (в начале каждой batch-транзакции, т.к. PgBouncer transaction pooling
+--    может назначить другой backend connection; IF NOT EXISTS делает это идемпотентным)
 CREATE TEMP TABLE IF NOT EXISTS status_batch (
     id UUID, status TEXT, smpp_message_id TEXT,
     provider_id UUID, submitted_at TIMESTAMPTZ,
