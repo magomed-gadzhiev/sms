@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/analytics/domain"
 )
 
@@ -322,4 +325,110 @@ func (r *MetricRepository) GetProviderPerformance(ctx context.Context, providerI
 	}
 
 	return perf, nil
+}
+
+// BatchCreate сохраняет несколько метрик одним запросом
+func (r *MetricRepository) BatchCreate(ctx context.Context, metrics []*domain.Metric) error {
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO message_stats (
+		id, metric_type, client_id, provider_id, message_id,
+		status, value, timestamp, metadata, created_at
+	) VALUES `
+
+	args := make([]interface{}, 0, len(metrics)*10)
+	for i, m := range metrics {
+		if i > 0 {
+			query += ","
+		}
+		base := i * 10
+		query += fmt.Sprintf(
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			base+1, base+2, base+3, base+4, base+5,
+			base+6, base+7, base+8, base+9, base+10,
+		)
+
+		var metadataJSON []byte
+		if m.Metadata != nil && len(m.Metadata) > 0 {
+			metadataJSON, _ = json.Marshal(m.Metadata)
+		}
+
+		args = append(args,
+			m.ID, string(m.Type), m.ClientID, m.ProviderID, m.MessageID,
+			m.Status, m.Value, m.Timestamp, metadataJSON, m.CreatedAt,
+		)
+	}
+
+	_, err := r.db.ExecContext(ctx, query, args...)
+	return err
+}
+
+// BufferedMetricWriter буферизует метрики в памяти и сбрасывает их пакетами
+type BufferedMetricWriter struct {
+	repo          *MetricRepository
+	mu            sync.Mutex
+	buffer        []*domain.Metric
+	flushSize     int
+	flushInterval time.Duration
+	logger        zerolog.Logger
+}
+
+// NewBufferedMetricWriter создаёт новый буферизованный писатель метрик
+func NewBufferedMetricWriter(repo *MetricRepository, flushSize int, flushInterval time.Duration) *BufferedMetricWriter {
+	return &BufferedMetricWriter{
+		repo:          repo,
+		buffer:        make([]*domain.Metric, 0, flushSize),
+		flushSize:     flushSize,
+		flushInterval: flushInterval,
+		logger:        log.With().Str("component", "metric-buffer").Logger(),
+	}
+}
+
+// Add добавляет метрику в буфер и сбрасывает его при достижении flushSize
+func (w *BufferedMetricWriter) Add(metric *domain.Metric) {
+	w.mu.Lock()
+	w.buffer = append(w.buffer, metric)
+	shouldFlush := len(w.buffer) >= w.flushSize
+	w.mu.Unlock()
+
+	if shouldFlush {
+		w.Flush(context.Background())
+	}
+}
+
+// Flush сбрасывает текущий буфер в базу данных одним батч-запросом
+func (w *BufferedMetricWriter) Flush(ctx context.Context) {
+	w.mu.Lock()
+	if len(w.buffer) == 0 {
+		w.mu.Unlock()
+		return
+	}
+	batch := w.buffer
+	w.buffer = make([]*domain.Metric, 0, w.flushSize)
+	w.mu.Unlock()
+
+	if err := w.repo.BatchCreate(ctx, batch); err != nil {
+		w.logger.Error().Err(err).Int("count", len(batch)).Msg("batch metric flush failed")
+		// Возвращаем метрики в буфер для повторной попытки
+		w.mu.Lock()
+		w.buffer = append(batch, w.buffer...)
+		w.mu.Unlock()
+	}
+}
+
+// Start запускает фоновый тикер, периодически сбрасывающий буфер
+func (w *BufferedMetricWriter) Start(ctx context.Context) {
+	ticker := time.NewTicker(w.flushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			w.Flush(context.Background())
+			return
+		case <-ticker.C:
+			w.Flush(ctx)
+		}
+	}
 }
