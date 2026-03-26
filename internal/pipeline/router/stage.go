@@ -156,7 +156,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 
 	s.producer.PublishAsync(
 		s.cfg.Kafka.TopicRouted,
-		provider.ID.String(),
+		kafkaMsg.MessageID.String(),
 		data,
 		[]sarama.RecordHeader{
 			{Key: []byte("message_id"), Value: []byte(kafkaMsg.MessageID.String())},
