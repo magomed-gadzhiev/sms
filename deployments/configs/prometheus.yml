@@ -111,6 +111,6 @@ scrape_configs:
 
   - job_name: 'pipeline-persist'
     static_configs:
-      - targets: ['pipeline-persist:9090']
+      - targets: ['pipeline-persist:2112']
         labels:
           service: 'pipeline-persist'

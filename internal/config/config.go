@@ -409,9 +409,10 @@ func validate(cfg *Config) error {
 	return nil
 }
 
-// GetDSN возвращает строку подключения к PostgreSQL
+// GetDSN возвращает строку подключения к PostgreSQL.
+// default_query_exec_mode=simple_protocol — совместимость с PgBouncer transaction pooling.
 func (c *DatabaseConfig) GetDSN() string {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s default_query_exec_mode=simple_protocol",
 		c.Host, c.Port, c.User, c.Password, c.Database, c.SSLMode)
 	return dsn
 }

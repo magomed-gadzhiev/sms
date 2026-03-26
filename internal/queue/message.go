@@ -84,18 +84,19 @@ func Deserialize(data []byte) (*KafkaMessage, error) {
 
 // DLRMessage представляет delivery receipt сообщение для Kafka
 type DLRMessage struct {
-	MessageID       uuid.UUID  `json:"message_id"`
-	SMPPMessageID   string     `json:"smpp_message_id"`
-	ProviderID      *uuid.UUID `json:"provider_id,omitempty"`
-	ReceiptedMessageID string  `json:"receipted_message_id,omitempty"`
-	SubmitDate      *time.Time `json:"submit_date,omitempty"`
-	DoneDate        *time.Time `json:"done_date,omitempty"`
-	Stat            string     `json:"stat"`
-	Err             *int       `json:"err,omitempty"`
-	Text            string     `json:"text,omitempty"`
-	Source          string     `json:"source,omitempty"`
-	Destination     string     `json:"destination,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
+	MessageID          uuid.UUID  `json:"message_id"`
+	SMPPMessageID      string     `json:"smpp_message_id"`
+	ProviderID         *uuid.UUID `json:"provider_id,omitempty"`
+	ClientID           *uuid.UUID `json:"client_id,omitempty"`
+	ReceiptedMessageID string     `json:"receipted_message_id,omitempty"`
+	SubmitDate         *time.Time `json:"submit_date,omitempty"`
+	DoneDate           *time.Time `json:"done_date,omitempty"`
+	Stat               string     `json:"stat"`
+	Err                *int       `json:"err,omitempty"`
+	Text               string     `json:"text,omitempty"`
+	Source             string     `json:"source,omitempty"`
+	Destination        string     `json:"destination,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
 }
 
 // Serialize сериализует DLR сообщение в JSON

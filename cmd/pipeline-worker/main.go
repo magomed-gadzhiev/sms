@@ -87,7 +87,7 @@ func main() {
 	defer db.Close()
 
 	// Create pgx pool for COPY-based persist stage
-	pgxConnStr := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+	pgxConnStr := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s&default_query_exec_mode=simple_protocol",
 		cfg.Database.User, cfg.Database.Password,
 		cfg.Database.Host, cfg.Database.Port,
 		cfg.Database.Database, cfg.Database.SSLMode)

@@ -98,13 +98,48 @@ func main() {
 	kafkaCfg := cfg.Kafka
 	kafkaCfg.ConsumerGroup = "billing-service"
 
-	// Создаем обработчики событий для DLR (доставленных сообщений)
+	// Обработчик DLR — тарификация доставленных сообщений.
 	dlrHandler := func(ctx context.Context, dlr *queue.DLRMessage) error {
-		// DLRMessage не содержит ClientID - биллинг по DLR не реализован
+		if dlr.Stat != "DELIVRD" || dlr.ClientID == nil {
+			logger.Debug().
+				Str("message_id", dlr.MessageID.String()).
+				Str("stat", dlr.Stat).
+				Msg("DLR пропущен (не DELIVRD или нет client_id)")
+			return nil
+		}
+
+		// Определяем цену: сначала pricing rule, при отсутствии — фолбэк.
+		// Получаем валюту аккаунта, чтобы гарантировать совпадение.
+		price := "1.50"
+		currency := "RUB"
+		if acc, accErr := billingService.GetBalance(ctx, *dlr.ClientID); accErr == nil {
+			currency = acc.Currency
+		}
+		if p, c, pErr := pricingService.GetPriceForDestination(ctx, dlr.ClientID, dlr.Destination); pErr == nil && c == currency {
+			price = p
+		}
+
+		_, err = billingService.ChargeMessage(
+			ctx,
+			*dlr.ClientID,
+			dlr.MessageID,
+			price,
+			currency,
+			"SMS delivery charge",
+		)
+		if err != nil {
+			logger.Warn().Err(err).
+				Str("message_id", dlr.MessageID.String()).
+				Str("client_id", dlr.ClientID.String()).
+				Msg("ошибка тарификации сообщения")
+			return nil // не блокируем consumer
+		}
+
 		logger.Debug().
 			Str("message_id", dlr.MessageID.String()).
-			Str("stat", dlr.Stat).
-			Msg("DLR получен")
+			Str("client_id", dlr.ClientID.String()).
+			Str("amount", price).
+			Msg("сообщение тарифицировано")
 		return nil
 	}
 

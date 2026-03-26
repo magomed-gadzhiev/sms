@@ -931,7 +931,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://72.56.232.202:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -975,7 +975,7 @@ services:
 
   # PgBouncer connection pooler
   pgbouncer:
-    image: edoburu/pgbouncer:1.22.0
+    image: edoburu/pgbouncer:v1.23.1-p3
     volumes:
       - ./configs/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./configs/pgbouncer_userlist.txt:/etc/pgbouncer/userlist.txt:ro
@@ -985,7 +985,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U smpp"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U smpp -d smpp_db"]
       interval: 5s
       timeout: 3s
       retries: 5
