@@ -122,34 +122,11 @@ func (s *MessageService) SendMessage(
 		// If within tolerance, treat as immediate send (fall through to normal flow)
 	}
 
-	// Сохраняем в БД
-	if err := s.messageRepo.Create(ctx, msg); err != nil {
-		log.Error().Err(err).Msg("ошибка сохранения сообщения")
-		return nil, fmt.Errorf("failed to create message: %w", err)
-	}
-
-	// Публикуем событие message.created
-	if err := s.eventPublisher.PublishMessageCreated(ctx, msg); err != nil {
-		log.Warn().Err(err).Msg("ошибка публикации события message.created")
-		// Не возвращаем ошибку, т.к. сообщение уже сохранено
-	}
-
-	// Публикуем в очередь для отправки (message.queued)
-	if err := s.eventPublisher.PublishMessageQueued(ctx, msg); err != nil {
-		log.Error().Err(err).Msg("ошибка публикации сообщения в очередь")
-		// Обновляем статус на failed если не удалось опубликовать
-		msg.MarkAsFailed("failed to publish to queue")
-		if updateErr := s.messageRepo.UpdateStatus(ctx, msg.ID, string(msg.Status), msg.StatusMessage); updateErr != nil {
-			log.Error().Err(updateErr).Msg("ошибка обновления статуса сообщения")
-		}
-		return nil, fmt.Errorf("failed to publish message to queue: %w", err)
-	}
-
-	// Обновляем статус на queued
+	// Non-scheduled: publish directly to Kafka, no DB write.
+	// Persist stage will batch-insert into DB asynchronously via COPY protocol.
 	msg.MarkAsQueued()
-	if err := s.messageRepo.UpdateStatus(ctx, msg.ID, string(msg.Status), msg.StatusMessage); err != nil {
-		log.Warn().Err(err).Msg("ошибка обновления статуса сообщения")
-		// Не возвращаем ошибку, т.к. сообщение уже в очереди
+	if err := s.eventPublisher.PublishMessageQueued(ctx, msg); err != nil {
+		return nil, fmt.Errorf("failed to publish message to queue: %w", err)
 	}
 
 	return msg, nil
