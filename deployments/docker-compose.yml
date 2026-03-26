@@ -159,7 +159,7 @@ services:
       - ADMIN_GRPC_PORT=9091
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
-      - PROVIDER_SERVICE_ADDR=provider-service:9093
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
       - ROUTING_SERVICE_ADDR=routing-service:9093
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
@@ -219,7 +219,7 @@ services:
       - ADMIN_GRPC_PORT=9091
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
-      - PROVIDER_SERVICE_ADDR=provider-service:9093
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
       - ROUTING_SERVICE_ADDR=routing-service:9093
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
@@ -326,6 +326,98 @@ services:
       kafka:
         condition: service_healthy
       tarification-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Router (high-throughput pipeline stage: routing)
+  pipeline-router:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=router"]
+    environment:
+      - PIPELINE_STAGE=router
+      - PIPELINE_BATCH_SIZE=500
+      - PIPELINE_BATCH_TIMEOUT=10ms
+      - PIPELINE_WORKER_COUNT=4
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - smpp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Sender (high-throughput pipeline stage: SMPP sending)
+  pipeline-sender:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=sender"]
+    deploy:
+      replicas: 4
+    environment:
+      - PIPELINE_STAGE=sender
+      - PIPELINE_BATCH_SIZE=500
+      - PIPELINE_BATCH_TIMEOUT=10ms
+      - PIPELINE_WORKER_COUNT=4
+      - SMPP_WINDOW_SIZE=50
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - smpp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Status (high-throughput pipeline stage: delivery status processing)
+  pipeline-status:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=status"]
+    environment:
+      - PIPELINE_STAGE=status
+      - PIPELINE_BATCH_SIZE=500
+      - PIPELINE_BATCH_TIMEOUT=10ms
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - smpp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -467,8 +559,8 @@ services:
         SERVICE_PATH: cmd/services/provider-service
     container_name: provider-service
     ports:
-      - "9094:9093"  # gRPC (host port changed to avoid conflict)
-      - "2115:2114"  # Metrics (host port changed to avoid conflict)
+      - "9094:9094"  # gRPC
+      - "2115:2115"  # Metrics
     environment:
       - SERVICE_NAME=provider-service
       # GRPC_PORT не поддерживается в текущем коде - требуется обновление
@@ -487,7 +579,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2114/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2115/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -802,14 +894,14 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
     ports:
-      - "9092:9092"
+      - "9092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
@@ -836,11 +928,12 @@ services:
       POSTGRES_USER: smpp
       POSTGRES_PASSWORD: smpp_password
       POSTGRES_DB: smpp_db
-    command: postgres -c max_connections=500
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     networks:
       - smpp-network
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./configs/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U smpp"]
