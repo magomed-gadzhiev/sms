@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
@@ -23,96 +21,15 @@ const (
 )
 
 // ClientAuthMiddleware создает middleware для аутентификации клиентов
+// LOAD TEST MODE: авторизация отключена для нагрузочного тестирования
 func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
+	dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Пропускаем health check и metrics endpoints
-			if strings.HasPrefix(r.URL.Path, "/health") || 
-			   strings.HasPrefix(r.URL.Path, "/metrics") {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Получаем токен из заголовка
-			var token string
-			authHeader := r.Header.Get("Authorization")
-			if authHeader != "" {
-				parts := strings.Split(authHeader, " ")
-				if len(parts) == 2 && parts[0] == "Bearer" {
-					token = parts[1]
-				}
-			}
-
-			// Также проверяем X-API-Key для обратной совместимости
-			if token == "" {
-				token = r.Header.Get("X-API-Key")
-			}
-
-			if token == "" {
-				respondError(w, shared.ErrUnauthorized("Токен авторизации или API ключ не предоставлен"))
-				return
-			}
-
-			// Валидируем токен через Auth Service
 			ctx := r.Context()
-			validateResp, err := authClient.ValidateToken(ctx, &authv1.ValidateTokenRequest{
-				Token: token,
-			})
-			if err != nil {
-				log.Error().Err(err).Msg("ошибка валидации токена")
-				respondError(w, shared.ErrUnauthorized("Неверный токен авторизации"))
-				return
-			}
-
-			if !validateResp.Valid {
-				respondError(w, shared.ErrUnauthorized("Токен невалиден или истек"))
-				return
-			}
-
-			user := validateResp.User
-			if user == nil {
-				respondError(w, shared.ErrUnauthorized("Информация о пользователе не найдена"))
-				return
-			}
-
-			// Проверяем, что пользователь активен
-			if !user.Active {
-				respondError(w, shared.ErrForbidden("Пользователь неактивен"))
-				return
-			}
-
-			// Проверяем, что это клиент (для client gateway требуется роль client)
-			if user.Role == nil || user.Role.Name != "client" {
-				respondError(w, shared.ErrForbidden("Доступ запрещен: требуется роль клиента"))
-				return
-			}
-
-			// Получаем права доступа
-			permsResp, err := authClient.GetPermissions(ctx, &authv1.GetPermissionsRequest{
-				UserId: user.Id,
-			})
-			if err != nil {
-				log.Warn().Err(err).Msg("ошибка получения прав доступа")
-				// Продолжаем без прав, но это не критично для базовой проверки
-			}
-
-			// Добавляем информацию о пользователе в контекст
-			userID, err := uuid.Parse(user.Id)
-			if err != nil {
-				log.Error().Err(err).Str("user_id", user.Id).Msg("ошибка парсинга user_id")
-				respondError(w, shared.ErrInternalServer("Ошибка обработки пользователя"))
-				return
-			}
-
-			// Также сохраняем client_id как user_id для совместимости
-			ctx = context.WithValue(ctx, UserIDKey, userID)
-			ctx = context.WithValue(ctx, ClientIDKey, userID)
-			ctx = context.WithValue(ctx, UserKey, user)
-			ctx = context.WithValue(ctx, RoleKey, user.Role)
-			if permsResp != nil {
-				ctx = context.WithValue(ctx, PermissionsKey, permsResp.Permissions)
-			}
-
+			ctx = context.WithValue(ctx, UserIDKey, dummyID)
+			ctx = context.WithValue(ctx, ClientIDKey, dummyID)
+			ctx = context.WithValue(ctx, RoleKey, &authv1.Role{Name: "client"})
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

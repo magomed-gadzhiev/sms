@@ -74,68 +74,71 @@ export function AnalyticsPage() {
     <div style={{ maxWidth: 1000 }}>
       <h2>Analytics</h2>
 
-      {/* Period selector */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-        {PERIODS.map((p) => (
-          <button
-            key={p}
-            onClick={() => {
-              setPeriod(p);
-              setUseCustomDates(false);
-            }}
-            style={{
-              padding: '6px 16px',
-              fontWeight: !useCustomDates && period === p ? 'bold' : 'normal',
-              background: !useCustomDates && period === p ? '#1976d2' : '#e0e0e0',
-              color: !useCustomDates && period === p ? '#fff' : '#333',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-            }}
-          >
-            {p}
-          </button>
-        ))}
+      {/* Period selector + date filters */}
+      <fieldset style={{ border: 'none', padding: 0, margin: '0 0 16px' }}>
+        <legend style={{ fontWeight: 'bold', marginBottom: 8 }}>Filters</legend>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              onClick={() => {
+                setPeriod(p);
+                setUseCustomDates(false);
+              }}
+              style={{
+                padding: '6px 16px',
+                fontWeight: !useCustomDates && period === p ? 'bold' : 'normal',
+                background: !useCustomDates && period === p ? '#1976d2' : '#e0e0e0',
+                color: !useCustomDates && period === p ? '#fff' : '#333',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              {p}
+            </button>
+          ))}
 
-        <span style={{ margin: '0 8px', color: '#999' }}>or</span>
+          <span style={{ margin: '0 8px', color: '#767676' }}>or</span>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          From:
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
-              setUseCustomDates(true);
-            }}
-          />
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          To:
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
-              setUseCustomDates(true);
-            }}
-          />
-        </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            From:
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setUseCustomDates(true);
+              }}
+            />
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            To:
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setUseCustomDates(true);
+              }}
+            />
+          </label>
 
-        <span style={{ margin: '0 8px', color: '#999' }}>|</span>
+          <span style={{ margin: '0 8px', color: '#767676' }}>|</span>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          Group by:
-          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
-            <option value="day">Day</option>
-            <option value="week">Week</option>
-            <option value="country">Country</option>
-          </select>
-        </label>
-      </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            Group by:
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="country">Country</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {loading && <div>Loading analytics...</div>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {loading && <div role="status">Loading analytics...</div>}
 
       {data && !loading && (
         <>
@@ -174,6 +177,7 @@ export function AnalyticsPage() {
             <div style={{ marginBottom: 24 }}>
               <h3>Timeline</h3>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Message statistics by period</caption>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
                     <th style={{ padding: 8 }}>Period</th>
@@ -203,6 +207,7 @@ export function AnalyticsPage() {
             <div>
               <h3>By Country</h3>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Message statistics by country</caption>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
                     <th style={{ padding: 8 }}>Country</th>

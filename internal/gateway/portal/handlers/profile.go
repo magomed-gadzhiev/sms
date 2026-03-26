@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
@@ -57,53 +58,51 @@ func (h *ProfileHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID, ok := middleware.GetClientID(r.Context())
-	if !ok {
-		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
-		return
-	}
+	clientID, _ := middleware.GetClientID(r.Context())
+	role, _ := middleware.GetRole(r.Context())
 
-	// Получаем информацию о пользователе через session cookie
-	cookie, err := r.Cookie("portal_session")
-	if err != nil || cookie.Value == "" {
-		respondError(w, shared.ErrUnauthorized("Сессия не найдена"))
-		return
-	}
-
-	sessionResp, err := h.authClient.ValidateSession(r.Context(), &authv1.ValidateSessionRequest{
-		SessionId: cookie.Value,
-	})
-	if err != nil {
-		log.Error().Err(err).Str("user_id", userID.String()).Msg("ошибка получения информации о пользователе")
-		respondGRPCError(w, err)
-		return
-	}
-
-	// Получаем информацию о клиенте
-	clientResp, err := h.clientClient.GetClient(r.Context(), &clientv1.GetClientRequest{
-		ClientId: clientID.String(),
-	})
-	if err != nil {
-		log.Error().Err(err).Str("client_id", clientID.String()).Msg("ошибка получения информации о клиенте")
-		respondGRPCError(w, err)
-		return
-	}
-
-	// Формируем объединённый ответ
+	// Формируем ответ на основе данных из контекста сессии
 	response := map[string]interface{}{
-		"user": buildUserInfoResponse(sessionResp.User),
-		"client": map[string]interface{}{
-			"client_id":      clientResp.Client.ClientId,
-			"name":           clientResp.Client.Name,
-			"email":          clientResp.Client.Email,
-			"contact_person": clientResp.Client.ContactPerson,
-			"phone":          clientResp.Client.Phone,
-			"active":         clientResp.Client.Active,
-		},
+		"id":           userID.String(),
+		"email":        "",
+		"company_name": "",
+		"contact_person": "",
+		"phone":        "",
+		"totp_enabled": false,
 	}
 
-	if clientResp.Client.CreatedAt != nil {
-		response["client"].(map[string]interface{})["created_at"] = clientResp.Client.CreatedAt.AsTime()
+	// Пытаемся получить данные пользователя через ValidateSession
+	cookie, err := r.Cookie("portal_session")
+	if err == nil && cookie.Value != "" {
+		sessionResp, err := h.authClient.ValidateSession(r.Context(), &authv1.ValidateSessionRequest{
+			SessionId: cookie.Value,
+		})
+		if err == nil && sessionResp.User != nil {
+			response["id"] = sessionResp.User.Id
+			response["email"] = sessionResp.User.Email
+			response["company_name"] = sessionResp.User.Username
+		}
+	}
+
+	// Если есть роль admin — не требуем запись клиента
+	if role == "admin" {
+		response["role"] = "admin"
+	}
+
+	// Получаем информацию о клиенте (если clientID валидный)
+	nilUUID := [16]byte{}
+	if clientID != uuid.UUID(nilUUID) {
+		clientResp, err := h.clientClient.GetClient(r.Context(), &clientv1.GetClientRequest{
+			ClientId: clientID.String(),
+		})
+		if err == nil && clientResp.Client != nil {
+			response["company_name"] = clientResp.Client.Name
+			response["email"] = clientResp.Client.Email
+			response["contact_person"] = clientResp.Client.ContactPerson
+			response["phone"] = clientResp.Client.Phone
+		} else {
+			log.Warn().Err(err).Str("client_id", clientID.String()).Msg("клиент не найден, продолжаем без данных клиента")
+		}
 	}
 
 	respondJSON(w, http.StatusOK, response)

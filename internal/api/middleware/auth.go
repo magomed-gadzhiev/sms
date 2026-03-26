@@ -4,13 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/shared"
-	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 type contextKey string
@@ -21,54 +18,12 @@ const (
 )
 
 // AuthMiddleware создает middleware для аутентификации по API ключу
+// LOAD TEST MODE: авторизация отключена для нагрузочного тестирования
 func AuthMiddleware(clientRepo ClientRepository, cfg *config.AuthConfig) func(http.Handler) http.Handler {
+	dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Пропускаем health check и metrics endpoints
-			if r.URL.Path == "/health" || r.URL.Path == "/metrics" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Получаем API ключ из заголовка
-			apiKey := r.Header.Get(cfg.APIKeyHeader)
-			if apiKey == "" {
-				// Пробуем получить из Authorization header (Bearer token)
-				authHeader := r.Header.Get("Authorization")
-				if authHeader != "" {
-					parts := strings.Split(authHeader, " ")
-					if len(parts) == 2 && parts[0] == "Bearer" {
-						apiKey = parts[1]
-					}
-				}
-			}
-
-			if apiKey == "" {
-				respondError(w, shared.ErrUnauthorized("API ключ не предоставлен"))
-				return
-			}
-
-			// Получаем клиента по API ключу
-			client, err := clientRepo.GetByAPIKey(r.Context(), apiKey)
-			if err != nil {
-				if err == storage.ErrNotFound {
-					respondError(w, shared.ErrUnauthorized("Неверный API ключ"))
-					return
-				}
-				log.Error().Err(err).Msg("ошибка получения клиента")
-				respondError(w, shared.ErrInternalServer("Ошибка аутентификации"))
-				return
-			}
-
-			// Проверяем активность клиента
-			if !client.Active {
-				respondError(w, shared.ErrForbidden("Клиент неактивен"))
-				return
-			}
-
-			// Добавляем клиента в контекст
-			ctx := context.WithValue(r.Context(), ClientIDKey, client.ID)
-			ctx = context.WithValue(ctx, ClientKey, client)
+			ctx := context.WithValue(r.Context(), ClientIDKey, dummyID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

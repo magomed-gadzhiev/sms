@@ -143,10 +143,11 @@ export function AuditLogPage() {
       {error && <div style={{ color: 'red', marginBottom: 12 }}>Error: {error}</div>}
 
       {loading ? (
-        <div>Loading...</div>
+        <div role="status">Loading...</div>
       ) : data ? (
         <>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Audit log entries</caption>
             <thead>
               <tr>
                 {['Timestamp', 'Action', 'Resource Type', 'Resource ID', 'User ID', 'IP Address', 'Details'].map((h) => (
@@ -159,7 +160,7 @@ export function AuditLogPage() {
             <tbody>
               {data.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#999' }}>
+                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
                     No audit log entries found
                   </td>
                 </tr>
@@ -188,13 +189,25 @@ export function AuditLogPage() {
           </table>
 
           <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            <button
+              aria-label="Previous page"
+              aria-disabled={page <= 1}
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              style={{ padding: '8px 12px' }}
+            >
               Prev
             </button>
-            <span>
+            <span aria-live="polite">
               Page {data.page} of {data.total_pages} (total: {data.total})
             </span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage((p) => p + 1)}>
+            <button
+              aria-label="Next page"
+              aria-disabled={page >= data.total_pages}
+              disabled={page >= data.total_pages}
+              onClick={() => setPage((p) => p + 1)}
+              style={{ padding: '8px 12px' }}
+            >
               Next
             </button>
           </div>

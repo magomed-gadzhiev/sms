@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { SkipLink } from './components/SkipLink';
 import { LoginPage } from './pages/auth/LoginPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
 import { PasswordResetPage } from './pages/auth/PasswordResetPage';
@@ -39,19 +40,28 @@ function Layout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <nav style={{ width: 220, padding: 16, borderRight: '1px solid #ddd' }}>
+      <SkipLink targetId="main-content" />
+      <nav aria-label="Main navigation" style={{ width: 220, padding: 16, borderRight: '1px solid #ddd' }}>
         <h3 style={{ marginTop: 0 }}>SMS Portal</h3>
         <ul style={{ listStyle: 'none', padding: 0 }}>
-          {NAV_ITEMS.map((item) => (
-            <li key={item.path} style={{ marginBottom: 8 }}>
-              <Link
-                to={item.path}
-                style={{ fontWeight: location.pathname === item.path ? 'bold' : 'normal' }}
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <li key={item.path} style={{ marginBottom: 8 }}>
+                <Link
+                  to={item.path}
+                  aria-current={isActive ? 'page' : undefined}
+                  style={{
+                    fontWeight: isActive ? 'bold' : 'normal',
+                    borderLeft: isActive ? '3px solid #1976d2' : undefined,
+                    paddingLeft: isActive ? 8 : undefined,
+                  }}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
         <hr />
         <div style={{ fontSize: 14 }}>{user?.email}</div>
@@ -59,7 +69,7 @@ function Layout() {
           Logout
         </button>
       </nav>
-      <main style={{ flex: 1, padding: 24 }}>
+      <main id="main-content" style={{ flex: 1, padding: 24 }}>
         <Outlet />
       </main>
     </div>

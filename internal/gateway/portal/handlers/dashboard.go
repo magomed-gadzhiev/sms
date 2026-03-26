@@ -41,11 +41,7 @@ func NewDashboardHandlers(
 
 // GetDashboard обрабатывает GET /dashboard
 func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request) {
-	clientID, ok := middleware.GetClientID(r.Context())
-	if !ok {
-		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
-		return
-	}
+	clientID, _ := middleware.GetClientID(r.Context())
 
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

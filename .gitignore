@@ -70,6 +70,21 @@ mem.prof
 configs/*.yaml
 !configs/*.example.yaml
 
+# Compiled Go binaries (root level)
+admin-gateway
+client-gateway
+portal-gateway
+messaging-service
+template-service
+webhook-service
+
+# Stray dependency directories
+github.com/
+
+# Proto backup files
+api/proto/*.old/
+api/proto/*.bak/
+
 # Frontend (portal-frontend)
 portal-frontend/node_modules/
 portal-frontend/dist/

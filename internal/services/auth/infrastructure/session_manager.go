@@ -82,11 +82,15 @@ func (m *SessionManager) CreateSession(
 		return "", fmt.Errorf("failed to store session in Redis: %w", err)
 	}
 
-	// Сохраняем в PostgreSQL
+	// Сохраняем в PostgreSQL (client_id = NULL если uuid.Nil)
+	var clientIDParam interface{} = clientID
+	if clientID == uuid.Nil {
+		clientIDParam = nil
+	}
 	_, err = m.db.ExecContext(ctx,
 		`INSERT INTO sessions (id, user_id, client_id, role, ip_address, user_agent, created_at, expires_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		sessionID, userID, clientID, role, ipAddress, userAgent, now, expiresAt,
+		sessionID, userID, clientIDParam, role, ipAddress, userAgent, now, expiresAt,
 	)
 	if err != nil {
 		// Откатываем Redis при ошибке PostgreSQL

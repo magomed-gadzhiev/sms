@@ -1,5 +1,6 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { webhooksApi, ApiError } from '../../api/client';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const AVAILABLE_EVENT_TYPES = [
   'message.sent',
@@ -52,6 +53,12 @@ export function WebhooksPage() {
 
   // Test result
   const [testResult, setTestResult] = useState<{ id: string; message: string } | null>(null);
+
+  // Focus traps
+  const createFormRef = useRef<HTMLDivElement>(null);
+  const editFormRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createFormRef, showCreateForm);
+  useFocusTrap(editFormRef, !!editId);
 
   async function loadWebhooks() {
     setLoading(true);
@@ -150,7 +157,7 @@ export function WebhooksPage() {
     return list.includes(type) ? list.filter((t) => t !== type) : [...list, type];
   }
 
-  if (loading) return <div>Loading webhooks...</div>;
+  if (loading) return <div role="status">Loading webhooks...</div>;
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -166,11 +173,12 @@ export function WebhooksPage() {
         </button>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
 
       {/* Secret banner - shown once after creation */}
       {createdSecret && (
         <div
+          role="alert"
           style={{
             background: '#e8f5e9',
             border: '1px solid #4caf50',
@@ -214,6 +222,7 @@ export function WebhooksPage() {
       {/* Test result banner */}
       {testResult && (
         <div
+          role="status"
           style={{
             background: '#e3f2fd',
             border: '1px solid #2196f3',
@@ -241,6 +250,7 @@ export function WebhooksPage() {
       {/* Create form */}
       {showCreateForm && (
         <div
+          ref={createFormRef}
           style={{
             background: '#f5f5f5',
             border: '1px solid #ddd',
@@ -295,6 +305,7 @@ export function WebhooksPage() {
       {/* Edit form */}
       {editId && (
         <div
+          ref={editFormRef}
           style={{
             background: '#fff8e1',
             border: '1px solid #ffc107',
@@ -347,6 +358,7 @@ export function WebhooksPage() {
 
       {/* Webhooks table */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Webhook subscriptions</caption>
         <thead>
           <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
             <th style={{ padding: 8 }}>URL</th>
@@ -359,7 +371,7 @@ export function WebhooksPage() {
         <tbody>
           {webhooks.length === 0 && (
             <tr>
-              <td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#999' }}>
+              <td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
                 No webhooks yet. Create one to get started.
               </td>
             </tr>
@@ -387,8 +399,9 @@ export function WebhooksPage() {
               </td>
               <td style={{ padding: 8 }}>
                 <span
+                  aria-label={`Status: ${wh.active ? 'Active' : 'Inactive'}`}
                   style={{
-                    color: wh.active ? '#4caf50' : '#f44336',
+                    color: wh.active ? '#4caf50' : '#d32f2f',
                     fontWeight: 'bold',
                   }}
                 >
@@ -400,21 +413,40 @@ export function WebhooksPage() {
               </td>
               <td style={{ padding: 8 }}>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <button onClick={() => startEdit(wh)}>Edit</button>
-                  <button onClick={() => handleTest(wh.id)}>Test</button>
+                  <button
+                    aria-label={`Edit ${wh.url}`}
+                    onClick={() => startEdit(wh)}
+                    style={{ padding: '8px 12px' }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    aria-label={`Test ${wh.url}`}
+                    onClick={() => handleTest(wh.id)}
+                    style={{ padding: '8px 12px' }}
+                  >
+                    Test
+                  </button>
                   {deleteId === wh.id ? (
                     <span>
                       Sure?{' '}
                       <button
+                        aria-label={`Confirm delete ${wh.url}`}
                         onClick={() => handleDelete(wh.id)}
-                        style={{ color: 'red', marginRight: 4 }}
+                        style={{ color: '#d32f2f', marginRight: 4, padding: '8px 12px' }}
                       >
                         Yes
                       </button>
-                      <button onClick={() => setDeleteId(null)}>No</button>
+                      <button onClick={() => setDeleteId(null)} style={{ padding: '8px 12px' }}>No</button>
                     </span>
                   ) : (
-                    <button onClick={() => setDeleteId(wh.id)}>Delete</button>
+                    <button
+                      aria-label={`Delete ${wh.url}`}
+                      onClick={() => setDeleteId(wh.id)}
+                      style={{ padding: '8px 12px' }}
+                    >
+                      Delete
+                    </button>
                   )}
                 </div>
               </td>

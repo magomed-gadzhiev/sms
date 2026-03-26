@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -11,6 +12,17 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
 )
+
+// isSecureCookie returns true if cookies should use Secure flag (HTTPS only).
+func isSecureCookie() bool {
+	env := os.Getenv("COOKIE_SECURE")
+	if env == "false" || env == "0" {
+		return false
+	}
+	// Default: secure in production, check SERVICE_ENV too
+	svcEnv := os.Getenv("SERVICE_ENV")
+	return svcEnv != "development" && svcEnv != "dev"
+}
 
 // AuthHandlers содержит handlers для аутентификации через портал
 type AuthHandlers struct {
@@ -215,37 +227,49 @@ func (h *AuthHandlers) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // setSessionCookies устанавливает cookies для сессии портала
 func setSessionCookies(w http.ResponseWriter, sessionID string) {
+	secure := isSecureCookie()
+	sameSite := http.SameSiteStrictMode
+	if !secure {
+		sameSite = http.SameSiteLaxMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "portal_session",
 		Value:    sessionID,
 		Path:     "/",
 		MaxAge:   86400,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   secure,
+		SameSite: sameSite,
 	})
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
-		Value:    sessionID, // CSRF token привязан к сессии
+		Value:    sessionID,
 		Path:     "/",
 		MaxAge:   86400,
 		HttpOnly: false,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   secure,
+		SameSite: sameSite,
 	})
 }
 
 // clearSessionCookies очищает cookies сессии
 func clearSessionCookies(w http.ResponseWriter) {
+	secure := isSecureCookie()
+	sameSite := http.SameSiteStrictMode
+	if !secure {
+		sameSite = http.SameSiteLaxMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "portal_session",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   0,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   secure,
+		SameSite: sameSite,
 	})
 
 	http.SetCookie(w, &http.Cookie{
@@ -254,8 +278,8 @@ func clearSessionCookies(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   0,
 		HttpOnly: false,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   secure,
+		SameSite: sameSite,
 	})
 }
 

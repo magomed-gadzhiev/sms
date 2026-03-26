@@ -35,7 +35,8 @@ export function PasswordResetRequestPage() {
   return (
     <div style={{ maxWidth: 400, margin: '80px auto' }}>
       <h2>Reset Password</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p id="reset-request-error" role="alert" style={{ color: '#d32f2f' }}>{error}</p>}
+      {submitting && <div role="status">Sending...</div>}
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 12 }}>
           <label>
@@ -47,6 +48,7 @@ export function PasswordResetRequestPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              aria-describedby={error ? 'reset-request-error' : undefined}
             />
           </label>
         </div>

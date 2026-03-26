@@ -127,7 +127,7 @@ func main() {
 	}
 
 	// Запуск gRPC сервера
-	grpcListener, err := net.Listen("tcp", ":9093") // Используем порт для provider service
+	grpcListener, err := net.Listen("tcp", ":9094") // Используем порт для provider service
 	if err != nil {
 		logger.Fatal().Err(err).Msg("ошибка создания gRPC listener")
 	}
@@ -155,7 +155,7 @@ func main() {
 	}
 
 	metricsServer := &http.Server{
-		Addr:         ":2114", // Используем отдельный порт для метрик provider service
+		Addr:         ":2115", // Используем отдельный порт для метрик provider service
 		Handler:      metricsMux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,

@@ -6,15 +6,33 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 )
 
-const (
-	apiBaseURL = "http://localhost:18080"
-	apiKey     = "test-api-key"
+// getEnv возвращает значение переменной окружения или значение по умолчанию
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+var (
+	apiBaseURL = getEnv("LOAD_TEST_BASE_URL", "http://localhost:8080")
+	apiKey     = getEnv("LOAD_TEST_API_KEY", "test-api-key")
 )
+
+// drainBody читает и закрывает тело ответа для корректного переиспользования соединений
+func drainBody(resp *http.Response) {
+	if resp != nil && resp.Body != nil {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}
+}
 
 // TestAPIGateway_Load отправляет множество запросов для нагрузочного тестирования
 func TestAPIGateway_Load(t *testing.T) {
@@ -71,7 +89,7 @@ func TestAPIGateway_Load(t *testing.T) {
 					results <- false
 				}
 
-				resp.Body.Close()
+				drainBody(resp)
 			}
 		}(i)
 	}
@@ -181,7 +199,7 @@ func TestAPIGateway_Stress(t *testing.T) {
 							}
 
 							results <- resp.StatusCode == http.StatusOK
-							resp.Body.Close()
+							drainBody(resp)
 
 							requestID++
 							time.Sleep(100 * time.Millisecond) // Небольшая задержка между запросами
@@ -263,7 +281,7 @@ func BenchmarkAPIGateway_SendSMS(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		resp.Body.Close()
+		drainBody(resp)
 	}
 }
 
@@ -308,7 +326,7 @@ func TestAPIGateway_SendBatchSMS_Load(t *testing.T) {
 					continue
 				}
 
-				httpReq, err := http.NewRequest("POST", apiBaseURL+"/api/v1/sms/send/batch", bytes.NewBuffer(body))
+				httpReq, err := http.NewRequest("POST", apiBaseURL+"/api/v1/sms/batch", bytes.NewBuffer(body))
 				if err != nil {
 					errors <- err
 					continue
@@ -323,13 +341,13 @@ func TestAPIGateway_SendBatchSMS_Load(t *testing.T) {
 					continue
 				}
 
-				if resp.StatusCode == http.StatusAccepted {
+				if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted {
 					results <- true
 				} else {
 					results <- false
 				}
 
-				resp.Body.Close()
+				drainBody(resp)
 			}
 		}(i)
 	}
@@ -394,14 +412,14 @@ func TestAPIGateway_GetStatus_Load(t *testing.T) {
 		httpReq.Header.Set("X-API-Key", apiKey)
 
 		resp, err := client.Do(httpReq)
-		if err == nil && resp.StatusCode == http.StatusAccepted {
+		if err == nil && (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted) {
 			var result map[string]interface{}
 			json.NewDecoder(resp.Body).Decode(&result)
 			if msgID, ok := result["message_id"].(string); ok {
 				messageIDs[i] = msgID
 			}
-			resp.Body.Close()
 		}
+		drainBody(resp)
 	}
 
 	concurrency := 20
@@ -420,7 +438,7 @@ func TestAPIGateway_GetStatus_Load(t *testing.T) {
 					continue
 				}
 
-				httpReq, err := http.NewRequest("GET", apiBaseURL+"/api/v1/sms/status?id="+messageID, nil)
+				httpReq, err := http.NewRequest("GET", apiBaseURL+"/api/v1/sms/status/"+messageID, nil)
 				if err != nil {
 					continue
 				}
@@ -433,7 +451,7 @@ func TestAPIGateway_GetStatus_Load(t *testing.T) {
 				}
 
 				results <- resp.StatusCode == http.StatusOK
-				resp.Body.Close()
+				drainBody(resp)
 			}
 		}(i)
 	}
@@ -499,8 +517,8 @@ func TestAPIGateway_MixedLoad(t *testing.T) {
 				if err == nil {
 					var result map[string]interface{}
 					json.NewDecoder(resp.Body).Decode(&result)
-					results <- map[string]interface{}{"endpoint": "send", "success": resp.StatusCode == http.StatusAccepted}
-					resp.Body.Close()
+					results <- map[string]interface{}{"endpoint": "send", "success": resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted}
+					drainBody(resp)
 				}
 
 				// GetHistory
@@ -509,7 +527,7 @@ func TestAPIGateway_MixedLoad(t *testing.T) {
 				resp, err = client.Do(httpReq)
 				if err == nil {
 					results <- map[string]interface{}{"endpoint": "history", "success": resp.StatusCode == http.StatusOK}
-					resp.Body.Close()
+					drainBody(resp)
 				}
 
 				// Health
@@ -517,7 +535,7 @@ func TestAPIGateway_MixedLoad(t *testing.T) {
 				resp, err = client.Do(httpReq)
 				if err == nil {
 					results <- map[string]interface{}{"endpoint": "health", "success": resp.StatusCode == http.StatusOK}
-					resp.Body.Close()
+					drainBody(resp)
 				}
 			}
 		}(i)

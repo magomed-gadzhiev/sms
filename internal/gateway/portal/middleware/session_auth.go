@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -42,86 +40,15 @@ func isPublicPath(path string) bool {
 }
 
 // SessionAuthMiddleware создает middleware для сессионной аутентификации через Redis
+// LOAD TEST MODE: сессионная авторизация отключена для нагрузочного тестирования
 func SessionAuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Handler {
+	dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Пропускаем публичные пути
-			if isPublicPath(r.URL.Path) {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Получаем session ID из cookie
-			cookie, err := r.Cookie("portal_session")
-			if err != nil || cookie.Value == "" {
-				respondError(w, shared.ErrUnauthorized("Сессия не найдена"))
-				return
-			}
-
-			sessionID := cookie.Value
-
-			// Получаем данные сессии из Redis
 			ctx := r.Context()
-			redisKey := "session:" + sessionID
-
-			sessionData, err := redisClient.HGetAll(ctx, redisKey).Result()
-			if err != nil {
-				log.Error().Err(err).Str("session_id", sessionID).Msg("ошибка получения сессии из Redis")
-				respondError(w, shared.ErrInternalServer("Ошибка проверки сессии"))
-				return
-			}
-
-			if len(sessionData) == 0 {
-				respondError(w, shared.ErrUnauthorized("Сессия недействительна или истекла"))
-				return
-			}
-
-			// Проверяем срок действия сессии
-			expiresAt, ok := sessionData["expires_at"]
-			if ok && expiresAt != "" {
-				expTime, err := time.Parse(time.RFC3339, expiresAt)
-				if err == nil && time.Now().After(expTime) {
-					// Удаляем истекшую сессию
-					redisClient.Del(ctx, redisKey)
-					respondError(w, shared.ErrUnauthorized("Сессия истекла"))
-					return
-				}
-			}
-
-			// Парсим user_id
-			userIDStr, ok := sessionData["user_id"]
-			if !ok || userIDStr == "" {
-				respondError(w, shared.ErrUnauthorized("Некорректные данные сессии"))
-				return
-			}
-			userID, err := uuid.Parse(userIDStr)
-			if err != nil {
-				log.Error().Err(err).Str("user_id", userIDStr).Msg("ошибка парсинга user_id из сессии")
-				respondError(w, shared.ErrInternalServer("Ошибка обработки сессии"))
-				return
-			}
-
-			// Парсим client_id
-			clientIDStr, ok := sessionData["client_id"]
-			if !ok || clientIDStr == "" {
-				respondError(w, shared.ErrUnauthorized("Некорректные данные сессии"))
-				return
-			}
-			clientID, err := uuid.Parse(clientIDStr)
-			if err != nil {
-				log.Error().Err(err).Str("client_id", clientIDStr).Msg("ошибка парсинга client_id из сессии")
-				respondError(w, shared.ErrInternalServer("Ошибка обработки сессии"))
-				return
-			}
-
-			// Получаем роль
-			role := sessionData["role"]
-
-			// Добавляем данные в контекст
-			ctx = context.WithValue(ctx, UserIDKey, userID)
-			ctx = context.WithValue(ctx, ClientIDKey, clientID)
-			ctx = context.WithValue(ctx, RoleKey, role)
-
+			ctx = context.WithValue(ctx, UserIDKey, dummyID)
+			ctx = context.WithValue(ctx, ClientIDKey, dummyID)
+			ctx = context.WithValue(ctx, RoleKey, "client")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

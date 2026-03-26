@@ -1,6 +1,7 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { subAccountsApi, ApiError } from '../../api/client';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface SubAccount {
   id: string;
@@ -28,6 +29,8 @@ export function SubAccountsListPage() {
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const createFormRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createFormRef, showCreateForm);
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formContactPerson, setFormContactPerson] = useState('');
@@ -80,7 +83,7 @@ export function SubAccountsListPage() {
     }
   }
 
-  if (loading) return <div>Loading sub-accounts...</div>;
+  if (loading) return <div role="status">Loading sub-accounts...</div>;
 
   return (
     <div style={{ maxWidth: 1000 }}>
@@ -95,11 +98,12 @@ export function SubAccountsListPage() {
         </div>
       )}
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
 
       {/* Create form */}
       {showCreateForm && (
         <div
+          ref={createFormRef}
           style={{
             background: '#f5f5f5',
             border: '1px solid #ddd',
@@ -202,6 +206,7 @@ export function SubAccountsListPage() {
 
       {/* Sub-accounts table */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Sub-accounts</caption>
         <thead>
           <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
             <th style={{ padding: 8 }}>Name</th>
@@ -217,7 +222,7 @@ export function SubAccountsListPage() {
         <tbody>
           {(!data || data.sub_accounts.length === 0) ? (
             <tr>
-              <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#999' }}>
+              <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
                 No sub-accounts yet. Create one to get started.
               </td>
             </tr>
@@ -229,8 +234,11 @@ export function SubAccountsListPage() {
                 </td>
                 <td style={{ padding: 8 }}>{sa.email}</td>
                 <td style={{ padding: 8 }}>
-                  <span style={{ color: sa.active ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>
-                    {sa.active ? 'Yes' : 'No'}
+                  <span
+                    aria-label={`Status: ${sa.active ? 'Active' : 'Inactive'}`}
+                    style={{ color: sa.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
+                  >
+                    {sa.active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td style={{ padding: 8 }}>{sa.balance}</td>

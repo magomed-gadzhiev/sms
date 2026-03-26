@@ -6,16 +6,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-const (
-	targetTPS = 10000 // Цель: 10,000 сообщений в секунду
-)
+const targetTPS = 10000 // Цель: 10,000 сообщений в секунду
 
 // TestHighPerformanceLoad тест для достижения 10K сообщений/сек
 func TestHighPerformanceLoad(t *testing.T) {
@@ -187,6 +187,7 @@ func sendRequest(client *http.Client, workerID int, successCount, failureCount, 
 		atomic.AddInt64(failureCount, 1)
 	}
 
+	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 }
 
@@ -197,15 +198,7 @@ func calculatePercentiles(latencies []time.Duration) (p50, p95, p99 time.Duratio
 
 	sorted := make([]time.Duration, len(latencies))
 	copy(sorted, latencies)
-
-	// Простая сортировка (можно оптимизировать с помощью heap)
-	for i := 0; i < len(sorted)-1; i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[i] > sorted[j] {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
 	p50Idx := int(float64(len(sorted)) * 0.50)
 	p95Idx := int(float64(len(sorted)) * 0.95)
@@ -297,6 +290,7 @@ func TestSustainedLoad(t *testing.T) {
 						} else {
 							atomic.AddInt64(&failureCount, 1)
 						}
+						io.Copy(io.Discard, resp.Body)
 						resp.Body.Close()
 					} else {
 						atomic.AddInt64(&failureCount, 1)

@@ -109,7 +109,7 @@ export function SubAccountDetailPage() {
     loadDetail();
   }, [id]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div role="status">Loading...</div>;
   if (error) return <div style={{ color: 'red' }}>{error}</div>;
   if (!detail) return <div>Sub-account not found</div>;
 
@@ -120,7 +120,10 @@ export function SubAccountDetailPage() {
           &larr; Back
         </button>
         <span style={{ fontSize: 20, fontWeight: 'bold' }}>{detail.name}</span>
-        <span style={{ marginLeft: 12, color: detail.active ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>
+        <span
+          aria-label={`Status: ${detail.active ? 'Active' : 'Inactive'}`}
+          style={{ marginLeft: 12, color: detail.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
+        >
           {detail.active ? 'Active' : 'Inactive'}
         </span>
       </div>
@@ -227,7 +230,7 @@ function OverviewTab({
 
   return (
     <div>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
 
       {/* Info cards */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
@@ -325,24 +328,24 @@ function OverviewTab({
       {/* Delete section */}
       <div
         style={{
-          border: '1px solid #f44336',
+          border: '1px solid #d32f2f',
           borderRadius: 4,
           padding: 16,
         }}
       >
-        <h3 style={{ marginTop: 0, color: '#f44336' }}>Danger Zone</h3>
+        <h3 style={{ marginTop: 0, color: '#d32f2f' }}>Danger Zone</h3>
         {confirmDelete ? (
           <div>
             <p>Are you sure you want to delete this sub-account? This cannot be undone.</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleDelete} style={{ background: '#f44336', color: '#fff', border: 'none', padding: '6px 16px', cursor: 'pointer' }}>
+              <button onClick={handleDelete} style={{ background: '#d32f2f', color: '#fff', border: 'none', padding: '6px 16px', cursor: 'pointer' }}>
                 Yes, Delete
               </button>
               <button onClick={() => setConfirmDelete(false)}>Cancel</button>
             </div>
           </div>
         ) : (
-          <button onClick={() => setConfirmDelete(true)} style={{ color: '#f44336' }}>
+          <button onClick={() => setConfirmDelete(true)} style={{ color: '#d32f2f' }}>
             Delete Sub-account
           </button>
         )}
@@ -393,12 +396,13 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
         </label>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
       {loading ? (
-        <div>Loading messages...</div>
+        <div role="status">Loading messages...</div>
       ) : data ? (
         <>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Messages list</caption>
             <thead>
               <tr>
                 {['ID', 'Source', 'Destination', 'Text', 'Status', 'Segments', 'Created'].map((h) => (
@@ -409,7 +413,7 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
             <tbody>
               {data.messages.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#999' }}>No messages found</td>
+                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>No messages found</td>
                 </tr>
               ) : (
                 data.messages.map((msg) => (
@@ -486,8 +490,8 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
         ))}
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {loading && <div>Loading analytics...</div>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {loading && <div role="status">Loading analytics...</div>}
 
       {data && !loading && (
         <>
@@ -517,6 +521,7 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
 
           {data.timeline.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Message statistics by period</caption>
               <thead>
                 <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
                   <th style={{ padding: 8 }}>Period</th>
@@ -551,6 +556,7 @@ function APIKeysTab({ keys }: { keys: APIKeyItem[] }) {
   return (
     <div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>API Keys</caption>
         <thead>
           <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
             <th style={{ padding: 8 }}>Name</th>
@@ -562,7 +568,7 @@ function APIKeysTab({ keys }: { keys: APIKeyItem[] }) {
         <tbody>
           {keys.length === 0 ? (
             <tr>
-              <td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#999' }}>
+              <td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
                 No API keys for this sub-account.
               </td>
             </tr>
@@ -572,7 +578,10 @@ function APIKeysTab({ keys }: { keys: APIKeyItem[] }) {
                 <td style={{ padding: 8 }}>{key.name}</td>
                 <td style={{ padding: 8 }}><code>{key.prefix}...</code></td>
                 <td style={{ padding: 8 }}>
-                  <span style={{ color: key.active ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>
+                  <span
+                    aria-label={`Status: ${key.active ? 'Active' : 'Revoked'}`}
+                    style={{ color: key.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
+                  >
                     {key.active ? 'Active' : 'Revoked'}
                   </span>
                 </td>
@@ -592,6 +601,7 @@ function WebhooksTab({ webhooks }: { webhooks: WebhookItem[] }) {
   return (
     <div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Webhook subscriptions</caption>
         <thead>
           <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
             <th style={{ padding: 8 }}>URL</th>
@@ -603,7 +613,7 @@ function WebhooksTab({ webhooks }: { webhooks: WebhookItem[] }) {
         <tbody>
           {webhooks.length === 0 ? (
             <tr>
-              <td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#999' }}>
+              <td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
                 No webhooks for this sub-account.
               </td>
             </tr>
@@ -629,7 +639,10 @@ function WebhooksTab({ webhooks }: { webhooks: WebhookItem[] }) {
                   ))}
                 </td>
                 <td style={{ padding: 8 }}>
-                  <span style={{ color: wh.active ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>
+                  <span
+                    aria-label={`Status: ${wh.active ? 'Active' : 'Inactive'}`}
+                    style={{ color: wh.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
+                  >
                     {wh.active ? 'Active' : 'Inactive'}
                   </span>
                 </td>

@@ -58,7 +58,7 @@ export function LoginPage() {
     return (
       <div style={{ maxWidth: 400, margin: '80px auto' }}>
         <h2>Two-Factor Authentication</h2>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <p id="login-error" role="alert" style={{ color: '#d32f2f' }}>{error}</p>}
         <form onSubmit={handle2fa}>
           <div style={{ marginBottom: 12 }}>
             <label>
@@ -87,7 +87,8 @@ export function LoginPage() {
   return (
     <div style={{ maxWidth: 400, margin: '80px auto' }}>
       <h2>Login</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p id="login-error" role="alert" style={{ color: '#d32f2f' }}>{error}</p>}
+      {submitting && <div role="status">Logging in...</div>}
       <form onSubmit={handleLogin}>
         <div style={{ marginBottom: 12 }}>
           <label>
@@ -99,6 +100,7 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              aria-describedby={error ? 'login-error' : undefined}
             />
           </label>
         </div>
@@ -111,6 +113,7 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              aria-describedby={error ? 'login-error' : undefined}
             />
           </label>
         </div>

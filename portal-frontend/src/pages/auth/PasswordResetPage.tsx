@@ -51,7 +51,8 @@ export function PasswordResetPage() {
   return (
     <div style={{ maxWidth: 400, margin: '80px auto' }}>
       <h2>Set New Password</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p id="reset-error" role="alert" style={{ color: '#d32f2f' }}>{error}</p>}
+      {submitting && <div role="status">Resetting...</div>}
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 12 }}>
           <label>
@@ -64,6 +65,7 @@ export function PasswordResetPage() {
               required
               minLength={8}
               autoFocus
+              aria-describedby={error ? 'reset-error' : undefined}
             />
           </label>
         </div>
@@ -77,6 +79,7 @@ export function PasswordResetPage() {
               onChange={(e) => setConfirm(e.target.value)}
               required
               minLength={8}
+              aria-describedby={error ? 'reset-error' : undefined}
             />
           </label>
         </div>

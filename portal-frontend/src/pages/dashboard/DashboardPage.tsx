@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { dashboardApi } from '../../api/client';
 
 interface DashboardData {
@@ -24,38 +25,50 @@ export function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div>Loading dashboard...</div>;
+  if (loading) return <div role="status">Loading dashboard...</div>;
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
   if (!data) return <div>No data</div>;
 
-  const cards: { label: string; value: string | number }[] = [
+  const cards: { label: string; value: string | number; href?: string }[] = [
     { label: 'Balance', value: `${data.balance} ${data.currency}` },
-    { label: 'Messages Today', value: data.messages_today },
-    { label: 'Delivered Today', value: data.messages_delivered_today },
+    { label: 'Messages Today', value: data.messages_today, href: '/messages' },
+    { label: 'Delivered Today', value: data.messages_delivered_today, href: '/messages' },
     { label: 'Delivery Rate', value: `${data.delivery_rate_today}%` },
-    { label: 'Active API Keys', value: data.active_api_keys },
-    { label: 'Active Webhooks', value: data.active_webhooks },
+    { label: 'Active API Keys', value: data.active_api_keys, href: '/api-keys' },
+    { label: 'Active Webhooks', value: data.active_webhooks, href: '/webhooks' },
   ];
 
   return (
     <div>
       <h2>Dashboard</h2>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            style={{
-              border: '1px solid #ddd',
-              borderRadius: 8,
-              padding: 16,
-              minWidth: 180,
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 'bold' }}>{card.value}</div>
-          </div>
-        ))}
+        {cards.map((card) => {
+          const cardStyle = {
+            border: '1px solid #ddd',
+            borderRadius: 8,
+            padding: 16,
+            minWidth: 180,
+            textAlign: 'center' as const,
+            textDecoration: 'none',
+            color: 'inherit',
+            display: 'block',
+          };
+          const inner = (
+            <>
+              <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
+              <div style={{ fontSize: 24, fontWeight: 'bold' }}>{card.value}</div>
+            </>
+          );
+          return card.href ? (
+            <Link key={card.label} to={card.href} style={cardStyle} aria-label={`${card.label}: ${card.value}`}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={card.label} style={cardStyle}>
+              {inner}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

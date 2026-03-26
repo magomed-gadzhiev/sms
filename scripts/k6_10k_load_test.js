@@ -1,212 +1,206 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Rate } from 'k6/metrics';
-import { Counter } from 'k6/metrics';
-import { Trend } from 'k6/metrics';
+import { Rate, Counter, Trend } from 'k6/metrics';
+import { SharedArray } from 'k6/data';
 
+// =============================================================================
+// Фикстуры: загружаются один раз и разделяются между VU
+// =============================================================================
+
+const destinations = new SharedArray('destinations', function () {
+    const data = JSON.parse(open('../test/load/fixtures/destinations.json'));
+    const all = [];
+    for (const group of data.domestic) {
+        all.push(...group.numbers);
+    }
+    return all;
+});
+
+const sources = new SharedArray('sources', function () {
+    const data = JSON.parse(open('../test/load/fixtures/sources.json'));
+    return data.sources.map(s => s.name);
+});
+
+const messageTemplates = new SharedArray('messages', function () {
+    const data = JSON.parse(open('../test/load/fixtures/messages.json'));
+    const all = [];
+    for (const cat of data.templates) {
+        all.push(...cat.texts);
+    }
+    return all;
+});
+
+// =============================================================================
 // Кастомные метрики
+// =============================================================================
+
 const errorRate = new Rate('errors');
 const requestCounter = new Counter('total_requests');
 const latencyTrend = new Trend('request_latency');
 
-// Конфигурация для достижения 10K сообщений/сек
+// =============================================================================
+// Конфигурация для достижения 10K msg/s
+// =============================================================================
+
 export const options = {
     stages: [
-        // Warm-up: постепенное увеличение нагрузки
-        { duration: '30s', target: 100 },   // 100 VUs
-        { duration: '1m', target: 500 },    // 500 VUs
-        { duration: '1m', target: 1000 },   // 1000 VUs
-        
-        // Основная нагрузка: поддержание 10K msg/s
-        // При 10 запросов на VU в секунду нужно ~1000 VUs
-        // Но для надежности используем больше VUs с меньшим RPS на каждого
-        { duration: '5m', target: 2000 },   // 2000 VUs (~5 req/s на VU = 10K req/s)
-        
+        // Warm-up
+        { duration: '30s', target: 100 },
+        { duration: '1m',  target: 500 },
+        { duration: '1m',  target: 1000 },
+        // Основная нагрузка: 2000 VUs * ~5 req/s = 10K req/s
+        { duration: '5m',  target: 2000 },
         // Пиковая нагрузка
-        { duration: '2m', target: 2500 },   // 2500 VUs
-        
+        { duration: '2m',  target: 2500 },
         // Устойчивая нагрузка
-        { duration: '10m', target: 2000 },  // 10 минут устойчивой нагрузки
-        
-        // Снижение нагрузки
-        { duration: '2m', target: 1000 },
-        { duration: '1m', target: 500 },
+        { duration: '10m', target: 2000 },
+        // Снижение
+        { duration: '2m',  target: 1000 },
+        { duration: '1m',  target: 500 },
         { duration: '30s', target: 0 },
     ],
     thresholds: {
-        // Целевые метрики для 10K msg/s
-        http_reqs: ['rate>=10000'],           // Минимум 10K запросов в секунду
-        http_req_duration: ['p(95)<500', 'p(99)<1000'],  // p95 < 500ms, p99 < 1s
-        http_req_failed: ['rate<0.01'],       // Меньше 1% ошибок
-        errors: ['rate<0.01'],                 // Меньше 1% ошибок
+        http_reqs: ['rate>=10000'],
+        http_req_duration: ['p(95)<500', 'p(99)<1000'],
+        http_req_failed: ['rate<0.01'],
+        errors: ['rate<0.01'],
         request_latency: ['p(95)<500', 'p(99)<1000'],
     },
 };
 
-// Базовый URL API Gateway
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-const API_KEY = __ENV.API_KEY || 'test-api-key';
+const API_KEY = __ENV.API_KEY || 'lt-high-volume-key-001';
 
-// Пул HTTP соединений для переиспользования
-const httpOptions = {
-    timeout: '30s',
-    tags: { name: 'SendSMS' },
-};
+// =============================================================================
+// Генераторы данных
+// =============================================================================
 
-// Функция для генерации случайного номера телефона
-function randomPhoneNumber() {
-    const prefix = '7900';
-    const suffix = Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
-    return prefix + suffix;
+function randomDestination() {
+    // 60% — из фикстур, 40% — динамические
+    if (Math.random() < 0.6) {
+        return destinations[Math.floor(Math.random() * destinations.length)];
+    }
+    const prefixes = ['7910', '7903', '7920', '7900', '7999', '7916', '7925', '7985', '7906', '7901'];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    return prefix + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
 }
 
-// Функция для генерации случайного источника
 function randomSource() {
-    const sources = ['12345', '67890', 'SMS', 'API', 'TEST'];
     return sources[Math.floor(Math.random() * sources.length)];
 }
 
-// Основная функция теста
+function randomText() {
+    let text = messageTemplates[Math.floor(Math.random() * messageTemplates.length)];
+    text = text.replace('{code}', Math.floor(100000 + Math.random() * 900000));
+    text = text.replace('{order_id}', Math.floor(10000 + Math.random() * 90000));
+    text = text.replace('{amount}', (Math.random() * 10000).toFixed(2));
+    text = text.replace('{balance}', (Math.random() * 100000).toFixed(2));
+    text = text.replace('{receipt_id}', Math.floor(1000000 + Math.random() * 9000000));
+    text = text.replace('{tracking}', 'LT' + Math.floor(1000000000 + Math.random() * 9000000000));
+    text = text.replace('{discount}', Math.floor(5 + Math.random() * 75));
+    text = text.replace('{promo}', Math.floor(1000 + Math.random() * 9000));
+    text = text.replace('{time}', `${Math.floor(8 + Math.random() * 12)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`);
+    text = text.replace('{ip}', `${Math.floor(1 + Math.random() * 254)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(1 + Math.random() * 254)}`);
+    text = text.replace('{server}', `srv-${Math.floor(1 + Math.random() * 50)}.prod`);
+    text = text.replace('{rate}', Math.floor(100 + Math.random() * 9900));
+    text = text.replace('{flight}', Math.floor(100 + Math.random() * 900));
+    text = text.replace('{dep_time}', `${Math.floor(Math.random() * 24).toString().padStart(2, '0')}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`);
+    text = text.replace('{arr_time}', `${Math.floor(Math.random() * 24).toString().padStart(2, '0')}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`);
+    text = text.replace('{gate}', `${Math.floor(1 + Math.random() * 30)}${['A', 'B', 'C'][Math.floor(Math.random() * 3)]}`);
+    text = text.replace('{tx_id}', Math.floor(10000000 + Math.random() * 90000000));
+    return text;
+}
+
+// =============================================================================
+// Основная функция
+// =============================================================================
+
 export default function () {
-    // Подготовка данных запроса
     const payload = JSON.stringify({
         source: randomSource(),
-        destination: randomPhoneNumber(),
-        text: `10K load test message #${__VU}-${__ITER} at ${Date.now()}`,
+        destination: randomDestination(),
+        text: randomText(),
+        external_id: `10k-${__VU}-${__ITER}-${Date.now()}`,
+        registered_delivery: Math.random() > 0.7,
     });
 
-    const params = {
-        ...httpOptions,
+    const start = Date.now();
+    const res = http.post(`${BASE_URL}/api/v1/sms/send`, payload, {
         headers: {
             'Content-Type': 'application/json',
             'X-API-Key': API_KEY,
         },
-    };
-
-    // Отправка запроса
-    const start = Date.now();
-    const res = http.post(`${BASE_URL}/api/v1/sms/send`, payload, params);
+        tags: { name: 'SendSMS' },
+        timeout: '30s',
+    });
     const latency = Date.now() - start;
 
-    // Регистрация метрик
     requestCounter.add(1);
     latencyTrend.add(latency);
 
-    // Проверка результата
     const success = check(res, {
         'status is 200 or 202': (r) => r.status === 200 || r.status === 202,
-        'response has message_id': (r) => {
-            try {
-                const body = JSON.parse(r.body);
-                return body.message_id !== undefined;
-            } catch (e) {
-                return false;
-            }
+        'has message_id': (r) => {
+            try { return JSON.parse(r.body).message_id !== undefined; }
+            catch { return false; }
         },
-        'response time < 1000ms': (r) => r.timings.duration < 1000,
+        'latency < 1000ms': (r) => r.timings.duration < 1000,
     });
 
-    // Регистрация ошибок
     errorRate.add(!success);
 
-    // Минимальная задержка (10 запросов в секунду на VU = 100ms задержка)
-    // Но для достижения 10K msg/s с 2000 VUs нужно ~5 req/s на VU = 200ms
+    // 200ms задержка: 2000 VUs * 5 req/s = 10K req/s
     sleep(0.2);
 }
 
-// Функция для обработки результатов
+// =============================================================================
+// Отчёт
+// =============================================================================
+
 export function handleSummary(data) {
-    const summary = generateTextSummary(data);
+    const summary = generateSummary(data);
     return {
         'stdout': summary,
-        'summary.json': JSON.stringify(data, null, 2),
+        '10k-load-test-summary.json': JSON.stringify(data, null, 2),
     };
 }
 
-// Генерация текстового summary
-function generateTextSummary(data) {
-    let summary = '\n';
-    summary += '═══════════════════════════════════════════════════════\n';
-    summary += '  10K Messages/Second Load Test Results\n';
-    summary += '═══════════════════════════════════════════════════════\n\n';
+function generateSummary(data) {
+    let s = '\n';
+    s += '='.repeat(60) + '\n';
+    s += '  10K Messages/Second Load Test Results\n';
+    s += '='.repeat(60) + '\n\n';
 
-    // HTTP метрики
-    if (data.metrics.http_reqs) {
-        const reqs = data.metrics.http_reqs;
-        summary += 'HTTP Requests:\n';
-        summary += `  Total: ${reqs.values.count || 0}\n`;
-        summary += `  Rate: ${(reqs.values.rate || 0).toFixed(2)} req/s\n`;
-        summary += `  Target: >= 10000 req/s\n`;
-        if (reqs.values.rate >= 10000) {
-            summary += '  ✅ Target achieved!\n';
-        } else {
-            summary += `  ⚠️  Target not achieved (${((reqs.values.rate / 10000) * 100).toFixed(1)}%)\n`;
-        }
-        summary += '\n';
-    }
+    const rate = data.metrics.http_reqs?.values?.rate || 0;
+    const total = data.metrics.http_reqs?.values?.count || 0;
+    const targetMet = rate >= 10000;
 
-    // Latency метрики
+    s += `Throughput:  ${rate.toFixed(2)} req/s  (total: ${total})\n`;
+    s += `Target:     >= 10,000 req/s  ${targetMet ? '[PASS]' : '[FAIL ' + (rate / 100).toFixed(1) + '%]'}\n\n`;
+
     if (data.metrics.http_req_duration) {
-        const duration = data.metrics.http_req_duration;
-        summary += 'HTTP Request Duration:\n';
-        summary += `  min: ${(duration.values.min || 0).toFixed(2)} ms\n`;
-        summary += `  avg: ${(duration.values.avg || 0).toFixed(2)} ms\n`;
-        summary += `  max: ${(duration.values.max || 0).toFixed(2)} ms\n`;
-        if (duration.values['p(95)'] !== undefined) {
-            summary += `  p95: ${duration.values['p(95)'].toFixed(2)} ms\n`;
-        }
-        if (duration.values['p(99)'] !== undefined) {
-            summary += `  p99: ${duration.values['p(99)'].toFixed(2)} ms\n`;
-        }
-        summary += `  Target: p95 < 500ms, p99 < 1000ms\n`;
-        const p95Ok = duration.values['p(95)'] < 500;
-        const p99Ok = duration.values['p(99)'] < 1000;
-        if (p95Ok && p99Ok) {
-            summary += '  ✅ Latency targets met!\n';
-        } else {
-            summary += `  ⚠️  Latency targets not met (p95: ${p95Ok ? 'OK' : 'FAIL'}, p99: ${p99Ok ? 'OK' : 'FAIL'})\n`;
-        }
-        summary += '\n';
+        const d = data.metrics.http_req_duration.values;
+        s += `Latency:\n`;
+        s += `  min:  ${(d.min || 0).toFixed(1)} ms\n`;
+        s += `  avg:  ${(d.avg || 0).toFixed(1)} ms\n`;
+        s += `  p95:  ${(d['p(95)'] || 0).toFixed(1)} ms  (target: < 500ms)  ${(d['p(95)'] || 0) < 500 ? '[PASS]' : '[FAIL]'}\n`;
+        s += `  p99:  ${(d['p(99)'] || 0).toFixed(1)} ms  (target: < 1000ms) ${(d['p(99)'] || 0) < 1000 ? '[PASS]' : '[FAIL]'}\n`;
+        s += `  max:  ${(d.max || 0).toFixed(1)} ms\n\n`;
     }
 
-    // Ошибки
-    if (data.metrics.http_req_failed) {
-        const failed = data.metrics.http_req_failed;
-        const failRate = (failed.values.rate || 0) * 100;
-        summary += 'Failed Requests:\n';
-        summary += `  Rate: ${failRate.toFixed(2)}%\n`;
-        summary += `  Count: ${failed.values.passes || 0}\n`;
-        summary += `  Target: < 1%\n`;
-        if (failRate < 1) {
-            summary += '  ✅ Error rate target met!\n';
-        } else {
-            summary += `  ⚠️  Error rate too high\n`;
-        }
-        summary += '\n';
-    }
+    const failRate = (data.metrics.http_req_failed?.values?.rate || 0) * 100;
+    s += `Error rate: ${failRate.toFixed(2)}%  (target: < 1%)  ${failRate < 1 ? '[PASS]' : '[FAIL]'}\n\n`;
 
-    // VUs
     if (data.metrics.vus) {
-        const vus = data.metrics.vus;
-        summary += 'Virtual Users:\n';
-        summary += `  max: ${vus.values.max || 0}\n`;
-        summary += `  min: ${vus.values.min || 0}\n`;
-        summary += '\n';
+        s += `VUs:        max=${data.metrics.vus.values.max || 0}\n\n`;
     }
 
-    // Общий статус
-    summary += '═══════════════════════════════════════════════════════\n';
-    const allTargetsMet = 
-        (data.metrics.http_reqs?.values.rate || 0) >= 10000 &&
-        (data.metrics.http_req_failed?.values.rate || 0) < 0.01 &&
-        (data.metrics.http_req_duration?.values['p(95)'] || 1000) < 500;
+    s += '='.repeat(60) + '\n';
+    const allPass = targetMet &&
+        failRate < 1 &&
+        (data.metrics.http_req_duration?.values?.['p(95)'] || 1000) < 500;
+    s += allPass ? '  ALL TARGETS MET\n' : '  SOME TARGETS NOT MET\n';
+    s += '='.repeat(60) + '\n';
 
-    if (allTargetsMet) {
-        summary += '  ✅ All performance targets achieved!\n';
-    } else {
-        summary += '  ⚠️  Some performance targets not met\n';
-    }
-    summary += '═══════════════════════════════════════════════════════\n';
-
-    return summary;
+    return s;
 }

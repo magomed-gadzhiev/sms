@@ -1,5 +1,6 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { apiKeysApi, ApiError, type APIKeyInfo, type CreateAPIKeyResponse } from '../../api/client';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const AVAILABLE_SCOPES = [
   'messages:send',
@@ -28,6 +29,10 @@ export function APIKeysPage() {
 
   // Revoke confirmation
   const [revokeId, setRevokeId] = useState<string | null>(null);
+
+  // Focus trap for create form
+  const createFormRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(createFormRef, showCreateForm);
 
   async function loadKeys() {
     setLoading(true);
@@ -102,7 +107,7 @@ export function APIKeysPage() {
     );
   }
 
-  if (loading) return <div>Loading API keys...</div>;
+  if (loading) return <div role="status">Loading API keys...</div>;
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -118,11 +123,12 @@ export function APIKeysPage() {
         </button>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
 
       {/* Created key banner - shown once */}
       {createdKey && (
         <div
+          role="alert"
           style={{
             background: '#e8f5e9',
             border: '1px solid #4caf50',
@@ -160,6 +166,7 @@ export function APIKeysPage() {
       {/* Create form dialog */}
       {showCreateForm && (
         <div
+          ref={createFormRef}
           style={{
             background: '#f5f5f5',
             border: '1px solid #ddd',
@@ -245,6 +252,7 @@ export function APIKeysPage() {
 
       {/* Keys table */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>API Keys</caption>
         <thead>
           <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
             <th style={{ padding: 8 }}>Name</th>
@@ -260,7 +268,7 @@ export function APIKeysPage() {
         <tbody>
           {keys.length === 0 && (
             <tr>
-              <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#999' }}>
+              <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
                 No API keys yet. Create one to get started.
               </td>
             </tr>
@@ -273,8 +281,9 @@ export function APIKeysPage() {
               </td>
               <td style={{ padding: 8 }}>
                 <span
+                  aria-label={`Status: ${key.active ? 'Active' : 'Revoked'}`}
                   style={{
-                    color: key.active ? '#4caf50' : '#f44336',
+                    color: key.active ? '#4caf50' : '#d32f2f',
                     fontWeight: 'bold',
                   }}
                 >
@@ -299,15 +308,22 @@ export function APIKeysPage() {
                     <span>
                       Sure?{' '}
                       <button
+                        aria-label={`Confirm revoke ${key.name}`}
                         onClick={() => handleRevoke(key.id)}
-                        style={{ color: 'red', marginRight: 4 }}
+                        style={{ color: '#d32f2f', marginRight: 4, padding: '8px 12px' }}
                       >
                         Yes, revoke
                       </button>
-                      <button onClick={() => setRevokeId(null)}>Cancel</button>
+                      <button onClick={() => setRevokeId(null)} style={{ padding: '8px 12px' }}>Cancel</button>
                     </span>
                   ) : (
-                    <button onClick={() => setRevokeId(key.id)}>Revoke</button>
+                    <button
+                      aria-label={`Revoke ${key.name}`}
+                      onClick={() => setRevokeId(key.id)}
+                      style={{ padding: '8px 12px' }}
+                    >
+                      Revoke
+                    </button>
                   ))}
               </td>
             </tr>
