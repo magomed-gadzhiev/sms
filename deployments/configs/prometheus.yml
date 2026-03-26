@@ -90,27 +90,47 @@ scrape_configs:
         labels:
           service: 'worker'
 
-  # Pipeline stages
+  # Pipeline stages (dns_sd_configs for replicated services)
   - job_name: 'pipeline-router'
-    static_configs:
-      - targets: ['pipeline-router:2112']
-        labels:
-          service: 'pipeline-router'
+    dns_sd_configs:
+      - names: ['pipeline-router']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-router'
 
   - job_name: 'pipeline-sender'
-    static_configs:
-      - targets: ['pipeline-sender:2112']
-        labels:
-          service: 'pipeline-sender'
+    dns_sd_configs:
+      - names: ['pipeline-sender']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-sender'
 
   - job_name: 'pipeline-status'
-    static_configs:
-      - targets: ['pipeline-status:2112']
-        labels:
-          service: 'pipeline-status'
+    dns_sd_configs:
+      - names: ['pipeline-status']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-status'
 
   - job_name: 'pipeline-persist'
-    static_configs:
-      - targets: ['pipeline-persist:2112']
-        labels:
-          service: 'pipeline-persist'
+    dns_sd_configs:
+      - names: ['pipeline-persist']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-persist'
