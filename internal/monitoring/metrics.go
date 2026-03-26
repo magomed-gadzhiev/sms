@@ -258,7 +258,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "pipeline_batch_size",
 			Help:    "Размер batch в pipeline",
-			Buckets: []float64{1, 10, 50, 100, 200, 500, 1000},
+			Buckets: []float64{1, 10, 50, 100, 200, 500, 1000, 2000, 5000},
 		},
 		[]string{"stage"},
 	)

@@ -249,9 +249,12 @@ func ensureTopics(cfg *config.KafkaConfig) {
 		name       string
 		partitions int32
 	}{
-		{name: cfg.TopicRouted, partitions: 16},
+		{name: cfg.TopicOutgoing, partitions: 32},
+		{name: cfg.TopicRouted, partitions: 32},
 		{name: cfg.TopicSent, partitions: 16},
-		{name: cfg.TopicStatus, partitions: 8},
+		{name: cfg.TopicDLR, partitions: 16},
+		{name: cfg.TopicStatus, partitions: 16},
+		{name: cfg.TopicFailed, partitions: 8},
 	}
 
 	for _, t := range topics {

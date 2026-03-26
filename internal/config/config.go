@@ -117,11 +117,13 @@ type AuthConfig struct {
 
 // PipelineConfig представляет конфигурацию pipeline-worker
 type PipelineConfig struct {
-	Stage          string        `mapstructure:"stage"`           // router | sender | status
-	BatchSize      int           `mapstructure:"batch_size"`      // messages per batch (default: 500)
-	BatchTimeout   time.Duration `mapstructure:"batch_timeout"`   // max wait for batch (default: 10ms)
-	WorkerCount    int           `mapstructure:"worker_count"`    // goroutines per stage (default: 4)
-	SMPPWindowSize int           `mapstructure:"smpp_window_size"` // async PDU window per connection (default: 50)
+	Stage               string        `mapstructure:"stage"`                // router | sender | status | persist
+	BatchSize           int           `mapstructure:"batch_size"`           // messages per batch (default: 500)
+	BatchTimeout        time.Duration `mapstructure:"batch_timeout"`        // max wait for batch (default: 10ms)
+	WorkerCount         int           `mapstructure:"worker_count"`         // goroutines per stage (default: 4)
+	SMPPWindowSize      int           `mapstructure:"smpp_window_size"`     // async PDU window per connection (default: 50)
+	PersistBatchSize    int           `mapstructure:"persist_batch_size"`   // messages per COPY batch (default: 2000)
+	PersistBatchTimeout time.Duration `mapstructure:"persist_batch_timeout"` // max wait for persist batch (default: 100ms)
 }
 
 // WorkerConfig представляет конфигурацию Worker сервиса
@@ -235,6 +237,14 @@ func Load(configPath string) (*Config, error) {
 		if n, err := strconv.Atoi(ws); err == nil {
 			v.Set("pipeline.smpp_window_size", n)
 		}
+	}
+	if pbs := os.Getenv("PIPELINE_PERSIST_BATCH_SIZE"); pbs != "" {
+		if n, err := strconv.Atoi(pbs); err == nil {
+			v.Set("pipeline.persist_batch_size", n)
+		}
+	}
+	if pbt := os.Getenv("PIPELINE_PERSIST_BATCH_TIMEOUT"); pbt != "" {
+		v.Set("pipeline.persist_batch_timeout", pbt)
 	}
 
 	// Kafka pipeline topics
@@ -359,7 +369,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("pipeline.batch_size", 500)
 	v.SetDefault("pipeline.batch_timeout", "10ms")
 	v.SetDefault("pipeline.worker_count", 4)
-	v.SetDefault("pipeline.smpp_window_size", 50)
+	v.SetDefault("pipeline.smpp_window_size", 500)
+	v.SetDefault("pipeline.persist_batch_size", 2000)
+	v.SetDefault("pipeline.persist_batch_timeout", "100ms")
 
 	// Worker
 	v.SetDefault("worker.concurrency", 10)
