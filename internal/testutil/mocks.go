@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -52,6 +53,32 @@ func (m *MockProducer) Health() error {
 		return m.HealthFunc()
 	}
 	return nil
+}
+
+// MockAsyncProducer представляет мок для BatchMessagePublisher (AsyncProducer)
+type MockAsyncProducer struct {
+	PublishAsyncFunc func(topic string, key string, value []byte, headers []sarama.RecordHeader)
+	Calls            []MockAsyncPublishCall
+}
+
+// MockAsyncPublishCall записывает параметры вызова PublishAsync
+type MockAsyncPublishCall struct {
+	Topic   string
+	Key     string
+	Value   []byte
+	Headers []sarama.RecordHeader
+}
+
+func (m *MockAsyncProducer) PublishAsync(topic string, key string, value []byte, headers []sarama.RecordHeader) {
+	m.Calls = append(m.Calls, MockAsyncPublishCall{
+		Topic:   topic,
+		Key:     key,
+		Value:   value,
+		Headers: headers,
+	})
+	if m.PublishAsyncFunc != nil {
+		m.PublishAsyncFunc(topic, key, value, headers)
+	}
 }
 
 // MockMessageRepository представляет мок для MessageRepository

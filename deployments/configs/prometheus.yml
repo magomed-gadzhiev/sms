@@ -89,3 +89,22 @@ scrape_configs:
       - targets: ['worker:2112']
         labels:
           service: 'worker'
+
+  # Pipeline stages
+  - job_name: 'pipeline-router'
+    static_configs:
+      - targets: ['pipeline-router:2112']
+        labels:
+          service: 'pipeline-router'
+
+  - job_name: 'pipeline-sender'
+    static_configs:
+      - targets: ['pipeline-sender:2112']
+        labels:
+          service: 'pipeline-sender'
+
+  - job_name: 'pipeline-status'
+    static_configs:
+      - targets: ['pipeline-status:2112']
+        labels:
+          service: 'pipeline-status'

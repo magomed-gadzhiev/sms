@@ -268,3 +268,104 @@ func (p *Producer) Health() error {
 	}
 	return nil
 }
+
+// AsyncProducer представляет высокопроизводительный Kafka async producer
+type AsyncProducer struct {
+	producer sarama.AsyncProducer
+	config   *config.KafkaConfig
+	logger   zerolog.Logger
+	done     chan struct{}
+}
+
+// NewAsyncProducer создает новый асинхронный Kafka producer с настройками
+// для высокой пропускной способности (R-002):
+//   - Flush.Messages=500, Flush.Frequency=10ms
+//   - Compression=Snappy, RequiredAcks=WaitForLocal
+func NewAsyncProducer(cfg *config.KafkaConfig) (*AsyncProducer, error) {
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.Producer.Return.Errors = true
+	saramaConfig.Producer.RequiredAcks = sarama.WaitForLocal
+	saramaConfig.Producer.Compression = sarama.CompressionSnappy
+	saramaConfig.Producer.Flush.Messages = 500
+	saramaConfig.Producer.Flush.Frequency = 10 * time.Millisecond
+	saramaConfig.Producer.Retry.Max = cfg.MaxRetries
+	saramaConfig.Producer.Retry.Backoff = cfg.RetryBackoff
+
+	producer, err := sarama.NewAsyncProducer(cfg.Brokers, saramaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания Kafka async producer: %w", err)
+	}
+
+	logger := log.With().Str("component", "kafka_async_producer").Logger()
+
+	ap := &AsyncProducer{
+		producer: producer,
+		config:   cfg,
+		logger:   logger,
+		done:     make(chan struct{}),
+	}
+
+	go ap.handleResponses()
+
+	return ap, nil
+}
+
+// handleResponses обрабатывает успешные и ошибочные ответы от AsyncProducer
+// в фоновой горутине. Горутина завершается при закрытии каналов producer.
+func (ap *AsyncProducer) handleResponses() {
+	defer close(ap.done)
+
+	for {
+		select {
+		case msg, ok := <-ap.producer.Successes():
+			if !ok {
+				// Канал закрыт — producer завершает работу
+				return
+			}
+			ap.logger.Debug().
+				Str("topic", msg.Topic).
+				Int32("partition", msg.Partition).
+				Int64("offset", msg.Offset).
+				Msg("async сообщение доставлено")
+
+		case err, ok := <-ap.producer.Errors():
+			if !ok {
+				// Канал закрыт — producer завершает работу
+				return
+			}
+			ap.logger.Error().
+				Err(err.Err).
+				Str("topic", err.Msg.Topic).
+				Msg("ошибка доставки async сообщения")
+		}
+	}
+}
+
+// PublishAsync отправляет сообщение в AsyncProducer.Input() канал.
+// Метод неблокирующий — сообщение ставится в очередь и отправляется
+// пакетом согласно настройкам Flush.
+func (ap *AsyncProducer) PublishAsync(topic string, key string, value []byte, headers []sarama.RecordHeader) {
+	msg := &sarama.ProducerMessage{
+		Topic:     topic,
+		Key:       sarama.StringEncoder(key),
+		Value:     sarama.ByteEncoder(value),
+		Headers:   headers,
+		Timestamp: time.Now(),
+	}
+
+	ap.producer.Input() <- msg
+}
+
+// Close закрывает AsyncProducer и ожидает завершения фоновой горутины
+func (ap *AsyncProducer) Close() error {
+	// AsyncClose запускает graceful shutdown: сбрасывает буферизованные
+	// сообщения и закрывает каналы Successes/Errors.
+	ap.producer.AsyncClose()
+
+	// Ожидаем завершения горутины handleResponses
+	<-ap.done
+
+	ap.logger.Info().Msg("Kafka async producer закрыт")
+	return nil
+}

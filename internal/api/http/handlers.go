@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/api/middleware"
@@ -17,10 +18,12 @@ import (
 
 // Handler представляет HTTP handlers для API Gateway
 type Handler struct {
-	producer      MessageProducer
-	messageRepo   MessageRepository
-	clientRepo    ClientRepository
-	healthChecker *monitoring.HealthChecker
+	producer       MessageProducer
+	asyncProducer  BatchMessagePublisher
+	topicOutgoing  string
+	messageRepo    MessageRepository
+	clientRepo     ClientRepository
+	healthChecker  *monitoring.HealthChecker
 }
 
 // NewHandler создает новый HTTP handler
@@ -36,6 +39,14 @@ func NewHandler(
 		clientRepo:    clientRepo,
 		healthChecker: healthChecker,
 	}
+}
+
+// SetAsyncProducer устанавливает AsyncProducer для пакетной публикации.
+// Когда asyncProducer задан, SendBatchSMS использует неблокирующий PublishAsync
+// вместо синхронного PublishOutgoing для каждого сообщения.
+func (h *Handler) SetAsyncProducer(ap BatchMessagePublisher, topicOutgoing string) {
+	h.asyncProducer = ap
+	h.topicOutgoing = topicOutgoing
 }
 
 // SendSMS обрабатывает запрос на отправку SMS
@@ -196,15 +207,39 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 
 		// Публикуем в Kafka
 		kafkaMsg := queue.FromMessage(msg)
-		if err := h.producer.PublishOutgoing(r.Context(), kafkaMsg); err != nil {
-			log.Error().Err(err).Msg("ошибка публикации сообщения в Kafka")
-			results = append(results, SendSMSResponse{
-				MessageID: msg.ID.String(),
-				Status:    "failed",
-				Error:     "Ошибка публикации в очередь",
-			})
-			failedCount++
-			continue
+
+		if h.asyncProducer != nil {
+			// Асинхронная пакетная публикация через AsyncProducer (T032)
+			data, err := kafkaMsg.Serialize()
+			if err != nil {
+				log.Error().Err(err).Msg("ошибка сериализации сообщения для Kafka")
+				results = append(results, SendSMSResponse{
+					MessageID: msg.ID.String(),
+					Status:    "failed",
+					Error:     "Ошибка сериализации сообщения",
+				})
+				failedCount++
+				continue
+			}
+
+			headers := []sarama.RecordHeader{
+				{Key: []byte("message_id"), Value: []byte(kafkaMsg.MessageID.String())},
+				{Key: []byte("source"), Value: []byte(kafkaMsg.Source)},
+				{Key: []byte("destination"), Value: []byte(kafkaMsg.Destination)},
+			}
+			h.asyncProducer.PublishAsync(h.topicOutgoing, kafkaMsg.MessageID.String(), data, headers)
+		} else {
+			// Синхронная публикация (fallback)
+			if err := h.producer.PublishOutgoing(r.Context(), kafkaMsg); err != nil {
+				log.Error().Err(err).Msg("ошибка публикации сообщения в Kafka")
+				results = append(results, SendSMSResponse{
+					MessageID: msg.ID.String(),
+					Status:    "failed",
+					Error:     "Ошибка публикации в очередь",
+				})
+				failedCount++
+				continue
+			}
 		}
 
 		// Обновляем статус

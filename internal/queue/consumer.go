@@ -251,3 +251,209 @@ func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// BatchConsumer — batch consumption mode (R-002)
+// ---------------------------------------------------------------------------
+
+// BatchHandler обрабатывает пакет сообщений из Kafka.
+type BatchHandler func(ctx context.Context, msgs []*sarama.ConsumerMessage, session sarama.ConsumerGroupSession) error
+
+// BatchConsumer собирает сообщения в пакеты по размеру или таймеру
+// (что сработает первым) и вызывает BatchHandler для каждого пакета.
+type BatchConsumer struct {
+	consumer     sarama.ConsumerGroup
+	config       *config.KafkaConfig
+	topics       []string
+	batchSize    int
+	batchTimeout time.Duration
+	logger       zerolog.Logger
+	wg           sync.WaitGroup
+	ctx          context.Context
+	cancel       context.CancelFunc
+}
+
+// NewBatchConsumer создает BatchConsumer с CooperativeStickyAssignor (R-004).
+func NewBatchConsumer(cfg *config.KafkaConfig, groupID string, topics []string, batchSize int, batchTimeout time.Duration) (*BatchConsumer, error) {
+	saramaCfg := sarama.NewConfig()
+	saramaCfg.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategySticky()
+	saramaCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+	saramaCfg.Consumer.Return.Errors = true
+	saramaCfg.Version = sarama.V2_6_0_0
+	saramaCfg.Consumer.Fetch.Default = 1048576 // 1 MiB
+	saramaCfg.Consumer.MaxProcessingTime = 500 * time.Millisecond
+	saramaCfg.Consumer.Group.Session.Timeout = cfg.SessionTimeout
+	saramaCfg.Consumer.Group.Heartbeat.Interval = cfg.HeartbeatInterval
+
+	group, err := sarama.NewConsumerGroup(cfg.Brokers, groupID, saramaCfg)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания Kafka batch consumer group: %w", err)
+	}
+
+	logger := log.With().
+		Str("component", "kafka_batch_consumer").
+		Str("group", groupID).
+		Logger()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &BatchConsumer{
+		consumer:     group,
+		config:       cfg,
+		topics:       topics,
+		batchSize:    batchSize,
+		batchTimeout: batchTimeout,
+		logger:       logger,
+		ctx:          ctx,
+		cancel:       cancel,
+	}, nil
+}
+
+// ConsumeBatches запускает цикл потребления. Блокирует до отмены ctx
+// или внутренней ошибки. handler вызывается для каждого собранного пакета.
+func (bc *BatchConsumer) ConsumeBatches(ctx context.Context, handler BatchHandler) error {
+	h := &batchConsumerGroupHandler{
+		batchSize:    bc.batchSize,
+		batchTimeout: bc.batchTimeout,
+		handler:      handler,
+		logger:       bc.logger,
+	}
+
+	// Обработка ошибок consumer group в фоне.
+	bc.wg.Add(1)
+	go func() {
+		defer bc.wg.Done()
+		for err := range bc.consumer.Errors() {
+			bc.logger.Error().Err(err).Msg("batch consumer error")
+		}
+	}()
+
+	// Основной цикл consume. sarama перезапускает Consume при ребалансе,
+	// поэтому крутим в цикле.
+	for {
+		select {
+		case <-ctx.Done():
+			bc.logger.Info().Msg("batch consumer остановлен (внешний ctx)")
+			return ctx.Err()
+		case <-bc.ctx.Done():
+			bc.logger.Info().Msg("batch consumer остановлен (Close)")
+			return bc.ctx.Err()
+		default:
+			if err := bc.consumer.Consume(ctx, bc.topics, h); err != nil {
+				bc.logger.Error().Err(err).Msg("ошибка batch consume")
+				// Небольшая задержка перед повторной попыткой.
+				select {
+				case <-time.After(5 * time.Second):
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-bc.ctx.Done():
+					return bc.ctx.Err()
+				}
+			}
+		}
+	}
+}
+
+// Close выполняет graceful shutdown BatchConsumer.
+func (bc *BatchConsumer) Close() error {
+	bc.logger.Info().Msg("закрытие batch consumer")
+	bc.cancel()
+	bc.wg.Wait()
+
+	if err := bc.consumer.Close(); err != nil {
+		bc.logger.Error().Err(err).Msg("ошибка закрытия batch consumer")
+		return err
+	}
+
+	bc.logger.Info().Msg("batch consumer закрыт")
+	return nil
+}
+
+// batchConsumerGroupHandler реализует sarama.ConsumerGroupHandler
+// с пакетной обработкой сообщений.
+type batchConsumerGroupHandler struct {
+	batchSize    int
+	batchTimeout time.Duration
+	handler      BatchHandler
+	logger       zerolog.Logger
+}
+
+func (h *batchConsumerGroupHandler) Setup(sarama.ConsumerGroupSession) error {
+	h.logger.Info().Msg("batch consumer group session setup")
+	return nil
+}
+
+func (h *batchConsumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) error {
+	h.logger.Info().Msg("batch consumer group session cleanup")
+	return nil
+}
+
+// ConsumeClaim собирает сообщения в пакеты и вызывает handler.
+func (h *batchConsumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	batch := make([]*sarama.ConsumerMessage, 0, h.batchSize)
+	timer := time.NewTimer(h.batchTimeout)
+	defer timer.Stop()
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+
+		start := time.Now()
+		err := h.handler(session.Context(), batch, session)
+		duration := time.Since(start)
+
+		if err != nil {
+			h.logger.Error().
+				Err(err).
+				Int("batch_size", len(batch)).
+				Dur("duration", duration).
+				Msg("ошибка обработки пакета")
+			// При ошибке не помечаем сообщения — они будут повторно доставлены.
+		} else {
+			for _, msg := range batch {
+				session.MarkMessage(msg, "")
+			}
+			h.logger.Debug().
+				Int("batch_size", len(batch)).
+				Dur("duration", duration).
+				Msg("пакет обработан")
+		}
+
+		// Сброс пакета.
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case msg := <-claim.Messages():
+			if msg == nil {
+				// Канал закрыт — flush остатки и выход.
+				flush()
+				return nil
+			}
+
+			batch = append(batch, msg)
+			if len(batch) >= h.batchSize {
+				flush()
+				// Сброс таймера после flush по размеру.
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(h.batchTimeout)
+			}
+
+		case <-timer.C:
+			flush()
+			timer.Reset(h.batchTimeout)
+
+		case <-session.Context().Done():
+			// Сессия завершается — flush остатки.
+			flush()
+			return nil
+		}
+	}
+}

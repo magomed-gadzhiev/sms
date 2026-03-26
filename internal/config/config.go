@@ -19,6 +19,7 @@ type Config struct {
 	SMSP      SMSPConfig      `mapstructure:"smpp"`
 	API       APIConfig       `mapstructure:"api"`
 	Worker    WorkerConfig    `mapstructure:"worker"`
+	Pipeline  PipelineConfig  `mapstructure:"pipeline"`
 	Monitoring MonitoringConfig `mapstructure:"monitoring"`
 }
 
@@ -62,6 +63,9 @@ type KafkaConfig struct {
 	TopicOutgoing     string        `mapstructure:"topic_outgoing"`
 	TopicDLR          string        `mapstructure:"topic_dlr"`
 	TopicFailed       string        `mapstructure:"topic_failed"`
+	TopicRouted       string        `mapstructure:"topic_routed"`
+	TopicSent         string        `mapstructure:"topic_sent"`
+	TopicStatus       string        `mapstructure:"topic_status"`
 	ConsumerGroup     string        `mapstructure:"consumer_group"`
 	SessionTimeout    time.Duration `mapstructure:"session_timeout"`
 	HeartbeatInterval time.Duration `mapstructure:"heartbeat_interval"`
@@ -109,6 +113,15 @@ type AuthConfig struct {
 	APIKeyHeader string        `mapstructure:"api_key_header"`
 	JWTSecret    string        `mapstructure:"jwt_secret"`
 	TokenExpiry  time.Duration `mapstructure:"token_expiry"`
+}
+
+// PipelineConfig представляет конфигурацию pipeline-worker
+type PipelineConfig struct {
+	Stage          string        `mapstructure:"stage"`           // router | sender | status
+	BatchSize      int           `mapstructure:"batch_size"`      // messages per batch (default: 500)
+	BatchTimeout   time.Duration `mapstructure:"batch_timeout"`   // max wait for batch (default: 10ms)
+	WorkerCount    int           `mapstructure:"worker_count"`    // goroutines per stage (default: 4)
+	SMPPWindowSize int           `mapstructure:"smpp_window_size"` // async PDU window per connection (default: 50)
 }
 
 // WorkerConfig представляет конфигурацию Worker сервиса
@@ -201,6 +214,40 @@ func Load(configPath string) (*Config, error) {
 		v.Set("service.name", name)
 	}
 
+	// Pipeline
+	if stage := os.Getenv("PIPELINE_STAGE"); stage != "" {
+		v.Set("pipeline.stage", stage)
+	}
+	if bs := os.Getenv("PIPELINE_BATCH_SIZE"); bs != "" {
+		if n, err := strconv.Atoi(bs); err == nil {
+			v.Set("pipeline.batch_size", n)
+		}
+	}
+	if bt := os.Getenv("PIPELINE_BATCH_TIMEOUT"); bt != "" {
+		v.Set("pipeline.batch_timeout", bt)
+	}
+	if wc := os.Getenv("PIPELINE_WORKER_COUNT"); wc != "" {
+		if n, err := strconv.Atoi(wc); err == nil {
+			v.Set("pipeline.worker_count", n)
+		}
+	}
+	if ws := os.Getenv("SMPP_WINDOW_SIZE"); ws != "" {
+		if n, err := strconv.Atoi(ws); err == nil {
+			v.Set("pipeline.smpp_window_size", n)
+		}
+	}
+
+	// Kafka pipeline topics
+	if t := os.Getenv("KAFKA_TOPIC_ROUTED"); t != "" {
+		v.Set("kafka.topic_routed", t)
+	}
+	if t := os.Getenv("KAFKA_TOPIC_SENT"); t != "" {
+		v.Set("kafka.topic_sent", t)
+	}
+	if t := os.Getenv("KAFKA_TOPIC_STATUS"); t != "" {
+		v.Set("kafka.topic_status", t)
+	}
+
 	// HTTP Port
 	if port := os.Getenv("HTTP_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
@@ -271,6 +318,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("kafka.topic_outgoing", "sms.outgoing")
 	v.SetDefault("kafka.topic_dlr", "sms.dlr")
 	v.SetDefault("kafka.topic_failed", "sms.failed")
+	v.SetDefault("kafka.topic_routed", "sms.routed")
+	v.SetDefault("kafka.topic_sent", "sms.sent")
+	v.SetDefault("kafka.topic_status", "sms.status")
 	v.SetDefault("kafka.consumer_group", "smpp-worker")
 	v.SetDefault("kafka.session_timeout", "30s")
 	v.SetDefault("kafka.heartbeat_interval", "10s")
@@ -303,6 +353,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.auth.api_key_header", "X-API-Key")
 	v.SetDefault("api.auth.jwt_secret", "")
 	v.SetDefault("api.auth.token_expiry", "24h")
+
+	// Pipeline
+	v.SetDefault("pipeline.stage", "router")
+	v.SetDefault("pipeline.batch_size", 500)
+	v.SetDefault("pipeline.batch_timeout", "10ms")
+	v.SetDefault("pipeline.worker_count", 4)
+	v.SetDefault("pipeline.smpp_window_size", 50)
 
 	// Worker
 	v.SetDefault("worker.concurrency", 10)

@@ -15,6 +15,7 @@ Auto-generated from all feature plans. Last updated: 2026-03-26
 - N/A (фронтенд-только) (006-ux-a11y-audit)
 - Grafana JSON (дашборд), YAML (provisioning), Go 1.24.0 (новая метрика) + Grafana 10+ (визуализация), Prometheus (time-series), PostgreSQL 15+ (бизнес-данные), grafana-postgresql-datasource (плагин) (007-grafana-live-dashboard)
 - Prometheus (метрики: counters, histograms, gauges), PostgreSQL (accounts, transactions, messages, tarification_log, aggregated_metrics) (007-grafana-live-dashboard)
+- PostgreSQL 15+ (pgx, monthly partitioning для messages/audit_log), Redis 7+ (rate-limiting, cache), Apache Kafka (inter-stage messaging) (008-high-throughput-pipeline)
 
 - Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), golang-jwt/jwt/v5 (auth), prometheus/client_golang (metrics), stretchr/testify (testing) (001-sms-gateway-platform)
 
@@ -34,10 +35,28 @@ tests/
 Go 1.24.0: Follow standard conventions
 
 ## Recent Changes
+- 008-high-throughput-pipeline: Added Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), prometheus/client_golang (metrics), stretchr/testify (testing)
 - 007-grafana-live-dashboard: Added Grafana JSON (дашборд), YAML (provisioning), Go 1.24.0 (новая метрика) + Grafana 10+ (визуализация), Prometheus (time-series), PostgreSQL 15+ (бизнес-данные), grafana-postgresql-datasource (плагин)
 - 007-grafana-live-dashboard: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-- 006-ux-a11y-audit: Added TypeScript 5.x + React 19 (Vite) + react-router-dom (уже используется), нет новых зависимостей
 
+
+## Server Management
+
+Сервер: claude@72.56.232.202 (SSH alias: sms-server), деплой в /opt/sms
+
+Управление через `scripts/server.sh <command>`:
+- setup — первоначальная настройка сервера
+- deploy — синхронизировать и перезапустить
+- deploy <service> — обновить один сервис
+- status — статус контейнеров
+- logs <service> — логи сервиса (tail -f)
+- exec "<cmd>" — выполнить команду на сервере
+- migrate — применить миграции БД
+- seed — накатить тестовые данные
+- restart <service> / stop — управление стеком
+- sync — только синхронизация файлов
+
+Перед деплоем всегда проверяй что код компилируется локально.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

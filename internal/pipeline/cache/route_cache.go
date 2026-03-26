@@ -29,9 +29,10 @@ type RouteCache struct {
 	refreshTTL   time.Duration
 	logger       zerolog.Logger
 
-	mu        sync.RWMutex
-	routes    []*shared.Route
-	providers map[uuid.UUID]*shared.Provider
+	mu         sync.RWMutex
+	routes     []*shared.Route
+	routesByID map[uuid.UUID]*shared.Route
+	providers  map[uuid.UUID]*shared.Provider
 }
 
 func NewRouteCache(routeRepo RouteRepository, providerRepo ProviderRepository, refreshTTL time.Duration) *RouteCache {
@@ -40,6 +41,7 @@ func NewRouteCache(routeRepo RouteRepository, providerRepo ProviderRepository, r
 		providerRepo: providerRepo,
 		refreshTTL:   refreshTTL,
 		logger:       log.With().Str("component", "route-cache").Logger(),
+		routesByID:   make(map[uuid.UUID]*shared.Route),
 		providers:    make(map[uuid.UUID]*shared.Provider),
 	}
 }
@@ -55,7 +57,9 @@ func (c *RouteCache) Start(ctx context.Context) error {
 func (c *RouteCache) GetAllActiveRoutes() []*shared.Route {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.routes
+	result := make([]*shared.Route, len(c.routes))
+	copy(result, c.routes)
+	return result
 }
 
 func (c *RouteCache) GetProvider(id uuid.UUID) (*shared.Provider, bool) {
@@ -68,12 +72,8 @@ func (c *RouteCache) GetProvider(id uuid.UUID) (*shared.Provider, bool) {
 func (c *RouteCache) GetRouteByID(id uuid.UUID) (*shared.Route, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	for _, r := range c.routes {
-		if r.ID == id {
-			return r, true
-		}
-	}
-	return nil, false
+	r, ok := c.routesByID[id]
+	return r, ok
 }
 
 func (c *RouteCache) MatchRoutes(destination string) []*shared.Route {
@@ -114,8 +114,14 @@ func (c *RouteCache) refresh(ctx context.Context) error {
 		providerMap[p.ID] = p
 	}
 
+	routesByID := make(map[uuid.UUID]*shared.Route, len(routes))
+	for _, r := range routes {
+		routesByID[r.ID] = r
+	}
+
 	c.mu.Lock()
 	c.routes = routes
+	c.routesByID = routesByID
 	c.providers = providerMap
 	c.mu.Unlock()
 

@@ -21,7 +21,7 @@ CREATE TABLE transactions (
     balance_before NUMERIC(20, 6) NOT NULL,
     balance_after NUMERIC(20, 6) NOT NULL,
     description TEXT,
-    message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
+    message_id UUID, -- no FK: messages is partitioned
     payment_method VARCHAR(50),
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
