@@ -1,0 +1,33 @@
+# Grafana Datasource Provisioning Contract
+# Файл: deployments/configs/grafana/provisioning/datasources/datasources.yml
+#
+# Определяет два datasource для live load test дашборда:
+# 1. Prometheus — time-series метрики (существующий, формализуем)
+# 2. PostgreSQL — бизнес-данные (новый)
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+
+  - name: PostgreSQL
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: postgres:5432
+    database: smpp_db
+    user: smpp
+    editable: false
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 600
+      postgresVersion: 1500  # PostgreSQL 15
+      timescaledb: false
+    secureJsonData:
+      password: smpp_password

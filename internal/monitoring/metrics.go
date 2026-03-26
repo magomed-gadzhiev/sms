@@ -144,6 +144,14 @@ var (
 		[]string{"provider_id", "provider_name"},
 	)
 
+	SMPPMessagesDelivered = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "smpp_messages_delivered_total",
+			Help: "Общее количество доставленных SMS сообщений",
+		},
+		[]string{"provider_id", "provider_name"},
+	)
+
 	// Kafka queue метрики
 	KafkaQueueSize = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{

@@ -1,3 +1,8 @@
+# Prometheus Scrape Configuration Contract
+# Файл: deployments/configs/prometheus.yml
+#
+# Обновлённая конфигурация с актуальными сервисами
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s

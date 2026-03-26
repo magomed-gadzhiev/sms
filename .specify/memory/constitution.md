@@ -1,17 +1,20 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.1.1
+- Version change: 1.1.1 → 1.1.2
 - Modified principles: none
 - Added sections: none
 - Removed sections: none
 - Clarifications:
-  Technical Constraints: Cache — expanded Redis usage description to include
-  domain data caching (HLR lookup results), reflecting 004-hlr-smart-routing
+  Technical Constraints: Monitoring — expanded to include dashboard-as-code
+  practice (Grafana JSON dashboards + YAML provisioning version-controlled
+  in repo), reflecting 007-grafana-live-dashboard
 - Templates requiring updates:
   ✅ plan-template.md — no changes needed (Constitution Check is dynamic)
   ✅ spec-template.md — no changes needed
   ✅ tasks-template.md — no changes needed
-- Follow-up TODOs: none
+- Follow-up TODOs:
+  ⚠ README.md is outdated (refers to "API Gateway + SMPP Server + Worker"
+    but actual architecture has 12+ microservices) — flagged for manual update
 -->
 
 # SMS Gateway Platform Constitution
@@ -87,7 +90,10 @@ premature helper.
 - **Auth**: JWT + API keys for machine-to-machine (client-gateway);
   session cookies + CSRF tokens for web portals (portal-gateway)
 - **Deployment**: Docker Compose with HAProxy load balancing
-- **Monitoring**: Prometheus + Grafana; all services expose /metrics
+- **Monitoring**: Prometheus + Grafana; all services expose /metrics.
+  Grafana dashboards MUST be version-controlled as JSON files and
+  provisioned via YAML (datasources + dashboard providers) — no
+  manually created dashboards
 
 ## Development Workflow
 
@@ -108,4 +114,4 @@ MUST be justified in the plan's Complexity Tracking section.
 Amendments require: (1) documented rationale, (2) version bump,
 (3) propagation to dependent templates.
 
-**Version**: 1.1.1 | **Ratified**: 2026-03-20 | **Last Amended**: 2026-03-21
+**Version**: 1.1.2 | **Ratified**: 2026-03-20 | **Last Amended**: 2026-03-26
