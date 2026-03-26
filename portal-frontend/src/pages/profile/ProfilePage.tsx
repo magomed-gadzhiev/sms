@@ -1,9 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { profileApi, ApiError, type ProfileData } from '../../api/client';
-import { useAuth } from '../../contexts/AuthContext';
 
 export function ProfilePage() {
-  useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');

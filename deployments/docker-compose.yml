@@ -9,7 +9,7 @@ services:
       - "8080:8080"  # Client Gateway HTTP
       - "8081:8081"  # Admin Gateway HTTP
       - "9090:9090"  # Client Gateway gRPC
-      - "9091:9091"  # Admin Gateway gRPC
+      - "19095:9091"  # Admin Gateway gRPC (host port changed to avoid conflict)
       - "8082:8082"  # Portal Gateway HTTP
       - "8083:8083"  # Portal Frontend HTTP
       - "8404:8404"  # HAProxy stats
@@ -64,8 +64,6 @@ services:
         condition: service_healthy
       messaging-service:
         condition: service_healthy
-      routing-service:
-        condition: service_healthy
       analytics-service:
         condition: service_healthy
       billing-service:
@@ -82,7 +80,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -141,7 +139,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -154,14 +152,14 @@ services:
     container_name: admin-gateway-1
     ports:
       - "18082:8081"  # HTTP (internal)
-      - "19094:9091"  # gRPC (internal)
+      - "19094:9091"  # gRPC (host port changed to avoid conflict)
     environment:
       - SERVICE_NAME=admin-gateway-1
       - ADMIN_HTTP_PORT=8081
       - ADMIN_GRPC_PORT=9091
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
-      - PROVIDER_SERVICE_ADDR=provider-service:9094
+      - PROVIDER_SERVICE_ADDR=provider-service:9093
       - ROUTING_SERVICE_ADDR=routing-service:9093
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
@@ -201,7 +199,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8081/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8081/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -221,7 +219,7 @@ services:
       - ADMIN_GRPC_PORT=9091
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
-      - PROVIDER_SERVICE_ADDR=provider-service:9094
+      - PROVIDER_SERVICE_ADDR=provider-service:9093
       - ROUTING_SERVICE_ADDR=routing-service:9093
       - ANALYTICS_SERVICE_ADDR=analytics-service:9096
       - BILLING_SERVICE_ADDR=billing-service:9097
@@ -261,7 +259,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8081/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8081/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -274,7 +272,7 @@ services:
     container_name: smpp-gateway
     ports:
       - "2775:2775"  # SMPP port
-      - "2122:2112"  # Metrics port (на хосте 2122, внутри 2112)
+      - "2110:2112"  # Metrics host port changed to avoid conflict
     environment:
       - SMPP_PORT=2775
       - AUTH_SERVICE_ADDR=auth-service:9101
@@ -295,7 +293,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2112/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:2112/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -310,8 +308,8 @@ services:
         SERVICE_PATH: cmd/services/auth-service
     container_name: auth-service
     ports:
-      - "9101:9101"  # gRPC
-      - "2112:2112"  # Metrics
+      - "9101:9101"  # gRPC (используется через переменную окружения GRPC_PORT в коде)
+      - "2112:2112"  # Metrics (конфликт с client-service - требуется исправление в коде)
     environment:
       - SERVICE_NAME=auth-service
       - GRPC_PORT=9101
@@ -325,7 +323,6 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_ADDR=redis:6379
     networks:
       - smpp-network
     depends_on:
@@ -335,7 +332,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2112/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2112/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -382,12 +379,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2113/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2113/health"]
       interval: 10s
       timeout: 5s
       retries: 3
 
   # Routing Service
+  # ВНИМАНИЕ: В текущем коде routing-service использует hardcoded порты 9093 (gRPC) и 2114 (metrics),
+  # которые конфликтуют с provider-service. Необходимо обновить код одного из сервисов.
   routing-service:
     build:
       context: ..
@@ -397,8 +396,8 @@ services:
         SERVICE_PATH: cmd/services/routing-service
     container_name: routing-service
     ports:
-      - "9093:9093"  # gRPC
-      - "2114:2114"  # Metrics
+      - "9093:9093"  # gRPC (конфликт с provider-service - требуется исправление в коде)
+      - "2114:2114"  # Metrics (конфликт с provider-service - требуется исправление в коде)
     environment:
       - SERVICE_NAME=routing-service
       - KAFKA_BROKERS=kafka:9092
@@ -419,12 +418,15 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2114/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2114/health"]
       interval: 10s
       timeout: 5s
       retries: 3
 
   # Provider Service
+  # ВНИМАНИЕ: В текущем коде provider-service использует hardcoded порт 9093,
+  # который конфликтует с routing-service. Необходимо обновить код provider-service
+  # для поддержки переменной окружения GRPC_PORT или использовать другой порт.
   provider-service:
     build:
       context: ..
@@ -434,10 +436,11 @@ services:
         SERVICE_PATH: cmd/services/provider-service
     container_name: provider-service
     ports:
-      - "9094:9094"  # gRPC
-      - "2115:2115"  # Metrics
+      - "9094:9093"  # gRPC (host port changed to avoid conflict)
+      - "2115:2114"  # Metrics (host port changed to avoid conflict)
     environment:
       - SERVICE_NAME=provider-service
+      # GRPC_PORT не поддерживается в текущем коде - требуется обновление
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -453,12 +456,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2115/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2114/health"]
       interval: 10s
       timeout: 5s
       retries: 3
 
   # Client Service
+  # ВНИМАНИЕ: В текущем коде client-service использует hardcoded порт 2112 для метрик,
+  # который конфликтует с auth-service. Необходимо обновить код.
   client-service:
     build:
       context: ..
@@ -468,8 +473,8 @@ services:
         SERVICE_PATH: cmd/services/client-service
     container_name: client-service
     ports:
-      - "9095:9095"  # gRPC
-      - "2116:2112"  # Metrics (внутри контейнера 2112, на хосте 2116)
+      - "9095:9095"  # gRPC (используется через переменную окружения GRPC_PORT в коде)
+      - "2116:2112"  # Metrics (host port changed to avoid conflict with auth-service)
     environment:
       - SERVICE_NAME=client-service
       - GRPC_PORT=9095
@@ -492,7 +497,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2112/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2112/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -526,7 +531,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2117/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2117/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -560,7 +565,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2118/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2118/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -594,7 +599,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2119/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2119/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -625,7 +630,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2120/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2120/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -662,7 +667,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:2121/health || exit 1"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2121/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -677,7 +682,6 @@ services:
       - "18084:8082"  # HTTP (internal)
     environment:
       - SERVICE_NAME=portal-gateway
-      - SERVICE_ENV=development
       - PORTAL_HTTP_PORT=8082
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
@@ -696,15 +700,12 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_ADDR=redis:6379
     networks:
       - smpp-network
     depends_on:
       auth-service:
         condition: service_healthy
       messaging-service:
-        condition: service_healthy
-      routing-service:
         condition: service_healthy
       analytics-service:
         condition: service_healthy
@@ -720,7 +721,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8082/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8082/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -739,7 +740,7 @@ services:
       - portal-gateway
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:80/ >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -839,7 +840,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "9191:9090"  # Prometheus UI
+      - "9091:9090"
     volumes:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -892,7 +893,7 @@ services:
       # Проверка доступности Directus API и подключения к БД через health endpoint
       # Endpoint /server/health проверяет как доступность сервиса, так и подключение к БД
       # Используем curl для проверки HTTP статуса и наличия ответа от сервера
-      test: ["CMD-SHELL", "curl -f http://localhost:8055/server/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8055/server/health >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
