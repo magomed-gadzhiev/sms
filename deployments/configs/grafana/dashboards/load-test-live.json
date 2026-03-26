@@ -31,7 +31,11 @@
         "refresh": 1,
         "includeAll": false,
         "multi": false,
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": "LoadTest-Dummy",
+          "value": "00000000-0000-0000-0000-000000000001"
+        },
         "sort": 1
       },
       {
@@ -289,7 +293,7 @@
       "gridPos": {"h": 8, "w": 6, "x": 6, "y": 10},
       "targets": [
         {
-          "rawSql": "SELECT COUNT(*) AS \"Delivered\" FROM messages WHERE status = 'delivered' AND client_id = '$client_id' AND created_at >= NOW() - INTERVAL '$time_range'",
+          "rawSql": "SELECT COUNT(*) AS \"Delivered\" FROM messages WHERE status = 'delivered' AND client_id = '$client_id' AND delivered_at >= NOW() - INTERVAL '$time_range'",
           "format": "table",
           "refId": "A"
         }

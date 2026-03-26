@@ -19,6 +19,10 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/smsc"
 	"github.com/smpp-server/smpp-server/internal/storage"
+
+	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -88,6 +92,22 @@ func main() {
 		}
 	}
 
+	// Подключение к tarification-service gRPC
+	tarificationAddr := os.Getenv("TARIFICATION_SERVICE_ADDR")
+	if tarificationAddr == "" {
+		tarificationAddr = "tarification-service:9100"
+	}
+	tarificationConn, err := grpc.NewClient(tarificationAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Warn().Err(err).Msg("не удалось подключиться к tarification-service, тарификация отключена")
+	}
+	var tarificationClient tarificationv1.TarificationServiceClient
+	if tarificationConn != nil {
+		tarificationClient = tarificationv1.NewTarificationServiceClient(tarificationConn)
+		defer tarificationConn.Close()
+		log.Info().Str("addr", tarificationAddr).Msg("подключение к tarification-service")
+	}
+
 	// Создание sender
 	sender := smsc.NewSender(smscPool)
 
@@ -112,7 +132,7 @@ func main() {
 	// Создание Kafka consumer
 	consumer, err := queue.NewConsumer(
 		&cfg.Kafka,
-		createOutgoingHandler(messageRepo, msgRouter, sender, retryManager, workerID),
+		createOutgoingHandler(messageRepo, msgRouter, sender, retryManager, workerID, tarificationClient),
 		createDLRHandler(messageRepo),
 		createFailedHandler(messageRepo),
 	)
@@ -208,6 +228,7 @@ func createOutgoingHandler(
 	sender *smsc.Sender,
 	retryManager *router.RetryManager,
 	workerID string,
+	tarificationClient tarificationv1.TarificationServiceClient,
 ) queue.MessageHandler {
 	return func(ctx context.Context, kafkaMsg *queue.KafkaMessage) error {
 		startTime := time.Now()
@@ -275,13 +296,41 @@ func createOutgoingHandler(
 			return err
 		}
 
+		// Вызываем тарификацию
+		if tarificationClient != nil {
+			segCount := dbMsg.SegmentCount
+			if segCount == 0 {
+				segCount = 1
+			}
+			tarifyResp, tarifyErr := tarificationClient.TarifyMessage(ctx, &tarificationv1.TarifyMessageRequest{
+				ClientId:       dbMsg.ClientID.String(),
+				MessageId:      dbMsg.ID.String(),
+				OperatorId:     "d0000000-0000-0000-0000-000000000005",
+				SenderName:     dbMsg.Source,
+				SegmentCount:   int32(segCount),
+				IdempotencyKey: dbMsg.ID.String(),
+			})
+			if tarifyErr != nil {
+				log.Warn().Err(tarifyErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка тарификации (продолжаем)")
+			} else if tarifyResp != nil && !tarifyResp.Approved {
+				log.Warn().Str("message_id", dbMsg.ID.String()).Str("reason", tarifyResp.RejectionReason).Msg("тарификация отклонена")
+			}
+		}
+
 		// Обновляем статус сообщения в БД
 		now := time.Now()
-		dbMsg.Status = shared.MessageStatusSent
 		dbMsg.SMPPMessageID = smppMessageID
 		dbMsg.ProviderID = &provider.ID
 		dbMsg.SubmittedAt = &now
 		dbMsg.UpdatedAt = now
+
+		// Симулятор — сразу помечаем как delivered
+		if smsc.IsSimulator(provider) {
+			dbMsg.Status = shared.MessageStatusDelivered
+			dbMsg.DeliveredAt = &now
+		} else {
+			dbMsg.Status = shared.MessageStatusSent
+		}
 
 		if err := messageRepo.Update(ctx, dbMsg); err != nil {
 			log.Error().

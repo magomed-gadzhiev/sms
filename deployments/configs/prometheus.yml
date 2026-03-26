@@ -83,3 +83,9 @@ scrape_configs:
       - targets: ['tarification-service:2121']
         labels:
           service: 'tarification-service'
+
+  - job_name: 'worker'
+    static_configs:
+      - targets: ['worker:2112']
+        labels:
+          service: 'worker'

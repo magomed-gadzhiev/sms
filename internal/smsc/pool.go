@@ -108,10 +108,43 @@ func NewPool(cfg *config.WorkerConfig) *Pool {
 	}
 }
 
+// IsSimulator проверяет, является ли провайдер симулятором
+func IsSimulator(provider *shared.Provider) bool {
+	return provider.SystemType == "SIMULATOR"
+}
+
 // Connect создает новое соединение к провайдеру
 func (p *Pool) Connect(ctx context.Context, provider *shared.Provider) (*Connection, error) {
+	connectionID := uuid.New().String()
+
+	// Симулятор — создаём фейковое соединение без TCP
+	if IsSimulator(provider) {
+		connection := &Connection{
+			ID:          connectionID,
+			ProviderID:  provider.ID,
+			Conn:        nil,
+			Bound:       true,
+			LastUsed:    time.Now(),
+			SequenceNum: 0,
+			CreatedAt:   time.Now(),
+			throttler:   NewThrottler(provider.ThroughputPerSec),
+			logger:      log.With().Str("connection_id", connectionID).Str("provider", provider.Name).Logger(),
+		}
+
+		p.mu.Lock()
+		p.connections[provider.ID] = append(p.connections[provider.ID], connection)
+		p.mu.Unlock()
+
+		p.logger.Info().
+			Str("provider_id", provider.ID.String()).
+			Str("provider_name", provider.Name).
+			Msg("симулятор провайдера подключён (без TCP)")
+
+		return connection, nil
+	}
+
 	addr := fmt.Sprintf("%s:%d", provider.Host, provider.Port)
-	
+
 	p.logger.Info().
 		Str("provider_id", provider.ID.String()).
 		Str("provider_name", provider.Name).
@@ -123,7 +156,6 @@ func (p *Pool) Connect(ctx context.Context, provider *shared.Provider) (*Connect
 		return nil, fmt.Errorf("ошибка подключения к %s: %w", addr, err)
 	}
 
-	connectionID := uuid.New().String()
 	connection := &Connection{
 		ID:          connectionID,
 		ProviderID:  provider.ID,
