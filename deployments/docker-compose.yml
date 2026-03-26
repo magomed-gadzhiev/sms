@@ -341,8 +341,8 @@ services:
       - PIPELINE_BATCH_TIMEOUT=10ms
       - PIPELINE_WORKER_COUNT=4
       - KAFKA_BROKERS=kafka:9092
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
       - POSTGRES_USER=smpp
       - POSTGRES_PASSWORD=smpp_password
       - POSTGRES_DB=smpp_db
@@ -353,7 +353,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -374,8 +374,8 @@ services:
       - PIPELINE_WORKER_COUNT=4
       - SMPP_WINDOW_SIZE=50
       - KAFKA_BROKERS=kafka:9092
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
       - POSTGRES_USER=smpp
       - POSTGRES_PASSWORD=smpp_password
       - POSTGRES_DB=smpp_db
@@ -386,7 +386,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -403,8 +403,8 @@ services:
       - PIPELINE_BATCH_SIZE=500
       - PIPELINE_BATCH_TIMEOUT=10ms
       - KAFKA_BROKERS=kafka:9092
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
       - POSTGRES_USER=smpp
       - POSTGRES_PASSWORD=smpp_password
       - POSTGRES_DB=smpp_db
@@ -415,7 +415,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -475,8 +475,8 @@ services:
     environment:
       - SERVICE_NAME=messaging-service
       - KAFKA_BROKERS=kafka:9092
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
       - POSTGRES_USER=smpp
       - POSTGRES_PASSWORD=smpp_password
       - POSTGRES_DB=smpp_db
@@ -494,7 +494,7 @@ services:
     networks:
       - smpp-network
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -524,8 +524,8 @@ services:
     environment:
       - SERVICE_NAME=routing-service
       - KAFKA_BROKERS=kafka:9092
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
       - POSTGRES_USER=smpp
       - POSTGRES_PASSWORD=smpp_password
       - POSTGRES_DB=smpp_db
@@ -533,7 +533,7 @@ services:
     networks:
       - smpp-network
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -940,6 +940,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # PgBouncer connection pooler
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.0
+    volumes:
+      - ./configs/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./configs/pgbouncer_userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U smpp"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - smpp-network
 
   # Redis
   redis:
