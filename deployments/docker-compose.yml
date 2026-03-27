@@ -847,6 +847,7 @@ services:
       - "18084:8082"  # HTTP (internal)
     environment:
       - SERVICE_NAME=portal-gateway
+      - SERVICE_ENV=development
       - PORTAL_HTTP_PORT=8082
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
