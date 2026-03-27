@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -22,6 +23,57 @@ func NewMessageHandlers(messagingClient messagingv1.MessagingServiceClient) *Mes
 	return &MessageHandlers{
 		messagingClient: messagingClient,
 	}
+}
+
+type sendMessageRequest struct {
+	Destination string `json:"destination"`
+	Text        string `json:"text"`
+	Source      string `json:"source"`
+}
+
+// SendMessage обрабатывает POST /messages
+func (h *MessageHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	var req sendMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.Destination == "" {
+		respondError(w, shared.ErrInvalidInput("Поле destination обязательно"))
+		return
+	}
+	if req.Text == "" {
+		respondError(w, shared.ErrInvalidInput("Поле text обязательно"))
+		return
+	}
+
+	if h.messagingClient == nil {
+		respondError(w, shared.ErrServiceUnavailable("Сервис отправки сообщений недоступен"))
+		return
+	}
+
+	resp, err := h.messagingClient.SendMessage(r.Context(), &messagingv1.SendMessageRequest{
+		ClientId:    clientID.String(),
+		Source:      req.Source,
+		Destination: req.Destination,
+		Text:        req.Text,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка отправки SMS")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"message_id": resp.MessageId,
+		"status":     resp.Status,
+	})
 }
 
 // ListMessages обрабатывает GET /messages

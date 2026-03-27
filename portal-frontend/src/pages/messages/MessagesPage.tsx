@@ -3,6 +3,9 @@ import { messagesApi } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { DataTable, type Column } from '../../components/data/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
 
 interface MessageItem {
   message_id: string;
@@ -64,6 +67,13 @@ export function MessagesPage() {
   const [page, setPage] = useState(1);
   const [filterValues, setFilterValues] = useState<Record<string, string>>(INITIAL_FILTERS);
 
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendDest, setSendDest] = useState('');
+  const [sendText, setSendText] = useState('');
+  const [sendSource, setSendSource] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+
   const fetchMessages = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -98,9 +108,45 @@ export function MessagesPage() {
     setPage(1);
   };
 
+  const handleSendSMS = async () => {
+    setSending(true);
+    setSendError('');
+    try {
+      await messagesApi.send({ destination: sendDest, text: sendText, source: sendSource || undefined });
+      setShowSendModal(false);
+      setSendDest('');
+      setSendText('');
+      setSendSource('');
+      fetchMessages();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Ошибка отправки');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div>
-      <PageHeader title="Messages" />
+      <PageHeader
+        title="Messages"
+        actions={<Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>}
+      />
+
+      <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="Отправить SMS" description="Отправка тестового SMS сообщения">
+        <div className="space-y-3">
+          {sendError && <p role="alert" className="text-red-600 text-sm">{sendError}</p>}
+          <Input label="Номер получателя" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required />
+          <Input label="Sender ID" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения</label>
+            <textarea className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setShowSendModal(false)}>Отмена</Button>
+            <Button onClick={handleSendSMS} disabled={sending || !sendDest || !sendText}>{sending ? 'Отправка...' : 'Отправить'}</Button>
+          </div>
+        </div>
+      </Modal>
 
       <FilterBar
         filters={MESSAGE_FILTERS}

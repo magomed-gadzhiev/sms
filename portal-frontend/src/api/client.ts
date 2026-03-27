@@ -114,6 +114,11 @@ export const messagesApi = {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<unknown>(`/messages?${qs}`);
   },
+  send: (data: { destination: string; text: string; source?: string }) =>
+    apiFetch<{ message_id: string; status: string }>('/messages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // API Keys API

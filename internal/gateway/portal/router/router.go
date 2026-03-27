@@ -97,7 +97,7 @@ func SetupRouter(
 
 	// Messages endpoints
 	messages := protected.PathPrefix("/messages").Subrouter()
-	messages.HandleFunc("", notImplemented).Methods("POST")
+	messages.HandleFunc("", messageHandlers.SendMessage).Methods("POST")
 	messages.HandleFunc("", messageHandlers.ListMessages).Methods("GET")
 	messages.HandleFunc("/{id}", notImplemented).Methods("GET")
 
