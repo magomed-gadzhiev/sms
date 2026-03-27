@@ -41,6 +41,7 @@ func SetupRouter(
 	auditHandlers *handlers.AuditHandlers,
 	lookupHandlers *handlers.LookupHandlers,
 	plansHandlers *handlers.PlansHandlers,
+	providerHandlers *handlers.ProviderHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -139,6 +140,15 @@ func SetupRouter(
 
 	// Audit log endpoints
 	protected.HandleFunc("/audit-log", auditHandlers.ListAuditLog).Methods("GET")
+
+	// Providers endpoints
+	providers := protected.PathPrefix("/providers").Subrouter()
+	providers.HandleFunc("", providerHandlers.ListProviders).Methods("GET")
+	providers.HandleFunc("", providerHandlers.CreateProvider).Methods("POST")
+	providers.HandleFunc("/test-connection", providerHandlers.TestProviderConnection).Methods("POST")
+	providers.HandleFunc("/{id}", providerHandlers.GetProvider).Methods("GET")
+	providers.HandleFunc("/{id}", providerHandlers.UpdateProvider).Methods("PUT")
+	providers.HandleFunc("/{id}", providerHandlers.DeleteProvider).Methods("DELETE")
 
 	return router
 }

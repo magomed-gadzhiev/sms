@@ -12,6 +12,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/auditv1"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 	"github.com/smpp-server/smpp-server/api/proto/billingv1"
+	cpv1 "github.com/smpp-server/smpp-server/api/proto/clientproviderv1"
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
@@ -20,14 +21,15 @@ import (
 
 // ServiceClients содержит gRPC клиенты для всех сервисов Portal Gateway
 type ServiceClients struct {
-	AuthClient      authv1.AuthServiceClient
-	ClientClient    clientv1.ClientServiceClient
-	BillingClient   billingv1.BillingServiceClient
-	MessagingClient messagingv1.MessagingServiceClient
-	AnalyticsClient analyticsv1.AnalyticsServiceClient
-	WebhookClient   webhookv1.WebhookServiceClient
-	AuditClient     auditv1.AuditServiceClient
-	RoutingClient   routingv1.RoutingServiceClient
+	AuthClient           authv1.AuthServiceClient
+	ClientClient         clientv1.ClientServiceClient
+	BillingClient        billingv1.BillingServiceClient
+	MessagingClient      messagingv1.MessagingServiceClient
+	AnalyticsClient      analyticsv1.AnalyticsServiceClient
+	WebhookClient        webhookv1.WebhookServiceClient
+	AuditClient          auditv1.AuditServiceClient
+	RoutingClient        routingv1.RoutingServiceClient
+	ProviderClient       cpv1.ClientProviderServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -42,6 +44,7 @@ type ServiceAddresses struct {
 	Webhook   string
 	Audit     string
 	Routing   string
+	Provider  string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -139,6 +142,17 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Audit Service: %w", err)
 		}
 		clients.AuditClient = auditv1.NewAuditServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Provider Service
+	if addresses.Provider != "" {
+		conn, err := grpc.Dial(addresses.Provider, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Provider Service: %w", err)
+		}
+		clients.ProviderClient = cpv1.NewClientProviderServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 

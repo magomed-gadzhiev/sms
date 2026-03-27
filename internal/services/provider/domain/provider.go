@@ -6,6 +6,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// RoutingRule описывает правило маршрутизации через провайдера
+type RoutingRule struct {
+	Pattern  string `json:"pattern"`
+	Priority int    `json:"priority"`
+}
+
 // Provider представляет доменную модель SMSC провайдера
 type Provider struct {
 	ID               uuid.UUID
@@ -28,6 +34,12 @@ type Provider struct {
 	ThroughputPerSec int
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	// Поля для client-провайдеров
+	ClientID     *uuid.UUID
+	Description  string
+	Tags         []string
+	TPSLimit     int
+	RoutingRules []RoutingRule
 }
 
 // BindType представляет тип SMPP bind операции

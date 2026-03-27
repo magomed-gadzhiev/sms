@@ -11,6 +11,8 @@ import (
 type Client struct {
 	ID            uuid.UUID       `json:"id" db:"id"`
 	Name          string          `json:"name" db:"name"`
+	APIKey        string          `json:"api_key" db:"api_key"`
+	Secret        string          `json:"secret" db:"secret"`
 	Email         string          `json:"email" db:"email"`
 	ContactPerson string          `json:"contact_person" db:"contact_person"`
 	Phone         string          `json:"phone" db:"phone"`

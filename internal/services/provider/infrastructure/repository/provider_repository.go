@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/services/provider/domain"
@@ -99,6 +100,7 @@ func (a *ProviderRepositoryAdapter) Delete(ctx context.Context, id uuid.UUID) er
 
 // domainToShared преобразует domain.Provider в shared.Provider
 func domainToShared(p *domain.Provider) *shared.Provider {
+	rulesJSON, _ := json.Marshal(p.RoutingRules)
 	return &shared.Provider{
 		ID:               p.ID,
 		Name:             p.Name,
@@ -119,12 +121,17 @@ func domainToShared(p *domain.Provider) *shared.Provider {
 		ThroughputPerSec: p.ThroughputPerSec,
 		CreatedAt:        p.CreatedAt,
 		UpdatedAt:        p.UpdatedAt,
+		ClientID:         p.ClientID,
+		Description:      p.Description,
+		Tags:             shared.StringArray(p.Tags),
+		TPSLimit:         p.TPSLimit,
+		RoutingRules:     rulesJSON,
 	}
 }
 
 // sharedToDomain преобразует shared.Provider в domain.Provider
 func sharedToDomain(p *shared.Provider) *domain.Provider {
-	return &domain.Provider{
+	d := &domain.Provider{
 		ID:               p.ID,
 		Name:             p.Name,
 		Host:             p.Host,
@@ -144,5 +151,43 @@ func sharedToDomain(p *shared.Provider) *domain.Provider {
 		ThroughputPerSec: p.ThroughputPerSec,
 		CreatedAt:        p.CreatedAt,
 		UpdatedAt:        p.UpdatedAt,
+		ClientID:         p.ClientID,
+		Description:      p.Description,
+		Tags:             []string(p.Tags),
+		TPSLimit:         p.TPSLimit,
 	}
+	if len(p.RoutingRules) > 0 {
+		_ = json.Unmarshal(p.RoutingRules, &d.RoutingRules)
+	}
+	return d
+}
+
+// ListByClientID возвращает провайдеров клиента
+func (a *ProviderRepositoryAdapter) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.Provider, error) {
+	providers, err := a.repo.ListByClientID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*domain.Provider, len(providers))
+	for i, p := range providers {
+		result[i] = sharedToDomain(p)
+	}
+	return result, nil
+}
+
+// CountByClientID считает провайдеров клиента
+func (a *ProviderRepositoryAdapter) CountByClientID(ctx context.Context, clientID uuid.UUID) (int, error) {
+	return a.repo.CountByClientID(ctx, clientID)
+}
+
+// GetByIDAndClientID получает провайдера с проверкой принадлежности клиенту
+func (a *ProviderRepositoryAdapter) GetByIDAndClientID(ctx context.Context, id, clientID uuid.UUID) (*domain.Provider, error) {
+	p, err := a.repo.GetByIDAndClientID(ctx, id, clientID)
+	if err != nil {
+		if err == storage.ErrNotFound {
+			return nil, domain.ErrProviderNotFound
+		}
+		return nil, err
+	}
+	return sharedToDomain(p), nil
 }

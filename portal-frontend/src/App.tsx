@@ -16,6 +16,8 @@ import { WebhooksPage } from './pages/webhooks/WebhooksPage';
 import { SubAccountsListPage } from './pages/sub-accounts/SubAccountsListPage';
 import { SubAccountDetailPage } from './pages/sub-accounts/SubAccountDetailPage';
 import { AuditLogPage } from './pages/audit/AuditLogPage';
+import { ProvidersPage } from './pages/providers/ProvidersPage';
+import { ProviderWizardPage } from './pages/providers/ProviderWizardPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -42,6 +44,7 @@ function RequireAuth() {
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard' },
   { path: '/messages', label: 'Messages' },
+  { path: '/providers', label: 'Providers' },
   { path: '/api-keys', label: 'API Keys' },
   { path: '/webhooks', label: 'Webhooks' },
   { path: '/analytics', label: 'Analytics' },
@@ -106,6 +109,8 @@ export function App() {
         <Route path="/api-keys" element={<APIKeysPage />} />
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/providers" element={<ProvidersPage />} />
+        <Route path="/providers/new" element={<ProviderWizardPage />} />
         <Route path="/sub-accounts" element={<SubAccountsListPage />} />
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />

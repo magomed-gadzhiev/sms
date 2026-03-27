@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -351,8 +352,12 @@ func getIPAddress(r *http.Request) string {
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	// Используем RemoteAddr
-	return r.RemoteAddr
+	// Используем RemoteAddr (отсекаем порт)
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // buildUserInfoResponse формирует ответ с информацией о пользователе

@@ -196,3 +196,73 @@ export const auditApi = {
     return apiFetch<unknown>(`/audit-log?${qs}`);
   },
 };
+
+// Providers API
+export interface RoutingRule {
+  pattern: string;
+  priority: number;
+}
+
+export interface Provider {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  host: string;
+  port: number;
+  system_id: string;
+  bind_type: number;
+  window_size: number;
+  max_connections: number;
+  tps_limit: number;
+  active: boolean;
+  routing_rules: RoutingRule[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProviderRequest {
+  name: string;
+  description?: string;
+  tags?: string[];
+  host: string;
+  port: number;
+  system_id: string;
+  password: string;
+  bind_type: number;
+  window_size?: number;
+  max_connections?: number;
+  tps_limit?: number;
+  routing_rules?: RoutingRule[];
+}
+
+export interface TestConnectionRequest {
+  host: string;
+  port: number;
+  system_id: string;
+  password: string;
+  bind_type: number;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  latency_ms: number;
+  log: string[];
+  error: string;
+}
+
+export const providersApi = {
+  list: () => apiFetch<{ providers: Provider[] }>('/providers'),
+  create: (data: CreateProviderRequest) =>
+    apiFetch<Provider>('/providers', { method: 'POST', body: JSON.stringify(data) }),
+  get: (id: string) => apiFetch<Provider>(`/providers/${id}`),
+  update: (id: string, data: Partial<CreateProviderRequest>) =>
+    apiFetch<Provider>(`/providers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => apiFetch<void>(`/providers/${id}`, { method: 'DELETE' }),
+  testConnection: (data: TestConnectionRequest) =>
+    apiFetch<TestConnectionResult>('/providers/test-connection', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};

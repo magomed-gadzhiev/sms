@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
@@ -66,10 +68,22 @@ func (s *ClientService) CreateClient(
 		return nil, ErrInvalidClientData
 	}
 
+	// Генерируем API key и secret
+	apiKeyBytes := make([]byte, 16)
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(apiKeyBytes); err != nil {
+		return nil, err
+	}
+	if _, err := rand.Read(secretBytes); err != nil {
+		return nil, err
+	}
+
 	// Создаем клиента
 	client := &domain.Client{
 		ID:            uuid.New(),
 		Name:          name,
+		APIKey:        "ak-" + hex.EncodeToString(apiKeyBytes),
+		Secret:        hex.EncodeToString(secretBytes),
 		Email:         email,
 		ContactPerson: contactPerson,
 		Phone:         phone,

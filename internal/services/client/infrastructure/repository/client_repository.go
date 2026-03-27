@@ -34,15 +34,16 @@ func NewClientRepository(db *database.DB) *ClientRepository {
 func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) error {
 	query := `
 		INSERT INTO clients (
-			id, name, email, contact_person, phone, active, metadata,
+			id, name, api_key, secret, email, contact_person, phone, active, metadata,
 			parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 		)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
-		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
+		client.ID, client.Name, client.APIKey, client.Secret,
+		client.Email, client.ContactPerson, client.Phone,
 		client.Active, string(client.Metadata),
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
 		client.IsSandbox,

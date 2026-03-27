@@ -51,3 +51,27 @@ func (m *MockProviderRepository) Delete(ctx context.Context, id uuid.UUID) error
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
+
+func (m *MockProviderRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.Provider, error) {
+	args := m.Called(ctx, clientID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Provider), args.Error(1)
+}
+
+func (m *MockProviderRepository) CountByClientID(ctx context.Context, clientID uuid.UUID) (int, error) {
+	args := m.Called(ctx, clientID)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockProviderRepository) GetByIDAndClientID(ctx context.Context, id, clientID uuid.UUID) (*domain.Provider, error) {
+	args := m.Called(ctx, id, clientID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Provider), args.Error(1)
+}
+
+// ProviderRepository — псевдоним для использования в тестах application пакета
+type ProviderRepository = MockProviderRepository

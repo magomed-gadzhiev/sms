@@ -14,4 +14,8 @@ type ProviderRepository interface {
 	GetByName(ctx context.Context, name string) (*Provider, error)
 	List(ctx context.Context, activeOnly bool, limit, offset int) ([]*Provider, int, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	// Методы для client-провайдеров
+	ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*Provider, error)
+	CountByClientID(ctx context.Context, clientID uuid.UUID) (int, error)
+	GetByIDAndClientID(ctx context.Context, id, clientID uuid.UUID) (*Provider, error)
 }

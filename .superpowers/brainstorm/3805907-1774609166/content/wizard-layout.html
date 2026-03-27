@@ -1,0 +1,108 @@
+<h2>SMPP Wizard — layout страницы</h2>
+<p class="subtitle">Маршрут: <code>/providers/new?step=N</code> — как выглядит вся страница</p>
+
+<div class="mockup" style="max-width:860px;margin:0 auto">
+  <div class="mockup-header">Portal — /providers/new</div>
+  <div class="mockup-body" style="padding:0">
+
+    <!-- Top progress bar -->
+    <div style="background:#1e293b;padding:20px 32px;border-bottom:1px solid #334155">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <span style="color:#94a3b8;font-size:13px">← Мои провайдеры</span>
+        <span style="color:#475569;font-size:13px">/</span>
+        <span style="color:#e2e8f0;font-size:13px;font-weight:600">Подключить SMPP провайдера</span>
+      </div>
+      <!-- Steps -->
+      <div style="display:flex;align-items:center;gap:0">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">1</div>
+          <span style="font-size:11px;color:#93c5fd;white-space:nowrap">Основное</span>
+        </div>
+        <div style="flex:1;height:2px;background:#3b82f6;margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">2</div>
+          <span style="font-size:11px;color:#93c5fd;white-space:nowrap">Подключение</span>
+        </div>
+        <div style="flex:1;height:2px;background:#475569;margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#475569;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">3</div>
+          <span style="font-size:11px;color:#64748b;white-space:nowrap">Параметры</span>
+        </div>
+        <div style="flex:1;height:2px;background:#475569;margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#475569;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">4</div>
+          <span style="font-size:11px;color:#64748b;white-space:nowrap">Тест</span>
+        </div>
+        <div style="flex:1;height:2px;background:#475569;margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#475569;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">5</div>
+          <span style="font-size:11px;color:#64748b;white-space:nowrap">Маршруты</span>
+        </div>
+        <div style="flex:1;height:2px;background:#475569;margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#475569;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">6</div>
+          <span style="font-size:11px;color:#64748b;white-space:nowrap">Итог</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step content (showing step 4 as most interesting) -->
+    <div style="display:flex;gap:0;min-height:380px">
+      <!-- Main content -->
+      <div style="flex:1;padding:28px 32px">
+        <h3 style="margin:0 0 4px;color:#f1f5f9;font-size:18px">Шаг 4 — Тест соединения</h3>
+        <p style="margin:0 0 20px;color:#64748b;font-size:14px">Проверим SMPP bind до провайдера</p>
+
+        <!-- Connection summary -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;gap:24px;flex-wrap:wrap">
+            <div><span style="color:#64748b;font-size:12px">Host</span><br><span style="color:#e2e8f0;font-size:14px;font-weight:500">smpp.example.com:2775</span></div>
+            <div><span style="color:#64748b;font-size:12px">System ID</span><br><span style="color:#e2e8f0;font-size:14px;font-weight:500">sms_client_01</span></div>
+            <div><span style="color:#64748b;font-size:12px">Bind Type</span><br><span style="color:#e2e8f0;font-size:14px;font-weight:500">TRX</span></div>
+          </div>
+        </div>
+
+        <!-- Test result area (success state) -->
+        <div style="background:#052e16;border:1px solid #166534;border-radius:8px;padding:16px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="color:#4ade80;font-size:18px">✓</span>
+            <span style="color:#4ade80;font-weight:600;font-size:15px">Соединение установлено</span>
+            <span style="color:#16a34a;font-size:13px;margin-left:auto">Латентность: 47ms</span>
+          </div>
+          <!-- Log lines -->
+          <div style="font-family:monospace;font-size:12px;color:#86efac;line-height:1.7">
+            <div>→ TCP connect smpp.example.com:2775 ... OK</div>
+            <div>→ SMPP bind_transceiver (system_id=sms_client_01) ... OK</div>
+            <div>→ bind_transceiver_resp (command_status=0x00000000) ... OK</div>
+            <div>→ enquire_link ... OK</div>
+            <div>→ unbind ... OK</div>
+          </div>
+        </div>
+
+        <!-- Navigation -->
+        <div style="display:flex;gap:12px">
+          <button class="mock-button" style="background:#1e293b;border:1px solid #334155;color:#94a3b8">← Назад</button>
+          <button class="mock-button" style="background:#3b82f6">Далее: Маршруты →</button>
+          <button class="mock-button" style="background:transparent;border:1px solid #1e293b;color:#64748b;margin-left:auto">Тест снова</button>
+        </div>
+      </div>
+
+      <!-- Sidebar tips -->
+      <div style="width:220px;background:#0f172a;border-left:1px solid #1e293b;padding:20px;flex-shrink:0">
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Подсказка</div>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 12px">Тест делает реальный SMPP bind и сразу unbind. Трафик не отправляется.</p>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0">Если тест не прошёл — проверь IP-whitelist на стороне провайдера.</p>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid #1e293b">
+          <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Прогресс</div>
+          <div style="font-size:12px;color:#94a3b8">4 из 6 шагов</div>
+          <div style="height:4px;background:#1e293b;border-radius:2px;margin-top:6px">
+            <div style="height:4px;background:#3b82f6;width:66%;border-radius:2px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">Это макет шага 4 (самого насыщенного). Остальные шаги — стандартные формы с тем же layout.</p>

@@ -10,6 +10,12 @@ import (
 	"github.com/lib/pq"
 )
 
+// RoutingRule описывает правило маршрутизации через провайдера
+type RoutingRule struct {
+	Pattern  string `json:"pattern"`
+	Priority int    `json:"priority"`
+}
+
 // StringArray представляет массив строк для PostgreSQL
 type StringArray []string
 
@@ -135,6 +141,12 @@ type Provider struct {
 	ThroughputPerSec  int       `json:"throughput_per_second" db:"throughput_per_second"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
+	// Поля для client-провайдеров
+	ClientID     *uuid.UUID      `json:"client_id,omitempty" db:"client_id"`
+	Description  string          `json:"description" db:"description"`
+	Tags         StringArray     `json:"tags" db:"tags"`
+	TPSLimit     int             `json:"tps_limit" db:"tps_limit"`
+	RoutingRules json.RawMessage `json:"routing_rules" db:"routing_rules"`
 }
 
 // Route представляет правило маршрутизации
