@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: client/client.proto
+// source: api/proto/client/client.proto
 
 package clientv1
 
@@ -32,6 +32,8 @@ const (
 	ClientService_GetSubAccount_FullMethodName          = "/client.v1.ClientService/GetSubAccount"
 	ClientService_DeleteSubAccount_FullMethodName       = "/client.v1.ClientService/DeleteSubAccount"
 	ClientService_UpdateSubAccountLimits_FullMethodName = "/client.v1.ClientService/UpdateSubAccountLimits"
+	ClientService_ListPlans_FullMethodName              = "/client.v1.ClientService/ListPlans"
+	ClientService_AssignPlan_FullMethodName             = "/client.v1.ClientService/AssignPlan"
 )
 
 // ClientServiceClient is the client API for ClientService service.
@@ -66,6 +68,10 @@ type ClientServiceClient interface {
 	DeleteSubAccount(ctx context.Context, in *DeleteSubAccountRequest, opts ...grpc.CallOption) (*DeleteSubAccountResponse, error)
 	// UpdateSubAccountLimits обновляет лимиты суб-аккаунта
 	UpdateSubAccountLimits(ctx context.Context, in *UpdateSubAccountLimitsRequest, opts ...grpc.CallOption) (*UpdateSubAccountLimitsResponse, error)
+	// ListPlans получает список тарифных планов
+	ListPlans(ctx context.Context, in *ListPlansRequest, opts ...grpc.CallOption) (*ListPlansResponse, error)
+	// AssignPlan назначает тарифный план клиенту
+	AssignPlan(ctx context.Context, in *AssignPlanRequest, opts ...grpc.CallOption) (*AssignPlanResponse, error)
 }
 
 type clientServiceClient struct {
@@ -206,6 +212,26 @@ func (c *clientServiceClient) UpdateSubAccountLimits(ctx context.Context, in *Up
 	return out, nil
 }
 
+func (c *clientServiceClient) ListPlans(ctx context.Context, in *ListPlansRequest, opts ...grpc.CallOption) (*ListPlansResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlansResponse)
+	err := c.cc.Invoke(ctx, ClientService_ListPlans_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientServiceClient) AssignPlan(ctx context.Context, in *AssignPlanRequest, opts ...grpc.CallOption) (*AssignPlanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AssignPlanResponse)
+	err := c.cc.Invoke(ctx, ClientService_AssignPlan_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClientServiceServer is the server API for ClientService service.
 // All implementations must embed UnimplementedClientServiceServer
 // for forward compatibility.
@@ -238,6 +264,10 @@ type ClientServiceServer interface {
 	DeleteSubAccount(context.Context, *DeleteSubAccountRequest) (*DeleteSubAccountResponse, error)
 	// UpdateSubAccountLimits обновляет лимиты суб-аккаунта
 	UpdateSubAccountLimits(context.Context, *UpdateSubAccountLimitsRequest) (*UpdateSubAccountLimitsResponse, error)
+	// ListPlans получает список тарифных планов
+	ListPlans(context.Context, *ListPlansRequest) (*ListPlansResponse, error)
+	// AssignPlan назначает тарифный план клиенту
+	AssignPlan(context.Context, *AssignPlanRequest) (*AssignPlanResponse, error)
 	mustEmbedUnimplementedClientServiceServer()
 }
 
@@ -286,6 +316,12 @@ func (UnimplementedClientServiceServer) DeleteSubAccount(context.Context, *Delet
 }
 func (UnimplementedClientServiceServer) UpdateSubAccountLimits(context.Context, *UpdateSubAccountLimitsRequest) (*UpdateSubAccountLimitsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateSubAccountLimits not implemented")
+}
+func (UnimplementedClientServiceServer) ListPlans(context.Context, *ListPlansRequest) (*ListPlansResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlans not implemented")
+}
+func (UnimplementedClientServiceServer) AssignPlan(context.Context, *AssignPlanRequest) (*AssignPlanResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignPlan not implemented")
 }
 func (UnimplementedClientServiceServer) mustEmbedUnimplementedClientServiceServer() {}
 func (UnimplementedClientServiceServer) testEmbeddedByValue()                       {}
@@ -542,6 +578,42 @@ func _ClientService_UpdateSubAccountLimits_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientService_ListPlans_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlansRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServiceServer).ListPlans(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientService_ListPlans_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServiceServer).ListPlans(ctx, req.(*ListPlansRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ClientService_AssignPlan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignPlanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServiceServer).AssignPlan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientService_AssignPlan_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServiceServer).AssignPlan(ctx, req.(*AssignPlanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClientService_ServiceDesc is the grpc.ServiceDesc for ClientService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -601,7 +673,15 @@ var ClientService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "UpdateSubAccountLimits",
 			Handler:    _ClientService_UpdateSubAccountLimits_Handler,
 		},
+		{
+			MethodName: "ListPlans",
+			Handler:    _ClientService_ListPlans_Handler,
+		},
+		{
+			MethodName: "AssignPlan",
+			Handler:    _ClientService_AssignPlan_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "client/client.proto",
+	Metadata: "api/proto/client/client.proto",
 }

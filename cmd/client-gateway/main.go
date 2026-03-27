@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	"github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/gateway/client"
 	clientgrpc "github.com/smpp-server/smpp-server/internal/gateway/client/grpc"
@@ -99,11 +101,35 @@ func main() {
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 	lookupHandlers := handlers.NewLookupHandlers(serviceClients.RoutingClient)
 
+	// Инициализация Redis для rate limiting
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:         cfg.Redis.GetAddr(),
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+		DialTimeout:  cfg.Redis.DialTimeout,
+		ReadTimeout:  cfg.Redis.ReadTimeout,
+		WriteTimeout: cfg.Redis.WriteTimeout,
+	})
+	{
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		if err := redisClient.Ping(pingCtx).Err(); err != nil {
+			logger.Warn().Err(err).Msg("ошибка подключения к Redis (rate limiting может не работать)")
+		} else {
+			logger.Info().Msg("подключение к Redis установлено")
+		}
+	}
+	defer redisClient.Close()
+
 	// Создание middleware
 	authMiddleware := clientmiddleware.ClientAuthMiddleware(serviceClients.AuthClient)
 	loggingMiddleware := clientmiddleware.LoggingMiddleware(logger)
 	recoveryMiddleware := clientmiddleware.RecoveryMiddleware()
 	corsMiddleware := clientmiddleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	rateLimitMiddleware := middleware.RateLimitMiddleware(redisClient)
+	quotaMiddleware := middleware.QuotaMiddleware
 
 	// Настройка HTTP роутера
 	router := clientrouter.SetupRouter(
@@ -117,6 +143,8 @@ func main() {
 		loggingMiddleware,
 		recoveryMiddleware,
 		corsMiddleware,
+		rateLimitMiddleware,
+		quotaMiddleware,
 	)
 
 	// Добавляем Prometheus metrics endpoint

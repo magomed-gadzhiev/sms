@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -56,27 +58,42 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 
 // GetByID получает клиента по ID
 func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error) {
-	var client domain.Client
-	query := `
-		SELECT id, name, email, contact_person, phone, active, metadata,
-		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
-		FROM clients WHERE id = $1
-	`
+	query := `SELECT c.id, c.name, c.email, c.contact_person, c.phone, c.active,
+		c.metadata, c.created_at, c.updated_at, c.parent_client_id, c.is_reseller,
+		c.max_sub_accounts, c.plan_id, c.monthly_sms_count, c.monthly_sms_reset_at,
+		p.id, p.name, p.display_name, p.monthly_price_rub, p.max_sms_per_month,
+		p.max_smpp_connections, p.max_users, p.rate_limit_per_second, p.rate_limit_per_minute,
+		p.rate_limit_per_hour, p.rate_limit_per_day, p.features, p.active
+		FROM clients c
+		JOIN subscription_plans p ON c.plan_id = p.id
+		WHERE c.id = $1`
 
+	client := &domain.Client{}
+	plan := &domain.Plan{}
+	var featuresJSON []byte
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&client.ID, &client.Name, &client.Email, &client.ContactPerson, &client.Phone,
-		&client.Active, &client.Metadata,
-		&client.ParentClientID, &client.IsReseller, &client.MaxSubAccounts,
-		&client.CreatedAt, &client.UpdatedAt,
+		&client.ID, &client.Name, &client.Email, &client.ContactPerson,
+		&client.Phone, &client.Active, &client.Metadata, &client.CreatedAt,
+		&client.UpdatedAt, &client.ParentClientID, &client.IsReseller,
+		&client.MaxSubAccounts, &client.PlanID, &client.MonthlySMSCount,
+		&client.MonthlySMSResetAt,
+		&plan.ID, &plan.Name, &plan.DisplayName, &plan.MonthlyPriceRub,
+		&plan.MaxSMSPerMonth, &plan.MaxSMPPConnections, &plan.MaxUsers,
+		&plan.RateLimitPerSecond, &plan.RateLimitPerMinute,
+		&plan.RateLimitPerHour, &plan.RateLimitPerDay,
+		&featuresJSON, &plan.Active,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrClientNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("get client by id: %w", err)
 	}
-
-	return &client, nil
+	if err := json.Unmarshal(featuresJSON, &plan.Features); err != nil {
+		return nil, fmt.Errorf("unmarshal plan features: %w", err)
+	}
+	client.Plan = plan
+	return client, nil
 }
 
 // Update обновляет клиента
@@ -134,6 +151,44 @@ func (r *ClientRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return ErrClientNotFound
 	}
 
+	return nil
+}
+
+// IncrementMonthlySMSCount увеличивает счётчик SMS за месяц (с авто-сбросом)
+func (r *ClientRepository) IncrementMonthlySMSCount(ctx context.Context, clientID uuid.UUID, count int) error {
+	query := `UPDATE clients
+		SET monthly_sms_count = CASE
+			WHEN monthly_sms_reset_at <= NOW() THEN $2
+			ELSE monthly_sms_count + $2
+		END,
+		monthly_sms_reset_at = CASE
+			WHEN monthly_sms_reset_at <= NOW() THEN date_trunc('month', NOW()) + INTERVAL '1 month'
+			ELSE monthly_sms_reset_at
+		END,
+		updated_at = NOW()
+		WHERE id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, clientID, count)
+	if err != nil {
+		return fmt.Errorf("increment monthly sms count: %w", err)
+	}
+	return nil
+}
+
+// AssignPlan назначает тарифный план клиенту
+func (r *ClientRepository) AssignPlan(ctx context.Context, clientID uuid.UUID, planID uuid.UUID) error {
+	query := `UPDATE clients SET plan_id = $2, updated_at = NOW() WHERE id = $1`
+	result, err := r.db.ExecContext(ctx, query, clientID, planID)
+	if err != nil {
+		return fmt.Errorf("assign plan: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("assign plan rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("client not found: %s", clientID)
+	}
 	return nil
 }
 

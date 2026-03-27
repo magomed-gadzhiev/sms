@@ -24,8 +24,13 @@ type Client struct {
 	IsReseller     bool       `json:"is_reseller" db:"is_reseller"`
 	MaxSubAccounts int        `json:"max_sub_accounts" db:"max_sub_accounts"`
 
+	PlanID            uuid.UUID `json:"plan_id" db:"plan_id"`
+	MonthlySMSCount   int       `json:"monthly_sms_count" db:"monthly_sms_count"`
+	MonthlySMSResetAt time.Time `json:"monthly_sms_reset_at" db:"monthly_sms_reset_at"`
+
 	// Связи
 	Config *ClientConfig `json:"config,omitempty" db:"-"`
+	Plan   *Plan         `json:"plan,omitempty" db:"-"` // loaded via JOIN
 }
 
 // IsActive проверяет, активен ли клиент
@@ -55,6 +60,28 @@ func (c *Client) IsSubAccount() bool {
 // CanCreateSubAccount проверяет, может ли клиент создать ещё один суб-аккаунт
 func (c *Client) CanCreateSubAccount(currentCount int) bool {
 	return c.IsReseller && currentCount < c.MaxSubAccounts
+}
+
+func (c *Client) IsWithinMonthlyQuota(additionalMessages int) bool {
+	if c.Plan == nil {
+		return true
+	}
+	return c.MonthlySMSCount+additionalMessages <= c.Plan.MaxSMSPerMonth
+}
+
+func (c *Client) RemainingMonthlyQuota() int {
+	if c.Plan == nil {
+		return 0
+	}
+	remaining := c.Plan.MaxSMSPerMonth - c.MonthlySMSCount
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+func (c *Client) NeedsMonthlyReset() bool {
+	return time.Now().After(c.MonthlySMSResetAt)
 }
 
 // SetMetadata устанавливает метаданные из map
