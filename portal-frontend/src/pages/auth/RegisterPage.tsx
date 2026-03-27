@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authApi, profileApi, ApiError } from '../../api/client';
+import { authApi, ApiError } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 
 const PLANS = [
@@ -11,7 +11,7 @@ const PLANS = [
 ] as const;
 
 export function RegisterPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [companyName, setCompanyName] = useState('');
@@ -41,7 +41,7 @@ export function RegisterPage() {
         ...(phone ? { phone } : {}),
         plan_name: planName,
       });
-      await profileApi.get();
+      await refreshUser();
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed');
