@@ -477,6 +477,7 @@ services:
       - HTTP_PORT=2112
       - API_GRPC_HOST=0.0.0.0
       - API_GRPC_PORT=9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=smpp
@@ -490,6 +491,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      client-service:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
