@@ -13,9 +13,10 @@ type User struct {
 	Email        string    `json:"email" db:"email"`
 	PasswordHash string    `json:"-" db:"password_hash"`
 	RoleID       uuid.UUID `json:"role_id" db:"role_id"`
-	Active       bool      `json:"active" db:"active"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	Active       bool       `json:"active" db:"active"`
+	ClientID     *uuid.UUID `json:"client_id,omitempty" db:"client_id"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 
 	// Загружаемые связи
 	Role       *Role        `json:"role,omitempty" db:"-"`

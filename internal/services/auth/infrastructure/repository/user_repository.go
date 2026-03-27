@@ -30,15 +30,15 @@ func NewUserRepository(db *database.DB) *UserRepository {
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO users (
-			id, username, email, password_hash, role_id, active, created_at, updated_at
+			id, username, email, password_hash, role_id, active, client_id, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8
+			$1, $2, $3, $4, $5, $6, $7, $8, $9
 		)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		user.ID, user.Username, user.Email, user.PasswordHash,
-		user.RoleID, user.Active, user.CreatedAt, user.UpdatedAt,
+		user.RoleID, user.Active, user.ClientID, user.CreatedAt, user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -53,13 +53,13 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	var user domain.User
 	query := `
-		SELECT id, username, email, password_hash, role_id, active, created_at, updated_at
+		SELECT id, username, email, password_hash, role_id, active, client_id, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash,
-		&user.RoleID, &user.Active, &user.CreatedAt, &user.UpdatedAt,
+		&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -75,13 +75,13 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
 	var user domain.User
 	query := `
-		SELECT id, username, email, password_hash, role_id, active, created_at, updated_at
+		SELECT id, username, email, password_hash, role_id, active, client_id, created_at, updated_at
 		FROM users WHERE username = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, username).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash,
-		&user.RoleID, &user.Active, &user.CreatedAt, &user.UpdatedAt,
+		&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -97,13 +97,13 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*d
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
 	query := `
-		SELECT id, username, email, password_hash, role_id, active, created_at, updated_at
+		SELECT id, username, email, password_hash, role_id, active, client_id, created_at, updated_at
 		FROM users WHERE email = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash,
-		&user.RoleID, &user.Active, &user.CreatedAt, &user.UpdatedAt,
+		&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

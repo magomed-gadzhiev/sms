@@ -538,7 +538,10 @@ func (s *Server) LoginWithSession(ctx context.Context, req *authv1.LoginWithSess
 	}
 
 	// Создаем сессию
-	clientID := uuid.Nil // client_id может быть привязан к пользователю позже
+	clientID := uuid.Nil
+	if user.ClientID != nil {
+		clientID = *user.ClientID
+	}
 	roleName := ""
 	if user.Role != nil {
 		roleName = user.Role.Name
@@ -696,6 +699,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 	now := time.Now()
 	// Используем email как username (уникально)
 	username := req.Email
+	clientUUIDForUser, _ := uuid.Parse(clientID)
 	user := &domain.User{
 		ID:           uuid.New(),
 		Username:     username,
@@ -703,6 +707,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 		PasswordHash: passwordHash,
 		RoleID:       clientRole.ID,
 		Active:       true,
+		ClientID:     &clientUUIDForUser,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -714,14 +719,8 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 	}
 
 	// Создаем сессию (авто-логин)
-	clientUUID, err := uuid.Parse(clientID)
-	if err != nil {
-		// Если не удалось распарсить clientID — используем Nil, не критично
-		clientUUID = uuid.Nil
-	}
-
 	sessionID, err := s.sessionManager.CreateSession(
-		ctx, user.ID, clientUUID, clientRole.Name, "", "",
+		ctx, user.ID, clientUUIDForUser, clientRole.Name, "", "",
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка создания сессии при регистрации")
