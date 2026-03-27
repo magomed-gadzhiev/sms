@@ -20,6 +20,11 @@ var (
 	ErrConfigNotFound     = errors.New("client config not found")
 )
 
+// PlanRepositoryInterface определяет интерфейс для работы с тарифными планами
+type PlanRepositoryInterface interface {
+	ListActive(ctx context.Context) ([]*domain.Plan, error)
+}
+
 // ClientRepositoryInterface определяет интерфейс для работы с клиентами
 type ClientRepositoryInterface interface {
 	Create(ctx context.Context, client *domain.Client) error
@@ -42,16 +47,19 @@ type ConfigRepositoryInterface interface {
 type ClientService struct {
 	clientRepo ClientRepositoryInterface
 	configRepo ConfigRepositoryInterface
+	planRepo   PlanRepositoryInterface
 }
 
 // NewClientService создает новый сервис управления клиентами
 func NewClientService(
 	clientRepo ClientRepositoryInterface,
 	configRepo ConfigRepositoryInterface,
+	planRepo PlanRepositoryInterface,
 ) *ClientService {
 	return &ClientService{
 		clientRepo: clientRepo,
 		configRepo: configRepo,
+		planRepo:   planRepo,
 	}
 }
 
@@ -265,6 +273,11 @@ func (s *ClientService) UpdateClientConfig(
 
 	// Используем upsert для создания или обновления
 	return s.configRepo.Upsert(ctx, config)
+}
+
+// ListPlans возвращает список активных тарифных планов
+func (s *ClientService) ListPlans(ctx context.Context) ([]*domain.Plan, error) {
+	return s.planRepo.ListActive(ctx)
 }
 
 // UpdateClientRateLimits обновляет rate limits клиента

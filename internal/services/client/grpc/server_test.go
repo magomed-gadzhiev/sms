@@ -90,7 +90,7 @@ func (m *mockConfigRepo) UpdateRateLimits(ctx context.Context, clientID uuid.UUI
 // --- Helper ---
 
 func newTestClientServer(clientRepo *mockClientRepo, configRepo *mockConfigRepo) *Server {
-	clientService := application.NewClientService(clientRepo, configRepo)
+	clientService := application.NewClientService(clientRepo, configRepo, nil)
 	// SubAccountService uses concrete types, so we pass nil for it.
 	// Tests that require SubAccountService are skipped.
 	return NewServer(clientService, nil)

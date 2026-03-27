@@ -6,17 +6,18 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smpp-server/smpp-server/internal/services/client/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/database"
 )
 
 type PlanRepository struct {
-	db *pgxpool.Pool
+	db *sqlx.DB
 }
 
-func NewPlanRepository(db *pgxpool.Pool) *PlanRepository {
-	return &PlanRepository{db: db}
+func NewPlanRepository(db *database.DB) *PlanRepository {
+	return &PlanRepository{db: sqlx.NewDb(db.DB, "pgx")}
 }
 
 func (r *PlanRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Plan, error) {
@@ -27,7 +28,7 @@ func (r *PlanRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Pla
 
 	plan := &domain.Plan{}
 	var featuresJSON []byte
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&plan.ID, &plan.Name, &plan.DisplayName, &plan.MonthlyPriceRub,
 		&plan.MaxSMSPerMonth, &plan.MaxSMPPConnections, &plan.MaxUsers,
 		&plan.RateLimitPerSecond, &plan.RateLimitPerMinute,
@@ -51,7 +52,7 @@ func (r *PlanRepository) GetByName(ctx context.Context, name string) (*domain.Pl
 
 	plan := &domain.Plan{}
 	var featuresJSON []byte
-	err := r.db.QueryRow(ctx, query, name).Scan(
+	err := r.db.QueryRowContext(ctx, query, name).Scan(
 		&plan.ID, &plan.Name, &plan.DisplayName, &plan.MonthlyPriceRub,
 		&plan.MaxSMSPerMonth, &plan.MaxSMPPConnections, &plan.MaxUsers,
 		&plan.RateLimitPerSecond, &plan.RateLimitPerMinute,
@@ -73,7 +74,7 @@ func (r *PlanRepository) ListActive(ctx context.Context) ([]*domain.Plan, error)
 		rate_limit_per_hour, rate_limit_per_day, features, active, created_at, updated_at
 		FROM subscription_plans WHERE active = true ORDER BY monthly_price_rub ASC`
 
-	rows, err := r.db.Query(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list active plans: %w", err)
 	}
