@@ -485,6 +485,7 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
     networks:
       - smpp-network
     depends_on:

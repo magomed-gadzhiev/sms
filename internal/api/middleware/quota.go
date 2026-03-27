@@ -51,7 +51,7 @@ func QuotaMiddleware(next http.Handler) http.Handler {
 		if !client.IsWithinMonthlyQuota(1) {
 			log.Ctx(r.Context()).Warn().
 				Str("client_id", client.ID.String()).
-				Str("plan_id", client.PlanID.String()).
+				Interface("plan_id", client.PlanID).
 				Int("monthly_sms_count", client.MonthlySMSCount).
 				Int("plan_max_sms", client.Plan.MaxSMSPerMonth).
 				Msg("monthly SMS quota exceeded")
