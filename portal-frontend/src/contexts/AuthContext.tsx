@@ -11,6 +11,7 @@ interface AuthState {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   login2fa: (loginTicket: string, totpCode: string) => Promise<UserRole>;
+  refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -51,13 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return (profile.role as UserRole) || 'client';
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const profile = await profileApi.get();
+    setUser(profile);
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 401)) throw e;
+    } finally {
+      setUser(null);
     }
-    setUser(null);
   }, []);
 
   const role: UserRole = (user?.role as UserRole) || 'client';
@@ -65,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, role, isAuthenticated: !!user, loading, isAdmin, login, login2fa, logout }}
+      value={{ user, role, isAuthenticated: !!user, loading, isAdmin, login, login2fa, refreshUser, logout }}
     >
       {children}
     </AuthContext.Provider>

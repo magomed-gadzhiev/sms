@@ -52,6 +52,9 @@ service ClientService {
 
   // AssignPlan назначает тарифный план клиенту
   rpc AssignPlan(AssignPlanRequest) returns (AssignPlanResponse);
+
+  // ToggleSandbox включает или отключает sandbox-режим для клиента
+  rpc ToggleSandbox(ToggleSandboxRequest) returns (ToggleSandboxResponse);
 }
 
 // CreateClientRequest представляет запрос на создание клиента
@@ -62,6 +65,7 @@ message CreateClientRequest {
   string phone = 4;               // Телефон (опционально)
   bool active = 5;                // Активен ли клиент
   map<string, string> metadata = 6;  // Дополнительные метаданные
+  bool is_sandbox = 7;            // Sandbox-режим (SMS идут на фиктивный провайдер)
 }
 
 // CreateClientResponse представляет ответ на создание клиента
@@ -185,6 +189,7 @@ message ClientInfo {
   SubscriptionPlan plan = 15;       // Тарифный план (опционально, при запросе)
   int32 monthly_sms_count = 16;     // Количество SMS за текущий месяц
   string monthly_sms_reset_at = 17; // Дата сброса счётчика SMS
+  bool is_sandbox = 18;             // Sandbox-режим (SMS идут на фиктивный провайдер)
 }
 
 // ClientConfig представляет конфигурацию клиента
@@ -301,4 +306,15 @@ message AssignPlanRequest {
 // AssignPlanResponse представляет ответ на назначение тарифного плана
 message AssignPlanResponse {
   bool success = 1;                 // Успешность операции
+}
+
+// ToggleSandboxRequest представляет запрос на изменение sandbox-режима клиента
+message ToggleSandboxRequest {
+  string client_id = 1;             // ID клиента
+  bool enable = 2;                  // true — включить, false — отключить
+}
+
+// ToggleSandboxResponse представляет ответ на изменение sandbox-режима
+message ToggleSandboxResponse {
+  bool is_sandbox = 1;              // Текущее состояние sandbox-режима
 }

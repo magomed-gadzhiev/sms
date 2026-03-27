@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardApi } from '../../api/client';
+import { dashboardApi, profileApi, ProfileData } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
 
 interface DashboardData {
   balance: string;
@@ -14,23 +16,39 @@ interface DashboardData {
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sandboxToggling, setSandboxToggling] = useState(false);
 
   useEffect(() => {
-    dashboardApi
-      .get()
-      .then((resp) => setData(resp as DashboardData))
+    Promise.all([
+      dashboardApi.get().then((resp) => setData(resp as DashboardData)),
+      profileApi.get().then((resp) => setProfile(resp)),
+    ])
       .catch((err) => setError(err.message || 'Failed to load dashboard'))
       .finally(() => setLoading(false));
   }, []);
 
+  const handleDisableSandbox = async () => {
+    setSandboxToggling(true);
+    try {
+      const resp = await profileApi.toggleSandbox(false);
+      setProfile((prev) => prev ? { ...prev, is_sandbox: resp.is_sandbox } : prev);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Ошибка переключения режима';
+      setError(msg);
+    } finally {
+      setSandboxToggling(false);
+    }
+  };
+
   if (loading) return <div role="status">Loading dashboard...</div>;
-  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
+  if (error) return <div className="text-red-600">Error: {error}</div>;
   if (!data) return <div>No data</div>;
 
   const cards: { label: string; value: string | number; href?: string }[] = [
-    { label: 'Balance', value: `${data.balance} ${data.currency}` },
+    { label: 'Balance', value: `${data.balance ?? '0.00'} ${data.currency ?? ''}`.trim() },
     { label: 'Messages Today', value: data.messages_today, href: '/messages' },
     { label: 'Delivered Today', value: data.messages_delivered_today, href: '/messages' },
     { label: 'Delivery Rate', value: `${data.delivery_rate_today}%` },
@@ -40,31 +58,57 @@ export function DashboardPage() {
 
   return (
     <div>
-      <h2>Dashboard</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+      {profile?.is_sandbox && (
+        <div
+          role="alert"
+          className="bg-amber-50 border border-amber-400 rounded-lg px-4 py-3 mb-4 flex items-center justify-between gap-4"
+        >
+          <span className="font-medium">Sandbox Mode — SMS не отправляются реально</span>
+          <Button
+            variant="secondary"
+            onClick={handleDisableSandbox}
+            disabled={sandboxToggling}
+          >
+            {sandboxToggling ? 'Переключение...' : 'Перейти в Production'}
+          </Button>
+        </div>
+      )}
+      <PageHeader title="Dashboard" />
+      {data.messages_today === 0 && data.active_api_keys === 0 && data.active_webhooks === 0 && (
+        <div className="border border-primary/30 bg-primary/5 rounded-lg p-5 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Начните работу с платформой</h3>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+            <li><a href="/api-keys" className="text-primary hover:underline">Создайте API ключ</a> для доступа к API</li>
+            <li><a href="/providers" className="text-primary hover:underline">Подключите SMPP-провайдера</a> для отправки SMS</li>
+            <li><a href="/messages" className="text-primary hover:underline">Отправьте тестовое SMS</a> и отслеживайте статистику</li>
+          </ol>
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {cards.map((card) => {
-          const cardStyle = {
-            border: '1px solid #ddd',
-            borderRadius: 8,
-            padding: 16,
-            minWidth: 180,
-            textAlign: 'center' as const,
-            textDecoration: 'none',
-            color: 'inherit',
-            display: 'block',
-          };
+          const isInteractive = !!card.href;
+          const cardClassName = `border border-gray-200 rounded-lg p-4 text-center block no-underline text-inherit ${
+            isInteractive ? 'hover:bg-gray-50 transition-colors group relative pb-10' : ''
+          }`;
+          
           const inner = (
             <>
-              <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 'bold' }}>{card.value}</div>
+              <div className="text-sm text-gray-500 mb-2">{card.label}</div>
+              <div className="text-2xl font-bold">{card.value}</div>
+              {isInteractive && (
+                <div className="absolute bottom-4 left-0 right-0 text-sm text-primary font-medium group-hover:underline">
+                  View details &rarr;
+                </div>
+              )}
             </>
           );
+
           return card.href ? (
-            <Link key={card.label} to={card.href} style={cardStyle} aria-label={`${card.label}: ${card.value}`}>
+            <Link key={card.label} to={card.href} className={cardClassName} aria-label={`${card.label}: ${card.value}`}>
               {inner}
             </Link>
           ) : (
-            <div key={card.label} style={cardStyle}>
+            <div key={card.label} className={cardClassName}>
               {inner}
             </div>
           );

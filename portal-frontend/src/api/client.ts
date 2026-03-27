@@ -13,7 +13,11 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
-    throw new ApiError(res.status, err.error?.message || res.statusText, err.error);
+    let msg = err.error?.message || res.statusText;
+    if (typeof msg === 'string') {
+      msg = msg.replace(' не найден', '').replace('parent client not found', 'Parent client not found');
+    }
+    throw new ApiError(res.status, msg, err.error);
   }
   if (res.status === 204) return {} as T;
   return res.json();
@@ -53,6 +57,18 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token, new_password: newPassword }),
     }),
+  register: (data: {
+    email: string;
+    password: string;
+    company_name: string;
+    contact_person?: string;
+    phone?: string;
+    plan_name: string;
+  }) =>
+    apiFetch<{ client_id: string; user: { id: string; email: string; role: string } }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Profile API
@@ -60,6 +76,11 @@ export const profileApi = {
   get: () => apiFetch<ProfileData>('/profile'),
   update: (data: { contact_person?: string; phone?: string }) =>
     apiFetch<ProfileData>('/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  toggleSandbox: (enable: boolean) =>
+    apiFetch<{ is_sandbox: boolean }>('/profile/sandbox', {
+      method: 'PUT',
+      body: JSON.stringify({ enable }),
+    }),
   setupTOTP: () =>
     apiFetch<{ secret: string; qr_code_url: string }>('/profile/2fa/setup', { method: 'POST' }),
   verifyTOTP: (code: string) =>
@@ -78,6 +99,7 @@ export interface ProfileData {
   contact_person: string;
   phone: string;
   totp_enabled: boolean;
+  is_sandbox?: boolean;
   role?: 'client' | 'admin' | 'superadmin';
 }
 
@@ -92,6 +114,11 @@ export const messagesApi = {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<unknown>(`/messages?${qs}`);
   },
+  send: (data: { destination: string; text: string; source?: string }) =>
+    apiFetch<{ message_id: string; status: string }>('/messages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // API Keys API
@@ -177,4 +204,74 @@ export const auditApi = {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<unknown>(`/audit-log?${qs}`);
   },
+};
+
+// Providers API
+export interface RoutingRule {
+  pattern: string;
+  priority: number;
+}
+
+export interface Provider {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  host: string;
+  port: number;
+  system_id: string;
+  bind_type: number;
+  window_size: number;
+  max_connections: number;
+  tps_limit: number;
+  active: boolean;
+  routing_rules: RoutingRule[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProviderRequest {
+  name: string;
+  description?: string;
+  tags?: string[];
+  host: string;
+  port: number;
+  system_id: string;
+  password: string;
+  bind_type: number;
+  window_size?: number;
+  max_connections?: number;
+  tps_limit?: number;
+  routing_rules?: RoutingRule[];
+}
+
+export interface TestConnectionRequest {
+  host: string;
+  port: number;
+  system_id: string;
+  password: string;
+  bind_type: number;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  latency_ms: number;
+  log: string[];
+  error: string;
+}
+
+export const providersApi = {
+  list: () => apiFetch<{ providers: Provider[] }>('/providers'),
+  create: (data: CreateProviderRequest) =>
+    apiFetch<Provider>('/providers', { method: 'POST', body: JSON.stringify(data) }),
+  get: (id: string) => apiFetch<Provider>(`/providers/${id}`),
+  update: (id: string, data: Partial<CreateProviderRequest>) =>
+    apiFetch<Provider>(`/providers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => apiFetch<void>(`/providers/${id}`, { method: 'DELETE' }),
+  testConnection: (data: TestConnectionRequest) =>
+    apiFetch<TestConnectionResult>('/providers/test-connection', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

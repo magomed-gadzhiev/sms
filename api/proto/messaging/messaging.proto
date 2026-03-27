@@ -44,6 +44,7 @@ message SendMessageRequest {
   int32 dest_addr_npi = 13;       // NPI получателя (опционально)
   int32 data_coding = 14;         // Кодировка данных (опционально)
   google.protobuf.Timestamp scheduled_at = 15; // Время запланированной отправки (опционально)
+  bool is_sandbox = 16;            // Sandbox-режим: SMS не отправляется реальному провайдеру
 }
 
 // SendMessageResponse представляет ответ на отправку SMS

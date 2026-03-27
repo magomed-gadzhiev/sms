@@ -4,6 +4,8 @@ import "errors"
 
 var (
 	ErrProviderNotFound              = errors.New("провайдер не найден")
+	ErrProviderLimitExceeded         = errors.New("лимит провайдеров для тарифного плана исчерпан")
+	ErrProviderNotOwnedByClient      = errors.New("провайдер не принадлежит клиенту")
 	ErrProviderNameRequired          = errors.New("название провайдера обязательно")
 	ErrProviderHostRequired          = errors.New("хост провайдера обязателен")
 	ErrProviderPortInvalid           = errors.New("порт провайдера должен быть в диапазоне 1-65535")

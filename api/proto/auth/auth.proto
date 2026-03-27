@@ -52,6 +52,9 @@ service AuthService {
 
   // Logout уничтожает сессию
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // RegisterClient регистрирует нового клиента (public self-service)
+  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
 }
 
 // AuthenticateRequest представляет запрос на аутентификацию
@@ -272,4 +275,22 @@ message LogoutRequest {
 // LogoutResponse представляет ответ на выход
 message LogoutResponse {
   bool success = 1;            // Успешность операции
+}
+
+// RegisterClientRequest представляет запрос на регистрацию нового клиента
+message RegisterClientRequest {
+  string email = 1;            // Email пользователя и клиента
+  string password = 2;         // Пароль
+  string company_name = 3;     // Название компании
+  string contact_person = 4;   // Контактное лицо
+  string phone = 5;            // Телефон
+  string plan_name = 6;        // Имя тарифного плана: "free", "starter", "business", "pro"
+}
+
+// RegisterClientResponse представляет ответ на регистрацию клиента
+message RegisterClientResponse {
+  string client_id = 1;        // ID созданного клиента
+  string user_id = 2;          // ID созданного пользователя
+  string session_id = 3;       // ID сессии (авто-логин)
+  UserInfo user = 4;           // Информация о пользователе
 }

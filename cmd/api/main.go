@@ -119,6 +119,7 @@ func main() {
 	loggingMiddleware := middleware.LoggingMiddleware(logger)
 	recoveryMiddleware := middleware.RecoveryMiddleware()
 	corsMiddleware := middleware.CORSMiddlewareFromConfig(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	tenantLoggerMiddleware := middleware.TenantLoggerMiddleware(logger)
 
 	// Настройка HTTP роутера
 	router := httphandler.SetupRouter(
@@ -128,6 +129,7 @@ func main() {
 		loggingMiddleware,
 		recoveryMiddleware,
 		corsMiddleware,
+		tenantLoggerMiddleware,
 	)
 
 	// Добавляем Prometheus metrics endpoint

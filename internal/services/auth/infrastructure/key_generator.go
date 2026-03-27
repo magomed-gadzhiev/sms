@@ -20,8 +20,8 @@ func GenerateAPIKey() (string, error) {
 
 // GetKeyPrefix возвращает префикс ключа для отображения
 func GetKeyPrefix(key string) string {
-	if len(key) < 12 {
+	if len(key) < 16 {
 		return key[:len(key)]
 	}
-	return key[:12]
+	return key[:16]
 }

@@ -34,17 +34,19 @@ func NewClientRepository(db *database.DB) *ClientRepository {
 func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) error {
 	query := `
 		INSERT INTO clients (
-			id, name, email, contact_person, phone, active, metadata,
-			parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
+			id, name, api_key, secret, email, contact_person, phone, active, metadata,
+			parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 		)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
-		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
-		client.Active, client.Metadata,
+		client.ID, client.Name, client.APIKey, client.Secret,
+		client.Email, client.ContactPerson, client.Phone,
+		client.Active, string(client.Metadata),
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
+		client.IsSandbox,
 		client.CreatedAt, client.UpdatedAt,
 	)
 
@@ -61,27 +63,32 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 	query := `SELECT c.id, c.name, c.email, c.contact_person, c.phone, c.active,
 		c.metadata, c.created_at, c.updated_at, c.parent_client_id, c.is_reseller,
 		c.max_sub_accounts, c.plan_id, c.monthly_sms_count, c.monthly_sms_reset_at,
+		c.is_sandbox,
 		p.id, p.name, p.display_name, p.monthly_price_rub, p.max_sms_per_month,
 		p.max_smpp_connections, p.max_users, p.rate_limit_per_second, p.rate_limit_per_minute,
 		p.rate_limit_per_hour, p.rate_limit_per_day, p.features, p.active
 		FROM clients c
-		JOIN subscription_plans p ON c.plan_id = p.id
+		LEFT JOIN subscription_plans p ON c.plan_id = p.id
 		WHERE c.id = $1`
 
 	client := &domain.Client{}
-	plan := &domain.Plan{}
+	var planID, planName, planDisplayName sql.NullString
+	var planMonthlyPrice sql.NullFloat64
+	var planMaxSMS, planMaxSMPP, planMaxUsers sql.NullInt64
+	var planRLSec, planRLMin, planRLHour, planRLDay sql.NullInt64
 	var featuresJSON []byte
+	var planActive sql.NullBool
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&client.ID, &client.Name, &client.Email, &client.ContactPerson,
 		&client.Phone, &client.Active, &client.Metadata, &client.CreatedAt,
 		&client.UpdatedAt, &client.ParentClientID, &client.IsReseller,
 		&client.MaxSubAccounts, &client.PlanID, &client.MonthlySMSCount,
-		&client.MonthlySMSResetAt,
-		&plan.ID, &plan.Name, &plan.DisplayName, &plan.MonthlyPriceRub,
-		&plan.MaxSMSPerMonth, &plan.MaxSMPPConnections, &plan.MaxUsers,
-		&plan.RateLimitPerSecond, &plan.RateLimitPerMinute,
-		&plan.RateLimitPerHour, &plan.RateLimitPerDay,
-		&featuresJSON, &plan.Active,
+		&client.MonthlySMSResetAt, &client.IsSandbox,
+		&planID, &planName, &planDisplayName, &planMonthlyPrice,
+		&planMaxSMS, &planMaxSMPP, &planMaxUsers,
+		&planRLSec, &planRLMin,
+		&planRLHour, &planRLDay,
+		&featuresJSON, &planActive,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -89,10 +96,25 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 		}
 		return nil, fmt.Errorf("get client by id: %w", err)
 	}
-	if err := json.Unmarshal(featuresJSON, &plan.Features); err != nil {
-		return nil, fmt.Errorf("unmarshal plan features: %w", err)
+	if planID.Valid {
+		plan := &domain.Plan{}
+		plan.ID, _ = uuid.Parse(planID.String)
+		plan.Name = planName.String
+		plan.DisplayName = planDisplayName.String
+		plan.MonthlyPriceRub = planMonthlyPrice.Float64
+		plan.MaxSMSPerMonth = int(planMaxSMS.Int64)
+		plan.MaxSMPPConnections = int(planMaxSMPP.Int64)
+		plan.MaxUsers = int(planMaxUsers.Int64)
+		plan.RateLimitPerSecond = int(planRLSec.Int64)
+		plan.RateLimitPerMinute = int(planRLMin.Int64)
+		plan.RateLimitPerHour = int(planRLHour.Int64)
+		plan.RateLimitPerDay = int(planRLDay.Int64)
+		plan.Active = planActive.Bool
+		if featuresJSON != nil {
+			_ = json.Unmarshal(featuresJSON, &plan.Features)
+		}
+		client.Plan = plan
 	}
-	client.Plan = plan
 	return client, nil
 }
 
@@ -103,15 +125,15 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 			name = $2, email = $3, contact_person = $4, phone = $5,
 			active = $6, metadata = $7,
 			parent_client_id = $8, is_reseller = $9, max_sub_accounts = $10,
-			updated_at = $11
+			is_sandbox = $11, updated_at = $12
 		WHERE id = $1
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
 		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
-		client.Active, client.Metadata,
+		client.Active, string(client.Metadata),
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
-		client.UpdatedAt,
+		client.IsSandbox, client.UpdatedAt,
 	)
 
 	if err != nil {
@@ -201,7 +223,7 @@ func (r *ClientRepository) List(ctx context.Context, activeOnly bool, search str
 	// Базовый запрос для получения клиентов
 	baseQuery := `
 		SELECT id, name, email, contact_person, phone, active, metadata,
-		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
+		       parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
 		FROM clients
 		WHERE 1=1
 	`

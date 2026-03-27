@@ -14,8 +14,10 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
+	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/services/auth/application"
@@ -123,6 +125,18 @@ func main() {
 
 	sessionManager := authinfra.NewSessionManager(redisClient, db, 10)
 
+	// Подключение к client service для RegisterClient
+	clientServiceAddr := os.Getenv("CLIENT_SERVICE_ADDR")
+	if clientServiceAddr == "" {
+		clientServiceAddr = "localhost:9090"
+	}
+	clientConn, err := grpc.NewClient(clientServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Fatal().Err(err).Str("addr", clientServiceAddr).Msg("ошибка подключения к client service")
+	}
+	defer clientConn.Close()
+	clientSvcClient := clientv1.NewClientServiceClient(clientConn)
+
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("auth-service", cfg.Service.Version)
 	healthChecker.SetDatabase(db.DB)
@@ -142,6 +156,8 @@ func main() {
 		sessionManager,
 		userRepo,
 		roleRepo,
+		passwordHasher,
+		clientSvcClient,
 	)
 	authv1.RegisterAuthServiceServer(grpcServer, authGrpcServer)
 

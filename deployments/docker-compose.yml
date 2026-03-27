@@ -47,6 +47,7 @@ services:
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - TEMPLATE_SERVICE_ADDR=template-service:9099
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - CLIENT_SERVICE_ADDR=client-service:9095
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -71,6 +72,8 @@ services:
       webhook-service:
         condition: service_healthy
       template-service:
+        condition: service_healthy
+      client-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -106,6 +109,7 @@ services:
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - TEMPLATE_SERVICE_ADDR=template-service:9099
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - CLIENT_SERVICE_ADDR=client-service:9095
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -130,6 +134,8 @@ services:
       webhook-service:
         condition: service_healthy
       template-service:
+        condition: service_healthy
+      client-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -471,6 +477,7 @@ services:
       - HTTP_PORT=2112
       - API_GRPC_HOST=0.0.0.0
       - API_GRPC_PORT=9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=smpp
@@ -478,12 +485,15 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
     networks:
       - smpp-network
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      client-service:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -837,6 +847,7 @@ services:
       - "18084:8082"  # HTTP (internal)
     environment:
       - SERVICE_NAME=portal-gateway
+      - SERVICE_ENV=development
       - PORTAL_HTTP_PORT=8082
       - AUTH_SERVICE_ADDR=auth-service:9101
       - CLIENT_SERVICE_ADDR=client-service:9095
@@ -847,6 +858,7 @@ services:
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - TEMPLATE_SERVICE_ADDR=template-service:9099
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -855,6 +867,7 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
     networks:
       - smpp-network
     depends_on:
@@ -867,6 +880,8 @@ services:
       billing-service:
         condition: service_healthy
       webhook-service:
+        condition: service_healthy
+      provider-service:
         condition: service_healthy
       template-service:
         condition: service_healthy

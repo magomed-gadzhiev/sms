@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi, ApiError } from '../../api/client';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 
 export function PasswordResetPage() {
   const [searchParams] = useSearchParams();
@@ -40,56 +42,54 @@ export function PasswordResetPage() {
 
   if (done) {
     return (
-      <div style={{ maxWidth: 400, margin: '80px auto' }}>
-        <h2>Password Reset</h2>
-        <p>Your password has been reset successfully.</p>
-        <Link to="/login">Go to login</Link>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Password Reset</h2>
+          <p className="text-sm text-gray-600 mb-4">Your password has been reset successfully.</p>
+          <Link to="/login" className="text-primary hover:text-primary-dark text-sm">Go to login</Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '80px auto' }}>
-      <h2>Set New Password</h2>
-      {error && <p id="reset-error" role="alert" style={{ color: '#d32f2f' }}>{error}</p>}
-      {submitting && <div role="status">Resetting...</div>}
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            New Password
-            <br />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoFocus
-              aria-describedby={error ? 'reset-error' : undefined}
-            />
-          </label>
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Confirm Password
-            <br />
-            <input
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-              minLength={8}
-              aria-describedby={error ? 'reset-error' : undefined}
-            />
-          </label>
-        </div>
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Resetting...' : 'Reset Password'}
-        </button>
-      </form>
-      <p style={{ marginTop: 16 }}>
-        <Link to="/login">Back to login</Link>
-      </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Set New Password</h2>
+        {error && (
+          <p id="reset-error" role="alert" className="text-sm text-danger bg-red-50 border border-red-200 rounded p-3 mb-4">
+            {error}
+          </p>
+        )}
+        {submitting && <div role="status" className="text-sm text-gray-500 mb-4">Resetting...</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="New Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoFocus
+            aria-describedby={error ? 'reset-error' : undefined}
+          />
+          <Input
+            label="Confirm Password"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            minLength={8}
+            aria-describedby={error ? 'reset-error' : undefined}
+          />
+          <Button type="submit" disabled={submitting} className="w-full">
+            {submitting ? 'Resetting...' : 'Reset Password'}
+          </Button>
+        </form>
+        <p className="mt-4 text-sm text-gray-600">
+          <Link to="/login" className="text-primary hover:text-primary-dark">Back to login</Link>
+        </p>
+      </div>
     </div>
   );
 }

@@ -170,7 +170,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success with direct text", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -215,7 +215,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 for invalid JSON body", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/sms/send", bytes.NewReader([]byte("invalid json")))
 			req.Header.Set("Content-Type", "application/json")
@@ -234,7 +234,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 401 when client ID is missing from context", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			body, _ := json.Marshal(SendSMSRequest{
 				Source:      "MyApp",
@@ -255,7 +255,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 when source is empty", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -278,7 +278,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 when both text and template_id provided", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -302,7 +302,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 when neither text nor template_id provided", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -324,7 +324,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success with template_id", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -371,7 +371,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns error when messaging service fails", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -399,7 +399,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 
@@ -431,7 +431,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 401 when no client ID", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/msg-123", nil)
 			req = mux.SetURLVars(req, map[string]string{"id": "msg-123"})
@@ -447,7 +447,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
 
 			clientID := uuid.New()
 

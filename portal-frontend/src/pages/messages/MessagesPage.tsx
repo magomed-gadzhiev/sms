@@ -1,5 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { messagesApi } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
 
 interface MessageItem {
   message_id: string;
@@ -20,16 +26,53 @@ interface MessagesResponse {
   total_pages: number;
 }
 
+const MESSAGE_FILTERS: FilterDef[] = [
+  { key: 'status', label: 'Status', type: 'select', options: [
+    { value: '', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'queued', label: 'Queued' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'delivered', label: 'Delivered' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'expired', label: 'Expired' },
+    { value: 'rejected', label: 'Rejected' },
+  ]},
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
+  { key: 'destination', label: 'Destination', type: 'text', placeholder: '+7...' },
+];
+
+const columns: Column<MessageItem>[] = [
+  { key: 'message_id', header: 'ID', render: (msg) => <span className="font-mono text-xs">{msg.message_id.substring(0, 8)}...</span> },
+  { key: 'source', header: 'Source' },
+  { key: 'destination', header: 'Destination' },
+  { key: 'text', header: 'Text', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
+  { key: 'status', header: 'Status' },
+  { key: 'segment_count', header: 'Segments' },
+  { key: 'created_at', header: 'Created', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
+];
+
+const INITIAL_FILTERS: Record<string, string> = {
+  status: '',
+  date_from: '',
+  date_to: '',
+  destination: '',
+};
+
 export function MessagesPage() {
   const [data, setData] = useState<MessagesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [destination, setDestination] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, string>>(INITIAL_FILTERS);
+
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendDest, setSendDest] = useState('');
+  const [sendText, setSendText] = useState('');
+  const [sendSource, setSendSource] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   const fetchMessages = useCallback(() => {
     setLoading(true);
@@ -39,148 +82,91 @@ export function MessagesPage() {
       page: String(page),
       per_page: '20',
     };
-    if (status) params.status = status;
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    if (destination) params.destination = destination;
+    if (filterValues.status) params.status = filterValues.status;
+    if (filterValues.date_from) params.date_from = filterValues.date_from;
+    if (filterValues.date_to) params.date_to = filterValues.date_to;
+    if (filterValues.destination) params.destination = filterValues.destination;
 
     messagesApi
       .list(params)
       .then((resp) => setData(resp as MessagesResponse))
       .catch((err) => setError(err.message || 'Failed to load messages'))
       .finally(() => setLoading(false));
-  }, [page, status, dateFrom, dateTo, destination]);
+  }, [page, filterValues]);
 
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
-  const handleFilter = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFilterChange = (values: Record<string, string>) => {
+    setFilterValues(values);
     setPage(1);
-    fetchMessages();
+  };
+
+  const handleReset = () => {
+    setFilterValues(INITIAL_FILTERS);
+    setPage(1);
+  };
+
+  const handleSendSMS = async () => {
+    setSending(true);
+    setSendError('');
+    try {
+      await messagesApi.send({ destination: sendDest, text: sendText, source: sendSource || undefined });
+      setShowSendModal(false);
+      setSendDest('');
+      setSendText('');
+      setSendSource('');
+      fetchMessages();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Ошибка отправки');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <div>
-      <h2>Messages</h2>
+      <PageHeader
+        title="Messages"
+        actions={<Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>}
+      />
 
-      <form onSubmit={handleFilter} style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label>
-          Status
-          <br />
-          <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ padding: 4 }}>
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="queued">Queued</option>
-            <option value="sent">Sent</option>
-            <option value="delivered">Delivered</option>
-            <option value="failed">Failed</option>
-            <option value="expired">Expired</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </label>
-
-        <label>
-          From
-          <br />
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        </label>
-
-        <label>
-          To
-          <br />
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </label>
-
-        <label>
-          Destination
-          <br />
-          <input
-            type="text"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder="+7..."
-            style={{ padding: 4 }}
-          />
-        </label>
-
-        <button type="submit" style={{ padding: '4px 12px' }}>
-          Filter
-        </button>
-      </form>
-
-      {error && <div style={{ color: 'red', marginBottom: 12 }}>Error: {error}</div>}
-
-      {loading ? (
-        <div role="status">Loading...</div>
-      ) : data ? (
-        <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Messages list</caption>
-            <thead>
-              <tr>
-                {['ID', 'Source', 'Destination', 'Text', 'Status', 'Segments', 'Created'].map((h) => (
-                  <th key={h} style={{ borderBottom: '2px solid #ddd', padding: 8, textAlign: 'left' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.messages.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                    No messages found
-                  </td>
-                </tr>
-              ) : (
-                data.messages.map((msg) => (
-                  <tr key={msg.message_id}>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12, fontFamily: 'monospace' }}>
-                      {msg.message_id.substring(0, 8)}...
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.source}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.destination}</td>
-                    <td title={msg.text} style={{ borderBottom: '1px solid #eee', padding: 8, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {msg.text}
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.status}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.segment_count}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12 }}>
-                      {msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              aria-label="Previous page"
-              aria-disabled={page <= 1}
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              style={{ padding: '8px 12px' }}
-            >
-              Prev
-            </button>
-            <span aria-live="polite">
-              Page {data.page} of {data.total_pages} (total: {data.total})
-            </span>
-            <button
-              aria-label="Next page"
-              aria-disabled={page >= data.total_pages}
-              disabled={page >= data.total_pages}
-              onClick={() => setPage((p) => p + 1)}
-              style={{ padding: '8px 12px' }}
-            >
-              Next
-            </button>
+      <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="Отправить SMS" description="Отправка тестового SMS сообщения">
+        <div className="space-y-3">
+          {sendError && <p role="alert" className="text-red-600 text-sm">{sendError}</p>}
+          <Input label="Номер получателя" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required />
+          <Input label="Sender ID" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения</label>
+            <textarea className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required />
           </div>
-        </>
-      ) : null}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setShowSendModal(false)}>Отмена</Button>
+            <Button onClick={handleSendSMS} disabled={sending || !sendDest || !sendText}>{sending ? 'Отправка...' : 'Отправить'}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <FilterBar
+        filters={MESSAGE_FILTERS}
+        values={filterValues}
+        onChange={handleFilterChange}
+        onReset={handleReset}
+      />
+
+      {error && <div className="text-red-600 mb-3">Error: {error}</div>}
+
+      <DataTable
+        columns={columns}
+        data={data?.messages ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        pageSize={20}
+        onPageChange={setPage}
+        keyField="message_id"
+        loading={loading}
+      />
     </div>
   );
 }

@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { subAccountsApi, ApiError } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { StatCard } from '../../components/data/StatCard';
+import { StatusBadge, Badge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Select } from '../../components/ui/Select';
 
 type TabName = 'overview' | 'messages' | 'analytics' | 'api-keys' | 'webhooks';
 
@@ -110,40 +118,28 @@ export function SubAccountDetailPage() {
   }, [id]);
 
   if (loading) return <div role="status">Loading...</div>;
-  if (error) return <div style={{ color: 'red' }}>{error}</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
   if (!detail) return <div>Sub-account not found</div>;
 
   return (
-    <div style={{ maxWidth: 1000 }}>
-      <div style={{ marginBottom: 16 }}>
-        <button onClick={() => navigate('/sub-accounts')} style={{ marginRight: 16 }}>
-          &larr; Back
-        </button>
-        <span style={{ fontSize: 20, fontWeight: 'bold' }}>{detail.name}</span>
-        <span
-          aria-label={`Status: ${detail.active ? 'Active' : 'Inactive'}`}
-          style={{ marginLeft: 12, color: detail.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
-        >
-          {detail.active ? 'Active' : 'Inactive'}
-        </span>
-      </div>
+    <div className="max-w-5xl">
+      <PageHeader
+        title={detail.name}
+        breadcrumbs={[{ label: 'Sub-accounts', href: '/sub-accounts' }, { label: detail.name }]}
+        actions={<StatusBadge status={detail.active ? 'active' : 'inactive'} />}
+      />
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #ddd', marginBottom: 16 }}>
+      <div className="flex border-b border-gray-200 mb-4">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            style={{
-              padding: '8px 20px',
-              border: 'none',
-              borderBottom: activeTab === tab.key ? '2px solid #1976d2' : '2px solid transparent',
-              background: 'none',
-              cursor: 'pointer',
-              fontWeight: activeTab === tab.key ? 'bold' : 'normal',
-              color: activeTab === tab.key ? '#1976d2' : '#333',
-              marginBottom: -2,
-            }}
+            className={`px-5 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
           >
             {tab.label}
           </button>
@@ -185,6 +181,7 @@ function OverviewTab({
 
   // Delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSaveLimits(e: FormEvent) {
     e.preventDefault();
@@ -219,142 +216,140 @@ function OverviewTab({
   }
 
   async function handleDelete() {
+    setDeleting(true);
     setError('');
     try {
       await subAccountsApi.remove(detail.id);
       onDeleted();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete sub-account');
+      setDeleting(false);
     }
   }
 
   return (
     <div>
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
       {/* Info cards */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-        {[
-          { label: 'Balance', value: detail.balance },
-          { label: 'Daily Limit', value: `${detail.messages_today} / ${detail.daily_limit}` },
-          { label: 'Monthly Limit', value: `${detail.messages_this_month} / ${detail.monthly_limit}` },
-          { label: 'Email', value: detail.email },
-          { label: 'Contact', value: detail.contact_person || '-' },
-        ].map((card) => (
-          <div
-            key={card.label}
-            style={{
-              border: '1px solid #ddd',
-              borderRadius: 8,
-              padding: 16,
-              minWidth: 160,
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 'bold' }}>{card.value}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <StatCard title="Balance" value={detail.balance} />
+        <StatCard title="Daily Limit" value={`${detail.messages_today} / ${detail.daily_limit}`} />
+        <StatCard title="Monthly Limit" value={`${detail.messages_this_month} / ${detail.monthly_limit}`} />
+        <StatCard title="Email" value={detail.email} />
+        <StatCard title="Contact" value={detail.contact_person || '-'} />
       </div>
 
       {/* Edit limits form */}
-      <div
-        style={{
-          background: '#f5f5f5',
-          border: '1px solid #ddd',
-          borderRadius: 4,
-          padding: 16,
-          marginBottom: 16,
-        }}
-      >
-        <h3 style={{ marginTop: 0 }}>Edit Limits</h3>
-        <form onSubmit={handleSaveLimits} style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <label>
-            Daily Limit
-            <br />
-            <input
-              type="number"
-              value={dailyLimit}
-              onChange={(e) => setDailyLimit(e.target.value)}
-              style={{ width: 150 }}
-            />
-          </label>
-          <label>
-            Monthly Limit
-            <br />
-            <input
-              type="number"
-              value={monthlyLimit}
-              onChange={(e) => setMonthlyLimit(e.target.value)}
-              style={{ width: 150 }}
-            />
-          </label>
-          <button type="submit" disabled={savingLimits}>
+      <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
+        <h3 className="mt-0 text-base font-semibold mb-3">Edit Limits</h3>
+        <form onSubmit={handleSaveLimits} className="flex gap-4 items-end flex-wrap">
+          <Input
+            label="Daily Limit"
+            type="number"
+            value={dailyLimit}
+            onChange={(e) => setDailyLimit(e.target.value)}
+            className="w-40"
+          />
+          <Input
+            label="Monthly Limit"
+            type="number"
+            value={monthlyLimit}
+            onChange={(e) => setMonthlyLimit(e.target.value)}
+            className="w-40"
+          />
+          <Button type="submit" disabled={savingLimits}>
             {savingLimits ? 'Saving...' : 'Save Limits'}
-          </button>
+          </Button>
         </form>
       </div>
 
       {/* Balance transfer form */}
-      <div
-        style={{
-          background: '#f5f5f5',
-          border: '1px solid #ddd',
-          borderRadius: 4,
-          padding: 16,
-          marginBottom: 16,
-        }}
-      >
-        <h3 style={{ marginTop: 0 }}>Balance Transfer</h3>
-        <form onSubmit={handleTransfer} style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
-          <label>
-            Amount
-            <br />
-            <input
-              type="text"
-              value={transferAmount}
-              onChange={(e) => setTransferAmount(e.target.value)}
-              placeholder="0.00"
-              required
-              style={{ width: 150 }}
-            />
-          </label>
-          <button type="submit" disabled={transferring || !transferAmount}>
+      <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
+        <h3 className="mt-0 text-base font-semibold mb-3">Balance Transfer</h3>
+        <form onSubmit={handleTransfer} className="flex gap-4 items-end">
+          <Input
+            label="Amount"
+            type="text"
+            value={transferAmount}
+            onChange={(e) => setTransferAmount(e.target.value)}
+            placeholder="0.00"
+            required
+            className="w-40"
+          />
+          <Button type="submit" disabled={transferring || !transferAmount}>
             {transferring ? 'Transferring...' : 'Transfer'}
-          </button>
+          </Button>
         </form>
       </div>
 
       {/* Delete section */}
-      <div
-        style={{
-          border: '1px solid #d32f2f',
-          borderRadius: 4,
-          padding: 16,
-        }}
-      >
-        <h3 style={{ marginTop: 0, color: '#d32f2f' }}>Danger Zone</h3>
-        {confirmDelete ? (
-          <div>
-            <p>Are you sure you want to delete this sub-account? This cannot be undone.</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleDelete} style={{ background: '#d32f2f', color: '#fff', border: 'none', padding: '6px 16px', cursor: 'pointer' }}>
-                Yes, Delete
-              </button>
-              <button onClick={() => setConfirmDelete(false)}>Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => setConfirmDelete(true)} style={{ color: '#d32f2f' }}>
-            Delete Sub-account
-          </button>
-        )}
+      <div className="border border-red-600 rounded p-4">
+        <h3 className="mt-0 text-red-600 text-base font-semibold mb-3">Danger Zone</h3>
+        <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+          Delete Sub-account
+        </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+        title="Delete Sub-account"
+        description="Are you sure you want to delete this sub-account? This cannot be undone."
+        confirmLabel="Yes, Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }
 
 // ---- Messages Tab ----
+
+const messageColumns: Column<MessageItem>[] = [
+  {
+    key: 'message_id',
+    header: 'ID',
+    render: (msg) => (
+      <span className="text-xs font-mono">{msg.message_id.substring(0, 8)}...</span>
+    ),
+  },
+  { key: 'source', header: 'Source' },
+  { key: 'destination', header: 'Destination' },
+  {
+    key: 'text',
+    header: 'Text',
+    render: (msg) => (
+      <span className="block max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+        {msg.text}
+      </span>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (msg) => <StatusBadge status={msg.status} />,
+  },
+  { key: 'segment_count', header: 'Segments' },
+  {
+    key: 'created_at',
+    header: 'Created',
+    render: (msg) => (
+      <span className="text-xs">
+        {msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}
+      </span>
+    ),
+  },
+];
+
+const statusOptions = [
+  { value: '', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'sent', label: 'Sent' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'failed', label: 'Failed' },
+];
 
 function MessagesTab({ subAccountId }: { subAccountId: string }) {
   const [data, setData] = useState<MessagesResponse | null>(null);
@@ -382,75 +377,46 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'flex-end' }}>
-        <label>
-          Status
-          <br />
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={{ padding: 4 }}>
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="sent">Sent</option>
-            <option value="delivered">Delivered</option>
-            <option value="failed">Failed</option>
-          </select>
-        </label>
+      <div className="flex gap-3 mb-4 items-end">
+        <Select
+          label="Status"
+          value={status}
+          options={statusOptions}
+          onChange={(val) => { setStatus(val); setPage(1); }}
+        />
       </div>
 
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
-      {loading ? (
-        <div role="status">Loading messages...</div>
-      ) : data ? (
-        <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Messages list</caption>
-            <thead>
-              <tr>
-                {['ID', 'Source', 'Destination', 'Text', 'Status', 'Segments', 'Created'].map((h) => (
-                  <th key={h} style={{ borderBottom: '2px solid #ddd', padding: 8, textAlign: 'left' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.messages.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>No messages found</td>
-                </tr>
-              ) : (
-                data.messages.map((msg) => (
-                  <tr key={msg.message_id}>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12, fontFamily: 'monospace' }}>
-                      {msg.message_id.substring(0, 8)}...
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.source}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.destination}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {msg.text}
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.status}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{msg.segment_count}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12 }}>
-                      {msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {error && <p className="text-red-600">{error}</p>}
 
-          {data.total_pages > 1 && (
-            <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
-              <span>Page {data.page} of {data.total_pages} (total: {data.total})</span>
-              <button disabled={page >= data.total_pages} onClick={() => setPage((p) => p + 1)}>Next</button>
-            </div>
-          )}
-        </>
-      ) : null}
+      <DataTable<MessageItem>
+        columns={messageColumns}
+        data={data?.messages ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        pageSize={20}
+        onPageChange={setPage}
+        loading={loading}
+        keyField="message_id"
+      />
     </div>
   );
 }
 
 // ---- Analytics Tab ----
+
+const PERIOD_OPTIONS = ['7d', '30d', '90d'] as const;
+
+const timelineColumns: Column<TimelineEntry>[] = [
+  { key: 'period', header: 'Period' },
+  { key: 'sent', header: 'Sent' },
+  { key: 'delivered', header: 'Delivered' },
+  { key: 'failed', header: 'Failed' },
+  {
+    key: 'delivery_rate',
+    header: 'Delivery Rate',
+    render: (row) => <>{row.delivery_rate}%</>,
+  },
+];
 
 function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -470,79 +436,48 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {['7d', '30d', '90d'].map((p) => (
+      <div className="flex gap-1 mb-4">
+        {PERIOD_OPTIONS.map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            style={{
-              padding: '6px 16px',
-              fontWeight: period === p ? 'bold' : 'normal',
-              background: period === p ? '#1976d2' : '#e0e0e0',
-              color: period === p ? '#fff' : '#333',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-            }}
+            className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${
+              period === p
+                ? 'bg-primary text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
           >
             {p}
           </button>
         ))}
       </div>
 
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
       {loading && <div role="status">Loading analytics...</div>}
 
       {data && !loading && (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-            {[
-              { label: 'Sent', value: data.summary.total_sent },
-              { label: 'Delivered', value: data.summary.total_delivered },
-              { label: 'Failed', value: data.summary.total_failed },
-              { label: 'Delivery Rate', value: `${data.summary.delivery_rate}%` },
-              { label: 'Total Cost', value: data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : 'N/A' },
-            ].map((card) => (
-              <div
-                key={card.label}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: 8,
-                  padding: 16,
-                  minWidth: 140,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 'bold' }}>{card.value}</div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <StatCard title="Sent" value={data.summary.total_sent} />
+            <StatCard title="Delivered" value={data.summary.total_delivered} />
+            <StatCard title="Failed" value={data.summary.total_failed} />
+            <StatCard title="Delivery Rate" value={`${data.summary.delivery_rate}%`} />
+            <StatCard
+              title="Total Cost"
+              value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : 'N/A'}
+            />
           </div>
 
           {data.timeline.length > 0 && (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Message statistics by period</caption>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                  <th style={{ padding: 8 }}>Period</th>
-                  <th style={{ padding: 8 }}>Sent</th>
-                  <th style={{ padding: 8 }}>Delivered</th>
-                  <th style={{ padding: 8 }}>Failed</th>
-                  <th style={{ padding: 8 }}>Delivery Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.timeline.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: 8 }}>{row.period}</td>
-                    <td style={{ padding: 8 }}>{row.sent}</td>
-                    <td style={{ padding: 8 }}>{row.delivered}</td>
-                    <td style={{ padding: 8 }}>{row.failed}</td>
-                    <td style={{ padding: 8 }}>{row.delivery_rate}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable<TimelineEntry>
+              columns={timelineColumns}
+              data={data.timeline}
+              total={data.timeline.length}
+              page={1}
+              pageSize={data.timeline.length}
+              onPageChange={() => {}}
+              keyField="period"
+            />
           )}
         </>
       )}
@@ -552,108 +487,78 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
 
 // ---- API Keys Tab ----
 
+const apiKeyColumns: Column<APIKeyItem>[] = [
+  { key: 'name', header: 'Name' },
+  {
+    key: 'prefix',
+    header: 'Prefix',
+    render: (k) => <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{k.prefix}...</code>,
+  },
+  {
+    key: 'active',
+    header: 'Status',
+    render: (k) => <StatusBadge status={k.active ? 'active' : 'inactive'} />,
+  },
+  {
+    key: 'created_at',
+    header: 'Created',
+    render: (k) => <>{new Date(k.created_at).toLocaleDateString()}</>,
+  },
+];
+
 function APIKeysTab({ keys }: { keys: APIKeyItem[] }) {
   return (
-    <div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>API Keys</caption>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>Name</th>
-            <th style={{ padding: 8 }}>Prefix</th>
-            <th style={{ padding: 8 }}>Status</th>
-            <th style={{ padding: 8 }}>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {keys.length === 0 ? (
-            <tr>
-              <td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                No API keys for this sub-account.
-              </td>
-            </tr>
-          ) : (
-            keys.map((key) => (
-              <tr key={key.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: 8 }}>{key.name}</td>
-                <td style={{ padding: 8 }}><code>{key.prefix}...</code></td>
-                <td style={{ padding: 8 }}>
-                  <span
-                    aria-label={`Status: ${key.active ? 'Active' : 'Revoked'}`}
-                    style={{ color: key.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
-                  >
-                    {key.active ? 'Active' : 'Revoked'}
-                  </span>
-                </td>
-                <td style={{ padding: 8 }}>{new Date(key.created_at).toLocaleDateString()}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+    <DataTable<APIKeyItem>
+      columns={apiKeyColumns}
+      data={keys}
+      total={keys.length}
+      page={1}
+      pageSize={keys.length || 1}
+      onPageChange={() => {}}
+    />
   );
 }
 
 // ---- Webhooks Tab ----
 
+const webhookColumns: Column<WebhookItem>[] = [
+  {
+    key: 'url',
+    header: 'URL',
+    render: (wh) => <span className="break-all max-w-xs block">{wh.url}</span>,
+  },
+  {
+    key: 'event_types',
+    header: 'Event Types',
+    render: (wh) => (
+      <div className="flex flex-wrap gap-1">
+        {wh.event_types.map((t) => (
+          <Badge key={t}>{t}</Badge>
+        ))}
+      </div>
+    ),
+  },
+  {
+    key: 'active',
+    header: 'Status',
+    render: (wh) => <StatusBadge status={wh.active ? 'active' : 'inactive'} />,
+  },
+  {
+    key: 'created_at',
+    header: 'Created',
+    render: (wh) => <>{wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'}</>,
+  },
+];
+
 function WebhooksTab({ webhooks }: { webhooks: WebhookItem[] }) {
   return (
-    <div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Webhook subscriptions</caption>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>URL</th>
-            <th style={{ padding: 8 }}>Event Types</th>
-            <th style={{ padding: 8 }}>Status</th>
-            <th style={{ padding: 8 }}>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {webhooks.length === 0 ? (
-            <tr>
-              <td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                No webhooks for this sub-account.
-              </td>
-            </tr>
-          ) : (
-            webhooks.map((wh) => (
-              <tr key={wh.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: 8, maxWidth: 300, wordBreak: 'break-all' }}>{wh.url}</td>
-                <td style={{ padding: 8 }}>
-                  {wh.event_types.map((t) => (
-                    <span
-                      key={t}
-                      style={{
-                        display: 'inline-block',
-                        background: '#e0e0e0',
-                        borderRadius: 4,
-                        padding: '2px 6px',
-                        marginRight: 4,
-                        fontSize: 12,
-                      }}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </td>
-                <td style={{ padding: 8 }}>
-                  <span
-                    aria-label={`Status: ${wh.active ? 'Active' : 'Inactive'}`}
-                    style={{ color: wh.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
-                  >
-                    {wh.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td style={{ padding: 8 }}>
-                  {wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+    <DataTable<WebhookItem>
+      columns={webhookColumns}
+      data={webhooks}
+      total={webhooks.length}
+      page={1}
+      pageSize={webhooks.length || 1}
+      onPageChange={() => {}}
+    />
   );
 }

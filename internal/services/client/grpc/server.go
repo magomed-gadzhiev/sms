@@ -51,6 +51,7 @@ func (s *Server) CreateClient(ctx context.Context, req *clientv1.CreateClientReq
 		req.ContactPerson,
 		req.Phone,
 		req.Active,
+		req.IsSandbox,
 		metadata,
 	)
 	if err != nil {
@@ -495,6 +496,69 @@ func (s *Server) UpdateSubAccountLimits(ctx context.Context, req *clientv1.Updat
 	}, nil
 }
 
+// ToggleSandbox включает или отключает sandbox-режим для клиента
+func (s *Server) ToggleSandbox(ctx context.Context, req *clientv1.ToggleSandboxRequest) (*clientv1.ToggleSandboxResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	if err := s.clientService.ToggleSandbox(ctx, clientID, req.Enable); err != nil {
+		if err == application.ErrClientNotFound {
+			return nil, status.Error(codes.NotFound, "client not found")
+		}
+		log.Error().Err(err).Msg("ошибка изменения sandbox-режима")
+		return nil, status.Error(codes.Internal, "failed to toggle sandbox")
+	}
+
+	return &clientv1.ToggleSandboxResponse{
+		IsSandbox: req.Enable,
+	}, nil
+}
+
+// ListPlans возвращает список активных тарифных планов
+func (s *Server) ListPlans(ctx context.Context, req *clientv1.ListPlansRequest) (*clientv1.ListPlansResponse, error) {
+	plans, err := s.clientService.ListPlans(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка планов")
+		return nil, status.Error(codes.Internal, "failed to list plans")
+	}
+
+	protoPlans := make([]*clientv1.SubscriptionPlan, 0, len(plans))
+	for _, p := range plans {
+		protoPlans = append(protoPlans, &clientv1.SubscriptionPlan{
+			Id:                 p.ID.String(),
+			Name:               p.Name,
+			DisplayName:        p.DisplayName,
+			MonthlyPriceRub:    p.MonthlyPriceRub,
+			MaxSmsPerMonth:     int32(p.MaxSMSPerMonth),
+			MaxSmppConnections: int32(p.MaxSMPPConnections),
+			MaxUsers:           int32(p.MaxUsers),
+			RateLimits: &clientv1.RateLimits{
+				MessagesPerSecond: int32(p.RateLimitPerSecond),
+				MessagesPerMinute: int32(p.RateLimitPerMinute),
+				MessagesPerHour:   int32(p.RateLimitPerHour),
+				MessagesPerDay:    int32(p.RateLimitPerDay),
+			},
+			Features: map[string]bool{
+				"analytics":     p.Features.Analytics,
+				"webhooks":      p.Features.Webhooks,
+				"hlr":           p.Features.HLR,
+				"smart_routing": p.Features.SmartRouting,
+				"sub_accounts":  p.Features.SubAccounts,
+				"white_label":   p.Features.WhiteLabel,
+			},
+			Active: p.Active,
+		})
+	}
+
+	return &clientv1.ListPlansResponse{Plans: protoPlans}, nil
+}
+
 // domainClientToSubAccount преобразует domain.Client в proto SubAccount
 func (s *Server) domainClientToSubAccount(client *domain.Client) *clientv1.SubAccount {
 	if client == nil {
@@ -548,6 +612,7 @@ func (s *Server) domainClientToProto(client *domain.Client) *clientv1.ClientInfo
 		UpdatedAt:      timestamppb.New(client.UpdatedAt),
 		IsReseller:     client.IsReseller,
 		MaxSubAccounts: int32(client.MaxSubAccounts),
+		IsSandbox:      client.IsSandbox,
 	}
 
 	if client.ParentClientID != nil {

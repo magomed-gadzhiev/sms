@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/mail"
 	"os"
 	"strings"
 
@@ -61,6 +65,16 @@ type resetPasswordBody struct {
 	NewPassword string `json:"new_password"`
 }
 
+// registerRequest представляет запрос на регистрацию нового клиента
+type registerRequest struct {
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+	CompanyName   string `json:"company_name"`
+	ContactPerson string `json:"contact_person"`
+	Phone         string `json:"phone"`
+	PlanName      string `json:"plan_name"`
+}
+
 // Login обрабатывает POST /auth/login
 func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
@@ -96,7 +110,9 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Успешный вход — устанавливаем cookies
-	setSessionCookies(w, resp.SessionId)
+	if !setSessionCookies(w, resp.SessionId) {
+		return
+	}
 
 	// Публикуем audit event
 	h.publishAuditEvent(r, resp.User, audit.ActionLogin, "")
@@ -132,7 +148,9 @@ func (h *AuthHandlers) LoginWith2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Устанавливаем cookies
-	setSessionCookies(w, resp.SessionId)
+	if !setSessionCookies(w, resp.SessionId) {
+		return
+	}
 
 	// Публикуем audit event
 	h.publishAuditEvent(r, resp.User, audit.ActionLogin, "")
@@ -225,8 +243,66 @@ func (h *AuthHandlers) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// setSessionCookies устанавливает cookies для сессии портала
-func setSessionCookies(w http.ResponseWriter, sessionID string) {
+// Register обрабатывает POST /auth/register
+func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
+	var req registerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	if req.Email == "" {
+		respondError(w, shared.ErrInvalidInput("Поле email обязательно"))
+		return
+	}
+	if _, err := mail.ParseAddress(req.Email); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат email"))
+		return
+	}
+	if len(req.Password) < 8 {
+		respondError(w, shared.ErrInvalidInput("Пароль должен содержать не менее 8 символов"))
+		return
+	}
+	if req.CompanyName == "" {
+		respondError(w, shared.ErrInvalidInput("Поле company_name обязательно"))
+		return
+	}
+	if len(req.CompanyName) > 500 {
+		respondError(w, shared.ErrInvalidInput("Название компании не может превышать 500 символов"))
+		return
+	}
+
+	resp, err := h.authClient.RegisterClient(r.Context(), &authv1.RegisterClientRequest{
+		Email:         req.Email,
+		Password:      req.Password,
+		CompanyName:   req.CompanyName,
+		ContactPerson: req.ContactPerson,
+		Phone:         req.Phone,
+		PlanName:      req.PlanName,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("email", req.Email).Msg("ошибка регистрации клиента")
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Устанавливаем cookies сессии
+	if !setSessionCookies(w, resp.SessionId) {
+		return
+	}
+
+	// Публикуем audit event
+	h.publishAuditEvent(r, resp.User, audit.ActionRegister, resp.ClientId)
+
+	respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"client_id": resp.ClientId,
+		"user":      buildUserInfoResponse(resp.User),
+	})
+}
+
+// setSessionCookies устанавливает cookies для сессии портала.
+// Возвращает true при успехе; при ошибке пишет 500 и возвращает false.
+func setSessionCookies(w http.ResponseWriter, sessionID string) bool {
 	secure := isSecureCookie()
 	sameSite := http.SameSiteStrictMode
 	if !secure {
@@ -243,15 +319,25 @@ func setSessionCookies(w http.ResponseWriter, sessionID string) {
 		SameSite: sameSite,
 	})
 
+	// Generate a separate random CSRF token (not linked to session ID)
+	csrfBytes := make([]byte, 32)
+	if _, err := rand.Read(csrfBytes); err != nil {
+		// crypto/rand failure is a critical system error
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return false
+	}
+	csrfToken := hex.EncodeToString(csrfBytes)
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
-		Value:    sessionID,
+		Value:    csrfToken,
 		Path:     "/",
 		MaxAge:   86400,
 		HttpOnly: false,
 		Secure:   secure,
 		SameSite: sameSite,
 	})
+	return true
 }
 
 // clearSessionCookies очищает cookies сессии
@@ -294,8 +380,12 @@ func getIPAddress(r *http.Request) string {
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	// Используем RemoteAddr
-	return r.RemoteAddr
+	// Используем RemoteAddr (отсекаем порт)
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // buildUserInfoResponse формирует ответ с информацией о пользователе

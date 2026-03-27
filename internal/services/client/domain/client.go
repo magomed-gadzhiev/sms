@@ -11,6 +11,8 @@ import (
 type Client struct {
 	ID            uuid.UUID       `json:"id" db:"id"`
 	Name          string          `json:"name" db:"name"`
+	APIKey        string          `json:"api_key" db:"api_key"`
+	Secret        string          `json:"secret" db:"secret"`
 	Email         string          `json:"email" db:"email"`
 	ContactPerson string          `json:"contact_person" db:"contact_person"`
 	Phone         string          `json:"phone" db:"phone"`
@@ -24,9 +26,10 @@ type Client struct {
 	IsReseller     bool       `json:"is_reseller" db:"is_reseller"`
 	MaxSubAccounts int        `json:"max_sub_accounts" db:"max_sub_accounts"`
 
-	PlanID            uuid.UUID `json:"plan_id" db:"plan_id"`
+	PlanID            *uuid.UUID `json:"plan_id,omitempty" db:"plan_id"`
 	MonthlySMSCount   int       `json:"monthly_sms_count" db:"monthly_sms_count"`
 	MonthlySMSResetAt time.Time `json:"monthly_sms_reset_at" db:"monthly_sms_reset_at"`
+	IsSandbox         bool      `json:"is_sandbox" db:"is_sandbox"`
 
 	// Связи
 	Config *ClientConfig `json:"config,omitempty" db:"-"`

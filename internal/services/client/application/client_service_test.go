@@ -21,7 +21,7 @@ func TestClientService(t *testing.T) {
 		t.Run("creates_client_with_default_config", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 
@@ -40,7 +40,7 @@ func TestClientService(t *testing.T) {
 					cfg.RateLimitPerDay == 10000
 			})).Return(nil)
 
-			client, err := svc.CreateClient(ctx, "Test Company", "test@example.com", "John Doe", "+79001234567", true, nil)
+			client, err := svc.CreateClient(ctx, "Test Company", "test@example.com", "John Doe", "+79001234567", true, false, nil)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -58,7 +58,7 @@ func TestClientService(t *testing.T) {
 		t.Run("creates_client_with_metadata", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			metadata := map[string]string{"industry": "fintech", "tier": "premium"}
@@ -70,7 +70,7 @@ func TestClientService(t *testing.T) {
 
 			configRepo.On("Create", ctx, mock.AnythingOfType("*domain.ClientConfig")).Return(nil)
 
-			client, err := svc.CreateClient(ctx, "Fintech Corp", "info@fintech.com", "Jane", "+79009876543", true, metadata)
+			client, err := svc.CreateClient(ctx, "Fintech Corp", "info@fintech.com", "Jane", "+79009876543", true, false, metadata)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -85,11 +85,11 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_empty_name", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 
-			client, err := svc.CreateClient(ctx, "", "test@example.com", "John", "+79001234567", true, nil)
+			client, err := svc.CreateClient(ctx, "", "test@example.com", "John", "+79001234567", true, false, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -99,13 +99,13 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_repo_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 
 			clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(assert.AnError)
 
-			client, err := svc.CreateClient(ctx, "Test", "test@example.com", "John", "+79001234567", true, nil)
+			client, err := svc.CreateClient(ctx, "Test", "test@example.com", "John", "+79001234567", true, false, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -117,7 +117,7 @@ func TestClientService(t *testing.T) {
 		t.Run("existing", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -164,7 +164,7 @@ func TestClientService(t *testing.T) {
 		t.Run("not_found", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -182,7 +182,7 @@ func TestClientService(t *testing.T) {
 		t.Run("existing_without_config", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -210,7 +210,7 @@ func TestClientService(t *testing.T) {
 		t.Run("updates_fields", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -254,7 +254,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_not_found_error", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -273,7 +273,7 @@ func TestClientService(t *testing.T) {
 		t.Run("updates_metadata", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -307,7 +307,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_repo_update_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -334,7 +334,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_generic_getbyid_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -352,7 +352,7 @@ func TestClientService(t *testing.T) {
 		t.Run("updates_all_pointer_fields", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -397,7 +397,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_clients_list", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 
@@ -421,7 +421,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_empty_list", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 
@@ -438,7 +438,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_repo_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 
@@ -457,7 +457,7 @@ func TestClientService(t *testing.T) {
 		t.Run("deletes_successfully", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -473,7 +473,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -492,7 +492,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_config", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -521,7 +521,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_not_found", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -539,7 +539,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_generic_error", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -559,7 +559,7 @@ func TestClientService(t *testing.T) {
 		t.Run("upserts_config_successfully", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -587,7 +587,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_not_found_when_client_missing", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -605,7 +605,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_generic_error_on_getbyid_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -622,7 +622,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_upsert_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -644,7 +644,7 @@ func TestClientService(t *testing.T) {
 		t.Run("updates_existing_limits", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -670,7 +670,7 @@ func TestClientService(t *testing.T) {
 		t.Run("creates_config_when_not_found", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -703,7 +703,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_not_found_when_client_missing", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -720,7 +720,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_generic_error_on_getbyid_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -737,7 +737,7 @@ func TestClientService(t *testing.T) {
 		t.Run("returns_error_on_update_rate_limits_failure", func(t *testing.T) {
 			clientRepo := new(mocks.MockClientRepository)
 			configRepo := new(mocks.MockConfigRepository)
-			svc := NewClientService(clientRepo, configRepo)
+			svc := NewClientService(clientRepo, configRepo, nil)
 
 			ctx := context.Background()
 			clientID := uuid.New()
@@ -758,7 +758,7 @@ func TestClientService(t *testing.T) {
 	t.Run("GetClient_config_error", func(t *testing.T) {
 		clientRepo := new(mocks.MockClientRepository)
 		configRepo := new(mocks.MockConfigRepository)
-		svc := NewClientService(clientRepo, configRepo)
+		svc := NewClientService(clientRepo, configRepo, nil)
 
 		ctx := context.Background()
 		clientID := uuid.New()
@@ -778,7 +778,7 @@ func TestClientService(t *testing.T) {
 	t.Run("GetClient_generic_getbyid_error", func(t *testing.T) {
 		clientRepo := new(mocks.MockClientRepository)
 		configRepo := new(mocks.MockConfigRepository)
-		svc := NewClientService(clientRepo, configRepo)
+		svc := NewClientService(clientRepo, configRepo, nil)
 
 		ctx := context.Background()
 		clientID := uuid.New()

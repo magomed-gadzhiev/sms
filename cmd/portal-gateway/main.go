@@ -63,6 +63,7 @@ func main() {
 		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
 		Audit:     getEnvOrDefault("AUDIT_SERVICE_ADDR", ""),
 		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Provider:  getEnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9094"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -102,6 +103,7 @@ func main() {
 	loggingMw := middleware.LoggingMiddleware(logger)
 	recoveryMw := middleware.RecoveryMiddleware()
 	corsMw := middleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	tenantLoggerMw := middleware.TenantLoggerMiddleware(logger)
 
 	// Создание Kafka producer для audit events
 	kafkaBrokers := getEnvOrDefault("KAFKA_BROKERS", "localhost:9092")
@@ -145,6 +147,8 @@ func main() {
 	)
 	auditHandlers := handlers.NewAuditHandlers(serviceClients.AuditClient)
 	lookupHandlers := handlers.NewLookupHandlers(serviceClients.RoutingClient)
+	plansHandlers := handlers.NewPlansHandlers(serviceClients.ClientClient)
+	providerHandlers := handlers.NewProviderHandlers(serviceClients.ProviderClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -154,6 +158,7 @@ func main() {
 		loggingMw,
 		recoveryMw,
 		corsMw,
+		tenantLoggerMw,
 		authHandlers,
 		profileHandlers,
 		dashboardHandlers,
@@ -164,6 +169,8 @@ func main() {
 		subAccountHandlers,
 		auditHandlers,
 		lookupHandlers,
+		plansHandlers,
+		providerHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

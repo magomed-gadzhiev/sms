@@ -58,6 +58,7 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 	options := &application.SendMessageOptions{
 		ExternalID: req.ExternalId,
 		Priority:   int(req.Priority),
+		IsSandbox:  req.IsSandbox,
 	}
 
 	if req.RegisteredDelivery {

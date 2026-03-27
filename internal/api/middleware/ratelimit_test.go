@@ -88,8 +88,9 @@ func TestCheckRateLimit(t *testing.T) {
 	// Этот тест требует реального Redis или testcontainers
 	// Для unit тестов используем упрощенную проверку
 	t.Run("limit not set - should pass", func(t *testing.T) {
-		err := checkRateLimit(context.Background(), nil, "test-client", "sec", 0, 0)
+		exceeded, err := CheckWindow(context.Background(), nil, "test-client", "sec", 0, 0)
 		assert.NoError(t, err)
+		assert.False(t, exceeded)
 	})
 }
 

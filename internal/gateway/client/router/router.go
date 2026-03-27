@@ -23,19 +23,26 @@ func SetupRouter(
 	corsMiddleware func(http.Handler) http.Handler,
 	rateLimitMiddleware func(http.Handler) http.Handler,
 	quotaMiddleware func(http.Handler) http.Handler,
+	tenantLoggerMiddleware func(http.Handler) http.Handler,
 ) *mux.Router {
 	router := mux.NewRouter()
 
-	// Применяем middleware в правильном порядке
+	// Глобальные middleware (применяются ко всем маршрутам, включая health)
 	router.Use(recoveryMiddleware)
 	router.Use(loggingMiddleware)
 	router.Use(corsMiddleware)
-	router.Use(authMiddleware)
-	router.Use(rateLimitMiddleware)
-	router.Use(quotaMiddleware)
 
-	// Client API v1
+	// Health check endpoints (без аутентификации)
+	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")
+	router.HandleFunc("/health/live", healthChecker.LivenessHandler()).Methods("GET")
+	router.HandleFunc("/health/ready", healthChecker.ReadinessHandler()).Methods("GET")
+
+	// Client API v1 (с аутентификацией)
 	apiV1 := router.PathPrefix("/api/v1").Subrouter()
+	apiV1.Use(authMiddleware)
+	apiV1.Use(tenantLoggerMiddleware)
+	apiV1.Use(rateLimitMiddleware)
+	apiV1.Use(quotaMiddleware)
 
 	// SMS endpoints
 	sms := apiV1.PathPrefix("/sms").Subrouter()
@@ -72,11 +79,6 @@ func SetupRouter(
 	templates.HandleFunc("/{id}", templateHandlers.UpdateTemplate).Methods("PUT")
 	templates.HandleFunc("/{id}", templateHandlers.DeleteTemplate).Methods("DELETE")
 	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAudit).Methods("GET")
-
-	// Health check endpoints (без аутентификации)
-	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")
-	router.HandleFunc("/health/live", healthChecker.LivenessHandler()).Methods("GET")
-	router.HandleFunc("/health/ready", healthChecker.ReadinessHandler()).Methods("GET")
 
 	// API документация (без аутентификации)
 	router.HandleFunc("/docs", docs.SwaggerUIHandler()).Methods("GET")

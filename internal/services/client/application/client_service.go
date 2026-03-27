@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
@@ -17,6 +19,11 @@ var (
 	ErrInvalidClientData  = errors.New("invalid client data")
 	ErrConfigNotFound     = errors.New("client config not found")
 )
+
+// PlanRepositoryInterface определяет интерфейс для работы с тарифными планами
+type PlanRepositoryInterface interface {
+	ListActive(ctx context.Context) ([]*domain.Plan, error)
+}
 
 // ClientRepositoryInterface определяет интерфейс для работы с клиентами
 type ClientRepositoryInterface interface {
@@ -40,16 +47,19 @@ type ConfigRepositoryInterface interface {
 type ClientService struct {
 	clientRepo ClientRepositoryInterface
 	configRepo ConfigRepositoryInterface
+	planRepo   PlanRepositoryInterface
 }
 
 // NewClientService создает новый сервис управления клиентами
 func NewClientService(
 	clientRepo ClientRepositoryInterface,
 	configRepo ConfigRepositoryInterface,
+	planRepo PlanRepositoryInterface,
 ) *ClientService {
 	return &ClientService{
 		clientRepo: clientRepo,
 		configRepo: configRepo,
+		planRepo:   planRepo,
 	}
 }
 
@@ -58,6 +68,7 @@ func (s *ClientService) CreateClient(
 	ctx context.Context,
 	name, email, contactPerson, phone string,
 	active bool,
+	isSandbox bool,
 	metadata map[string]string,
 ) (*domain.Client, error) {
 	// Валидация
@@ -65,14 +76,27 @@ func (s *ClientService) CreateClient(
 		return nil, ErrInvalidClientData
 	}
 
+	// Генерируем API key и secret
+	apiKeyBytes := make([]byte, 16)
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(apiKeyBytes); err != nil {
+		return nil, err
+	}
+	if _, err := rand.Read(secretBytes); err != nil {
+		return nil, err
+	}
+
 	// Создаем клиента
 	client := &domain.Client{
 		ID:            uuid.New(),
 		Name:          name,
+		APIKey:        "ak-" + hex.EncodeToString(apiKeyBytes),
+		Secret:        hex.EncodeToString(secretBytes),
 		Email:         email,
 		ContactPerson: contactPerson,
 		Phone:         phone,
 		Active:        active,
+		IsSandbox:     isSandbox,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
@@ -201,6 +225,20 @@ func (s *ClientService) DeleteClient(ctx context.Context, clientID uuid.UUID) er
 	return s.clientRepo.Delete(ctx, clientID)
 }
 
+// ToggleSandbox включает или отключает sandbox-режим для клиента
+func (s *ClientService) ToggleSandbox(ctx context.Context, clientID uuid.UUID, enable bool) error {
+	client, err := s.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if err == clientrepo.ErrClientNotFound {
+			return ErrClientNotFound
+		}
+		return err
+	}
+	client.IsSandbox = enable
+	client.UpdatedAt = time.Now()
+	return s.clientRepo.Update(ctx, client)
+}
+
 // GetClientConfig получает конфигурацию клиента
 func (s *ClientService) GetClientConfig(ctx context.Context, clientID uuid.UUID) (*domain.ClientConfig, error) {
 	config, err := s.configRepo.GetByClientID(ctx, clientID)
@@ -235,6 +273,11 @@ func (s *ClientService) UpdateClientConfig(
 
 	// Используем upsert для создания или обновления
 	return s.configRepo.Upsert(ctx, config)
+}
+
+// ListPlans возвращает список активных тарифных планов
+func (s *ClientService) ListPlans(ctx context.Context) ([]*domain.Plan, error) {
+	return s.planRepo.ListActive(ctx)
 }
 
 // UpdateClientRateLimits обновляет rate limits клиента

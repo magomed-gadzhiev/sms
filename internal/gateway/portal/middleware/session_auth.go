@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -40,15 +41,58 @@ func isPublicPath(path string) bool {
 }
 
 // SessionAuthMiddleware создает middleware для сессионной аутентификации через Redis
-// LOAD TEST MODE: сессионная авторизация отключена для нагрузочного тестирования
 func SessionAuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Handler {
-	dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie("portal_session")
+			if err != nil || cookie.Value == "" {
+				respondError(w, shared.ErrUnauthorized("Сессия не найдена"))
+				return
+			}
+
+			sessionKey := "session:" + cookie.Value
+			data, err := redisClient.HGetAll(r.Context(), sessionKey).Result()
+			if err != nil || len(data) == 0 {
+				respondError(w, shared.ErrUnauthorized("Сессия не найдена или истекла"))
+				return
+			}
+
+			userIDStr, ok := data["user_id"]
+			if !ok || userIDStr == "" {
+				respondError(w, shared.ErrUnauthorized("Некорректная сессия"))
+				return
+			}
+
+			userID, err := uuid.Parse(userIDStr)
+			if err != nil {
+				respondError(w, shared.ErrUnauthorized("Некорректный user_id в сессии"))
+				return
+			}
+
+			role := data["role"]
+			if role == "" {
+				role = "client"
+			}
+
 			ctx := r.Context()
-			ctx = context.WithValue(ctx, UserIDKey, dummyID)
-			ctx = context.WithValue(ctx, ClientIDKey, dummyID)
-			ctx = context.WithValue(ctx, RoleKey, "client")
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			ctx = context.WithValue(ctx, RoleKey, role)
+
+			// client_id может быть нулевым (для admin без клиента)
+			clientIDStr := data["client_id"]
+			if clientIDStr != "" {
+				clientID, err := uuid.Parse(clientIDStr)
+				if err == nil && clientID != uuid.Nil {
+					ctx = context.WithValue(ctx, ClientIDKey, clientID)
+				}
+			}
+
+			log.Debug().
+				Str("user_id", userID.String()).
+				Str("role", role).
+				Str("client_id", clientIDStr).
+				Msg("session authenticated")
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

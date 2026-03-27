@@ -1952,6 +1952,160 @@ func (x *LogoutResponse) GetSuccess() bool {
 	return false
 }
 
+// RegisterClientRequest представляет запрос на регистрацию нового клиента
+type RegisterClientRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`                                      // Email пользователя и клиента
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`                                // Пароль
+	CompanyName   string                 `protobuf:"bytes,3,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`       // Название компании
+	ContactPerson string                 `protobuf:"bytes,4,opt,name=contact_person,json=contactPerson,proto3" json:"contact_person,omitempty"` // Контактное лицо
+	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`                                      // Телефон
+	PlanName      string                 `protobuf:"bytes,6,opt,name=plan_name,json=planName,proto3" json:"plan_name,omitempty"`                // Имя тарифного плана: "free", "starter", "business", "pro"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterClientRequest) Reset() {
+	*x = RegisterClientRequest{}
+	mi := &file_auth_auth_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterClientRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterClientRequest) ProtoMessage() {}
+
+func (x *RegisterClientRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_auth_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterClientRequest.ProtoReflect.Descriptor instead.
+func (*RegisterClientRequest) Descriptor() ([]byte, []int) {
+	return file_auth_auth_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *RegisterClientRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *RegisterClientRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *RegisterClientRequest) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *RegisterClientRequest) GetContactPerson() string {
+	if x != nil {
+		return x.ContactPerson
+	}
+	return ""
+}
+
+func (x *RegisterClientRequest) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *RegisterClientRequest) GetPlanName() string {
+	if x != nil {
+		return x.PlanName
+	}
+	return ""
+}
+
+// RegisterClientResponse представляет ответ на регистрацию клиента
+type RegisterClientResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`    // ID созданного клиента
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`          // ID созданного пользователя
+	SessionId     string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // ID сессии (авто-логин)
+	User          *UserInfo              `protobuf:"bytes,4,opt,name=user,proto3" json:"user,omitempty"`                            // Информация о пользователе
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterClientResponse) Reset() {
+	*x = RegisterClientResponse{}
+	mi := &file_auth_auth_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterClientResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterClientResponse) ProtoMessage() {}
+
+func (x *RegisterClientResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_auth_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterClientResponse.ProtoReflect.Descriptor instead.
+func (*RegisterClientResponse) Descriptor() ([]byte, []int) {
+	return file_auth_auth_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *RegisterClientResponse) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *RegisterClientResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *RegisterClientResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *RegisterClientResponse) GetUser() *UserInfo {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
 var File_auth_auth_proto protoreflect.FileDescriptor
 
 const file_auth_auth_proto_rawDesc = "" +
@@ -2095,7 +2249,20 @@ const file_auth_auth_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"*\n" +
 	"\x0eLogoutResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xa2\t\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xc6\x01\n" +
+	"\x15RegisterClientRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12!\n" +
+	"\fcompany_name\x18\x03 \x01(\tR\vcompanyName\x12%\n" +
+	"\x0econtact_person\x18\x04 \x01(\tR\rcontactPerson\x12\x14\n" +
+	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x1b\n" +
+	"\tplan_name\x18\x06 \x01(\tR\bplanName\"\x94\x01\n" +
+	"\x16RegisterClientResponse\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x03 \x01(\tR\tsessionId\x12%\n" +
+	"\x04user\x18\x04 \x01(\v2\x11.auth.v1.UserInfoR\x04user2\xf5\t\n" +
 	"\vAuthService\x12K\n" +
 	"\fAuthenticate\x12\x1c.auth.v1.AuthenticateRequest\x1a\x1d.auth.v1.AuthenticateResponse\x12N\n" +
 	"\rValidateToken\x12\x1d.auth.v1.ValidateTokenRequest\x1a\x1e.auth.v1.ValidateTokenResponse\x12K\n" +
@@ -2112,7 +2279,8 @@ const file_auth_auth_proto_rawDesc = "" +
 	"\rResetPassword\x12\x1d.auth.v1.ResetPasswordRequest\x1a\x1e.auth.v1.ResetPasswordResponse\x12W\n" +
 	"\x10LoginWithSession\x12 .auth.v1.LoginWithSessionRequest\x1a!.auth.v1.LoginWithSessionResponse\x12T\n" +
 	"\x0fValidateSession\x12\x1f.auth.v1.ValidateSessionRequest\x1a .auth.v1.ValidateSessionResponse\x129\n" +
-	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponseB5Z3github.com/smpp-server/smpp-server/api/proto/authv1b\x06proto3"
+	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\x12Q\n" +
+	"\x0eRegisterClient\x12\x1e.auth.v1.RegisterClientRequest\x1a\x1f.auth.v1.RegisterClientResponseB5Z3github.com/smpp-server/smpp-server/api/proto/authv1b\x06proto3"
 
 var (
 	file_auth_auth_proto_rawDescOnce sync.Once
@@ -2126,7 +2294,7 @@ func file_auth_auth_proto_rawDescGZIP() []byte {
 	return file_auth_auth_proto_rawDescData
 }
 
-var file_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_auth_auth_proto_goTypes = []any{
 	(*AuthenticateRequest)(nil),          // 0: auth.v1.AuthenticateRequest
 	(*AuthenticateResponse)(nil),         // 1: auth.v1.AuthenticateResponse
@@ -2162,61 +2330,66 @@ var file_auth_auth_proto_goTypes = []any{
 	(*ValidateSessionResponse)(nil),      // 31: auth.v1.ValidateSessionResponse
 	(*LogoutRequest)(nil),                // 32: auth.v1.LogoutRequest
 	(*LogoutResponse)(nil),               // 33: auth.v1.LogoutResponse
-	(*timestamppb.Timestamp)(nil),        // 34: google.protobuf.Timestamp
+	(*RegisterClientRequest)(nil),        // 34: auth.v1.RegisterClientRequest
+	(*RegisterClientResponse)(nil),       // 35: auth.v1.RegisterClientResponse
+	(*timestamppb.Timestamp)(nil),        // 36: google.protobuf.Timestamp
 }
 var file_auth_auth_proto_depIdxs = []int32{
-	34, // 0: auth.v1.AuthenticateResponse.expires_at:type_name -> google.protobuf.Timestamp
+	36, // 0: auth.v1.AuthenticateResponse.expires_at:type_name -> google.protobuf.Timestamp
 	14, // 1: auth.v1.AuthenticateResponse.user:type_name -> auth.v1.UserInfo
 	14, // 2: auth.v1.ValidateTokenResponse.user:type_name -> auth.v1.UserInfo
-	34, // 3: auth.v1.RefreshTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	36, // 3: auth.v1.RefreshTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
 	16, // 4: auth.v1.GetPermissionsResponse.permissions:type_name -> auth.v1.Permission
 	15, // 5: auth.v1.GetPermissionsResponse.role:type_name -> auth.v1.Role
-	34, // 6: auth.v1.CreateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	34, // 7: auth.v1.CreateAPIKeyResponse.created_at:type_name -> google.protobuf.Timestamp
-	34, // 8: auth.v1.CreateAPIKeyResponse.expires_at:type_name -> google.protobuf.Timestamp
+	36, // 6: auth.v1.CreateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	36, // 7: auth.v1.CreateAPIKeyResponse.created_at:type_name -> google.protobuf.Timestamp
+	36, // 8: auth.v1.CreateAPIKeyResponse.expires_at:type_name -> google.protobuf.Timestamp
 	17, // 9: auth.v1.ListAPIKeysResponse.keys:type_name -> auth.v1.APIKeyInfo
 	15, // 10: auth.v1.UserInfo.role:type_name -> auth.v1.Role
-	34, // 11: auth.v1.UserInfo.created_at:type_name -> google.protobuf.Timestamp
-	34, // 12: auth.v1.APIKeyInfo.created_at:type_name -> google.protobuf.Timestamp
-	34, // 13: auth.v1.APIKeyInfo.expires_at:type_name -> google.protobuf.Timestamp
-	34, // 14: auth.v1.APIKeyInfo.last_used_at:type_name -> google.protobuf.Timestamp
+	36, // 11: auth.v1.UserInfo.created_at:type_name -> google.protobuf.Timestamp
+	36, // 12: auth.v1.APIKeyInfo.created_at:type_name -> google.protobuf.Timestamp
+	36, // 13: auth.v1.APIKeyInfo.expires_at:type_name -> google.protobuf.Timestamp
+	36, // 14: auth.v1.APIKeyInfo.last_used_at:type_name -> google.protobuf.Timestamp
 	14, // 15: auth.v1.LoginWithSessionResponse.user:type_name -> auth.v1.UserInfo
 	14, // 16: auth.v1.ValidateSessionResponse.user:type_name -> auth.v1.UserInfo
-	0,  // 17: auth.v1.AuthService.Authenticate:input_type -> auth.v1.AuthenticateRequest
-	2,  // 18: auth.v1.AuthService.ValidateToken:input_type -> auth.v1.ValidateTokenRequest
-	4,  // 19: auth.v1.AuthService.RefreshToken:input_type -> auth.v1.RefreshTokenRequest
-	6,  // 20: auth.v1.AuthService.GetPermissions:input_type -> auth.v1.GetPermissionsRequest
-	8,  // 21: auth.v1.AuthService.CreateAPIKey:input_type -> auth.v1.CreateAPIKeyRequest
-	10, // 22: auth.v1.AuthService.RevokeAPIKey:input_type -> auth.v1.RevokeAPIKeyRequest
-	12, // 23: auth.v1.AuthService.ListAPIKeys:input_type -> auth.v1.ListAPIKeysRequest
-	18, // 24: auth.v1.AuthService.SetupTOTP:input_type -> auth.v1.SetupTOTPRequest
-	20, // 25: auth.v1.AuthService.VerifyTOTP:input_type -> auth.v1.VerifyTOTPRequest
-	22, // 26: auth.v1.AuthService.DisableTOTP:input_type -> auth.v1.DisableTOTPRequest
-	24, // 27: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
-	26, // 28: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
-	28, // 29: auth.v1.AuthService.LoginWithSession:input_type -> auth.v1.LoginWithSessionRequest
-	30, // 30: auth.v1.AuthService.ValidateSession:input_type -> auth.v1.ValidateSessionRequest
-	32, // 31: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	1,  // 32: auth.v1.AuthService.Authenticate:output_type -> auth.v1.AuthenticateResponse
-	3,  // 33: auth.v1.AuthService.ValidateToken:output_type -> auth.v1.ValidateTokenResponse
-	5,  // 34: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	7,  // 35: auth.v1.AuthService.GetPermissions:output_type -> auth.v1.GetPermissionsResponse
-	9,  // 36: auth.v1.AuthService.CreateAPIKey:output_type -> auth.v1.CreateAPIKeyResponse
-	11, // 37: auth.v1.AuthService.RevokeAPIKey:output_type -> auth.v1.RevokeAPIKeyResponse
-	13, // 38: auth.v1.AuthService.ListAPIKeys:output_type -> auth.v1.ListAPIKeysResponse
-	19, // 39: auth.v1.AuthService.SetupTOTP:output_type -> auth.v1.SetupTOTPResponse
-	21, // 40: auth.v1.AuthService.VerifyTOTP:output_type -> auth.v1.VerifyTOTPResponse
-	23, // 41: auth.v1.AuthService.DisableTOTP:output_type -> auth.v1.DisableTOTPResponse
-	25, // 42: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	27, // 43: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
-	29, // 44: auth.v1.AuthService.LoginWithSession:output_type -> auth.v1.LoginWithSessionResponse
-	31, // 45: auth.v1.AuthService.ValidateSession:output_type -> auth.v1.ValidateSessionResponse
-	33, // 46: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	32, // [32:47] is the sub-list for method output_type
-	17, // [17:32] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	14, // 17: auth.v1.RegisterClientResponse.user:type_name -> auth.v1.UserInfo
+	0,  // 18: auth.v1.AuthService.Authenticate:input_type -> auth.v1.AuthenticateRequest
+	2,  // 19: auth.v1.AuthService.ValidateToken:input_type -> auth.v1.ValidateTokenRequest
+	4,  // 20: auth.v1.AuthService.RefreshToken:input_type -> auth.v1.RefreshTokenRequest
+	6,  // 21: auth.v1.AuthService.GetPermissions:input_type -> auth.v1.GetPermissionsRequest
+	8,  // 22: auth.v1.AuthService.CreateAPIKey:input_type -> auth.v1.CreateAPIKeyRequest
+	10, // 23: auth.v1.AuthService.RevokeAPIKey:input_type -> auth.v1.RevokeAPIKeyRequest
+	12, // 24: auth.v1.AuthService.ListAPIKeys:input_type -> auth.v1.ListAPIKeysRequest
+	18, // 25: auth.v1.AuthService.SetupTOTP:input_type -> auth.v1.SetupTOTPRequest
+	20, // 26: auth.v1.AuthService.VerifyTOTP:input_type -> auth.v1.VerifyTOTPRequest
+	22, // 27: auth.v1.AuthService.DisableTOTP:input_type -> auth.v1.DisableTOTPRequest
+	24, // 28: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	26, // 29: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
+	28, // 30: auth.v1.AuthService.LoginWithSession:input_type -> auth.v1.LoginWithSessionRequest
+	30, // 31: auth.v1.AuthService.ValidateSession:input_type -> auth.v1.ValidateSessionRequest
+	32, // 32: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
+	34, // 33: auth.v1.AuthService.RegisterClient:input_type -> auth.v1.RegisterClientRequest
+	1,  // 34: auth.v1.AuthService.Authenticate:output_type -> auth.v1.AuthenticateResponse
+	3,  // 35: auth.v1.AuthService.ValidateToken:output_type -> auth.v1.ValidateTokenResponse
+	5,  // 36: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	7,  // 37: auth.v1.AuthService.GetPermissions:output_type -> auth.v1.GetPermissionsResponse
+	9,  // 38: auth.v1.AuthService.CreateAPIKey:output_type -> auth.v1.CreateAPIKeyResponse
+	11, // 39: auth.v1.AuthService.RevokeAPIKey:output_type -> auth.v1.RevokeAPIKeyResponse
+	13, // 40: auth.v1.AuthService.ListAPIKeys:output_type -> auth.v1.ListAPIKeysResponse
+	19, // 41: auth.v1.AuthService.SetupTOTP:output_type -> auth.v1.SetupTOTPResponse
+	21, // 42: auth.v1.AuthService.VerifyTOTP:output_type -> auth.v1.VerifyTOTPResponse
+	23, // 43: auth.v1.AuthService.DisableTOTP:output_type -> auth.v1.DisableTOTPResponse
+	25, // 44: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	27, // 45: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	29, // 46: auth.v1.AuthService.LoginWithSession:output_type -> auth.v1.LoginWithSessionResponse
+	31, // 47: auth.v1.AuthService.ValidateSession:output_type -> auth.v1.ValidateSessionResponse
+	33, // 48: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	35, // 49: auth.v1.AuthService.RegisterClient:output_type -> auth.v1.RegisterClientResponse
+	34, // [34:50] is the sub-list for method output_type
+	18, // [18:34] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_auth_auth_proto_init() }
@@ -2230,7 +2403,7 @@ func file_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_auth_proto_rawDesc), len(file_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   34,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

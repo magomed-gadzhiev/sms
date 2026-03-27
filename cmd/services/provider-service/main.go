@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	cpv1 "github.com/smpp-server/smpp-server/api/proto/clientproviderv1"
 	providerv1 "github.com/smpp-server/smpp-server/api/proto/providerv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -76,6 +78,7 @@ func main() {
 	// Инициализация сервисов
 	providerService := application.NewProviderService(providerRepo)
 	senderService := application.NewSenderService(poolAdapter.GetSender())
+	clientProviderService := application.NewClientProviderService(providerRepo, getProviderLimit())
 
 	// Инициализация соединений к активным провайдерам (мигрировано из worker)
 	ctx := context.Background()
@@ -114,11 +117,13 @@ func main() {
 		grpc.MaxSendMsgSize(cfg.API.GRPC.MaxSend),
 	)
 
-	// Регистрация gRPC сервиса
-	// Преобразуем PoolAdapter в ConnectionPoolService интерфейс
+	// Регистрация gRPC сервисов
 	var connectionPoolService application.ConnectionPoolService = poolAdapter
 	providerGrpcServer := providergrpc.NewServer(providerService, connectionPoolService, senderService)
 	providerv1.RegisterProviderServiceServer(grpcServer, providerGrpcServer)
+
+	clientProviderGrpcServer := providergrpc.NewClientProviderServer(clientProviderService)
+	cpv1.RegisterClientProviderServiceServer(grpcServer, clientProviderGrpcServer)
 
 	// Включение reflection для разработки
 	if cfg.Service.Env == "development" {
@@ -200,4 +205,13 @@ func main() {
 	logger.Info().Msg("HTTP сервер остановлен")
 
 	logger.Info().Msg("Provider Service остановлен")
+}
+
+func getProviderLimit() int {
+	if v := os.Getenv("MAX_PROVIDERS_PER_CLIENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 5
 }

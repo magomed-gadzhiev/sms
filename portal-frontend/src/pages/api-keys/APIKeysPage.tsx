@@ -1,6 +1,12 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { apiKeysApi, ApiError, type APIKeyInfo, type CreateAPIKeyResponse } from '../../api/client';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { StatusBadge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 const AVAILABLE_SCOPES = [
   'messages:send',
@@ -29,10 +35,6 @@ export function APIKeysPage() {
 
   // Revoke confirmation
   const [revokeId, setRevokeId] = useState<string | null>(null);
-
-  // Focus trap for create form
-  const createFormRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(createFormRef, showCreateForm);
 
   async function loadKeys() {
     setLoading(true);
@@ -107,229 +109,187 @@ export function APIKeysPage() {
     );
   }
 
+  const columns: Column<APIKeyInfo>[] = [
+    { key: 'name', header: 'Name' },
+    {
+      key: 'prefix',
+      header: 'Prefix',
+      render: (key) => <code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{key.prefix}...</code>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (key) => <StatusBadge status={key.active ? 'active' : 'inactive'} />,
+    },
+    {
+      key: 'allowed_ips',
+      header: 'Allowed IPs',
+      render: (key) =>
+        key.allowed_ips && key.allowed_ips.length > 0 ? key.allowed_ips.join(', ') : 'Any',
+    },
+    {
+      key: 'scopes',
+      header: 'Scopes',
+      render: (key) =>
+        key.scopes && key.scopes.length > 0 ? key.scopes.join(', ') : 'Full access',
+    },
+    {
+      key: 'created_at',
+      header: 'Created',
+      render: (key) => new Date(key.created_at).toLocaleDateString(),
+    },
+    {
+      key: 'last_used_at',
+      header: 'Last Used',
+      render: (key) =>
+        key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never',
+    },
+  ];
+
   if (loading) return <div role="status">Loading API keys...</div>;
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>API Keys</h2>
-        <button
-          onClick={() => {
-            setShowCreateForm(true);
-            setCreatedKey(null);
-          }}
-        >
-          Create API Key
-        </button>
-      </div>
+    <div className="max-w-[900px]">
+      <PageHeader
+        title="API Keys"
+        actions={
+          <Button
+            onClick={() => {
+              setShowCreateForm(true);
+              setCreatedKey(null);
+            }}
+          >
+            Create API Key
+          </Button>
+        }
+      />
 
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
       {/* Created key banner - shown once */}
       {createdKey && (
-        <div
-          role="alert"
-          style={{
-            background: '#e8f5e9',
-            border: '1px solid #4caf50',
-            borderRadius: 4,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <p style={{ margin: '0 0 8px', fontWeight: 'bold' }}>
+        <div role="alert" className="bg-green-50 border border-green-500 rounded p-4 mb-4">
+          <p className="mb-2 font-bold">
             API Key created successfully. Copy it now -- it will not be shown again.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <code
-              style={{
-                background: '#fff',
-                padding: '4px 8px',
-                borderRadius: 4,
-                wordBreak: 'break-all',
-                flex: 1,
-              }}
-            >
+          <div className="flex items-center gap-2">
+            <code className="bg-white px-2 py-1 rounded break-all flex-1">
               {createdKey.api_key}
             </code>
-            <button onClick={handleCopyKey}>{copied ? 'Copied!' : 'Copy'}</button>
+            <Button variant="secondary" size="sm" onClick={handleCopyKey}>
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
           </div>
           <button
             onClick={() => setCreatedKey(null)}
-            style={{ marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+            className="mt-2 text-sm text-gray-600 underline hover:text-gray-800 bg-transparent border-none cursor-pointer"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Create form dialog */}
-      {showCreateForm && (
-        <div
-          ref={createFormRef}
-          style={{
-            background: '#f5f5f5',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>Create New API Key</h3>
-          <form onSubmit={handleCreate}>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Name *
-                <br />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  placeholder="e.g. Production Key"
-                  style={{ width: '100%', maxWidth: 300 }}
-                />
-              </label>
-            </div>
+      {/* Create form modal */}
+      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Create New API Key">
+        <form onSubmit={handleCreate}>
+          <div className="mb-3">
+            <Input
+              label="Name *"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="e.g. Production Key"
+              className="w-full max-w-[300px]"
+            />
+          </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Allowed IPs (comma or newline separated, supports CIDR)
-                <br />
-                <textarea
-                  value={allowedIpsInput}
-                  onChange={(e) => setAllowedIpsInput(e.target.value)}
-                  placeholder="e.g. 192.168.1.1, 10.0.0.0/8"
-                  rows={3}
-                  style={{ width: '100%', maxWidth: 400 }}
-                />
-              </label>
-            </div>
+          <div className="mb-3">
+            <label className="text-sm font-medium text-gray-700">
+              Allowed IPs (comma or newline separated, supports CIDR)
+            </label>
+            <textarea
+              value={allowedIpsInput}
+              onChange={(e) => setAllowedIpsInput(e.target.value)}
+              placeholder="e.g. 192.168.1.1, 10.0.0.0/8"
+              rows={3}
+              className="mt-1 w-full max-w-[400px] rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            />
+          </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label>Scopes</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                {AVAILABLE_SCOPES.map((scope) => (
-                  <label key={scope} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedScopes.includes(scope)}
-                      onChange={() => toggleScope(scope)}
-                    />
-                    {scope}
-                  </label>
-                ))}
-              </div>
-              <small style={{ color: '#666' }}>Leave empty for full access</small>
+          <div className="mb-3">
+            <label className="text-sm font-medium text-gray-700">Scopes</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {AVAILABLE_SCOPES.map((scope) => (
+                <label key={scope} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedScopes.includes(scope)}
+                    onChange={() => toggleScope(scope)}
+                  />
+                  <span className="text-sm">{scope}</span>
+                </label>
+              ))}
             </div>
+            <small className="text-gray-500">Leave empty for full access</small>
+          </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Expires At (optional)
-                <br />
-                <input
-                  type="datetime-local"
-                  value={expiresAt}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setExpiresAt(val ? new Date(val).toISOString() : '');
-                  }}
-                />
-              </label>
-            </div>
+          <div className="mb-3">
+            <Input
+              label="Expires At (optional)"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => {
+                const val = e.target.value;
+                setExpiresAt(val ? new Date(val).toISOString() : '');
+              }}
+            />
+          </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" disabled={creating}>
-                {creating ? 'Creating...' : 'Create'}
-              </button>
-              <button type="button" onClick={() => setShowCreateForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div className="flex gap-2">
+            <Button type="submit" disabled={creating}>
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Revoke confirmation dialog */}
+      <ConfirmDialog
+        open={revokeId !== null}
+        onConfirm={() => revokeId && handleRevoke(revokeId)}
+        onCancel={() => setRevokeId(null)}
+        title="Revoke API Key"
+        description="Are you sure you want to revoke this API key?"
+        variant="danger"
+        confirmLabel="Yes, revoke"
+      />
 
       {/* Keys table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>API Keys</caption>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>Name</th>
-            <th style={{ padding: 8 }}>Prefix</th>
-            <th style={{ padding: 8 }}>Status</th>
-            <th style={{ padding: 8 }}>Allowed IPs</th>
-            <th style={{ padding: 8 }}>Scopes</th>
-            <th style={{ padding: 8 }}>Created</th>
-            <th style={{ padding: 8 }}>Last Used</th>
-            <th style={{ padding: 8 }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {keys.length === 0 && (
-            <tr>
-              <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                No API keys yet. Create one to get started.
-              </td>
-            </tr>
-          )}
-          {keys.map((key) => (
-            <tr key={key.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: 8 }}>{key.name}</td>
-              <td style={{ padding: 8 }}>
-                <code>{key.prefix}...</code>
-              </td>
-              <td style={{ padding: 8 }}>
-                <span
-                  aria-label={`Status: ${key.active ? 'Active' : 'Revoked'}`}
-                  style={{
-                    color: key.active ? '#4caf50' : '#d32f2f',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  {key.active ? 'Active' : 'Revoked'}
-                </span>
-              </td>
-              <td style={{ padding: 8 }}>
-                {key.allowed_ips && key.allowed_ips.length > 0
-                  ? key.allowed_ips.join(', ')
-                  : 'Any'}
-              </td>
-              <td style={{ padding: 8 }}>
-                {key.scopes && key.scopes.length > 0 ? key.scopes.join(', ') : 'Full access'}
-              </td>
-              <td style={{ padding: 8 }}>{new Date(key.created_at).toLocaleDateString()}</td>
-              <td style={{ padding: 8 }}>
-                {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}
-              </td>
-              <td style={{ padding: 8 }}>
-                {key.active &&
-                  (revokeId === key.id ? (
-                    <span>
-                      Sure?{' '}
-                      <button
-                        aria-label={`Confirm revoke ${key.name}`}
-                        onClick={() => handleRevoke(key.id)}
-                        style={{ color: '#d32f2f', marginRight: 4, padding: '8px 12px' }}
-                      >
-                        Yes, revoke
-                      </button>
-                      <button onClick={() => setRevokeId(null)} style={{ padding: '8px 12px' }}>Cancel</button>
-                    </span>
-                  ) : (
-                    <button
-                      aria-label={`Revoke ${key.name}`}
-                      onClick={() => setRevokeId(key.id)}
-                      style={{ padding: '8px 12px' }}
-                    >
-                      Revoke
-                    </button>
-                  ))}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        columns={columns}
+        data={keys}
+        total={keys.length}
+        page={1}
+        pageSize={keys.length || 1}
+        onPageChange={() => {}}
+        keyField="id"
+        rowActions={(key) =>
+          key.active ? (
+            <Button
+              variant="danger"
+              size="sm"
+              aria-label={`Revoke ${key.name}`}
+              onClick={() => setRevokeId(key.id)}
+            >
+              Revoke
+            </Button>
+          ) : null
+        }
+      />
     </div>
   );
 }

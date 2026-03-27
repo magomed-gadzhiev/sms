@@ -29,8 +29,7 @@ func isLoadTestMode() bool {
 
 // ClientAuthMiddleware создает middleware для аутентификации клиентов.
 // Если LOAD_TEST_MODE=true — использует dummy IDs (режим нагрузочного тестирования).
-// Если LOAD_TEST_MODE не установлен или false — возвращает 401 "auth not configured"
-// (сигнализирует о том, что middleware требует полной настройки gRPC клиента).
+// Иначе — извлекает API ключ из заголовка X-API-Key и вызывает authClient.Authenticate().
 func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
 	dummyID := uuid.MustParse("c0000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
@@ -43,11 +42,54 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
-			respondError(w, &shared.AppError{
-				HTTPStatus: http.StatusUnauthorized,
-				Code:       "AUTH_NOT_CONFIGURED",
-				Message:    "auth not configured",
+
+			apiKey := r.Header.Get("X-API-Key")
+			if apiKey == "" {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusUnauthorized,
+					Code:       "MISSING_API_KEY",
+					Message:    "API key is required",
+				})
+				return
+			}
+
+			resp, err := authClient.Authenticate(r.Context(), &authv1.AuthenticateRequest{
+				ApiKey: apiKey,
 			})
+			if err != nil {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusUnauthorized,
+					Code:       "INVALID_API_KEY",
+					Message:    "Invalid or expired API key",
+				})
+				return
+			}
+
+			ctx := r.Context()
+			if resp.User == nil {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusUnauthorized,
+					Code:       "INVALID_API_KEY",
+					Message:    "Invalid or expired API key",
+				})
+				return
+			}
+			userID, parseErr := uuid.Parse(resp.User.Id)
+			if parseErr != nil {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusInternalServerError,
+					Code:       "AUTH_ERROR",
+					Message:    "Invalid user data from auth service",
+				})
+				return
+			}
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			ctx = context.WithValue(ctx, UserKey, resp.User)
+			if resp.User.Role != nil {
+				ctx = context.WithValue(ctx, RoleKey, resp.User.Role)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

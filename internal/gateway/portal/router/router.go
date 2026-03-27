@@ -29,6 +29,7 @@ func SetupRouter(
 	loggingMiddleware func(http.Handler) http.Handler,
 	recoveryMiddleware func(http.Handler) http.Handler,
 	corsMiddleware func(http.Handler) http.Handler,
+	tenantLoggerMiddleware func(http.Handler) http.Handler,
 	authHandlers *handlers.AuthHandlers,
 	profileHandlers *handlers.ProfileHandlers,
 	dashboardHandlers *handlers.DashboardHandlers,
@@ -39,6 +40,8 @@ func SetupRouter(
 	subAccountHandlers *handlers.SubAccountHandlers,
 	auditHandlers *handlers.AuditHandlers,
 	lookupHandlers *handlers.LookupHandlers,
+	plansHandlers *handlers.PlansHandlers,
+	providerHandlers *handlers.ProviderHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -57,10 +60,14 @@ func SetupRouter(
 
 	// === Публичные маршруты (без session auth) ===
 
+	// Plans endpoint — публичный, не требует аутентификации
+	portalV1.HandleFunc("/plans", plansHandlers.ListPlans).Methods("GET")
+
 	// Auth endpoints — аутентификация, не требуют сессии
 	auth := portalV1.PathPrefix("/auth").Subrouter()
 	auth.HandleFunc("/login", authHandlers.Login).Methods("POST")
 	auth.HandleFunc("/login/2fa", authHandlers.LoginWith2FA).Methods("POST")
+	auth.HandleFunc("/register", authHandlers.Register).Methods("POST")
 	auth.HandleFunc("/password/reset-request", authHandlers.RequestPasswordReset).Methods("POST")
 	auth.HandleFunc("/password/reset", authHandlers.ResetPassword).Methods("POST")
 
@@ -72,6 +79,7 @@ func SetupRouter(
 	// === Защищённые маршруты (с session auth + csrf) ===
 	protected := portalV1.PathPrefix("").Subrouter()
 	protected.Use(sessionAuthMiddleware)
+	protected.Use(tenantLoggerMiddleware)
 	protected.Use(csrfMiddleware)
 
 	// Profile endpoints
@@ -79,6 +87,7 @@ func SetupRouter(
 	profile.HandleFunc("", profileHandlers.GetProfile).Methods("GET")
 	profile.HandleFunc("", profileHandlers.UpdateProfile).Methods("PUT")
 	profile.HandleFunc("/password", notImplemented).Methods("PUT")
+	profile.HandleFunc("/sandbox", profileHandlers.ToggleSandbox).Methods("PUT")
 	profile.HandleFunc("/2fa/setup", profileHandlers.SetupTOTP).Methods("POST")
 	profile.HandleFunc("/2fa/verify", profileHandlers.VerifyTOTP).Methods("POST")
 	profile.HandleFunc("/2fa", profileHandlers.DisableTOTP).Methods("DELETE")
@@ -88,7 +97,7 @@ func SetupRouter(
 
 	// Messages endpoints
 	messages := protected.PathPrefix("/messages").Subrouter()
-	messages.HandleFunc("", notImplemented).Methods("POST")
+	messages.HandleFunc("", messageHandlers.SendMessage).Methods("POST")
 	messages.HandleFunc("", messageHandlers.ListMessages).Methods("GET")
 	messages.HandleFunc("/{id}", notImplemented).Methods("GET")
 
@@ -131,6 +140,15 @@ func SetupRouter(
 
 	// Audit log endpoints
 	protected.HandleFunc("/audit-log", auditHandlers.ListAuditLog).Methods("GET")
+
+	// Providers endpoints
+	providers := protected.PathPrefix("/providers").Subrouter()
+	providers.HandleFunc("", providerHandlers.ListProviders).Methods("GET")
+	providers.HandleFunc("", providerHandlers.CreateProvider).Methods("POST")
+	providers.HandleFunc("/test-connection", providerHandlers.TestProviderConnection).Methods("POST")
+	providers.HandleFunc("/{id}", providerHandlers.GetProvider).Methods("GET")
+	providers.HandleFunc("/{id}", providerHandlers.UpdateProvider).Methods("PUT")
+	providers.HandleFunc("/{id}", providerHandlers.DeleteProvider).Methods("DELETE")
 
 	return router
 }

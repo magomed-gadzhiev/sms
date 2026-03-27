@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { analyticsApi, ApiError } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { StatCard } from '../../components/data/StatCard';
+import { DataTable, type Column } from '../../components/data/DataTable';
 
 interface AnalyticsSummary {
   total_sent: number;
@@ -34,6 +37,22 @@ interface AnalyticsData {
 }
 
 const PERIODS = ['7d', '30d', '90d'] as const;
+
+const timelineColumns: Column<TimelineEntry>[] = [
+  { key: 'period', header: 'Period' },
+  { key: 'sent', header: 'Sent' },
+  { key: 'delivered', header: 'Delivered' },
+  { key: 'failed', header: 'Failed' },
+  { key: 'delivery_rate', header: 'Delivery Rate', render: (row) => <>{row.delivery_rate}%</> },
+];
+
+const countryColumns: Column<CountryEntry>[] = [
+  { key: 'country', header: 'Country' },
+  { key: 'sent', header: 'Sent' },
+  { key: 'delivered', header: 'Delivered' },
+  { key: 'failed', header: 'Failed' },
+  { key: 'delivery_rate', header: 'Delivery Rate', render: (row) => <>{row.delivery_rate}%</> },
+];
 
 export function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -71,13 +90,13 @@ export function AnalyticsPage() {
   }, [period, dateFrom, dateTo, groupBy, useCustomDates]);
 
   return (
-    <div style={{ maxWidth: 1000 }}>
-      <h2>Analytics</h2>
+    <div className="max-w-5xl">
+      <PageHeader title="Analytics" />
 
       {/* Period selector + date filters */}
-      <fieldset style={{ border: 'none', padding: 0, margin: '0 0 16px' }}>
-        <legend style={{ fontWeight: 'bold', marginBottom: 8 }}>Filters</legend>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <fieldset className="border-none p-0 mb-4">
+        <legend className="font-bold mb-2">Filters</legend>
+        <div className="flex gap-2 items-center flex-wrap">
           {PERIODS.map((p) => (
             <button
               key={p}
@@ -85,23 +104,19 @@ export function AnalyticsPage() {
                 setPeriod(p);
                 setUseCustomDates(false);
               }}
-              style={{
-                padding: '6px 16px',
-                fontWeight: !useCustomDates && period === p ? 'bold' : 'normal',
-                background: !useCustomDates && period === p ? '#1976d2' : '#e0e0e0',
-                color: !useCustomDates && period === p ? '#fff' : '#333',
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
+              className={`px-4 py-1.5 text-sm rounded border ${
+                !useCustomDates && period === p
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
             >
               {p}
             </button>
           ))}
 
-          <span style={{ margin: '0 8px', color: '#767676' }}>or</span>
+          <span className="mx-2 text-gray-400">or</span>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <label className="flex items-center gap-1">
             From:
             <input
               type="date"
@@ -110,9 +125,10 @@ export function AnalyticsPage() {
                 setDateFrom(e.target.value);
                 setUseCustomDates(true);
               }}
+              className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <label className="flex items-center gap-1">
             To:
             <input
               type="date"
@@ -121,14 +137,19 @@ export function AnalyticsPage() {
                 setDateTo(e.target.value);
                 setUseCustomDates(true);
               }}
+              className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </label>
 
-          <span style={{ margin: '0 8px', color: '#767676' }}>|</span>
+          <span className="mx-2 text-gray-400">|</span>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <label className="flex items-center gap-1">
             Group by:
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value)}
+              className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            >
               <option value="day">Day</option>
               <option value="week">Week</option>
               <option value="country">Country</option>
@@ -137,98 +158,49 @@ export function AnalyticsPage() {
         </div>
       </fieldset>
 
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
       {loading && <div role="status">Loading analytics...</div>}
 
       {data && !loading && (
         <>
           {/* Summary cards */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-            {[
-              { label: 'Sent', value: data.summary.total_sent },
-              { label: 'Delivered', value: data.summary.total_delivered },
-              { label: 'Failed', value: data.summary.total_failed },
-              { label: 'Delivery Rate', value: `${data.summary.delivery_rate}%` },
-              {
-                label: 'Total Cost',
-                value: data.summary.total_cost
-                  ? `${data.summary.total_cost} ${data.summary.currency}`
-                  : 'N/A',
-              },
-            ].map((card) => (
-              <div
-                key={card.label}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: 8,
-                  padding: 16,
-                  minWidth: 160,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 'bold' }}>{card.value}</div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <StatCard title="Sent" value={data.summary.total_sent} />
+            <StatCard title="Delivered" value={data.summary.total_delivered} />
+            <StatCard title="Failed" value={data.summary.total_failed} />
+            <StatCard title="Delivery Rate" value={`${data.summary.delivery_rate}%`} />
+            <StatCard title="Total Cost" value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : 'N/A'} />
           </div>
 
           {/* Timeline table */}
           {data.timeline.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              <h3>Timeline</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Message statistics by period</caption>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                    <th style={{ padding: 8 }}>Period</th>
-                    <th style={{ padding: 8 }}>Sent</th>
-                    <th style={{ padding: 8 }}>Delivered</th>
-                    <th style={{ padding: 8 }}>Failed</th>
-                    <th style={{ padding: 8 }}>Delivery Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.timeline.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: 8 }}>{row.period}</td>
-                      <td style={{ padding: 8 }}>{row.sent}</td>
-                      <td style={{ padding: 8 }}>{row.delivered}</td>
-                      <td style={{ padding: 8 }}>{row.failed}</td>
-                      <td style={{ padding: 8 }}>{row.delivery_rate}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Timeline</h3>
+              <DataTable<TimelineEntry>
+                columns={timelineColumns}
+                data={data.timeline}
+                total={data.timeline.length}
+                page={1}
+                pageSize={data.timeline.length}
+                onPageChange={() => {}}
+                keyField="period"
+              />
             </div>
           )}
 
           {/* Country breakdown table */}
           {data.by_country.length > 0 && (
             <div>
-              <h3>By Country</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Message statistics by country</caption>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                    <th style={{ padding: 8 }}>Country</th>
-                    <th style={{ padding: 8 }}>Sent</th>
-                    <th style={{ padding: 8 }}>Delivered</th>
-                    <th style={{ padding: 8 }}>Failed</th>
-                    <th style={{ padding: 8 }}>Delivery Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.by_country.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: 8 }}>{row.country}</td>
-                      <td style={{ padding: 8 }}>{row.sent}</td>
-                      <td style={{ padding: 8 }}>{row.delivered}</td>
-                      <td style={{ padding: 8 }}>{row.failed}</td>
-                      <td style={{ padding: 8 }}>{row.delivery_rate}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">By Country</h3>
+              <DataTable<CountryEntry>
+                columns={countryColumns}
+                data={data.by_country}
+                total={data.by_country.length}
+                page={1}
+                pageSize={data.by_country.length}
+                onPageChange={() => {}}
+                keyField="country"
+              />
             </div>
           )}
         </>

@@ -64,10 +64,11 @@ func main() {
 	// Инициализация репозиториев
 	clientRepo := clientrepo.NewClientRepository(db)
 	configRepo := clientrepo.NewConfigRepository(db)
+	planRepo := clientrepo.NewPlanRepository(db)
 
 	// Инициализация сервисов
 	subAccountRepo := clientrepo.NewSubAccountRepository(db)
-	clientService := application.NewClientService(clientRepo, configRepo)
+	clientService := application.NewClientService(clientRepo, configRepo, planRepo)
 	subAccountService := application.NewSubAccountService(clientRepo, subAccountRepo, configRepo)
 
 	// Создание health checker

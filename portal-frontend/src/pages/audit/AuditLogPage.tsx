@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { auditApi } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
+import { DataTable, type Column } from '../../components/data/DataTable';
 
 interface AuditEntry {
   id: string;
@@ -41,16 +44,43 @@ const ACTION_OPTIONS = [
   { value: 'profile.updated', label: 'Profile Updated' },
 ];
 
+const AUDIT_FILTERS: FilterDef[] = [
+  { key: 'action', label: 'Action', type: 'select', options: ACTION_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
+  { key: 'user_id', label: 'User ID', type: 'text', placeholder: 'Filter by user...' },
+];
+
+const INITIAL_FILTERS: Record<string, string> = { action: '', date_from: '', date_to: '', user_id: '' };
+
+const formatDetails = (details: string): string => {
+  if (!details || details === '{}' || details === 'null') return '-';
+  try {
+    const parsed = JSON.parse(details);
+    return Object.entries(parsed)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ');
+  } catch {
+    return details;
+  }
+};
+
+const columns: Column<AuditEntry>[] = [
+  { key: 'created_at', header: 'Timestamp', render: (entry) => <span className="text-xs whitespace-nowrap">{entry.created_at ? new Date(entry.created_at).toLocaleString() : '-'}</span> },
+  { key: 'action', header: 'Action' },
+  { key: 'resource_type', header: 'Resource Type' },
+  { key: 'resource_id', header: 'Resource ID', render: (entry) => <span className="text-xs font-mono">{entry.resource_id ? `${entry.resource_id.substring(0, 8)}...` : '-'}</span> },
+  { key: 'user_id', header: 'User ID', render: (entry) => <span className="text-xs font-mono">{entry.user_id ? `${entry.user_id.substring(0, 8)}...` : '-'}</span> },
+  { key: 'ip_address', header: 'IP Address', render: (entry) => <span className="text-xs">{entry.ip_address || '-'}</span> },
+  { key: 'details', header: 'Details', render: (entry) => <span className="text-xs block max-w-[250px] truncate">{formatDetails(entry.details)}</span> },
+];
+
 export function AuditLogPage() {
   const [data, setData] = useState<AuditLogResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   const [page, setPage] = useState(1);
-  const [action, setAction] = useState('');
-  const [userId, setUserId] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, string>>(INITIAL_FILTERS);
 
   const fetchAuditLog = useCallback(() => {
     setLoading(true);
@@ -60,159 +90,70 @@ export function AuditLogPage() {
       page: String(page),
       per_page: '20',
     };
-    if (action) params.action = action;
-    if (userId) params.user_id = userId;
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
+    if (filterValues.action) params.action = filterValues.action;
+    if (filterValues.user_id) params.user_id = filterValues.user_id;
+    if (filterValues.date_from) params.date_from = filterValues.date_from;
+    if (filterValues.date_to) params.date_to = filterValues.date_to;
 
     auditApi
       .list(params)
       .then((resp) => setData(resp as AuditLogResponse))
       .catch((err) => setError(err.message || 'Failed to load audit log'))
       .finally(() => setLoading(false));
-  }, [page, action, userId, dateFrom, dateTo]);
+  }, [page, filterValues]);
 
   useEffect(() => {
     fetchAuditLog();
   }, [fetchAuditLog]);
 
-  const handleFilter = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFilterChange = (values: Record<string, string>) => {
+    setFilterValues(values);
     setPage(1);
-    fetchAuditLog();
   };
 
-  const formatDetails = (details: string): string => {
-    if (!details || details === '{}' || details === 'null') return '-';
-    try {
-      const parsed = JSON.parse(details);
-      return Object.entries(parsed)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(', ');
-    } catch {
-      return details;
-    }
+  const handleFilterReset = () => {
+    setFilterValues(INITIAL_FILTERS);
+    setPage(1);
   };
 
   return (
     <div>
-      <h2>Audit Log</h2>
+      <PageHeader title="Audit Log" />
 
-      <form onSubmit={handleFilter} style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label>
-          Action
-          <br />
-          <select value={action} onChange={(e) => setAction(e.target.value)} style={{ padding: 4 }}>
-            {ACTION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <FilterBar
+        filters={AUDIT_FILTERS}
+        values={filterValues}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
+      />
 
-        <label>
-          From
-          <br />
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        </label>
+      {error && <div className="text-red-600 mb-3">Error: {error}</div>}
 
-        <label>
-          To
-          <br />
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </label>
+      {data && (
+        <DataTable<AuditEntry>
+          columns={columns}
+          data={data.entries}
+          total={data.total}
+          page={page}
+          pageSize={20}
+          onPageChange={setPage}
+          keyField="id"
+          loading={loading}
+        />
+      )}
 
-        <label>
-          User ID
-          <br />
-          <input
-            type="text"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="Filter by user..."
-            style={{ padding: 4 }}
-          />
-        </label>
-
-        <button type="submit" style={{ padding: '4px 12px' }}>
-          Filter
-        </button>
-      </form>
-
-      {error && <div style={{ color: 'red', marginBottom: 12 }}>Error: {error}</div>}
-
-      {loading ? (
-        <div role="status">Loading...</div>
-      ) : data ? (
-        <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Audit log entries</caption>
-            <thead>
-              <tr>
-                {['Timestamp', 'Action', 'Resource Type', 'Resource ID', 'User ID', 'IP Address', 'Details'].map((h) => (
-                  <th key={h} style={{ borderBottom: '2px solid #ddd', padding: 8, textAlign: 'left' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.entries.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                    No audit log entries found
-                  </td>
-                </tr>
-              ) : (
-                data.entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12, whiteSpace: 'nowrap' }}>
-                      {entry.created_at ? new Date(entry.created_at).toLocaleString() : '-'}
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.action}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8 }}>{entry.resource_type}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12, fontFamily: 'monospace' }}>
-                      {entry.resource_id ? `${entry.resource_id.substring(0, 8)}...` : '-'}
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12, fontFamily: 'monospace' }}>
-                      {entry.user_id ? `${entry.user_id.substring(0, 8)}...` : '-'}
-                    </td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12 }}>{entry.ip_address || '-'}</td>
-                    <td style={{ borderBottom: '1px solid #eee', padding: 8, fontSize: 12, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {formatDetails(entry.details)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              aria-label="Previous page"
-              aria-disabled={page <= 1}
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              style={{ padding: '8px 12px' }}
-            >
-              Prev
-            </button>
-            <span aria-live="polite">
-              Page {data.page} of {data.total_pages} (total: {data.total})
-            </span>
-            <button
-              aria-label="Next page"
-              aria-disabled={page >= data.total_pages}
-              disabled={page >= data.total_pages}
-              onClick={() => setPage((p) => p + 1)}
-              style={{ padding: '8px 12px' }}
-            >
-              Next
-            </button>
-          </div>
-        </>
-      ) : null}
+      {!data && loading && (
+        <DataTable<AuditEntry>
+          columns={columns}
+          data={[]}
+          total={0}
+          page={1}
+          pageSize={20}
+          onPageChange={setPage}
+          keyField="id"
+          loading={true}
+        />
+      )}
     </div>
   );
 }

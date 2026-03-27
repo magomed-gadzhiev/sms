@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -28,11 +29,19 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 			id, name, host, port, system_id, password, system_type,
 			bind_type, bind_ton, bind_npi, addr_ton, addr_npi,
 			address_range, max_connections, active, priority,
-			throughput_per_second, created_at, updated_at
+			throughput_per_second, created_at, updated_at,
+			client_id, description, tags, tps_limit, routing_rules
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+			$20, $21, $22, $23, $24
 		)
 	`
+
+	tags := pq.Array([]string(provider.Tags))
+	routingRules := provider.RoutingRules
+	if len(routingRules) == 0 {
+		routingRules = []byte("[]")
+	}
 
 	_, err := r.db.ExecContext(ctx, query,
 		provider.ID, provider.Name, provider.Host, provider.Port,
@@ -41,6 +50,7 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 		provider.AddrTON, provider.AddrNPI, provider.AddressRange,
 		provider.MaxConnections, provider.Active, provider.Priority,
 		provider.ThroughputPerSec, provider.CreatedAt, provider.UpdatedAt,
+		provider.ClientID, provider.Description, tags, provider.TPSLimit, routingRules,
 	)
 
 	return err
@@ -123,9 +133,16 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 			system_type = $7, bind_type = $8, bind_ton = $9, bind_npi = $10,
 			addr_ton = $11, addr_npi = $12, address_range = $13,
 			max_connections = $14, active = $15, priority = $16,
-			throughput_per_second = $17, updated_at = $18
+			throughput_per_second = $17, updated_at = $18,
+			description = $19, tags = $20, tps_limit = $21, routing_rules = $22
 		WHERE id = $1
 	`
+
+	tags := pq.Array([]string(provider.Tags))
+	routingRules := provider.RoutingRules
+	if len(routingRules) == 0 {
+		routingRules = []byte("[]")
+	}
 
 	result, err := r.db.ExecContext(ctx, query,
 		provider.ID, provider.Name, provider.Host, provider.Port,
@@ -134,6 +151,7 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 		provider.AddrTON, provider.AddrNPI, provider.AddressRange,
 		provider.MaxConnections, provider.Active, provider.Priority,
 		provider.ThroughputPerSec, provider.UpdatedAt,
+		provider.Description, tags, provider.TPSLimit, routingRules,
 	)
 
 	if err != nil {
@@ -174,4 +192,37 @@ func (r *ProviderRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// ListByClientID возвращает провайдеров, принадлежащих клиенту
+func (r *ProviderRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*shared.Provider, error) {
+	var providers []*shared.Provider
+	query := `SELECT * FROM providers WHERE client_id = $1 ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &providers, query, clientID)
+	if err != nil {
+		return nil, err
+	}
+	return providers, nil
+}
+
+// CountByClientID считает провайдеров клиента
+func (r *ProviderRepository) CountByClientID(ctx context.Context, clientID uuid.UUID) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM providers WHERE client_id = $1`
+	err := r.db.GetContext(ctx, &count, query, clientID)
+	return count, err
+}
+
+// GetByIDAndClientID получает провайдера по ID с проверкой принадлежности клиенту
+func (r *ProviderRepository) GetByIDAndClientID(ctx context.Context, id, clientID uuid.UUID) (*shared.Provider, error) {
+	var provider shared.Provider
+	query := `SELECT * FROM providers WHERE id = $1 AND client_id = $2`
+	err := r.db.GetContext(ctx, &provider, query, id, clientID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &provider, nil
 }
