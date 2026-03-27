@@ -48,7 +48,7 @@ export function DashboardPage() {
   if (!data) return <div>No data</div>;
 
   const cards: { label: string; value: string | number; href?: string }[] = [
-    { label: 'Balance', value: `${data.balance} ${data.currency}` },
+    { label: 'Balance', value: `${data.balance ?? '0.00'} ${data.currency ?? ''}`.trim() },
     { label: 'Messages Today', value: data.messages_today, href: '/messages' },
     { label: 'Delivered Today', value: data.messages_delivered_today, href: '/messages' },
     { label: 'Delivery Rate', value: `${data.delivery_rate_today}%` },
