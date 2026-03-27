@@ -1,8 +1,8 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"net/http"
-	"strings"
 )
 
 // CSRFMiddleware создает middleware для защиты от CSRF-атак.
@@ -21,7 +21,7 @@ func CSRFMiddleware() func(http.Handler) http.Handler {
 			}
 
 			headerToken := r.Header.Get("X-CSRF-Token")
-			if headerToken == "" || !strings.EqualFold(headerToken, cookie.Value) {
+			if headerToken == "" || subtle.ConstantTimeCompare([]byte(headerToken), []byte(cookie.Value)) != 1 {
 				respondCSRFError(w)
 				return
 			}

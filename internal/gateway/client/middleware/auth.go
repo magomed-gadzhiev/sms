@@ -66,16 +66,27 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 			}
 
 			ctx := r.Context()
-			if resp.User != nil {
-				userID, parseErr := uuid.Parse(resp.User.Id)
-				if parseErr == nil {
-					ctx = context.WithValue(ctx, UserIDKey, userID)
-					// GetClientID() falls back to UserIDKey if ClientIDKey is not set
-				}
-				ctx = context.WithValue(ctx, UserKey, resp.User)
-				if resp.User.Role != nil {
-					ctx = context.WithValue(ctx, RoleKey, resp.User.Role)
-				}
+			if resp.User == nil {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusUnauthorized,
+					Code:       "INVALID_API_KEY",
+					Message:    "Invalid or expired API key",
+				})
+				return
+			}
+			userID, parseErr := uuid.Parse(resp.User.Id)
+			if parseErr != nil {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusInternalServerError,
+					Code:       "AUTH_ERROR",
+					Message:    "Invalid user data from auth service",
+				})
+				return
+			}
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			ctx = context.WithValue(ctx, UserKey, resp.User)
+			if resp.User.Role != nil {
+				ctx = context.WithValue(ctx, RoleKey, resp.User.Role)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
