@@ -62,6 +62,7 @@ func SetupRouter(
 	auth := portalV1.PathPrefix("/auth").Subrouter()
 	auth.HandleFunc("/login", authHandlers.Login).Methods("POST")
 	auth.HandleFunc("/login/2fa", authHandlers.LoginWith2FA).Methods("POST")
+	auth.HandleFunc("/register", authHandlers.Register).Methods("POST")
 	auth.HandleFunc("/password/reset-request", authHandlers.RequestPasswordReset).Methods("POST")
 	auth.HandleFunc("/password/reset", authHandlers.ResetPassword).Methods("POST")
 

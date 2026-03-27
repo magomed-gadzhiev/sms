@@ -61,6 +61,16 @@ type resetPasswordBody struct {
 	NewPassword string `json:"new_password"`
 }
 
+// registerRequest представляет запрос на регистрацию нового клиента
+type registerRequest struct {
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+	CompanyName   string `json:"company_name"`
+	ContactPerson string `json:"contact_person"`
+	Phone         string `json:"phone"`
+	PlanName      string `json:"plan_name"`
+}
+
 // Login обрабатывает POST /auth/login
 func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
@@ -222,6 +232,53 @@ func (h *AuthHandlers) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Пароль успешно изменён",
+	})
+}
+
+// Register обрабатывает POST /auth/register
+func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
+	var req registerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	if req.Email == "" {
+		respondError(w, shared.ErrInvalidInput("Поле email обязательно"))
+		return
+	}
+	if len(req.Password) < 8 {
+		respondError(w, shared.ErrInvalidInput("Пароль должен содержать не менее 8 символов"))
+		return
+	}
+	if req.CompanyName == "" {
+		respondError(w, shared.ErrInvalidInput("Поле company_name обязательно"))
+		return
+	}
+
+	resp, err := h.authClient.RegisterClient(r.Context(), &authv1.RegisterClientRequest{
+		Email:         req.Email,
+		Password:      req.Password,
+		CompanyName:   req.CompanyName,
+		ContactPerson: req.ContactPerson,
+		Phone:         req.Phone,
+		PlanName:      req.PlanName,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("email", req.Email).Msg("ошибка регистрации клиента")
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Устанавливаем cookies сессии
+	setSessionCookies(w, resp.SessionId)
+
+	// Публикуем audit event
+	h.publishAuditEvent(r, resp.User, audit.ActionRegister, resp.ClientId)
+
+	respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"client_id": resp.ClientId,
+		"user":      buildUserInfoResponse(resp.User),
 	})
 }
 

@@ -10,6 +10,7 @@ import (
 const (
 	ActionLogin         = "auth.login"
 	ActionLogout        = "auth.logout"
+	ActionRegister      = "auth.register"
 	ActionPasswordReset = "auth.password_reset"
 	ActionTOTPEnabled   = "auth.totp_enabled"
 	ActionTOTPDisabled  = "auth.totp_disabled"
