@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/smpp-server/smpp-server/internal/docs"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/handlers"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 )
@@ -72,6 +73,10 @@ func SetupRouter(
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")
 	router.HandleFunc("/health/live", healthChecker.LivenessHandler()).Methods("GET")
 	router.HandleFunc("/health/ready", healthChecker.ReadinessHandler()).Methods("GET")
+
+	// API документация (без аутентификации)
+	router.HandleFunc("/docs", docs.SwaggerUIHandler()).Methods("GET")
+	router.HandleFunc("/docs/openapi.yaml", docs.OpenAPISpecHandler()).Methods("GET")
 
 	return router
 }
