@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: client.proto
+// source: client/client.proto
 
 package clientv1
 
@@ -38,7 +38,7 @@ type CreateClientRequest struct {
 
 func (x *CreateClientRequest) Reset() {
 	*x = CreateClientRequest{}
-	mi := &file_client_proto_msgTypes[0]
+	mi := &file_client_client_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -50,7 +50,7 @@ func (x *CreateClientRequest) String() string {
 func (*CreateClientRequest) ProtoMessage() {}
 
 func (x *CreateClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[0]
+	mi := &file_client_client_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -63,7 +63,7 @@ func (x *CreateClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateClientRequest.ProtoReflect.Descriptor instead.
 func (*CreateClientRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{0}
+	return file_client_client_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateClientRequest) GetName() string {
@@ -126,7 +126,7 @@ type CreateClientResponse struct {
 
 func (x *CreateClientResponse) Reset() {
 	*x = CreateClientResponse{}
-	mi := &file_client_proto_msgTypes[1]
+	mi := &file_client_client_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -138,7 +138,7 @@ func (x *CreateClientResponse) String() string {
 func (*CreateClientResponse) ProtoMessage() {}
 
 func (x *CreateClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[1]
+	mi := &file_client_client_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +151,7 @@ func (x *CreateClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateClientResponse.ProtoReflect.Descriptor instead.
 func (*CreateClientResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{1}
+	return file_client_client_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateClientResponse) GetClientId() string {
@@ -184,7 +184,7 @@ type UpdateClientRequest struct {
 
 func (x *UpdateClientRequest) Reset() {
 	*x = UpdateClientRequest{}
-	mi := &file_client_proto_msgTypes[2]
+	mi := &file_client_client_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -196,7 +196,7 @@ func (x *UpdateClientRequest) String() string {
 func (*UpdateClientRequest) ProtoMessage() {}
 
 func (x *UpdateClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[2]
+	mi := &file_client_client_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -209,7 +209,7 @@ func (x *UpdateClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientRequest.ProtoReflect.Descriptor instead.
 func (*UpdateClientRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{2}
+	return file_client_client_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *UpdateClientRequest) GetClientId() string {
@@ -271,7 +271,7 @@ type UpdateClientResponse struct {
 
 func (x *UpdateClientResponse) Reset() {
 	*x = UpdateClientResponse{}
-	mi := &file_client_proto_msgTypes[3]
+	mi := &file_client_client_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -283,7 +283,7 @@ func (x *UpdateClientResponse) String() string {
 func (*UpdateClientResponse) ProtoMessage() {}
 
 func (x *UpdateClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[3]
+	mi := &file_client_client_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -296,7 +296,7 @@ func (x *UpdateClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientResponse.ProtoReflect.Descriptor instead.
 func (*UpdateClientResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{3}
+	return file_client_client_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *UpdateClientResponse) GetSuccess() bool {
@@ -316,7 +316,7 @@ type GetClientRequest struct {
 
 func (x *GetClientRequest) Reset() {
 	*x = GetClientRequest{}
-	mi := &file_client_proto_msgTypes[4]
+	mi := &file_client_client_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -328,7 +328,7 @@ func (x *GetClientRequest) String() string {
 func (*GetClientRequest) ProtoMessage() {}
 
 func (x *GetClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[4]
+	mi := &file_client_client_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +341,7 @@ func (x *GetClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClientRequest.ProtoReflect.Descriptor instead.
 func (*GetClientRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{4}
+	return file_client_client_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetClientRequest) GetClientId() string {
@@ -361,7 +361,7 @@ type GetClientResponse struct {
 
 func (x *GetClientResponse) Reset() {
 	*x = GetClientResponse{}
-	mi := &file_client_proto_msgTypes[5]
+	mi := &file_client_client_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -373,7 +373,7 @@ func (x *GetClientResponse) String() string {
 func (*GetClientResponse) ProtoMessage() {}
 
 func (x *GetClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[5]
+	mi := &file_client_client_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -386,7 +386,7 @@ func (x *GetClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClientResponse.ProtoReflect.Descriptor instead.
 func (*GetClientResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{5}
+	return file_client_client_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetClientResponse) GetClient() *ClientInfo {
@@ -409,7 +409,7 @@ type ListClientsRequest struct {
 
 func (x *ListClientsRequest) Reset() {
 	*x = ListClientsRequest{}
-	mi := &file_client_proto_msgTypes[6]
+	mi := &file_client_client_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -421,7 +421,7 @@ func (x *ListClientsRequest) String() string {
 func (*ListClientsRequest) ProtoMessage() {}
 
 func (x *ListClientsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[6]
+	mi := &file_client_client_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -434,7 +434,7 @@ func (x *ListClientsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientsRequest.ProtoReflect.Descriptor instead.
 func (*ListClientsRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{6}
+	return file_client_client_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListClientsRequest) GetActiveOnly() bool {
@@ -476,7 +476,7 @@ type ListClientsResponse struct {
 
 func (x *ListClientsResponse) Reset() {
 	*x = ListClientsResponse{}
-	mi := &file_client_proto_msgTypes[7]
+	mi := &file_client_client_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -488,7 +488,7 @@ func (x *ListClientsResponse) String() string {
 func (*ListClientsResponse) ProtoMessage() {}
 
 func (x *ListClientsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[7]
+	mi := &file_client_client_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -501,7 +501,7 @@ func (x *ListClientsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientsResponse.ProtoReflect.Descriptor instead.
 func (*ListClientsResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{7}
+	return file_client_client_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListClientsResponse) GetClients() []*ClientInfo {
@@ -528,7 +528,7 @@ type DeleteClientRequest struct {
 
 func (x *DeleteClientRequest) Reset() {
 	*x = DeleteClientRequest{}
-	mi := &file_client_proto_msgTypes[8]
+	mi := &file_client_client_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +540,7 @@ func (x *DeleteClientRequest) String() string {
 func (*DeleteClientRequest) ProtoMessage() {}
 
 func (x *DeleteClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[8]
+	mi := &file_client_client_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +553,7 @@ func (x *DeleteClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteClientRequest.ProtoReflect.Descriptor instead.
 func (*DeleteClientRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{8}
+	return file_client_client_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeleteClientRequest) GetClientId() string {
@@ -573,7 +573,7 @@ type DeleteClientResponse struct {
 
 func (x *DeleteClientResponse) Reset() {
 	*x = DeleteClientResponse{}
-	mi := &file_client_proto_msgTypes[9]
+	mi := &file_client_client_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -585,7 +585,7 @@ func (x *DeleteClientResponse) String() string {
 func (*DeleteClientResponse) ProtoMessage() {}
 
 func (x *DeleteClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[9]
+	mi := &file_client_client_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -598,7 +598,7 @@ func (x *DeleteClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteClientResponse.ProtoReflect.Descriptor instead.
 func (*DeleteClientResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{9}
+	return file_client_client_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteClientResponse) GetSuccess() bool {
@@ -618,7 +618,7 @@ type GetClientConfigRequest struct {
 
 func (x *GetClientConfigRequest) Reset() {
 	*x = GetClientConfigRequest{}
-	mi := &file_client_proto_msgTypes[10]
+	mi := &file_client_client_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +630,7 @@ func (x *GetClientConfigRequest) String() string {
 func (*GetClientConfigRequest) ProtoMessage() {}
 
 func (x *GetClientConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[10]
+	mi := &file_client_client_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +643,7 @@ func (x *GetClientConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClientConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetClientConfigRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{10}
+	return file_client_client_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetClientConfigRequest) GetClientId() string {
@@ -663,7 +663,7 @@ type GetClientConfigResponse struct {
 
 func (x *GetClientConfigResponse) Reset() {
 	*x = GetClientConfigResponse{}
-	mi := &file_client_proto_msgTypes[11]
+	mi := &file_client_client_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +675,7 @@ func (x *GetClientConfigResponse) String() string {
 func (*GetClientConfigResponse) ProtoMessage() {}
 
 func (x *GetClientConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[11]
+	mi := &file_client_client_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +688,7 @@ func (x *GetClientConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClientConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetClientConfigResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{11}
+	return file_client_client_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetClientConfigResponse) GetConfig() *ClientConfig {
@@ -709,7 +709,7 @@ type UpdateClientConfigRequest struct {
 
 func (x *UpdateClientConfigRequest) Reset() {
 	*x = UpdateClientConfigRequest{}
-	mi := &file_client_proto_msgTypes[12]
+	mi := &file_client_client_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -721,7 +721,7 @@ func (x *UpdateClientConfigRequest) String() string {
 func (*UpdateClientConfigRequest) ProtoMessage() {}
 
 func (x *UpdateClientConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[12]
+	mi := &file_client_client_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -734,7 +734,7 @@ func (x *UpdateClientConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateClientConfigRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{12}
+	return file_client_client_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateClientConfigRequest) GetClientId() string {
@@ -761,7 +761,7 @@ type UpdateClientConfigResponse struct {
 
 func (x *UpdateClientConfigResponse) Reset() {
 	*x = UpdateClientConfigResponse{}
-	mi := &file_client_proto_msgTypes[13]
+	mi := &file_client_client_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -773,7 +773,7 @@ func (x *UpdateClientConfigResponse) String() string {
 func (*UpdateClientConfigResponse) ProtoMessage() {}
 
 func (x *UpdateClientConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[13]
+	mi := &file_client_client_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,7 +786,7 @@ func (x *UpdateClientConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdateClientConfigResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{13}
+	return file_client_client_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateClientConfigResponse) GetSuccess() bool {
@@ -807,7 +807,7 @@ type UpdateClientRateLimitsRequest struct {
 
 func (x *UpdateClientRateLimitsRequest) Reset() {
 	*x = UpdateClientRateLimitsRequest{}
-	mi := &file_client_proto_msgTypes[14]
+	mi := &file_client_client_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +819,7 @@ func (x *UpdateClientRateLimitsRequest) String() string {
 func (*UpdateClientRateLimitsRequest) ProtoMessage() {}
 
 func (x *UpdateClientRateLimitsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[14]
+	mi := &file_client_client_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +832,7 @@ func (x *UpdateClientRateLimitsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientRateLimitsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateClientRateLimitsRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{14}
+	return file_client_client_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateClientRateLimitsRequest) GetClientId() string {
@@ -859,7 +859,7 @@ type UpdateClientRateLimitsResponse struct {
 
 func (x *UpdateClientRateLimitsResponse) Reset() {
 	*x = UpdateClientRateLimitsResponse{}
-	mi := &file_client_proto_msgTypes[15]
+	mi := &file_client_client_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -871,7 +871,7 @@ func (x *UpdateClientRateLimitsResponse) String() string {
 func (*UpdateClientRateLimitsResponse) ProtoMessage() {}
 
 func (x *UpdateClientRateLimitsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[15]
+	mi := &file_client_client_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +884,7 @@ func (x *UpdateClientRateLimitsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientRateLimitsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateClientRateLimitsResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{15}
+	return file_client_client_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateClientRateLimitsResponse) GetSuccess() bool {
@@ -913,7 +913,7 @@ type SubscriptionPlan struct {
 
 func (x *SubscriptionPlan) Reset() {
 	*x = SubscriptionPlan{}
-	mi := &file_client_proto_msgTypes[16]
+	mi := &file_client_client_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -925,7 +925,7 @@ func (x *SubscriptionPlan) String() string {
 func (*SubscriptionPlan) ProtoMessage() {}
 
 func (x *SubscriptionPlan) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[16]
+	mi := &file_client_client_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -938,7 +938,7 @@ func (x *SubscriptionPlan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscriptionPlan.ProtoReflect.Descriptor instead.
 func (*SubscriptionPlan) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{16}
+	return file_client_client_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SubscriptionPlan) GetId() string {
@@ -1038,7 +1038,7 @@ type ClientInfo struct {
 
 func (x *ClientInfo) Reset() {
 	*x = ClientInfo{}
-	mi := &file_client_proto_msgTypes[17]
+	mi := &file_client_client_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1050,7 +1050,7 @@ func (x *ClientInfo) String() string {
 func (*ClientInfo) ProtoMessage() {}
 
 func (x *ClientInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[17]
+	mi := &file_client_client_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1063,7 +1063,7 @@ func (x *ClientInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientInfo.ProtoReflect.Descriptor instead.
 func (*ClientInfo) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{17}
+	return file_client_client_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ClientInfo) GetClientId() string {
@@ -1207,7 +1207,7 @@ type ClientConfig struct {
 
 func (x *ClientConfig) Reset() {
 	*x = ClientConfig{}
-	mi := &file_client_proto_msgTypes[18]
+	mi := &file_client_client_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1219,7 +1219,7 @@ func (x *ClientConfig) String() string {
 func (*ClientConfig) ProtoMessage() {}
 
 func (x *ClientConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[18]
+	mi := &file_client_client_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1232,7 +1232,7 @@ func (x *ClientConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientConfig.ProtoReflect.Descriptor instead.
 func (*ClientConfig) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{18}
+	return file_client_client_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ClientConfig) GetClientId() string {
@@ -1290,7 +1290,7 @@ type RateLimits struct {
 
 func (x *RateLimits) Reset() {
 	*x = RateLimits{}
-	mi := &file_client_proto_msgTypes[19]
+	mi := &file_client_client_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1302,7 +1302,7 @@ func (x *RateLimits) String() string {
 func (*RateLimits) ProtoMessage() {}
 
 func (x *RateLimits) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[19]
+	mi := &file_client_client_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1315,7 +1315,7 @@ func (x *RateLimits) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RateLimits.ProtoReflect.Descriptor instead.
 func (*RateLimits) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{19}
+	return file_client_client_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *RateLimits) GetMessagesPerSecond() int32 {
@@ -1367,7 +1367,7 @@ type SubAccount struct {
 
 func (x *SubAccount) Reset() {
 	*x = SubAccount{}
-	mi := &file_client_proto_msgTypes[20]
+	mi := &file_client_client_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1379,7 +1379,7 @@ func (x *SubAccount) String() string {
 func (*SubAccount) ProtoMessage() {}
 
 func (x *SubAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[20]
+	mi := &file_client_client_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1392,7 +1392,7 @@ func (x *SubAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubAccount.ProtoReflect.Descriptor instead.
 func (*SubAccount) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{20}
+	return file_client_client_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SubAccount) GetId() string {
@@ -1495,7 +1495,7 @@ type CreateSubAccountRequest struct {
 
 func (x *CreateSubAccountRequest) Reset() {
 	*x = CreateSubAccountRequest{}
-	mi := &file_client_proto_msgTypes[21]
+	mi := &file_client_client_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1507,7 +1507,7 @@ func (x *CreateSubAccountRequest) String() string {
 func (*CreateSubAccountRequest) ProtoMessage() {}
 
 func (x *CreateSubAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[21]
+	mi := &file_client_client_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1520,7 +1520,7 @@ func (x *CreateSubAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSubAccountRequest.ProtoReflect.Descriptor instead.
 func (*CreateSubAccountRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{21}
+	return file_client_client_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CreateSubAccountRequest) GetParentClientId() string {
@@ -1582,7 +1582,7 @@ type CreateSubAccountResponse struct {
 
 func (x *CreateSubAccountResponse) Reset() {
 	*x = CreateSubAccountResponse{}
-	mi := &file_client_proto_msgTypes[22]
+	mi := &file_client_client_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1594,7 +1594,7 @@ func (x *CreateSubAccountResponse) String() string {
 func (*CreateSubAccountResponse) ProtoMessage() {}
 
 func (x *CreateSubAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[22]
+	mi := &file_client_client_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1607,7 +1607,7 @@ func (x *CreateSubAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSubAccountResponse.ProtoReflect.Descriptor instead.
 func (*CreateSubAccountResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{22}
+	return file_client_client_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CreateSubAccountResponse) GetSubAccount() *SubAccount {
@@ -1627,7 +1627,7 @@ type ListSubAccountsRequest struct {
 
 func (x *ListSubAccountsRequest) Reset() {
 	*x = ListSubAccountsRequest{}
-	mi := &file_client_proto_msgTypes[23]
+	mi := &file_client_client_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1639,7 +1639,7 @@ func (x *ListSubAccountsRequest) String() string {
 func (*ListSubAccountsRequest) ProtoMessage() {}
 
 func (x *ListSubAccountsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[23]
+	mi := &file_client_client_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +1652,7 @@ func (x *ListSubAccountsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubAccountsRequest.ProtoReflect.Descriptor instead.
 func (*ListSubAccountsRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{23}
+	return file_client_client_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListSubAccountsRequest) GetParentClientId() string {
@@ -1674,7 +1674,7 @@ type ListSubAccountsResponse struct {
 
 func (x *ListSubAccountsResponse) Reset() {
 	*x = ListSubAccountsResponse{}
-	mi := &file_client_proto_msgTypes[24]
+	mi := &file_client_client_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1686,7 +1686,7 @@ func (x *ListSubAccountsResponse) String() string {
 func (*ListSubAccountsResponse) ProtoMessage() {}
 
 func (x *ListSubAccountsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[24]
+	mi := &file_client_client_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1699,7 +1699,7 @@ func (x *ListSubAccountsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubAccountsResponse.ProtoReflect.Descriptor instead.
 func (*ListSubAccountsResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{24}
+	return file_client_client_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListSubAccountsResponse) GetSubAccounts() []*SubAccount {
@@ -1734,7 +1734,7 @@ type GetSubAccountRequest struct {
 
 func (x *GetSubAccountRequest) Reset() {
 	*x = GetSubAccountRequest{}
-	mi := &file_client_proto_msgTypes[25]
+	mi := &file_client_client_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1746,7 +1746,7 @@ func (x *GetSubAccountRequest) String() string {
 func (*GetSubAccountRequest) ProtoMessage() {}
 
 func (x *GetSubAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[25]
+	mi := &file_client_client_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1759,7 +1759,7 @@ func (x *GetSubAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetSubAccountRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{25}
+	return file_client_client_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetSubAccountRequest) GetSubAccountId() string {
@@ -1786,7 +1786,7 @@ type GetSubAccountResponse struct {
 
 func (x *GetSubAccountResponse) Reset() {
 	*x = GetSubAccountResponse{}
-	mi := &file_client_proto_msgTypes[26]
+	mi := &file_client_client_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1798,7 +1798,7 @@ func (x *GetSubAccountResponse) String() string {
 func (*GetSubAccountResponse) ProtoMessage() {}
 
 func (x *GetSubAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[26]
+	mi := &file_client_client_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1811,7 +1811,7 @@ func (x *GetSubAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetSubAccountResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{26}
+	return file_client_client_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetSubAccountResponse) GetSubAccount() *SubAccount {
@@ -1832,7 +1832,7 @@ type DeleteSubAccountRequest struct {
 
 func (x *DeleteSubAccountRequest) Reset() {
 	*x = DeleteSubAccountRequest{}
-	mi := &file_client_proto_msgTypes[27]
+	mi := &file_client_client_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1844,7 +1844,7 @@ func (x *DeleteSubAccountRequest) String() string {
 func (*DeleteSubAccountRequest) ProtoMessage() {}
 
 func (x *DeleteSubAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[27]
+	mi := &file_client_client_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1857,7 +1857,7 @@ func (x *DeleteSubAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSubAccountRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSubAccountRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{27}
+	return file_client_client_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DeleteSubAccountRequest) GetSubAccountId() string {
@@ -1884,7 +1884,7 @@ type DeleteSubAccountResponse struct {
 
 func (x *DeleteSubAccountResponse) Reset() {
 	*x = DeleteSubAccountResponse{}
-	mi := &file_client_proto_msgTypes[28]
+	mi := &file_client_client_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1896,7 +1896,7 @@ func (x *DeleteSubAccountResponse) String() string {
 func (*DeleteSubAccountResponse) ProtoMessage() {}
 
 func (x *DeleteSubAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[28]
+	mi := &file_client_client_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1909,7 +1909,7 @@ func (x *DeleteSubAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSubAccountResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSubAccountResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{28}
+	return file_client_client_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DeleteSubAccountResponse) GetReturnedBalance() string {
@@ -1932,7 +1932,7 @@ type UpdateSubAccountLimitsRequest struct {
 
 func (x *UpdateSubAccountLimitsRequest) Reset() {
 	*x = UpdateSubAccountLimitsRequest{}
-	mi := &file_client_proto_msgTypes[29]
+	mi := &file_client_client_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1944,7 +1944,7 @@ func (x *UpdateSubAccountLimitsRequest) String() string {
 func (*UpdateSubAccountLimitsRequest) ProtoMessage() {}
 
 func (x *UpdateSubAccountLimitsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[29]
+	mi := &file_client_client_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1957,7 +1957,7 @@ func (x *UpdateSubAccountLimitsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSubAccountLimitsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSubAccountLimitsRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{29}
+	return file_client_client_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *UpdateSubAccountLimitsRequest) GetSubAccountId() string {
@@ -1998,7 +1998,7 @@ type UpdateSubAccountLimitsResponse struct {
 
 func (x *UpdateSubAccountLimitsResponse) Reset() {
 	*x = UpdateSubAccountLimitsResponse{}
-	mi := &file_client_proto_msgTypes[30]
+	mi := &file_client_client_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2010,7 +2010,7 @@ func (x *UpdateSubAccountLimitsResponse) String() string {
 func (*UpdateSubAccountLimitsResponse) ProtoMessage() {}
 
 func (x *UpdateSubAccountLimitsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[30]
+	mi := &file_client_client_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2023,7 +2023,7 @@ func (x *UpdateSubAccountLimitsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSubAccountLimitsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSubAccountLimitsResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{30}
+	return file_client_client_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UpdateSubAccountLimitsResponse) GetSubAccount() *SubAccount {
@@ -2042,7 +2042,7 @@ type ListPlansRequest struct {
 
 func (x *ListPlansRequest) Reset() {
 	*x = ListPlansRequest{}
-	mi := &file_client_proto_msgTypes[31]
+	mi := &file_client_client_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2054,7 +2054,7 @@ func (x *ListPlansRequest) String() string {
 func (*ListPlansRequest) ProtoMessage() {}
 
 func (x *ListPlansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[31]
+	mi := &file_client_client_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2067,7 +2067,7 @@ func (x *ListPlansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlansRequest.ProtoReflect.Descriptor instead.
 func (*ListPlansRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{31}
+	return file_client_client_proto_rawDescGZIP(), []int{31}
 }
 
 // ListPlansResponse представляет ответ со списком тарифных планов
@@ -2080,7 +2080,7 @@ type ListPlansResponse struct {
 
 func (x *ListPlansResponse) Reset() {
 	*x = ListPlansResponse{}
-	mi := &file_client_proto_msgTypes[32]
+	mi := &file_client_client_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2092,7 +2092,7 @@ func (x *ListPlansResponse) String() string {
 func (*ListPlansResponse) ProtoMessage() {}
 
 func (x *ListPlansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[32]
+	mi := &file_client_client_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2105,7 +2105,7 @@ func (x *ListPlansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlansResponse.ProtoReflect.Descriptor instead.
 func (*ListPlansResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{32}
+	return file_client_client_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListPlansResponse) GetPlans() []*SubscriptionPlan {
@@ -2126,7 +2126,7 @@ type AssignPlanRequest struct {
 
 func (x *AssignPlanRequest) Reset() {
 	*x = AssignPlanRequest{}
-	mi := &file_client_proto_msgTypes[33]
+	mi := &file_client_client_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2138,7 +2138,7 @@ func (x *AssignPlanRequest) String() string {
 func (*AssignPlanRequest) ProtoMessage() {}
 
 func (x *AssignPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[33]
+	mi := &file_client_client_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2151,7 +2151,7 @@ func (x *AssignPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignPlanRequest.ProtoReflect.Descriptor instead.
 func (*AssignPlanRequest) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{33}
+	return file_client_client_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *AssignPlanRequest) GetClientId() string {
@@ -2178,7 +2178,7 @@ type AssignPlanResponse struct {
 
 func (x *AssignPlanResponse) Reset() {
 	*x = AssignPlanResponse{}
-	mi := &file_client_proto_msgTypes[34]
+	mi := &file_client_client_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2190,7 +2190,7 @@ func (x *AssignPlanResponse) String() string {
 func (*AssignPlanResponse) ProtoMessage() {}
 
 func (x *AssignPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_client_proto_msgTypes[34]
+	mi := &file_client_client_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2203,7 +2203,7 @@ func (x *AssignPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignPlanResponse.ProtoReflect.Descriptor instead.
 func (*AssignPlanResponse) Descriptor() ([]byte, []int) {
-	return file_client_proto_rawDescGZIP(), []int{34}
+	return file_client_client_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AssignPlanResponse) GetSuccess() bool {
@@ -2213,11 +2213,109 @@ func (x *AssignPlanResponse) GetSuccess() bool {
 	return false
 }
 
-var File_client_proto protoreflect.FileDescriptor
+// ToggleSandboxRequest представляет запрос на изменение sandbox-режима клиента
+type ToggleSandboxRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"` // ID клиента
+	Enable        bool                   `protobuf:"varint,2,opt,name=enable,proto3" json:"enable,omitempty"`                    // true — включить, false — отключить
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_client_proto_rawDesc = "" +
+func (x *ToggleSandboxRequest) Reset() {
+	*x = ToggleSandboxRequest{}
+	mi := &file_client_client_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleSandboxRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleSandboxRequest) ProtoMessage() {}
+
+func (x *ToggleSandboxRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_client_client_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleSandboxRequest.ProtoReflect.Descriptor instead.
+func (*ToggleSandboxRequest) Descriptor() ([]byte, []int) {
+	return file_client_client_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ToggleSandboxRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ToggleSandboxRequest) GetEnable() bool {
+	if x != nil {
+		return x.Enable
+	}
+	return false
+}
+
+// ToggleSandboxResponse представляет ответ на изменение sandbox-режима
+type ToggleSandboxResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	IsSandbox     bool                   `protobuf:"varint,1,opt,name=is_sandbox,json=isSandbox,proto3" json:"is_sandbox,omitempty"` // Текущее состояние sandbox-режима
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleSandboxResponse) Reset() {
+	*x = ToggleSandboxResponse{}
+	mi := &file_client_client_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleSandboxResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleSandboxResponse) ProtoMessage() {}
+
+func (x *ToggleSandboxResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_client_client_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleSandboxResponse.ProtoReflect.Descriptor instead.
+func (*ToggleSandboxResponse) Descriptor() ([]byte, []int) {
+	return file_client_client_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ToggleSandboxResponse) GetIsSandbox() bool {
+	if x != nil {
+		return x.IsSandbox
+	}
+	return false
+}
+
+var File_client_client_proto protoreflect.FileDescriptor
+
+const file_client_client_proto_rawDesc = "" +
 	"\n" +
-	"\fclient.proto\x12\tclient.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xba\x02\n" +
+	"\x13client/client.proto\x12\tclient.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xba\x02\n" +
 	"\x13CreateClientRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12%\n" +
@@ -2404,8 +2502,13 @@ const file_client_proto_rawDesc = "" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x17\n" +
 	"\aplan_id\x18\x02 \x01(\tR\x06planId\".\n" +
 	"\x12AssignPlanResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xae\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"K\n" +
+	"\x14ToggleSandboxRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x16\n" +
+	"\x06enable\x18\x02 \x01(\bR\x06enable\"6\n" +
+	"\x15ToggleSandboxResponse\x12\x1d\n" +
 	"\n" +
+	"is_sandbox\x18\x01 \x01(\bR\tisSandbox2\x82\v\n" +
 	"\rClientService\x12O\n" +
 	"\fCreateClient\x12\x1e.client.v1.CreateClientRequest\x1a\x1f.client.v1.CreateClientResponse\x12O\n" +
 	"\fUpdateClient\x12\x1e.client.v1.UpdateClientRequest\x1a\x1f.client.v1.UpdateClientResponse\x12F\n" +
@@ -2422,22 +2525,23 @@ const file_client_proto_rawDesc = "" +
 	"\x16UpdateSubAccountLimits\x12(.client.v1.UpdateSubAccountLimitsRequest\x1a).client.v1.UpdateSubAccountLimitsResponse\x12F\n" +
 	"\tListPlans\x12\x1b.client.v1.ListPlansRequest\x1a\x1c.client.v1.ListPlansResponse\x12I\n" +
 	"\n" +
-	"AssignPlan\x12\x1c.client.v1.AssignPlanRequest\x1a\x1d.client.v1.AssignPlanResponseB7Z5github.com/smpp-server/smpp-server/api/proto/clientv1b\x06proto3"
+	"AssignPlan\x12\x1c.client.v1.AssignPlanRequest\x1a\x1d.client.v1.AssignPlanResponse\x12R\n" +
+	"\rToggleSandbox\x12\x1f.client.v1.ToggleSandboxRequest\x1a .client.v1.ToggleSandboxResponseB7Z5github.com/smpp-server/smpp-server/api/proto/clientv1b\x06proto3"
 
 var (
-	file_client_proto_rawDescOnce sync.Once
-	file_client_proto_rawDescData []byte
+	file_client_client_proto_rawDescOnce sync.Once
+	file_client_client_proto_rawDescData []byte
 )
 
-func file_client_proto_rawDescGZIP() []byte {
-	file_client_proto_rawDescOnce.Do(func() {
-		file_client_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_client_proto_rawDesc), len(file_client_proto_rawDesc)))
+func file_client_client_proto_rawDescGZIP() []byte {
+	file_client_client_proto_rawDescOnce.Do(func() {
+		file_client_client_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_client_client_proto_rawDesc), len(file_client_client_proto_rawDesc)))
 	})
-	return file_client_proto_rawDescData
+	return file_client_client_proto_rawDescData
 }
 
-var file_client_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
-var file_client_proto_goTypes = []any{
+var file_client_client_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_client_client_proto_goTypes = []any{
 	(*CreateClientRequest)(nil),            // 0: client.v1.CreateClientRequest
 	(*CreateClientResponse)(nil),           // 1: client.v1.CreateClientResponse
 	(*UpdateClientRequest)(nil),            // 2: client.v1.UpdateClientRequest
@@ -2473,33 +2577,35 @@ var file_client_proto_goTypes = []any{
 	(*ListPlansResponse)(nil),              // 32: client.v1.ListPlansResponse
 	(*AssignPlanRequest)(nil),              // 33: client.v1.AssignPlanRequest
 	(*AssignPlanResponse)(nil),             // 34: client.v1.AssignPlanResponse
-	nil,                                    // 35: client.v1.CreateClientRequest.MetadataEntry
-	nil,                                    // 36: client.v1.UpdateClientRequest.MetadataEntry
-	nil,                                    // 37: client.v1.SubscriptionPlan.FeaturesEntry
-	nil,                                    // 38: client.v1.ClientInfo.MetadataEntry
-	nil,                                    // 39: client.v1.ClientConfig.SettingsEntry
-	(*timestamppb.Timestamp)(nil),          // 40: google.protobuf.Timestamp
+	(*ToggleSandboxRequest)(nil),           // 35: client.v1.ToggleSandboxRequest
+	(*ToggleSandboxResponse)(nil),          // 36: client.v1.ToggleSandboxResponse
+	nil,                                    // 37: client.v1.CreateClientRequest.MetadataEntry
+	nil,                                    // 38: client.v1.UpdateClientRequest.MetadataEntry
+	nil,                                    // 39: client.v1.SubscriptionPlan.FeaturesEntry
+	nil,                                    // 40: client.v1.ClientInfo.MetadataEntry
+	nil,                                    // 41: client.v1.ClientConfig.SettingsEntry
+	(*timestamppb.Timestamp)(nil),          // 42: google.protobuf.Timestamp
 }
-var file_client_proto_depIdxs = []int32{
-	35, // 0: client.v1.CreateClientRequest.metadata:type_name -> client.v1.CreateClientRequest.MetadataEntry
-	40, // 1: client.v1.CreateClientResponse.created_at:type_name -> google.protobuf.Timestamp
-	36, // 2: client.v1.UpdateClientRequest.metadata:type_name -> client.v1.UpdateClientRequest.MetadataEntry
+var file_client_client_proto_depIdxs = []int32{
+	37, // 0: client.v1.CreateClientRequest.metadata:type_name -> client.v1.CreateClientRequest.MetadataEntry
+	42, // 1: client.v1.CreateClientResponse.created_at:type_name -> google.protobuf.Timestamp
+	38, // 2: client.v1.UpdateClientRequest.metadata:type_name -> client.v1.UpdateClientRequest.MetadataEntry
 	17, // 3: client.v1.GetClientResponse.client:type_name -> client.v1.ClientInfo
 	17, // 4: client.v1.ListClientsResponse.clients:type_name -> client.v1.ClientInfo
 	18, // 5: client.v1.GetClientConfigResponse.config:type_name -> client.v1.ClientConfig
 	18, // 6: client.v1.UpdateClientConfigRequest.config:type_name -> client.v1.ClientConfig
 	19, // 7: client.v1.UpdateClientRateLimitsRequest.rate_limits:type_name -> client.v1.RateLimits
 	19, // 8: client.v1.SubscriptionPlan.rate_limits:type_name -> client.v1.RateLimits
-	37, // 9: client.v1.SubscriptionPlan.features:type_name -> client.v1.SubscriptionPlan.FeaturesEntry
+	39, // 9: client.v1.SubscriptionPlan.features:type_name -> client.v1.SubscriptionPlan.FeaturesEntry
 	19, // 10: client.v1.ClientInfo.rate_limits:type_name -> client.v1.RateLimits
-	38, // 11: client.v1.ClientInfo.metadata:type_name -> client.v1.ClientInfo.MetadataEntry
-	40, // 12: client.v1.ClientInfo.created_at:type_name -> google.protobuf.Timestamp
-	40, // 13: client.v1.ClientInfo.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 11: client.v1.ClientInfo.metadata:type_name -> client.v1.ClientInfo.MetadataEntry
+	42, // 12: client.v1.ClientInfo.created_at:type_name -> google.protobuf.Timestamp
+	42, // 13: client.v1.ClientInfo.updated_at:type_name -> google.protobuf.Timestamp
 	16, // 14: client.v1.ClientInfo.plan:type_name -> client.v1.SubscriptionPlan
 	19, // 15: client.v1.ClientConfig.rate_limits:type_name -> client.v1.RateLimits
-	39, // 16: client.v1.ClientConfig.settings:type_name -> client.v1.ClientConfig.SettingsEntry
-	40, // 17: client.v1.ClientConfig.updated_at:type_name -> google.protobuf.Timestamp
-	40, // 18: client.v1.SubAccount.created_at:type_name -> google.protobuf.Timestamp
+	41, // 16: client.v1.ClientConfig.settings:type_name -> client.v1.ClientConfig.SettingsEntry
+	42, // 17: client.v1.ClientConfig.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 18: client.v1.SubAccount.created_at:type_name -> google.protobuf.Timestamp
 	20, // 19: client.v1.CreateSubAccountResponse.sub_account:type_name -> client.v1.SubAccount
 	20, // 20: client.v1.ListSubAccountsResponse.sub_accounts:type_name -> client.v1.SubAccount
 	20, // 21: client.v1.GetSubAccountResponse.sub_account:type_name -> client.v1.SubAccount
@@ -2520,48 +2626,50 @@ var file_client_proto_depIdxs = []int32{
 	29, // 36: client.v1.ClientService.UpdateSubAccountLimits:input_type -> client.v1.UpdateSubAccountLimitsRequest
 	31, // 37: client.v1.ClientService.ListPlans:input_type -> client.v1.ListPlansRequest
 	33, // 38: client.v1.ClientService.AssignPlan:input_type -> client.v1.AssignPlanRequest
-	1,  // 39: client.v1.ClientService.CreateClient:output_type -> client.v1.CreateClientResponse
-	3,  // 40: client.v1.ClientService.UpdateClient:output_type -> client.v1.UpdateClientResponse
-	5,  // 41: client.v1.ClientService.GetClient:output_type -> client.v1.GetClientResponse
-	7,  // 42: client.v1.ClientService.ListClients:output_type -> client.v1.ListClientsResponse
-	9,  // 43: client.v1.ClientService.DeleteClient:output_type -> client.v1.DeleteClientResponse
-	11, // 44: client.v1.ClientService.GetClientConfig:output_type -> client.v1.GetClientConfigResponse
-	13, // 45: client.v1.ClientService.UpdateClientConfig:output_type -> client.v1.UpdateClientConfigResponse
-	15, // 46: client.v1.ClientService.UpdateClientRateLimits:output_type -> client.v1.UpdateClientRateLimitsResponse
-	22, // 47: client.v1.ClientService.CreateSubAccount:output_type -> client.v1.CreateSubAccountResponse
-	24, // 48: client.v1.ClientService.ListSubAccounts:output_type -> client.v1.ListSubAccountsResponse
-	26, // 49: client.v1.ClientService.GetSubAccount:output_type -> client.v1.GetSubAccountResponse
-	28, // 50: client.v1.ClientService.DeleteSubAccount:output_type -> client.v1.DeleteSubAccountResponse
-	30, // 51: client.v1.ClientService.UpdateSubAccountLimits:output_type -> client.v1.UpdateSubAccountLimitsResponse
-	32, // 52: client.v1.ClientService.ListPlans:output_type -> client.v1.ListPlansResponse
-	34, // 53: client.v1.ClientService.AssignPlan:output_type -> client.v1.AssignPlanResponse
-	39, // [39:54] is the sub-list for method output_type
-	24, // [24:39] is the sub-list for method input_type
+	35, // 39: client.v1.ClientService.ToggleSandbox:input_type -> client.v1.ToggleSandboxRequest
+	1,  // 40: client.v1.ClientService.CreateClient:output_type -> client.v1.CreateClientResponse
+	3,  // 41: client.v1.ClientService.UpdateClient:output_type -> client.v1.UpdateClientResponse
+	5,  // 42: client.v1.ClientService.GetClient:output_type -> client.v1.GetClientResponse
+	7,  // 43: client.v1.ClientService.ListClients:output_type -> client.v1.ListClientsResponse
+	9,  // 44: client.v1.ClientService.DeleteClient:output_type -> client.v1.DeleteClientResponse
+	11, // 45: client.v1.ClientService.GetClientConfig:output_type -> client.v1.GetClientConfigResponse
+	13, // 46: client.v1.ClientService.UpdateClientConfig:output_type -> client.v1.UpdateClientConfigResponse
+	15, // 47: client.v1.ClientService.UpdateClientRateLimits:output_type -> client.v1.UpdateClientRateLimitsResponse
+	22, // 48: client.v1.ClientService.CreateSubAccount:output_type -> client.v1.CreateSubAccountResponse
+	24, // 49: client.v1.ClientService.ListSubAccounts:output_type -> client.v1.ListSubAccountsResponse
+	26, // 50: client.v1.ClientService.GetSubAccount:output_type -> client.v1.GetSubAccountResponse
+	28, // 51: client.v1.ClientService.DeleteSubAccount:output_type -> client.v1.DeleteSubAccountResponse
+	30, // 52: client.v1.ClientService.UpdateSubAccountLimits:output_type -> client.v1.UpdateSubAccountLimitsResponse
+	32, // 53: client.v1.ClientService.ListPlans:output_type -> client.v1.ListPlansResponse
+	34, // 54: client.v1.ClientService.AssignPlan:output_type -> client.v1.AssignPlanResponse
+	36, // 55: client.v1.ClientService.ToggleSandbox:output_type -> client.v1.ToggleSandboxResponse
+	40, // [40:56] is the sub-list for method output_type
+	24, // [24:40] is the sub-list for method input_type
 	24, // [24:24] is the sub-list for extension type_name
 	24, // [24:24] is the sub-list for extension extendee
 	0,  // [0:24] is the sub-list for field type_name
 }
 
-func init() { file_client_proto_init() }
-func file_client_proto_init() {
-	if File_client_proto != nil {
+func init() { file_client_client_proto_init() }
+func file_client_client_proto_init() {
+	if File_client_client_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_client_proto_rawDesc), len(file_client_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_client_client_proto_rawDesc), len(file_client_client_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   40,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_client_proto_goTypes,
-		DependencyIndexes: file_client_proto_depIdxs,
-		MessageInfos:      file_client_proto_msgTypes,
+		GoTypes:           file_client_client_proto_goTypes,
+		DependencyIndexes: file_client_client_proto_depIdxs,
+		MessageInfos:      file_client_client_proto_msgTypes,
 	}.Build()
-	File_client_proto = out.File
-	file_client_proto_goTypes = nil
-	file_client_proto_depIdxs = nil
+	File_client_client_proto = out.File
+	file_client_client_proto_goTypes = nil
+	file_client_client_proto_depIdxs = nil
 }

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: client.proto
+// source: client/client.proto
 
 package clientv1
 
@@ -34,6 +34,7 @@ const (
 	ClientService_UpdateSubAccountLimits_FullMethodName = "/client.v1.ClientService/UpdateSubAccountLimits"
 	ClientService_ListPlans_FullMethodName              = "/client.v1.ClientService/ListPlans"
 	ClientService_AssignPlan_FullMethodName             = "/client.v1.ClientService/AssignPlan"
+	ClientService_ToggleSandbox_FullMethodName          = "/client.v1.ClientService/ToggleSandbox"
 )
 
 // ClientServiceClient is the client API for ClientService service.
@@ -72,6 +73,8 @@ type ClientServiceClient interface {
 	ListPlans(ctx context.Context, in *ListPlansRequest, opts ...grpc.CallOption) (*ListPlansResponse, error)
 	// AssignPlan назначает тарифный план клиенту
 	AssignPlan(ctx context.Context, in *AssignPlanRequest, opts ...grpc.CallOption) (*AssignPlanResponse, error)
+	// ToggleSandbox включает или отключает sandbox-режим для клиента
+	ToggleSandbox(ctx context.Context, in *ToggleSandboxRequest, opts ...grpc.CallOption) (*ToggleSandboxResponse, error)
 }
 
 type clientServiceClient struct {
@@ -232,6 +235,16 @@ func (c *clientServiceClient) AssignPlan(ctx context.Context, in *AssignPlanRequ
 	return out, nil
 }
 
+func (c *clientServiceClient) ToggleSandbox(ctx context.Context, in *ToggleSandboxRequest, opts ...grpc.CallOption) (*ToggleSandboxResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ToggleSandboxResponse)
+	err := c.cc.Invoke(ctx, ClientService_ToggleSandbox_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClientServiceServer is the server API for ClientService service.
 // All implementations must embed UnimplementedClientServiceServer
 // for forward compatibility.
@@ -268,6 +281,8 @@ type ClientServiceServer interface {
 	ListPlans(context.Context, *ListPlansRequest) (*ListPlansResponse, error)
 	// AssignPlan назначает тарифный план клиенту
 	AssignPlan(context.Context, *AssignPlanRequest) (*AssignPlanResponse, error)
+	// ToggleSandbox включает или отключает sandbox-режим для клиента
+	ToggleSandbox(context.Context, *ToggleSandboxRequest) (*ToggleSandboxResponse, error)
 	mustEmbedUnimplementedClientServiceServer()
 }
 
@@ -322,6 +337,9 @@ func (UnimplementedClientServiceServer) ListPlans(context.Context, *ListPlansReq
 }
 func (UnimplementedClientServiceServer) AssignPlan(context.Context, *AssignPlanRequest) (*AssignPlanResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AssignPlan not implemented")
+}
+func (UnimplementedClientServiceServer) ToggleSandbox(context.Context, *ToggleSandboxRequest) (*ToggleSandboxResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ToggleSandbox not implemented")
 }
 func (UnimplementedClientServiceServer) mustEmbedUnimplementedClientServiceServer() {}
 func (UnimplementedClientServiceServer) testEmbeddedByValue()                       {}
@@ -614,6 +632,24 @@ func _ClientService_AssignPlan_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientService_ToggleSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToggleSandboxRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServiceServer).ToggleSandbox(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientService_ToggleSandbox_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServiceServer).ToggleSandbox(ctx, req.(*ToggleSandboxRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClientService_ServiceDesc is the grpc.ServiceDesc for ClientService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -681,7 +717,11 @@ var ClientService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "AssignPlan",
 			Handler:    _ClientService_AssignPlan_Handler,
 		},
+		{
+			MethodName: "ToggleSandbox",
+			Handler:    _ClientService_ToggleSandbox_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "client.proto",
+	Metadata: "client/client.proto",
 }

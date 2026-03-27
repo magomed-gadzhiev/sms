@@ -40,7 +40,7 @@ func TestClientService(t *testing.T) {
 					cfg.RateLimitPerDay == 10000
 			})).Return(nil)
 
-			client, err := svc.CreateClient(ctx, "Test Company", "test@example.com", "John Doe", "+79001234567", true, nil)
+			client, err := svc.CreateClient(ctx, "Test Company", "test@example.com", "John Doe", "+79001234567", true, false, nil)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -70,7 +70,7 @@ func TestClientService(t *testing.T) {
 
 			configRepo.On("Create", ctx, mock.AnythingOfType("*domain.ClientConfig")).Return(nil)
 
-			client, err := svc.CreateClient(ctx, "Fintech Corp", "info@fintech.com", "Jane", "+79009876543", true, metadata)
+			client, err := svc.CreateClient(ctx, "Fintech Corp", "info@fintech.com", "Jane", "+79009876543", true, false, metadata)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -89,7 +89,7 @@ func TestClientService(t *testing.T) {
 
 			ctx := context.Background()
 
-			client, err := svc.CreateClient(ctx, "", "test@example.com", "John", "+79001234567", true, nil)
+			client, err := svc.CreateClient(ctx, "", "test@example.com", "John", "+79001234567", true, false, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -105,7 +105,7 @@ func TestClientService(t *testing.T) {
 
 			clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(assert.AnError)
 
-			client, err := svc.CreateClient(ctx, "Test", "test@example.com", "John", "+79001234567", true, nil)
+			client, err := svc.CreateClient(ctx, "Test", "test@example.com", "John", "+79001234567", true, false, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)

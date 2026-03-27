@@ -496,6 +496,30 @@ func (s *Server) UpdateSubAccountLimits(ctx context.Context, req *clientv1.Updat
 	}, nil
 }
 
+// ToggleSandbox включает или отключает sandbox-режим для клиента
+func (s *Server) ToggleSandbox(ctx context.Context, req *clientv1.ToggleSandboxRequest) (*clientv1.ToggleSandboxResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	if err := s.clientService.ToggleSandbox(ctx, clientID, req.Enable); err != nil {
+		if err == application.ErrClientNotFound {
+			return nil, status.Error(codes.NotFound, "client not found")
+		}
+		log.Error().Err(err).Msg("ошибка изменения sandbox-режима")
+		return nil, status.Error(codes.Internal, "failed to toggle sandbox")
+	}
+
+	return &clientv1.ToggleSandboxResponse{
+		IsSandbox: req.Enable,
+	}, nil
+}
+
 // domainClientToSubAccount преобразует domain.Client в proto SubAccount
 func (s *Server) domainClientToSubAccount(client *domain.Client) *clientv1.SubAccount {
 	if client == nil {

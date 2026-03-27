@@ -203,6 +203,20 @@ func (s *ClientService) DeleteClient(ctx context.Context, clientID uuid.UUID) er
 	return s.clientRepo.Delete(ctx, clientID)
 }
 
+// ToggleSandbox включает или отключает sandbox-режим для клиента
+func (s *ClientService) ToggleSandbox(ctx context.Context, clientID uuid.UUID, enable bool) error {
+	client, err := s.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if err == clientrepo.ErrClientNotFound {
+			return ErrClientNotFound
+		}
+		return err
+	}
+	client.IsSandbox = enable
+	client.UpdatedAt = time.Now()
+	return s.clientRepo.Update(ctx, client)
+}
+
 // GetClientConfig получает конфигурацию клиента
 func (s *ClientService) GetClientConfig(ctx context.Context, clientID uuid.UUID) (*domain.ClientConfig, error) {
 	config, err := s.configRepo.GetByClientID(ctx, clientID)

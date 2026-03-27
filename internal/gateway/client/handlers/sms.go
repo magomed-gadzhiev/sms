@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	clientv1 "github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
@@ -20,13 +21,15 @@ import (
 type SMSHandlers struct {
 	messagingClient messagingv1.MessagingServiceClient
 	templateClient  templatev1.TemplateServiceClient
+	clientClient    clientv1.ClientServiceClient
 }
 
 // NewSMSHandlers создает новый SMSHandlers
-func NewSMSHandlers(messagingClient messagingv1.MessagingServiceClient, templateClient templatev1.TemplateServiceClient) *SMSHandlers {
+func NewSMSHandlers(messagingClient messagingv1.MessagingServiceClient, templateClient templatev1.TemplateServiceClient, clientClient clientv1.ClientServiceClient) *SMSHandlers {
 	return &SMSHandlers{
 		messagingClient: messagingClient,
 		templateClient:  templateClient,
+		clientClient:    clientClient,
 	}
 }
 
@@ -95,21 +98,35 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		text = renderResp.RenderedText
 	}
 
+	// Проверяем sandbox-режим клиента
+	isSandbox := false
+	if h.clientClient != nil {
+		clientResp, err := h.clientClient.GetClient(r.Context(), &clientv1.GetClientRequest{
+			ClientId: clientID.String(),
+		})
+		if err != nil {
+			log.Warn().Err(err).Str("client_id", clientID.String()).Msg("не удалось получить данные клиента для sandbox-проверки")
+		} else if clientResp.GetClient() != nil {
+			isSandbox = clientResp.GetClient().IsSandbox
+		}
+	}
+
 	// Преобразуем в proto запрос
 	protoReq := &messagingv1.SendMessageRequest{
-		ClientId:          clientID.String(),
-		Source:            req.Source,
-		Destination:       req.Destination,
-		Text:              text,
-		ExternalId:        req.ExternalID,
-		Priority:          req.Priority,
+		ClientId:           clientID.String(),
+		Source:             req.Source,
+		Destination:        req.Destination,
+		Text:               text,
+		ExternalId:         req.ExternalID,
+		Priority:           req.Priority,
 		RegisteredDelivery: req.RegisteredDelivery,
-		ServiceType:       req.ServiceType,
-		SourceAddrTon:     req.SourceAddrTON,
-		SourceAddrNpi:     req.SourceAddrNPI,
-		DestAddrTon:       req.DestAddrTON,
-		DestAddrNpi:       req.DestAddrNPI,
-		DataCoding:        req.DataCoding,
+		ServiceType:        req.ServiceType,
+		SourceAddrTon:      req.SourceAddrTON,
+		SourceAddrNpi:      req.SourceAddrNPI,
+		DestAddrTon:        req.DestAddrTON,
+		DestAddrNpi:        req.DestAddrNPI,
+		DataCoding:         req.DataCoding,
+		IsSandbox:          isSandbox,
 	}
 
 	if req.ValidityPeriod != nil {

@@ -122,6 +122,19 @@ func (s *MessageService) SendMessage(
 		// If within tolerance, treat as immediate send (fall through to normal flow)
 	}
 
+	// Sandbox bypass: не отправляем реальному провайдеру — сохраняем в БД как "delivered"
+	if options != nil && options.IsSandbox {
+		msg.MarkAsDelivered()
+		if err := s.messageRepo.Create(ctx, msg); err != nil {
+			return nil, fmt.Errorf("failed to create sandbox message: %w", err)
+		}
+		log.Debug().
+			Str("message_id", msg.ID.String()).
+			Str("client_id", clientID.String()).
+			Msg("sandbox mode: message marked as delivered without sending")
+		return msg, nil
+	}
+
 	// Non-scheduled: publish directly to Kafka, no DB write.
 	// Persist stage will batch-insert into DB asynchronously via COPY protocol.
 	msg.MarkAsQueued()
@@ -295,6 +308,7 @@ type SendMessageOptions struct {
 	DataCoding         int
 	MaxRetries         int
 	ScheduledAt        *time.Time
+	IsSandbox          bool
 }
 
 // SendMessageRequest представляет запрос на отправку сообщения

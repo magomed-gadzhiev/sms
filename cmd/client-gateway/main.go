@@ -74,9 +74,10 @@ func main() {
 		Messaging: getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
 		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
 		Billing:   getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Webhook:  getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
-		Template: getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
-		Routing:  getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Template:  getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
+		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Client:    getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9091"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -92,7 +93,7 @@ func main() {
 	healthChecker := monitoring.NewHealthChecker("client-gateway", cfg.Service.Version)
 
 	// Создание handlers
-	smsHandlers := handlers.NewSMSHandlers(serviceClients.MessagingClient, serviceClients.TemplateClient)
+	smsHandlers := handlers.NewSMSHandlers(serviceClients.MessagingClient, serviceClients.TemplateClient, serviceClients.ClientClient)
 	accountHandlers := handlers.NewAccountHandlers(
 		serviceClients.BillingClient,
 		serviceClients.AnalyticsClient,

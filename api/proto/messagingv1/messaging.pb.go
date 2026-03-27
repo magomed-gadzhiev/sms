@@ -40,6 +40,7 @@ type SendMessageRequest struct {
 	DestAddrNpi        int32                  `protobuf:"varint,13,opt,name=dest_addr_npi,json=destAddrNpi,proto3" json:"dest_addr_npi,omitempty"`                   // NPI получателя (опционально)
 	DataCoding         int32                  `protobuf:"varint,14,opt,name=data_coding,json=dataCoding,proto3" json:"data_coding,omitempty"`                        // Кодировка данных (опционально)
 	ScheduledAt        *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`                      // Время запланированной отправки (опционально)
+	IsSandbox          bool                   `protobuf:"varint,16,opt,name=is_sandbox,json=isSandbox,proto3" json:"is_sandbox,omitempty"`                           // Sandbox-режим: SMS не отправляется реальному провайдеру
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -177,6 +178,13 @@ func (x *SendMessageRequest) GetScheduledAt() *timestamppb.Timestamp {
 		return x.ScheduledAt
 	}
 	return nil
+}
+
+func (x *SendMessageRequest) GetIsSandbox() bool {
+	if x != nil {
+		return x.IsSandbox
+	}
+	return false
 }
 
 // SendMessageResponse представляет ответ на отправку SMS
@@ -1153,7 +1161,7 @@ var File_messaging_messaging_proto protoreflect.FileDescriptor
 
 const file_messaging_messaging_proto_rawDesc = "" +
 	"\n" +
-	"\x19messaging/messaging.proto\x12\fmessaging.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcd\x04\n" +
+	"\x19messaging/messaging.proto\x12\fmessaging.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x04\n" +
 	"\x12SendMessageRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x12 \n" +
@@ -1172,7 +1180,9 @@ const file_messaging_messaging_proto_rawDesc = "" +
 	"\rdest_addr_npi\x18\r \x01(\x05R\vdestAddrNpi\x12\x1f\n" +
 	"\vdata_coding\x18\x0e \x01(\x05R\n" +
 	"dataCoding\x12=\n" +
-	"\fscheduled_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\"\x81\x02\n" +
+	"\fscheduled_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12\x1d\n" +
+	"\n" +
+	"is_sandbox\x18\x10 \x01(\bR\tisSandbox\"\x81\x02\n" +
 	"\x13SendMessageResponse\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x16\n" +
