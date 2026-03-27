@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboardApi, profileApi, ProfileData } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
 
 interface DashboardData {
   balance: string;
@@ -42,7 +44,7 @@ export function DashboardPage() {
   };
 
   if (loading) return <div role="status">Loading dashboard...</div>;
-  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
+  if (error) return <div className="text-red-600">Error: {error}</div>;
   if (!data) return <div>No data</div>;
 
   const cards: { label: string; value: string | number; href?: string }[] = [
@@ -59,61 +61,34 @@ export function DashboardPage() {
       {profile?.is_sandbox && (
         <div
           role="alert"
-          style={{
-            background: '#fff3cd',
-            border: '1px solid #ffc107',
-            borderRadius: 8,
-            padding: '12px 16px',
-            marginBottom: 16,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-          }}
+          className="bg-amber-50 border border-amber-400 rounded-lg px-4 py-3 mb-4 flex items-center justify-between gap-4"
         >
-          <span style={{ fontWeight: 500 }}>Sandbox Mode — SMS не отправляются реально</span>
-          <button
+          <span className="font-medium">Sandbox Mode — SMS не отправляются реально</span>
+          <Button
+            variant="secondary"
             onClick={handleDisableSandbox}
             disabled={sandboxToggling}
-            style={{
-              background: '#ffc107',
-              border: 'none',
-              borderRadius: 6,
-              padding: '6px 14px',
-              cursor: sandboxToggling ? 'not-allowed' : 'pointer',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-            }}
           >
             {sandboxToggling ? 'Переключение...' : 'Перейти в Production'}
-          </button>
+          </Button>
         </div>
       )}
-      <h2>Dashboard</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+      <PageHeader title="Dashboard" />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {cards.map((card) => {
-          const cardStyle = {
-            border: '1px solid #ddd',
-            borderRadius: 8,
-            padding: 16,
-            minWidth: 180,
-            textAlign: 'center' as const,
-            textDecoration: 'none',
-            color: 'inherit',
-            display: 'block',
-          };
+          const cardClassName = "border border-gray-200 rounded-lg p-4 text-center block no-underline text-inherit";
           const inner = (
             <>
-              <div style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>{card.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 'bold' }}>{card.value}</div>
+              <div className="text-sm text-gray-500 mb-2">{card.label}</div>
+              <div className="text-2xl font-bold">{card.value}</div>
             </>
           );
           return card.href ? (
-            <Link key={card.label} to={card.href} style={cardStyle} aria-label={`${card.label}: ${card.value}`}>
+            <Link key={card.label} to={card.href} className={cardClassName} aria-label={`${card.label}: ${card.value}`}>
               {inner}
             </Link>
           ) : (
-            <div key={card.label} style={cardStyle}>
+            <div key={card.label} className={cardClassName}>
               {inner}
             </div>
           );

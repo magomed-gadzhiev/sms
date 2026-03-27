@@ -1,7 +1,12 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { subAccountsApi, ApiError } from '../../api/client';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { StatusBadge } from '../../components/ui/Badge';
 
 interface SubAccount {
   id: string;
@@ -21,6 +26,29 @@ interface SubAccountsListResponse {
   max_sub_accounts: number;
 }
 
+const columns: Column<SubAccount>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    render: (sa) => (
+      <Link to={`/sub-accounts/${sa.id}`} className="text-primary hover:underline">
+        {sa.name}
+      </Link>
+    ),
+  },
+  { key: 'email', header: 'Email' },
+  {
+    key: 'active',
+    header: 'Active',
+    render: (sa) => <StatusBadge status={sa.active ? 'active' : 'inactive'} />,
+  },
+  { key: 'balance', header: 'Balance' },
+  { key: 'daily_limit', header: 'Daily Limit' },
+  { key: 'monthly_limit', header: 'Monthly Limit' },
+  { key: 'messages_today', header: 'Today' },
+  { key: 'messages_this_month', header: 'This Month' },
+];
+
 export function SubAccountsListPage() {
   const [data, setData] = useState<SubAccountsListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,8 +57,6 @@ export function SubAccountsListPage() {
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const createFormRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(createFormRef, showCreateForm);
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formContactPerson, setFormContactPerson] = useState('');
@@ -85,172 +111,85 @@ export function SubAccountsListPage() {
 
   if (loading) return <div role="status">Loading sub-accounts...</div>;
 
+  const subAccounts = data?.sub_accounts ?? [];
+
   return (
-    <div style={{ maxWidth: 1000 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Sub-accounts</h2>
-        <button onClick={() => setShowCreateForm(true)}>Create Sub-account</button>
-      </div>
+    <div className="max-w-5xl">
+      <PageHeader
+        title="Sub-accounts"
+        subtitle={data ? `${data.current_count} / ${data.max_sub_accounts}` : undefined}
+        actions={<Button onClick={() => setShowCreateForm(true)}>Create Sub-account</Button>}
+      />
 
-      {data && (
-        <div style={{ marginBottom: 16, color: '#666' }}>
-          Sub-accounts: {data.current_count} / {data.max_sub_accounts}
-        </div>
-      )}
+      {error && <p className="text-red-600">{error}</p>}
 
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
-
-      {/* Create form */}
-      {showCreateForm && (
-        <div
-          ref={createFormRef}
-          style={{
-            background: '#f5f5f5',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>Create Sub-account</h3>
-          <form onSubmit={handleCreate}>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Name *
-                <br />
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  required
-                  placeholder="Sub-account name"
-                  style={{ width: '100%', maxWidth: 300 }}
-                />
-              </label>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Email *
-                <br />
-                <input
-                  type="email"
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
-                  required
-                  placeholder="email@example.com"
-                  style={{ width: '100%', maxWidth: 300 }}
-                />
-              </label>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Contact Person
-                <br />
-                <input
-                  type="text"
-                  value={formContactPerson}
-                  onChange={(e) => setFormContactPerson(e.target.value)}
-                  placeholder="Contact person name"
-                  style={{ width: '100%', maxWidth: 300 }}
-                />
-              </label>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Initial Balance
-                <br />
-                <input
-                  type="text"
-                  value={formInitialBalance}
-                  onChange={(e) => setFormInitialBalance(e.target.value)}
-                  placeholder="0.00"
-                  style={{ width: '100%', maxWidth: 150 }}
-                />
-              </label>
-            </div>
-            <div style={{ marginBottom: 12, display: 'flex', gap: 16 }}>
-              <label>
-                Daily Limit
-                <br />
-                <input
-                  type="number"
-                  value={formDailyLimit}
-                  onChange={(e) => setFormDailyLimit(e.target.value)}
-                  placeholder="e.g. 1000"
-                  style={{ width: 150 }}
-                />
-              </label>
-              <label>
-                Monthly Limit
-                <br />
-                <input
-                  type="number"
-                  value={formMonthlyLimit}
-                  onChange={(e) => setFormMonthlyLimit(e.target.value)}
-                  placeholder="e.g. 30000"
-                  style={{ width: 150 }}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" disabled={creating}>
-                {creating ? 'Creating...' : 'Create'}
-              </button>
-              <button type="button" onClick={() => setShowCreateForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/* Create form modal */}
+      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Create Sub-account">
+        <form onSubmit={handleCreate} className="flex flex-col gap-4">
+          <Input
+            label="Name"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            required
+            placeholder="Sub-account name"
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={formEmail}
+            onChange={(e) => setFormEmail(e.target.value)}
+            required
+            placeholder="email@example.com"
+          />
+          <Input
+            label="Contact Person"
+            value={formContactPerson}
+            onChange={(e) => setFormContactPerson(e.target.value)}
+            placeholder="Contact person name"
+          />
+          <Input
+            label="Initial Balance"
+            value={formInitialBalance}
+            onChange={(e) => setFormInitialBalance(e.target.value)}
+            placeholder="0.00"
+          />
+          <div className="flex gap-4">
+            <Input
+              label="Daily Limit"
+              type="number"
+              value={formDailyLimit}
+              onChange={(e) => setFormDailyLimit(e.target.value)}
+              placeholder="e.g. 1000"
+            />
+            <Input
+              label="Monthly Limit"
+              type="number"
+              value={formMonthlyLimit}
+              onChange={(e) => setFormMonthlyLimit(e.target.value)}
+              placeholder="e.g. 30000"
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" disabled={creating}>
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Sub-accounts table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Sub-accounts</caption>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>Name</th>
-            <th style={{ padding: 8 }}>Email</th>
-            <th style={{ padding: 8 }}>Active</th>
-            <th style={{ padding: 8 }}>Balance</th>
-            <th style={{ padding: 8 }}>Daily Limit</th>
-            <th style={{ padding: 8 }}>Monthly Limit</th>
-            <th style={{ padding: 8 }}>Today</th>
-            <th style={{ padding: 8 }}>This Month</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(!data || data.sub_accounts.length === 0) ? (
-            <tr>
-              <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                No sub-accounts yet. Create one to get started.
-              </td>
-            </tr>
-          ) : (
-            data.sub_accounts.map((sa) => (
-              <tr key={sa.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: 8 }}>
-                  <Link to={`/sub-accounts/${sa.id}`}>{sa.name}</Link>
-                </td>
-                <td style={{ padding: 8 }}>{sa.email}</td>
-                <td style={{ padding: 8 }}>
-                  <span
-                    aria-label={`Status: ${sa.active ? 'Active' : 'Inactive'}`}
-                    style={{ color: sa.active ? '#4caf50' : '#d32f2f', fontWeight: 'bold' }}
-                  >
-                    {sa.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td style={{ padding: 8 }}>{sa.balance}</td>
-                <td style={{ padding: 8 }}>{sa.daily_limit}</td>
-                <td style={{ padding: 8 }}>{sa.monthly_limit}</td>
-                <td style={{ padding: 8 }}>{sa.messages_today}</td>
-                <td style={{ padding: 8 }}>{sa.messages_this_month}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+      <DataTable
+        columns={columns}
+        data={subAccounts}
+        total={subAccounts.length}
+        page={1}
+        pageSize={subAccounts.length}
+        onPageChange={() => {}}
+        keyField="id"
+      />
     </div>
   );
 }

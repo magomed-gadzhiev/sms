@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, Link, Outlet, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import { SkipLink } from './components/SkipLink';
 import { RequireRole } from './components/RequireRole';
+import { UserLayout } from './components/layout/UserLayout';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
@@ -38,61 +38,7 @@ function RequireAuth() {
 
   if (loading) return <div>Loading...</div>;
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
-  return <Layout />;
-}
-
-const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard' },
-  { path: '/messages', label: 'Messages' },
-  { path: '/providers', label: 'Providers' },
-  { path: '/api-keys', label: 'API Keys' },
-  { path: '/webhooks', label: 'Webhooks' },
-  { path: '/analytics', label: 'Analytics' },
-  { path: '/sub-accounts', label: 'Sub-accounts' },
-  { path: '/profile', label: 'Profile' },
-  { path: '/audit-log', label: 'Audit Log' },
-];
-
-function Layout() {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <SkipLink targetId="main-content" />
-      <nav aria-label="Main navigation" style={{ width: 220, padding: 16, borderRight: '1px solid #ddd' }}>
-        <h3 style={{ marginTop: 0 }}>SMS Portal</h3>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {NAV_ITEMS.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <li key={item.path} style={{ marginBottom: 8 }}>
-                <Link
-                  to={item.path}
-                  aria-current={isActive ? 'page' : undefined}
-                  style={{
-                    fontWeight: isActive ? 'bold' : 'normal',
-                    borderLeft: isActive ? '3px solid #1976d2' : undefined,
-                    paddingLeft: isActive ? 8 : undefined,
-                  }}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        <hr />
-        <div style={{ fontSize: 14 }}>{user?.email}</div>
-        <button onClick={logout} style={{ marginTop: 8 }}>
-          Logout
-        </button>
-      </nav>
-      <main id="main-content" style={{ flex: 1, padding: 24 }}>
-        <Outlet />
-      </main>
-    </div>
-  );
+  return <UserLayout />;
 }
 
 export function App() {

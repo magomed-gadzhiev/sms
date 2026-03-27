@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { providersApi, ApiError, type CreateProviderRequest } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
 import { WizardProgress } from './components/WizardProgress';
 import { WizardNav } from './components/WizardNav';
 import { Step1BasicInfo } from './steps/Step1BasicInfo';
@@ -70,11 +71,11 @@ export function ProviderWizardPage() {
   }
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto' }}>
-      <h2>Add SMPP Provider</h2>
+    <div className="max-w-2xl mx-auto">
+      <PageHeader title="Add SMPP Provider" />
       <WizardProgress currentStep={step} totalSteps={TOTAL_STEPS} labels={STEP_LABELS} />
 
-      <div style={{ padding: 24, border: '1px solid #e0e0e0', borderRadius: 8 }}>
+      <div className="p-6 border border-gray-200 rounded-lg">
         {step === 1 && <Step1BasicInfo data={data} onChange={update} />}
         {step === 2 && <Step2Connection data={data} onChange={update} />}
         {step === 3 && <Step3Params data={data} onChange={update} />}
@@ -82,7 +83,7 @@ export function ProviderWizardPage() {
         {step === 5 && <Step5Routing data={data} onChange={update} />}
         {step === 6 && <Step6Summary data={data} />}
 
-        {error && <p style={{ color: '#d32f2f', marginTop: 12 }}>{error}</p>}
+        {error && <p className="text-red-600 mt-3">{error}</p>}
 
         <WizardNav
           currentStep={step}

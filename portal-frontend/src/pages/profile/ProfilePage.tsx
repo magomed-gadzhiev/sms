@@ -1,5 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { profileApi, ApiError, type ProfileData } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 
 export function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -92,121 +95,109 @@ export function ProfilePage() {
   if (!profile) return <div role="status">Loading profile...</div>;
 
   return (
-    <div style={{ maxWidth: 600 }}>
-      <h2>Profile</h2>
+    <div className="max-w-xl">
+      <PageHeader title="Profile" />
 
-      <section style={{ marginBottom: 32 }}>
-        <p>
-          <strong>Email:</strong> {profile.email}
-        </p>
-        <p>
-          <strong>Company:</strong> {profile.company_name}
-        </p>
+      <section className="mb-8">
+        <p className="text-gray-700"><strong>Email:</strong> {profile.email}</p>
+        <p className="text-gray-700"><strong>Company:</strong> {profile.company_name}</p>
 
-        <form onSubmit={handleSaveProfile}>
+        <form onSubmit={handleSaveProfile} className="mt-4">
           {saveMsg && saveIsError && (
-            <p id="profile-error" role="alert" style={{ color: '#d32f2f' }}>{saveMsg}</p>
+            <p id="profile-error" role="alert" className="text-red-600 mb-3">{saveMsg}</p>
           )}
-          <div style={{ marginBottom: 12 }}>
-            <label>
-              Contact Person
-              <br />
-              <input
-                type="text"
-                value={contactPerson}
-                onChange={(e) => setContactPerson(e.target.value)}
-                aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
-              />
-            </label>
+          <div className="mb-3">
+            <Input
+              label="Contact Person"
+              value={contactPerson}
+              onChange={(e) => setContactPerson(e.target.value)}
+              aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
+            />
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <label>
-              Phone
-              <br />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
-              />
-            </label>
+          <div className="mb-3">
+            <Input
+              label="Phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
+            />
           </div>
-          <button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-          {saveMsg && !saveIsError && (
-            <p role="status" style={{ display: 'inline', marginLeft: 12 }}>{saveMsg}</p>
-          )}
+          <div className="flex items-center gap-3">
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            {saveMsg && !saveIsError && (
+              <p role="status" className="inline text-green-600">{saveMsg}</p>
+            )}
+          </div>
         </form>
       </section>
 
-      <section>
-        <h3>Two-Factor Authentication</h3>
+      <section className="border border-gray-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Two-Factor Authentication</h3>
         {twoFaMsg && twoFaIsError && (
-          <p id="profile-2fa-error" role="alert" style={{ color: '#d32f2f' }}>{twoFaMsg}</p>
+          <p id="profile-2fa-error" role="alert" className="text-red-600 mb-3">{twoFaMsg}</p>
         )}
         {twoFaMsg && !twoFaIsError && (
-          <p role="status">{twoFaMsg}</p>
+          <p role="status" className="text-green-600 mb-3">{twoFaMsg}</p>
         )}
 
         {profile.totp_enabled ? (
           <div>
-            <p>2FA is currently enabled.</p>
+            <p className="mb-3">2FA is currently enabled.</p>
             <form onSubmit={handleDisableTOTP}>
-              <div style={{ marginBottom: 12 }}>
-                <label>
-                  Enter password to disable 2FA
-                  <br />
-                  <input
-                    type="password"
-                    value={disablePassword}
-                    onChange={(e) => setDisablePassword(e.target.value)}
-                    required
-                  />
-                </label>
+              <div className="mb-3">
+                <Input
+                  label="Enter password to disable 2FA"
+                  type="password"
+                  value={disablePassword}
+                  onChange={(e) => setDisablePassword(e.target.value)}
+                  required
+                />
               </div>
-              <button type="submit">Disable 2FA</button>
+              <Button type="submit" variant="danger">Disable 2FA</Button>
             </form>
           </div>
         ) : totpSetup ? (
           <div>
-            <p>Scan the QR code with your authenticator app:</p>
-            <img src={totpSetup.qr_code_url} alt="TOTP QR Code" style={{ maxWidth: 200 }} />
-            <p>
+            <p className="mb-3">Scan the QR code with your authenticator app:</p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 inline-block">
+              <img src={totpSetup.qr_code_url} alt="TOTP QR Code" className="max-w-[200px]" />
+            </div>
+            <p className="mb-3">
               Or enter the secret manually:{' '}
-              <code>{totpSetup.secret}</code>
+              <code className="bg-white px-2 py-1 rounded border text-sm">{totpSetup.secret}</code>
               {' '}
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => navigator.clipboard.writeText(totpSetup.secret)}
-                style={{ marginLeft: 8 }}
+                className="ml-2"
               >
                 Copy secret
-              </button>
+              </Button>
             </p>
             <form onSubmit={handleVerifyTOTP}>
-              <div style={{ marginBottom: 12 }}>
-                <label>
-                  Verification Code
-                  <br />
-                  <input
-                    type="text"
-                    value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value)}
-                    required
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                  />
-                </label>
+              <div className="mb-3">
+                <Input
+                  label="Verification Code"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                />
               </div>
-              <button type="submit">Verify &amp; Enable</button>
+              <Button type="submit">Verify &amp; Enable</Button>
             </form>
           </div>
         ) : (
           <div>
-            <p>2FA is not enabled.</p>
-            <button onClick={handleSetupTOTP}>Set up 2FA</button>
+            <p className="mb-3">2FA is not enabled.</p>
+            <Button onClick={handleSetupTOTP}>Set up 2FA</Button>
           </div>
         )}
       </section>

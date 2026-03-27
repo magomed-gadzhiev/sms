@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { providersApi, ApiError, type Provider } from '../../api/client';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { StatusBadge } from '../../components/ui/Badge';
 
 const BIND_LABELS: Record<number, string> = { 0: 'TRX', 1: 'TX', 2: 'RX' };
 
@@ -9,6 +14,8 @@ export function ProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -25,82 +32,80 @@ export function ProvidersPage() {
 
   useEffect(() => { load(); }, []);
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this provider?')) return;
+  async function confirmDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      await providersApi.remove(id);
-      setProviders(prev => prev.filter(p => p.id !== id));
+      await providersApi.remove(deleteId);
+      setProviders(prev => prev.filter(p => p.id !== deleteId));
+      setDeleteId(null);
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Failed to delete provider');
+    } finally {
+      setDeleting(false);
     }
   }
 
+  const columns: Column<Provider>[] = [
+    { key: 'name', header: 'Name', render: (p) => (
+      <div>
+        <div>{p.name}</div>
+        {p.description && <div className="text-xs text-gray-500">{p.description}</div>}
+      </div>
+    )},
+    { key: 'host', header: 'Host', render: (p) => <span className="font-mono">{p.host}:{p.port}</span> },
+    { key: 'bind_type', header: 'Bind', render: (p) => <>{BIND_LABELS[p.bind_type] ?? '-'}</> },
+    { key: 'max_connections', header: 'Conns' },
+    { key: 'tps_limit', header: 'TPS' },
+    { key: 'active', header: 'Status', render: (p) => <StatusBadge status={p.active ? 'active' : 'inactive'} /> },
+  ];
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>SMPP Providers</h2>
-        <button
-          onClick={() => navigate('/providers/new')}
-          style={{ padding: '8px 20px', background: '#1976d2', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-        >
-          + Add Provider
-        </button>
-      </div>
+      <PageHeader
+        title="SMPP Providers"
+        actions={<Button onClick={() => navigate('/providers/new')}>+ Add Provider</Button>}
+      />
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
       {!loading && !error && providers.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 48, color: '#666' }}>
+        <div className="text-center py-12 text-gray-500">
           <p>No providers yet.</p>
-          <button onClick={() => navigate('/providers/new')} style={{ cursor: 'pointer' }}>
+          <Button variant="ghost" onClick={() => navigate('/providers/new')}>
             Add your first provider
-          </button>
+          </Button>
         </div>
       )}
 
-      {providers.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>
-              <th style={{ padding: '8px' }}>Name</th>
-              <th style={{ padding: '8px' }}>Host</th>
-              <th style={{ padding: '8px' }}>Bind</th>
-              <th style={{ padding: '8px' }}>Conns</th>
-              <th style={{ padding: '8px' }}>TPS</th>
-              <th style={{ padding: '8px' }}>Status</th>
-              <th style={{ padding: '8px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {providers.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                <td style={{ padding: '8px' }}>
-                  <div>{p.name}</div>
-                  {p.description && <div style={{ fontSize: 12, color: '#666' }}>{p.description}</div>}
-                </td>
-                <td style={{ padding: '8px', fontFamily: 'monospace' }}>{p.host}:{p.port}</td>
-                <td style={{ padding: '8px' }}>{BIND_LABELS[p.bind_type] ?? '-'}</td>
-                <td style={{ padding: '8px' }}>{p.max_connections}</td>
-                <td style={{ padding: '8px' }}>{p.tps_limit}</td>
-                <td style={{ padding: '8px' }}>
-                  <span style={{ color: p.active ? '#2e7d32' : '#b71c1c', fontWeight: 'bold' }}>
-                    {p.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <button
-                    onClick={() => handleDelete(p.id)}
-                    style={{ color: '#d32f2f', border: 'none', background: 'none', cursor: 'pointer' }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {(loading || providers.length > 0) && (
+        <DataTable
+          columns={columns}
+          data={providers}
+          total={providers.length}
+          page={1}
+          pageSize={providers.length}
+          onPageChange={() => {}}
+          loading={loading}
+          keyField="id"
+          rowActions={(p) => (
+            <Button variant="danger" size="sm" onClick={() => setDeleteId(p.id)}>
+              Delete
+            </Button>
+          )}
+        />
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
+        title="Delete Provider"
+        description="Are you sure you want to delete this provider? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

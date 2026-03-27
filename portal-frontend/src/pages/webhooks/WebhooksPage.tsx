@@ -1,6 +1,12 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { webhooksApi, ApiError } from '../../api/client';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { Badge, StatusBadge } from '../../components/ui/Badge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 const AVAILABLE_EVENT_TYPES = [
   'message.sent',
@@ -53,12 +59,6 @@ export function WebhooksPage() {
 
   // Test result
   const [testResult, setTestResult] = useState<{ id: string; message: string } | null>(null);
-
-  // Focus traps
-  const createFormRef = useRef<HTMLDivElement>(null);
-  const editFormRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(createFormRef, showCreateForm);
-  useFocusTrap(editFormRef, !!editId);
 
   async function loadWebhooks() {
     setLoading(true);
@@ -157,62 +157,77 @@ export function WebhooksPage() {
     return list.includes(type) ? list.filter((t) => t !== type) : [...list, type];
   }
 
+  const deleteWebhook = webhooks.find((wh) => wh.id === deleteId);
+
+  const columns: Column<WebhookInfo>[] = [
+    {
+      key: 'url',
+      header: 'URL',
+      render: (wh) => <span className="max-w-[300px] break-all">{wh.url}</span>,
+    },
+    {
+      key: 'event_types',
+      header: 'Event Types',
+      render: (wh) => (
+        <div className="flex flex-wrap gap-1">
+          {wh.event_types.map((t) => (
+            <Badge key={t}>{t}</Badge>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: 'active',
+      header: 'Status',
+      render: (wh) => <StatusBadge status={wh.active ? 'active' : 'inactive'} />,
+    },
+    {
+      key: 'created_at',
+      header: 'Created',
+      render: (wh) => (wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'),
+    },
+  ];
+
   if (loading) return <div role="status">Loading webhooks...</div>;
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Webhooks</h2>
-        <button
-          onClick={() => {
-            setShowCreateForm(true);
-            setCreatedSecret(null);
-          }}
-        >
-          Create Webhook
-        </button>
-      </div>
+    <div className="max-w-[900px]">
+      <PageHeader
+        title="Webhooks"
+        actions={
+          <Button
+            onClick={() => {
+              setShowCreateForm(true);
+              setCreatedSecret(null);
+            }}
+          >
+            Create Webhook
+          </Button>
+        }
+      />
 
-      {error && <p style={{ color: '#d32f2f' }}>{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
       {/* Secret banner - shown once after creation */}
       {createdSecret && (
         <div
           role="alert"
-          style={{
-            background: '#e8f5e9',
-            border: '1px solid #4caf50',
-            borderRadius: 4,
-            padding: 16,
-            marginBottom: 16,
-          }}
+          className="bg-green-50 border border-green-500 rounded p-4 mb-4"
         >
-          <p style={{ margin: '0 0 8px', fontWeight: 'bold' }}>
+          <p className="mb-2 font-bold">
             Webhook created. Copy the secret now -- it will not be shown again.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <code
-              style={{
-                background: '#fff',
-                padding: '4px 8px',
-                borderRadius: 4,
-                wordBreak: 'break-all',
-                flex: 1,
-              }}
-            >
+          <div className="flex items-center gap-2">
+            <code className="bg-white px-2 py-1 rounded break-all flex-1">
               {createdSecret}
             </code>
-            <button onClick={handleCopySecret}>{secretCopied ? 'Copied!' : 'Copy'}</button>
+            <Button size="sm" variant="secondary" onClick={handleCopySecret}>
+              {secretCopied ? 'Copied!' : 'Copy'}
+            </Button>
           </div>
           <button
             onClick={() => setCreatedSecret(null)}
-            style={{
-              marginTop: 8,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-            }}
+            className="mt-2 bg-transparent border-none cursor-pointer underline text-sm text-gray-600"
           >
             Dismiss
           </button>
@@ -223,237 +238,146 @@ export function WebhooksPage() {
       {testResult && (
         <div
           role="status"
-          style={{
-            background: '#e3f2fd',
-            border: '1px solid #2196f3',
-            borderRadius: 4,
-            padding: 12,
-            marginBottom: 16,
-          }}
+          className="bg-blue-50 border border-blue-500 rounded p-3 mb-4 flex items-center justify-between"
         >
           <span>{testResult.message}</span>
           <button
             onClick={() => setTestResult(null)}
-            style={{
-              marginLeft: 12,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-            }}
+            className="ml-3 bg-transparent border-none cursor-pointer underline text-sm text-gray-600"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Create form */}
-      {showCreateForm && (
-        <div
-          ref={createFormRef}
-          style={{
-            background: '#f5f5f5',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>Create Webhook</h3>
-          <form onSubmit={handleCreate}>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                URL *
-                <br />
-                <input
-                  type="url"
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  required
-                  placeholder="https://example.com/webhook"
-                  style={{ width: '100%', maxWidth: 400 }}
-                />
-              </label>
+      {/* Create form modal */}
+      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Create Webhook">
+        <form onSubmit={handleCreate}>
+          <div className="mb-4">
+            <Input
+              label="URL *"
+              type="url"
+              value={formUrl}
+              onChange={(e) => setFormUrl(e.target.value)}
+              required
+              placeholder="https://example.com/webhook"
+              className="w-full max-w-[400px]"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700">Event Types *</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {AVAILABLE_EVENT_TYPES.map((type) => (
+                <label key={type} className="flex items-center gap-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={formEventTypes.includes(type)}
+                    onChange={() => setFormEventTypes(toggleEventType(formEventTypes, type))}
+                  />
+                  {type}
+                </label>
+              ))}
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <label>Event Types *</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                {AVAILABLE_EVENT_TYPES.map((type) => (
-                  <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input
-                      type="checkbox"
-                      checked={formEventTypes.includes(type)}
-                      onChange={() => setFormEventTypes(toggleEventType(formEventTypes, type))}
-                    />
-                    {type}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" disabled={creating || formEventTypes.length === 0}>
-                {creating ? 'Creating...' : 'Create'}
-              </button>
-              <button type="button" onClick={() => setShowCreateForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" type="button" onClick={() => setShowCreateForm(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={creating || formEventTypes.length === 0}>
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-      {/* Edit form */}
-      {editId && (
-        <div
-          ref={editFormRef}
-          style={{
-            background: '#fff8e1',
-            border: '1px solid #ffc107',
-            borderRadius: 4,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>Edit Webhook</h3>
-          <form onSubmit={handleUpdate}>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                URL
-                <br />
-                <input
-                  type="url"
-                  value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  required
-                  style={{ width: '100%', maxWidth: 400 }}
-                />
-              </label>
+      {/* Edit form modal */}
+      <Modal open={!!editId} onClose={() => setEditId(null)} title="Edit Webhook">
+        <form onSubmit={handleUpdate}>
+          <div className="mb-4">
+            <Input
+              label="URL"
+              type="url"
+              value={editUrl}
+              onChange={(e) => setEditUrl(e.target.value)}
+              required
+              className="w-full max-w-[400px]"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700">Event Types</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {AVAILABLE_EVENT_TYPES.map((type) => (
+                <label key={type} className="flex items-center gap-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={editEventTypes.includes(type)}
+                    onChange={() => setEditEventTypes(toggleEventType(editEventTypes, type))}
+                  />
+                  {type}
+                </label>
+              ))}
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <label>Event Types</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                {AVAILABLE_EVENT_TYPES.map((type) => (
-                  <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input
-                      type="checkbox"
-                      checked={editEventTypes.includes(type)}
-                      onChange={() => setEditEventTypes(toggleEventType(editEventTypes, type))}
-                    />
-                    {type}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" disabled={saving || editEventTypes.length === 0}>
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-              <button type="button" onClick={() => setEditId(null)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" type="button" onClick={() => setEditId(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || editEventTypes.length === 0}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onCancel={() => setDeleteId(null)}
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        title="Delete Webhook"
+        description={`Are you sure you want to delete the webhook${deleteWebhook ? ` for ${deleteWebhook.url}` : ''}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+      />
 
       {/* Webhooks table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <caption style={{ textAlign: 'left', marginBottom: 8, fontWeight: 'bold' }}>Webhook subscriptions</caption>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>URL</th>
-            <th style={{ padding: 8 }}>Event Types</th>
-            <th style={{ padding: 8 }}>Status</th>
-            <th style={{ padding: 8 }}>Created</th>
-            <th style={{ padding: 8 }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {webhooks.length === 0 && (
-            <tr>
-              <td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#767676' }}>
-                No webhooks yet. Create one to get started.
-              </td>
-            </tr>
-          )}
-          {webhooks.map((wh) => (
-            <tr key={wh.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: 8, maxWidth: 300, wordBreak: 'break-all' }}>{wh.url}</td>
-              <td style={{ padding: 8 }}>
-                {wh.event_types.map((t) => (
-                  <span
-                    key={t}
-                    style={{
-                      display: 'inline-block',
-                      background: '#e0e0e0',
-                      borderRadius: 4,
-                      padding: '2px 6px',
-                      marginRight: 4,
-                      marginBottom: 2,
-                      fontSize: 12,
-                    }}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </td>
-              <td style={{ padding: 8 }}>
-                <span
-                  aria-label={`Status: ${wh.active ? 'Active' : 'Inactive'}`}
-                  style={{
-                    color: wh.active ? '#4caf50' : '#d32f2f',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  {wh.active ? 'Active' : 'Inactive'}
-                </span>
-              </td>
-              <td style={{ padding: 8 }}>
-                {wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'}
-              </td>
-              <td style={{ padding: 8 }}>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <button
-                    aria-label={`Edit ${wh.url}`}
-                    onClick={() => startEdit(wh)}
-                    style={{ padding: '8px 12px' }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    aria-label={`Test ${wh.url}`}
-                    onClick={() => handleTest(wh.id)}
-                    style={{ padding: '8px 12px' }}
-                  >
-                    Test
-                  </button>
-                  {deleteId === wh.id ? (
-                    <span>
-                      Sure?{' '}
-                      <button
-                        aria-label={`Confirm delete ${wh.url}`}
-                        onClick={() => handleDelete(wh.id)}
-                        style={{ color: '#d32f2f', marginRight: 4, padding: '8px 12px' }}
-                      >
-                        Yes
-                      </button>
-                      <button onClick={() => setDeleteId(null)} style={{ padding: '8px 12px' }}>No</button>
-                    </span>
-                  ) : (
-                    <button
-                      aria-label={`Delete ${wh.url}`}
-                      onClick={() => setDeleteId(wh.id)}
-                      style={{ padding: '8px 12px' }}
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable<WebhookInfo>
+        columns={columns}
+        data={webhooks}
+        total={webhooks.length}
+        page={1}
+        pageSize={webhooks.length || 10}
+        onPageChange={() => {}}
+        keyField="id"
+        rowActions={(wh) => (
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Edit ${wh.url}`}
+              onClick={() => startEdit(wh)}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Test ${wh.url}`}
+              onClick={() => handleTest(wh.id)}
+            >
+              Test
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Delete ${wh.url}`}
+              onClick={() => setDeleteId(wh.id)}
+            >
+              Delete
+            </Button>
+          </div>
+        )}
+      />
     </div>
   );
 }
