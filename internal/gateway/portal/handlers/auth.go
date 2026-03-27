@@ -263,6 +263,10 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		respondError(w, shared.ErrInvalidInput("Поле company_name обязательно"))
 		return
 	}
+	if len(req.CompanyName) > 500 {
+		respondError(w, shared.ErrInvalidInput("Название компании не может превышать 500 символов"))
+		return
+	}
 
 	resp, err := h.authClient.RegisterClient(r.Context(), &authv1.RegisterClientRequest{
 		Email:         req.Email,

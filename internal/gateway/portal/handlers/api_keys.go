@@ -96,6 +96,10 @@ func (h *APIKeyHandlers) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		respondError(w, shared.ErrInvalidInput("Поле name обязательно"))
 		return
 	}
+	if len(req.Name) > 255 {
+		respondError(w, shared.ErrInvalidInput("Имя не может превышать 255 символов"))
+		return
+	}
 
 	grpcReq := &authv1.CreateAPIKeyRequest{
 		UserId:     userID.String(),
