@@ -113,6 +113,36 @@ func (m *mockTarificationClient) ListUsageCounters(ctx context.Context, in *tari
 	return args.Get(0).(*tarificationv1.ListUsageCountersResponse), args.Error(1)
 }
 
+func (m *mockTarificationClient) TarifyLookup(ctx context.Context, in *tarificationv1.TarifyLookupRequest, opts ...grpc.CallOption) (*tarificationv1.TarifyLookupResponse, error) {
+	return nil, nil
+}
+
+// Provider tariff stubs
+func (m *mockTarificationClient) CreateProviderTariffPlan(ctx context.Context, in *tarificationv1.CreateProviderTariffPlanRequest, opts ...grpc.CallOption) (*tarificationv1.ProviderTariffPlanProto, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) GetProviderTariffPlan(ctx context.Context, in *tarificationv1.GetProviderTariffPlanRequest, opts ...grpc.CallOption) (*tarificationv1.ProviderTariffPlanProto, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) ListProviderTariffPlans(ctx context.Context, in *tarificationv1.ListProviderTariffPlansRequest, opts ...grpc.CallOption) (*tarificationv1.ListProviderTariffPlansResponse, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) UpdateProviderTariffPlan(ctx context.Context, in *tarificationv1.UpdateProviderTariffPlanRequest, opts ...grpc.CallOption) (*tarificationv1.ProviderTariffPlanProto, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) CreateProviderTariffPeriod(ctx context.Context, in *tarificationv1.CreateProviderTariffPeriodRequest, opts ...grpc.CallOption) (*tarificationv1.ProviderTariffPeriodProto, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) CreateProviderTariffTier(ctx context.Context, in *tarificationv1.CreateProviderTariffTierRequest, opts ...grpc.CallOption) (*tarificationv1.ProviderTariffTierProto, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) UpdateProviderTariffTier(ctx context.Context, in *tarificationv1.UpdateProviderTariffTierRequest, opts ...grpc.CallOption) (*tarificationv1.ProviderTariffTierProto, error) {
+	return nil, nil
+}
+func (m *mockTarificationClient) GetMarginReport(ctx context.Context, in *tarificationv1.MarginReportRequest, opts ...grpc.CallOption) (*tarificationv1.MarginReportResponse, error) {
+	return nil, nil
+}
+
 var _ tarificationv1.TarificationServiceClient = (*mockTarificationClient)(nil)
 
 // --- Tests ---

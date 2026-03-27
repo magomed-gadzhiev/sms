@@ -55,6 +55,19 @@ service TarificationService {
 
   // ListUsageCounters получает список счетчиков использования
   rpc ListUsageCounters(ListUsageCountersRequest) returns (ListUsageCountersResponse);
+
+  // Provider Tariff Plans
+  rpc CreateProviderTariffPlan(CreateProviderTariffPlanRequest) returns (ProviderTariffPlanProto);
+  rpc GetProviderTariffPlan(GetProviderTariffPlanRequest) returns (ProviderTariffPlanProto);
+  rpc ListProviderTariffPlans(ListProviderTariffPlansRequest) returns (ListProviderTariffPlansResponse);
+  rpc UpdateProviderTariffPlan(UpdateProviderTariffPlanRequest) returns (ProviderTariffPlanProto);
+
+  rpc CreateProviderTariffPeriod(CreateProviderTariffPeriodRequest) returns (ProviderTariffPeriodProto);
+  rpc CreateProviderTariffTier(CreateProviderTariffTierRequest) returns (ProviderTariffTierProto);
+  rpc UpdateProviderTariffTier(UpdateProviderTariffTierRequest) returns (ProviderTariffTierProto);
+
+  // Margin Analytics
+  rpc GetMarginReport(MarginReportRequest) returns (MarginReportResponse);
 }
 
 // TarifyMessageRequest представляет запрос на тарификацию сообщения
@@ -283,4 +296,102 @@ message ListUsageCountersRequest {
 message ListUsageCountersResponse {
   repeated UsageCounter counters = 1;  // Список счетчиков
   int32 total = 2;                  // Общее количество
+}
+
+// === Provider Tariff Plan messages ===
+
+message ProviderTariffPlanProto {
+  string id = 1;
+  string provider_id = 2;
+  string operator_id = 3;
+  string strategy = 4;
+  bool active = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateProviderTariffPlanRequest {
+  string provider_id = 1;
+  string operator_id = 2;
+  string strategy = 3;
+}
+
+message GetProviderTariffPlanRequest {
+  string id = 1;
+}
+
+message ListProviderTariffPlansRequest {
+  string provider_id = 1;
+  bool active_only = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListProviderTariffPlansResponse {
+  repeated ProviderTariffPlanProto plans = 1;
+  int32 total = 2;
+}
+
+message UpdateProviderTariffPlanRequest {
+  string id = 1;
+  bool active = 2;
+}
+
+message ProviderTariffPeriodProto {
+  string id = 1;
+  string provider_tariff_plan_id = 2;
+  string start_date = 3;
+  string end_date = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message CreateProviderTariffPeriodRequest {
+  string provider_tariff_plan_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message ProviderTariffTierProto {
+  string id = 1;
+  string provider_tariff_period_id = 2;
+  int32 from_count = 3;
+  string price_per_segment = 4;
+}
+
+message CreateProviderTariffTierRequest {
+  string provider_tariff_period_id = 1;
+  int32 from_count = 2;
+  string price_per_segment = 3;
+}
+
+message UpdateProviderTariffTierRequest {
+  string id = 1;
+  int32 from_count = 2;
+  string price_per_segment = 3;
+}
+
+// === Margin Report messages ===
+
+message MarginReportRequest {
+  string client_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+
+message MarginReportResponse {
+  repeated MarginReportEntry entries = 1;
+  string total_revenue = 2;
+  string total_cost = 3;
+  string total_margin = 4;
+}
+
+message MarginReportEntry {
+  string operator_id = 1;
+  string operator_name = 2;
+  string provider_id = 3;
+  string provider_name = 4;
+  int32 segments = 5;
+  string revenue = 6;
+  string cost = 7;
+  string margin = 8;
 }

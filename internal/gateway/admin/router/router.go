@@ -21,6 +21,7 @@ func SetupRouter(
 	operatorHandlers *handlers.OperatorHandler,
 	tarificationHandlers *handlers.TarificationHandler,
 	hlrHandlers *handlers.HLRHandlers,
+	clientRoutingHandlers *handlers.ClientRoutingHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -48,6 +49,21 @@ func SetupRouter(
 	clients.HandleFunc("/{id}/config", clientHandlers.GetClientConfig).Methods("GET")
 	clients.HandleFunc("/{id}/config", clientHandlers.UpdateClientConfig).Methods("PUT")
 	clients.HandleFunc("/{id}/rate-limits", clientHandlers.UpdateClientRateLimits).Methods("PUT")
+
+	// Client Routing endpoints (nested under clients)
+	clientRouting := clients.PathPrefix("/{id}").Subrouter()
+	clientRouting.HandleFunc("/providers", clientRoutingHandlers.AssignProvider).Methods("POST")
+	clientRouting.HandleFunc("/providers", clientRoutingHandlers.ListProviders).Methods("GET")
+	clientRouting.HandleFunc("/providers/{pid}", clientRoutingHandlers.RevokeProvider).Methods("DELETE")
+	clientRouting.HandleFunc("/providers/share", clientRoutingHandlers.ShareProvider).Methods("POST")
+	clientRouting.HandleFunc("/providers/share/{sid}", clientRoutingHandlers.RevokeShared).Methods("DELETE")
+	clientRouting.HandleFunc("/routes", clientRoutingHandlers.CreateRoute).Methods("POST")
+	clientRouting.HandleFunc("/routes", clientRoutingHandlers.ListRoutes).Methods("GET")
+	clientRouting.HandleFunc("/routes/{rid}", clientRoutingHandlers.UpdateRoute).Methods("PUT")
+	clientRouting.HandleFunc("/routes/{rid}", clientRoutingHandlers.DeleteRoute).Methods("DELETE")
+	clientRouting.HandleFunc("/routing-strategy", clientRoutingHandlers.SetStrategy).Methods("PUT")
+	clientRouting.HandleFunc("/routing-strategy", clientRoutingHandlers.GetStrategy).Methods("GET")
+	clientRouting.HandleFunc("/analytics/margin", clientRoutingHandlers.GetMarginReport).Methods("GET")
 
 	// Providers endpoints
 	providers := adminV1.PathPrefix("/providers").Subrouter()

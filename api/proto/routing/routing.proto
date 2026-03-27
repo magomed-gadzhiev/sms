@@ -4,6 +4,7 @@ package routing.v1;
 
 option go_package = "github.com/smpp-server/smpp-server/api/proto/routingv1";
 
+import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // RoutingService предоставляет методы для управления маршрутизацией
@@ -68,6 +69,27 @@ service RoutingService {
 
   // Маршрутизация сообщения с использованием HLR
   rpc RouteMessageWithHLR(RouteMessageWithHLRRequest) returns (RouteMessageWithHLRResponse);
+
+  // Client Providers
+  rpc AssignProviderToClient(AssignProviderRequest) returns (ClientProviderProto);
+  rpc RevokeProviderFromClient(RevokeProviderRequest) returns (google.protobuf.Empty);
+  rpc ListClientProviders(ListClientProvidersRequest) returns (ListClientProvidersResponse);
+  rpc UpdateClientProvider(UpdateClientProviderRequest) returns (ClientProviderProto);
+
+  // Provider Sharing
+  rpc ShareProviderWithChild(ShareProviderRequest) returns (ClientProviderProto);
+  rpc RevokeSharedProvider(RevokeSharedProviderRequest) returns (google.protobuf.Empty);
+
+  // Client Routes
+  rpc CreateClientRoute(CreateClientRouteRequest) returns (ClientRouteProto);
+  rpc UpdateClientRoute(UpdateClientRouteRequest) returns (ClientRouteProto);
+  rpc DeleteClientRoute(DeleteClientRouteRequest) returns (google.protobuf.Empty);
+  rpc ListClientRoutes(ListClientRoutesRequest) returns (ListClientRoutesResponse);
+
+  // Routing Strategy
+  rpc SetRoutingStrategy(SetRoutingStrategyRequest) returns (ClientRoutingStrategyProto);
+  rpc GetRoutingStrategy(GetRoutingStrategyRequest) returns (ClientRoutingStrategyProto);
+  rpc DeleteRoutingStrategy(DeleteRoutingStrategyRequest) returns (google.protobuf.Empty);
 }
 
 // GetRouteRequest представляет запрос на получение маршрута
@@ -537,4 +559,130 @@ message RouteMessageWithHLRResponse {
   NumberLookupResponse hlr_result = 3;         // Результат HLR-запроса
   bool hlr_used = 4;                           // Использовался ли HLR
   double routing_score = 5;                    // Оценка маршрутизации
+}
+
+// === Client Provider messages ===
+
+message ClientProviderProto {
+  string id = 1;
+  string client_id = 2;
+  string provider_id = 3;
+  string ownership = 4;
+  string source_client_id = 5;
+  int32 shared_priority = 6;
+  bool expose_cost = 7;
+  bool expose_provider_name = 8;
+  bool active = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message AssignProviderRequest {
+  string client_id = 1;
+  string provider_id = 2;
+  string ownership = 3;
+  int32 shared_priority = 4;
+}
+
+message RevokeProviderRequest {
+  string client_id = 1;
+  string provider_id = 2;
+}
+
+message ListClientProvidersRequest {
+  string client_id = 1;
+  bool active_only = 2;
+}
+
+message ListClientProvidersResponse {
+  repeated ClientProviderProto providers = 1;
+}
+
+message UpdateClientProviderRequest {
+  string id = 1;
+  int32 shared_priority = 2;
+  bool expose_cost = 3;
+  bool expose_provider_name = 4;
+  bool active = 5;
+}
+
+message ShareProviderRequest {
+  string parent_client_id = 1;
+  string child_client_id = 2;
+  string provider_id = 3;
+  bool expose_cost = 4;
+  bool expose_provider_name = 5;
+}
+
+message RevokeSharedProviderRequest {
+  string id = 1;
+}
+
+// === Client Route messages ===
+
+message ClientRouteProto {
+  string id = 1;
+  string client_id = 2;
+  string operator_id = 3;
+  string provider_id = 4;
+  int32 priority = 5;
+  int32 weight = 6;
+  bool active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateClientRouteRequest {
+  string client_id = 1;
+  string operator_id = 2;
+  string provider_id = 3;
+  int32 priority = 4;
+  int32 weight = 5;
+}
+
+message UpdateClientRouteRequest {
+  string id = 1;
+  int32 priority = 2;
+  int32 weight = 3;
+  bool active = 4;
+}
+
+message DeleteClientRouteRequest {
+  string id = 1;
+}
+
+message ListClientRoutesRequest {
+  string client_id = 1;
+  string operator_id = 2;
+}
+
+message ListClientRoutesResponse {
+  repeated ClientRouteProto routes = 1;
+}
+
+// === Routing Strategy messages ===
+
+message ClientRoutingStrategyProto {
+  string id = 1;
+  string client_id = 2;
+  string operator_id = 3;
+  string strategy = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message SetRoutingStrategyRequest {
+  string client_id = 1;
+  string operator_id = 2;
+  string strategy = 3;
+}
+
+message GetRoutingStrategyRequest {
+  string client_id = 1;
+  string operator_id = 2;
+}
+
+message DeleteRoutingStrategyRequest {
+  string client_id = 1;
+  string operator_id = 2;
 }

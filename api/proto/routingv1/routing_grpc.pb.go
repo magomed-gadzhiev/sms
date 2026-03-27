@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,37 +20,50 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RoutingService_GetRoute_FullMethodName                = "/routing.v1.RoutingService/GetRoute"
-	RoutingService_SelectProvider_FullMethodName          = "/routing.v1.RoutingService/SelectProvider"
-	RoutingService_CreateRoute_FullMethodName             = "/routing.v1.RoutingService/CreateRoute"
-	RoutingService_UpdateRoute_FullMethodName             = "/routing.v1.RoutingService/UpdateRoute"
-	RoutingService_DeleteRoute_FullMethodName             = "/routing.v1.RoutingService/DeleteRoute"
-	RoutingService_ListRoutes_FullMethodName              = "/routing.v1.RoutingService/ListRoutes"
-	RoutingService_CreateCountry_FullMethodName           = "/routing.v1.RoutingService/CreateCountry"
-	RoutingService_GetCountry_FullMethodName              = "/routing.v1.RoutingService/GetCountry"
-	RoutingService_ListCountries_FullMethodName           = "/routing.v1.RoutingService/ListCountries"
-	RoutingService_UpdateCountry_FullMethodName           = "/routing.v1.RoutingService/UpdateCountry"
-	RoutingService_CreateOperator_FullMethodName          = "/routing.v1.RoutingService/CreateOperator"
-	RoutingService_GetOperator_FullMethodName             = "/routing.v1.RoutingService/GetOperator"
-	RoutingService_ListOperators_FullMethodName           = "/routing.v1.RoutingService/ListOperators"
-	RoutingService_UpdateOperator_FullMethodName          = "/routing.v1.RoutingService/UpdateOperator"
-	RoutingService_CreateOperatorPrefix_FullMethodName    = "/routing.v1.RoutingService/CreateOperatorPrefix"
-	RoutingService_ListOperatorPrefixes_FullMethodName    = "/routing.v1.RoutingService/ListOperatorPrefixes"
-	RoutingService_DeleteOperatorPrefix_FullMethodName    = "/routing.v1.RoutingService/DeleteOperatorPrefix"
-	RoutingService_ResolveOperator_FullMethodName         = "/routing.v1.RoutingService/ResolveOperator"
-	RoutingService_NumberLookup_FullMethodName            = "/routing.v1.RoutingService/NumberLookup"
-	RoutingService_BulkNumberLookup_FullMethodName        = "/routing.v1.RoutingService/BulkNumberLookup"
-	RoutingService_CreateHLRProvider_FullMethodName       = "/routing.v1.RoutingService/CreateHLRProvider"
-	RoutingService_UpdateHLRProvider_FullMethodName       = "/routing.v1.RoutingService/UpdateHLRProvider"
-	RoutingService_DeleteHLRProvider_FullMethodName       = "/routing.v1.RoutingService/DeleteHLRProvider"
-	RoutingService_GetHLRProvider_FullMethodName          = "/routing.v1.RoutingService/GetHLRProvider"
-	RoutingService_ListHLRProviders_FullMethodName        = "/routing.v1.RoutingService/ListHLRProviders"
-	RoutingService_SetSmartRouteWeights_FullMethodName    = "/routing.v1.RoutingService/SetSmartRouteWeights"
-	RoutingService_GetSmartRouteWeights_FullMethodName    = "/routing.v1.RoutingService/GetSmartRouteWeights"
-	RoutingService_ListSmartRouteWeights_FullMethodName   = "/routing.v1.RoutingService/ListSmartRouteWeights"
-	RoutingService_DeleteSmartRouteWeights_FullMethodName = "/routing.v1.RoutingService/DeleteSmartRouteWeights"
-	RoutingService_GetLookupHistory_FullMethodName        = "/routing.v1.RoutingService/GetLookupHistory"
-	RoutingService_RouteMessageWithHLR_FullMethodName     = "/routing.v1.RoutingService/RouteMessageWithHLR"
+	RoutingService_GetRoute_FullMethodName                 = "/routing.v1.RoutingService/GetRoute"
+	RoutingService_SelectProvider_FullMethodName           = "/routing.v1.RoutingService/SelectProvider"
+	RoutingService_CreateRoute_FullMethodName              = "/routing.v1.RoutingService/CreateRoute"
+	RoutingService_UpdateRoute_FullMethodName              = "/routing.v1.RoutingService/UpdateRoute"
+	RoutingService_DeleteRoute_FullMethodName              = "/routing.v1.RoutingService/DeleteRoute"
+	RoutingService_ListRoutes_FullMethodName               = "/routing.v1.RoutingService/ListRoutes"
+	RoutingService_CreateCountry_FullMethodName            = "/routing.v1.RoutingService/CreateCountry"
+	RoutingService_GetCountry_FullMethodName               = "/routing.v1.RoutingService/GetCountry"
+	RoutingService_ListCountries_FullMethodName            = "/routing.v1.RoutingService/ListCountries"
+	RoutingService_UpdateCountry_FullMethodName            = "/routing.v1.RoutingService/UpdateCountry"
+	RoutingService_CreateOperator_FullMethodName           = "/routing.v1.RoutingService/CreateOperator"
+	RoutingService_GetOperator_FullMethodName              = "/routing.v1.RoutingService/GetOperator"
+	RoutingService_ListOperators_FullMethodName            = "/routing.v1.RoutingService/ListOperators"
+	RoutingService_UpdateOperator_FullMethodName           = "/routing.v1.RoutingService/UpdateOperator"
+	RoutingService_CreateOperatorPrefix_FullMethodName     = "/routing.v1.RoutingService/CreateOperatorPrefix"
+	RoutingService_ListOperatorPrefixes_FullMethodName     = "/routing.v1.RoutingService/ListOperatorPrefixes"
+	RoutingService_DeleteOperatorPrefix_FullMethodName     = "/routing.v1.RoutingService/DeleteOperatorPrefix"
+	RoutingService_ResolveOperator_FullMethodName          = "/routing.v1.RoutingService/ResolveOperator"
+	RoutingService_NumberLookup_FullMethodName             = "/routing.v1.RoutingService/NumberLookup"
+	RoutingService_BulkNumberLookup_FullMethodName         = "/routing.v1.RoutingService/BulkNumberLookup"
+	RoutingService_CreateHLRProvider_FullMethodName        = "/routing.v1.RoutingService/CreateHLRProvider"
+	RoutingService_UpdateHLRProvider_FullMethodName        = "/routing.v1.RoutingService/UpdateHLRProvider"
+	RoutingService_DeleteHLRProvider_FullMethodName        = "/routing.v1.RoutingService/DeleteHLRProvider"
+	RoutingService_GetHLRProvider_FullMethodName           = "/routing.v1.RoutingService/GetHLRProvider"
+	RoutingService_ListHLRProviders_FullMethodName         = "/routing.v1.RoutingService/ListHLRProviders"
+	RoutingService_SetSmartRouteWeights_FullMethodName     = "/routing.v1.RoutingService/SetSmartRouteWeights"
+	RoutingService_GetSmartRouteWeights_FullMethodName     = "/routing.v1.RoutingService/GetSmartRouteWeights"
+	RoutingService_ListSmartRouteWeights_FullMethodName    = "/routing.v1.RoutingService/ListSmartRouteWeights"
+	RoutingService_DeleteSmartRouteWeights_FullMethodName  = "/routing.v1.RoutingService/DeleteSmartRouteWeights"
+	RoutingService_GetLookupHistory_FullMethodName         = "/routing.v1.RoutingService/GetLookupHistory"
+	RoutingService_RouteMessageWithHLR_FullMethodName      = "/routing.v1.RoutingService/RouteMessageWithHLR"
+	RoutingService_AssignProviderToClient_FullMethodName   = "/routing.v1.RoutingService/AssignProviderToClient"
+	RoutingService_RevokeProviderFromClient_FullMethodName = "/routing.v1.RoutingService/RevokeProviderFromClient"
+	RoutingService_ListClientProviders_FullMethodName      = "/routing.v1.RoutingService/ListClientProviders"
+	RoutingService_UpdateClientProvider_FullMethodName     = "/routing.v1.RoutingService/UpdateClientProvider"
+	RoutingService_ShareProviderWithChild_FullMethodName   = "/routing.v1.RoutingService/ShareProviderWithChild"
+	RoutingService_RevokeSharedProvider_FullMethodName     = "/routing.v1.RoutingService/RevokeSharedProvider"
+	RoutingService_CreateClientRoute_FullMethodName        = "/routing.v1.RoutingService/CreateClientRoute"
+	RoutingService_UpdateClientRoute_FullMethodName        = "/routing.v1.RoutingService/UpdateClientRoute"
+	RoutingService_DeleteClientRoute_FullMethodName        = "/routing.v1.RoutingService/DeleteClientRoute"
+	RoutingService_ListClientRoutes_FullMethodName         = "/routing.v1.RoutingService/ListClientRoutes"
+	RoutingService_SetRoutingStrategy_FullMethodName       = "/routing.v1.RoutingService/SetRoutingStrategy"
+	RoutingService_GetRoutingStrategy_FullMethodName       = "/routing.v1.RoutingService/GetRoutingStrategy"
+	RoutingService_DeleteRoutingStrategy_FullMethodName    = "/routing.v1.RoutingService/DeleteRoutingStrategy"
 )
 
 // RoutingServiceClient is the client API for RoutingService service.
@@ -104,6 +118,23 @@ type RoutingServiceClient interface {
 	GetLookupHistory(ctx context.Context, in *GetLookupHistoryRequest, opts ...grpc.CallOption) (*GetLookupHistoryResponse, error)
 	// Маршрутизация сообщения с использованием HLR
 	RouteMessageWithHLR(ctx context.Context, in *RouteMessageWithHLRRequest, opts ...grpc.CallOption) (*RouteMessageWithHLRResponse, error)
+	// Client Providers
+	AssignProviderToClient(ctx context.Context, in *AssignProviderRequest, opts ...grpc.CallOption) (*ClientProviderProto, error)
+	RevokeProviderFromClient(ctx context.Context, in *RevokeProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListClientProviders(ctx context.Context, in *ListClientProvidersRequest, opts ...grpc.CallOption) (*ListClientProvidersResponse, error)
+	UpdateClientProvider(ctx context.Context, in *UpdateClientProviderRequest, opts ...grpc.CallOption) (*ClientProviderProto, error)
+	// Provider Sharing
+	ShareProviderWithChild(ctx context.Context, in *ShareProviderRequest, opts ...grpc.CallOption) (*ClientProviderProto, error)
+	RevokeSharedProvider(ctx context.Context, in *RevokeSharedProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Client Routes
+	CreateClientRoute(ctx context.Context, in *CreateClientRouteRequest, opts ...grpc.CallOption) (*ClientRouteProto, error)
+	UpdateClientRoute(ctx context.Context, in *UpdateClientRouteRequest, opts ...grpc.CallOption) (*ClientRouteProto, error)
+	DeleteClientRoute(ctx context.Context, in *DeleteClientRouteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListClientRoutes(ctx context.Context, in *ListClientRoutesRequest, opts ...grpc.CallOption) (*ListClientRoutesResponse, error)
+	// Routing Strategy
+	SetRoutingStrategy(ctx context.Context, in *SetRoutingStrategyRequest, opts ...grpc.CallOption) (*ClientRoutingStrategyProto, error)
+	GetRoutingStrategy(ctx context.Context, in *GetRoutingStrategyRequest, opts ...grpc.CallOption) (*ClientRoutingStrategyProto, error)
+	DeleteRoutingStrategy(ctx context.Context, in *DeleteRoutingStrategyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type routingServiceClient struct {
@@ -424,6 +455,136 @@ func (c *routingServiceClient) RouteMessageWithHLR(ctx context.Context, in *Rout
 	return out, nil
 }
 
+func (c *routingServiceClient) AssignProviderToClient(ctx context.Context, in *AssignProviderRequest, opts ...grpc.CallOption) (*ClientProviderProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientProviderProto)
+	err := c.cc.Invoke(ctx, RoutingService_AssignProviderToClient_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) RevokeProviderFromClient(ctx context.Context, in *RevokeProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RoutingService_RevokeProviderFromClient_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) ListClientProviders(ctx context.Context, in *ListClientProvidersRequest, opts ...grpc.CallOption) (*ListClientProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListClientProvidersResponse)
+	err := c.cc.Invoke(ctx, RoutingService_ListClientProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) UpdateClientProvider(ctx context.Context, in *UpdateClientProviderRequest, opts ...grpc.CallOption) (*ClientProviderProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientProviderProto)
+	err := c.cc.Invoke(ctx, RoutingService_UpdateClientProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) ShareProviderWithChild(ctx context.Context, in *ShareProviderRequest, opts ...grpc.CallOption) (*ClientProviderProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientProviderProto)
+	err := c.cc.Invoke(ctx, RoutingService_ShareProviderWithChild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) RevokeSharedProvider(ctx context.Context, in *RevokeSharedProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RoutingService_RevokeSharedProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) CreateClientRoute(ctx context.Context, in *CreateClientRouteRequest, opts ...grpc.CallOption) (*ClientRouteProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientRouteProto)
+	err := c.cc.Invoke(ctx, RoutingService_CreateClientRoute_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) UpdateClientRoute(ctx context.Context, in *UpdateClientRouteRequest, opts ...grpc.CallOption) (*ClientRouteProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientRouteProto)
+	err := c.cc.Invoke(ctx, RoutingService_UpdateClientRoute_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) DeleteClientRoute(ctx context.Context, in *DeleteClientRouteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RoutingService_DeleteClientRoute_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) ListClientRoutes(ctx context.Context, in *ListClientRoutesRequest, opts ...grpc.CallOption) (*ListClientRoutesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListClientRoutesResponse)
+	err := c.cc.Invoke(ctx, RoutingService_ListClientRoutes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) SetRoutingStrategy(ctx context.Context, in *SetRoutingStrategyRequest, opts ...grpc.CallOption) (*ClientRoutingStrategyProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientRoutingStrategyProto)
+	err := c.cc.Invoke(ctx, RoutingService_SetRoutingStrategy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) GetRoutingStrategy(ctx context.Context, in *GetRoutingStrategyRequest, opts ...grpc.CallOption) (*ClientRoutingStrategyProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientRoutingStrategyProto)
+	err := c.cc.Invoke(ctx, RoutingService_GetRoutingStrategy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) DeleteRoutingStrategy(ctx context.Context, in *DeleteRoutingStrategyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RoutingService_DeleteRoutingStrategy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RoutingServiceServer is the server API for RoutingService service.
 // All implementations must embed UnimplementedRoutingServiceServer
 // for forward compatibility.
@@ -476,6 +637,23 @@ type RoutingServiceServer interface {
 	GetLookupHistory(context.Context, *GetLookupHistoryRequest) (*GetLookupHistoryResponse, error)
 	// Маршрутизация сообщения с использованием HLR
 	RouteMessageWithHLR(context.Context, *RouteMessageWithHLRRequest) (*RouteMessageWithHLRResponse, error)
+	// Client Providers
+	AssignProviderToClient(context.Context, *AssignProviderRequest) (*ClientProviderProto, error)
+	RevokeProviderFromClient(context.Context, *RevokeProviderRequest) (*emptypb.Empty, error)
+	ListClientProviders(context.Context, *ListClientProvidersRequest) (*ListClientProvidersResponse, error)
+	UpdateClientProvider(context.Context, *UpdateClientProviderRequest) (*ClientProviderProto, error)
+	// Provider Sharing
+	ShareProviderWithChild(context.Context, *ShareProviderRequest) (*ClientProviderProto, error)
+	RevokeSharedProvider(context.Context, *RevokeSharedProviderRequest) (*emptypb.Empty, error)
+	// Client Routes
+	CreateClientRoute(context.Context, *CreateClientRouteRequest) (*ClientRouteProto, error)
+	UpdateClientRoute(context.Context, *UpdateClientRouteRequest) (*ClientRouteProto, error)
+	DeleteClientRoute(context.Context, *DeleteClientRouteRequest) (*emptypb.Empty, error)
+	ListClientRoutes(context.Context, *ListClientRoutesRequest) (*ListClientRoutesResponse, error)
+	// Routing Strategy
+	SetRoutingStrategy(context.Context, *SetRoutingStrategyRequest) (*ClientRoutingStrategyProto, error)
+	GetRoutingStrategy(context.Context, *GetRoutingStrategyRequest) (*ClientRoutingStrategyProto, error)
+	DeleteRoutingStrategy(context.Context, *DeleteRoutingStrategyRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedRoutingServiceServer()
 }
 
@@ -578,6 +756,45 @@ func (UnimplementedRoutingServiceServer) GetLookupHistory(context.Context, *GetL
 }
 func (UnimplementedRoutingServiceServer) RouteMessageWithHLR(context.Context, *RouteMessageWithHLRRequest) (*RouteMessageWithHLRResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RouteMessageWithHLR not implemented")
+}
+func (UnimplementedRoutingServiceServer) AssignProviderToClient(context.Context, *AssignProviderRequest) (*ClientProviderProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignProviderToClient not implemented")
+}
+func (UnimplementedRoutingServiceServer) RevokeProviderFromClient(context.Context, *RevokeProviderRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeProviderFromClient not implemented")
+}
+func (UnimplementedRoutingServiceServer) ListClientProviders(context.Context, *ListClientProvidersRequest) (*ListClientProvidersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListClientProviders not implemented")
+}
+func (UnimplementedRoutingServiceServer) UpdateClientProvider(context.Context, *UpdateClientProviderRequest) (*ClientProviderProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateClientProvider not implemented")
+}
+func (UnimplementedRoutingServiceServer) ShareProviderWithChild(context.Context, *ShareProviderRequest) (*ClientProviderProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method ShareProviderWithChild not implemented")
+}
+func (UnimplementedRoutingServiceServer) RevokeSharedProvider(context.Context, *RevokeSharedProviderRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeSharedProvider not implemented")
+}
+func (UnimplementedRoutingServiceServer) CreateClientRoute(context.Context, *CreateClientRouteRequest) (*ClientRouteProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateClientRoute not implemented")
+}
+func (UnimplementedRoutingServiceServer) UpdateClientRoute(context.Context, *UpdateClientRouteRequest) (*ClientRouteProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateClientRoute not implemented")
+}
+func (UnimplementedRoutingServiceServer) DeleteClientRoute(context.Context, *DeleteClientRouteRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteClientRoute not implemented")
+}
+func (UnimplementedRoutingServiceServer) ListClientRoutes(context.Context, *ListClientRoutesRequest) (*ListClientRoutesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListClientRoutes not implemented")
+}
+func (UnimplementedRoutingServiceServer) SetRoutingStrategy(context.Context, *SetRoutingStrategyRequest) (*ClientRoutingStrategyProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetRoutingStrategy not implemented")
+}
+func (UnimplementedRoutingServiceServer) GetRoutingStrategy(context.Context, *GetRoutingStrategyRequest) (*ClientRoutingStrategyProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRoutingStrategy not implemented")
+}
+func (UnimplementedRoutingServiceServer) DeleteRoutingStrategy(context.Context, *DeleteRoutingStrategyRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRoutingStrategy not implemented")
 }
 func (UnimplementedRoutingServiceServer) mustEmbedUnimplementedRoutingServiceServer() {}
 func (UnimplementedRoutingServiceServer) testEmbeddedByValue()                        {}
@@ -1158,6 +1375,240 @@ func _RoutingService_RouteMessageWithHLR_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RoutingService_AssignProviderToClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).AssignProviderToClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_AssignProviderToClient_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).AssignProviderToClient(ctx, req.(*AssignProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_RevokeProviderFromClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).RevokeProviderFromClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_RevokeProviderFromClient_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).RevokeProviderFromClient(ctx, req.(*RevokeProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_ListClientProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListClientProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).ListClientProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_ListClientProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).ListClientProviders(ctx, req.(*ListClientProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_UpdateClientProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateClientProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).UpdateClientProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_UpdateClientProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).UpdateClientProvider(ctx, req.(*UpdateClientProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_ShareProviderWithChild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShareProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).ShareProviderWithChild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_ShareProviderWithChild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).ShareProviderWithChild(ctx, req.(*ShareProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_RevokeSharedProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeSharedProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).RevokeSharedProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_RevokeSharedProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).RevokeSharedProvider(ctx, req.(*RevokeSharedProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_CreateClientRoute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateClientRouteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).CreateClientRoute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_CreateClientRoute_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).CreateClientRoute(ctx, req.(*CreateClientRouteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_UpdateClientRoute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateClientRouteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).UpdateClientRoute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_UpdateClientRoute_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).UpdateClientRoute(ctx, req.(*UpdateClientRouteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_DeleteClientRoute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteClientRouteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).DeleteClientRoute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_DeleteClientRoute_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).DeleteClientRoute(ctx, req.(*DeleteClientRouteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_ListClientRoutes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListClientRoutesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).ListClientRoutes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_ListClientRoutes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).ListClientRoutes(ctx, req.(*ListClientRoutesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_SetRoutingStrategy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRoutingStrategyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).SetRoutingStrategy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_SetRoutingStrategy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).SetRoutingStrategy(ctx, req.(*SetRoutingStrategyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_GetRoutingStrategy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoutingStrategyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).GetRoutingStrategy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_GetRoutingStrategy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).GetRoutingStrategy(ctx, req.(*GetRoutingStrategyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_DeleteRoutingStrategy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoutingStrategyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).DeleteRoutingStrategy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_DeleteRoutingStrategy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).DeleteRoutingStrategy(ctx, req.(*DeleteRoutingStrategyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RoutingService_ServiceDesc is the grpc.ServiceDesc for RoutingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1288,6 +1739,58 @@ var RoutingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RouteMessageWithHLR",
 			Handler:    _RoutingService_RouteMessageWithHLR_Handler,
+		},
+		{
+			MethodName: "AssignProviderToClient",
+			Handler:    _RoutingService_AssignProviderToClient_Handler,
+		},
+		{
+			MethodName: "RevokeProviderFromClient",
+			Handler:    _RoutingService_RevokeProviderFromClient_Handler,
+		},
+		{
+			MethodName: "ListClientProviders",
+			Handler:    _RoutingService_ListClientProviders_Handler,
+		},
+		{
+			MethodName: "UpdateClientProvider",
+			Handler:    _RoutingService_UpdateClientProvider_Handler,
+		},
+		{
+			MethodName: "ShareProviderWithChild",
+			Handler:    _RoutingService_ShareProviderWithChild_Handler,
+		},
+		{
+			MethodName: "RevokeSharedProvider",
+			Handler:    _RoutingService_RevokeSharedProvider_Handler,
+		},
+		{
+			MethodName: "CreateClientRoute",
+			Handler:    _RoutingService_CreateClientRoute_Handler,
+		},
+		{
+			MethodName: "UpdateClientRoute",
+			Handler:    _RoutingService_UpdateClientRoute_Handler,
+		},
+		{
+			MethodName: "DeleteClientRoute",
+			Handler:    _RoutingService_DeleteClientRoute_Handler,
+		},
+		{
+			MethodName: "ListClientRoutes",
+			Handler:    _RoutingService_ListClientRoutes_Handler,
+		},
+		{
+			MethodName: "SetRoutingStrategy",
+			Handler:    _RoutingService_SetRoutingStrategy_Handler,
+		},
+		{
+			MethodName: "GetRoutingStrategy",
+			Handler:    _RoutingService_GetRoutingStrategy_Handler,
+		},
+		{
+			MethodName: "DeleteRoutingStrategy",
+			Handler:    _RoutingService_DeleteRoutingStrategy_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

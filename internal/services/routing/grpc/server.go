@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
@@ -28,8 +29,11 @@ type Server struct {
 	operatorResolver *application.OperatorResolver
 	hlrService       *application.HLRService
 	smartRouter      *application.SmartRoutingService
-	hlrProviderRepo  domain.HLRProviderRepository
-	lookupLogRepo    domain.LookupLogRepository
+	hlrProviderRepo    domain.HLRProviderRepository
+	lookupLogRepo      domain.LookupLogRepository
+	clientProviderRepo domain.ClientProviderRepository
+	clientRouteRepo    domain.ClientRouteRepository
+	clientStrategyRepo domain.ClientRoutingStrategyRepository
 }
 
 // NewServer создает новый gRPC сервер для Routing Service
@@ -70,6 +74,17 @@ func (s *Server) SetLookupLogRepo(repo domain.LookupLogRepository) {
 }
 
 // ==================== Существующие методы маршрутизации ====================
+
+// SetClientRoutingDeps устанавливает зависимости для клиентской маршрутизации
+func (s *Server) SetClientRoutingDeps(
+	cpRepo domain.ClientProviderRepository,
+	crRepo domain.ClientRouteRepository,
+	csRepo domain.ClientRoutingStrategyRepository,
+) {
+	s.clientProviderRepo = cpRepo
+	s.clientRouteRepo = crRepo
+	s.clientStrategyRepo = csRepo
+}
 
 // SetHLRDependencies устанавливает зависимости для HLR/MNP операций
 func (s *Server) SetHLRDependencies(
@@ -1417,4 +1432,361 @@ func numberStatusFromString(s string) routingv1.NumberStatus {
 // numberTypeFromString преобразует строку в proto.NumberType
 func numberTypeFromString(s string) routingv1.NumberType {
 	return numberTypeToProto(domain.NumberType(s))
+}
+
+// ==================== Client Provider methods ====================
+
+func (s *Server) AssignProviderToClient(ctx context.Context, req *routingv1.AssignProviderRequest) (*routingv1.ClientProviderProto, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+	providerID, err := uuid.Parse(req.ProviderId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid provider_id: %v", err)
+	}
+
+	cp := domain.NewClientProvider(clientID, providerID, domain.ProviderOwnership(req.Ownership))
+	cp.SharedPriority = int(req.SharedPriority)
+
+	if err := cp.Validate(); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	if err := s.clientProviderRepo.Create(ctx, cp); err != nil {
+		return nil, status.Errorf(codes.Internal, "create failed: %v", err)
+	}
+
+	return clientProviderToProto(cp), nil
+}
+
+func (s *Server) RevokeProviderFromClient(ctx context.Context, req *routingv1.RevokeProviderRequest) (*emptypb.Empty, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+	providerID, err := uuid.Parse(req.ProviderId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid provider_id: %v", err)
+	}
+
+	cp, err := s.clientProviderRepo.GetByClientAndProvider(ctx, clientID, providerID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "client provider not found: %v", err)
+	}
+
+	if err := s.clientProviderRepo.Delete(ctx, cp.ID); err != nil {
+		return nil, status.Errorf(codes.Internal, "delete failed: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (s *Server) ListClientProviders(ctx context.Context, req *routingv1.ListClientProvidersRequest) (*routingv1.ListClientProvidersResponse, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+
+	providers, err := s.clientProviderRepo.ListByClient(ctx, clientID, req.ActiveOnly)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list failed: %v", err)
+	}
+
+	resp := &routingv1.ListClientProvidersResponse{}
+	for _, cp := range providers {
+		resp.Providers = append(resp.Providers, clientProviderToProto(cp))
+	}
+	return resp, nil
+}
+
+func (s *Server) UpdateClientProvider(ctx context.Context, req *routingv1.UpdateClientProviderRequest) (*routingv1.ClientProviderProto, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	cp, err := s.clientProviderRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	cp.SharedPriority = int(req.SharedPriority)
+	cp.ExposeCost = req.ExposeCost
+	cp.ExposeProviderName = req.ExposeProviderName
+	cp.Active = req.Active
+
+	if err := s.clientProviderRepo.Update(ctx, cp); err != nil {
+		return nil, status.Errorf(codes.Internal, "update failed: %v", err)
+	}
+
+	return clientProviderToProto(cp), nil
+}
+
+func (s *Server) ShareProviderWithChild(ctx context.Context, req *routingv1.ShareProviderRequest) (*routingv1.ClientProviderProto, error) {
+	parentID, err := uuid.Parse(req.ParentClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid parent_client_id: %v", err)
+	}
+	childID, err := uuid.Parse(req.ChildClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid child_client_id: %v", err)
+	}
+	providerID, err := uuid.Parse(req.ProviderId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid provider_id: %v", err)
+	}
+
+	// Verify parent has the provider
+	_, err = s.clientProviderRepo.GetByClientAndProvider(ctx, parentID, providerID)
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "parent does not have this provider: %v", err)
+	}
+
+	cp := domain.NewClientProvider(childID, providerID, domain.OwnershipInherited)
+	cp.SourceClientID = &parentID
+	cp.ExposeCost = req.ExposeCost
+	cp.ExposeProviderName = req.ExposeProviderName
+
+	if err := cp.Validate(); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	if err := s.clientProviderRepo.Create(ctx, cp); err != nil {
+		return nil, status.Errorf(codes.Internal, "create failed: %v", err)
+	}
+
+	return clientProviderToProto(cp), nil
+}
+
+func (s *Server) RevokeSharedProvider(ctx context.Context, req *routingv1.RevokeSharedProviderRequest) (*emptypb.Empty, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	if err := s.clientProviderRepo.Delete(ctx, id); err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// ==================== Client Route methods ====================
+
+func (s *Server) CreateClientRoute(ctx context.Context, req *routingv1.CreateClientRouteRequest) (*routingv1.ClientRouteProto, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+	operatorID, err := uuid.Parse(req.OperatorId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+	}
+	providerID, err := uuid.Parse(req.ProviderId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid provider_id: %v", err)
+	}
+
+	// Application-level check: provider must be assigned to client
+	_, err = s.clientProviderRepo.GetByClientAndProvider(ctx, clientID, providerID)
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "provider not assigned to client: %v", err)
+	}
+
+	route := domain.NewClientRoute(clientID, operatorID, providerID, int(req.Priority), int(req.Weight))
+
+	if err := s.clientRouteRepo.Create(ctx, route); err != nil {
+		return nil, status.Errorf(codes.Internal, "create failed: %v", err)
+	}
+
+	return clientRouteToProto(route), nil
+}
+
+func (s *Server) UpdateClientRoute(ctx context.Context, req *routingv1.UpdateClientRouteRequest) (*routingv1.ClientRouteProto, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	route, err := s.clientRouteRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	route.Priority = int(req.Priority)
+	route.Weight = int(req.Weight)
+	route.Active = req.Active
+
+	if err := s.clientRouteRepo.Update(ctx, route); err != nil {
+		return nil, status.Errorf(codes.Internal, "update failed: %v", err)
+	}
+
+	return clientRouteToProto(route), nil
+}
+
+func (s *Server) DeleteClientRoute(ctx context.Context, req *routingv1.DeleteClientRouteRequest) (*emptypb.Empty, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	if err := s.clientRouteRepo.Delete(ctx, id); err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (s *Server) ListClientRoutes(ctx context.Context, req *routingv1.ListClientRoutesRequest) (*routingv1.ListClientRoutesResponse, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+
+	var routes []*domain.ClientRoute
+	if req.OperatorId != "" {
+		operatorID, err := uuid.Parse(req.OperatorId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+		}
+		routes, err = s.clientRouteRepo.ListByClientAndOperator(ctx, clientID, operatorID, false)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "list failed: %v", err)
+		}
+	} else {
+		routes, err = s.clientRouteRepo.ListByClient(ctx, clientID)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "list failed: %v", err)
+		}
+	}
+
+	resp := &routingv1.ListClientRoutesResponse{}
+	for _, r := range routes {
+		resp.Routes = append(resp.Routes, clientRouteToProto(r))
+	}
+	return resp, nil
+}
+
+// ==================== Routing Strategy methods ====================
+
+func (s *Server) SetRoutingStrategy(ctx context.Context, req *routingv1.SetRoutingStrategyRequest) (*routingv1.ClientRoutingStrategyProto, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+
+	var operatorID *uuid.UUID
+	if req.OperatorId != "" {
+		parsed, err := uuid.Parse(req.OperatorId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+		}
+		operatorID = &parsed
+	}
+
+	strategy := domain.NewClientRoutingStrategy(clientID, operatorID, domain.RoutingStrategy(req.Strategy))
+	if err := strategy.Validate(); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	if err := s.clientStrategyRepo.Upsert(ctx, strategy); err != nil {
+		return nil, status.Errorf(codes.Internal, "upsert failed: %v", err)
+	}
+
+	return clientStrategyToProto(strategy), nil
+}
+
+func (s *Server) GetRoutingStrategy(ctx context.Context, req *routingv1.GetRoutingStrategyRequest) (*routingv1.ClientRoutingStrategyProto, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+
+	var operatorID *uuid.UUID
+	if req.OperatorId != "" {
+		parsed, err := uuid.Parse(req.OperatorId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+		}
+		operatorID = &parsed
+	}
+
+	strategy, err := s.clientStrategyRepo.Get(ctx, clientID, operatorID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	return clientStrategyToProto(strategy), nil
+}
+
+func (s *Server) DeleteRoutingStrategy(ctx context.Context, req *routingv1.DeleteRoutingStrategyRequest) (*emptypb.Empty, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+
+	var operatorID *uuid.UUID
+	if req.OperatorId != "" {
+		parsed, err := uuid.Parse(req.OperatorId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+		}
+		operatorID = &parsed
+	}
+
+	if err := s.clientStrategyRepo.Delete(ctx, clientID, operatorID); err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// ==================== Proto conversion helpers ====================
+
+func clientProviderToProto(cp *domain.ClientProvider) *routingv1.ClientProviderProto {
+	proto := &routingv1.ClientProviderProto{
+		Id:                 cp.ID.String(),
+		ClientId:           cp.ClientID.String(),
+		ProviderId:         cp.ProviderID.String(),
+		Ownership:          string(cp.Ownership),
+		SharedPriority:     int32(cp.SharedPriority),
+		ExposeCost:         cp.ExposeCost,
+		ExposeProviderName: cp.ExposeProviderName,
+		Active:             cp.Active,
+		CreatedAt:          timestamppb.New(cp.CreatedAt),
+		UpdatedAt:          timestamppb.New(cp.UpdatedAt),
+	}
+	if cp.SourceClientID != nil {
+		proto.SourceClientId = cp.SourceClientID.String()
+	}
+	return proto
+}
+
+func clientRouteToProto(r *domain.ClientRoute) *routingv1.ClientRouteProto {
+	return &routingv1.ClientRouteProto{
+		Id:         r.ID.String(),
+		ClientId:   r.ClientID.String(),
+		OperatorId: r.OperatorID.String(),
+		ProviderId: r.ProviderID.String(),
+		Priority:   int32(r.Priority),
+		Weight:     int32(r.Weight),
+		Active:     r.Active,
+		CreatedAt:  timestamppb.New(r.CreatedAt),
+		UpdatedAt:  timestamppb.New(r.UpdatedAt),
+	}
+}
+
+func clientStrategyToProto(s *domain.ClientRoutingStrategy) *routingv1.ClientRoutingStrategyProto {
+	proto := &routingv1.ClientRoutingStrategyProto{
+		Id:        s.ID.String(),
+		ClientId:  s.ClientID.String(),
+		Strategy:  string(s.Strategy),
+		CreatedAt: timestamppb.New(s.CreatedAt),
+		UpdatedAt: timestamppb.New(s.UpdatedAt),
+	}
+	if s.OperatorID != nil {
+		proto.OperatorId = s.OperatorID.String()
+	}
+	return proto
 }

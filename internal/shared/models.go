@@ -176,6 +176,8 @@ type Client struct {
 	AllowedSourceAddresses StringArray `json:"allowed_source_addresses" db:"allowed_source_addresses"`
 	CreatedAt            time.Time    `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time    `json:"updated_at" db:"updated_at"`
+	RoutingMode           string       `json:"routing_mode" db:"routing_mode"`           // "legacy", "new", "hybrid"
+	CostVisibilityEnabled bool         `json:"cost_visibility_enabled" db:"cost_visibility_enabled"`
 }
 
 // MessageStatus представляет статус сообщения

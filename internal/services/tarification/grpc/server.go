@@ -18,9 +18,14 @@ import (
 // Server реализует gRPC сервер тарификации
 type Server struct {
 	tarificationv1.UnimplementedTarificationServiceServer
-	tarificationService *application.TarificationService
-	senderService       *application.SenderService
-	tariffPlanService   *application.TariffPlanService
+	tarificationService  *application.TarificationService
+	senderService        *application.SenderService
+	tariffPlanService    *application.TariffPlanService
+	providerPlanRepo     domain.ProviderTariffPlanRepository
+	providerPeriodRepo   domain.ProviderTariffPeriodRepository
+	providerTierRepo     domain.ProviderTariffTierRepository
+	marginRepo           domain.MarginReportRepository
+	providerTarification *application.ProviderTarificationService
 }
 
 // NewServer создает новый gRPC сервер
@@ -34,6 +39,21 @@ func NewServer(
 		senderService:       senderService,
 		tariffPlanService:   tariffPlanService,
 	}
+}
+
+// SetProviderTarificationDeps устанавливает зависимости для провайдерской тарификации
+func (s *Server) SetProviderTarificationDeps(
+	planRepo domain.ProviderTariffPlanRepository,
+	periodRepo domain.ProviderTariffPeriodRepository,
+	tierRepo domain.ProviderTariffTierRepository,
+	marginRepo domain.MarginReportRepository,
+	providerTarification *application.ProviderTarificationService,
+) {
+	s.providerPlanRepo = planRepo
+	s.providerPeriodRepo = periodRepo
+	s.providerTierRepo = tierRepo
+	s.marginRepo = marginRepo
+	s.providerTarification = providerTarification
 }
 
 // TarifyMessage тарифицирует сообщение
@@ -490,5 +510,229 @@ func usageCounterToProto(c *domain.UsageCounter) *tarificationv1.UsageCounter {
 		TariffPeriodId: c.TariffPeriodID.String(),
 		SegmentCount:   int32(c.SegmentCount),
 		UpdatedAt:      timestamppb.New(c.UpdatedAt),
+	}
+}
+
+// ==================== Provider Tariff Plan methods ====================
+
+func (s *Server) CreateProviderTariffPlan(ctx context.Context, req *tarificationv1.CreateProviderTariffPlanRequest) (*tarificationv1.ProviderTariffPlanProto, error) {
+	providerID, err := uuid.Parse(req.ProviderId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid provider_id: %v", err)
+	}
+	operatorID, err := uuid.Parse(req.OperatorId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+	}
+
+	plan := domain.NewProviderTariffPlan(providerID, operatorID, domain.TarificationStrategy(req.Strategy))
+	if err := plan.Validate(); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	if err := s.providerPlanRepo.Create(ctx, plan); err != nil {
+		return nil, status.Errorf(codes.Internal, "create failed: %v", err)
+	}
+
+	return providerTariffPlanToProto(plan), nil
+}
+
+func (s *Server) GetProviderTariffPlan(ctx context.Context, req *tarificationv1.GetProviderTariffPlanRequest) (*tarificationv1.ProviderTariffPlanProto, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	plan, err := s.providerPlanRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	return providerTariffPlanToProto(plan), nil
+}
+
+func (s *Server) ListProviderTariffPlans(ctx context.Context, req *tarificationv1.ListProviderTariffPlansRequest) (*tarificationv1.ListProviderTariffPlansResponse, error) {
+	var providerID *uuid.UUID
+	if req.ProviderId != "" {
+		parsed, err := uuid.Parse(req.ProviderId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid provider_id: %v", err)
+		}
+		providerID = &parsed
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 50
+	}
+	offset := int(req.Offset)
+
+	plans, total, err := s.providerPlanRepo.List(ctx, providerID, req.ActiveOnly, limit, offset)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list failed: %v", err)
+	}
+
+	resp := &tarificationv1.ListProviderTariffPlansResponse{Total: int32(total)}
+	for _, p := range plans {
+		resp.Plans = append(resp.Plans, providerTariffPlanToProto(p))
+	}
+	return resp, nil
+}
+
+func (s *Server) UpdateProviderTariffPlan(ctx context.Context, req *tarificationv1.UpdateProviderTariffPlanRequest) (*tarificationv1.ProviderTariffPlanProto, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	plan, err := s.providerPlanRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	plan.Active = req.Active
+	if err := s.providerPlanRepo.Update(ctx, plan); err != nil {
+		return nil, status.Errorf(codes.Internal, "update failed: %v", err)
+	}
+
+	return providerTariffPlanToProto(plan), nil
+}
+
+func (s *Server) CreateProviderTariffPeriod(ctx context.Context, req *tarificationv1.CreateProviderTariffPeriodRequest) (*tarificationv1.ProviderTariffPeriodProto, error) {
+	planID, err := uuid.Parse(req.ProviderTariffPlanId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid plan_id: %v", err)
+	}
+
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid start_date: %v", err)
+	}
+	endDate, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid end_date: %v", err)
+	}
+
+	period := &domain.ProviderTariffPeriod{
+		ID:                   uuid.New(),
+		ProviderTariffPlanID: planID,
+		StartDate:            startDate,
+		EndDate:              endDate,
+		CreatedAt:            time.Now(),
+	}
+
+	if err := s.providerPeriodRepo.Create(ctx, period); err != nil {
+		return nil, status.Errorf(codes.Internal, "create failed: %v", err)
+	}
+
+	return &tarificationv1.ProviderTariffPeriodProto{
+		Id:                   period.ID.String(),
+		ProviderTariffPlanId: period.ProviderTariffPlanID.String(),
+		StartDate:            req.StartDate,
+		EndDate:              req.EndDate,
+		CreatedAt:            timestamppb.New(period.CreatedAt),
+	}, nil
+}
+
+func (s *Server) CreateProviderTariffTier(ctx context.Context, req *tarificationv1.CreateProviderTariffTierRequest) (*tarificationv1.ProviderTariffTierProto, error) {
+	periodID, err := uuid.Parse(req.ProviderTariffPeriodId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid period_id: %v", err)
+	}
+
+	tier := &domain.ProviderTariffTier{
+		ID:                     uuid.New(),
+		ProviderTariffPeriodID: periodID,
+		FromCount:              int(req.FromCount),
+		PricePerSegment:        req.PricePerSegment,
+	}
+
+	if err := s.providerTierRepo.Create(ctx, tier); err != nil {
+		return nil, status.Errorf(codes.Internal, "create failed: %v", err)
+	}
+
+	return &tarificationv1.ProviderTariffTierProto{
+		Id:                     tier.ID.String(),
+		ProviderTariffPeriodId: tier.ProviderTariffPeriodID.String(),
+		FromCount:              int32(tier.FromCount),
+		PricePerSegment:        tier.PricePerSegment,
+	}, nil
+}
+
+func (s *Server) UpdateProviderTariffTier(ctx context.Context, req *tarificationv1.UpdateProviderTariffTierRequest) (*tarificationv1.ProviderTariffTierProto, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+
+	tier, err := s.providerTierRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "not found: %v", err)
+	}
+
+	tier.FromCount = int(req.FromCount)
+	tier.PricePerSegment = req.PricePerSegment
+
+	if err := s.providerTierRepo.Update(ctx, tier); err != nil {
+		return nil, status.Errorf(codes.Internal, "update failed: %v", err)
+	}
+
+	return &tarificationv1.ProviderTariffTierProto{
+		Id:                     tier.ID.String(),
+		ProviderTariffPeriodId: tier.ProviderTariffPeriodID.String(),
+		FromCount:              int32(tier.FromCount),
+		PricePerSegment:        tier.PricePerSegment,
+	}, nil
+}
+
+// ==================== Margin Report ====================
+
+func (s *Server) GetMarginReport(ctx context.Context, req *tarificationv1.MarginReportRequest) (*tarificationv1.MarginReportResponse, error) {
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id")
+	}
+	from, err := time.Parse("2006-01-02", req.FromDate)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid from_date format (YYYY-MM-DD)")
+	}
+	to, err := time.Parse("2006-01-02", req.ToDate)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid to_date format (YYYY-MM-DD)")
+	}
+
+	entries, err := s.marginRepo.GetMarginReport(ctx, clientID, from, to)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "margin report: %v", err)
+	}
+
+	resp := &tarificationv1.MarginReportResponse{}
+	for _, e := range entries {
+		resp.Entries = append(resp.Entries, &tarificationv1.MarginReportEntry{
+			OperatorId:   e.OperatorID.String(),
+			OperatorName: e.OperatorName,
+			ProviderId:   e.ProviderID.String(),
+			ProviderName: e.ProviderName,
+			Segments:     int32(e.Segments),
+			Revenue:      e.Revenue,
+			Cost:         e.Cost,
+			Margin:       e.Margin,
+		})
+	}
+
+	return resp, nil
+}
+
+// ==================== Provider Tariff Proto helpers ====================
+
+func providerTariffPlanToProto(p *domain.ProviderTariffPlan) *tarificationv1.ProviderTariffPlanProto {
+	return &tarificationv1.ProviderTariffPlanProto{
+		Id:         p.ID.String(),
+		ProviderId: p.ProviderID.String(),
+		OperatorId: p.OperatorID.String(),
+		Strategy:   string(p.Strategy),
+		Active:     p.Active,
+		CreatedAt:  timestamppb.New(p.CreatedAt),
+		UpdatedAt:  timestamppb.New(p.UpdatedAt),
 	}
 }

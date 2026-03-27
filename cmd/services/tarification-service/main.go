@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
@@ -22,6 +23,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/application"
 	tarificationgrpc "github.com/smpp-server/smpp-server/internal/services/tarification/grpc"
+	"github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure"
 	tarificationqueue "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/queue"
 	tarificationrepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -69,6 +71,13 @@ func main() {
 	// Создаем sqlx.DB для использования в репозиториях
 	dbx := sqlx.NewDb(dbConn.DB, "pgx")
 
+	// Создаем pgxpool.Pool для провайдерских репозиториев
+	pool, err := pgxpool.New(context.Background(), cfg.Database.GetDSN())
+	if err != nil {
+		logger.Fatal().Err(err).Msg("ошибка создания pgxpool")
+	}
+	defer pool.Close()
+
 	// Ожидание готовности Kafka
 	logger.Info().Msg("ожидание готовности Kafka")
 	if err := queue.WaitForKafka(&cfg.Kafka, 30, 2*time.Second); err != nil {
@@ -84,6 +93,19 @@ func main() {
 	prepaidFeeRepo := tarificationrepo.NewPrepaidFeeRepository(dbx)
 	usageCounterRepo := tarificationrepo.NewUsageCounterRepository(dbx)
 	tarificationLogRepo := tarificationrepo.NewTarificationLogRepository(dbx)
+
+	// Provider tarification repositories
+	providerPlanRepo := infrastructure.NewProviderTariffPlanRepo(pool)
+	providerPeriodRepo := infrastructure.NewProviderTariffPeriodRepo(pool)
+	providerTierRepo := infrastructure.NewProviderTariffTierRepo(pool)
+	providerUsageRepo := infrastructure.NewProviderUsageCounterRepo(pool)
+	providerLogRepo := infrastructure.NewProviderTarificationLogRepo(pool)
+	marginRepo := infrastructure.NewMarginReportRepo(pool)
+
+	providerTarificationService := application.NewProviderTarificationService(
+		providerPlanRepo, providerPeriodRepo, providerTierRepo,
+		providerUsageRepo, providerLogRepo,
+	)
 
 	// Инициализация Kafka event publisher
 	eventPublisher, err := tarificationqueue.NewEventPublisher(
@@ -146,6 +168,11 @@ func main() {
 		tarificationService, senderService, tariffPlanService,
 	)
 	tarificationv1.RegisterTarificationServiceServer(grpcServer, tarificationGrpcServer)
+
+	tarificationGrpcServer.SetProviderTarificationDeps(
+		providerPlanRepo, providerPeriodRepo, providerTierRepo,
+		marginRepo, providerTarificationService,
+	)
 
 	// Включение reflection для разработки
 	if cfg.Service.Env == "development" {

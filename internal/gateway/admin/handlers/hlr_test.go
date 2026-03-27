@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
@@ -161,6 +162,51 @@ func (m *mockRoutingClientForHLR) DeleteSmartRouteWeights(ctx context.Context, i
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*routingv1.DeleteRouteResponse), args.Error(1)
+}
+
+// Client-provider assignment stubs
+func (m *mockRoutingClientForHLR) AssignProviderToClient(ctx context.Context, in *routingv1.AssignProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) RevokeProviderFromClient(ctx context.Context, in *routingv1.RevokeProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ListClientProviders(ctx context.Context, in *routingv1.ListClientProvidersRequest, opts ...grpc.CallOption) (*routingv1.ListClientProvidersResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) UpdateClientProvider(ctx context.Context, in *routingv1.UpdateClientProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ShareProviderWithChild(ctx context.Context, in *routingv1.ShareProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) RevokeSharedProvider(ctx context.Context, in *routingv1.RevokeSharedProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+
+// Client route stubs
+func (m *mockRoutingClientForHLR) CreateClientRoute(ctx context.Context, in *routingv1.CreateClientRouteRequest, opts ...grpc.CallOption) (*routingv1.ClientRouteProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) UpdateClientRoute(ctx context.Context, in *routingv1.UpdateClientRouteRequest, opts ...grpc.CallOption) (*routingv1.ClientRouteProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) DeleteClientRoute(ctx context.Context, in *routingv1.DeleteClientRouteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) ListClientRoutes(ctx context.Context, in *routingv1.ListClientRoutesRequest, opts ...grpc.CallOption) (*routingv1.ListClientRoutesResponse, error) {
+	return nil, nil
+}
+
+// Routing strategy stubs
+func (m *mockRoutingClientForHLR) SetRoutingStrategy(ctx context.Context, in *routingv1.SetRoutingStrategyRequest, opts ...grpc.CallOption) (*routingv1.ClientRoutingStrategyProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) GetRoutingStrategy(ctx context.Context, in *routingv1.GetRoutingStrategyRequest, opts ...grpc.CallOption) (*routingv1.ClientRoutingStrategyProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForHLR) DeleteRoutingStrategy(ctx context.Context, in *routingv1.DeleteRoutingStrategyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
 }
 
 var _ routingv1.RoutingServiceClient = (*mockRoutingClientForHLR)(nil)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -115,6 +116,20 @@ func main() {
 		}
 		cancel()
 	}
+
+	// Инициализация pgx pool для новых репозиториев
+	pgxPool, err := pgxpool.New(context.Background(), cfg.Database.GetDSN())
+	if err != nil {
+		logger.Fatal().Err(err).Msg("ошибка создания pgx pool")
+	}
+	defer pgxPool.Close()
+
+	// Новые репозитории маршрутизации
+	clientProviderRepo := infrastructure.NewClientProviderRepo(pgxPool)
+	clientRouteRepo := infrastructure.NewClientRouteRepo(pgxPool)
+	clientStrategyRepo := infrastructure.NewClientRoutingStrategyRepo(pgxPool)
+	capacityTracker := infrastructure.NewCapacityTracker(redisClient)
+	_ = capacityTracker // будет использован позже
 
 	// Инициализация HLR кеша
 	hlrCacheTTL := 24 * time.Hour
@@ -255,6 +270,7 @@ func main() {
 	// Регистрация gRPC сервиса
 	routingGrpcServer := routinggrpc.NewServer(routingService, countryRepo, operatorRepo, operatorPrefixRepo, operatorResolver)
 	routingGrpcServer.SetHLRDependencies(hlrService, hlrProviderRepo, lookupLogRepo, smartRoutingService)
+	routingGrpcServer.SetClientRoutingDeps(clientProviderRepo, clientRouteRepo, clientStrategyRepo)
 	routingv1.RegisterRoutingServiceServer(grpcServer, routingGrpcServer)
 
 	// Включение reflection для разработки

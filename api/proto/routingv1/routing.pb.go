@@ -9,6 +9,7 @@ package routingv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -3942,12 +3943,1188 @@ func (x *RouteMessageWithHLRResponse) GetRoutingScore() float64 {
 	return 0
 }
 
+type ClientProviderProto struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ClientId           string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ProviderId         string                 `protobuf:"bytes,3,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	Ownership          string                 `protobuf:"bytes,4,opt,name=ownership,proto3" json:"ownership,omitempty"`
+	SourceClientId     string                 `protobuf:"bytes,5,opt,name=source_client_id,json=sourceClientId,proto3" json:"source_client_id,omitempty"`
+	SharedPriority     int32                  `protobuf:"varint,6,opt,name=shared_priority,json=sharedPriority,proto3" json:"shared_priority,omitempty"`
+	ExposeCost         bool                   `protobuf:"varint,7,opt,name=expose_cost,json=exposeCost,proto3" json:"expose_cost,omitempty"`
+	ExposeProviderName bool                   `protobuf:"varint,8,opt,name=expose_provider_name,json=exposeProviderName,proto3" json:"expose_provider_name,omitempty"`
+	Active             bool                   `protobuf:"varint,9,opt,name=active,proto3" json:"active,omitempty"`
+	CreatedAt          *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt          *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ClientProviderProto) Reset() {
+	*x = ClientProviderProto{}
+	mi := &file_routing_routing_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientProviderProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientProviderProto) ProtoMessage() {}
+
+func (x *ClientProviderProto) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientProviderProto.ProtoReflect.Descriptor instead.
+func (*ClientProviderProto) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ClientProviderProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClientProviderProto) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ClientProviderProto) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *ClientProviderProto) GetOwnership() string {
+	if x != nil {
+		return x.Ownership
+	}
+	return ""
+}
+
+func (x *ClientProviderProto) GetSourceClientId() string {
+	if x != nil {
+		return x.SourceClientId
+	}
+	return ""
+}
+
+func (x *ClientProviderProto) GetSharedPriority() int32 {
+	if x != nil {
+		return x.SharedPriority
+	}
+	return 0
+}
+
+func (x *ClientProviderProto) GetExposeCost() bool {
+	if x != nil {
+		return x.ExposeCost
+	}
+	return false
+}
+
+func (x *ClientProviderProto) GetExposeProviderName() bool {
+	if x != nil {
+		return x.ExposeProviderName
+	}
+	return false
+}
+
+func (x *ClientProviderProto) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *ClientProviderProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ClientProviderProto) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type AssignProviderRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ClientId       string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ProviderId     string                 `protobuf:"bytes,2,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	Ownership      string                 `protobuf:"bytes,3,opt,name=ownership,proto3" json:"ownership,omitempty"`
+	SharedPriority int32                  `protobuf:"varint,4,opt,name=shared_priority,json=sharedPriority,proto3" json:"shared_priority,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AssignProviderRequest) Reset() {
+	*x = AssignProviderRequest{}
+	mi := &file_routing_routing_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignProviderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignProviderRequest) ProtoMessage() {}
+
+func (x *AssignProviderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignProviderRequest.ProtoReflect.Descriptor instead.
+func (*AssignProviderRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *AssignProviderRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *AssignProviderRequest) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *AssignProviderRequest) GetOwnership() string {
+	if x != nil {
+		return x.Ownership
+	}
+	return ""
+}
+
+func (x *AssignProviderRequest) GetSharedPriority() int32 {
+	if x != nil {
+		return x.SharedPriority
+	}
+	return 0
+}
+
+type RevokeProviderRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ProviderId    string                 `protobuf:"bytes,2,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeProviderRequest) Reset() {
+	*x = RevokeProviderRequest{}
+	mi := &file_routing_routing_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeProviderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeProviderRequest) ProtoMessage() {}
+
+func (x *RevokeProviderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeProviderRequest.ProtoReflect.Descriptor instead.
+func (*RevokeProviderRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *RevokeProviderRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *RevokeProviderRequest) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+type ListClientProvidersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ActiveOnly    bool                   `protobuf:"varint,2,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListClientProvidersRequest) Reset() {
+	*x = ListClientProvidersRequest{}
+	mi := &file_routing_routing_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListClientProvidersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListClientProvidersRequest) ProtoMessage() {}
+
+func (x *ListClientProvidersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListClientProvidersRequest.ProtoReflect.Descriptor instead.
+func (*ListClientProvidersRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ListClientProvidersRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ListClientProvidersRequest) GetActiveOnly() bool {
+	if x != nil {
+		return x.ActiveOnly
+	}
+	return false
+}
+
+type ListClientProvidersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Providers     []*ClientProviderProto `protobuf:"bytes,1,rep,name=providers,proto3" json:"providers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListClientProvidersResponse) Reset() {
+	*x = ListClientProvidersResponse{}
+	mi := &file_routing_routing_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListClientProvidersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListClientProvidersResponse) ProtoMessage() {}
+
+func (x *ListClientProvidersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListClientProvidersResponse.ProtoReflect.Descriptor instead.
+func (*ListClientProvidersResponse) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListClientProvidersResponse) GetProviders() []*ClientProviderProto {
+	if x != nil {
+		return x.Providers
+	}
+	return nil
+}
+
+type UpdateClientProviderRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	SharedPriority     int32                  `protobuf:"varint,2,opt,name=shared_priority,json=sharedPriority,proto3" json:"shared_priority,omitempty"`
+	ExposeCost         bool                   `protobuf:"varint,3,opt,name=expose_cost,json=exposeCost,proto3" json:"expose_cost,omitempty"`
+	ExposeProviderName bool                   `protobuf:"varint,4,opt,name=expose_provider_name,json=exposeProviderName,proto3" json:"expose_provider_name,omitempty"`
+	Active             bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *UpdateClientProviderRequest) Reset() {
+	*x = UpdateClientProviderRequest{}
+	mi := &file_routing_routing_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateClientProviderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateClientProviderRequest) ProtoMessage() {}
+
+func (x *UpdateClientProviderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateClientProviderRequest.ProtoReflect.Descriptor instead.
+func (*UpdateClientProviderRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *UpdateClientProviderRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateClientProviderRequest) GetSharedPriority() int32 {
+	if x != nil {
+		return x.SharedPriority
+	}
+	return 0
+}
+
+func (x *UpdateClientProviderRequest) GetExposeCost() bool {
+	if x != nil {
+		return x.ExposeCost
+	}
+	return false
+}
+
+func (x *UpdateClientProviderRequest) GetExposeProviderName() bool {
+	if x != nil {
+		return x.ExposeProviderName
+	}
+	return false
+}
+
+func (x *UpdateClientProviderRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+type ShareProviderRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	ParentClientId     string                 `protobuf:"bytes,1,opt,name=parent_client_id,json=parentClientId,proto3" json:"parent_client_id,omitempty"`
+	ChildClientId      string                 `protobuf:"bytes,2,opt,name=child_client_id,json=childClientId,proto3" json:"child_client_id,omitempty"`
+	ProviderId         string                 `protobuf:"bytes,3,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	ExposeCost         bool                   `protobuf:"varint,4,opt,name=expose_cost,json=exposeCost,proto3" json:"expose_cost,omitempty"`
+	ExposeProviderName bool                   `protobuf:"varint,5,opt,name=expose_provider_name,json=exposeProviderName,proto3" json:"expose_provider_name,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ShareProviderRequest) Reset() {
+	*x = ShareProviderRequest{}
+	mi := &file_routing_routing_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareProviderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareProviderRequest) ProtoMessage() {}
+
+func (x *ShareProviderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareProviderRequest.ProtoReflect.Descriptor instead.
+func (*ShareProviderRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *ShareProviderRequest) GetParentClientId() string {
+	if x != nil {
+		return x.ParentClientId
+	}
+	return ""
+}
+
+func (x *ShareProviderRequest) GetChildClientId() string {
+	if x != nil {
+		return x.ChildClientId
+	}
+	return ""
+}
+
+func (x *ShareProviderRequest) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *ShareProviderRequest) GetExposeCost() bool {
+	if x != nil {
+		return x.ExposeCost
+	}
+	return false
+}
+
+func (x *ShareProviderRequest) GetExposeProviderName() bool {
+	if x != nil {
+		return x.ExposeProviderName
+	}
+	return false
+}
+
+type RevokeSharedProviderRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeSharedProviderRequest) Reset() {
+	*x = RevokeSharedProviderRequest{}
+	mi := &file_routing_routing_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeSharedProviderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeSharedProviderRequest) ProtoMessage() {}
+
+func (x *RevokeSharedProviderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeSharedProviderRequest.ProtoReflect.Descriptor instead.
+func (*RevokeSharedProviderRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *RevokeSharedProviderRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ClientRouteProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,3,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	ProviderId    string                 `protobuf:"bytes,4,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	Priority      int32                  `protobuf:"varint,5,opt,name=priority,proto3" json:"priority,omitempty"`
+	Weight        int32                  `protobuf:"varint,6,opt,name=weight,proto3" json:"weight,omitempty"`
+	Active        bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientRouteProto) Reset() {
+	*x = ClientRouteProto{}
+	mi := &file_routing_routing_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientRouteProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientRouteProto) ProtoMessage() {}
+
+func (x *ClientRouteProto) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientRouteProto.ProtoReflect.Descriptor instead.
+func (*ClientRouteProto) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *ClientRouteProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClientRouteProto) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ClientRouteProto) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+func (x *ClientRouteProto) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *ClientRouteProto) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *ClientRouteProto) GetWeight() int32 {
+	if x != nil {
+		return x.Weight
+	}
+	return 0
+}
+
+func (x *ClientRouteProto) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *ClientRouteProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ClientRouteProto) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateClientRouteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,2,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	ProviderId    string                 `protobuf:"bytes,3,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	Priority      int32                  `protobuf:"varint,4,opt,name=priority,proto3" json:"priority,omitempty"`
+	Weight        int32                  `protobuf:"varint,5,opt,name=weight,proto3" json:"weight,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateClientRouteRequest) Reset() {
+	*x = CreateClientRouteRequest{}
+	mi := &file_routing_routing_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateClientRouteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateClientRouteRequest) ProtoMessage() {}
+
+func (x *CreateClientRouteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateClientRouteRequest.ProtoReflect.Descriptor instead.
+func (*CreateClientRouteRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *CreateClientRouteRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *CreateClientRouteRequest) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+func (x *CreateClientRouteRequest) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *CreateClientRouteRequest) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *CreateClientRouteRequest) GetWeight() int32 {
+	if x != nil {
+		return x.Weight
+	}
+	return 0
+}
+
+type UpdateClientRouteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Priority      int32                  `protobuf:"varint,2,opt,name=priority,proto3" json:"priority,omitempty"`
+	Weight        int32                  `protobuf:"varint,3,opt,name=weight,proto3" json:"weight,omitempty"`
+	Active        bool                   `protobuf:"varint,4,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateClientRouteRequest) Reset() {
+	*x = UpdateClientRouteRequest{}
+	mi := &file_routing_routing_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateClientRouteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateClientRouteRequest) ProtoMessage() {}
+
+func (x *UpdateClientRouteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateClientRouteRequest.ProtoReflect.Descriptor instead.
+func (*UpdateClientRouteRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *UpdateClientRouteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateClientRouteRequest) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *UpdateClientRouteRequest) GetWeight() int32 {
+	if x != nil {
+		return x.Weight
+	}
+	return 0
+}
+
+func (x *UpdateClientRouteRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+type DeleteClientRouteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteClientRouteRequest) Reset() {
+	*x = DeleteClientRouteRequest{}
+	mi := &file_routing_routing_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteClientRouteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteClientRouteRequest) ProtoMessage() {}
+
+func (x *DeleteClientRouteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteClientRouteRequest.ProtoReflect.Descriptor instead.
+func (*DeleteClientRouteRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *DeleteClientRouteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ListClientRoutesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,2,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListClientRoutesRequest) Reset() {
+	*x = ListClientRoutesRequest{}
+	mi := &file_routing_routing_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListClientRoutesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListClientRoutesRequest) ProtoMessage() {}
+
+func (x *ListClientRoutesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListClientRoutesRequest.ProtoReflect.Descriptor instead.
+func (*ListClientRoutesRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ListClientRoutesRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ListClientRoutesRequest) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+type ListClientRoutesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Routes        []*ClientRouteProto    `protobuf:"bytes,1,rep,name=routes,proto3" json:"routes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListClientRoutesResponse) Reset() {
+	*x = ListClientRoutesResponse{}
+	mi := &file_routing_routing_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListClientRoutesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListClientRoutesResponse) ProtoMessage() {}
+
+func (x *ListClientRoutesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListClientRoutesResponse.ProtoReflect.Descriptor instead.
+func (*ListClientRoutesResponse) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ListClientRoutesResponse) GetRoutes() []*ClientRouteProto {
+	if x != nil {
+		return x.Routes
+	}
+	return nil
+}
+
+type ClientRoutingStrategyProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,3,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	Strategy      string                 `protobuf:"bytes,4,opt,name=strategy,proto3" json:"strategy,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientRoutingStrategyProto) Reset() {
+	*x = ClientRoutingStrategyProto{}
+	mi := &file_routing_routing_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientRoutingStrategyProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientRoutingStrategyProto) ProtoMessage() {}
+
+func (x *ClientRoutingStrategyProto) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientRoutingStrategyProto.ProtoReflect.Descriptor instead.
+func (*ClientRoutingStrategyProto) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ClientRoutingStrategyProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClientRoutingStrategyProto) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ClientRoutingStrategyProto) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+func (x *ClientRoutingStrategyProto) GetStrategy() string {
+	if x != nil {
+		return x.Strategy
+	}
+	return ""
+}
+
+func (x *ClientRoutingStrategyProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ClientRoutingStrategyProto) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type SetRoutingStrategyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,2,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	Strategy      string                 `protobuf:"bytes,3,opt,name=strategy,proto3" json:"strategy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetRoutingStrategyRequest) Reset() {
+	*x = SetRoutingStrategyRequest{}
+	mi := &file_routing_routing_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetRoutingStrategyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetRoutingStrategyRequest) ProtoMessage() {}
+
+func (x *SetRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetRoutingStrategyRequest.ProtoReflect.Descriptor instead.
+func (*SetRoutingStrategyRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *SetRoutingStrategyRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *SetRoutingStrategyRequest) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+func (x *SetRoutingStrategyRequest) GetStrategy() string {
+	if x != nil {
+		return x.Strategy
+	}
+	return ""
+}
+
+type GetRoutingStrategyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,2,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRoutingStrategyRequest) Reset() {
+	*x = GetRoutingStrategyRequest{}
+	mi := &file_routing_routing_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRoutingStrategyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRoutingStrategyRequest) ProtoMessage() {}
+
+func (x *GetRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRoutingStrategyRequest.ProtoReflect.Descriptor instead.
+func (*GetRoutingStrategyRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *GetRoutingStrategyRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *GetRoutingStrategyRequest) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+type DeleteRoutingStrategyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId    string                 `protobuf:"bytes,2,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRoutingStrategyRequest) Reset() {
+	*x = DeleteRoutingStrategyRequest{}
+	mi := &file_routing_routing_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRoutingStrategyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRoutingStrategyRequest) ProtoMessage() {}
+
+func (x *DeleteRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_routing_routing_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRoutingStrategyRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRoutingStrategyRequest) Descriptor() ([]byte, []int) {
+	return file_routing_routing_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *DeleteRoutingStrategyRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *DeleteRoutingStrategyRequest) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
 var File_routing_routing_proto protoreflect.FileDescriptor
 
 const file_routing_routing_proto_rawDesc = "" +
 	"\n" +
 	"\x15routing/routing.proto\x12\n" +
-	"routing.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"h\n" +
+	"routing.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"h\n" +
 	"\x0fGetRouteRequest\x12 \n" +
 	"\vdestination\x18\x01 \x01(\tR\vdestination\x12\x1b\n" +
 	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x16\n" +
@@ -4284,7 +5461,115 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\n" +
 	"hlr_result\x18\x03 \x01(\v2 .routing.v1.NumberLookupResponseR\thlrResult\x12\x19\n" +
 	"\bhlr_used\x18\x04 \x01(\bR\ahlrUsed\x12#\n" +
-	"\rrouting_score\x18\x05 \x01(\x01R\froutingScore*\x97\x01\n" +
+	"\rrouting_score\x18\x05 \x01(\x01R\froutingScore\"\xb5\x03\n" +
+	"\x13ClientProviderProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x1f\n" +
+	"\vprovider_id\x18\x03 \x01(\tR\n" +
+	"providerId\x12\x1c\n" +
+	"\townership\x18\x04 \x01(\tR\townership\x12(\n" +
+	"\x10source_client_id\x18\x05 \x01(\tR\x0esourceClientId\x12'\n" +
+	"\x0fshared_priority\x18\x06 \x01(\x05R\x0esharedPriority\x12\x1f\n" +
+	"\vexpose_cost\x18\a \x01(\bR\n" +
+	"exposeCost\x120\n" +
+	"\x14expose_provider_name\x18\b \x01(\bR\x12exposeProviderName\x12\x16\n" +
+	"\x06active\x18\t \x01(\bR\x06active\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x9c\x01\n" +
+	"\x15AssignProviderRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\vprovider_id\x18\x02 \x01(\tR\n" +
+	"providerId\x12\x1c\n" +
+	"\townership\x18\x03 \x01(\tR\townership\x12'\n" +
+	"\x0fshared_priority\x18\x04 \x01(\x05R\x0esharedPriority\"U\n" +
+	"\x15RevokeProviderRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\vprovider_id\x18\x02 \x01(\tR\n" +
+	"providerId\"Z\n" +
+	"\x1aListClientProvidersRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\vactive_only\x18\x02 \x01(\bR\n" +
+	"activeOnly\"\\\n" +
+	"\x1bListClientProvidersResponse\x12=\n" +
+	"\tproviders\x18\x01 \x03(\v2\x1f.routing.v1.ClientProviderProtoR\tproviders\"\xc1\x01\n" +
+	"\x1bUpdateClientProviderRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
+	"\x0fshared_priority\x18\x02 \x01(\x05R\x0esharedPriority\x12\x1f\n" +
+	"\vexpose_cost\x18\x03 \x01(\bR\n" +
+	"exposeCost\x120\n" +
+	"\x14expose_provider_name\x18\x04 \x01(\bR\x12exposeProviderName\x12\x16\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\"\xdc\x01\n" +
+	"\x14ShareProviderRequest\x12(\n" +
+	"\x10parent_client_id\x18\x01 \x01(\tR\x0eparentClientId\x12&\n" +
+	"\x0fchild_client_id\x18\x02 \x01(\tR\rchildClientId\x12\x1f\n" +
+	"\vprovider_id\x18\x03 \x01(\tR\n" +
+	"providerId\x12\x1f\n" +
+	"\vexpose_cost\x18\x04 \x01(\bR\n" +
+	"exposeCost\x120\n" +
+	"\x14expose_provider_name\x18\x05 \x01(\bR\x12exposeProviderName\"-\n" +
+	"\x1bRevokeSharedProviderRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xc3\x02\n" +
+	"\x10ClientRouteProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x03 \x01(\tR\n" +
+	"operatorId\x12\x1f\n" +
+	"\vprovider_id\x18\x04 \x01(\tR\n" +
+	"providerId\x12\x1a\n" +
+	"\bpriority\x18\x05 \x01(\x05R\bpriority\x12\x16\n" +
+	"\x06weight\x18\x06 \x01(\x05R\x06weight\x12\x16\n" +
+	"\x06active\x18\a \x01(\bR\x06active\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xad\x01\n" +
+	"\x18CreateClientRouteRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x02 \x01(\tR\n" +
+	"operatorId\x12\x1f\n" +
+	"\vprovider_id\x18\x03 \x01(\tR\n" +
+	"providerId\x12\x1a\n" +
+	"\bpriority\x18\x04 \x01(\x05R\bpriority\x12\x16\n" +
+	"\x06weight\x18\x05 \x01(\x05R\x06weight\"v\n" +
+	"\x18UpdateClientRouteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bpriority\x18\x02 \x01(\x05R\bpriority\x12\x16\n" +
+	"\x06weight\x18\x03 \x01(\x05R\x06weight\x12\x16\n" +
+	"\x06active\x18\x04 \x01(\bR\x06active\"*\n" +
+	"\x18DeleteClientRouteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"W\n" +
+	"\x17ListClientRoutesRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x02 \x01(\tR\n" +
+	"operatorId\"P\n" +
+	"\x18ListClientRoutesResponse\x124\n" +
+	"\x06routes\x18\x01 \x03(\v2\x1c.routing.v1.ClientRouteProtoR\x06routes\"\xfc\x01\n" +
+	"\x1aClientRoutingStrategyProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x03 \x01(\tR\n" +
+	"operatorId\x12\x1a\n" +
+	"\bstrategy\x18\x04 \x01(\tR\bstrategy\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"u\n" +
+	"\x19SetRoutingStrategyRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x02 \x01(\tR\n" +
+	"operatorId\x12\x1a\n" +
+	"\bstrategy\x18\x03 \x01(\tR\bstrategy\"Y\n" +
+	"\x19GetRoutingStrategyRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x02 \x01(\tR\n" +
+	"operatorId\"\\\n" +
+	"\x1cDeleteRoutingStrategyRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x02 \x01(\tR\n" +
+	"operatorId*\x97\x01\n" +
 	"\fNumberStatus\x12\x1d\n" +
 	"\x19NUMBER_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14NUMBER_STATUS_ACTIVE\x10\x01\x12\x18\n" +
@@ -4296,7 +5581,7 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\x17NUMBER_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12NUMBER_TYPE_MOBILE\x10\x01\x12\x15\n" +
 	"\x11NUMBER_TYPE_FIXED\x10\x02\x12\x14\n" +
-	"\x10NUMBER_TYPE_VOIP\x10\x032\xac\x15\n" +
+	"\x10NUMBER_TYPE_VOIP\x10\x032\xea\x1e\n" +
 	"\x0eRoutingService\x12E\n" +
 	"\bGetRoute\x12\x1b.routing.v1.GetRouteRequest\x1a\x1c.routing.v1.GetRouteResponse\x12W\n" +
 	"\x0eSelectProvider\x12!.routing.v1.SelectProviderRequest\x1a\".routing.v1.SelectProviderResponse\x12N\n" +
@@ -4330,7 +5615,20 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\x15ListSmartRouteWeights\x12(.routing.v1.ListSmartRouteWeightsRequest\x1a).routing.v1.ListSmartRouteWeightsResponse\x12f\n" +
 	"\x17DeleteSmartRouteWeights\x12*.routing.v1.DeleteSmartRouteWeightsRequest\x1a\x1f.routing.v1.DeleteRouteResponse\x12]\n" +
 	"\x10GetLookupHistory\x12#.routing.v1.GetLookupHistoryRequest\x1a$.routing.v1.GetLookupHistoryResponse\x12f\n" +
-	"\x13RouteMessageWithHLR\x12&.routing.v1.RouteMessageWithHLRRequest\x1a'.routing.v1.RouteMessageWithHLRResponseB8Z6github.com/smpp-server/smpp-server/api/proto/routingv1b\x06proto3"
+	"\x13RouteMessageWithHLR\x12&.routing.v1.RouteMessageWithHLRRequest\x1a'.routing.v1.RouteMessageWithHLRResponse\x12\\\n" +
+	"\x16AssignProviderToClient\x12!.routing.v1.AssignProviderRequest\x1a\x1f.routing.v1.ClientProviderProto\x12U\n" +
+	"\x18RevokeProviderFromClient\x12!.routing.v1.RevokeProviderRequest\x1a\x16.google.protobuf.Empty\x12f\n" +
+	"\x13ListClientProviders\x12&.routing.v1.ListClientProvidersRequest\x1a'.routing.v1.ListClientProvidersResponse\x12`\n" +
+	"\x14UpdateClientProvider\x12'.routing.v1.UpdateClientProviderRequest\x1a\x1f.routing.v1.ClientProviderProto\x12[\n" +
+	"\x16ShareProviderWithChild\x12 .routing.v1.ShareProviderRequest\x1a\x1f.routing.v1.ClientProviderProto\x12W\n" +
+	"\x14RevokeSharedProvider\x12'.routing.v1.RevokeSharedProviderRequest\x1a\x16.google.protobuf.Empty\x12W\n" +
+	"\x11CreateClientRoute\x12$.routing.v1.CreateClientRouteRequest\x1a\x1c.routing.v1.ClientRouteProto\x12W\n" +
+	"\x11UpdateClientRoute\x12$.routing.v1.UpdateClientRouteRequest\x1a\x1c.routing.v1.ClientRouteProto\x12Q\n" +
+	"\x11DeleteClientRoute\x12$.routing.v1.DeleteClientRouteRequest\x1a\x16.google.protobuf.Empty\x12]\n" +
+	"\x10ListClientRoutes\x12#.routing.v1.ListClientRoutesRequest\x1a$.routing.v1.ListClientRoutesResponse\x12c\n" +
+	"\x12SetRoutingStrategy\x12%.routing.v1.SetRoutingStrategyRequest\x1a&.routing.v1.ClientRoutingStrategyProto\x12c\n" +
+	"\x12GetRoutingStrategy\x12%.routing.v1.GetRoutingStrategyRequest\x1a&.routing.v1.ClientRoutingStrategyProto\x12Y\n" +
+	"\x15DeleteRoutingStrategy\x12(.routing.v1.DeleteRoutingStrategyRequest\x1a\x16.google.protobuf.EmptyB8Z6github.com/smpp-server/smpp-server/api/proto/routingv1b\x06proto3"
 
 var (
 	file_routing_routing_proto_rawDescOnce sync.Once
@@ -4345,7 +5643,7 @@ func file_routing_routing_proto_rawDescGZIP() []byte {
 }
 
 var file_routing_routing_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_routing_routing_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
+var file_routing_routing_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_routing_routing_proto_goTypes = []any{
 	(NumberStatus)(0),                      // 0: routing.v1.NumberStatus
 	(NumberType)(0),                        // 1: routing.v1.NumberType
@@ -4404,115 +5702,168 @@ var file_routing_routing_proto_goTypes = []any{
 	(*GetLookupHistoryResponse)(nil),       // 54: routing.v1.GetLookupHistoryResponse
 	(*RouteMessageWithHLRRequest)(nil),     // 55: routing.v1.RouteMessageWithHLRRequest
 	(*RouteMessageWithHLRResponse)(nil),    // 56: routing.v1.RouteMessageWithHLRResponse
-	nil,                                    // 57: routing.v1.CreateRouteRequest.MetadataEntry
-	nil,                                    // 58: routing.v1.UpdateRouteRequest.MetadataEntry
-	nil,                                    // 59: routing.v1.RouteInfo.MetadataEntry
-	(*timestamppb.Timestamp)(nil),          // 60: google.protobuf.Timestamp
+	(*ClientProviderProto)(nil),            // 57: routing.v1.ClientProviderProto
+	(*AssignProviderRequest)(nil),          // 58: routing.v1.AssignProviderRequest
+	(*RevokeProviderRequest)(nil),          // 59: routing.v1.RevokeProviderRequest
+	(*ListClientProvidersRequest)(nil),     // 60: routing.v1.ListClientProvidersRequest
+	(*ListClientProvidersResponse)(nil),    // 61: routing.v1.ListClientProvidersResponse
+	(*UpdateClientProviderRequest)(nil),    // 62: routing.v1.UpdateClientProviderRequest
+	(*ShareProviderRequest)(nil),           // 63: routing.v1.ShareProviderRequest
+	(*RevokeSharedProviderRequest)(nil),    // 64: routing.v1.RevokeSharedProviderRequest
+	(*ClientRouteProto)(nil),               // 65: routing.v1.ClientRouteProto
+	(*CreateClientRouteRequest)(nil),       // 66: routing.v1.CreateClientRouteRequest
+	(*UpdateClientRouteRequest)(nil),       // 67: routing.v1.UpdateClientRouteRequest
+	(*DeleteClientRouteRequest)(nil),       // 68: routing.v1.DeleteClientRouteRequest
+	(*ListClientRoutesRequest)(nil),        // 69: routing.v1.ListClientRoutesRequest
+	(*ListClientRoutesResponse)(nil),       // 70: routing.v1.ListClientRoutesResponse
+	(*ClientRoutingStrategyProto)(nil),     // 71: routing.v1.ClientRoutingStrategyProto
+	(*SetRoutingStrategyRequest)(nil),      // 72: routing.v1.SetRoutingStrategyRequest
+	(*GetRoutingStrategyRequest)(nil),      // 73: routing.v1.GetRoutingStrategyRequest
+	(*DeleteRoutingStrategyRequest)(nil),   // 74: routing.v1.DeleteRoutingStrategyRequest
+	nil,                                    // 75: routing.v1.CreateRouteRequest.MetadataEntry
+	nil,                                    // 76: routing.v1.UpdateRouteRequest.MetadataEntry
+	nil,                                    // 77: routing.v1.RouteInfo.MetadataEntry
+	(*timestamppb.Timestamp)(nil),          // 78: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                  // 79: google.protobuf.Empty
 }
 var file_routing_routing_proto_depIdxs = []int32{
 	14, // 0: routing.v1.GetRouteResponse.route:type_name -> routing.v1.RouteInfo
 	14, // 1: routing.v1.SelectProviderRequest.route:type_name -> routing.v1.RouteInfo
-	57, // 2: routing.v1.CreateRouteRequest.metadata:type_name -> routing.v1.CreateRouteRequest.MetadataEntry
-	60, // 3: routing.v1.CreateRouteResponse.created_at:type_name -> google.protobuf.Timestamp
-	58, // 4: routing.v1.UpdateRouteRequest.metadata:type_name -> routing.v1.UpdateRouteRequest.MetadataEntry
+	75, // 2: routing.v1.CreateRouteRequest.metadata:type_name -> routing.v1.CreateRouteRequest.MetadataEntry
+	78, // 3: routing.v1.CreateRouteResponse.created_at:type_name -> google.protobuf.Timestamp
+	76, // 4: routing.v1.UpdateRouteRequest.metadata:type_name -> routing.v1.UpdateRouteRequest.MetadataEntry
 	14, // 5: routing.v1.ListRoutesResponse.routes:type_name -> routing.v1.RouteInfo
-	59, // 6: routing.v1.RouteInfo.metadata:type_name -> routing.v1.RouteInfo.MetadataEntry
-	60, // 7: routing.v1.RouteInfo.created_at:type_name -> google.protobuf.Timestamp
-	60, // 8: routing.v1.RouteInfo.updated_at:type_name -> google.protobuf.Timestamp
-	60, // 9: routing.v1.Country.created_at:type_name -> google.protobuf.Timestamp
-	60, // 10: routing.v1.Country.updated_at:type_name -> google.protobuf.Timestamp
+	77, // 6: routing.v1.RouteInfo.metadata:type_name -> routing.v1.RouteInfo.MetadataEntry
+	78, // 7: routing.v1.RouteInfo.created_at:type_name -> google.protobuf.Timestamp
+	78, // 8: routing.v1.RouteInfo.updated_at:type_name -> google.protobuf.Timestamp
+	78, // 9: routing.v1.Country.created_at:type_name -> google.protobuf.Timestamp
+	78, // 10: routing.v1.Country.updated_at:type_name -> google.protobuf.Timestamp
 	15, // 11: routing.v1.ListCountriesResponse.countries:type_name -> routing.v1.Country
-	60, // 12: routing.v1.Operator.created_at:type_name -> google.protobuf.Timestamp
-	60, // 13: routing.v1.Operator.updated_at:type_name -> google.protobuf.Timestamp
+	78, // 12: routing.v1.Operator.created_at:type_name -> google.protobuf.Timestamp
+	78, // 13: routing.v1.Operator.updated_at:type_name -> google.protobuf.Timestamp
 	21, // 14: routing.v1.ListOperatorsResponse.operators:type_name -> routing.v1.Operator
-	60, // 15: routing.v1.OperatorPrefix.created_at:type_name -> google.protobuf.Timestamp
+	78, // 15: routing.v1.OperatorPrefix.created_at:type_name -> google.protobuf.Timestamp
 	27, // 16: routing.v1.ListOperatorPrefixesResponse.prefixes:type_name -> routing.v1.OperatorPrefix
 	0,  // 17: routing.v1.NumberLookupResponse.number_status:type_name -> routing.v1.NumberStatus
 	1,  // 18: routing.v1.NumberLookupResponse.number_type:type_name -> routing.v1.NumberType
-	60, // 19: routing.v1.NumberLookupResponse.queried_at:type_name -> google.protobuf.Timestamp
+	78, // 19: routing.v1.NumberLookupResponse.queried_at:type_name -> google.protobuf.Timestamp
 	36, // 20: routing.v1.BulkNumberLookupResponse.results:type_name -> routing.v1.NumberLookupResponse
-	60, // 21: routing.v1.HLRProviderProto.last_success_at:type_name -> google.protobuf.Timestamp
-	60, // 22: routing.v1.HLRProviderProto.last_failure_at:type_name -> google.protobuf.Timestamp
-	60, // 23: routing.v1.HLRProviderProto.created_at:type_name -> google.protobuf.Timestamp
-	60, // 24: routing.v1.HLRProviderProto.updated_at:type_name -> google.protobuf.Timestamp
+	78, // 21: routing.v1.HLRProviderProto.last_success_at:type_name -> google.protobuf.Timestamp
+	78, // 22: routing.v1.HLRProviderProto.last_failure_at:type_name -> google.protobuf.Timestamp
+	78, // 23: routing.v1.HLRProviderProto.created_at:type_name -> google.protobuf.Timestamp
+	78, // 24: routing.v1.HLRProviderProto.updated_at:type_name -> google.protobuf.Timestamp
 	39, // 25: routing.v1.ListHLRProvidersResponse.providers:type_name -> routing.v1.HLRProviderProto
-	60, // 26: routing.v1.SmartRouteWeightProto.created_at:type_name -> google.protobuf.Timestamp
-	60, // 27: routing.v1.SmartRouteWeightProto.updated_at:type_name -> google.protobuf.Timestamp
+	78, // 26: routing.v1.SmartRouteWeightProto.created_at:type_name -> google.protobuf.Timestamp
+	78, // 27: routing.v1.SmartRouteWeightProto.updated_at:type_name -> google.protobuf.Timestamp
 	46, // 28: routing.v1.ListSmartRouteWeightsResponse.weights:type_name -> routing.v1.SmartRouteWeightProto
 	0,  // 29: routing.v1.LookupLogEntry.number_status:type_name -> routing.v1.NumberStatus
 	1,  // 30: routing.v1.LookupLogEntry.number_type:type_name -> routing.v1.NumberType
-	60, // 31: routing.v1.LookupLogEntry.created_at:type_name -> google.protobuf.Timestamp
-	60, // 32: routing.v1.GetLookupHistoryRequest.from_date:type_name -> google.protobuf.Timestamp
-	60, // 33: routing.v1.GetLookupHistoryRequest.to_date:type_name -> google.protobuf.Timestamp
+	78, // 31: routing.v1.LookupLogEntry.created_at:type_name -> google.protobuf.Timestamp
+	78, // 32: routing.v1.GetLookupHistoryRequest.from_date:type_name -> google.protobuf.Timestamp
+	78, // 33: routing.v1.GetLookupHistoryRequest.to_date:type_name -> google.protobuf.Timestamp
 	52, // 34: routing.v1.GetLookupHistoryResponse.items:type_name -> routing.v1.LookupLogEntry
 	36, // 35: routing.v1.RouteMessageWithHLRResponse.hlr_result:type_name -> routing.v1.NumberLookupResponse
-	2,  // 36: routing.v1.RoutingService.GetRoute:input_type -> routing.v1.GetRouteRequest
-	4,  // 37: routing.v1.RoutingService.SelectProvider:input_type -> routing.v1.SelectProviderRequest
-	6,  // 38: routing.v1.RoutingService.CreateRoute:input_type -> routing.v1.CreateRouteRequest
-	8,  // 39: routing.v1.RoutingService.UpdateRoute:input_type -> routing.v1.UpdateRouteRequest
-	10, // 40: routing.v1.RoutingService.DeleteRoute:input_type -> routing.v1.DeleteRouteRequest
-	12, // 41: routing.v1.RoutingService.ListRoutes:input_type -> routing.v1.ListRoutesRequest
-	16, // 42: routing.v1.RoutingService.CreateCountry:input_type -> routing.v1.CreateCountryRequest
-	17, // 43: routing.v1.RoutingService.GetCountry:input_type -> routing.v1.GetCountryRequest
-	18, // 44: routing.v1.RoutingService.ListCountries:input_type -> routing.v1.ListCountriesRequest
-	20, // 45: routing.v1.RoutingService.UpdateCountry:input_type -> routing.v1.UpdateCountryRequest
-	22, // 46: routing.v1.RoutingService.CreateOperator:input_type -> routing.v1.CreateOperatorRequest
-	23, // 47: routing.v1.RoutingService.GetOperator:input_type -> routing.v1.GetOperatorRequest
-	24, // 48: routing.v1.RoutingService.ListOperators:input_type -> routing.v1.ListOperatorsRequest
-	26, // 49: routing.v1.RoutingService.UpdateOperator:input_type -> routing.v1.UpdateOperatorRequest
-	28, // 50: routing.v1.RoutingService.CreateOperatorPrefix:input_type -> routing.v1.CreateOperatorPrefixRequest
-	29, // 51: routing.v1.RoutingService.ListOperatorPrefixes:input_type -> routing.v1.ListOperatorPrefixesRequest
-	31, // 52: routing.v1.RoutingService.DeleteOperatorPrefix:input_type -> routing.v1.DeleteOperatorPrefixRequest
-	33, // 53: routing.v1.RoutingService.ResolveOperator:input_type -> routing.v1.ResolveOperatorRequest
-	35, // 54: routing.v1.RoutingService.NumberLookup:input_type -> routing.v1.NumberLookupRequest
-	37, // 55: routing.v1.RoutingService.BulkNumberLookup:input_type -> routing.v1.BulkNumberLookupRequest
-	40, // 56: routing.v1.RoutingService.CreateHLRProvider:input_type -> routing.v1.CreateHLRProviderRequest
-	41, // 57: routing.v1.RoutingService.UpdateHLRProvider:input_type -> routing.v1.UpdateHLRProviderRequest
-	42, // 58: routing.v1.RoutingService.DeleteHLRProvider:input_type -> routing.v1.DeleteHLRProviderRequest
-	43, // 59: routing.v1.RoutingService.GetHLRProvider:input_type -> routing.v1.GetHLRProviderRequest
-	44, // 60: routing.v1.RoutingService.ListHLRProviders:input_type -> routing.v1.ListHLRProvidersRequest
-	47, // 61: routing.v1.RoutingService.SetSmartRouteWeights:input_type -> routing.v1.SetSmartRouteWeightsRequest
-	48, // 62: routing.v1.RoutingService.GetSmartRouteWeights:input_type -> routing.v1.GetSmartRouteWeightsRequest
-	49, // 63: routing.v1.RoutingService.ListSmartRouteWeights:input_type -> routing.v1.ListSmartRouteWeightsRequest
-	51, // 64: routing.v1.RoutingService.DeleteSmartRouteWeights:input_type -> routing.v1.DeleteSmartRouteWeightsRequest
-	53, // 65: routing.v1.RoutingService.GetLookupHistory:input_type -> routing.v1.GetLookupHistoryRequest
-	55, // 66: routing.v1.RoutingService.RouteMessageWithHLR:input_type -> routing.v1.RouteMessageWithHLRRequest
-	3,  // 67: routing.v1.RoutingService.GetRoute:output_type -> routing.v1.GetRouteResponse
-	5,  // 68: routing.v1.RoutingService.SelectProvider:output_type -> routing.v1.SelectProviderResponse
-	7,  // 69: routing.v1.RoutingService.CreateRoute:output_type -> routing.v1.CreateRouteResponse
-	9,  // 70: routing.v1.RoutingService.UpdateRoute:output_type -> routing.v1.UpdateRouteResponse
-	11, // 71: routing.v1.RoutingService.DeleteRoute:output_type -> routing.v1.DeleteRouteResponse
-	13, // 72: routing.v1.RoutingService.ListRoutes:output_type -> routing.v1.ListRoutesResponse
-	15, // 73: routing.v1.RoutingService.CreateCountry:output_type -> routing.v1.Country
-	15, // 74: routing.v1.RoutingService.GetCountry:output_type -> routing.v1.Country
-	19, // 75: routing.v1.RoutingService.ListCountries:output_type -> routing.v1.ListCountriesResponse
-	15, // 76: routing.v1.RoutingService.UpdateCountry:output_type -> routing.v1.Country
-	21, // 77: routing.v1.RoutingService.CreateOperator:output_type -> routing.v1.Operator
-	21, // 78: routing.v1.RoutingService.GetOperator:output_type -> routing.v1.Operator
-	25, // 79: routing.v1.RoutingService.ListOperators:output_type -> routing.v1.ListOperatorsResponse
-	21, // 80: routing.v1.RoutingService.UpdateOperator:output_type -> routing.v1.Operator
-	27, // 81: routing.v1.RoutingService.CreateOperatorPrefix:output_type -> routing.v1.OperatorPrefix
-	30, // 82: routing.v1.RoutingService.ListOperatorPrefixes:output_type -> routing.v1.ListOperatorPrefixesResponse
-	32, // 83: routing.v1.RoutingService.DeleteOperatorPrefix:output_type -> routing.v1.DeleteOperatorPrefixResponse
-	34, // 84: routing.v1.RoutingService.ResolveOperator:output_type -> routing.v1.ResolveOperatorResponse
-	36, // 85: routing.v1.RoutingService.NumberLookup:output_type -> routing.v1.NumberLookupResponse
-	38, // 86: routing.v1.RoutingService.BulkNumberLookup:output_type -> routing.v1.BulkNumberLookupResponse
-	39, // 87: routing.v1.RoutingService.CreateHLRProvider:output_type -> routing.v1.HLRProviderProto
-	39, // 88: routing.v1.RoutingService.UpdateHLRProvider:output_type -> routing.v1.HLRProviderProto
-	11, // 89: routing.v1.RoutingService.DeleteHLRProvider:output_type -> routing.v1.DeleteRouteResponse
-	39, // 90: routing.v1.RoutingService.GetHLRProvider:output_type -> routing.v1.HLRProviderProto
-	45, // 91: routing.v1.RoutingService.ListHLRProviders:output_type -> routing.v1.ListHLRProvidersResponse
-	46, // 92: routing.v1.RoutingService.SetSmartRouteWeights:output_type -> routing.v1.SmartRouteWeightProto
-	46, // 93: routing.v1.RoutingService.GetSmartRouteWeights:output_type -> routing.v1.SmartRouteWeightProto
-	50, // 94: routing.v1.RoutingService.ListSmartRouteWeights:output_type -> routing.v1.ListSmartRouteWeightsResponse
-	11, // 95: routing.v1.RoutingService.DeleteSmartRouteWeights:output_type -> routing.v1.DeleteRouteResponse
-	54, // 96: routing.v1.RoutingService.GetLookupHistory:output_type -> routing.v1.GetLookupHistoryResponse
-	56, // 97: routing.v1.RoutingService.RouteMessageWithHLR:output_type -> routing.v1.RouteMessageWithHLRResponse
-	67, // [67:98] is the sub-list for method output_type
-	36, // [36:67] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	78, // 36: routing.v1.ClientProviderProto.created_at:type_name -> google.protobuf.Timestamp
+	78, // 37: routing.v1.ClientProviderProto.updated_at:type_name -> google.protobuf.Timestamp
+	57, // 38: routing.v1.ListClientProvidersResponse.providers:type_name -> routing.v1.ClientProviderProto
+	78, // 39: routing.v1.ClientRouteProto.created_at:type_name -> google.protobuf.Timestamp
+	78, // 40: routing.v1.ClientRouteProto.updated_at:type_name -> google.protobuf.Timestamp
+	65, // 41: routing.v1.ListClientRoutesResponse.routes:type_name -> routing.v1.ClientRouteProto
+	78, // 42: routing.v1.ClientRoutingStrategyProto.created_at:type_name -> google.protobuf.Timestamp
+	78, // 43: routing.v1.ClientRoutingStrategyProto.updated_at:type_name -> google.protobuf.Timestamp
+	2,  // 44: routing.v1.RoutingService.GetRoute:input_type -> routing.v1.GetRouteRequest
+	4,  // 45: routing.v1.RoutingService.SelectProvider:input_type -> routing.v1.SelectProviderRequest
+	6,  // 46: routing.v1.RoutingService.CreateRoute:input_type -> routing.v1.CreateRouteRequest
+	8,  // 47: routing.v1.RoutingService.UpdateRoute:input_type -> routing.v1.UpdateRouteRequest
+	10, // 48: routing.v1.RoutingService.DeleteRoute:input_type -> routing.v1.DeleteRouteRequest
+	12, // 49: routing.v1.RoutingService.ListRoutes:input_type -> routing.v1.ListRoutesRequest
+	16, // 50: routing.v1.RoutingService.CreateCountry:input_type -> routing.v1.CreateCountryRequest
+	17, // 51: routing.v1.RoutingService.GetCountry:input_type -> routing.v1.GetCountryRequest
+	18, // 52: routing.v1.RoutingService.ListCountries:input_type -> routing.v1.ListCountriesRequest
+	20, // 53: routing.v1.RoutingService.UpdateCountry:input_type -> routing.v1.UpdateCountryRequest
+	22, // 54: routing.v1.RoutingService.CreateOperator:input_type -> routing.v1.CreateOperatorRequest
+	23, // 55: routing.v1.RoutingService.GetOperator:input_type -> routing.v1.GetOperatorRequest
+	24, // 56: routing.v1.RoutingService.ListOperators:input_type -> routing.v1.ListOperatorsRequest
+	26, // 57: routing.v1.RoutingService.UpdateOperator:input_type -> routing.v1.UpdateOperatorRequest
+	28, // 58: routing.v1.RoutingService.CreateOperatorPrefix:input_type -> routing.v1.CreateOperatorPrefixRequest
+	29, // 59: routing.v1.RoutingService.ListOperatorPrefixes:input_type -> routing.v1.ListOperatorPrefixesRequest
+	31, // 60: routing.v1.RoutingService.DeleteOperatorPrefix:input_type -> routing.v1.DeleteOperatorPrefixRequest
+	33, // 61: routing.v1.RoutingService.ResolveOperator:input_type -> routing.v1.ResolveOperatorRequest
+	35, // 62: routing.v1.RoutingService.NumberLookup:input_type -> routing.v1.NumberLookupRequest
+	37, // 63: routing.v1.RoutingService.BulkNumberLookup:input_type -> routing.v1.BulkNumberLookupRequest
+	40, // 64: routing.v1.RoutingService.CreateHLRProvider:input_type -> routing.v1.CreateHLRProviderRequest
+	41, // 65: routing.v1.RoutingService.UpdateHLRProvider:input_type -> routing.v1.UpdateHLRProviderRequest
+	42, // 66: routing.v1.RoutingService.DeleteHLRProvider:input_type -> routing.v1.DeleteHLRProviderRequest
+	43, // 67: routing.v1.RoutingService.GetHLRProvider:input_type -> routing.v1.GetHLRProviderRequest
+	44, // 68: routing.v1.RoutingService.ListHLRProviders:input_type -> routing.v1.ListHLRProvidersRequest
+	47, // 69: routing.v1.RoutingService.SetSmartRouteWeights:input_type -> routing.v1.SetSmartRouteWeightsRequest
+	48, // 70: routing.v1.RoutingService.GetSmartRouteWeights:input_type -> routing.v1.GetSmartRouteWeightsRequest
+	49, // 71: routing.v1.RoutingService.ListSmartRouteWeights:input_type -> routing.v1.ListSmartRouteWeightsRequest
+	51, // 72: routing.v1.RoutingService.DeleteSmartRouteWeights:input_type -> routing.v1.DeleteSmartRouteWeightsRequest
+	53, // 73: routing.v1.RoutingService.GetLookupHistory:input_type -> routing.v1.GetLookupHistoryRequest
+	55, // 74: routing.v1.RoutingService.RouteMessageWithHLR:input_type -> routing.v1.RouteMessageWithHLRRequest
+	58, // 75: routing.v1.RoutingService.AssignProviderToClient:input_type -> routing.v1.AssignProviderRequest
+	59, // 76: routing.v1.RoutingService.RevokeProviderFromClient:input_type -> routing.v1.RevokeProviderRequest
+	60, // 77: routing.v1.RoutingService.ListClientProviders:input_type -> routing.v1.ListClientProvidersRequest
+	62, // 78: routing.v1.RoutingService.UpdateClientProvider:input_type -> routing.v1.UpdateClientProviderRequest
+	63, // 79: routing.v1.RoutingService.ShareProviderWithChild:input_type -> routing.v1.ShareProviderRequest
+	64, // 80: routing.v1.RoutingService.RevokeSharedProvider:input_type -> routing.v1.RevokeSharedProviderRequest
+	66, // 81: routing.v1.RoutingService.CreateClientRoute:input_type -> routing.v1.CreateClientRouteRequest
+	67, // 82: routing.v1.RoutingService.UpdateClientRoute:input_type -> routing.v1.UpdateClientRouteRequest
+	68, // 83: routing.v1.RoutingService.DeleteClientRoute:input_type -> routing.v1.DeleteClientRouteRequest
+	69, // 84: routing.v1.RoutingService.ListClientRoutes:input_type -> routing.v1.ListClientRoutesRequest
+	72, // 85: routing.v1.RoutingService.SetRoutingStrategy:input_type -> routing.v1.SetRoutingStrategyRequest
+	73, // 86: routing.v1.RoutingService.GetRoutingStrategy:input_type -> routing.v1.GetRoutingStrategyRequest
+	74, // 87: routing.v1.RoutingService.DeleteRoutingStrategy:input_type -> routing.v1.DeleteRoutingStrategyRequest
+	3,  // 88: routing.v1.RoutingService.GetRoute:output_type -> routing.v1.GetRouteResponse
+	5,  // 89: routing.v1.RoutingService.SelectProvider:output_type -> routing.v1.SelectProviderResponse
+	7,  // 90: routing.v1.RoutingService.CreateRoute:output_type -> routing.v1.CreateRouteResponse
+	9,  // 91: routing.v1.RoutingService.UpdateRoute:output_type -> routing.v1.UpdateRouteResponse
+	11, // 92: routing.v1.RoutingService.DeleteRoute:output_type -> routing.v1.DeleteRouteResponse
+	13, // 93: routing.v1.RoutingService.ListRoutes:output_type -> routing.v1.ListRoutesResponse
+	15, // 94: routing.v1.RoutingService.CreateCountry:output_type -> routing.v1.Country
+	15, // 95: routing.v1.RoutingService.GetCountry:output_type -> routing.v1.Country
+	19, // 96: routing.v1.RoutingService.ListCountries:output_type -> routing.v1.ListCountriesResponse
+	15, // 97: routing.v1.RoutingService.UpdateCountry:output_type -> routing.v1.Country
+	21, // 98: routing.v1.RoutingService.CreateOperator:output_type -> routing.v1.Operator
+	21, // 99: routing.v1.RoutingService.GetOperator:output_type -> routing.v1.Operator
+	25, // 100: routing.v1.RoutingService.ListOperators:output_type -> routing.v1.ListOperatorsResponse
+	21, // 101: routing.v1.RoutingService.UpdateOperator:output_type -> routing.v1.Operator
+	27, // 102: routing.v1.RoutingService.CreateOperatorPrefix:output_type -> routing.v1.OperatorPrefix
+	30, // 103: routing.v1.RoutingService.ListOperatorPrefixes:output_type -> routing.v1.ListOperatorPrefixesResponse
+	32, // 104: routing.v1.RoutingService.DeleteOperatorPrefix:output_type -> routing.v1.DeleteOperatorPrefixResponse
+	34, // 105: routing.v1.RoutingService.ResolveOperator:output_type -> routing.v1.ResolveOperatorResponse
+	36, // 106: routing.v1.RoutingService.NumberLookup:output_type -> routing.v1.NumberLookupResponse
+	38, // 107: routing.v1.RoutingService.BulkNumberLookup:output_type -> routing.v1.BulkNumberLookupResponse
+	39, // 108: routing.v1.RoutingService.CreateHLRProvider:output_type -> routing.v1.HLRProviderProto
+	39, // 109: routing.v1.RoutingService.UpdateHLRProvider:output_type -> routing.v1.HLRProviderProto
+	11, // 110: routing.v1.RoutingService.DeleteHLRProvider:output_type -> routing.v1.DeleteRouteResponse
+	39, // 111: routing.v1.RoutingService.GetHLRProvider:output_type -> routing.v1.HLRProviderProto
+	45, // 112: routing.v1.RoutingService.ListHLRProviders:output_type -> routing.v1.ListHLRProvidersResponse
+	46, // 113: routing.v1.RoutingService.SetSmartRouteWeights:output_type -> routing.v1.SmartRouteWeightProto
+	46, // 114: routing.v1.RoutingService.GetSmartRouteWeights:output_type -> routing.v1.SmartRouteWeightProto
+	50, // 115: routing.v1.RoutingService.ListSmartRouteWeights:output_type -> routing.v1.ListSmartRouteWeightsResponse
+	11, // 116: routing.v1.RoutingService.DeleteSmartRouteWeights:output_type -> routing.v1.DeleteRouteResponse
+	54, // 117: routing.v1.RoutingService.GetLookupHistory:output_type -> routing.v1.GetLookupHistoryResponse
+	56, // 118: routing.v1.RoutingService.RouteMessageWithHLR:output_type -> routing.v1.RouteMessageWithHLRResponse
+	57, // 119: routing.v1.RoutingService.AssignProviderToClient:output_type -> routing.v1.ClientProviderProto
+	79, // 120: routing.v1.RoutingService.RevokeProviderFromClient:output_type -> google.protobuf.Empty
+	61, // 121: routing.v1.RoutingService.ListClientProviders:output_type -> routing.v1.ListClientProvidersResponse
+	57, // 122: routing.v1.RoutingService.UpdateClientProvider:output_type -> routing.v1.ClientProviderProto
+	57, // 123: routing.v1.RoutingService.ShareProviderWithChild:output_type -> routing.v1.ClientProviderProto
+	79, // 124: routing.v1.RoutingService.RevokeSharedProvider:output_type -> google.protobuf.Empty
+	65, // 125: routing.v1.RoutingService.CreateClientRoute:output_type -> routing.v1.ClientRouteProto
+	65, // 126: routing.v1.RoutingService.UpdateClientRoute:output_type -> routing.v1.ClientRouteProto
+	79, // 127: routing.v1.RoutingService.DeleteClientRoute:output_type -> google.protobuf.Empty
+	70, // 128: routing.v1.RoutingService.ListClientRoutes:output_type -> routing.v1.ListClientRoutesResponse
+	71, // 129: routing.v1.RoutingService.SetRoutingStrategy:output_type -> routing.v1.ClientRoutingStrategyProto
+	71, // 130: routing.v1.RoutingService.GetRoutingStrategy:output_type -> routing.v1.ClientRoutingStrategyProto
+	79, // 131: routing.v1.RoutingService.DeleteRoutingStrategy:output_type -> google.protobuf.Empty
+	88, // [88:132] is the sub-list for method output_type
+	44, // [44:88] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_routing_routing_proto_init() }
@@ -4526,7 +5877,7 @@ func file_routing_routing_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_routing_routing_proto_rawDesc), len(file_routing_routing_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   58,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
