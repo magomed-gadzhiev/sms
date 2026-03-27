@@ -63,6 +63,10 @@ func (m *SessionManager) CreateSession(
 	now := time.Now()
 	expiresAt := now.Add(sessionTTL)
 
+	if ipAddress == "" {
+		ipAddress = "0.0.0.0"
+	}
+
 	// Сохраняем в Redis hash
 	redisKey := sessionPrefix + sessionID
 	fields := map[string]interface{}{
