@@ -11,10 +11,10 @@ info:
     email: support@example.com
 
 servers:
+  - url: http://72.56.232.202:8080
+    description: Production server
   - url: http://localhost:8080
     description: Development server
-  - url: https://api.example.com
-    description: Production server
 
 tags:
   - name: SMS

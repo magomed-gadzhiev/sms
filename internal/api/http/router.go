@@ -36,5 +36,9 @@ func SetupRouter(
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", handler.Health).Methods("GET")
 
+	// API документация (без аутентификации)
+	router.HandleFunc("/docs", DocsHandler()).Methods("GET")
+	router.HandleFunc("/docs/openapi.yaml", OpenAPISpecHandler()).Methods("GET")
+
 	return router
 }
