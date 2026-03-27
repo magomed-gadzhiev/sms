@@ -10,25 +10,25 @@ import "google/protobuf/timestamp.proto";
 service ClientService {
   // CreateClient создает нового клиента
   rpc CreateClient(CreateClientRequest) returns (CreateClientResponse);
-  
+
   // UpdateClient обновляет клиента
   rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
-  
+
   // GetClient получает информацию о клиенте
   rpc GetClient(GetClientRequest) returns (GetClientResponse);
-  
+
   // ListClients получает список клиентов
   rpc ListClients(ListClientsRequest) returns (ListClientsResponse);
-  
+
   // DeleteClient удаляет клиента
   rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
-  
+
   // GetClientConfig получает конфигурацию клиента
   rpc GetClientConfig(GetClientConfigRequest) returns (GetClientConfigResponse);
-  
+
   // UpdateClientConfig обновляет конфигурацию клиента
   rpc UpdateClientConfig(UpdateClientConfigRequest) returns (UpdateClientConfigResponse);
-  
+
   // UpdateClientRateLimits обновляет rate limits клиента
   rpc UpdateClientRateLimits(UpdateClientRateLimitsRequest) returns (UpdateClientRateLimitsResponse);
 
@@ -46,6 +46,12 @@ service ClientService {
 
   // UpdateSubAccountLimits обновляет лимиты суб-аккаунта
   rpc UpdateSubAccountLimits(UpdateSubAccountLimitsRequest) returns (UpdateSubAccountLimitsResponse);
+
+  // ListPlans получает список тарифных планов
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+
+  // AssignPlan назначает тарифный план клиенту
+  rpc AssignPlan(AssignPlanRequest) returns (AssignPlanResponse);
 }
 
 // CreateClientRequest представляет запрос на создание клиента
@@ -146,6 +152,20 @@ message UpdateClientRateLimitsResponse {
   bool success = 1;               // Успешность операции
 }
 
+// SubscriptionPlan представляет тарифный план для клиента
+message SubscriptionPlan {
+  string id = 1;                        // ID тарифного плана
+  string name = 2;                      // Системное имя плана
+  string display_name = 3;              // Отображаемое название плана
+  double monthly_price_rub = 4;         // Стоимость в месяц (руб.)
+  int32 max_sms_per_month = 5;          // Максимум SMS в месяц
+  int32 max_smpp_connections = 6;       // Максимум SMPP-соединений
+  int32 max_users = 7;                  // Максимум пользователей
+  RateLimits rate_limits = 8;           // Rate limits плана
+  map<string, bool> features = 9;       // Доступные функции плана
+  bool active = 10;                     // Активен ли план
+}
+
 // ClientInfo представляет информацию о клиенте
 message ClientInfo {
   string client_id = 1;           // ID клиента
@@ -161,6 +181,10 @@ message ClientInfo {
   string parent_client_id = 11;     // ID родительского клиента (для суб-аккаунтов)
   bool is_reseller = 12;            // Является ли клиент реселлером
   int32 max_sub_accounts = 13;      // Максимальное количество суб-аккаунтов
+  string plan_id = 14;              // ID тарифного плана
+  SubscriptionPlan plan = 15;       // Тарифный план (опционально, при запросе)
+  int32 monthly_sms_count = 16;     // Количество SMS за текущий месяц
+  string monthly_sms_reset_at = 17; // Дата сброса счётчика SMS
 }
 
 // ClientConfig представляет конфигурацию клиента
@@ -258,4 +282,23 @@ message UpdateSubAccountLimitsRequest {
 // UpdateSubAccountLimitsResponse представляет ответ на обновление лимитов суб-аккаунта
 message UpdateSubAccountLimitsResponse {
   SubAccount sub_account = 1;       // Обновленный суб-аккаунт
+}
+
+// ListPlansRequest представляет запрос на получение списка тарифных планов
+message ListPlansRequest {}
+
+// ListPlansResponse представляет ответ со списком тарифных планов
+message ListPlansResponse {
+  repeated SubscriptionPlan plans = 1;  // Список тарифных планов
+}
+
+// AssignPlanRequest представляет запрос на назначение тарифного плана клиенту
+message AssignPlanRequest {
+  string client_id = 1;             // ID клиента
+  string plan_id = 2;               // ID тарифного плана
+}
+
+// AssignPlanResponse представляет ответ на назначение тарифного плана
+message AssignPlanResponse {
+  bool success = 1;                 // Успешность операции
 }
