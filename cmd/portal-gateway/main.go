@@ -146,6 +146,7 @@ func main() {
 	)
 	auditHandlers := handlers.NewAuditHandlers(serviceClients.AuditClient)
 	lookupHandlers := handlers.NewLookupHandlers(serviceClients.RoutingClient)
+	plansHandlers := handlers.NewPlansHandlers(serviceClients.ClientClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -166,6 +167,7 @@ func main() {
 		subAccountHandlers,
 		auditHandlers,
 		lookupHandlers,
+		plansHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

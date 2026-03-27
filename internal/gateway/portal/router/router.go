@@ -40,6 +40,7 @@ func SetupRouter(
 	subAccountHandlers *handlers.SubAccountHandlers,
 	auditHandlers *handlers.AuditHandlers,
 	lookupHandlers *handlers.LookupHandlers,
+	plansHandlers *handlers.PlansHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -57,6 +58,9 @@ func SetupRouter(
 	portalV1 := router.PathPrefix("/portal/v1").Subrouter()
 
 	// === Публичные маршруты (без session auth) ===
+
+	// Plans endpoint — публичный, не требует аутентификации
+	portalV1.HandleFunc("/plans", plansHandlers.ListPlans).Methods("GET")
 
 	// Auth endpoints — аутентификация, не требуют сессии
 	auth := portalV1.PathPrefix("/auth").Subrouter()
