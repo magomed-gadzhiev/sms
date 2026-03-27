@@ -44,9 +44,11 @@ Go 1.24.0: Follow standard conventions
 
 Сервер: claude@72.56.232.202 (SSH alias: sms-server), деплой в /opt/sms
 
+Деплой через git (код пушится в GitHub, на сервере git pull).
+
 Управление через `scripts/server.sh <command>`:
-- setup — первоначальная настройка сервера
-- deploy — синхронизировать и перезапустить
+- setup — клонировать репо, собрать и запустить
+- deploy — git pull + пересборка контейнеров
 - deploy <service> — обновить один сервис
 - status — статус контейнеров
 - logs <service> — логи сервиса (tail -f)
@@ -54,9 +56,11 @@ Go 1.24.0: Follow standard conventions
 - migrate — применить миграции БД
 - seed — накатить тестовые данные
 - restart <service> / stop — управление стеком
-- sync — только синхронизация файлов
+- sync — только git pull (без перезапуска)
 
-Перед деплоем всегда проверяй что код компилируется локально.
+Переменная `DEPLOY_BRANCH` — ветка для деплоя (по умолчанию master).
+
+Перед деплоем: запушить изменения в GitHub, проверить что код компилируется.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
