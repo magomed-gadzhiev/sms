@@ -6,6 +6,7 @@ export interface Column<T> {
   header: string;
   render?: (item: T) => ReactNode;
   sortable?: boolean;
+  responsive?: boolean; // hidden on small screens
 }
 
 interface DataTableProps<T> {
@@ -49,7 +50,8 @@ export function DataTable<T extends Record<string, any>>({
                 <th
                   key={col.key}
                   className={`px-4 py-3 text-left font-medium text-gray-700
-                    ${col.sortable ? 'cursor-pointer hover:text-gray-900 select-none' : ''}`}
+                    ${col.sortable ? 'cursor-pointer hover:text-gray-900 select-none' : ''}
+                    ${col.responsive ? 'hidden sm:table-cell' : ''}`}
                   onClick={() => col.sortable && onSort?.(col.key)}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -78,7 +80,7 @@ export function DataTable<T extends Record<string, any>>({
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-gray-800">
+                    <td key={col.key} className={`px-4 py-3 text-gray-800 ${col.responsive ? 'hidden sm:table-cell' : ''}`}>
                       {col.render ? col.render(item) : String(item[col.key] ?? '')}
                     </td>
                   ))}
