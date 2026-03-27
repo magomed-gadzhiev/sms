@@ -131,7 +131,7 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 
 	result, err := r.db.ExecContext(ctx, query,
 		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
-		client.Active, client.Metadata,
+		client.Active, string(client.Metadata),
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
 		client.IsSandbox, client.UpdatedAt,
 	)
