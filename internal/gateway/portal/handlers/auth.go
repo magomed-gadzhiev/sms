@@ -110,7 +110,9 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Успешный вход — устанавливаем cookies
-	setSessionCookies(w, resp.SessionId)
+	if !setSessionCookies(w, resp.SessionId) {
+		return
+	}
 
 	// Публикуем audit event
 	h.publishAuditEvent(r, resp.User, audit.ActionLogin, "")
@@ -146,7 +148,9 @@ func (h *AuthHandlers) LoginWith2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Устанавливаем cookies
-	setSessionCookies(w, resp.SessionId)
+	if !setSessionCookies(w, resp.SessionId) {
+		return
+	}
 
 	// Публикуем audit event
 	h.publishAuditEvent(r, resp.User, audit.ActionLogin, "")
@@ -283,7 +287,9 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Устанавливаем cookies сессии
-	setSessionCookies(w, resp.SessionId)
+	if !setSessionCookies(w, resp.SessionId) {
+		return
+	}
 
 	// Публикуем audit event
 	h.publishAuditEvent(r, resp.User, audit.ActionRegister, resp.ClientId)
@@ -294,8 +300,9 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// setSessionCookies устанавливает cookies для сессии портала
-func setSessionCookies(w http.ResponseWriter, sessionID string) {
+// setSessionCookies устанавливает cookies для сессии портала.
+// Возвращает true при успехе; при ошибке пишет 500 и возвращает false.
+func setSessionCookies(w http.ResponseWriter, sessionID string) bool {
 	secure := isSecureCookie()
 	sameSite := http.SameSiteStrictMode
 	if !secure {
@@ -317,7 +324,7 @@ func setSessionCookies(w http.ResponseWriter, sessionID string) {
 	if _, err := rand.Read(csrfBytes); err != nil {
 		// crypto/rand failure is a critical system error
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return false
 	}
 	csrfToken := hex.EncodeToString(csrfBytes)
 
@@ -330,6 +337,7 @@ func setSessionCookies(w http.ResponseWriter, sessionID string) {
 		Secure:   secure,
 		SameSite: sameSite,
 	})
+	return true
 }
 
 // clearSessionCookies очищает cookies сессии
