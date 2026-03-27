@@ -9,10 +9,10 @@ import { Badge, StatusBadge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 const AVAILABLE_EVENT_TYPES = [
-  'message.sent',
-  'message.delivered',
-  'message.failed',
-  'message.expired',
+  'delivered',
+  'failed',
+  'expired',
+  'rejected',
 ];
 
 interface WebhookInfo {
