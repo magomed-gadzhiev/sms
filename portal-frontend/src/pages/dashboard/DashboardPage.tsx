@@ -76,13 +76,23 @@ export function DashboardPage() {
       <PageHeader title="Dashboard" />
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {cards.map((card) => {
-          const cardClassName = "border border-gray-200 rounded-lg p-4 text-center block no-underline text-inherit";
+          const isInteractive = !!card.href;
+          const cardClassName = `border border-gray-200 rounded-lg p-4 text-center block no-underline text-inherit ${
+            isInteractive ? 'hover:bg-gray-50 transition-colors group relative pb-10' : ''
+          }`;
+          
           const inner = (
             <>
               <div className="text-sm text-gray-500 mb-2">{card.label}</div>
               <div className="text-2xl font-bold">{card.value}</div>
+              {isInteractive && (
+                <div className="absolute bottom-4 left-0 right-0 text-sm text-primary font-medium group-hover:underline">
+                  View details &rarr;
+                </div>
+              )}
             </>
           );
+
           return card.href ? (
             <Link key={card.label} to={card.href} className={cardClassName} aria-label={`${card.label}: ${card.value}`}>
               {inner}

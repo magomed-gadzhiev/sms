@@ -106,7 +106,7 @@ export function ProfilePage() {
           {saveMsg && saveIsError && (
             <p id="profile-error" role="alert" className="text-red-600 mb-3">{saveMsg}</p>
           )}
-          <div className="mb-3">
+          <div className="mb-2">
             <Input
               label="Contact Person"
               value={contactPerson}
@@ -114,7 +114,7 @@ export function ProfilePage() {
               aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
             />
           </div>
-          <div className="mb-3">
+          <div className="mb-2">
             <Input
               label="Phone"
               type="tel"

@@ -7,18 +7,18 @@ export function SkipLink({ targetId }: SkipLinkProps) {
     <a
       href={`#${targetId}`}
       style={{
-        position: 'absolute',
-        top: 8,
-        left: 8,
-        padding: '8px 16px',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        padding: '16px 24px',
         background: '#1976d2',
         color: '#fff',
-        borderRadius: 4,
+        borderRadius: '0 0 8px 0',
         textDecoration: 'none',
         fontWeight: 'bold',
-        zIndex: 9999,
+        zIndex: 999999,
         transform: 'translateY(-100%)',
-        transition: 'transform 0.1s',
+        transition: 'transform 0.2s ease-in-out',
       }}
       onFocus={(e) => {
         (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)';

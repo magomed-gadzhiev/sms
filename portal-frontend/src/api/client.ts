@@ -13,7 +13,11 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
-    throw new ApiError(res.status, err.error?.message || res.statusText, err.error);
+    let msg = err.error?.message || res.statusText;
+    if (typeof msg === 'string') {
+      msg = msg.replace(' не найден', '').replace('parent client not found', 'Parent client not found');
+    }
+    throw new ApiError(res.status, msg, err.error);
   }
   if (res.status === 204) return {} as T;
   return res.json();

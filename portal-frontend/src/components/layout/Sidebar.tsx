@@ -17,11 +17,12 @@ export function Sidebar({ title, items, footer }: SidebarProps) {
   const location = useLocation();
 
   return (
-    <nav aria-label="Admin navigation" className="w-56 border-r border-gray-200 bg-gray-50 flex flex-col min-h-screen">
+    <aside aria-label="Admin navigation sidebar" className="w-56 border-r border-gray-200 bg-gray-50 flex flex-col min-h-screen">
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-900">{title}</h2>
       </div>
-      <ul className="flex-1 py-2 space-y-0.5 px-2">
+      <nav aria-label="Main menu" className="flex-1 py-2 space-y-0.5 px-2">
+        <ul>
         {items.map((item) => {
           const isActive = location.pathname.startsWith(item.path);
           return (
@@ -41,12 +42,13 @@ export function Sidebar({ title, items, footer }: SidebarProps) {
             </li>
           );
         })}
-      </ul>
+        </ul>
+      </nav>
       {footer && (
         <div className="p-4 border-t border-gray-200">
           {footer}
         </div>
       )}
-    </nav>
+    </aside>
   );
 }
