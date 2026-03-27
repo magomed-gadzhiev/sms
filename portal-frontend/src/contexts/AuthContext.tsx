@@ -1,18 +1,23 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authApi, profileApi, ApiError, type ProfileData } from '../api/client';
 
+type UserRole = 'client' | 'admin' | 'superadmin';
+
 interface AuthState {
   user: ProfileData | null;
+  role: UserRole;
   isAuthenticated: boolean;
   loading: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
-  login2fa: (loginTicket: string, totpCode: string) => Promise<void>;
+  login2fa: (loginTicket: string, totpCode: string) => Promise<UserRole>;
   logout: () => Promise<void>;
 }
 
 interface LoginResult {
   requires2fa: boolean;
   loginTicket?: string;
+  role?: UserRole;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -36,13 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const profile = await profileApi.get();
     setUser(profile);
-    return { requires2fa: false };
+    return { requires2fa: false, role: (profile.role as UserRole) || 'client' };
   }, []);
 
-  const login2fa = useCallback(async (loginTicket: string, totpCode: string) => {
+  const login2fa = useCallback(async (loginTicket: string, totpCode: string): Promise<UserRole> => {
     await authApi.login2fa(loginTicket, totpCode);
     const profile = await profileApi.get();
     setUser(profile);
+    return (profile.role as UserRole) || 'client';
   }, []);
 
   const logout = useCallback(async () => {
@@ -54,9 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const role: UserRole = (user?.role as UserRole) || 'client';
+  const isAdmin = role === 'admin' || role === 'superadmin';
+
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, loading, login, login2fa, logout }}
+      value={{ user, role, isAuthenticated: !!user, loading, isAdmin, login, login2fa, logout }}
     >
       {children}
     </AuthContext.Provider>
