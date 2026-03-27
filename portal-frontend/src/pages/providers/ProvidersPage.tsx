@@ -71,9 +71,10 @@ export function ProvidersPage() {
 
       {!loading && !error && providers.length === 0 && (
         <div className="text-center py-12 text-gray-500">
-          <p>No providers yet.</p>
+          <p className="mb-2">Провайдеры не настроены</p>
+          <p className="text-sm mb-4">Подключите SMPP-провайдера для начала отправки SMS</p>
           <Button variant="ghost" onClick={() => navigate('/providers/new')}>
-            Add your first provider
+            Добавить провайдера
           </Button>
         </div>
       )}
