@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/mail"
 	"os"
 	"strings"
 
@@ -248,6 +249,10 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email == "" {
 		respondError(w, shared.ErrInvalidInput("Поле email обязательно"))
+		return
+	}
+	if _, err := mail.ParseAddress(req.Email); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат email"))
 		return
 	}
 	if len(req.Password) < 8 {
