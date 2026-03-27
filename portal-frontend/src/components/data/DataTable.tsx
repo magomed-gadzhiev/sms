@@ -24,7 +24,8 @@ interface DataTableProps<T> {
   keyField?: string;
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function DataTable<T extends Record<string, any>>({
   columns, data, total, page, pageSize, onPageChange,
   sortBy, sortDir, onSort, loading, onRowClick, rowActions, keyField = 'id',
 }: DataTableProps<T>) {
