@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -76,6 +77,15 @@ func (h *WebhookHandlers) CreateWebhook(w http.ResponseWriter, r *http.Request) 
 		respondError(w, shared.ErrInvalidInput("url обязателен"))
 		return
 	}
+	parsedURL, parseErr := url.Parse(req.URL)
+	if parseErr != nil || parsedURL.Host == "" {
+		respondError(w, shared.ErrInvalidInput("Неверный формат URL"))
+		return
+	}
+	if parsedURL.Scheme != "https" {
+		respondError(w, shared.ErrInvalidInput("URL должен использовать HTTPS"))
+		return
+	}
 	if len(req.EventTypes) == 0 {
 		respondError(w, shared.ErrInvalidInput("event_types обязателен"))
 		return
@@ -128,6 +138,18 @@ func (h *WebhookHandlers) UpdateWebhook(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
+	}
+
+	if req.URL != "" {
+		parsedURL, parseErr := url.Parse(req.URL)
+		if parseErr != nil || parsedURL.Host == "" {
+			respondError(w, shared.ErrInvalidInput("Неверный формат URL"))
+			return
+		}
+		if parsedURL.Scheme != "https" {
+			respondError(w, shared.ErrInvalidInput("URL должен использовать HTTPS"))
+			return
+		}
 	}
 
 	grpcReq := &webhookv1.UpdateSubscriptionRequest{
