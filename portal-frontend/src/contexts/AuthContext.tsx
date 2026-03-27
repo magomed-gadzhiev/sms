@@ -62,8 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authApi.logout();
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 401)) throw e;
+    } finally {
+      setUser(null);
     }
-    setUser(null);
   }, []);
 
   const role: UserRole = (user?.role as UserRole) || 'client';
