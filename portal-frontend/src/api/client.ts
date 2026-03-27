@@ -72,6 +72,11 @@ export const profileApi = {
   get: () => apiFetch<ProfileData>('/profile'),
   update: (data: { contact_person?: string; phone?: string }) =>
     apiFetch<ProfileData>('/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  toggleSandbox: (enable: boolean) =>
+    apiFetch<{ is_sandbox: boolean }>('/profile/sandbox', {
+      method: 'PUT',
+      body: JSON.stringify({ enable }),
+    }),
   setupTOTP: () =>
     apiFetch<{ secret: string; qr_code_url: string }>('/profile/2fa/setup', { method: 'POST' }),
   verifyTOTP: (code: string) =>
@@ -90,6 +95,7 @@ export interface ProfileData {
   contact_person: string;
   phone: string;
   totp_enabled: boolean;
+  is_sandbox?: boolean;
   role?: 'client' | 'admin' | 'superadmin';
 }
 

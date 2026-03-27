@@ -86,6 +86,7 @@ func SetupRouter(
 	profile.HandleFunc("", profileHandlers.GetProfile).Methods("GET")
 	profile.HandleFunc("", profileHandlers.UpdateProfile).Methods("PUT")
 	profile.HandleFunc("/password", notImplemented).Methods("PUT")
+	profile.HandleFunc("/sandbox", profileHandlers.ToggleSandbox).Methods("PUT")
 	profile.HandleFunc("/2fa/setup", profileHandlers.SetupTOTP).Methods("POST")
 	profile.HandleFunc("/2fa/verify", profileHandlers.VerifyTOTP).Methods("POST")
 	profile.HandleFunc("/2fa", profileHandlers.DisableTOTP).Methods("DELETE")

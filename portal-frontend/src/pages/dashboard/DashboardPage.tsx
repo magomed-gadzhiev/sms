@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardApi } from '../../api/client';
+import { dashboardApi, profileApi, ProfileData } from '../../api/client';
 
 interface DashboardData {
   balance: string;
@@ -14,16 +14,32 @@ interface DashboardData {
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sandboxToggling, setSandboxToggling] = useState(false);
 
   useEffect(() => {
-    dashboardApi
-      .get()
-      .then((resp) => setData(resp as DashboardData))
+    Promise.all([
+      dashboardApi.get().then((resp) => setData(resp as DashboardData)),
+      profileApi.get().then((resp) => setProfile(resp)),
+    ])
       .catch((err) => setError(err.message || 'Failed to load dashboard'))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDisableSandbox = async () => {
+    setSandboxToggling(true);
+    try {
+      const resp = await profileApi.toggleSandbox(false);
+      setProfile((prev) => prev ? { ...prev, is_sandbox: resp.is_sandbox } : prev);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Ошибка переключения режима';
+      setError(msg);
+    } finally {
+      setSandboxToggling(false);
+    }
+  };
 
   if (loading) return <div role="status">Loading dashboard...</div>;
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
@@ -40,6 +56,39 @@ export function DashboardPage() {
 
   return (
     <div>
+      {profile?.is_sandbox && (
+        <div
+          role="alert"
+          style={{
+            background: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
+          <span style={{ fontWeight: 500 }}>Sandbox Mode — SMS не отправляются реально</span>
+          <button
+            onClick={handleDisableSandbox}
+            disabled={sandboxToggling}
+            style={{
+              background: '#ffc107',
+              border: 'none',
+              borderRadius: 6,
+              padding: '6px 14px',
+              cursor: sandboxToggling ? 'not-allowed' : 'pointer',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {sandboxToggling ? 'Переключение...' : 'Перейти в Production'}
+          </button>
+        </div>
+      )}
       <h2>Dashboard</h2>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
         {cards.map((card) => {

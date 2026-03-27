@@ -63,12 +63,13 @@ func (h *ProfileHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Формируем ответ на основе данных из контекста сессии
 	response := map[string]interface{}{
-		"id":           userID.String(),
-		"email":        "",
-		"company_name": "",
+		"id":             userID.String(),
+		"email":          "",
+		"company_name":   "",
 		"contact_person": "",
-		"phone":        "",
-		"totp_enabled": false,
+		"phone":          "",
+		"totp_enabled":   false,
+		"is_sandbox":     false,
 	}
 
 	// Пытаемся получить данные пользователя через ValidateSession
@@ -98,12 +99,47 @@ func (h *ProfileHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 			response["email"] = clientResp.Client.Email
 			response["contact_person"] = clientResp.Client.ContactPerson
 			response["phone"] = clientResp.Client.Phone
+			response["is_sandbox"] = clientResp.Client.IsSandbox
 		} else {
 			log.Warn().Err(err).Str("client_id", clientID.String()).Msg("клиент не найден, продолжаем без данных клиента")
 		}
 	}
 
 	respondJSON(w, http.StatusOK, response)
+}
+
+// toggleSandboxRequest представляет запрос на переключение sandbox-режима
+type toggleSandboxRequest struct {
+	Enable bool `json:"enable"`
+}
+
+// ToggleSandbox обрабатывает PUT /profile/sandbox
+func (h *ProfileHandlers) ToggleSandbox(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	var req toggleSandboxRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	resp, err := h.clientClient.ToggleSandbox(r.Context(), &clientv1.ToggleSandboxRequest{
+		ClientId: clientID.String(),
+		Enable:   req.Enable,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("ошибка переключения sandbox-режима")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"is_sandbox": resp.IsSandbox,
+	})
 }
 
 // UpdateProfile обрабатывает PUT /profile
