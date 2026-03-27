@@ -1,10 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { profileApi, ApiError, type ProfileData } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
 export function ProfilePage() {
+  const { refreshUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
@@ -35,6 +37,7 @@ export function ProfilePage() {
     try {
       const updated = await profileApi.update({ contact_person: contactPerson, phone });
       setProfile(updated);
+      await refreshUser();
       setSaveMsg('Profile updated');
       setSaveIsError(false);
     } catch (err) {
