@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
+	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/internal/services/auth/application"
 	"github.com/smpp-server/smpp-server/internal/services/auth/domain"
 	authinfra "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure"
@@ -27,6 +29,8 @@ type Server struct {
 	sessionManager       *authinfra.SessionManager
 	userRepo             *authrepo.UserRepository
 	roleRepo             *authrepo.RoleRepository
+	passwordHasher       *authinfra.PasswordHasherImpl
+	clientService        clientv1.ClientServiceClient
 }
 
 // NewServer создает новый gRPC сервер для Auth Service
@@ -38,6 +42,8 @@ func NewServer(
 	sessionManager *authinfra.SessionManager,
 	userRepo *authrepo.UserRepository,
 	roleRepo *authrepo.RoleRepository,
+	passwordHasher *authinfra.PasswordHasherImpl,
+	clientService clientv1.ClientServiceClient,
 ) *Server {
 	return &Server{
 		authService:          authService,
@@ -47,6 +53,8 @@ func NewServer(
 		sessionManager:       sessionManager,
 		userRepo:             userRepo,
 		roleRepo:             roleRepo,
+		passwordHasher:       passwordHasher,
+		clientService:        clientService,
 	}
 }
 
@@ -607,6 +615,124 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 
 	return &authv1.LogoutResponse{
 		Success: true,
+	}, nil
+}
+
+// RegisterClient регистрирует нового клиента (public self-service)
+func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientRequest) (*authv1.RegisterClientResponse, error) {
+	// Валидация входных данных
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+	if req.Password == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+	if req.CompanyName == "" {
+		return nil, status.Error(codes.InvalidArgument, "company_name is required")
+	}
+
+	// Проверяем, что email не занят
+	_, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err == nil {
+		return nil, status.Error(codes.AlreadyExists, "email already registered")
+	}
+	if err != authrepo.ErrUserNotFound {
+		log.Error().Err(err).Msg("ошибка проверки email при регистрации")
+		return nil, status.Error(codes.Internal, "registration failed")
+	}
+
+	// Создаем клиента через client service
+	createClientResp, err := s.clientService.CreateClient(ctx, &clientv1.CreateClientRequest{
+		Name:          req.CompanyName,
+		Email:         req.Email,
+		ContactPerson: req.ContactPerson,
+		Phone:         req.Phone,
+		Active:        true,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка создания клиента при регистрации")
+		return nil, status.Error(codes.Internal, "failed to create client")
+	}
+	clientID := createClientResp.ClientId
+
+	// Назначаем тарифный план, если указан
+	if req.PlanName != "" {
+		// Получаем список планов, чтобы найти ID по имени
+		plansResp, err := s.clientService.ListPlans(ctx, &clientv1.ListPlansRequest{})
+		if err != nil {
+			log.Warn().Err(err).Msg("не удалось получить список планов при регистрации, пропускаем назначение плана")
+		} else {
+			planName := strings.ToLower(req.PlanName)
+			for _, plan := range plansResp.Plans {
+				if strings.ToLower(plan.Name) == planName {
+					_, assignErr := s.clientService.AssignPlan(ctx, &clientv1.AssignPlanRequest{
+						ClientId: clientID,
+						PlanId:   plan.Id,
+					})
+					if assignErr != nil {
+						log.Warn().Err(assignErr).Str("plan", req.PlanName).Msg("не удалось назначить план клиенту")
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Хешируем пароль
+	passwordHash, err := s.passwordHasher.HashPassword(req.Password)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка хеширования пароля при регистрации")
+		return nil, status.Error(codes.Internal, "registration failed")
+	}
+
+	// Получаем роль "client"
+	clientRole, err := s.roleRepo.GetByName(ctx, "client")
+	if err != nil {
+		log.Error().Err(err).Msg("роль 'client' не найдена при регистрации")
+		return nil, status.Error(codes.Internal, "registration failed")
+	}
+
+	// Создаем пользователя
+	now := time.Now()
+	// Используем email как username (уникально)
+	username := req.Email
+	user := &domain.User{
+		ID:           uuid.New(),
+		Username:     username,
+		Email:        req.Email,
+		PasswordHash: passwordHash,
+		RoleID:       clientRole.ID,
+		Active:       true,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	user.Role = clientRole
+
+	if err := s.userRepo.Create(ctx, user); err != nil {
+		log.Error().Err(err).Msg("ошибка создания пользователя при регистрации")
+		return nil, status.Error(codes.Internal, "registration failed")
+	}
+
+	// Создаем сессию (авто-логин)
+	clientUUID, err := uuid.Parse(clientID)
+	if err != nil {
+		// Если не удалось распарсить clientID — используем Nil, не критично
+		clientUUID = uuid.Nil
+	}
+
+	sessionID, err := s.sessionManager.CreateSession(
+		ctx, user.ID, clientUUID, clientRole.Name, "", "",
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка создания сессии при регистрации")
+		return nil, status.Error(codes.Internal, "registration failed")
+	}
+
+	return &authv1.RegisterClientResponse{
+		ClientId:  clientID,
+		UserId:    user.ID.String(),
+		SessionId: sessionID,
+		User:      s.domainUserToProto(user),
 	}, nil
 }
 
