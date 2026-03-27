@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -301,9 +303,16 @@ func setSessionCookies(w http.ResponseWriter, sessionID string) {
 		SameSite: sameSite,
 	})
 
+	// Generate a separate random CSRF token (not linked to session ID)
+	csrfBytes := make([]byte, 32)
+	if _, err := rand.Read(csrfBytes); err != nil {
+		csrfBytes = make([]byte, 32)
+	}
+	csrfToken := hex.EncodeToString(csrfBytes)
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
-		Value:    sessionID,
+		Value:    csrfToken,
 		Path:     "/",
 		MaxAge:   86400,
 		HttpOnly: false,
