@@ -62,6 +62,7 @@ message CreateClientRequest {
   string phone = 4;               // Телефон (опционально)
   bool active = 5;                // Активен ли клиент
   map<string, string> metadata = 6;  // Дополнительные метаданные
+  bool is_sandbox = 7;            // Sandbox-режим (SMS идут на фиктивный провайдер)
 }
 
 // CreateClientResponse представляет ответ на создание клиента
@@ -185,6 +186,7 @@ message ClientInfo {
   SubscriptionPlan plan = 15;       // Тарифный план (опционально, при запросе)
   int32 monthly_sms_count = 16;     // Количество SMS за текущий месяц
   string monthly_sms_reset_at = 17; // Дата сброса счётчика SMS
+  bool is_sandbox = 18;             // Sandbox-режим (SMS идут на фиктивный провайдер)
 }
 
 // ClientConfig представляет конфигурацию клиента

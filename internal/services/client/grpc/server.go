@@ -51,6 +51,7 @@ func (s *Server) CreateClient(ctx context.Context, req *clientv1.CreateClientReq
 		req.ContactPerson,
 		req.Phone,
 		req.Active,
+		req.IsSandbox,
 		metadata,
 	)
 	if err != nil {
@@ -548,6 +549,7 @@ func (s *Server) domainClientToProto(client *domain.Client) *clientv1.ClientInfo
 		UpdatedAt:      timestamppb.New(client.UpdatedAt),
 		IsReseller:     client.IsReseller,
 		MaxSubAccounts: int32(client.MaxSubAccounts),
+		IsSandbox:      client.IsSandbox,
 	}
 
 	if client.ParentClientID != nil {

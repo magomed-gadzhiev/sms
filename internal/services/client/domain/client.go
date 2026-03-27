@@ -27,6 +27,7 @@ type Client struct {
 	PlanID            uuid.UUID `json:"plan_id" db:"plan_id"`
 	MonthlySMSCount   int       `json:"monthly_sms_count" db:"monthly_sms_count"`
 	MonthlySMSResetAt time.Time `json:"monthly_sms_reset_at" db:"monthly_sms_reset_at"`
+	IsSandbox         bool      `json:"is_sandbox" db:"is_sandbox"`
 
 	// Связи
 	Config *ClientConfig `json:"config,omitempty" db:"-"`

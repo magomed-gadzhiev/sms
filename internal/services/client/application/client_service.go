@@ -58,6 +58,7 @@ func (s *ClientService) CreateClient(
 	ctx context.Context,
 	name, email, contactPerson, phone string,
 	active bool,
+	isSandbox bool,
 	metadata map[string]string,
 ) (*domain.Client, error) {
 	// Валидация
@@ -73,6 +74,7 @@ func (s *ClientService) CreateClient(
 		ContactPerson: contactPerson,
 		Phone:         phone,
 		Active:        active,
+		IsSandbox:     isSandbox,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}

@@ -35,9 +35,9 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 	query := `
 		INSERT INTO clients (
 			id, name, email, contact_person, phone, active, metadata,
-			parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
+			parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		)
 	`
 
@@ -45,6 +45,7 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
 		client.Active, client.Metadata,
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
+		client.IsSandbox,
 		client.CreatedAt, client.UpdatedAt,
 	)
 
@@ -61,6 +62,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 	query := `SELECT c.id, c.name, c.email, c.contact_person, c.phone, c.active,
 		c.metadata, c.created_at, c.updated_at, c.parent_client_id, c.is_reseller,
 		c.max_sub_accounts, c.plan_id, c.monthly_sms_count, c.monthly_sms_reset_at,
+		c.is_sandbox,
 		p.id, p.name, p.display_name, p.monthly_price_rub, p.max_sms_per_month,
 		p.max_smpp_connections, p.max_users, p.rate_limit_per_second, p.rate_limit_per_minute,
 		p.rate_limit_per_hour, p.rate_limit_per_day, p.features, p.active
@@ -76,7 +78,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 		&client.Phone, &client.Active, &client.Metadata, &client.CreatedAt,
 		&client.UpdatedAt, &client.ParentClientID, &client.IsReseller,
 		&client.MaxSubAccounts, &client.PlanID, &client.MonthlySMSCount,
-		&client.MonthlySMSResetAt,
+		&client.MonthlySMSResetAt, &client.IsSandbox,
 		&plan.ID, &plan.Name, &plan.DisplayName, &plan.MonthlyPriceRub,
 		&plan.MaxSMSPerMonth, &plan.MaxSMPPConnections, &plan.MaxUsers,
 		&plan.RateLimitPerSecond, &plan.RateLimitPerMinute,
@@ -103,7 +105,7 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 			name = $2, email = $3, contact_person = $4, phone = $5,
 			active = $6, metadata = $7,
 			parent_client_id = $8, is_reseller = $9, max_sub_accounts = $10,
-			updated_at = $11
+			is_sandbox = $11, updated_at = $12
 		WHERE id = $1
 	`
 
@@ -111,7 +113,7 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 		client.ID, client.Name, client.Email, client.ContactPerson, client.Phone,
 		client.Active, client.Metadata,
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
-		client.UpdatedAt,
+		client.IsSandbox, client.UpdatedAt,
 	)
 
 	if err != nil {
@@ -201,7 +203,7 @@ func (r *ClientRepository) List(ctx context.Context, activeOnly bool, search str
 	// Базовый запрос для получения клиентов
 	baseQuery := `
 		SELECT id, name, email, contact_person, phone, active, metadata,
-		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
+		       parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
 		FROM clients
 		WHERE 1=1
 	`
