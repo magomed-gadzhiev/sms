@@ -29,6 +29,7 @@ func SetupRouter(
 	loggingMiddleware func(http.Handler) http.Handler,
 	recoveryMiddleware func(http.Handler) http.Handler,
 	corsMiddleware func(http.Handler) http.Handler,
+	tenantLoggerMiddleware func(http.Handler) http.Handler,
 	authHandlers *handlers.AuthHandlers,
 	profileHandlers *handlers.ProfileHandlers,
 	dashboardHandlers *handlers.DashboardHandlers,
@@ -72,6 +73,7 @@ func SetupRouter(
 	// === Защищённые маршруты (с session auth + csrf) ===
 	protected := portalV1.PathPrefix("").Subrouter()
 	protected.Use(sessionAuthMiddleware)
+	protected.Use(tenantLoggerMiddleware)
 	protected.Use(csrfMiddleware)
 
 	// Profile endpoints

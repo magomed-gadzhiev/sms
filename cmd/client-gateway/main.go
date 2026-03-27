@@ -130,6 +130,7 @@ func main() {
 	corsMiddleware := clientmiddleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
 	rateLimitMiddleware := middleware.RateLimitMiddleware(redisClient)
 	quotaMiddleware := middleware.QuotaMiddleware
+	tenantLoggerMiddleware := clientmiddleware.TenantLoggerMiddleware(logger)
 
 	// Настройка HTTP роутера
 	router := clientrouter.SetupRouter(
@@ -145,6 +146,7 @@ func main() {
 		corsMiddleware,
 		rateLimitMiddleware,
 		quotaMiddleware,
+		tenantLoggerMiddleware,
 	)
 
 	// Добавляем Prometheus metrics endpoint

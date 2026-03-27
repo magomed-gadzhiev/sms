@@ -102,6 +102,7 @@ func main() {
 	loggingMw := middleware.LoggingMiddleware(logger)
 	recoveryMw := middleware.RecoveryMiddleware()
 	corsMw := middleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	tenantLoggerMw := middleware.TenantLoggerMiddleware(logger)
 
 	// Создание Kafka producer для audit events
 	kafkaBrokers := getEnvOrDefault("KAFKA_BROKERS", "localhost:9092")
@@ -154,6 +155,7 @@ func main() {
 		loggingMw,
 		recoveryMw,
 		corsMw,
+		tenantLoggerMw,
 		authHandlers,
 		profileHandlers,
 		dashboardHandlers,

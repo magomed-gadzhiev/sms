@@ -23,6 +23,7 @@ func SetupRouter(
 	corsMiddleware func(http.Handler) http.Handler,
 	rateLimitMiddleware func(http.Handler) http.Handler,
 	quotaMiddleware func(http.Handler) http.Handler,
+	tenantLoggerMiddleware func(http.Handler) http.Handler,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -31,6 +32,7 @@ func SetupRouter(
 	router.Use(loggingMiddleware)
 	router.Use(corsMiddleware)
 	router.Use(authMiddleware)
+	router.Use(tenantLoggerMiddleware)
 	router.Use(rateLimitMiddleware)
 	router.Use(quotaMiddleware)
 
