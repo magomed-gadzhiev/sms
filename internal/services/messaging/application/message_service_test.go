@@ -27,28 +27,13 @@ func newTestMessageService() (*MessageService, *mocks.MockMessageRepository, *mo
 
 func TestMessageService(t *testing.T) {
 	t.Run("SendMessage", func(t *testing.T) {
-		t.Run("valid message creates with PENDING status and publishes events", func(t *testing.T) {
+		t.Run("valid message publishes to Kafka without DB write", func(t *testing.T) {
 			svc, msgRepo, _, publisher := newTestMessageService()
 			ctx := context.Background()
 			clientID := uuid.New()
 
-			// Ожидаем Create — сообщение должно сохраниться со статусом pending
-			msgRepo.On("Create", ctx, mock.MatchedBy(func(msg *domain.Message) bool {
-				return msg.Source == "TestSender" &&
-					msg.Destination == "+79001234567" &&
-					msg.Text == "Hello, World!" &&
-					msg.Status == shared.MessageStatusPending &&
-					msg.ClientID != nil && *msg.ClientID == clientID
-			})).Return(nil)
-
-			// Ожидаем PublishMessageCreated
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-
-			// Ожидаем PublishMessageQueued
+			// Non-scheduled: no DB writes, only PublishMessageQueued
 			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-
-			// Ожидаем UpdateStatus на queued
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil)
 
 			msg, err := svc.SendMessage(ctx, clientID, "TestSender", "+79001234567", "Hello, World!", nil)
 
@@ -62,7 +47,9 @@ func TestMessageService(t *testing.T) {
 			assert.Equal(t, shared.MessageEncodingGSM7, msg.Encoding)
 			assert.Equal(t, 1, msg.SegmentCount)
 
-			msgRepo.AssertExpectations(t)
+			msgRepo.AssertNotCalled(t, "Create")
+			msgRepo.AssertNotCalled(t, "UpdateStatus")
+			publisher.AssertNotCalled(t, "PublishMessageCreated")
 			publisher.AssertExpectations(t)
 		})
 
@@ -80,16 +67,7 @@ func TestMessageService(t *testing.T) {
 				MaxRetries:         10,
 			}
 
-			msgRepo.On("Create", ctx, mock.MatchedBy(func(msg *domain.Message) bool {
-				return msg.ExternalID == "ext-123" &&
-					msg.PriorityFlag == 2 &&
-					msg.RegisteredDelivery == 1 &&
-					msg.ServiceType == "transactional" &&
-					msg.MaxRetries == 10
-			})).Return(nil)
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
 			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil)
 
 			msg, err := svc.SendMessage(ctx, clientID, "Sender", "+79001234567", "Test message", options)
 
@@ -101,7 +79,9 @@ func TestMessageService(t *testing.T) {
 			assert.Equal(t, "transactional", msg.ServiceType)
 			assert.Equal(t, 10, msg.MaxRetries)
 
-			msgRepo.AssertExpectations(t)
+			msgRepo.AssertNotCalled(t, "Create")
+			msgRepo.AssertNotCalled(t, "UpdateStatus")
+			publisher.AssertNotCalled(t, "PublishMessageCreated")
 			publisher.AssertExpectations(t)
 		})
 
@@ -154,36 +134,13 @@ func TestMessageService(t *testing.T) {
 			msgRepo.AssertNotCalled(t, "Create")
 		})
 
-		t.Run("repository Create error returns error", func(t *testing.T) {
+		t.Run("PublishMessageQueued error returns error without DB write", func(t *testing.T) {
 			svc, msgRepo, _, publisher := newTestMessageService()
 			ctx := context.Background()
 			clientID := uuid.New()
 
-			msgRepo.On("Create", ctx, mock.AnythingOfType("*domain.Message")).
-				Return(errors.New("db connection lost"))
-
-			msg, err := svc.SendMessage(ctx, clientID, "Sender", "+79001234567", "Hello", nil)
-
-			require.Error(t, err)
-			assert.Nil(t, msg)
-			assert.Contains(t, err.Error(), "failed to create message")
-
-			publisher.AssertNotCalled(t, "PublishMessageCreated")
-			publisher.AssertNotCalled(t, "PublishMessageQueued")
-			msgRepo.AssertExpectations(t)
-		})
-
-		t.Run("PublishMessageQueued error marks message as failed", func(t *testing.T) {
-			svc, msgRepo, _, publisher := newTestMessageService()
-			ctx := context.Background()
-			clientID := uuid.New()
-
-			msgRepo.On("Create", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
 			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).
 				Return(errors.New("kafka unavailable"))
-			// Ожидаем UpdateStatus с failed
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "failed", "failed to publish to queue").Return(nil)
 
 			msg, err := svc.SendMessage(ctx, clientID, "Sender", "+79001234567", "Hello", nil)
 
@@ -191,21 +148,18 @@ func TestMessageService(t *testing.T) {
 			assert.Nil(t, msg)
 			assert.Contains(t, err.Error(), "failed to publish message to queue")
 
-			msgRepo.AssertExpectations(t)
+			msgRepo.AssertNotCalled(t, "Create")
+			msgRepo.AssertNotCalled(t, "UpdateStatus")
 			publisher.AssertExpectations(t)
 		})
+
 
 		t.Run("UCS2 encoding detected for non-ASCII text", func(t *testing.T) {
 			svc, msgRepo, _, publisher := newTestMessageService()
 			ctx := context.Background()
 			clientID := uuid.New()
 
-			msgRepo.On("Create", ctx, mock.MatchedBy(func(msg *domain.Message) bool {
-				return msg.Encoding == shared.MessageEncodingUCS2
-			})).Return(nil)
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
 			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil)
 
 			msg, err := svc.SendMessage(ctx, clientID, "Sender", "+79001234567", "Привет мир!", nil)
 
@@ -213,7 +167,9 @@ func TestMessageService(t *testing.T) {
 			require.NotNil(t, msg)
 			assert.Equal(t, shared.MessageEncodingUCS2, msg.Encoding)
 
-			msgRepo.AssertExpectations(t)
+			msgRepo.AssertNotCalled(t, "Create")
+			msgRepo.AssertNotCalled(t, "UpdateStatus")
+			publisher.AssertNotCalled(t, "PublishMessageCreated")
 			publisher.AssertExpectations(t)
 		})
 
@@ -277,26 +233,6 @@ func TestMessageService(t *testing.T) {
 			publisher.AssertNotCalled(t, "PublishMessageQueued")
 		})
 
-		t.Run("PublishMessageCreated failure continues to queue", func(t *testing.T) {
-			svc, msgRepo, _, publisher := newTestMessageService()
-			ctx := context.Background()
-			clientID := uuid.New()
-
-			msgRepo.On("Create", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).
-				Return(errors.New("kafka down"))
-			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).Return(nil)
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil)
-
-			msg, err := svc.SendMessage(ctx, clientID, "Sender", "+79001234567", "Hello", nil)
-
-			require.NoError(t, err)
-			require.NotNil(t, msg)
-			assert.Equal(t, shared.MessageStatusQueued, msg.Status)
-
-			msgRepo.AssertExpectations(t)
-			publisher.AssertExpectations(t)
-		})
 	})
 
 	t.Run("GetMessageStatus", func(t *testing.T) {
@@ -694,11 +630,8 @@ func TestMessageService(t *testing.T) {
 				{Source: "Sender", Destination: "+79002345678", Text: "Message 2"},
 			}
 
-			// Два вызова Create
-			msgRepo.On("Create", ctx, mock.AnythingOfType("*domain.Message")).Return(nil).Times(2)
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).Return(nil).Times(2)
+			// Non-scheduled: only PublishMessageQueued, no DB writes
 			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).Return(nil).Times(2)
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil).Times(2)
 
 			results, err := svc.SendBatch(ctx, clientID, requests, nil)
 
@@ -709,7 +642,9 @@ func TestMessageService(t *testing.T) {
 			assert.NotEqual(t, uuid.Nil, results[0].MessageID)
 			assert.NotEqual(t, uuid.Nil, results[1].MessageID)
 
-			msgRepo.AssertExpectations(t)
+			msgRepo.AssertNotCalled(t, "Create")
+			msgRepo.AssertNotCalled(t, "UpdateStatus")
+			publisher.AssertNotCalled(t, "PublishMessageCreated")
 			publisher.AssertExpectations(t)
 		})
 
@@ -740,11 +675,8 @@ func TestMessageService(t *testing.T) {
 				{Source: "Sender", Destination: "+79002345678", Text: "Good msg"}, // Валидный
 			}
 
-			// Только второе сообщение дойдёт до Create
-			msgRepo.On("Create", ctx, mock.AnythingOfType("*domain.Message")).Return(nil).Once()
-			publisher.On("PublishMessageCreated", ctx, mock.AnythingOfType("*domain.Message")).Return(nil).Once()
+			// Only second message reaches PublishMessageQueued; no DB writes
 			publisher.On("PublishMessageQueued", ctx, mock.AnythingOfType("*domain.Message")).Return(nil).Once()
-			msgRepo.On("UpdateStatus", ctx, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil).Once()
 
 			results, err := svc.SendBatch(ctx, clientID, requests, nil)
 
@@ -754,7 +686,9 @@ func TestMessageService(t *testing.T) {
 			assert.Contains(t, results[0].Error, "validation failed")
 			assert.True(t, results[1].Success)
 
-			msgRepo.AssertExpectations(t)
+			msgRepo.AssertNotCalled(t, "Create")
+			msgRepo.AssertNotCalled(t, "UpdateStatus")
+			publisher.AssertNotCalled(t, "PublishMessageCreated")
 			publisher.AssertExpectations(t)
 		})
 	})

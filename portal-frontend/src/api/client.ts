@@ -78,6 +78,7 @@ export interface ProfileData {
   contact_person: string;
   phone: string;
   totp_enabled: boolean;
+  role?: 'client' | 'admin' | 'superadmin';
 }
 
 // Dashboard API

@@ -23,7 +23,7 @@ const (
 // ClientAuthMiddleware создает middleware для аутентификации клиентов
 // LOAD TEST MODE: авторизация отключена для нагрузочного тестирования
 func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
-	dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	dummyID := uuid.MustParse("c0000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()

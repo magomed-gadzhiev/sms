@@ -84,10 +84,8 @@ func (h *ProfileHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Если есть роль admin — не требуем запись клиента
-	if role == "admin" {
-		response["role"] = "admin"
-	}
+	// Всегда возвращаем роль пользователя
+	response["role"] = role
 
 	// Получаем информацию о клиенте (если clientID валидный)
 	nilUUID := [16]byte{}

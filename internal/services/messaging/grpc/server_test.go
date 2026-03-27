@@ -185,10 +185,8 @@ func TestMessagingServer_SendMessage(t *testing.T) {
 
 		clientID := uuid.New()
 
-		msgRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Message")).Return(nil)
-		pub.On("PublishMessageCreated", mock.Anything, mock.AnythingOfType("*domain.Message")).Return(nil)
+		// Non-scheduled: no DB writes, only PublishMessageQueued
 		pub.On("PublishMessageQueued", mock.Anything, mock.AnythingOfType("*domain.Message")).Return(nil)
-		msgRepo.On("UpdateStatus", mock.Anything, mock.AnythingOfType("uuid.UUID"), "queued", "").Return(nil)
 
 		resp, err := srv.SendMessage(context.Background(), &messagingv1.SendMessageRequest{
 			Source:      "TestSender",
@@ -308,13 +306,13 @@ func TestMessagingServer_SendMessage(t *testing.T) {
 		assert.Equal(t, codes.InvalidArgument, st.Code())
 	})
 
-	t.Run("repository error returns Internal", func(t *testing.T) {
+	t.Run("kafka error returns Internal", func(t *testing.T) {
 		msgRepo := new(mockMessageRepo)
 		dlrRepo := new(mockDLRRepo)
 		pub := new(mockEventPublisher)
 		srv := newTestMessagingServer(msgRepo, dlrRepo, pub)
 
-		msgRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Message")).Return(errors.New("db error"))
+		pub.On("PublishMessageQueued", mock.Anything, mock.AnythingOfType("*domain.Message")).Return(errors.New("kafka unavailable"))
 
 		resp, err := srv.SendMessage(context.Background(), &messagingv1.SendMessageRequest{
 			Source:      "TestSender",

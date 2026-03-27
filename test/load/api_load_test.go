@@ -9,8 +9,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/IBM/sarama"
+	"github.com/google/uuid"
+	"github.com/smpp-server/smpp-server/internal/queue"
 )
 
 // getEnv возвращает значение переменной окружения или значение по умолчанию
@@ -482,6 +488,137 @@ func TestAPIGateway_GetStatus_Load(t *testing.T) {
 	t.Logf("  Failed: %d", failureCount)
 	t.Logf("  Duration: %v", duration)
 	t.Logf("  Throughput: %.2f req/s", throughput)
+}
+
+// BenchmarkBatchAPIAsyncProducer сравнивает sync vs async публикацию
+// батча из 1000 сообщений в Kafka.
+func BenchmarkBatchAPIAsyncProducer(b *testing.B) {
+	brokers := []string{"localhost:9092"}
+	if br := os.Getenv("KAFKA_BROKERS"); br != "" {
+		brokers = strings.Split(br, ",")
+	}
+
+	const (
+		batchSize = 1000
+		topic     = "sms.outgoing"
+	)
+
+	// Подготовим батч сообщений один раз
+	messages := make([]*sarama.ProducerMessage, batchSize)
+	for i := 0; i < batchSize; i++ {
+		msg := &queue.KafkaMessage{
+			ID:          fmt.Sprintf("bench-%d", i),
+			MessageID:   uuid.New(),
+			Source:      "+79001234567",
+			Destination: fmt.Sprintf("+7900%07d", i),
+			Text:        "Benchmark test message",
+			Priority:    0,
+			RetryCount:  0,
+			MaxRetries:  3,
+			CreatedAt:   time.Now(),
+		}
+		data, err := msg.Serialize()
+		if err != nil {
+			b.Fatalf("failed to serialize message %d: %v", i, err)
+		}
+		messages[i] = &sarama.ProducerMessage{
+			Topic: topic,
+			Key:   sarama.StringEncoder(msg.MessageID.String()),
+			Value: sarama.ByteEncoder(data),
+		}
+	}
+
+	b.Run("SyncProducer", func(b *testing.B) {
+		config := sarama.NewConfig()
+		config.Producer.Return.Successes = true
+		config.Producer.RequiredAcks = sarama.WaitForAll
+		config.Producer.Compression = sarama.CompressionSnappy
+
+		producer, err := sarama.NewSyncProducer(brokers, config)
+		if err != nil {
+			b.Fatalf("failed to create sync producer: %v", err)
+		}
+		defer producer.Close()
+
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			for _, msg := range messages {
+				// Создаём копию, т.к. sarama может мутировать сообщение
+				m := &sarama.ProducerMessage{
+					Topic: msg.Topic,
+					Key:   msg.Key,
+					Value: msg.Value,
+				}
+				if _, _, err := producer.SendMessage(m); err != nil {
+					b.Fatalf("sync send error: %v", err)
+				}
+			}
+		}
+		b.StopTimer()
+		b.ReportMetric(float64(batchSize*b.N)/b.Elapsed().Seconds(), "msg/sec")
+	})
+
+	b.Run("AsyncProducer", func(b *testing.B) {
+		config := sarama.NewConfig()
+		config.Producer.Return.Successes = true
+		config.Producer.Return.Errors = true
+		config.Producer.Flush.Messages = 500
+		config.Producer.Flush.Frequency = 10 * time.Millisecond
+		config.Producer.Compression = sarama.CompressionSnappy
+		config.Producer.RequiredAcks = sarama.WaitForLocal
+
+		producer, err := sarama.NewAsyncProducer(brokers, config)
+		if err != nil {
+			b.Fatalf("failed to create async producer: %v", err)
+		}
+		defer producer.AsyncClose()
+
+		var successCount int64
+		var errorCount int64
+
+		go func() {
+			for range producer.Successes() {
+				atomic.AddInt64(&successCount, 1)
+			}
+		}()
+		go func() {
+			for range producer.Errors() {
+				atomic.AddInt64(&errorCount, 1)
+			}
+		}()
+
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			atomic.StoreInt64(&successCount, 0)
+			atomic.StoreInt64(&errorCount, 0)
+
+			for _, msg := range messages {
+				m := &sarama.ProducerMessage{
+					Topic: msg.Topic,
+					Key:   msg.Key,
+					Value: msg.Value,
+				}
+				producer.Input() <- m
+			}
+
+			// Ждём, пока все acks вернутся
+			deadline := time.After(30 * time.Second)
+			for {
+				acked := atomic.LoadInt64(&successCount) + atomic.LoadInt64(&errorCount)
+				if acked >= int64(batchSize) {
+					break
+				}
+				select {
+				case <-deadline:
+					b.Fatalf("timeout waiting for acks: got %d/%d", acked, batchSize)
+				default:
+					time.Sleep(1 * time.Millisecond)
+				}
+			}
+		}
+		b.StopTimer()
+		b.ReportMetric(float64(batchSize*b.N)/b.Elapsed().Seconds(), "msg/sec")
+	})
 }
 
 // TestAPIGateway_MixedLoad смешанная нагрузка на все эндпоинты

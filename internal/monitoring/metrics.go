@@ -1,8 +1,14 @@
 package monitoring
 
 import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/IBM/sarama"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -229,4 +235,135 @@ var (
 		},
 		[]string{"operation"},
 	)
+
+	// Pipeline metrics
+	PipelineMessagesProcessed = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "pipeline_messages_processed_total",
+			Help: "Общее количество обработанных сообщений pipeline",
+		},
+		[]string{"stage", "status"},
+	)
+
+	PipelineProcessingDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "pipeline_processing_duration_seconds",
+			Help:    "Длительность обработки сообщений pipeline в секундах",
+			Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1},
+		},
+		[]string{"stage"},
+	)
+
+	PipelineBatchSize = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "pipeline_batch_size",
+			Help:    "Размер batch в pipeline",
+			Buckets: []float64{1, 10, 50, 100, 200, 500, 1000, 2000, 5000},
+		},
+		[]string{"stage"},
+	)
+
+	PipelineQueueDepth = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pipeline_queue_depth",
+			Help: "Глубина очереди (consumer lag)",
+		},
+		[]string{"topic", "partition"},
+	)
+
+	PipelineBackpressureActive = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pipeline_backpressure_active",
+			Help: "Активен ли backpressure для провайдера (0/1)",
+		},
+		[]string{"provider_id"},
+	)
+
+	PipelineConnectionsActive = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pipeline_connections_active",
+			Help: "Количество активных SMPP соединений pipeline",
+		},
+		[]string{"provider_id"},
+	)
+
+	// Route cache metrics
+	RouteCacheRefreshDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "route_cache_refresh_duration_seconds",
+		Help:    "Time to refresh route/provider cache from DB",
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5},
+	})
+
+	RouteCacheSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "route_cache_size",
+		Help: "Number of items in route/provider cache",
+	}, []string{"type"})
 )
+
+// StartConsumerLagMonitor starts a goroutine that periodically polls consumer lag
+// and updates the PipelineQueueDepth gauge.
+func StartConsumerLagMonitor(ctx context.Context, brokers []string, groups []string, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		saramaConfig := sarama.NewConfig()
+		saramaConfig.Version = sarama.V2_6_0_0
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				admin, err := sarama.NewClusterAdmin(brokers, saramaConfig)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to create Kafka cluster admin for lag monitoring")
+					continue
+				}
+
+				for _, group := range groups {
+					offsets, err := admin.ListConsumerGroupOffsets(group, nil)
+					if err != nil {
+						log.Error().Err(err).Str("group", group).Msg("failed to list consumer group offsets")
+						continue
+					}
+
+					for topic, partitions := range offsets.Blocks {
+						for partition, block := range partitions {
+							latestOffset, err := getLatestOffset(brokers, saramaConfig, topic, partition)
+							if err != nil {
+								log.Error().Err(err).
+									Str("topic", topic).
+									Int32("partition", partition).
+									Msg("failed to get latest offset")
+								continue
+							}
+							lag := latestOffset - block.Offset
+							if lag < 0 {
+								lag = 0
+							}
+							PipelineQueueDepth.WithLabelValues(topic, fmt.Sprintf("%d", partition)).Set(float64(lag))
+						}
+					}
+				}
+
+				admin.Close()
+			}
+		}
+	}()
+}
+
+// getLatestOffset returns the newest offset for a given topic/partition.
+func getLatestOffset(brokers []string, config *sarama.Config, topic string, partition int32) (int64, error) {
+	client, err := sarama.NewClient(brokers, config)
+	if err != nil {
+		return 0, fmt.Errorf("create sarama client: %w", err)
+	}
+	defer client.Close()
+
+	offset, err := client.GetOffset(topic, partition, sarama.OffsetNewest)
+	if err != nil {
+		return 0, fmt.Errorf("get offset for %s/%d: %w", topic, partition, err)
+	}
+	return offset, nil
+}

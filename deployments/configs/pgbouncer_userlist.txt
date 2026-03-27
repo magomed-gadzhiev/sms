@@ -1,0 +1,1 @@
+"smpp" "smpp_password"

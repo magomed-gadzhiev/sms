@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	cache "github.com/smpp-server/smpp-server/internal/pipeline/cache"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -158,6 +159,151 @@ func (r *Router) GetFailoverProvider(ctx context.Context, routeID uuid.UUID) (*s
 	provider, err := r.providerRepo.GetByID(ctx, *route.FailoverProviderID)
 	if err != nil {
 		return nil, err
+	}
+
+	if !provider.Active {
+		return nil, fmt.Errorf("failover провайдер %s неактивен", provider.Name)
+	}
+
+	return provider, nil
+}
+
+// CachedRouter маршрутизирует сообщения используя in-memory кеш вместо БД.
+type CachedRouter struct {
+	cache  *cache.RouteCache
+	logger zerolog.Logger
+}
+
+// NewCachedRouter создает новый роутер на основе кеша маршрутов.
+func NewCachedRouter(c *cache.RouteCache) *CachedRouter {
+	return &CachedRouter{
+		cache:  c,
+		logger: log.With().Str("component", "cached-router").Logger(),
+	}
+}
+
+// RouteMessage определяет провайдера для сообщения используя in-memory кеш.
+func (r *CachedRouter) RouteMessage(ctx context.Context, msg *shared.Message) (*shared.Provider, error) {
+	// Если провайдер уже указан в сообщении, используем его
+	if msg.ProviderID != nil {
+		provider, ok := r.cache.GetProvider(*msg.ProviderID)
+		if !ok {
+			return nil, fmt.Errorf("ошибка получения провайдера %s: не найден в кеше", msg.ProviderID.String())
+		}
+		if !provider.Active {
+			return nil, fmt.Errorf("провайдер %s неактивен", provider.Name)
+		}
+		return provider, nil
+	}
+
+	// Если есть route_id, получаем маршрут и используем его провайдера
+	if msg.RouteID != nil {
+		route, ok := r.cache.GetRouteByID(*msg.RouteID)
+		if !ok {
+			return nil, fmt.Errorf("ошибка получения маршрута %s: не найден в кеше", msg.RouteID.String())
+		}
+		if !route.Active {
+			return nil, fmt.Errorf("маршрут %s неактивен", route.Name)
+		}
+
+		provider, ok := r.cache.GetProvider(route.ProviderID)
+		if !ok {
+			return nil, fmt.Errorf("ошибка получения провайдера маршрута: не найден в кеше")
+		}
+		if !provider.Active {
+			// Пробуем failover провайдера
+			if route.FailoverProviderID != nil {
+				failoverProvider, ok := r.cache.GetProvider(*route.FailoverProviderID)
+				if !ok {
+					return nil, fmt.Errorf("ошибка получения failover провайдера: не найден в кеше")
+				}
+				if !failoverProvider.Active {
+					return nil, fmt.Errorf("failover провайдер %s неактивен", failoverProvider.Name)
+				}
+				return failoverProvider, nil
+			}
+			return nil, fmt.Errorf("провайдер маршрута %s неактивен и нет failover провайдера", provider.Name)
+		}
+		return provider, nil
+	}
+
+	// Ищем маршрут по номеру назначения
+	routes := r.cache.MatchRoutes(msg.Destination)
+
+	if len(routes) == 0 {
+		// Если нет маршрутов, возвращаем первого активного провайдера по приоритету
+		allRoutes := r.cache.GetAllActiveRoutes()
+		providers := make(map[uuid.UUID]*shared.Provider)
+		for _, rt := range allRoutes {
+			if p, ok := r.cache.GetProvider(rt.ProviderID); ok && p.Active {
+				providers[p.ID] = p
+			}
+		}
+		if len(providers) == 0 {
+			return nil, fmt.Errorf("нет активных провайдеров")
+		}
+		// Возвращаем первого найденного активного провайдера
+		for _, p := range providers {
+			return p, nil
+		}
+	}
+
+	// Используем маршрут с наивысшим приоритетом (они уже отсортированы)
+	route := routes[0]
+	provider, ok := r.cache.GetProvider(route.ProviderID)
+	if !ok {
+		// Пробуем failover
+		if route.FailoverProviderID != nil {
+			provider, ok = r.cache.GetProvider(*route.FailoverProviderID)
+			if !ok {
+				return nil, fmt.Errorf("ошибка получения failover провайдера: не найден в кеше")
+			}
+		} else {
+			return nil, fmt.Errorf("ошибка получения провайдера маршрута: не найден в кеше")
+		}
+	}
+
+	if !provider.Active {
+		// Пробуем failover
+		if route.FailoverProviderID != nil && *route.FailoverProviderID != route.ProviderID {
+			failoverProvider, ok := r.cache.GetProvider(*route.FailoverProviderID)
+			if !ok {
+				return nil, fmt.Errorf("ошибка получения failover провайдера: не найден в кеше")
+			}
+			if !failoverProvider.Active {
+				return nil, fmt.Errorf("failover провайдер %s неактивен", failoverProvider.Name)
+			}
+			provider = failoverProvider
+		} else {
+			return nil, fmt.Errorf("провайдер %s неактивен", provider.Name)
+		}
+	}
+
+	r.logger.Debug().
+		Str("message_id", msg.ID.String()).
+		Str("destination", msg.Destination).
+		Str("provider_id", provider.ID.String()).
+		Str("provider_name", provider.Name).
+		Str("route_id", route.ID.String()).
+		Msg("сообщение маршрутизировано")
+
+	return provider, nil
+}
+
+// GetFailoverProvider получает failover провайдера для маршрута используя кеш.
+func (r *CachedRouter) GetFailoverProvider(ctx context.Context, routeID uuid.UUID) (*shared.Provider, error) {
+	route, ok := r.cache.GetRouteByID(routeID)
+	if !ok {
+		return nil, fmt.Errorf("маршрут %s не найден в кеше", routeID.String())
+	}
+
+	if route.FailoverProviderID == nil {
+		return nil, fmt.Errorf("нет failover провайдера для маршрута %s", routeID.String())
+	}
+
+	provider, ok := r.cache.GetProvider(*route.FailoverProviderID)
+	if !ok {
+		return nil, fmt.Errorf("failover провайдер не найден в кеше")
 	}
 
 	if !provider.Active {

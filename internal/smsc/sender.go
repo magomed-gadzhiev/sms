@@ -264,3 +264,180 @@ func (s *Sender) sendMultipart(ctx context.Context, conn *Connection, msg *share
 
 	return firstMessageID, nil
 }
+
+// ---------------------------------------------------------------------------
+// Async SMPP sending with sliding window (R-005 / T010)
+// ---------------------------------------------------------------------------
+
+// defaultAsyncTimeout — таймаут ожидания ответа на async PDU.
+const defaultAsyncTimeout = 30 * time.Second
+
+// SendMessageAsync отправляет SubmitSM PDU через асинхронное соединение
+// со sliding window. Метод НЕ блокирует TCP-соединение напрямую:
+//   - PDU кодируется и отправляется в WriterCh (writer-горутина пишет в TCP)
+//   - Ответ приходит через per-sequence канал из PendingResponses
+//     (reader-горутина читает TCP и маршрутизирует ответы)
+//
+// Возвращает SMPP message_id из submit_sm_resp.
+func (s *Sender) SendMessageAsync(
+	ctx context.Context,
+	msg *shared.Message,
+	provider *shared.Provider,
+	conn *AsyncConnection,
+) (string, error) {
+	startTime := time.Now()
+	defer func() {
+		monitoring.SMPPProcessingDuration.WithLabelValues("async_send_to_provider").Observe(time.Since(startTime).Seconds())
+	}()
+
+	// Симулятор — мгновенная "отправка" без реального SMPP
+	if IsSimulator(provider) {
+		return s.simulateAsyncSend(msg, provider)
+	}
+
+	// Строим SubmitSM PDU (идентично sendSinglePDU)
+	submitSM := &smppprotocol.SubmitSMPDU{
+		ServiceType:          msg.ServiceType,
+		SourceAddrTON:        byte(msg.SourceAddrTON),
+		SourceAddrNPI:        byte(msg.SourceAddrNPI),
+		SourceAddr:           msg.Source,
+		DestAddrTON:          byte(msg.DestAddrTON),
+		DestAddrNPI:          byte(msg.DestAddrNPI),
+		DestinationAddr:      msg.Destination,
+		ESMClass:             byte(msg.ESMClass),
+		ProtocolID:           byte(msg.ProtocolID),
+		PriorityFlag:         byte(msg.PriorityFlag),
+		ScheduleDeliveryTime: "",
+		ValidityPeriod:       "",
+		RegisteredDelivery:   byte(msg.RegisteredDelivery),
+		ReplaceIfPresent:     byte(msg.ReplaceIfPresent),
+		DataCoding:           byte(msg.DataCoding),
+		SMDefaultMsgID:       0,
+		SMLength:             byte(len(msg.Text)),
+		ShortMessage:         []byte(msg.Text),
+		TLV:                  make(map[uint16][]byte),
+	}
+
+	// Кодируем тело SubmitSM
+	encoder := smppprotocol.NewEncoder()
+	body, err := encoder.EncodeSubmitSM(submitSM)
+	if err != nil {
+		return "", fmt.Errorf("async: ошибка кодирования submit_sm: %w", err)
+	}
+
+	// 1. Получаем слот в sliding window (blocking с таймаутом из ctx)
+	select {
+	case conn.WindowSem <- struct{}{}:
+		// Слот получен
+	case <-ctx.Done():
+		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "window_timeout").Inc()
+		return "", fmt.Errorf("async: таймаут ожидания слота в window: %w", ctx.Err())
+	}
+
+	// Гарантируем освобождение слота при любом исходе
+	windowReleased := false
+	releaseWindow := func() {
+		if !windowReleased {
+			<-conn.WindowSem
+			windowReleased = true
+		}
+	}
+	defer releaseWindow()
+
+	// 2. Получаем sequence number
+	seqNum := conn.NextSequence()
+
+	// 3. Создаем полный PDU с sequence number
+	pdu := &smppprotocol.PDU{
+		CommandLength:  uint32(smppprotocol.PDUHeaderLength + len(body)),
+		CommandID:      smppprotocol.SubmitSM,
+		CommandStatus:  0,
+		SequenceNumber: seqNum,
+		Body:           body,
+	}
+
+	pduBytes, err := encoder.EncodePDU(pdu)
+	if err != nil {
+		return "", fmt.Errorf("async: ошибка кодирования PDU: %w", err)
+	}
+
+	// 4. Создаём канал для ответа и регистрируем в PendingResponses
+	respCh := make(chan *SubmitSMResponse, 1)
+	conn.PendingResponses.Store(seqNum, respCh)
+
+	// Гарантируем очистку при любом исходе
+	defer conn.PendingResponses.Delete(seqNum)
+
+	// 5. Отправляем закодированные байты в writer-горутину
+	select {
+	case conn.WriterCh <- pduBytes:
+		// PDU отправлен в writer channel
+	case <-ctx.Done():
+		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "writer_ch_timeout").Inc()
+		return "", fmt.Errorf("async: таймаут отправки PDU в writer channel: %w", ctx.Err())
+	}
+
+	s.logger.Debug().
+		Str("message_id", msg.ID.String()).
+		Uint32("sequence_num", seqNum).
+		Str("provider", provider.Name).
+		Msg("async: PDU отправлен в writer channel, ожидание ответа")
+
+	// 6. Ожидаем ответ с таймаутом
+	var responseTimeout <-chan time.Time
+	deadline, hasDeadline := ctx.Deadline()
+	if hasDeadline {
+		responseTimeout = time.After(time.Until(deadline))
+	} else {
+		responseTimeout = time.After(defaultAsyncTimeout)
+	}
+
+	select {
+	case resp := <-respCh:
+		// Освобождаем window слот сразу после получения ответа
+		releaseWindow()
+
+		if resp == nil {
+			monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "nil_response").Inc()
+			return "", fmt.Errorf("async: получен nil ответ для sequence %d", seqNum)
+		}
+
+		monitoring.SMPPMessagesSent.WithLabelValues(provider.ID.String(), provider.Name, "success").Inc()
+		monitoring.SMPPProviderThroughput.WithLabelValues(provider.ID.String(), provider.Name).Set(float64(provider.ThroughputPerSec))
+
+		s.logger.Debug().
+			Str("message_id", msg.ID.String()).
+			Str("smpp_message_id", resp.MessageID).
+			Uint32("sequence_num", seqNum).
+			Str("provider", provider.Name).
+			Msg("async: ответ получен успешно")
+
+		return resp.MessageID, nil
+
+	case <-responseTimeout:
+		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "response_timeout").Inc()
+		return "", fmt.Errorf("async: таймаут ожидания ответа для sequence %d", seqNum)
+
+	case <-ctx.Done():
+		monitoring.SMPPMessagesFailed.WithLabelValues(provider.ID.String(), provider.Name, "ctx_cancelled").Inc()
+		return "", fmt.Errorf("async: контекст отменён при ожидании ответа: %w", ctx.Err())
+	}
+}
+
+// simulateAsyncSend эмулирует async-отправку для SIMULATOR-провайдеров.
+// Идентична simulateSend, но с метками для async пути.
+func (s *Sender) simulateAsyncSend(msg *shared.Message, provider *shared.Provider) (string, error) {
+	smppMsgID := fmt.Sprintf("SIM-ASYNC-%s", msg.ID.String()[:8])
+
+	monitoring.SMPPMessagesSent.WithLabelValues(provider.ID.String(), provider.Name, "success").Inc()
+	monitoring.SMPPMessagesDelivered.WithLabelValues(provider.ID.String(), provider.Name).Inc()
+	monitoring.SMPPProviderThroughput.WithLabelValues(provider.ID.String(), provider.Name).Set(float64(provider.ThroughputPerSec))
+
+	s.logger.Debug().
+		Str("message_id", msg.ID.String()).
+		Str("smpp_message_id", smppMsgID).
+		Str("provider", provider.Name).
+		Msg("async: сообщение отправлено через симулятор")
+
+	return smppMsgID, nil
+}

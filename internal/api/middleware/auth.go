@@ -20,7 +20,7 @@ const (
 // AuthMiddleware создает middleware для аутентификации по API ключу
 // LOAD TEST MODE: авторизация отключена для нагрузочного тестирования
 func AuthMiddleware(clientRepo ClientRepository, cfg *config.AuthConfig) func(http.Handler) http.Handler {
-	dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	dummyID := uuid.MustParse("c0000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := context.WithValue(r.Context(), ClientIDKey, dummyID)

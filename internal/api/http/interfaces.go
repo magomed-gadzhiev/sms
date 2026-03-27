@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -11,6 +12,12 @@ import (
 // MessageProducer интерфейс для публикации сообщений
 type MessageProducer interface {
 	PublishOutgoing(ctx context.Context, msg *queue.KafkaMessage) error
+}
+
+// BatchMessagePublisher интерфейс для асинхронной пакетной публикации сообщений
+// через AsyncProducer (неблокирующий PublishAsync)
+type BatchMessagePublisher interface {
+	PublishAsync(topic string, key string, value []byte, headers []sarama.RecordHeader)
 }
 
 // MessageRepository интерфейс для работы с сообщениями

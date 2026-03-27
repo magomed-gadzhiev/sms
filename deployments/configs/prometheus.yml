@@ -89,3 +89,48 @@ scrape_configs:
       - targets: ['worker:2112']
         labels:
           service: 'worker'
+
+  # Pipeline stages (dns_sd_configs for replicated services)
+  - job_name: 'pipeline-router'
+    dns_sd_configs:
+      - names: ['pipeline-router']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-router'
+
+  - job_name: 'pipeline-sender'
+    dns_sd_configs:
+      - names: ['pipeline-sender']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-sender'
+
+  - job_name: 'pipeline-status'
+    dns_sd_configs:
+      - names: ['pipeline-status']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-status'
+
+  - job_name: 'pipeline-persist'
+    dns_sd_configs:
+      - names: ['pipeline-persist']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-persist'

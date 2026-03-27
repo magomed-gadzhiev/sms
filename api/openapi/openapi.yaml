@@ -1,24 +1,36 @@
 openapi: 3.0.3
 info:
-  title: SMPP Server API
+  title: SMS Gateway API
   description: |
-    API для отправки SMS сообщений через SMPP сервер.
-    
-    Поддерживает отправку одиночных и пакетных SMS сообщений, получение статуса сообщений и истории.
+    API для отправки SMS сообщений через SMS Gateway платформу.
+
+    Поддерживает отправку одиночных и пакетных SMS, получение статуса сообщений,
+    историю, управление шаблонами, вебхуками и HLR-запросы.
+
+    ## Аутентификация
+    Все запросы к `/api/v1/*` требуют заголовок `X-API-Key` с вашим API ключом.
   version: 1.0.0
   contact:
     name: API Support
     email: support@example.com
 
 servers:
+  - url: http://72.56.232.202:8080
+    description: Production server
   - url: http://localhost:8080
     description: Development server
-  - url: https://api.example.com
-    description: Production server
 
 tags:
   - name: SMS
-    description: Операции с SMS сообщениями
+    description: Отправка и отслеживание SMS сообщений
+  - name: Account
+    description: Баланс и статистика аккаунта
+  - name: Webhooks
+    description: Управление webhook-уведомлениями
+  - name: Templates
+    description: Управление шаблонами сообщений
+  - name: Lookup
+    description: HLR-запросы (проверка номера)
   - name: Health
     description: Проверка здоровья сервиса
 
@@ -27,8 +39,8 @@ paths:
     post:
       tags:
         - SMS
-      summary: Отправка одного SMS сообщения
-      description: Отправляет одно SMS сообщение в очередь для обработки
+      summary: Отправка одного SMS
+      description: Отправляет одно SMS сообщение. Текст можно указать напрямую или через шаблон.
       operationId: sendSMS
       security:
         - ApiKeyAuth: []
@@ -40,65 +52,56 @@ paths:
               $ref: '#/components/schemas/SendSMSRequest'
             examples:
               basic:
-                summary: Базовый запрос
+                summary: Простая отправка
                 value:
-                  source: "12345"
+                  source: "MyCompany"
                   destination: "79001234567"
-                  text: "Текст сообщения"
+                  text: "Ваш код подтверждения: 1234"
+              with_template:
+                summary: Отправка через шаблон
+                value:
+                  source: "MyCompany"
+                  destination: "79001234567"
+                  template_id: "tpl-welcome-01"
+                  variables:
+                    name: "Иван"
+                    code: "5678"
               full:
-                summary: Полный запрос со всеми параметрами
+                summary: Все параметры
                 value:
                   source: "12345"
                   destination: "79001234567"
                   text: "Текст сообщения"
-                  external_id: "external-123"
+                  external_id: "order-123"
                   priority: 1
                   registered_delivery: true
-                  validity_period: "2024-12-31T23:59:59Z"
-                  service_type: ""
-                  source_addr_ton: 0
-                  source_addr_npi: 0
-                  dest_addr_ton: 0
-                  dest_addr_npi: 0
+                  validity_period: "2026-12-31T23:59:59Z"
                   data_coding: 0
       responses:
         '200':
-          description: Сообщение успешно добавлено в очередь
+          description: Сообщение принято в обработку
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SendSMSResponse'
+              example:
+                message_id: "550e8400-e29b-41d4-a716-446655440000"
+                status: "queued"
+                created_at: "2026-03-27T12:00:00Z"
+                segment_count: 1
         '400':
-          description: Неверный запрос
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Превышен лимит запросов
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/sms/batch:
     post:
       tags:
         - SMS
-      summary: Пакетная отправка SMS сообщений
-      description: Отправляет несколько SMS сообщений в очередь для обработки
+      summary: Пакетная отправка SMS
+      description: Отправляет несколько SMS сообщений за один запрос (до 1000).
       operationId: sendBatchSMS
       security:
         - ApiKeyAuth: []
@@ -108,52 +111,42 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SendBatchRequest'
+            example:
+              messages:
+                - source: "MyCompany"
+                  destination: "79001234567"
+                  text: "Привет, Иван!"
+                - source: "MyCompany"
+                  destination: "79009876543"
+                  text: "Привет, Мария!"
       responses:
         '200':
-          description: Сообщения успешно добавлены в очередь
+          description: Результаты пакетной отправки
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SendBatchResponse'
         '400':
-          description: Неверный запрос
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Превышен лимит запросов
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/InternalError'
 
-  /api/v1/sms/status:
+  /api/v1/sms/status/{id}:
     get:
       tags:
         - SMS
-      summary: Получение статуса сообщения
-      description: Получает текущий статус SMS сообщения по его ID
+      summary: Статус сообщения
+      description: Получает текущий статус SMS сообщения по его ID.
       operationId: getStatus
       security:
         - ApiKeyAuth: []
       parameters:
         - name: id
-          in: query
+          in: path
           required: true
-          description: ID сообщения
+          description: UUID сообщения (из ответа send/batch)
           schema:
             type: string
             format: uuid
@@ -165,38 +158,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetStatusResponse'
         '404':
-          description: Сообщение не найдено
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
         '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sms/{id}:
+    delete:
+      tags:
+        - SMS
+      summary: Отмена сообщения
+      description: Отменяет запланированное сообщение (только если ещё не отправлено).
+      operationId: cancelSMS
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID сообщения
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Сообщение отменено
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/sms/history:
     get:
       tags:
         - SMS
-      summary: Получение истории сообщений
-      description: Получает историю SMS сообщений с пагинацией и фильтрацией
+      summary: История сообщений
+      description: Получает историю SMS с пагинацией и фильтрацией.
       operationId: getHistory
       security:
         - ApiKeyAuth: []
       parameters:
         - name: limit
           in: query
-          required: false
-          description: Количество сообщений (максимум 1000)
+          description: Количество записей (макс. 1000)
           schema:
             type: integer
             minimum: 1
@@ -204,7 +211,6 @@ paths:
             default: 100
         - name: offset
           in: query
-          required: false
           description: Смещение для пагинации
           schema:
             type: integer
@@ -212,11 +218,27 @@ paths:
             default: 0
         - name: status
           in: query
-          required: false
           description: Фильтр по статусу
           schema:
             type: string
             enum: [pending, queued, sent, delivered, failed, expired, rejected]
+        - name: destination
+          in: query
+          description: Фильтр по номеру получателя
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: Начало периода (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Конец периода (RFC3339)
+          schema:
+            type: string
+            format: date-time
       responses:
         '200':
           description: История сообщений
@@ -225,24 +247,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
         '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Внутренняя ошибка сервера
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/account/balance:
+    get:
+      tags:
+        - Account
+      summary: Баланс аккаунта
+      operationId: getBalance
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Текущий баланс
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  balance:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/account/stats:
+    get:
+      tags:
+        - Account
+      summary: Статистика аккаунта
+      operationId: getStats
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Статистика отправок
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /health:
     get:
       tags:
         - Health
       summary: Health check
-      description: Проверка здоровья сервиса
+      description: Проверка здоровья сервиса (без аутентификации)
       operationId: healthCheck
       responses:
         '200':
@@ -257,11 +313,10 @@ paths:
       tags:
         - Health
       summary: Prometheus метрики
-      description: Экспорт метрик в формате Prometheus
       operationId: getMetrics
       responses:
         '200':
-          description: Метрики Prometheus
+          description: Метрики в формате Prometheus
           content:
             text/plain:
               schema:
@@ -275,80 +330,114 @@ components:
       name: X-API-Key
       description: API ключ для аутентификации
 
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Не авторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Не найдено
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
   schemas:
     SendSMSRequest:
       type: object
       required:
         - source
         - destination
-        - text
       properties:
         source:
           type: string
-          description: Номер отправителя
-          example: "12345"
+          description: Имя отправителя или номер
+          example: "MyCompany"
           maxLength: 21
         destination:
           type: string
-          description: Номер получателя
+          description: Номер получателя (международный формат)
           example: "79001234567"
           maxLength: 21
         text:
           type: string
-          description: Текст сообщения
-          example: "Текст сообщения"
+          description: Текст сообщения (обязателен если нет template_id)
+          example: "Ваш код: 1234"
           maxLength: 1600
+        template_id:
+          type: string
+          description: ID шаблона (обязателен если нет text, взаимоисключающе с text)
+          example: "tpl-welcome-01"
+        variables:
+          type: object
+          additionalProperties:
+            type: string
+          description: Переменные для шаблона
+          example:
+            name: "Иван"
+            code: "5678"
         external_id:
           type: string
-          description: Внешний ID сообщения (опционально)
-          example: "external-123"
+          description: Ваш внешний ID для отслеживания
+          example: "order-123"
         priority:
           type: integer
-          description: Приоритет сообщения (0-3)
+          description: "Приоритет: 0 (обычный) — 3 (максимальный)"
           minimum: 0
           maximum: 3
           default: 0
         registered_delivery:
           type: boolean
-          description: Требовать delivery receipt
+          description: Запрашивать отчёт о доставке
           default: false
         validity_period:
           type: string
           format: date-time
-          description: Срок действия сообщения (опционально)
-          example: "2024-12-31T23:59:59Z"
+          description: Срок жизни сообщения
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Запланировать отправку на указанное время
         service_type:
           type: string
-          description: Тип сервиса (опционально)
           maxLength: 6
-          default: ""
         source_addr_ton:
           type: integer
-          description: Type of Number отправителя (0-6)
           minimum: 0
           maximum: 6
           default: 0
         source_addr_npi:
           type: integer
-          description: Numeric Plan Indicator отправителя (0-18)
           minimum: 0
           maximum: 18
           default: 0
         dest_addr_ton:
           type: integer
-          description: Type of Number получателя (0-6)
           minimum: 0
           maximum: 6
           default: 0
         dest_addr_npi:
           type: integer
-          description: Numeric Plan Indicator получателя (0-18)
           minimum: 0
           maximum: 18
           default: 0
         data_coding:
           type: integer
-          description: Кодировка данных (0, 1, 3, 8)
+          description: "Кодировка: 0=Latin, 8=UCS2 (кириллица)"
           enum: [0, 1, 3, 8]
           default: 0
 
@@ -358,17 +447,23 @@ components:
         message_id:
           type: string
           format: uuid
-          description: ID сообщения
-          example: "550e8400-e29b-41d4-a716-446655440000"
+          description: ID сообщения для отслеживания
         status:
           type: string
-          description: Статус сообщения
           enum: [queued, sent, failed]
-          example: "queued"
+        created_at:
+          type: string
+          format: date-time
+        segment_count:
+          type: integer
+          description: Количество сегментов (длинные SMS разбиваются)
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
         error:
           type: string
-          description: Сообщение об ошибке (если есть)
-          example: ""
+          description: Ошибка (если status=failed)
 
     SendBatchRequest:
       type: object
@@ -377,28 +472,26 @@ components:
       properties:
         messages:
           type: array
-          description: Список сообщений для отправки
           items:
             $ref: '#/components/schemas/SendSMSRequest'
           minItems: 1
           maxItems: 1000
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Запланировать всю пачку на указанное время
 
     SendBatchResponse:
       type: object
       properties:
         results:
           type: array
-          description: Результаты для каждого сообщения
           items:
             $ref: '#/components/schemas/SendSMSResponse'
         success_count:
           type: integer
-          description: Количество успешных сообщений
-          example: 2
         failed_count:
           type: integer
-          description: Количество неудачных сообщений
-          example: 0
 
     GetStatusResponse:
       type: object
@@ -406,74 +499,84 @@ components:
         message_id:
           type: string
           format: uuid
-          description: ID сообщения
-          example: "550e8400-e29b-41d4-a716-446655440000"
         status:
           type: string
-          description: Статус сообщения
           enum: [pending, queued, sent, delivered, failed, expired, rejected]
-          example: "delivered"
         status_message:
           type: string
-          description: Сообщение о статусе
-          example: ""
         created_at:
           type: string
           format: date-time
-          description: Время создания
-          example: "2024-01-01T12:00:00Z"
         submitted_at:
           type: string
           format: date-time
           nullable: true
-          description: Время отправки (если доступно)
-          example: "2024-01-01T12:00:01Z"
         delivered_at:
           type: string
           format: date-time
           nullable: true
-          description: Время доставки (если доступно)
-          example: "2024-01-01T12:00:05Z"
         failed_at:
           type: string
           format: date-time
           nullable: true
-          description: Время ошибки (если доступно)
-          example: null
+        expired_at:
+          type: string
+          format: date-time
+          nullable: true
         smpp_message_id:
           type: string
-          description: SMPP message ID (если доступно)
-          example: "smpp-12345"
+          nullable: true
+        error_code:
+          type: string
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
 
     HistoryResponse:
       type: object
       properties:
         messages:
           type: array
-          description: Список сообщений
           items:
             type: object
             properties:
               message_id:
                 type: string
                 format: uuid
+              source:
+                type: string
+              destination:
+                type: string
+              text:
+                type: string
               status:
+                type: string
+              external_id:
                 type: string
               created_at:
                 type: string
                 format: date-time
+              submitted_at:
+                type: string
+                format: date-time
+                nullable: true
+              delivered_at:
+                type: string
+                format: date-time
+                nullable: true
+              provider_id:
+                type: string
+                nullable: true
+              route_id:
+                type: string
+                nullable: true
+        total:
+          type: integer
         limit:
           type: integer
-          description: Лимит записей
-          example: 100
         offset:
           type: integer
-          description: Смещение
-          example: 0
-        count:
-          type: integer
-          description: Общее количество записей
-          example: 1
 
     HealthResponse:
       type: object
@@ -481,54 +584,25 @@ components:
         status:
           type: string
           enum: [ok, degraded, error]
-          example: "ok"
         service:
           type: string
-          example: "api-gateway"
         version:
           type: string
-          example: "1.0.0"
         timestamp:
           type: string
           format: date-time
-          example: "2024-01-01T00:00:00Z"
-        checks:
-          type: object
-          description: Результаты проверки зависимостей
-          properties:
-            database:
-              type: object
-              properties:
-                status:
-                  type: string
-                response_time_ms:
-                  type: integer
-            redis:
-              type: object
-              properties:
-                status:
-                  type: string
-                response_time_ms:
-                  type: integer
-            kafka:
-              type: object
-              properties:
-                status:
-                  type: string
-                response_time_ms:
-                  type: integer
 
     Error:
       type: object
       properties:
         error:
-          type: string
-          description: Сообщение об ошибке
-          example: "Invalid request"
-        code:
-          type: string
-          description: Код ошибки
-          example: "INVALID_INPUT"
-        details:
           type: object
-          description: Дополнительные детали ошибки
+          properties:
+            code:
+              type: string
+              example: "INVALID_INPUT"
+            message:
+              type: string
+              example: "Неверный формат запроса"
+            details:
+              type: string
