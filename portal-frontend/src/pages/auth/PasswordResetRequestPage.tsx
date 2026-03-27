@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi, ApiError } from '../../api/client';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 
 export function PasswordResetRequestPage() {
   const [email, setEmail] = useState('');
@@ -24,41 +26,44 @@ export function PasswordResetRequestPage() {
 
   if (submitted) {
     return (
-      <div style={{ maxWidth: 400, margin: '80px auto' }}>
-        <h2>Check Your Email</h2>
-        <p>If an account with that email exists, a password reset link has been sent.</p>
-        <Link to="/login">Back to login</Link>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Check Your Email</h2>
+          <p className="text-sm text-gray-600 mb-4">If an account with that email exists, a password reset link has been sent.</p>
+          <Link to="/login" className="text-primary hover:text-primary-dark text-sm">Back to login</Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '80px auto' }}>
-      <h2>Reset Password</h2>
-      {error && <p id="reset-request-error" role="alert" style={{ color: '#d32f2f' }}>{error}</p>}
-      {submitting && <div role="status">Sending...</div>}
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Email
-            <br />
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-              aria-describedby={error ? 'reset-request-error' : undefined}
-            />
-          </label>
-        </div>
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Sending...' : 'Send Reset Link'}
-        </button>
-      </form>
-      <p style={{ marginTop: 16 }}>
-        <Link to="/login">Back to login</Link>
-      </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Reset Password</h2>
+        {error && (
+          <p id="reset-request-error" role="alert" className="text-sm text-danger bg-red-50 border border-red-200 rounded p-3 mb-4">
+            {error}
+          </p>
+        )}
+        {submitting && <div role="status" className="text-sm text-gray-500 mb-4">Sending...</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus
+            aria-describedby={error ? 'reset-request-error' : undefined}
+          />
+          <Button type="submit" disabled={submitting} className="w-full">
+            {submitting ? 'Sending...' : 'Send Reset Link'}
+          </Button>
+        </form>
+        <p className="mt-4 text-sm text-gray-600">
+          <Link to="/login" className="text-primary hover:text-primary-dark">Back to login</Link>
+        </p>
+      </div>
     </div>
   );
 }
