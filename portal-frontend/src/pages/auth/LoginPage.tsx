@@ -126,6 +126,9 @@ export function LoginPage() {
       <p style={{ marginTop: 16 }}>
         <Link to="/reset-password-request">Forgot password?</Link>
       </p>
+      <p style={{ marginTop: 8 }}>
+        Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+      </p>
     </div>
   );
 }

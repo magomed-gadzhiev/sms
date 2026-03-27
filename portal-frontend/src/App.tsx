@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import { SkipLink } from './components/SkipLink';
 import { RequireRole } from './components/RequireRole';
 import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
 import { PasswordResetPage } from './pages/auth/PasswordResetPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
@@ -95,6 +96,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/reset-password-request" element={<PasswordResetRequestPage />} />
       <Route path="/reset-password" element={<PasswordResetPage />} />
 

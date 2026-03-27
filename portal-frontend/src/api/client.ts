@@ -53,6 +53,18 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token, new_password: newPassword }),
     }),
+  register: (data: {
+    email: string;
+    password: string;
+    company_name: string;
+    contact_person?: string;
+    phone?: string;
+    plan_name: string;
+  }) =>
+    apiFetch<{ client_id: string; user: { id: string; email: string; role: string } }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Profile API
