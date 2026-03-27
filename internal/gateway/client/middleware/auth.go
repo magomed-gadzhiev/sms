@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
@@ -20,17 +22,32 @@ const (
 	PermissionsKey contextKey = "permissions"
 )
 
-// ClientAuthMiddleware создает middleware для аутентификации клиентов
-// LOAD TEST MODE: авторизация отключена для нагрузочного тестирования
+// isLoadTestMode возвращает true, если переменная окружения LOAD_TEST_MODE=true
+func isLoadTestMode() bool {
+	return strings.EqualFold(os.Getenv("LOAD_TEST_MODE"), "true")
+}
+
+// ClientAuthMiddleware создает middleware для аутентификации клиентов.
+// Если LOAD_TEST_MODE=true — использует dummy IDs (режим нагрузочного тестирования).
+// Если LOAD_TEST_MODE не установлен или false — возвращает 401 "auth not configured"
+// (сигнализирует о том, что middleware требует полной настройки gRPC клиента).
 func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
 	dummyID := uuid.MustParse("c0000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			ctx = context.WithValue(ctx, UserIDKey, dummyID)
-			ctx = context.WithValue(ctx, ClientIDKey, dummyID)
-			ctx = context.WithValue(ctx, RoleKey, &authv1.Role{Name: "client"})
-			next.ServeHTTP(w, r.WithContext(ctx))
+			if isLoadTestMode() {
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, UserIDKey, dummyID)
+				ctx = context.WithValue(ctx, ClientIDKey, dummyID)
+				ctx = context.WithValue(ctx, RoleKey, &authv1.Role{Name: "client"})
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+			respondError(w, &shared.AppError{
+				HTTPStatus: http.StatusUnauthorized,
+				Code:       "AUTH_NOT_CONFIGURED",
+				Message:    "auth not configured",
+			})
 		})
 	}
 }

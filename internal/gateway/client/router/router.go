@@ -21,6 +21,8 @@ func SetupRouter(
 	loggingMiddleware func(http.Handler) http.Handler,
 	recoveryMiddleware func(http.Handler) http.Handler,
 	corsMiddleware func(http.Handler) http.Handler,
+	rateLimitMiddleware func(http.Handler) http.Handler,
+	quotaMiddleware func(http.Handler) http.Handler,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -29,6 +31,8 @@ func SetupRouter(
 	router.Use(loggingMiddleware)
 	router.Use(corsMiddleware)
 	router.Use(authMiddleware)
+	router.Use(rateLimitMiddleware)
+	router.Use(quotaMiddleware)
 
 	// Client API v1
 	apiV1 := router.PathPrefix("/api/v1").Subrouter()
