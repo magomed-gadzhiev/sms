@@ -74,6 +74,16 @@ export function DashboardPage() {
         </div>
       )}
       <PageHeader title="Dashboard" />
+      {data.messages_today === 0 && data.active_api_keys === 0 && data.active_webhooks === 0 && (
+        <div className="border border-primary/30 bg-primary/5 rounded-lg p-5 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Начните работу с платформой</h3>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+            <li><a href="/api-keys" className="text-primary hover:underline">Создайте API ключ</a> для доступа к API</li>
+            <li><a href="/providers" className="text-primary hover:underline">Подключите SMPP-провайдера</a> для отправки SMS</li>
+            <li><a href="/messages" className="text-primary hover:underline">Отправьте тестовое SMS</a> и отслеживайте статистику</li>
+          </ol>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {cards.map((card) => {
           const isInteractive = !!card.href;
