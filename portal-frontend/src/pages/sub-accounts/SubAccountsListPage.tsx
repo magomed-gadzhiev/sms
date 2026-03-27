@@ -53,6 +53,7 @@ export function SubAccountsListPage() {
   const [data, setData] = useState<SubAccountsListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [canCreate, setCanCreate] = useState(true);
 
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -71,6 +72,9 @@ export function SubAccountsListPage() {
       const resp = await subAccountsApi.list();
       setData(resp as SubAccountsListResponse);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setCanCreate(false);
+      }
       setError(err instanceof ApiError ? err.message : 'Failed to load sub-accounts');
     } finally {
       setLoading(false);
@@ -118,7 +122,7 @@ export function SubAccountsListPage() {
       <PageHeader
         title="Sub-accounts"
         subtitle={data ? `${data.current_count} / ${data.max_sub_accounts}` : undefined}
-        actions={<Button onClick={() => setShowCreateForm(true)}>Create Sub-account</Button>}
+        actions={canCreate ? <Button onClick={() => setShowCreateForm(true)}>Create Sub-account</Button> : undefined}
       />
 
       {error && <p className="text-red-600">{error}</p>}

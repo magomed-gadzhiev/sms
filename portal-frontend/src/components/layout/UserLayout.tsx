@@ -5,15 +5,15 @@ import { SkipLink } from '../SkipLink';
 import { useAuth } from '../../contexts/AuthContext';
 
 const USER_NAV: NavItem[] = [
-  { path: '/dashboard', label: 'Dashboard' },
-  { path: '/messages', label: 'Messages' },
-  { path: '/providers', label: 'Providers' },
-  { path: '/api-keys', label: 'API Keys' },
-  { path: '/webhooks', label: 'Webhooks' },
-  { path: '/analytics', label: 'Analytics' },
-  { path: '/sub-accounts', label: 'Sub-accounts' },
-  { path: '/profile', label: 'Profile' },
-  { path: '/audit-log', label: 'Audit Log' },
+  { path: '/dashboard', label: 'Дашборд' },
+  { path: '/messages', label: 'Сообщения' },
+  { path: '/providers', label: 'Провайдеры' },
+  { path: '/api-keys', label: 'API Ключи' },
+  { path: '/webhooks', label: 'Вебхуки' },
+  { path: '/analytics', label: 'Аналитика' },
+  { path: '/sub-accounts', label: 'Суб-аккаунты' },
+  { path: '/profile', label: 'Профиль' },
+  { path: '/audit-log', label: 'Журнал аудита' },
 ];
 
 export function UserLayout() {
@@ -50,7 +50,7 @@ export function UserLayout() {
               onClick={logout}
               className="text-sm text-gray-500 hover:text-gray-700"
             >
-              Logout
+              Выйти
             </button>
           </div>
         }

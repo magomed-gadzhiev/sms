@@ -16,17 +16,15 @@ export function Modal({ open, onClose, title, description, children, wide }: Mod
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40" />
         <Dialog.Content
-          aria-describedby={description ? 'modal-desc' : undefined}
+          aria-describedby="modal-desc"
           className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
             bg-white rounded-lg shadow-xl z-50 p-6 max-h-[85vh] overflow-y-auto
-            ${wide ? 'w-[700px]' : 'w-[480px]'}`}
+            ${wide ? 'w-[90vw] max-w-[700px]' : 'w-[90vw] max-w-[480px]'}`}
         >
           <Dialog.Title className="text-lg font-semibold mb-4">{title}</Dialog.Title>
-          {description && (
-            <Dialog.Description id="modal-desc" className="sr-only">
-              {description}
-            </Dialog.Description>
-          )}
+          <Dialog.Description id="modal-desc" className="sr-only">
+            {description || title}
+          </Dialog.Description>
           {children}
           <Dialog.Close asChild>
             <button

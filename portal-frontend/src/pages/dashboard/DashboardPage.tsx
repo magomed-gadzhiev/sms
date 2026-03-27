@@ -43,17 +43,17 @@ export function DashboardPage() {
     }
   };
 
-  if (loading) return <div role="status">Loading dashboard...</div>;
-  if (error) return <div className="text-red-600">Error: {error}</div>;
-  if (!data) return <div>No data</div>;
+  if (loading) return <div role="status">Загрузка дашборда...</div>;
+  if (error) return <div className="text-red-600">Ошибка: {error}</div>;
+  if (!data) return <div>Нет данных</div>;
 
   const cards: { label: string; value: string | number; href?: string }[] = [
-    { label: 'Balance', value: `${data.balance ?? '0.00'} ${data.currency ?? ''}`.trim() },
-    { label: 'Messages Today', value: data.messages_today, href: '/messages' },
-    { label: 'Delivered Today', value: data.messages_delivered_today, href: '/messages' },
-    { label: 'Delivery Rate', value: `${data.delivery_rate_today}%` },
-    { label: 'Active API Keys', value: data.active_api_keys, href: '/api-keys' },
-    { label: 'Active Webhooks', value: data.active_webhooks, href: '/webhooks' },
+    { label: 'Баланс', value: `${data.balance || '0.00'} ${data.currency || '\u20BD'}`.trim() },
+    { label: 'Сообщений сегодня', value: data.messages_today, href: '/messages' },
+    { label: 'Доставлено сегодня', value: data.messages_delivered_today, href: '/messages' },
+    { label: 'Доставляемость', value: `${data.delivery_rate_today}%` },
+    { label: 'Активных API ключей', value: data.active_api_keys, href: '/api-keys' },
+    { label: 'Активных вебхуков', value: data.active_webhooks, href: '/webhooks' },
   ];
 
   return (
@@ -73,8 +73,8 @@ export function DashboardPage() {
           </Button>
         </div>
       )}
-      <PageHeader title="Dashboard" />
-      {data.messages_today === 0 && data.active_api_keys === 0 && data.active_webhooks === 0 && (
+      <PageHeader title="Дашборд" />
+      {data.messages_today === 0 && (data.active_api_keys === 0 || data.active_webhooks === 0) && (
         <div className="border border-primary/30 bg-primary/5 rounded-lg p-5 mb-6">
           <h3 className="font-semibold text-gray-900 mb-3">Начните работу с платформой</h3>
           <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
@@ -97,7 +97,7 @@ export function DashboardPage() {
               <div className="text-2xl font-bold">{card.value}</div>
               {isInteractive && (
                 <div className="absolute bottom-4 left-0 right-0 text-sm text-primary font-medium group-hover:underline">
-                  View details &rarr;
+                  Подробнее &rarr;
                 </div>
               )}
             </>

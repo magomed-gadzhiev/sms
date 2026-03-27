@@ -837,6 +837,37 @@ services:
       timeout: 5s
       retries: 3
 
+  # Audit Service
+  audit-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: audit-service
+        SERVICE_PATH: cmd/services/audit-service
+    container_name: audit-service
+    ports:
+      - "9102:9102"  # gRPC
+      - "2122:2122"  # Metrics
+    environment:
+      - SERVICE_NAME=audit-service
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2122/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # Portal Gateway
   portal-gateway:
     build:
@@ -859,6 +890,7 @@ services:
       - TEMPLATE_SERVICE_ADDR=template-service:9099
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
       - PROVIDER_SERVICE_ADDR=provider-service:9094
+      - AUDIT_SERVICE_ADDR=audit-service:9102
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -882,6 +914,10 @@ services:
       webhook-service:
         condition: service_healthy
       provider-service:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      audit-service:
         condition: service_healthy
       template-service:
         condition: service_healthy
@@ -907,7 +943,8 @@ services:
     networks:
       - smpp-network
     depends_on:
-      - portal-gateway
+      portal-gateway:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:80/ >/dev/null || exit 1"]

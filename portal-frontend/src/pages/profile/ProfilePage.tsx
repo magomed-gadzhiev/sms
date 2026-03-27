@@ -99,7 +99,7 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-xl">
-      <PageHeader title="Profile" />
+      <PageHeader title="Профиль" />
 
       <section className="mb-8">
         <p className="text-gray-700"><strong>Email:</strong> {profile.email}</p>
@@ -114,6 +114,7 @@ export function ProfilePage() {
               label="Contact Person"
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
+              maxLength={255}
               aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
             />
           </div>
@@ -123,6 +124,7 @@ export function ProfilePage() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              maxLength={50}
               aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
             />
           </div>

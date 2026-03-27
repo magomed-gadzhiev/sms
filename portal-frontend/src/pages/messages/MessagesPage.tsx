@@ -135,11 +135,11 @@ export function MessagesPage() {
       <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="Отправить SMS" description="Отправка тестового SMS сообщения">
         <div className="space-y-3">
           {sendError && <p role="alert" className="text-red-600 text-sm">{sendError}</p>}
-          <Input label="Номер получателя" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required />
+          <Input label="Номер получателя *" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required />
           <Input label="Sender ID" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения</label>
-            <textarea className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required />
+            <label htmlFor="sms-text" className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения *</label>
+            <textarea id="sms-text" className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowSendModal(false)}>Отмена</Button>

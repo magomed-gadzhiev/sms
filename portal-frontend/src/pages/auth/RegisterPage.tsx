@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi, ApiError } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,14 +24,23 @@ export function RegisterPage() {
   const [planName, setPlanName] = useState<string>('free');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [touched, setTouched] = useState(false);
 
-  if (isAuthenticated) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (isAuthenticated) return null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setTouched(true);
+    if (!companyName || !email || !password || password.length < 8) {
+      setError('Заполните все обязательные поля');
+      return;
+    }
     setError('');
     setSubmitting(true);
     try {
@@ -46,7 +55,7 @@ export function RegisterPage() {
       await refreshUser();
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Registration failed');
+      setError(err instanceof ApiError ? err.message : 'Ошибка регистрации');
     } finally {
       setSubmitting(false);
     }
@@ -55,7 +64,7 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-lg w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Account</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Создание аккаунта</h2>
         {error && (
           <p id="register-error" role="alert" className="text-sm text-danger bg-red-50 border border-red-200 rounded p-3 mb-4">
             {error}
@@ -63,46 +72,49 @@ export function RegisterPage() {
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Company Name"
+            label="Название компании *"
             type="text"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             required
             autoFocus
+            error={touched && !companyName ? 'Обязательное поле' : undefined}
             aria-describedby={error ? 'register-error' : undefined}
           />
           <Input
-            label="Email"
+            label="Email *"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            error={touched && !email ? 'Обязательное поле' : undefined}
             aria-describedby={error ? 'register-error' : undefined}
           />
           <Input
-            label="Password"
+            label="Пароль *"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            placeholder="min 8 characters"
+            placeholder="минимум 8 символов"
             minLength={8}
+            error={touched && password.length > 0 && password.length < 8 ? 'Минимум 8 символов' : touched && !password ? 'Обязательное поле' : undefined}
             aria-describedby={error ? 'register-error' : undefined}
           />
           <Input
-            label="Contact Person"
+            label="Контактное лицо"
             type="text"
             value={contactPerson}
             onChange={(e) => setContactPerson(e.target.value)}
           />
           <Input
-            label="Phone"
+            label="Телефон"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
           <fieldset className="border border-gray-300 rounded p-3">
-            <legend className="text-sm font-medium text-gray-700 px-1">Plan</legend>
+            <legend className="text-sm font-medium text-gray-700 px-1">Тарифный план</legend>
             <div className="flex gap-3 flex-wrap mt-1">
               {PLANS.map((plan) => (
                 <label
@@ -127,12 +139,12 @@ export function RegisterPage() {
             </div>
           </fieldset>
           <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Registering...' : 'Register'}
+            {submitting ? 'Регистрация...' : 'Зарегистрироваться'}
           </Button>
         </form>
         <p className="mt-4 text-sm text-gray-600">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary hover:text-primary-dark">Login</Link>
+          Уже есть аккаунт?{' '}
+          <Link to="/login" className="text-primary hover:text-primary-dark">Войти</Link>
         </p>
       </div>
     </div>

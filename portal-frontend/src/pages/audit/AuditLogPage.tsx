@@ -118,7 +118,7 @@ export function AuditLogPage() {
 
   return (
     <div>
-      <PageHeader title="Audit Log" />
+      <PageHeader title="Журнал аудита" />
 
       <FilterBar
         filters={AUDIT_FILTERS}

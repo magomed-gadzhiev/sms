@@ -91,7 +91,7 @@ export function AnalyticsPage() {
 
   return (
     <div className="max-w-5xl">
-      <PageHeader title="Analytics" />
+      <PageHeader title="Аналитика" />
 
       {/* Period selector + date filters */}
       <fieldset className="border-none p-0 mb-4">

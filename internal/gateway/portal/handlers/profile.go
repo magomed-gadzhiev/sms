@@ -162,6 +162,15 @@ func (h *ProfileHandlers) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if len(req.ContactPerson) > 255 {
+		respondError(w, shared.ErrInvalidInput("Поле contact_person не должно превышать 255 символов"))
+		return
+	}
+	if len(req.Phone) > 50 {
+		respondError(w, shared.ErrInvalidInput("Поле phone не должно превышать 50 символов"))
+		return
+	}
+
 	_, err := h.clientClient.UpdateClient(r.Context(), &clientv1.UpdateClientRequest{
 		ClientId:      clientID.String(),
 		ContactPerson: req.ContactPerson,

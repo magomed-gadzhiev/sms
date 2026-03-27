@@ -29,7 +29,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`rounded border px-3 py-2 text-sm transition-colors
-            focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary
             ${error ? 'border-danger' : 'border-gray-300'}
             disabled:bg-gray-50 disabled:text-gray-500 ${className}`}
           aria-invalid={!!error}

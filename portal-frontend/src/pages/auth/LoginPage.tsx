@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ApiError } from '../../api/client';
 import { Button } from '../../components/ui/Button';
@@ -8,7 +8,6 @@ import { Input } from '../../components/ui/Input';
 export function LoginPage() {
   const { login, login2fa, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,12 +16,13 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
-  if (isAuthenticated) {
-    navigate(from, { replace: true });
-    return null;
-  }
+  if (isAuthenticated) return null;
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
@@ -33,11 +33,11 @@ export function LoginPage() {
       if (result.requires2fa && result.loginTicket) {
         setLoginTicket(result.loginTicket);
       } else {
-        const dest = result.role === 'admin' || result.role === 'superadmin' ? '/admin' : from;
+        const dest = result.role === 'admin' || result.role === 'superadmin' ? '/admin' : '/dashboard';
         navigate(dest, { replace: true });
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Login failed');
+      setError(err instanceof ApiError ? err.message : 'Ошибка входа');
     } finally {
       setSubmitting(false);
     }
@@ -49,10 +49,10 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       const role = await login2fa(loginTicket!, totpCode);
-      const dest = role === 'admin' || role === 'superadmin' ? '/admin' : from;
+      const dest = role === 'admin' || role === 'superadmin' ? '/admin' : '/dashboard';
       navigate(dest, { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '2FA verification failed');
+      setError(err instanceof ApiError ? err.message : 'Ошибка проверки 2FA');
     } finally {
       setSubmitting(false);
     }
@@ -62,7 +62,7 @@ export function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Two-Factor Authentication</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Двухфакторная аутентификация</h2>
           {error && (
             <p id="login-error" role="alert" className="text-sm text-danger bg-red-50 border border-red-200 rounded p-3 mb-4">
               {error}
@@ -70,7 +70,7 @@ export function LoginPage() {
           )}
           <form onSubmit={handle2fa} className="space-y-4">
             <Input
-              label="TOTP Code"
+              label="Код TOTP"
               type="text"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
@@ -81,7 +81,7 @@ export function LoginPage() {
               maxLength={6}
             />
             <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? 'Verifying...' : 'Verify'}
+              {submitting ? 'Проверка...' : 'Подтвердить'}
             </Button>
           </form>
         </div>
@@ -92,16 +92,16 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Login</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Вход</h2>
         {error && (
           <p id="login-error" role="alert" className="text-sm text-danger bg-red-50 border border-red-200 rounded p-3 mb-4">
             {error}
           </p>
         )}
-        {submitting && <div role="status" className="text-sm text-gray-500 mb-4">Logging in...</div>}
+        {submitting && <div role="status" className="text-sm text-gray-500 mb-4">Выполняется вход...</div>}
         <form onSubmit={handleLogin} className="space-y-4">
           <Input
-            label="Email"
+            label="Электронная почта"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -111,7 +111,7 @@ export function LoginPage() {
             aria-describedby={error ? 'login-error' : undefined}
           />
           <Input
-            label="Password"
+            label="Пароль"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -119,12 +119,12 @@ export function LoginPage() {
             aria-describedby={error ? 'login-error' : undefined}
           />
           <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Logging in...' : 'Login'}
+            {submitting ? 'Вход...' : 'Войти'}
           </Button>
         </form>
         <p className="mt-4 text-sm text-gray-600">
           <Link to="/reset-password-request" className="text-primary hover:text-primary-dark">
-            Forgot password?
+            Забыли пароль?
           </Link>
         </p>
         <p className="mt-2 text-sm text-gray-600">
