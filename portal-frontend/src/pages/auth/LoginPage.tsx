@@ -31,7 +31,8 @@ export function LoginPage() {
       if (result.requires2fa && result.loginTicket) {
         setLoginTicket(result.loginTicket);
       } else {
-        navigate(from, { replace: true });
+        const dest = result.role === 'admin' || result.role === 'superadmin' ? '/admin' : from;
+        navigate(dest, { replace: true });
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed');
@@ -45,8 +46,9 @@ export function LoginPage() {
     setError('');
     setSubmitting(true);
     try {
-      await login2fa(loginTicket!, totpCode);
-      navigate(from, { replace: true });
+      const role = await login2fa(loginTicket!, totpCode);
+      const dest = role === 'admin' || role === 'superadmin' ? '/admin' : from;
+      navigate(dest, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '2FA verification failed');
     } finally {
