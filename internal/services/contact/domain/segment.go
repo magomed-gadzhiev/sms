@@ -1,9 +1,61 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 )
+
+var (
+	ErrSegmentNotFound = errors.New("segment not found")
+)
+
+// SavedSegment represents a cross-list saved segment with filter rules.
+type SavedSegment struct {
+	ID             uuid.UUID
+	ClientID       uuid.UUID
+	Name           string
+	Description    string
+	ContactListIDs []uuid.UUID
+	Rules          SegmentRules
+	TagRules       *TagRules
+	EstimatedCount int32
+	EstimatedAt    *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// SegmentRules represents the top-level rule group with nested conditions.
+type SegmentRules struct {
+	Operator   string            `json:"operator"` // "AND" | "OR"
+	Conditions []SegmentRuleNode `json:"conditions"`
+}
+
+// SegmentRuleNode is either a leaf condition or a nested group.
+type SegmentRuleNode struct {
+	// Leaf condition fields
+	Field string      `json:"field,omitempty"`
+	Op    string      `json:"op,omitempty"`
+	Value interface{} `json:"value,omitempty"`
+
+	// Nested group fields
+	Operator   string            `json:"operator,omitempty"`
+	Conditions []SegmentRuleNode `json:"conditions,omitempty"`
+}
+
+// TagRules for tag-based filtering.
+type TagRules struct {
+	Op   string   `json:"op"`   // "contains_any" | "contains_all"
+	Tags []string `json:"tags"`
+}
+
+// IsGroup returns true if this node is a nested group (has Operator and Conditions).
+func (n SegmentRuleNode) IsGroup() bool {
+	return n.Operator != "" && len(n.Conditions) > 0
+}
 
 // MaxSegmentDepth is the maximum nesting depth for segment rules
 const MaxSegmentDepth = 3
