@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -151,7 +152,7 @@ func (s *Server) GetProvider(ctx context.Context, req *providerv1.GetProviderReq
 
 	provider, err := s.providerService.GetProvider(ctx, providerID)
 	if err != nil {
-		if err == domain.ErrProviderNotFound {
+		if errors.Is(err, domain.ErrProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "provider not found")
 		}
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to get provider: %v", err))
@@ -200,7 +201,7 @@ func (s *Server) DeleteProvider(ctx context.Context, req *providerv1.DeleteProvi
 	}
 
 	if err := s.providerService.DeleteProvider(ctx, providerID); err != nil {
-		if err == domain.ErrProviderNotFound {
+		if errors.Is(err, domain.ErrProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "provider not found")
 		}
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to delete provider: %v", err))
@@ -223,7 +224,7 @@ func (s *Server) GetProviderHealth(ctx context.Context, req *providerv1.GetProvi
 
 	_, err = s.providerService.GetProvider(ctx, providerID)
 	if err != nil {
-		if err == domain.ErrProviderNotFound {
+		if errors.Is(err, domain.ErrProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "provider not found")
 		}
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to get provider: %v", err))
@@ -289,7 +290,7 @@ func (s *Server) SendToProvider(ctx context.Context, req *providerv1.SendToProvi
 	// Получаем провайдера
 	provider, err := s.providerService.GetProvider(ctx, providerID)
 	if err != nil {
-		if err == domain.ErrProviderNotFound {
+		if errors.Is(err, domain.ErrProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "provider not found")
 		}
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to get provider: %v", err))
