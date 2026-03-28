@@ -69,6 +69,7 @@ func main() {
 		Campaign:     getEnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
 		Template:     getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Tarification: getEnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
+		Link:         getEnvOrDefault("LINK_SERVICE_ADDR", "localhost:9102"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -159,6 +160,7 @@ func main() {
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 	billingHandlers := handlers.NewBillingHandlers(serviceClients.BillingClient, payment.NewStubPaymentProvider())
 	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient)
+	domainHandlers := handlers.NewDomainHandlers(serviceClients.LinkDomainClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -186,6 +188,7 @@ func main() {
 		templateHandlers,
 		billingHandlers,
 		tariffHandlers,
+		domainHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

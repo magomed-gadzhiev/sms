@@ -19,6 +19,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
+	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
@@ -38,6 +39,7 @@ type ServiceClients struct {
 	CampaignClient       campaignv1.CampaignServiceClient
 	TemplateClient       templatev1.TemplateServiceClient
 	TarificationClient   tarificationv1.TarificationServiceClient
+	LinkDomainClient     linkv1.DomainServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -57,6 +59,7 @@ type ServiceAddresses struct {
 	Campaign     string
 	Template     string
 	Tarification string
+	Link         string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -209,6 +212,17 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Tarification Service: %w", err)
 		}
 		clients.TarificationClient = tarificationv1.NewTarificationServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Link Service
+	if addresses.Link != "" {
+		conn, err := grpc.Dial(addresses.Link, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Link Service: %w", err)
+		}
+		clients.LinkDomainClient = linkv1.NewDomainServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
