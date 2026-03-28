@@ -72,8 +72,10 @@ func (s *BillingService) AddCredits(
 		}
 	}
 
-	// Проверяем валюту
-	if account.Currency != currency {
+	// Проверяем валюту: если не указана — используем валюту аккаунта
+	if currency == "" {
+		currency = account.Currency
+	} else if account.Currency != currency {
 		return nil, fmt.Errorf("currency mismatch: account has %s, but %s provided", account.Currency, currency)
 	}
 
@@ -134,8 +136,10 @@ func (s *BillingService) DeductCredits(
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 
-	// Проверяем валюту
-	if account.Currency != currency {
+	// Проверяем валюту: если не указана — используем валюту аккаунта
+	if currency == "" {
+		currency = account.Currency
+	} else if account.Currency != currency {
 		return nil, fmt.Errorf("currency mismatch: account has %s, but %s provided", account.Currency, currency)
 	}
 

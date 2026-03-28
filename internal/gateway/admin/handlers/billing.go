@@ -438,9 +438,7 @@ func (r *AddCreditsRequest) Validate() error {
 	if r.Amount == "" {
 		return shared.ErrInvalidInput("amount обязателен")
 	}
-	if r.Currency == "" {
-		r.Currency = "USD"
-	}
+	// Валюту не задаём по умолчанию — сервис биллинга использует валюту аккаунта
 	return nil
 }
 
@@ -504,7 +502,7 @@ func (r *CreatePricingRuleRequest) Validate() error {
 		return shared.ErrInvalidInput("price_per_message обязателен")
 	}
 	if r.Currency == "" {
-		r.Currency = "USD"
+		return shared.ErrInvalidInput("currency обязателен")
 	}
 	return nil
 }

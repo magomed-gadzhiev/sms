@@ -59,6 +59,7 @@ export function BalancesTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'credit' | 'debit'>('credit');
   const [modalClientId, setModalClientId] = useState('');
+  const [modalCurrency, setModalCurrency] = useState('');
   const [creditForm, setCreditForm] = useState<CreditDebitForm>({
     type: 'credit',
     amount: '',
@@ -93,15 +94,17 @@ export function BalancesTab() {
     fetchBalances();
   }, [fetchBalances]);
 
-  const openCreditModal = (clientId: string) => {
+  const openCreditModal = (clientId: string, currency: string) => {
     setModalClientId(clientId);
+    setModalCurrency(currency);
     setModalMode('credit');
     setCreditForm({ type: 'credit', amount: '', reason: '' });
     setModalOpen(true);
   };
 
-  const openDebitModal = (clientId: string) => {
+  const openDebitModal = (clientId: string, currency: string) => {
     setModalClientId(clientId);
+    setModalCurrency(currency);
     setModalMode('debit');
     setCreditForm({ type: 'debit', amount: '', reason: '' });
     setModalOpen(true);
@@ -120,6 +123,7 @@ export function BalancesTab() {
         : creditForm.amount;
       const res = await billingApi.addCredits(modalClientId, {
         amount,
+        currency: modalCurrency,
         description: `[${creditForm.type}] ${creditForm.reason}`,
       });
       toast.success(`Операция выполнена. Новый баланс: ${res.new_balance}`);
@@ -207,10 +211,10 @@ export function BalancesTab() {
         keyField="client_id"
         rowActions={(item) => (
           <div className="flex gap-1">
-            <Button size="sm" variant="secondary" onClick={() => openCreditModal(item.client_id)}>
+            <Button size="sm" variant="secondary" onClick={() => openCreditModal(item.client_id, item.currency)}>
               Начислить
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => openDebitModal(item.client_id)}>
+            <Button size="sm" variant="secondary" onClick={() => openDebitModal(item.client_id, item.currency)}>
               Списать
             </Button>
             {item.frozen ? (
