@@ -16,6 +16,8 @@ type TemplateRepository interface {
 	Update(ctx context.Context, t *domain.Template) (*domain.Template, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status, rejectionReason string) (*domain.Template, error)
 	Delete(ctx context.Context, id, clientID uuid.UUID) error
+	AssignReviewer(ctx context.Context, templateID, reviewerID uuid.UUID) error
+	RequestRevision(ctx context.Context, templateID, reviewerID uuid.UUID, comment string) error
 }
 
 // AuditRepository defines the persistence operations required by TemplateService for audit logging.

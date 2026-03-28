@@ -236,6 +236,60 @@ func (s *Server) GetTemplateAuditLog(ctx context.Context, req *templatev1.GetTem
 	}, nil
 }
 
+func (s *Server) AssignReviewer(ctx context.Context, req *templatev1.AssignReviewerRequest) (*templatev1.AssignReviewerResponse, error) {
+	if req.TemplateId == "" {
+		return nil, status.Error(codes.InvalidArgument, "template_id is required")
+	}
+	if req.ReviewerId == "" {
+		return nil, status.Error(codes.InvalidArgument, "reviewer_id is required")
+	}
+
+	templateID, err := uuid.Parse(req.TemplateId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template_id format")
+	}
+	reviewerID, err := uuid.Parse(req.ReviewerId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid reviewer_id format")
+	}
+
+	tmpl, err := s.templateService.AssignReviewer(ctx, templateID, reviewerID)
+	if err != nil {
+		return nil, s.mapError(err)
+	}
+
+	return &templatev1.AssignReviewerResponse{
+		Template: templateToProto(tmpl),
+	}, nil
+}
+
+func (s *Server) RequestRevision(ctx context.Context, req *templatev1.RequestRevisionRequest) (*templatev1.RequestRevisionResponse, error) {
+	if req.TemplateId == "" {
+		return nil, status.Error(codes.InvalidArgument, "template_id is required")
+	}
+	if req.ReviewerId == "" {
+		return nil, status.Error(codes.InvalidArgument, "reviewer_id is required")
+	}
+
+	templateID, err := uuid.Parse(req.TemplateId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template_id format")
+	}
+	reviewerID, err := uuid.Parse(req.ReviewerId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid reviewer_id format")
+	}
+
+	tmpl, err := s.templateService.RequestRevision(ctx, templateID, reviewerID, req.Comment)
+	if err != nil {
+		return nil, s.mapError(err)
+	}
+
+	return &templatev1.RequestRevisionResponse{
+		Template: templateToProto(tmpl),
+	}, nil
+}
+
 func (s *Server) parseIDs(idStr, clientIDStr string) (uuid.UUID, uuid.UUID, error) {
 	if idStr == "" {
 		return uuid.Nil, uuid.Nil, status.Error(codes.InvalidArgument, "id is required")
@@ -281,7 +335,7 @@ func (s *Server) mapError(err error) error {
 }
 
 func templateToProto(tmpl *domain.Template) *templatev1.TemplateInfo {
-	return &templatev1.TemplateInfo{
+	info := &templatev1.TemplateInfo{
 		Id:              tmpl.ID.String(),
 		ClientId:        tmpl.ClientID.String(),
 		Name:            tmpl.Name,
@@ -289,9 +343,17 @@ func templateToProto(tmpl *domain.Template) *templatev1.TemplateInfo {
 		Variables:       tmpl.Variables,
 		Status:          tmpl.Status,
 		RejectionReason: tmpl.RejectionReason,
+		ReviewComment:   tmpl.ReviewComment,
 		CreatedAt:       timestamppb.New(tmpl.CreatedAt),
 		UpdatedAt:       timestamppb.New(tmpl.UpdatedAt),
 	}
+	if tmpl.ReviewerID != nil {
+		info.ReviewerId = tmpl.ReviewerID.String()
+	}
+	if tmpl.ReviewedAt != nil {
+		info.ReviewedAt = timestamppb.New(*tmpl.ReviewedAt)
+	}
+	return info
 }
 
 func auditToProto(entry *domain.AuditEntry) *templatev1.AuditEntry {

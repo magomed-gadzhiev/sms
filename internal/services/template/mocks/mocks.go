@@ -66,6 +66,16 @@ func (m *MockTemplateRepository) Delete(ctx context.Context, id, clientID uuid.U
 	return args.Error(0)
 }
 
+func (m *MockTemplateRepository) AssignReviewer(ctx context.Context, templateID, reviewerID uuid.UUID) error {
+	args := m.Called(ctx, templateID, reviewerID)
+	return args.Error(0)
+}
+
+func (m *MockTemplateRepository) RequestRevision(ctx context.Context, templateID, reviewerID uuid.UUID, comment string) error {
+	args := m.Called(ctx, templateID, reviewerID, comment)
+	return args.Error(0)
+}
+
 // MockAuditRepository is a mock implementation of application.AuditRepository.
 type MockAuditRepository struct {
 	mock.Mock

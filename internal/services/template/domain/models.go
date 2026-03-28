@@ -21,9 +21,11 @@ var (
 )
 
 const (
-	StatusDraft    = "draft"
-	StatusApproved = "approved"
-	StatusRejected = "rejected"
+	StatusDraft             = "draft"
+	StatusApproved          = "approved"
+	StatusRejected          = "rejected"
+	StatusReview            = "review"
+	StatusRevisionRequested = "revision_requested"
 
 	MaxBodyLength          = 1600
 	MaxNameLength          = 255
@@ -42,6 +44,9 @@ type Template struct {
 	Variables       []string
 	Status          string
 	RejectionReason string
+	ReviewerID      *uuid.UUID
+	ReviewComment   string
+	ReviewedAt      *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

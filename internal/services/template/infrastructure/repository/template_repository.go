@@ -27,21 +27,32 @@ type templateRow struct {
 	Variables       pq.StringArray `db:"variables"`
 	Status          string         `db:"status"`
 	RejectionReason sql.NullString `db:"rejection_reason"`
+	ReviewerID      *uuid.UUID     `db:"reviewer_id"`
+	ReviewComment   sql.NullString `db:"review_comment"`
+	ReviewedAt      sql.NullTime   `db:"reviewed_at"`
 	CreatedAt       sql.NullTime   `db:"created_at"`
 	UpdatedAt       sql.NullTime   `db:"updated_at"`
 }
 
 func (r *templateRow) toDomain() *domain.Template {
 	t := &domain.Template{
-		ID:        r.ID,
-		ClientID:  r.ClientID,
-		Name:      r.Name,
-		Body:      r.Body,
-		Variables: []string(r.Variables),
-		Status:    r.Status,
+		ID:         r.ID,
+		ClientID:   r.ClientID,
+		Name:       r.Name,
+		Body:       r.Body,
+		Variables:  []string(r.Variables),
+		Status:     r.Status,
+		ReviewerID: r.ReviewerID,
 	}
 	if r.RejectionReason.Valid {
 		t.RejectionReason = r.RejectionReason.String
+	}
+	if r.ReviewComment.Valid {
+		t.ReviewComment = r.ReviewComment.String
+	}
+	if r.ReviewedAt.Valid {
+		reviewedAt := r.ReviewedAt.Time
+		t.ReviewedAt = &reviewedAt
 	}
 	if r.CreatedAt.Valid {
 		t.CreatedAt = r.CreatedAt.Time
@@ -55,7 +66,7 @@ func (r *templateRow) toDomain() *domain.Template {
 func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*domain.Template, error) {
 	query := `INSERT INTO templates (id, client_id, name, body, variables, status)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, created_at, updated_at`
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
@@ -71,7 +82,7 @@ func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*d
 }
 
 func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID) (*domain.Template, error) {
-	query := `SELECT id, client_id, name, body, variables, status, rejection_reason, created_at, updated_at
+	query := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
 		FROM templates WHERE id = $1 AND client_id = $2`
 
 	var row templateRow
@@ -87,7 +98,7 @@ func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID
 
 // GetByIDAdmin retrieves a template without client_id check (for admin operations)
 func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*domain.Template, error) {
-	query := `SELECT id, client_id, name, body, variables, status, rejection_reason, created_at, updated_at
+	query := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
 		FROM templates WHERE id = $1`
 
 	var row templateRow
@@ -103,7 +114,7 @@ func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*d
 
 func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Template, int, error) {
 	countQuery := `SELECT COUNT(*) FROM templates WHERE client_id = $1`
-	listQuery := `SELECT id, client_id, name, body, variables, status, rejection_reason, created_at, updated_at
+	listQuery := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
 		FROM templates WHERE client_id = $1`
 	args := []interface{}{clientID}
 
@@ -141,7 +152,7 @@ func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.U
 func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*domain.Template, error) {
 	query := `UPDATE templates SET name = $1, body = $2, variables = $3, status = $4, rejection_reason = $5
 		WHERE id = $6 AND client_id = $7
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, created_at, updated_at`
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at`
 
 	var rejReason sql.NullString
 	if t.RejectionReason != "" {
@@ -173,7 +184,7 @@ func (r *TemplateRepository) UpdateStatus(ctx context.Context, id uuid.UUID, sta
 
 	query := `UPDATE templates SET status = $1, rejection_reason = $2
 		WHERE id = $3
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, created_at, updated_at`
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, status, rejReason, id).StructScan(&row)
@@ -191,6 +202,34 @@ func (r *TemplateRepository) Delete(ctx context.Context, id, clientID uuid.UUID)
 	result, err := r.db.ExecContext(ctx, query, id, clientID)
 	if err != nil {
 		return fmt.Errorf("failed to delete template: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return domain.ErrTemplateNotFound
+	}
+	return nil
+}
+
+// AssignReviewer sets the reviewer and transitions the template to 'review' status.
+func (r *TemplateRepository) AssignReviewer(ctx context.Context, templateID, reviewerID uuid.UUID) error {
+	query := `UPDATE templates SET reviewer_id = $1, status = 'review', reviewed_at = NOW() WHERE id = $2`
+	result, err := r.db.ExecContext(ctx, query, reviewerID, templateID)
+	if err != nil {
+		return fmt.Errorf("failed to assign reviewer: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return domain.ErrTemplateNotFound
+	}
+	return nil
+}
+
+// RequestRevision sets the template status to 'revision_requested' with a review comment.
+func (r *TemplateRepository) RequestRevision(ctx context.Context, templateID, reviewerID uuid.UUID, comment string) error {
+	query := `UPDATE templates SET status = 'revision_requested', review_comment = $1, reviewer_id = $2, reviewed_at = NOW() WHERE id = $3`
+	result, err := r.db.ExecContext(ctx, query, comment, reviewerID, templateID)
+	if err != nil {
+		return fmt.Errorf("failed to request revision: %w", err)
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {

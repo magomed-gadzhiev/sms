@@ -192,6 +192,51 @@ func (s *TemplateService) RejectTemplate(ctx context.Context, id uuid.UUID, acto
 	return updated, nil
 }
 
+func (s *TemplateService) AssignReviewer(ctx context.Context, templateID, reviewerID uuid.UUID) (*domain.Template, error) {
+	if err := s.templateRepo.AssignReviewer(ctx, templateID, reviewerID); err != nil {
+		return nil, err
+	}
+
+	tmpl, err := s.templateRepo.GetByIDAdmin(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
+		TemplateID: &templateID,
+		Action:     "reviewer_assigned",
+		ActorID:    &reviewerID,
+		ActorType:  "admin",
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", templateID.String()).Msg("failed to write audit log")
+	}
+
+	return tmpl, nil
+}
+
+func (s *TemplateService) RequestRevision(ctx context.Context, templateID, reviewerID uuid.UUID, comment string) (*domain.Template, error) {
+	if err := s.templateRepo.RequestRevision(ctx, templateID, reviewerID, comment); err != nil {
+		return nil, err
+	}
+
+	tmpl, err := s.templateRepo.GetByIDAdmin(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
+		TemplateID: &templateID,
+		Action:     "revision_requested",
+		ActorID:    &reviewerID,
+		ActorType:  "admin",
+		Reason:     comment,
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", templateID.String()).Msg("failed to write audit log")
+	}
+
+	return tmpl, nil
+}
+
 func (s *TemplateService) RenderTemplate(ctx context.Context, templateID, clientID uuid.UUID, variables map[string]string) (string, string, error) {
 	tmpl, err := s.templateRepo.GetByID(ctx, templateID, clientID)
 	if err != nil {
