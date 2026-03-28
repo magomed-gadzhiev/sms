@@ -30,6 +30,8 @@ service CampaignService {
   rpc GetDeliveryHeatmap(GetDeliveryHeatmapRequest) returns (HeatmapData);
   rpc GetOptimalSendTime(GetOptimalSendTimeRequest) returns (SendTimeRecommendation);
   rpc ExportReport(ExportReportRequest) returns (ReportFile);
+
+  rpc PreviewTemplate(PreviewTemplateRequest) returns (PreviewTemplateResponse);
 }
 
 message Campaign {
@@ -301,4 +303,27 @@ message ReportFile {
   bytes data = 1;
   string filename = 2;
   string content_type = 3;
+}
+
+message PreviewTemplateRequest {
+  string client_id = 1;
+  string template_text = 2;
+  repeated TemplateTestData test_data = 3;
+  string contact_list_id = 4; // optional: for auto-sampling contacts
+}
+
+message TemplateTestData {
+  map<string, string> bindings = 1;
+}
+
+message PreviewTemplateResponse {
+  repeated TemplatePreviewResult results = 1;
+}
+
+message TemplatePreviewResult {
+  string rendered = 1;
+  int32 length = 2;
+  int32 segments = 3;
+  repeated string warnings = 4;
+  string error = 5;
 }

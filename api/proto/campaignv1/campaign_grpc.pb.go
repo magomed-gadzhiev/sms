@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: campaign/campaign.proto
+// source: api/proto/campaign/campaign.proto
 
 package campaignv1
 
@@ -40,6 +40,7 @@ const (
 	CampaignService_GetDeliveryHeatmap_FullMethodName   = "/campaign.v1.CampaignService/GetDeliveryHeatmap"
 	CampaignService_GetOptimalSendTime_FullMethodName   = "/campaign.v1.CampaignService/GetOptimalSendTime"
 	CampaignService_ExportReport_FullMethodName         = "/campaign.v1.CampaignService/ExportReport"
+	CampaignService_PreviewTemplate_FullMethodName      = "/campaign.v1.CampaignService/PreviewTemplate"
 )
 
 // CampaignServiceClient is the client API for CampaignService service.
@@ -66,6 +67,7 @@ type CampaignServiceClient interface {
 	GetDeliveryHeatmap(ctx context.Context, in *GetDeliveryHeatmapRequest, opts ...grpc.CallOption) (*HeatmapData, error)
 	GetOptimalSendTime(ctx context.Context, in *GetOptimalSendTimeRequest, opts ...grpc.CallOption) (*SendTimeRecommendation, error)
 	ExportReport(ctx context.Context, in *ExportReportRequest, opts ...grpc.CallOption) (*ReportFile, error)
+	PreviewTemplate(ctx context.Context, in *PreviewTemplateRequest, opts ...grpc.CallOption) (*PreviewTemplateResponse, error)
 }
 
 type campaignServiceClient struct {
@@ -276,6 +278,16 @@ func (c *campaignServiceClient) ExportReport(ctx context.Context, in *ExportRepo
 	return out, nil
 }
 
+func (c *campaignServiceClient) PreviewTemplate(ctx context.Context, in *PreviewTemplateRequest, opts ...grpc.CallOption) (*PreviewTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewTemplateResponse)
+	err := c.cc.Invoke(ctx, CampaignService_PreviewTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CampaignServiceServer is the server API for CampaignService service.
 // All implementations must embed UnimplementedCampaignServiceServer
 // for forward compatibility.
@@ -300,6 +312,7 @@ type CampaignServiceServer interface {
 	GetDeliveryHeatmap(context.Context, *GetDeliveryHeatmapRequest) (*HeatmapData, error)
 	GetOptimalSendTime(context.Context, *GetOptimalSendTimeRequest) (*SendTimeRecommendation, error)
 	ExportReport(context.Context, *ExportReportRequest) (*ReportFile, error)
+	PreviewTemplate(context.Context, *PreviewTemplateRequest) (*PreviewTemplateResponse, error)
 	mustEmbedUnimplementedCampaignServiceServer()
 }
 
@@ -369,6 +382,9 @@ func (UnimplementedCampaignServiceServer) GetOptimalSendTime(context.Context, *G
 }
 func (UnimplementedCampaignServiceServer) ExportReport(context.Context, *ExportReportRequest) (*ReportFile, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportReport not implemented")
+}
+func (UnimplementedCampaignServiceServer) PreviewTemplate(context.Context, *PreviewTemplateRequest) (*PreviewTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PreviewTemplate not implemented")
 }
 func (UnimplementedCampaignServiceServer) mustEmbedUnimplementedCampaignServiceServer() {}
 func (UnimplementedCampaignServiceServer) testEmbeddedByValue()                         {}
@@ -751,6 +767,24 @@ func _CampaignService_ExportReport_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CampaignService_PreviewTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CampaignServiceServer).PreviewTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CampaignService_PreviewTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CampaignServiceServer).PreviewTemplate(ctx, req.(*PreviewTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CampaignService_ServiceDesc is the grpc.ServiceDesc for CampaignService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -838,7 +872,11 @@ var CampaignService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ExportReport",
 			Handler:    _CampaignService_ExportReport_Handler,
 		},
+		{
+			MethodName: "PreviewTemplate",
+			Handler:    _CampaignService_PreviewTemplate_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "campaign/campaign.proto",
+	Metadata: "api/proto/campaign/campaign.proto",
 }
