@@ -22,6 +22,8 @@ func SetupRouter(
 	tarificationHandlers *handlers.TarificationHandler,
 	hlrHandlers *handlers.HLRHandlers,
 	clientRoutingHandlers *handlers.ClientRoutingHandlers,
+	userHandlers *handlers.UserHandlers,
+	roleHandlers *handlers.RoleHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -95,6 +97,11 @@ func SetupRouter(
 	billing.HandleFunc("/transactions", billingHandlers.GetTransactionHistory).Methods("GET")
 	billing.HandleFunc("/pricing-rules", billingHandlers.GetPricingRules).Methods("GET")
 	billing.HandleFunc("/pricing-rules", billingHandlers.CreatePricingRule).Methods("POST")
+	billing.HandleFunc("/clients/{id}/freeze", billingHandlers.FreezeAccount).Methods("POST")
+	billing.HandleFunc("/clients/{id}/unfreeze", billingHandlers.UnfreezeAccount).Methods("POST")
+	billing.HandleFunc("/clients/{id}/credit-limit", billingHandlers.SetCreditLimit).Methods("PUT")
+	billing.HandleFunc("/clients/{id}/low-balance-threshold", billingHandlers.SetLowBalanceThreshold).Methods("PUT")
+	billing.HandleFunc("/balances", billingHandlers.ListBalances).Methods("GET")
 
 	// Webhook endpoints
 	webhooks := adminV1.PathPrefix("/webhooks").Subrouter()
@@ -111,6 +118,8 @@ func SetupRouter(
 	templates.HandleFunc("/{id}/approve", templateHandlers.ApproveTemplate).Methods("POST")
 	templates.HandleFunc("/{id}/reject", templateHandlers.RejectTemplate).Methods("POST")
 	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAudit).Methods("GET")
+	templates.HandleFunc("/{id}/assign", templateHandlers.AssignReviewer).Methods("POST")
+	templates.HandleFunc("/{id}/request-revision", templateHandlers.RequestRevision).Methods("POST")
 
 	// Country endpoints
 	countries := adminV1.PathPrefix("/countries").Subrouter()
@@ -158,6 +167,27 @@ func SetupRouter(
 	weights.HandleFunc("", hlrHandlers.SetWeights).Methods("POST")
 	weights.HandleFunc("", hlrHandlers.ListWeights).Methods("GET")
 	weights.HandleFunc("/{id}", hlrHandlers.DeleteWeights).Methods("DELETE")
+
+	// Users endpoints
+	users := adminV1.PathPrefix("/users").Subrouter()
+	users.HandleFunc("", userHandlers.ListUsers).Methods("GET")
+	users.HandleFunc("", userHandlers.CreateUser).Methods("POST")
+	users.HandleFunc("/{id}", userHandlers.GetUser).Methods("GET")
+	users.HandleFunc("/{id}", userHandlers.UpdateUser).Methods("PUT")
+	users.HandleFunc("/{id}/deactivate", userHandlers.DeactivateUser).Methods("POST")
+	users.HandleFunc("/{id}/reset-2fa", userHandlers.ResetUser2FA).Methods("POST")
+	users.HandleFunc("/{id}/reset-password", userHandlers.ResetUserPassword).Methods("POST")
+
+	// Roles endpoints
+	roles := adminV1.PathPrefix("/roles").Subrouter()
+	roles.HandleFunc("", roleHandlers.ListRoles).Methods("GET")
+	roles.HandleFunc("", roleHandlers.CreateRole).Methods("POST")
+	roles.HandleFunc("/{id}", roleHandlers.GetRole).Methods("GET")
+	roles.HandleFunc("/{id}", roleHandlers.UpdateRole).Methods("PUT")
+	roles.HandleFunc("/{id}", roleHandlers.DeleteRole).Methods("DELETE")
+
+	// Permissions endpoint
+	adminV1.HandleFunc("/permissions", roleHandlers.ListPermissions).Methods("GET")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

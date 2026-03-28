@@ -102,6 +102,8 @@ func main() {
 	tarificationHandlers := handlers.NewTarificationHandler(serviceClients.TarificationClient)
 	hlrHandlers := handlers.NewHLRHandlers(serviceClients.RoutingClient)
 	clientRoutingHandlers := handlers.NewClientRoutingHandlers(serviceClients.RoutingClient, serviceClients.TarificationClient)
+	userHandlers := handlers.NewUserHandlers(serviceClients.AuthClient)
+	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
@@ -123,6 +125,8 @@ func main() {
 		tarificationHandlers,
 		hlrHandlers,
 		clientRoutingHandlers,
+		userHandlers,
+		roleHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,

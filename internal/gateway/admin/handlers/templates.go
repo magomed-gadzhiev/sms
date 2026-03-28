@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
+	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -187,6 +188,63 @@ func (h *TemplateHandlers) GetTemplateAudit(w http.ResponseWriter, r *http.Reque
 		"entries": entries,
 		"total":   resp.Total,
 	})
+}
+
+// AssignReviewer обрабатывает POST /admin/v1/templates/:id/assign
+func (h *TemplateHandlers) AssignReviewer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	reviewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("не удалось определить пользователя"))
+		return
+	}
+
+	resp, err := h.templateClient.AssignReviewer(r.Context(), &templatev1.AssignReviewerRequest{
+		TemplateId: id,
+		ReviewerId: reviewerID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, templateToMap(resp.Template))
+}
+
+// RequestRevision обрабатывает POST /admin/v1/templates/:id/request-revision
+func (h *TemplateHandlers) RequestRevision(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	reviewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("не удалось определить пользователя"))
+		return
+	}
+
+	var req struct {
+		Comment string `json:"comment"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.Comment == "" {
+		respondError(w, shared.ErrInvalidInput("comment обязателен"))
+		return
+	}
+
+	resp, err := h.templateClient.RequestRevision(r.Context(), &templatev1.RequestRevisionRequest{
+		TemplateId: id,
+		ReviewerId: reviewerID.String(),
+		Comment:    req.Comment,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, templateToMap(resp.Template))
 }
 
 func templateToMap(t *templatev1.TemplateInfo) map[string]interface{} {

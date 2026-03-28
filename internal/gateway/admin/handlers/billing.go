@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/billingv1"
+	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -223,6 +224,198 @@ func (h *BillingHandlers) CreatePricingRule(w http.ResponseWriter, r *http.Reque
 		RuleID:    resp.RuleId,
 		CreatedAt: resp.CreatedAt.AsTime(),
 	})
+}
+
+// FreezeAccount обрабатывает POST /admin/v1/billing/clients/:id/freeze
+func (h *BillingHandlers) FreezeAccount(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clientID := vars["id"]
+	if clientID == "" {
+		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
+		return
+	}
+
+	adminID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("не удалось определить пользователя"))
+		return
+	}
+
+	resp, err := h.billingClient.FreezeAccount(r.Context(), &billingv1.FreezeAccountRequest{
+		ClientId: clientID,
+		AdminId:  adminID.String(),
+	})
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID).Msg("ошибка заморозки аккаунта")
+		respondGRPCError(w, err)
+		return
+	}
+
+	result := map[string]interface{}{
+		"success": resp.Success,
+	}
+	if resp.FrozenAt != nil {
+		result["frozen_at"] = resp.FrozenAt.AsTime()
+	}
+	respondJSON(w, http.StatusOK, result)
+}
+
+// UnfreezeAccount обрабатывает POST /admin/v1/billing/clients/:id/unfreeze
+func (h *BillingHandlers) UnfreezeAccount(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clientID := vars["id"]
+	if clientID == "" {
+		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
+		return
+	}
+
+	adminID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("не удалось определить пользователя"))
+		return
+	}
+
+	resp, err := h.billingClient.UnfreezeAccount(r.Context(), &billingv1.UnfreezeAccountRequest{
+		ClientId: clientID,
+		AdminId:  adminID.String(),
+	})
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID).Msg("ошибка разморозки аккаунта")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": resp.Success,
+	})
+}
+
+// SetCreditLimit обрабатывает PUT /admin/v1/billing/clients/:id/credit-limit
+func (h *BillingHandlers) SetCreditLimit(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clientID := vars["id"]
+	if clientID == "" {
+		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
+		return
+	}
+
+	var req struct {
+		CreditLimit string `json:"credit_limit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.CreditLimit == "" {
+		respondError(w, shared.ErrInvalidInput("credit_limit обязателен"))
+		return
+	}
+
+	resp, err := h.billingClient.SetCreditLimit(r.Context(), &billingv1.SetCreditLimitRequest{
+		ClientId:    clientID,
+		CreditLimit: req.CreditLimit,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID).Msg("ошибка установки кредитного лимита")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":      resp.Success,
+		"credit_limit": resp.CreditLimit,
+	})
+}
+
+// SetLowBalanceThreshold обрабатывает PUT /admin/v1/billing/clients/:id/low-balance-threshold
+func (h *BillingHandlers) SetLowBalanceThreshold(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clientID := vars["id"]
+	if clientID == "" {
+		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
+		return
+	}
+
+	var req struct {
+		Threshold string `json:"threshold"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.Threshold == "" {
+		respondError(w, shared.ErrInvalidInput("threshold обязателен"))
+		return
+	}
+
+	resp, err := h.billingClient.SetLowBalanceThreshold(r.Context(), &billingv1.SetLowBalanceThresholdRequest{
+		ClientId:  clientID,
+		Threshold: req.Threshold,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID).Msg("ошибка установки порога низкого баланса")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":   resp.Success,
+		"threshold": resp.Threshold,
+	})
+}
+
+// ListBalances обрабатывает GET /admin/v1/billing/balances
+func (h *BillingHandlers) ListBalances(w http.ResponseWriter, r *http.Request) {
+	search := r.URL.Query().Get("search")
+	status := r.URL.Query().Get("status")
+	belowThreshold := r.URL.Query().Get("below_threshold") == "true"
+	limit := parseIntParam(r, "limit", 50)
+	offset := parseIntParam(r, "offset", 0)
+
+	resp, err := h.billingClient.ListBalances(r.Context(), &billingv1.ListBalancesRequest{
+		Search:         search,
+		Status:         status,
+		BelowThreshold: belowThreshold,
+		Limit:          limit,
+		Offset:         offset,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка балансов")
+		respondGRPCError(w, err)
+		return
+	}
+
+	balances := make([]map[string]interface{}, len(resp.Balances))
+	for i, b := range resp.Balances {
+		balances[i] = balanceInfoToMap(b)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"balances": balances,
+		"total":    resp.Total,
+		"limit":    resp.Limit,
+		"offset":   resp.Offset,
+	})
+}
+
+func balanceInfoToMap(b *billingv1.BalanceInfo) map[string]interface{} {
+	result := map[string]interface{}{
+		"client_id":             b.ClientId,
+		"client_name":           b.ClientName,
+		"balance":               b.Balance,
+		"currency":              b.Currency,
+		"frozen":                b.Frozen,
+		"credit_limit":          b.CreditLimit,
+		"low_balance_threshold": b.LowBalanceThreshold,
+		"frozen_by":             b.FrozenBy,
+	}
+	if b.FrozenAt != nil {
+		result["frozen_at"] = b.FrozenAt.AsTime()
+	}
+	if b.UpdatedAt != nil {
+		result["updated_at"] = b.UpdatedAt.AsTime()
+	}
+	return result
 }
 
 // Типы запросов и ответов
