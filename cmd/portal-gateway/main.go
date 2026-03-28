@@ -10,7 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"fmt"
+
 	"github.com/IBM/sarama"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
@@ -162,6 +165,23 @@ func main() {
 	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient)
 	domainHandlers := handlers.NewDomainHandlers(serviceClients.LinkDomainClient)
 
+	// Database pool for direct-query handlers (settings)
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		getEnvOrDefault("POSTGRES_USER", "smpp"),
+		getEnvOrDefault("POSTGRES_PASSWORD", "smpp_password"),
+		getEnvOrDefault("POSTGRES_HOST", "localhost"),
+		getEnvOrDefault("POSTGRES_PORT", "5432"),
+		getEnvOrDefault("POSTGRES_DB", "smpp_db"),
+	)
+	dbPool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		logger.Warn().Err(err).Msg("не удалось создать DB pool для settings handlers")
+	}
+	if dbPool != nil {
+		defer dbPool.Close()
+	}
+	settingsHandlers := handlers.NewSettingsHandlers(dbPool)
+
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
 		healthChecker,
@@ -189,6 +209,7 @@ func main() {
 		billingHandlers,
 		tariffHandlers,
 		domainHandlers,
+		settingsHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

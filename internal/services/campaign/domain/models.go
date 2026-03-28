@@ -35,12 +35,15 @@ const (
 
 // Recipient status constants
 const (
-	RecipientPending   = "pending"
-	RecipientSent      = "sent"
-	RecipientDelivered = "delivered"
-	RecipientFailed    = "failed"
-	RecipientRetry     = "retry"
-	RecipientCancelled = "cancelled"
+	RecipientPending            = "pending"
+	RecipientSent               = "sent"
+	RecipientDelivered          = "delivered"
+	RecipientFailed             = "failed"
+	RecipientRetry              = "retry"
+	RecipientCancelled          = "cancelled"
+	RecipientCapped             = "capped"
+	RecipientPendingRollout     = "pending_rollout"
+	RecipientSkippedQuietHours  = "skipped_quiet_hours"
 )
 
 // Campaign represents a broadcast campaign
@@ -63,6 +66,7 @@ type Campaign struct {
 	SentCount       int32
 	DeliveredCount  int32
 	FailedCount     int32
+	CappedCount     int32
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 
@@ -113,6 +117,7 @@ type Recipient struct {
 	Status       string
 	MessageID    *uuid.UUID
 	RenderedText *string
+	DeliverAt    *time.Time
 	RetryCount   int32
 	LastRetryAt  *time.Time
 	CreatedAt    time.Time

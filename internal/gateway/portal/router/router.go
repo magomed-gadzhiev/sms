@@ -48,6 +48,7 @@ func SetupRouter(
 	billingHandlers *handlers.BillingHandlers,
 	tariffHandlers *handlers.TariffHandlers,
 	domainHandlers *handlers.DomainHandlers,
+	settingsHandlers *handlers.SettingsHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -238,6 +239,13 @@ func SetupRouter(
 	domains.HandleFunc("", domainHandlers.AddDomain).Methods("POST")
 	domains.HandleFunc("", domainHandlers.ListDomains).Methods("GET")
 	domains.HandleFunc("/{id}", domainHandlers.DeleteDomain).Methods("DELETE")
+
+	// Settings endpoints
+	settings := protected.PathPrefix("/settings").Subrouter()
+	settings.HandleFunc("/frequency-caps", settingsHandlers.GetFrequencyCaps).Methods("GET")
+	settings.HandleFunc("/frequency-caps", settingsHandlers.UpsertFrequencyCap).Methods("PUT")
+	settings.HandleFunc("/quiet-hours", settingsHandlers.GetQuietHours).Methods("GET")
+	settings.HandleFunc("/quiet-hours", settingsHandlers.UpsertQuietHours).Methods("PUT")
 
 	return router
 }
