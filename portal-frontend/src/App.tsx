@@ -29,6 +29,8 @@ import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
 import { LookupPage } from './pages/lookup/LookupPage';
+import { SegmentsPage } from './pages/segments/SegmentsPage';
+import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -67,6 +69,9 @@ export function App() {
         <Route path="/contact-lists" element={<ContactListsPage />} />
         <Route path="/contact-lists/:id" element={<ContactListDetailPage />} />
         <Route path="/contact-lists/:id/import" element={<ImportWizardPage />} />
+        <Route path="/segments" element={<SegmentsPage />} />
+        <Route path="/segments/new" element={<SegmentDetailPage />} />
+        <Route path="/segments/:id" element={<SegmentDetailPage />} />
         <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/campaigns/new" element={<CampaignWizardPage />} />
         <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
