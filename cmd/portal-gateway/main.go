@@ -70,7 +70,7 @@ func main() {
 		Campaign:     getEnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
 		Template:     getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Tarification: getEnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
-		Link:         getEnvOrDefault("LINK_SERVICE_ADDR", "localhost:9102"),
+		Link:         getEnvOrDefault("LINK_SERVICE_ADDR", "localhost:9103"),
 	}
 
 	// Инициализация gRPC клиентов

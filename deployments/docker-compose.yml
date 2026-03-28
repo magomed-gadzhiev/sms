@@ -962,6 +962,7 @@ services:
       - AUDIT_SERVICE_ADDR=audit-service:9102
       - CONTACT_SERVICE_ADDR=contact-service:5012
       - CAMPAIGN_SERVICE_ADDR=campaign-service:5013
+      - LINK_SERVICE_ADDR=link-service:9103
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
