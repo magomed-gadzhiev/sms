@@ -800,6 +800,75 @@ services:
       timeout: 5s
       retries: 3
 
+  # Contact Service
+  contact-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: contact-service
+        SERVICE_PATH: cmd/services/contact-service
+    container_name: contact-service
+    ports:
+      - "5012:5012"
+      - "2130:2130"
+    environment:
+      - SERVICE_NAME=contact-service
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2130/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Campaign Service
+  campaign-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: campaign-service
+        SERVICE_PATH: cmd/services/campaign-service
+    container_name: campaign-service
+    ports:
+      - "5013:5013"
+      - "2131:2131"
+    environment:
+      - SERVICE_NAME=campaign-service
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - KAFKA_BROKERS=kafka:9092
+      - CONTACT_SERVICE_ADDR=contact-service:5012
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      contact-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2131/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # Tarification Service
   tarification-service:
     build:
@@ -891,6 +960,8 @@ services:
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
       - PROVIDER_SERVICE_ADDR=provider-service:9094
       - AUDIT_SERVICE_ADDR=audit-service:9102
+      - CONTACT_SERVICE_ADDR=contact-service:5012
+      - CAMPAIGN_SERVICE_ADDR=campaign-service:5013
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -920,6 +991,10 @@ services:
       audit-service:
         condition: service_healthy
       template-service:
+        condition: service_healthy
+      contact-service:
+        condition: service_healthy
+      campaign-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
