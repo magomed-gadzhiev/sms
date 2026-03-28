@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/webhook/domain"
 	webhookhttp "github.com/smpp-server/smpp-server/internal/services/webhook/infrastructure/http"
-	"github.com/smpp-server/smpp-server/internal/services/webhook/infrastructure/repository"
 )
 
 // CacheInvalidator allows WebhookService to invalidate the delivery cache on CRUD ops
@@ -21,12 +20,12 @@ type CacheInvalidator interface {
 }
 
 type WebhookService struct {
-	subRepo          *repository.SubscriptionRepository
+	subRepo          SubscriptionRepository
 	cacheInvalidator CacheInvalidator
 	logger           zerolog.Logger
 }
 
-func NewWebhookService(subRepo *repository.SubscriptionRepository, cacheInvalidator CacheInvalidator) *WebhookService {
+func NewWebhookService(subRepo SubscriptionRepository, cacheInvalidator CacheInvalidator) *WebhookService {
 	return &WebhookService{
 		subRepo:          subRepo,
 		cacheInvalidator: cacheInvalidator,
