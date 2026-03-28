@@ -168,6 +168,55 @@ func (r *APIKeyRepository) ListByUserID(ctx context.Context, userID uuid.UUID) (
 	return apiKeys, nil
 }
 
+// Update обновляет API ключ (имя, scopes, allowed_ips, expires_at)
+func (r *APIKeyRepository) Update(ctx context.Context, apiKey *domain.APIKey) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Обновляем основные поля ключа
+	query := `
+		UPDATE api_keys
+		SET name = $1, expires_at = $2, allowed_ips = $3, updated_at = $4
+		WHERE id = $5 AND active = true
+	`
+
+	result, err := tx.ExecContext(ctx, query,
+		apiKey.Name, apiKey.ExpiresAt, pq.Array(apiKey.AllowedIPs), apiKey.UpdatedAt, apiKey.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrAPIKeyNotFound
+	}
+
+	// Пересоздаём scopes: удаляем старые и вставляем новые
+	_, err = tx.ExecContext(ctx, `DELETE FROM api_key_scopes WHERE api_key_id = $1`, apiKey.ID)
+	if err != nil {
+		return err
+	}
+
+	if len(apiKey.Scopes) > 0 {
+		scopeQuery := `INSERT INTO api_key_scopes (api_key_id, scope) VALUES ($1, $2)`
+		for _, scope := range apiKey.Scopes {
+			_, err = tx.ExecContext(ctx, scopeQuery, apiKey.ID, scope)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
 // UpdateLastUsed обновляет время последнего использования ключа
 func (r *APIKeyRepository) UpdateLastUsed(ctx context.Context, id uuid.UUID) error {
 	query := `UPDATE api_keys SET last_used_at = NOW(), updated_at = NOW() WHERE id = $1`

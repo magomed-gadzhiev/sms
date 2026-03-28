@@ -17,6 +17,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/handlers"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	portalrouter "github.com/smpp-server/smpp-server/internal/gateway/portal/router"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -65,7 +66,9 @@ func main() {
 		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
 		Provider:  getEnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9094"),
 		Contact:   getEnvOrDefault("CONTACT_SERVICE_ADDR", "localhost:5012"),
-		Campaign:  getEnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
+		Campaign:     getEnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
+		Template:     getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
+		Tarification: getEnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -153,6 +156,9 @@ func main() {
 	providerHandlers := handlers.NewProviderHandlers(serviceClients.ProviderClient)
 	contactHandlers := handlers.NewContactHandlers(serviceClients.ContactClient)
 	campaignHandlers := handlers.NewCampaignHandlers(serviceClients.CampaignClient)
+	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
+	billingHandlers := handlers.NewBillingHandlers(serviceClients.BillingClient, payment.NewStubPaymentProvider())
+	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -177,6 +183,9 @@ func main() {
 		providerHandlers,
 		contactHandlers,
 		campaignHandlers,
+		templateHandlers,
+		billingHandlers,
+		tariffHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

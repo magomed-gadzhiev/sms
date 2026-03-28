@@ -90,6 +90,11 @@ export const profileApi = {
     }),
   disableTOTP: (password: string) =>
     apiFetch<void>('/profile/2fa', { method: 'DELETE', body: JSON.stringify({ password }) }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch<unknown>('/profile/password', {
+      method: 'PUT',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
 };
 
 export interface ProfileData {
@@ -119,6 +124,15 @@ export const messagesApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  get: (id: string) => apiFetch<unknown>(`/messages/${id}`),
+  exportCsv: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    const csrfToken = getCookie('csrf_token');
+    return fetch(`${API_BASE}/messages/export?${qs}`, {
+      credentials: 'include',
+      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+    });
+  },
 };
 
 // API Keys API
@@ -153,6 +167,9 @@ export const apiKeysApi = {
   create: (data: CreateAPIKeyRequest) =>
     apiFetch<CreateAPIKeyResponse>('/api-keys', { method: 'POST', body: JSON.stringify(data) }),
   revoke: (id: string) => apiFetch<void>(`/api-keys/${id}`, { method: 'DELETE' }),
+  get: (id: string) => apiFetch<APIKeyInfo>(`/api-keys/${id}`),
+  update: (id: string, data: { name: string; scopes: string[]; allowed_ips: string[]; expires_at?: string }) =>
+    apiFetch<APIKeyInfo>(`/api-keys/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 // Webhooks API
@@ -274,4 +291,116 @@ export const providersApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+};
+
+// Templates API
+export interface TemplateInfo {
+  id: string;
+  client_id: string;
+  name: string;
+  body: string;
+  variables: string[];
+  status: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const templatesApi = {
+  list: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ templates: TemplateInfo[]; total: number; page: number; per_page: number; total_pages: number }>(`/templates?${qs}`);
+  },
+  get: (id: string) => apiFetch<TemplateInfo>(`/templates/${id}`),
+  create: (data: { name: string; body: string }) =>
+    apiFetch<TemplateInfo>('/templates', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; body?: string }) =>
+    apiFetch<TemplateInfo>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => apiFetch<void>(`/templates/${id}`, { method: 'DELETE' }),
+  render: (id: string, variables: Record<string, string>) =>
+    apiFetch<{ rendered_text: string; template_name: string }>(`/templates/${id}/render`, {
+      method: 'POST',
+      body: JSON.stringify({ variables }),
+    }),
+  auditLog: (id: string, params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ entries: unknown[]; total: number }>(`/templates/${id}/audit?${qs}`);
+  },
+};
+
+// Billing API
+export const billingApi = {
+  getBalance: () =>
+    apiFetch<{ client_id: string; balance: string; currency: string; updated_at?: string }>('/billing/balance'),
+  getTransactions: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ transactions: unknown[]; total: number; page: number; per_page: number; total_pages: number }>(
+      `/billing/transactions?${qs}`,
+    );
+  },
+  topUp: (amount: string, currency?: string, returnUrl?: string) =>
+    apiFetch<{ payment_id: string; payment_url: string; expires_at: string }>('/billing/top-up', {
+      method: 'POST',
+      body: JSON.stringify({ amount, currency: currency || 'RUB', return_url: returnUrl || window.location.href }),
+    }),
+};
+
+// Tariffs API
+export interface TariffPlanInfo {
+  name: string;
+  display_name: string;
+  monthly_price_rub: number;
+  max_sms_per_month: number;
+  max_smpp_connections: number;
+  max_users: number;
+  features: string[];
+}
+
+export interface CurrentPlan {
+  plan: TariffPlanInfo;
+  monthly_sms_count: number;
+}
+
+export const tariffsApi = {
+  getCurrent: () => apiFetch<CurrentPlan>('/tariffs/current'),
+  listPlans: () => apiFetch<{ plans: TariffPlanInfo[] }>('/tariffs/plans'),
+  switchPlan: (planName: string) =>
+    apiFetch<{ success: boolean }>('/tariffs/switch', {
+      method: 'POST',
+      body: JSON.stringify({ plan_name: planName }),
+    }),
+  changePlan: (planId: string) =>
+    apiFetch<unknown>('/tariffs/change', { method: 'POST', body: JSON.stringify({ plan_id: planId }) }),
+  getUsage: () => apiFetch<{ counters: unknown[]; total: number }>('/tariffs/usage'),
+};
+
+// Lookup API
+export const lookupApi = {
+  single: (phone: string) =>
+    apiFetch<unknown>('/lookup', { method: 'POST', body: JSON.stringify({ phone }) }),
+  bulk: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const csrfToken = getCookie('csrf_token');
+    return fetch(`${API_BASE}/lookup/bulk`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
+        throw new ApiError(res.status, err.error?.message || res.statusText, err.error);
+      }
+      return res.json();
+    });
+  },
+  history: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<unknown>(`/lookup/history?${qs}`);
+  },
+  stats: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<unknown>(`/lookup/stats?${qs}`);
+  },
 };

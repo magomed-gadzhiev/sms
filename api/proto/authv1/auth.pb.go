@@ -2106,6 +2106,242 @@ func (x *RegisterClientResponse) GetUser() *UserInfo {
 	return nil
 }
 
+// UpdateAPIKeyRequest представляет запрос на обновление API ключа
+type UpdateAPIKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Scopes        []string               `protobuf:"bytes,4,rep,name=scopes,proto3" json:"scopes,omitempty"`
+	AllowedIps    []string               `protobuf:"bytes,5,rep,name=allowed_ips,json=allowedIps,proto3" json:"allowed_ips,omitempty"`
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateAPIKeyRequest) Reset() {
+	*x = UpdateAPIKeyRequest{}
+	mi := &file_auth_auth_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateAPIKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateAPIKeyRequest) ProtoMessage() {}
+
+func (x *UpdateAPIKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_auth_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateAPIKeyRequest.ProtoReflect.Descriptor instead.
+func (*UpdateAPIKeyRequest) Descriptor() ([]byte, []int) {
+	return file_auth_auth_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *UpdateAPIKeyRequest) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *UpdateAPIKeyRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *UpdateAPIKeyRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateAPIKeyRequest) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
+}
+
+func (x *UpdateAPIKeyRequest) GetAllowedIps() []string {
+	if x != nil {
+		return x.AllowedIps
+	}
+	return nil
+}
+
+func (x *UpdateAPIKeyRequest) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+// UpdateAPIKeyResponse представляет ответ на обновление API ключа
+type UpdateAPIKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           *APIKeyInfo            `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateAPIKeyResponse) Reset() {
+	*x = UpdateAPIKeyResponse{}
+	mi := &file_auth_auth_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateAPIKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateAPIKeyResponse) ProtoMessage() {}
+
+func (x *UpdateAPIKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_auth_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateAPIKeyResponse.ProtoReflect.Descriptor instead.
+func (*UpdateAPIKeyResponse) Descriptor() ([]byte, []int) {
+	return file_auth_auth_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *UpdateAPIKeyResponse) GetKey() *APIKeyInfo {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+// ChangePasswordRequest представляет запрос на смену пароля
+type ChangePasswordRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	CurrentPassword string                 `protobuf:"bytes,2,opt,name=current_password,json=currentPassword,proto3" json:"current_password,omitempty"`
+	NewPassword     string                 `protobuf:"bytes,3,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ChangePasswordRequest) Reset() {
+	*x = ChangePasswordRequest{}
+	mi := &file_auth_auth_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordRequest) ProtoMessage() {}
+
+func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_auth_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_auth_auth_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ChangePasswordRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetCurrentPassword() string {
+	if x != nil {
+		return x.CurrentPassword
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+// ChangePasswordResponse представляет ответ на смену пароля
+type ChangePasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordResponse) Reset() {
+	*x = ChangePasswordResponse{}
+	mi := &file_auth_auth_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordResponse) ProtoMessage() {}
+
+func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_auth_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
+func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
+	return file_auth_auth_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ChangePasswordResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_auth_auth_proto protoreflect.FileDescriptor
 
 const file_auth_auth_proto_rawDesc = "" +
@@ -2262,7 +2498,24 @@ const file_auth_auth_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x03 \x01(\tR\tsessionId\x12%\n" +
-	"\x04user\x18\x04 \x01(\v2\x11.auth.v1.UserInfoR\x04user2\xf5\t\n" +
+	"\x04user\x18\x04 \x01(\v2\x11.auth.v1.UserInfoR\x04user\"\xcd\x01\n" +
+	"\x13UpdateAPIKeyRequest\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x16\n" +
+	"\x06scopes\x18\x04 \x03(\tR\x06scopes\x12\x1f\n" +
+	"\vallowed_ips\x18\x05 \x03(\tR\n" +
+	"allowedIps\x129\n" +
+	"\n" +
+	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"=\n" +
+	"\x14UpdateAPIKeyResponse\x12%\n" +
+	"\x03key\x18\x01 \x01(\v2\x13.auth.v1.APIKeyInfoR\x03key\"~\n" +
+	"\x15ChangePasswordRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12)\n" +
+	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
+	"\fnew_password\x18\x03 \x01(\tR\vnewPassword\"2\n" +
+	"\x16ChangePasswordResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\x95\v\n" +
 	"\vAuthService\x12K\n" +
 	"\fAuthenticate\x12\x1c.auth.v1.AuthenticateRequest\x1a\x1d.auth.v1.AuthenticateResponse\x12N\n" +
 	"\rValidateToken\x12\x1d.auth.v1.ValidateTokenRequest\x1a\x1e.auth.v1.ValidateTokenResponse\x12K\n" +
@@ -2270,7 +2523,9 @@ const file_auth_auth_proto_rawDesc = "" +
 	"\x0eGetPermissions\x12\x1e.auth.v1.GetPermissionsRequest\x1a\x1f.auth.v1.GetPermissionsResponse\x12K\n" +
 	"\fCreateAPIKey\x12\x1c.auth.v1.CreateAPIKeyRequest\x1a\x1d.auth.v1.CreateAPIKeyResponse\x12K\n" +
 	"\fRevokeAPIKey\x12\x1c.auth.v1.RevokeAPIKeyRequest\x1a\x1d.auth.v1.RevokeAPIKeyResponse\x12H\n" +
-	"\vListAPIKeys\x12\x1b.auth.v1.ListAPIKeysRequest\x1a\x1c.auth.v1.ListAPIKeysResponse\x12B\n" +
+	"\vListAPIKeys\x12\x1b.auth.v1.ListAPIKeysRequest\x1a\x1c.auth.v1.ListAPIKeysResponse\x12K\n" +
+	"\fUpdateAPIKey\x12\x1c.auth.v1.UpdateAPIKeyRequest\x1a\x1d.auth.v1.UpdateAPIKeyResponse\x12Q\n" +
+	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\x12B\n" +
 	"\tSetupTOTP\x12\x19.auth.v1.SetupTOTPRequest\x1a\x1a.auth.v1.SetupTOTPResponse\x12E\n" +
 	"\n" +
 	"VerifyTOTP\x12\x1a.auth.v1.VerifyTOTPRequest\x1a\x1b.auth.v1.VerifyTOTPResponse\x12H\n" +
@@ -2294,7 +2549,7 @@ func file_auth_auth_proto_rawDescGZIP() []byte {
 	return file_auth_auth_proto_rawDescData
 }
 
-var file_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_auth_auth_proto_goTypes = []any{
 	(*AuthenticateRequest)(nil),          // 0: auth.v1.AuthenticateRequest
 	(*AuthenticateResponse)(nil),         // 1: auth.v1.AuthenticateResponse
@@ -2332,64 +2587,74 @@ var file_auth_auth_proto_goTypes = []any{
 	(*LogoutResponse)(nil),               // 33: auth.v1.LogoutResponse
 	(*RegisterClientRequest)(nil),        // 34: auth.v1.RegisterClientRequest
 	(*RegisterClientResponse)(nil),       // 35: auth.v1.RegisterClientResponse
-	(*timestamppb.Timestamp)(nil),        // 36: google.protobuf.Timestamp
+	(*UpdateAPIKeyRequest)(nil),          // 36: auth.v1.UpdateAPIKeyRequest
+	(*UpdateAPIKeyResponse)(nil),         // 37: auth.v1.UpdateAPIKeyResponse
+	(*ChangePasswordRequest)(nil),        // 38: auth.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),       // 39: auth.v1.ChangePasswordResponse
+	(*timestamppb.Timestamp)(nil),        // 40: google.protobuf.Timestamp
 }
 var file_auth_auth_proto_depIdxs = []int32{
-	36, // 0: auth.v1.AuthenticateResponse.expires_at:type_name -> google.protobuf.Timestamp
+	40, // 0: auth.v1.AuthenticateResponse.expires_at:type_name -> google.protobuf.Timestamp
 	14, // 1: auth.v1.AuthenticateResponse.user:type_name -> auth.v1.UserInfo
 	14, // 2: auth.v1.ValidateTokenResponse.user:type_name -> auth.v1.UserInfo
-	36, // 3: auth.v1.RefreshTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	40, // 3: auth.v1.RefreshTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
 	16, // 4: auth.v1.GetPermissionsResponse.permissions:type_name -> auth.v1.Permission
 	15, // 5: auth.v1.GetPermissionsResponse.role:type_name -> auth.v1.Role
-	36, // 6: auth.v1.CreateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	36, // 7: auth.v1.CreateAPIKeyResponse.created_at:type_name -> google.protobuf.Timestamp
-	36, // 8: auth.v1.CreateAPIKeyResponse.expires_at:type_name -> google.protobuf.Timestamp
+	40, // 6: auth.v1.CreateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	40, // 7: auth.v1.CreateAPIKeyResponse.created_at:type_name -> google.protobuf.Timestamp
+	40, // 8: auth.v1.CreateAPIKeyResponse.expires_at:type_name -> google.protobuf.Timestamp
 	17, // 9: auth.v1.ListAPIKeysResponse.keys:type_name -> auth.v1.APIKeyInfo
 	15, // 10: auth.v1.UserInfo.role:type_name -> auth.v1.Role
-	36, // 11: auth.v1.UserInfo.created_at:type_name -> google.protobuf.Timestamp
-	36, // 12: auth.v1.APIKeyInfo.created_at:type_name -> google.protobuf.Timestamp
-	36, // 13: auth.v1.APIKeyInfo.expires_at:type_name -> google.protobuf.Timestamp
-	36, // 14: auth.v1.APIKeyInfo.last_used_at:type_name -> google.protobuf.Timestamp
+	40, // 11: auth.v1.UserInfo.created_at:type_name -> google.protobuf.Timestamp
+	40, // 12: auth.v1.APIKeyInfo.created_at:type_name -> google.protobuf.Timestamp
+	40, // 13: auth.v1.APIKeyInfo.expires_at:type_name -> google.protobuf.Timestamp
+	40, // 14: auth.v1.APIKeyInfo.last_used_at:type_name -> google.protobuf.Timestamp
 	14, // 15: auth.v1.LoginWithSessionResponse.user:type_name -> auth.v1.UserInfo
 	14, // 16: auth.v1.ValidateSessionResponse.user:type_name -> auth.v1.UserInfo
 	14, // 17: auth.v1.RegisterClientResponse.user:type_name -> auth.v1.UserInfo
-	0,  // 18: auth.v1.AuthService.Authenticate:input_type -> auth.v1.AuthenticateRequest
-	2,  // 19: auth.v1.AuthService.ValidateToken:input_type -> auth.v1.ValidateTokenRequest
-	4,  // 20: auth.v1.AuthService.RefreshToken:input_type -> auth.v1.RefreshTokenRequest
-	6,  // 21: auth.v1.AuthService.GetPermissions:input_type -> auth.v1.GetPermissionsRequest
-	8,  // 22: auth.v1.AuthService.CreateAPIKey:input_type -> auth.v1.CreateAPIKeyRequest
-	10, // 23: auth.v1.AuthService.RevokeAPIKey:input_type -> auth.v1.RevokeAPIKeyRequest
-	12, // 24: auth.v1.AuthService.ListAPIKeys:input_type -> auth.v1.ListAPIKeysRequest
-	18, // 25: auth.v1.AuthService.SetupTOTP:input_type -> auth.v1.SetupTOTPRequest
-	20, // 26: auth.v1.AuthService.VerifyTOTP:input_type -> auth.v1.VerifyTOTPRequest
-	22, // 27: auth.v1.AuthService.DisableTOTP:input_type -> auth.v1.DisableTOTPRequest
-	24, // 28: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
-	26, // 29: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
-	28, // 30: auth.v1.AuthService.LoginWithSession:input_type -> auth.v1.LoginWithSessionRequest
-	30, // 31: auth.v1.AuthService.ValidateSession:input_type -> auth.v1.ValidateSessionRequest
-	32, // 32: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	34, // 33: auth.v1.AuthService.RegisterClient:input_type -> auth.v1.RegisterClientRequest
-	1,  // 34: auth.v1.AuthService.Authenticate:output_type -> auth.v1.AuthenticateResponse
-	3,  // 35: auth.v1.AuthService.ValidateToken:output_type -> auth.v1.ValidateTokenResponse
-	5,  // 36: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	7,  // 37: auth.v1.AuthService.GetPermissions:output_type -> auth.v1.GetPermissionsResponse
-	9,  // 38: auth.v1.AuthService.CreateAPIKey:output_type -> auth.v1.CreateAPIKeyResponse
-	11, // 39: auth.v1.AuthService.RevokeAPIKey:output_type -> auth.v1.RevokeAPIKeyResponse
-	13, // 40: auth.v1.AuthService.ListAPIKeys:output_type -> auth.v1.ListAPIKeysResponse
-	19, // 41: auth.v1.AuthService.SetupTOTP:output_type -> auth.v1.SetupTOTPResponse
-	21, // 42: auth.v1.AuthService.VerifyTOTP:output_type -> auth.v1.VerifyTOTPResponse
-	23, // 43: auth.v1.AuthService.DisableTOTP:output_type -> auth.v1.DisableTOTPResponse
-	25, // 44: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	27, // 45: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
-	29, // 46: auth.v1.AuthService.LoginWithSession:output_type -> auth.v1.LoginWithSessionResponse
-	31, // 47: auth.v1.AuthService.ValidateSession:output_type -> auth.v1.ValidateSessionResponse
-	33, // 48: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	35, // 49: auth.v1.AuthService.RegisterClient:output_type -> auth.v1.RegisterClientResponse
-	34, // [34:50] is the sub-list for method output_type
-	18, // [18:34] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	40, // 18: auth.v1.UpdateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	17, // 19: auth.v1.UpdateAPIKeyResponse.key:type_name -> auth.v1.APIKeyInfo
+	0,  // 20: auth.v1.AuthService.Authenticate:input_type -> auth.v1.AuthenticateRequest
+	2,  // 21: auth.v1.AuthService.ValidateToken:input_type -> auth.v1.ValidateTokenRequest
+	4,  // 22: auth.v1.AuthService.RefreshToken:input_type -> auth.v1.RefreshTokenRequest
+	6,  // 23: auth.v1.AuthService.GetPermissions:input_type -> auth.v1.GetPermissionsRequest
+	8,  // 24: auth.v1.AuthService.CreateAPIKey:input_type -> auth.v1.CreateAPIKeyRequest
+	10, // 25: auth.v1.AuthService.RevokeAPIKey:input_type -> auth.v1.RevokeAPIKeyRequest
+	12, // 26: auth.v1.AuthService.ListAPIKeys:input_type -> auth.v1.ListAPIKeysRequest
+	36, // 27: auth.v1.AuthService.UpdateAPIKey:input_type -> auth.v1.UpdateAPIKeyRequest
+	38, // 28: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
+	18, // 29: auth.v1.AuthService.SetupTOTP:input_type -> auth.v1.SetupTOTPRequest
+	20, // 30: auth.v1.AuthService.VerifyTOTP:input_type -> auth.v1.VerifyTOTPRequest
+	22, // 31: auth.v1.AuthService.DisableTOTP:input_type -> auth.v1.DisableTOTPRequest
+	24, // 32: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	26, // 33: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
+	28, // 34: auth.v1.AuthService.LoginWithSession:input_type -> auth.v1.LoginWithSessionRequest
+	30, // 35: auth.v1.AuthService.ValidateSession:input_type -> auth.v1.ValidateSessionRequest
+	32, // 36: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
+	34, // 37: auth.v1.AuthService.RegisterClient:input_type -> auth.v1.RegisterClientRequest
+	1,  // 38: auth.v1.AuthService.Authenticate:output_type -> auth.v1.AuthenticateResponse
+	3,  // 39: auth.v1.AuthService.ValidateToken:output_type -> auth.v1.ValidateTokenResponse
+	5,  // 40: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	7,  // 41: auth.v1.AuthService.GetPermissions:output_type -> auth.v1.GetPermissionsResponse
+	9,  // 42: auth.v1.AuthService.CreateAPIKey:output_type -> auth.v1.CreateAPIKeyResponse
+	11, // 43: auth.v1.AuthService.RevokeAPIKey:output_type -> auth.v1.RevokeAPIKeyResponse
+	13, // 44: auth.v1.AuthService.ListAPIKeys:output_type -> auth.v1.ListAPIKeysResponse
+	37, // 45: auth.v1.AuthService.UpdateAPIKey:output_type -> auth.v1.UpdateAPIKeyResponse
+	39, // 46: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	19, // 47: auth.v1.AuthService.SetupTOTP:output_type -> auth.v1.SetupTOTPResponse
+	21, // 48: auth.v1.AuthService.VerifyTOTP:output_type -> auth.v1.VerifyTOTPResponse
+	23, // 49: auth.v1.AuthService.DisableTOTP:output_type -> auth.v1.DisableTOTPResponse
+	25, // 50: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	27, // 51: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	29, // 52: auth.v1.AuthService.LoginWithSession:output_type -> auth.v1.LoginWithSessionResponse
+	31, // 53: auth.v1.AuthService.ValidateSession:output_type -> auth.v1.ValidateSessionResponse
+	33, // 54: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	35, // 55: auth.v1.AuthService.RegisterClient:output_type -> auth.v1.RegisterClientResponse
+	38, // [38:56] is the sub-list for method output_type
+	20, // [20:38] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_auth_auth_proto_init() }
@@ -2403,7 +2668,7 @@ func file_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_auth_proto_rawDesc), len(file_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   36,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

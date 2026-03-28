@@ -24,6 +24,11 @@ import { ImportWizardPage } from './pages/contacts/ImportWizardPage';
 import { CampaignsPage } from './pages/campaigns/CampaignsPage';
 import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
+import { TemplatesPage } from './pages/templates/TemplatesPage';
+import { BillingPage } from './pages/billing/BillingPage';
+import { MessageDetailPage } from './pages/messages/MessageDetailPage';
+import { TariffsPage } from './pages/tariffs/TariffsPage';
+import { LookupPage } from './pages/lookup/LookupPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -58,6 +63,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/messages/:id" element={<MessageDetailPage />} />
         <Route path="/contact-lists" element={<ContactListsPage />} />
         <Route path="/contact-lists/:id" element={<ContactListDetailPage />} />
         <Route path="/contact-lists/:id/import" element={<ImportWizardPage />} />
@@ -71,6 +77,10 @@ export function App() {
         <Route path="/providers/new" element={<ProviderWizardPage />} />
         <Route path="/sub-accounts" element={<SubAccountsListPage />} />
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/billing" element={<BillingPage />} />
+        <Route path="/tariffs" element={<TariffsPage />} />
+        <Route path="/lookup" element={<LookupPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
       </Route>

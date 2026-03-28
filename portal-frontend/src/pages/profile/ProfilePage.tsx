@@ -21,6 +21,14 @@ export function ProfilePage() {
   const [twoFaMsg, setTwoFaMsg] = useState('');
   const [twoFaIsError, setTwoFaIsError] = useState(false);
 
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwIsError, setPwIsError] = useState(false);
+
   useEffect(() => {
     profileApi.get().then((p) => {
       setProfile(p);
@@ -92,6 +100,38 @@ export function ProfilePage() {
     } catch (err) {
       setTwoFaMsg(err instanceof ApiError ? err.message : 'Failed to disable 2FA');
       setTwoFaIsError(true);
+    }
+  }
+
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    setPwMsg('');
+    setPwIsError(false);
+
+    if (newPassword.length < 8) {
+      setPwMsg('Новый пароль должен содержать минимум 8 символов');
+      setPwIsError(true);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwMsg('Пароли не совпадают');
+      setPwIsError(true);
+      return;
+    }
+
+    setPwSaving(true);
+    try {
+      await profileApi.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPwMsg('Пароль успешно изменен');
+      setPwIsError(false);
+    } catch (err) {
+      setPwMsg(err instanceof ApiError ? err.message : 'Ошибка при смене пароля');
+      setPwIsError(true);
+    } finally {
+      setPwSaving(false);
     }
   }
 
@@ -205,6 +245,54 @@ export function ProfilePage() {
             <Button onClick={handleSetupTOTP}>Set up 2FA</Button>
           </div>
         )}
+      </section>
+
+      <section className="border border-gray-200 rounded-lg p-6 mt-8">
+        <h3 className="text-lg font-semibold mb-4">Сменить пароль</h3>
+
+        {pwMsg && pwIsError && (
+          <p id="pw-error" role="alert" className="text-red-600 mb-3">{pwMsg}</p>
+        )}
+        {pwMsg && !pwIsError && (
+          <p role="status" className="text-green-600 mb-3">{pwMsg}</p>
+        )}
+
+        <form onSubmit={handleChangePassword}>
+          <div className="mb-3">
+            <Input
+              label="Текущий пароль"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              aria-describedby={pwMsg && pwIsError ? 'pw-error' : undefined}
+            />
+          </div>
+          <div className="mb-3">
+            <Input
+              label="Новый пароль"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              aria-describedby={pwMsg && pwIsError ? 'pw-error' : undefined}
+            />
+            <p className="text-xs text-gray-500 mt-1">Минимум 8 символов</p>
+          </div>
+          <div className="mb-4">
+            <Input
+              label="Подтверждение пароля"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              aria-describedby={pwMsg && pwIsError ? 'pw-error' : undefined}
+            />
+          </div>
+          <Button type="submit" disabled={pwSaving}>
+            {pwSaving ? 'Сохранение...' : 'Сменить пароль'}
+          </Button>
+        </form>
       </section>
     </div>
   );

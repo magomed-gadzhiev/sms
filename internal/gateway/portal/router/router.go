@@ -44,6 +44,9 @@ func SetupRouter(
 	providerHandlers *handlers.ProviderHandlers,
 	contactHandlers *handlers.ContactHandlers,
 	campaignHandlers *handlers.CampaignHandlers,
+	templateHandlers *handlers.TemplateHandlers,
+	billingHandlers *handlers.BillingHandlers,
+	tariffHandlers *handlers.TariffHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -78,6 +81,9 @@ func SetupRouter(
 	authProtected.Use(sessionAuthMiddleware)
 	authProtected.HandleFunc("/logout", authHandlers.Logout).Methods("POST")
 
+	// Billing callback — public, без session auth
+	portalV1.HandleFunc("/billing/top-up/callback", billingHandlers.TopUpCallback).Methods("POST")
+
 	// === Защищённые маршруты (с session auth + csrf) ===
 	protected := portalV1.PathPrefix("").Subrouter()
 	protected.Use(sessionAuthMiddleware)
@@ -88,7 +94,7 @@ func SetupRouter(
 	profile := protected.PathPrefix("/profile").Subrouter()
 	profile.HandleFunc("", profileHandlers.GetProfile).Methods("GET")
 	profile.HandleFunc("", profileHandlers.UpdateProfile).Methods("PUT")
-	profile.HandleFunc("/password", notImplemented).Methods("PUT")
+	profile.HandleFunc("/password", profileHandlers.ChangePassword).Methods("PUT")
 	profile.HandleFunc("/sandbox", profileHandlers.ToggleSandbox).Methods("PUT")
 	profile.HandleFunc("/2fa/setup", profileHandlers.SetupTOTP).Methods("POST")
 	profile.HandleFunc("/2fa/verify", profileHandlers.VerifyTOTP).Methods("POST")
@@ -101,14 +107,15 @@ func SetupRouter(
 	messages := protected.PathPrefix("/messages").Subrouter()
 	messages.HandleFunc("", messageHandlers.SendMessage).Methods("POST")
 	messages.HandleFunc("", messageHandlers.ListMessages).Methods("GET")
-	messages.HandleFunc("/{id}", notImplemented).Methods("GET")
+	messages.HandleFunc("/export", messageHandlers.ExportCSV).Methods("GET")
+	messages.HandleFunc("/{id}", messageHandlers.GetMessage).Methods("GET")
 
 	// API Keys endpoints
 	apiKeys := protected.PathPrefix("/api-keys").Subrouter()
 	apiKeys.HandleFunc("", apiKeyHandlers.CreateAPIKey).Methods("POST")
 	apiKeys.HandleFunc("", apiKeyHandlers.ListAPIKeys).Methods("GET")
-	apiKeys.HandleFunc("/{id}", notImplemented).Methods("GET")
-	apiKeys.HandleFunc("/{id}", notImplemented).Methods("PUT")
+	apiKeys.HandleFunc("/{id}", apiKeyHandlers.GetAPIKey).Methods("GET")
+	apiKeys.HandleFunc("/{id}", apiKeyHandlers.UpdateAPIKey).Methods("PUT")
 	apiKeys.HandleFunc("/{id}", apiKeyHandlers.RevokeAPIKey).Methods("DELETE")
 
 	// Webhooks endpoints
@@ -139,6 +146,31 @@ func SetupRouter(
 	lookup := protected.PathPrefix("/lookup").Subrouter()
 	lookup.HandleFunc("/history", lookupHandlers.GetLookupHistory).Methods("GET")
 	lookup.HandleFunc("/stats", lookupHandlers.GetLookupStats).Methods("GET")
+	lookup.HandleFunc("", lookupHandlers.NumberLookup).Methods("POST")
+	lookup.HandleFunc("/bulk", lookupHandlers.BulkLookup).Methods("POST")
+
+	// Templates endpoints
+	templates := protected.PathPrefix("/templates").Subrouter()
+	templates.HandleFunc("", templateHandlers.CreateTemplate).Methods("POST")
+	templates.HandleFunc("", templateHandlers.ListTemplates).Methods("GET")
+	templates.HandleFunc("/{id}", templateHandlers.GetTemplate).Methods("GET")
+	templates.HandleFunc("/{id}", templateHandlers.UpdateTemplate).Methods("PUT")
+	templates.HandleFunc("/{id}", templateHandlers.DeleteTemplate).Methods("DELETE")
+	templates.HandleFunc("/{id}/render", templateHandlers.RenderTemplate).Methods("POST")
+	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAuditLog).Methods("GET")
+
+	// Billing endpoints
+	billing := protected.PathPrefix("/billing").Subrouter()
+	billing.HandleFunc("/balance", billingHandlers.GetBalance).Methods("GET")
+	billing.HandleFunc("/transactions", billingHandlers.GetTransactions).Methods("GET")
+	billing.HandleFunc("/top-up", billingHandlers.TopUp).Methods("POST")
+
+	// Tariff endpoints
+	tariffs := protected.PathPrefix("/tariffs").Subrouter()
+	tariffs.HandleFunc("/current", tariffHandlers.GetCurrentTariff).Methods("GET")
+	tariffs.HandleFunc("/plans", tariffHandlers.ListAvailablePlans).Methods("GET")
+	tariffs.HandleFunc("/change", tariffHandlers.ChangePlan).Methods("POST")
+	tariffs.HandleFunc("/usage", tariffHandlers.GetUsage).Methods("GET")
 
 	// Audit log endpoints
 	protected.HandleFunc("/audit-log", auditHandlers.ListAuditLog).Methods("GET")

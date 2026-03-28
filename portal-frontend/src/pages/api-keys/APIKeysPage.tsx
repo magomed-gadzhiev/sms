@@ -16,6 +16,14 @@ const AVAILABLE_SCOPES = [
   'sub-accounts:manage',
 ];
 
+const EDIT_SCOPES = [
+  'sms:send',
+  'sms:read',
+  'billing:read',
+  'billing:write',
+  'webhooks:manage',
+];
+
 export function APIKeysPage() {
   const [keys, setKeys] = useState<APIKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +43,16 @@ export function APIKeysPage() {
 
   // Revoke confirmation
   const [revokeId, setRevokeId] = useState<string | null>(null);
+
+  // Detail/Edit modal
+  const [detailKey, setDetailKey] = useState<APIKeyInfo | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editScopes, setEditScopes] = useState<string[]>([]);
+  const [editAllowedIps, setEditAllowedIps] = useState('');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   async function loadKeys() {
     setLoading(true);
@@ -107,6 +125,61 @@ export function APIKeysPage() {
     setSelectedScopes((prev) =>
       prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
     );
+  }
+
+  function toggleEditScope(scope: string) {
+    setEditScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+    );
+  }
+
+  function openDetailModal(key: APIKeyInfo) {
+    setDetailKey(key);
+    setEditMode(false);
+    setEditError('');
+  }
+
+  function startEdit() {
+    if (!detailKey) return;
+    setEditMode(true);
+    setEditName(detailKey.name);
+    setEditScopes(detailKey.scopes || []);
+    setEditAllowedIps(detailKey.allowed_ips?.join('\n') || '');
+    setEditExpiresAt(detailKey.expires_at || '');
+    setEditError('');
+  }
+
+  function closeDetailModal() {
+    setDetailKey(null);
+    setEditMode(false);
+    setEditError('');
+  }
+
+  async function handleEditSave(e: FormEvent) {
+    e.preventDefault();
+    if (!detailKey) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const allowedIps = editAllowedIps
+        .split(/[,\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const updated = await apiKeysApi.update(detailKey.id, {
+        name: editName,
+        scopes: editScopes,
+        allowed_ips: allowedIps,
+        expires_at: editExpiresAt || undefined,
+      });
+      setDetailKey(updated);
+      setEditMode(false);
+      await loadKeys();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Ошибка при сохранении');
+    } finally {
+      setEditSaving(false);
+    }
   }
 
   const columns: Column<APIKeyInfo>[] = [
@@ -268,6 +341,136 @@ export function APIKeysPage() {
         confirmLabel="Yes, revoke"
       />
 
+      {/* Detail / Edit modal */}
+      <Modal
+        open={detailKey !== null}
+        onClose={closeDetailModal}
+        title={editMode ? 'Редактировать API ключ' : 'Детали API ключа'}
+        wide
+      >
+        {detailKey && !editMode && (
+          <div>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-6">
+              <div>
+                <dt className="text-gray-500">Имя</dt>
+                <dd className="font-medium text-gray-900">{detailKey.name}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Префикс</dt>
+                <dd className="font-medium text-gray-900">
+                  <code className="bg-gray-100 px-1.5 py-0.5 rounded">{detailKey.prefix}...</code>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Scopes</dt>
+                <dd className="font-medium text-gray-900">
+                  {detailKey.scopes && detailKey.scopes.length > 0
+                    ? detailKey.scopes.join(', ')
+                    : 'Full access'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Разрешенные IP</dt>
+                <dd className="font-medium text-gray-900">
+                  {detailKey.allowed_ips && detailKey.allowed_ips.length > 0
+                    ? detailKey.allowed_ips.join(', ')
+                    : 'Любые'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Истекает</dt>
+                <dd className="font-medium text-gray-900">
+                  {detailKey.expires_at
+                    ? new Date(detailKey.expires_at).toLocaleString()
+                    : 'Бессрочно'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Последнее использование</dt>
+                <dd className="font-medium text-gray-900">
+                  {detailKey.last_used_at
+                    ? new Date(detailKey.last_used_at).toLocaleString()
+                    : 'Никогда'}
+                </dd>
+              </div>
+            </dl>
+            <div className="flex gap-2">
+              <Button onClick={startEdit}>Редактировать</Button>
+              <Button variant="secondary" onClick={closeDetailModal}>Закрыть</Button>
+            </div>
+          </div>
+        )}
+
+        {detailKey && editMode && (
+          <form onSubmit={handleEditSave}>
+            {editError && (
+              <p role="alert" className="text-red-600 mb-3">{editError}</p>
+            )}
+
+            <div className="mb-3">
+              <Input
+                label="Имя"
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+                className="w-full max-w-[300px]"
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-sm font-medium text-gray-700">Scopes</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {EDIT_SCOPES.map((scope) => (
+                  <label key={scope} className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={editScopes.includes(scope)}
+                      onChange={() => toggleEditScope(scope)}
+                    />
+                    <span className="text-sm">{scope}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="text-sm font-medium text-gray-700">
+                Разрешенные IP (по одному на строку или через запятую)
+              </label>
+              <textarea
+                value={editAllowedIps}
+                onChange={(e) => setEditAllowedIps(e.target.value)}
+                placeholder="192.168.1.1&#10;10.0.0.0/8"
+                rows={3}
+                className="mt-1 w-full max-w-[400px] rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              />
+            </div>
+
+            <div className="mb-4">
+              <Input
+                label="Срок действия"
+                type="datetime-local"
+                value={editExpiresAt ? editExpiresAt.slice(0, 16) : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setEditExpiresAt(val ? new Date(val).toISOString() : '');
+                }}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={editSaving}>
+                {editSaving ? 'Сохранение...' : 'Сохранить'}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setEditMode(false)}>
+                Отмена
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
       {/* Keys table */}
       <DataTable
         columns={columns}
@@ -277,6 +480,7 @@ export function APIKeysPage() {
         pageSize={keys.length || 1}
         onPageChange={() => {}}
         keyField="id"
+        onRowClick={openDetailModal}
         rowActions={(key) =>
           key.active ? (
             <Button

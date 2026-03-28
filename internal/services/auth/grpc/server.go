@@ -320,6 +320,107 @@ func (s *Server) ListAPIKeys(ctx context.Context, req *authv1.ListAPIKeysRequest
 	}, nil
 }
 
+// UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)
+func (s *Server) UpdateAPIKey(ctx context.Context, req *authv1.UpdateAPIKeyRequest) (*authv1.UpdateAPIKeyResponse, error) {
+	if req.KeyId == "" {
+		return nil, status.Error(codes.InvalidArgument, "key_id is required")
+	}
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	keyID, err := uuid.Parse(req.KeyId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid key_id format")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	var expiresAt *time.Time
+	if req.ExpiresAt != nil {
+		t := req.ExpiresAt.AsTime()
+		expiresAt = &t
+	}
+
+	key, err := s.authService.UpdateAPIKey(ctx, keyID, userID, req.Name, req.Scopes, req.AllowedIps, expiresAt)
+	if err != nil {
+		if err == application.ErrAPIKeyNotFound {
+			return nil, status.Error(codes.NotFound, "API key not found")
+		}
+		if err == application.ErrAPIKeyNotOwned {
+			return nil, status.Error(codes.PermissionDenied, "API key does not belong to user")
+		}
+		if err == application.ErrAPIKeyRevoked {
+			return nil, status.Error(codes.FailedPrecondition, "API key is revoked")
+		}
+		log.Error().Err(err).Msg("ошибка обновления API ключа")
+		return nil, status.Error(codes.Internal, "failed to update API key")
+	}
+
+	info := &authv1.APIKeyInfo{
+		Id:         key.ID.String(),
+		Name:       key.Name,
+		Prefix:     key.KeyPrefix,
+		Active:     key.Active,
+		CreatedAt:  timestamppb.New(key.CreatedAt),
+		Scopes:     key.Scopes,
+		AllowedIps: key.AllowedIPs,
+	}
+	if key.ExpiresAt != nil {
+		info.ExpiresAt = timestamppb.New(*key.ExpiresAt)
+	}
+	if key.LastUsedAt != nil {
+		info.LastUsedAt = timestamppb.New(*key.LastUsedAt)
+	}
+
+	return &authv1.UpdateAPIKeyResponse{
+		Key: info,
+	}, nil
+}
+
+// ChangePassword меняет пароль пользователя (требует текущий пароль)
+func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if req.CurrentPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "current_password is required")
+	}
+	if req.NewPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "new_password is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = s.authService.ChangePassword(ctx, userID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		if err == application.ErrCurrentPasswordWrong {
+			return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
+		}
+		if err == application.ErrPasswordTooShort {
+			return nil, status.Error(codes.InvalidArgument, "password must be at least 8 characters")
+		}
+		if err == application.ErrPasswordSameAsOld {
+			return nil, status.Error(codes.InvalidArgument, "new password must differ from current")
+		}
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка смены пароля")
+		return nil, status.Error(codes.Internal, "failed to change password")
+	}
+
+	return &authv1.ChangePasswordResponse{
+		Success: true,
+	}, nil
+}
+
 // SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
 func (s *Server) SetupTOTP(ctx context.Context, req *authv1.SetupTOTPRequest) (*authv1.SetupTOTPResponse, error) {
 	if req.UserId == "" {

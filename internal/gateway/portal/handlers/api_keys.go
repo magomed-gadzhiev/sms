@@ -145,6 +145,53 @@ func (h *APIKeyHandlers) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, result)
 }
 
+// GetAPIKey обрабатывает GET /api-keys/{id}
+func (h *APIKeyHandlers) GetAPIKey(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+
+	keyID := mux.Vars(r)["id"]
+	if keyID == "" {
+		respondError(w, shared.ErrInvalidInput("ID ключа обязателен"))
+		return
+	}
+
+	resp, err := h.authClient.ListAPIKeys(r.Context(), &authv1.ListAPIKeysRequest{
+		UserId: userID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	for _, key := range resp.Keys {
+		if key.Id == keyID {
+			result := map[string]interface{}{
+				"id":          key.Id,
+				"name":        key.Name,
+				"prefix":      key.Prefix,
+				"active":      key.Active,
+				"scopes":      key.Scopes,
+				"allowed_ips": key.AllowedIps,
+				"created_at":  key.CreatedAt.AsTime(),
+			}
+			if key.ExpiresAt != nil {
+				result["expires_at"] = key.ExpiresAt.AsTime()
+			}
+			if key.LastUsedAt != nil {
+				result["last_used_at"] = key.LastUsedAt.AsTime()
+			}
+			respondJSON(w, http.StatusOK, result)
+			return
+		}
+	}
+
+	respondError(w, shared.ErrNotFound("API ключ не найден"))
+}
+
 // RevokeAPIKey обрабатывает DELETE /api-keys/{id}
 func (h *APIKeyHandlers) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
@@ -179,4 +226,86 @@ func (h *APIKeyHandlers) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// updateAPIKeyRequest представляет запрос на обновление API ключа
+type updateAPIKeyRequest struct {
+	Name       string   `json:"name"`
+	Scopes     []string `json:"scopes"`
+	AllowedIPs []string `json:"allowed_ips"`
+	ExpiresAt  *string  `json:"expires_at,omitempty"`
+}
+
+// UpdateAPIKey обрабатывает PUT /api-keys/{id}
+func (h *APIKeyHandlers) UpdateAPIKey(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+
+	keyID := mux.Vars(r)["id"]
+	if keyID == "" {
+		respondError(w, shared.ErrInvalidInput("ID ключа обязателен"))
+		return
+	}
+
+	var req updateAPIKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	if req.Name == "" {
+		respondError(w, shared.ErrInvalidInput("Поле name обязательно"))
+		return
+	}
+
+	grpcReq := &authv1.UpdateAPIKeyRequest{
+		KeyId:      keyID,
+		UserId:     userID.String(),
+		Name:       req.Name,
+		Scopes:     req.Scopes,
+		AllowedIps: req.AllowedIPs,
+	}
+
+	if req.ExpiresAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("Неверный формат expires_at"))
+			return
+		}
+		grpcReq.ExpiresAt = timestamppb.New(t)
+	}
+
+	resp, err := h.authClient.UpdateAPIKey(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	result := map[string]interface{}{
+		"id":          resp.Key.Id,
+		"name":        resp.Key.Name,
+		"prefix":      resp.Key.Prefix,
+		"active":      resp.Key.Active,
+		"scopes":      resp.Key.Scopes,
+		"allowed_ips": resp.Key.AllowedIps,
+		"created_at":  resp.Key.CreatedAt.AsTime(),
+	}
+	if resp.Key.ExpiresAt != nil {
+		result["expires_at"] = resp.Key.ExpiresAt.AsTime()
+	}
+	if resp.Key.LastUsedAt != nil {
+		result["last_used_at"] = resp.Key.LastUsedAt.AsTime()
+	}
+
+	// Публикуем audit event
+	if h.auditPublisher != nil {
+		event := audit.NewAuditEvent("", userID.String(), "api_key.updated", audit.ResourceAPIKey, keyID)
+		event.IPAddress = getIPAddress(r)
+		h.auditPublisher.Publish(r.Context(), event)
+	}
+
+	respondJSON(w, http.StatusOK, result)
 }

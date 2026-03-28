@@ -318,3 +318,59 @@ func (h *ProfileHandlers) DisableTOTP(w http.ResponseWriter, r *http.Request) {
 		"message": "2FA успешно отключена",
 	})
 }
+
+// changePasswordRequest представляет запрос на смену пароля
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// ChangePassword обрабатывает PUT /profile/password
+func (h *ProfileHandlers) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не найден"))
+		return
+	}
+
+	clientID, _ := middleware.GetClientID(r.Context())
+
+	var req changePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	if req.CurrentPassword == "" {
+		respondError(w, shared.ErrInvalidInput("Поле current_password обязательно"))
+		return
+	}
+	if req.NewPassword == "" {
+		respondError(w, shared.ErrInvalidInput("Поле new_password обязательно"))
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		respondError(w, shared.ErrInvalidInput("Новый пароль должен содержать минимум 8 символов"))
+		return
+	}
+
+	_, err := h.authClient.ChangePassword(r.Context(), &authv1.ChangePasswordRequest{
+		UserId:          userID.String(),
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	if h.auditPublisher != nil {
+		event := audit.NewAuditEvent(clientID.String(), userID.String(), "password.changed", audit.ResourceAuth, userID.String())
+		event.IPAddress = getIPAddress(r)
+		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
+			log.Error().Err(err).Msg("ошибка публикации audit event")
+		}
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{"message": "Пароль успешно изменён"})
+}

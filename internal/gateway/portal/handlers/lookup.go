@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -118,6 +121,128 @@ func (h *LookupHandlers) GetLookupHistory(w http.ResponseWriter, r *http.Request
 	}
 
 	respondJSON(w, http.StatusOK, response)
+}
+
+// numberLookupRequest представляет запрос на проверку номера
+type numberLookupRequest struct {
+	Phone string `json:"phone"`
+}
+
+// NumberLookup обрабатывает POST /portal/v1/lookup/number
+func (h *LookupHandlers) NumberLookup(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	var req numberLookupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.Phone == "" {
+		respondError(w, shared.ErrInvalidInput("Поле phone обязательно"))
+		return
+	}
+
+	resp, err := h.routingClient.NumberLookup(r.Context(), &routingv1.NumberLookupRequest{
+		Msisdn:   req.Phone,
+		ClientId: clientID.String(),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка number lookup")
+		respondGRPCError(w, err)
+		return
+	}
+
+	result := map[string]interface{}{
+		"msisdn":           resp.Msisdn,
+		"operator_mccmnc":  resp.OperatorMccmnc,
+		"operator_name":    resp.OperatorName,
+		"number_status":    resp.NumberStatus.String(),
+		"country_code":     resp.CountryCode,
+		"number_type":      resp.NumberType.String(),
+		"is_ported":        resp.IsPorted,
+		"cached":           resp.Cached,
+	}
+	if resp.QueriedAt != nil {
+		result["queried_at"] = resp.QueriedAt.AsTime()
+	}
+
+	respondJSON(w, http.StatusOK, result)
+}
+
+// BulkLookup обрабатывает POST /portal/v1/lookup/bulk
+func (h *LookupHandlers) BulkLookup(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		respondError(w, shared.ErrInvalidInput("Ошибка парсинга формы"))
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Файл не найден в запросе"))
+		return
+	}
+	defer file.Close()
+
+	csvReader := csv.NewReader(file)
+	var msisdns []string
+	for {
+		record, err := csvReader.Read()
+		if err != nil {
+			break
+		}
+		if len(record) > 0 && record[0] != "" {
+			msisdns = append(msisdns, strings.TrimSpace(record[0]))
+		}
+	}
+
+	if len(msisdns) == 0 {
+		respondError(w, shared.ErrInvalidInput("CSV файл пустой"))
+		return
+	}
+	if len(msisdns) > 10000 {
+		respondError(w, shared.ErrInvalidInput("Максимум 10 000 номеров"))
+		return
+	}
+
+	resp, err := h.routingClient.BulkNumberLookup(r.Context(), &routingv1.BulkNumberLookupRequest{
+		Msisdns:  msisdns,
+		ClientId: clientID.String(),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка bulk lookup")
+		respondGRPCError(w, err)
+		return
+	}
+
+	results := make([]map[string]interface{}, 0, len(resp.Results))
+	for _, lr := range resp.Results {
+		results = append(results, map[string]interface{}{
+			"msisdn":          lr.Msisdn,
+			"operator_mccmnc": lr.OperatorMccmnc,
+			"operator_name":   lr.OperatorName,
+			"number_status":   lr.NumberStatus.String(),
+			"country_code":    lr.CountryCode,
+			"number_type":     lr.NumberType.String(),
+			"is_ported":       lr.IsPorted,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"results":       results,
+		"total_count":   resp.TotalCount,
+		"success_count": resp.SuccessCount,
+		"failed_count":  resp.FailedCount,
+	})
 }
 
 // GetLookupStats обрабатывает GET /portal/v1/lookup/stats

@@ -7,9 +7,13 @@ import { useAuth } from '../../contexts/AuthContext';
 const USER_NAV: NavItem[] = [
   { path: '/dashboard', label: 'Дашборд' },
   { path: '/messages', label: 'Сообщения' },
+  { path: '/templates', label: 'Шаблоны' },
   { path: '/contact-lists', label: 'Контакты' },
   { path: '/campaigns', label: 'Рассылки' },
+  { path: '/lookup', label: 'Lookup' },
   { path: '/providers', label: 'Провайдеры' },
+  { path: '/billing', label: 'Биллинг' },
+  { path: '/tariffs', label: 'Тарифы' },
   { path: '/api-keys', label: 'API Ключи' },
   { path: '/webhooks', label: 'Вебхуки' },
   { path: '/analytics', label: 'Аналитика' },

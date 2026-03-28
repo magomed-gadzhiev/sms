@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -189,4 +192,133 @@ func (h *MessageHandlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 		"per_page":    perPage,
 		"total_pages": totalPages,
 	})
+}
+
+// GetMessage обрабатывает GET /messages/{id}
+func (h *MessageHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
+		return
+	}
+
+	resp, err := h.messagingClient.GetMessageStatus(r.Context(), &messagingv1.GetMessageStatusRequest{
+		MessageId: id,
+		ClientId:  clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	result := map[string]interface{}{
+		"message_id":    resp.MessageId,
+		"status":        resp.Status,
+		"segment_count": resp.SegmentCount,
+	}
+	if resp.StatusMessage != "" {
+		result["status_message"] = resp.StatusMessage
+	}
+	if resp.SmppMessageId != "" {
+		result["smpp_message_id"] = resp.SmppMessageId
+	}
+	if resp.ErrorCode != "" {
+		result["error_code"] = resp.ErrorCode
+	}
+	if resp.ErrorMessage != "" {
+		result["error_message"] = resp.ErrorMessage
+	}
+	if resp.CreatedAt != nil {
+		result["created_at"] = resp.CreatedAt.AsTime()
+	}
+	if resp.SubmittedAt != nil {
+		result["submitted_at"] = resp.SubmittedAt.AsTime()
+	}
+	if resp.DeliveredAt != nil {
+		result["delivered_at"] = resp.DeliveredAt.AsTime()
+	}
+	if resp.FailedAt != nil {
+		result["failed_at"] = resp.FailedAt.AsTime()
+	}
+	if resp.ScheduledAt != nil {
+		result["scheduled_at"] = resp.ScheduledAt.AsTime()
+	}
+	if resp.ExpiredAt != nil {
+		result["expired_at"] = resp.ExpiredAt.AsTime()
+	}
+
+	respondJSON(w, http.StatusOK, result)
+}
+
+// ExportCSV обрабатывает GET /messages/export
+func (h *MessageHandlers) ExportCSV(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	query := r.URL.Query()
+	statusFilter := query.Get("status")
+	destination := query.Get("destination")
+
+	var dateFrom, dateTo *timestamppb.Timestamp
+	if fromStr := query.Get("from"); fromStr != "" {
+		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			dateFrom = timestamppb.New(t)
+		} else if t, err := time.Parse("2006-01-02", fromStr); err == nil {
+			dateFrom = timestamppb.New(t)
+		}
+	}
+	if toStr := query.Get("to"); toStr != "" {
+		if t, err := time.Parse(time.RFC3339, toStr); err == nil {
+			dateTo = timestamppb.New(t)
+		} else if t, err := time.Parse("2006-01-02", toStr); err == nil {
+			dateTo = timestamppb.New(t.Add(24*time.Hour - time.Second))
+		}
+	}
+
+	resp, err := h.messagingClient.GetMessageHistory(r.Context(), &messagingv1.GetMessageHistoryRequest{
+		ClientId:    clientID.String(),
+		From:        dateFrom,
+		To:          dateTo,
+		Status:      statusFilter,
+		Destination: destination,
+		Limit:       50000,
+		Offset:      0,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка экспорта сообщений")
+		respondGRPCError(w, err)
+		return
+	}
+
+	now := time.Now().Format("2006-01-02")
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename=messages_"+now+".csv")
+
+	csvWriter := csv.NewWriter(w)
+	csvWriter.Write([]string{"id", "source", "destination", "text", "status", "segment_count", "created_at", "delivered_at"})
+
+	for _, msg := range resp.Messages {
+		createdAt := ""
+		if msg.CreatedAt != nil {
+			createdAt = msg.CreatedAt.AsTime().Format(time.RFC3339)
+		}
+		deliveredAt := ""
+		if msg.DeliveredAt != nil {
+			deliveredAt = msg.DeliveredAt.AsTime().Format(time.RFC3339)
+		}
+		csvWriter.Write([]string{
+			msg.MessageId, msg.Source, msg.Destination, msg.Text, msg.Status,
+			fmt.Sprintf("%d", msg.SegmentCount), createdAt, deliveredAt,
+		})
+	}
+	csvWriter.Flush()
 }

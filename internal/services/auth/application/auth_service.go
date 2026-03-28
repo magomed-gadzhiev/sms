@@ -268,6 +268,87 @@ func (s *AuthService) ListAPIKeys(ctx context.Context, userID uuid.UUID) ([]*dom
 	return s.apiKeyRepo.ListByUserID(ctx, userID)
 }
 
+// Ошибки для UpdateAPIKey / ChangePassword
+var (
+	ErrAPIKeyNotOwned       = errors.New("api key does not belong to user")
+	ErrAPIKeyRevoked        = errors.New("api key is revoked")
+	ErrPasswordTooShort     = errors.New("password must be at least 8 characters")
+	ErrPasswordSameAsOld    = errors.New("new password must differ from current")
+	ErrCurrentPasswordWrong = errors.New("current password is incorrect")
+)
+
+// UpdateAPIKey обновляет API ключ (имя, scopes, allowed_ips, expires_at).
+// Только владелец ключа может его обновить; ключ должен быть активным.
+func (s *AuthService) UpdateAPIKey(
+	ctx context.Context,
+	keyID, userID uuid.UUID,
+	name string,
+	scopes, allowedIPs []string,
+	expiresAt *time.Time,
+) (*domain.APIKey, error) {
+	key, err := s.apiKeyRepo.GetByID(ctx, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	if key.UserID != userID {
+		return nil, ErrAPIKeyNotOwned
+	}
+
+	if !key.Active {
+		return nil, ErrAPIKeyRevoked
+	}
+
+	// Обновляем поля
+	key.Name = name
+	key.Scopes = scopes
+	key.AllowedIPs = allowedIPs
+	key.ExpiresAt = expiresAt
+	key.UpdatedAt = time.Now()
+
+	if err := s.apiKeyRepo.Update(ctx, key); err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+// ChangePassword меняет пароль пользователя (требует текущий пароль).
+func (s *AuthService) ChangePassword(
+	ctx context.Context,
+	userID uuid.UUID,
+	currentPassword, newPassword string,
+) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Проверяем текущий пароль
+	if !s.passwordHasher.CheckPassword(currentPassword, user.PasswordHash) {
+		return ErrCurrentPasswordWrong
+	}
+
+	// Валидация нового пароля
+	if len(newPassword) < 8 {
+		return ErrPasswordTooShort
+	}
+	if currentPassword == newPassword {
+		return ErrPasswordSameAsOld
+	}
+
+	// Хешируем и сохраняем
+	hash, err := s.passwordHasher.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	user.PasswordHash = hash
+	user.UpdatedAt = time.Now()
+
+	return s.userRepo.Update(ctx, user)
+}
+
 // hashAPIKey хеширует API ключ используя SHA256
 func (s *AuthService) hashAPIKey(key string) string {
 	// Используем SHA256 для хеширования API ключей

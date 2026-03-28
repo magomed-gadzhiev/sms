@@ -26,6 +26,8 @@ const (
 	AuthService_CreateAPIKey_FullMethodName         = "/auth.v1.AuthService/CreateAPIKey"
 	AuthService_RevokeAPIKey_FullMethodName         = "/auth.v1.AuthService/RevokeAPIKey"
 	AuthService_ListAPIKeys_FullMethodName          = "/auth.v1.AuthService/ListAPIKeys"
+	AuthService_UpdateAPIKey_FullMethodName         = "/auth.v1.AuthService/UpdateAPIKey"
+	AuthService_ChangePassword_FullMethodName       = "/auth.v1.AuthService/ChangePassword"
 	AuthService_SetupTOTP_FullMethodName            = "/auth.v1.AuthService/SetupTOTP"
 	AuthService_VerifyTOTP_FullMethodName           = "/auth.v1.AuthService/VerifyTOTP"
 	AuthService_DisableTOTP_FullMethodName          = "/auth.v1.AuthService/DisableTOTP"
@@ -57,6 +59,10 @@ type AuthServiceClient interface {
 	RevokeAPIKey(ctx context.Context, in *RevokeAPIKeyRequest, opts ...grpc.CallOption) (*RevokeAPIKeyResponse, error)
 	// ListAPIKeys получает список API ключей пользователя
 	ListAPIKeys(ctx context.Context, in *ListAPIKeysRequest, opts ...grpc.CallOption) (*ListAPIKeysResponse, error)
+	// UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)
+	UpdateAPIKey(ctx context.Context, in *UpdateAPIKeyRequest, opts ...grpc.CallOption) (*UpdateAPIKeyResponse, error)
+	// ChangePassword меняет пароль пользователя (требует текущий пароль)
+	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
 	// SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
 	SetupTOTP(ctx context.Context, in *SetupTOTPRequest, opts ...grpc.CallOption) (*SetupTOTPResponse, error)
 	// VerifyTOTP проверяет TOTP код для включения 2FA
@@ -149,6 +155,26 @@ func (c *authServiceClient) ListAPIKeys(ctx context.Context, in *ListAPIKeysRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListAPIKeysResponse)
 	err := c.cc.Invoke(ctx, AuthService_ListAPIKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateAPIKey(ctx context.Context, in *UpdateAPIKeyRequest, opts ...grpc.CallOption) (*UpdateAPIKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateAPIKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateAPIKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChangePasswordResponse)
+	err := c.cc.Invoke(ctx, AuthService_ChangePassword_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -265,6 +291,10 @@ type AuthServiceServer interface {
 	RevokeAPIKey(context.Context, *RevokeAPIKeyRequest) (*RevokeAPIKeyResponse, error)
 	// ListAPIKeys получает список API ключей пользователя
 	ListAPIKeys(context.Context, *ListAPIKeysRequest) (*ListAPIKeysResponse, error)
+	// UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)
+	UpdateAPIKey(context.Context, *UpdateAPIKeyRequest) (*UpdateAPIKeyResponse, error)
+	// ChangePassword меняет пароль пользователя (требует текущий пароль)
+	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
 	// SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
 	SetupTOTP(context.Context, *SetupTOTPRequest) (*SetupTOTPResponse, error)
 	// VerifyTOTP проверяет TOTP код для включения 2FA
@@ -313,6 +343,12 @@ func (UnimplementedAuthServiceServer) RevokeAPIKey(context.Context, *RevokeAPIKe
 }
 func (UnimplementedAuthServiceServer) ListAPIKeys(context.Context, *ListAPIKeysRequest) (*ListAPIKeysResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAPIKeys not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateAPIKey(context.Context, *UpdateAPIKeyRequest) (*UpdateAPIKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAPIKey not implemented")
+}
+func (UnimplementedAuthServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
 }
 func (UnimplementedAuthServiceServer) SetupTOTP(context.Context, *SetupTOTPRequest) (*SetupTOTPResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetupTOTP not implemented")
@@ -484,6 +520,42 @@ func _AuthService_ListAPIKeys_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).ListAPIKeys(ctx, req.(*ListAPIKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateAPIKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAPIKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateAPIKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateAPIKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateAPIKey(ctx, req.(*UpdateAPIKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ChangePassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangePasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ChangePassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ChangePassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ChangePassword(ctx, req.(*ChangePasswordRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -684,6 +756,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAPIKeys",
 			Handler:    _AuthService_ListAPIKeys_Handler,
+		},
+		{
+			MethodName: "UpdateAPIKey",
+			Handler:    _AuthService_UpdateAPIKey_Handler,
+		},
+		{
+			MethodName: "ChangePassword",
+			Handler:    _AuthService_ChangePassword_Handler,
 		},
 		{
 			MethodName: "SetupTOTP",

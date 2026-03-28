@@ -18,6 +18,8 @@ import (
 	contactv1 "github.com/smpp-server/smpp-server/api/proto/contactv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
+	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
 
@@ -34,6 +36,8 @@ type ServiceClients struct {
 	ProviderClient       cpv1.ClientProviderServiceClient
 	ContactClient        contactv1.ContactServiceClient
 	CampaignClient       campaignv1.CampaignServiceClient
+	TemplateClient       templatev1.TemplateServiceClient
+	TarificationClient   tarificationv1.TarificationServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -49,8 +53,10 @@ type ServiceAddresses struct {
 	Audit     string
 	Routing   string
 	Provider  string
-	Contact   string
-	Campaign  string
+	Contact      string
+	Campaign     string
+	Template     string
+	Tarification string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -181,6 +187,28 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Campaign Service: %w", err)
 		}
 		clients.CampaignClient = campaignv1.NewCampaignServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Template Service
+	if addresses.Template != "" {
+		conn, err := grpc.Dial(addresses.Template, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Template Service: %w", err)
+		}
+		clients.TemplateClient = templatev1.NewTemplateServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Tarification Service
+	if addresses.Tarification != "" {
+		conn, err := grpc.Dial(addresses.Tarification, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Tarification Service: %w", err)
+		}
+		clients.TarificationClient = tarificationv1.NewTarificationServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
