@@ -8,12 +8,17 @@ import (
 
 // Account представляет доменную модель счета клиента
 type Account struct {
-	ID        uuid.UUID
-	ClientID  uuid.UUID
-	Balance   string // Используем строку для точности финансовых расчетов
-	Currency  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                  uuid.UUID
+	ClientID            uuid.UUID
+	Balance             string // Используем строку для точности финансовых расчетов
+	Currency            string
+	Frozen              bool
+	FrozenAt            *time.Time
+	FrozenBy            *uuid.UUID
+	CreditLimit         string
+	LowBalanceThreshold string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // NewAccount создает новый счет для клиента

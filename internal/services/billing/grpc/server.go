@@ -62,10 +62,12 @@ func (s *Server) GetBalance(ctx context.Context, req *billingv1.GetBalanceReques
 	}
 
 	return &billingv1.GetBalanceResponse{
-		ClientId:  account.ClientID.String(),
-		Balance:   account.Balance,
-		Currency:  account.Currency,
-		UpdatedAt: timestamppb.New(account.UpdatedAt),
+		ClientId:    account.ClientID.String(),
+		Balance:     account.Balance,
+		Currency:    account.Currency,
+		UpdatedAt:   timestamppb.New(account.UpdatedAt),
+		Frozen:      account.Frozen,
+		CreditLimit: account.CreditLimit,
 	}, nil
 }
 
@@ -395,5 +397,156 @@ func (s *Server) CreatePricingRule(ctx context.Context, req *billingv1.CreatePri
 	return &billingv1.CreatePricingRuleResponse{
 		RuleId:    rule.ID.String(),
 		CreatedAt: timestamppb.New(rule.CreatedAt),
+	}, nil
+}
+
+// FreezeAccount замораживает счет клиента
+func (s *Server) FreezeAccount(ctx context.Context, req *billingv1.FreezeAccountRequest) (*billingv1.FreezeAccountResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+	if req.AdminId == "" {
+		return nil, status.Error(codes.InvalidArgument, "admin_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	adminID, err := uuid.Parse(req.AdminId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid admin_id format")
+	}
+
+	frozenAt, err := s.billingService.FreezeAccount(ctx, clientID, adminID)
+	if err != nil {
+		s.logger.Error().Err(err).
+			Str("client_id", req.ClientId).
+			Msg("ошибка заморозки счета")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &billingv1.FreezeAccountResponse{
+		Success:  true,
+		FrozenAt: timestamppb.New(frozenAt),
+	}, nil
+}
+
+// UnfreezeAccount размораживает счет клиента
+func (s *Server) UnfreezeAccount(ctx context.Context, req *billingv1.UnfreezeAccountRequest) (*billingv1.UnfreezeAccountResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	if err := s.billingService.UnfreezeAccount(ctx, clientID); err != nil {
+		s.logger.Error().Err(err).
+			Str("client_id", req.ClientId).
+			Msg("ошибка разморозки счета")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &billingv1.UnfreezeAccountResponse{
+		Success: true,
+	}, nil
+}
+
+// SetCreditLimit устанавливает кредитный лимит для клиента
+func (s *Server) SetCreditLimit(ctx context.Context, req *billingv1.SetCreditLimitRequest) (*billingv1.SetCreditLimitResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	if err := s.billingService.SetCreditLimit(ctx, clientID, req.CreditLimit); err != nil {
+		s.logger.Error().Err(err).
+			Str("client_id", req.ClientId).
+			Msg("ошибка установки кредитного лимита")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &billingv1.SetCreditLimitResponse{
+		Success:     true,
+		CreditLimit: req.CreditLimit,
+	}, nil
+}
+
+// SetLowBalanceThreshold устанавливает порог низкого баланса
+func (s *Server) SetLowBalanceThreshold(ctx context.Context, req *billingv1.SetLowBalanceThresholdRequest) (*billingv1.SetLowBalanceThresholdResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	if err := s.billingService.SetLowBalanceThreshold(ctx, clientID, req.Threshold); err != nil {
+		s.logger.Error().Err(err).
+			Str("client_id", req.ClientId).
+			Msg("ошибка установки порога низкого баланса")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &billingv1.SetLowBalanceThresholdResponse{
+		Success:   true,
+		Threshold: req.Threshold,
+	}, nil
+}
+
+// ListBalances получает список балансов с фильтрацией
+func (s *Server) ListBalances(ctx context.Context, req *billingv1.ListBalancesRequest) (*billingv1.ListBalancesResponse, error) {
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	balances, total, err := s.billingService.ListBalances(ctx, req.Search, req.Status, req.BelowThreshold, limit, offset)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("ошибка получения списка балансов")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	protoBalances := make([]*billingv1.BalanceInfo, len(balances))
+	for i, b := range balances {
+		info := &billingv1.BalanceInfo{
+			ClientId:            b.ClientID.String(),
+			ClientName:          b.ClientName,
+			Balance:             b.Balance,
+			Currency:            b.Currency,
+			Frozen:              b.Frozen,
+			CreditLimit:         b.CreditLimit,
+			LowBalanceThreshold: b.LowBalanceThreshold,
+			UpdatedAt:           timestamppb.New(b.UpdatedAt),
+		}
+		if b.FrozenAt != nil {
+			info.FrozenAt = timestamppb.New(*b.FrozenAt)
+		}
+		if b.FrozenBy != nil {
+			info.FrozenBy = b.FrozenBy.String()
+		}
+		protoBalances[i] = info
+	}
+
+	return &billingv1.ListBalancesResponse{
+		Balances: protoBalances,
+		Total:    total,
+		Limit:    limit,
+		Offset:   offset,
 	}, nil
 }

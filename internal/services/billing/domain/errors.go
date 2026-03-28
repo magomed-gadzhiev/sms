@@ -8,6 +8,8 @@ var (
 	ErrAccountClientIDRequired  = errors.New("client_id is required")
 	ErrAccountCurrencyRequired  = errors.New("currency is required")
 	ErrInsufficientBalance      = errors.New("insufficient balance")
+	ErrAccountAlreadyFrozen     = errors.New("account is already frozen")
+	ErrAccountNotFrozen         = errors.New("account is not frozen")
 
 	// Ошибки Transaction
 	ErrTransactionNotFound         = errors.New("transaction not found")

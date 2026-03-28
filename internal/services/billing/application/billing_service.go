@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -381,6 +382,48 @@ func (s *BillingService) TransferBalance(
 		Msg("balance transfer completed")
 
 	return transfer.ID.String(), newFromBalance, newToBalance, nil
+}
+
+// FreezeAccount замораживает счет клиента
+func (s *BillingService) FreezeAccount(ctx context.Context, clientID uuid.UUID, adminID uuid.UUID) (time.Time, error) {
+	frozenAt, err := s.accountRepo.FreezeAccount(ctx, clientID, adminID)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to freeze account: %w", err)
+	}
+	return frozenAt, nil
+}
+
+// UnfreezeAccount размораживает счет клиента
+func (s *BillingService) UnfreezeAccount(ctx context.Context, clientID uuid.UUID) error {
+	if err := s.accountRepo.UnfreezeAccount(ctx, clientID); err != nil {
+		return fmt.Errorf("failed to unfreeze account: %w", err)
+	}
+	return nil
+}
+
+// SetCreditLimit устанавливает кредитный лимит для клиента
+func (s *BillingService) SetCreditLimit(ctx context.Context, clientID uuid.UUID, limit string) error {
+	if err := s.accountRepo.SetCreditLimit(ctx, clientID, limit); err != nil {
+		return fmt.Errorf("failed to set credit limit: %w", err)
+	}
+	return nil
+}
+
+// SetLowBalanceThreshold устанавливает порог низкого баланса
+func (s *BillingService) SetLowBalanceThreshold(ctx context.Context, clientID uuid.UUID, threshold string) error {
+	if err := s.accountRepo.SetLowBalanceThreshold(ctx, clientID, threshold); err != nil {
+		return fmt.Errorf("failed to set low balance threshold: %w", err)
+	}
+	return nil
+}
+
+// ListBalances получает список балансов с фильтрацией
+func (s *BillingService) ListBalances(ctx context.Context, search string, status string, belowThreshold bool, limit, offset int32) ([]domain.BalanceInfo, int32, error) {
+	balances, total, err := s.accountRepo.ListBalances(ctx, search, status, belowThreshold, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list balances: %w", err)
+	}
+	return balances, total, nil
 }
 
 // add складывает два числа в строковом формате
