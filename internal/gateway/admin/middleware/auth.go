@@ -36,7 +36,8 @@ func isPublicPath(path string) bool {
 }
 
 // AdminAuthMiddleware создает middleware для аутентификации администраторов.
-// Проверяет session cookie (portal_session) через auth service.
+// Извлекает Bearer JWT из заголовка Authorization и валидирует через auth service.
+// Допускает только пользователей с ролью admin или superadmin.
 func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,25 +47,42 @@ func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler)
 				return
 			}
 
-			// Извлекаем session cookie
-			cookie, err := r.Cookie("portal_session")
-			if err != nil || cookie.Value == "" {
-				respondError(w, shared.ErrUnauthorized("Session cookie required"))
+			// Извлекаем Bearer token из заголовка Authorization
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+				respondError(w, shared.ErrUnauthorized("Authorization header with Bearer token required"))
+				return
+			}
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			if token == "" {
+				respondError(w, shared.ErrUnauthorized("Bearer token is empty"))
 				return
 			}
 
-			// Валидируем сессию через auth service
-			resp, err := authClient.ValidateSession(r.Context(), &authv1.ValidateSessionRequest{
-				SessionId: cookie.Value,
+			// Валидируем токен через auth service
+			resp, err := authClient.ValidateToken(r.Context(), &authv1.ValidateTokenRequest{
+				Token: token,
 			})
 			if err != nil || !resp.Valid {
-				respondError(w, shared.ErrUnauthorized("Invalid or expired session"))
+				respondError(w, shared.ErrUnauthorized("Invalid or expired token"))
+				return
+			}
+
+			// Проверяем наличие пользователя
+			if resp.User == nil {
+				respondError(w, shared.ErrUnauthorized("No user info in token"))
+				return
+			}
+
+			// Проверяем, что пользователь активен
+			if !resp.User.Active {
+				respondError(w, shared.ErrForbidden("User account is inactive"))
 				return
 			}
 
 			// Проверяем роль — только admin и superadmin
 			role := ""
-			if resp.User != nil && resp.User.Role != nil {
+			if resp.User.Role != nil {
 				role = resp.User.Role.Name
 			}
 			if role != "admin" && role != "superadmin" {

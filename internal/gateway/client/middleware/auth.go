@@ -22,6 +22,21 @@ const (
 	PermissionsKey contextKey = "permissions"
 )
 
+// publicPaths — пути, которые не требуют аутентификации
+var publicPaths = []string{
+	"/health",
+	"/metrics",
+}
+
+func isPublicPath(path string) bool {
+	for _, p := range publicPaths {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // isLoadTestMode возвращает true, если переменная окружения LOAD_TEST_MODE=true
 func isLoadTestMode() bool {
 	return strings.EqualFold(os.Getenv("LOAD_TEST_MODE"), "true")
@@ -29,11 +44,18 @@ func isLoadTestMode() bool {
 
 // ClientAuthMiddleware создает middleware для аутентификации клиентов.
 // Если LOAD_TEST_MODE=true — использует dummy IDs (режим нагрузочного тестирования).
-// Иначе — извлекает API ключ из заголовка X-API-Key и вызывает authClient.Authenticate().
+// Иначе — извлекает токен из заголовка Authorization (Bearer) или X-API-Key,
+// и вызывает authClient.ValidateToken().
 func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
 	dummyID := uuid.MustParse("c0000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Пропускаем публичные эндпоинты
+			if isPublicPath(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			if isLoadTestMode() {
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, UserIDKey, dummyID)
@@ -43,37 +65,89 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 				return
 			}
 
-			apiKey := r.Header.Get("X-API-Key")
-			if apiKey == "" {
+			// Извлекаем токен: сначала из Authorization: Bearer, затем из X-API-Key
+			var token string
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" {
+				if !strings.HasPrefix(authHeader, "Bearer ") {
+					respondError(w, &shared.AppError{
+						HTTPStatus: http.StatusUnauthorized,
+						Code:       "INVALID_AUTH_HEADER",
+						Message:    "Authorization header must use Bearer scheme",
+					})
+					return
+				}
+				token = strings.TrimPrefix(authHeader, "Bearer ")
+			} else {
+				token = r.Header.Get("X-API-Key")
+			}
+
+			if token == "" {
 				respondError(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
-					Code:       "MISSING_API_KEY",
-					Message:    "API key is required",
+					Code:       "MISSING_CREDENTIALS",
+					Message:    "Authorization header or X-API-Key is required",
 				})
 				return
 			}
 
-			resp, err := authClient.Authenticate(r.Context(), &authv1.AuthenticateRequest{
-				ApiKey: apiKey,
+			// Валидируем токен через auth service
+			resp, err := authClient.ValidateToken(r.Context(), &authv1.ValidateTokenRequest{
+				Token: token,
 			})
 			if err != nil {
 				respondError(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
-					Code:       "INVALID_API_KEY",
-					Message:    "Invalid or expired API key",
+					Code:       "INVALID_TOKEN",
+					Message:    "Invalid or expired token",
 				})
 				return
 			}
 
-			ctx := r.Context()
-			if resp.User == nil {
+			if !resp.Valid {
 				respondError(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
-					Code:       "INVALID_API_KEY",
-					Message:    "Invalid or expired API key",
+					Code:       "INVALID_TOKEN",
+					Message:    "Invalid or expired token",
 				})
 				return
 			}
+
+			// Проверяем наличие пользователя
+			if resp.User == nil {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusUnauthorized,
+					Code:       "INVALID_TOKEN",
+					Message:    "No user info in token",
+				})
+				return
+			}
+
+			// Проверяем, что пользователь активен
+			if !resp.User.Active {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusForbidden,
+					Code:       "USER_INACTIVE",
+					Message:    "User account is inactive",
+				})
+				return
+			}
+
+			// Проверяем роль — только client
+			role := ""
+			if resp.User.Role != nil {
+				role = resp.User.Role.Name
+			}
+			if role != "client" {
+				respondError(w, &shared.AppError{
+					HTTPStatus: http.StatusForbidden,
+					Code:       "WRONG_ROLE",
+					Message:    "Client access required",
+				})
+				return
+			}
+
+			// Парсим user ID
 			userID, parseErr := uuid.Parse(resp.User.Id)
 			if parseErr != nil {
 				respondError(w, &shared.AppError{
@@ -83,10 +157,21 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 				})
 				return
 			}
+
+			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
+			ctx = context.WithValue(ctx, ClientIDKey, userID)
 			ctx = context.WithValue(ctx, UserKey, resp.User)
 			if resp.User.Role != nil {
 				ctx = context.WithValue(ctx, RoleKey, resp.User.Role)
+			}
+
+			// Загружаем permissions если доступны
+			permResp, permErr := authClient.GetPermissions(r.Context(), &authv1.GetPermissionsRequest{
+				UserId: resp.User.Id,
+			})
+			if permErr == nil && permResp.Permissions != nil {
+				ctx = context.WithValue(ctx, PermissionsKey, permResp.Permissions)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -143,17 +228,17 @@ func HasPermission(ctx context.Context, resource, action string) bool {
 func respondError(w http.ResponseWriter, err *shared.AppError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(err.HTTPStatus)
-	
+
 	response := map[string]interface{}{
 		"error": map[string]interface{}{
 			"code":    err.Code,
 			"message": err.Message,
 		},
 	}
-	
+
 	if err.Details != "" {
 		response["error"].(map[string]interface{})["details"] = err.Details
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
