@@ -848,6 +848,472 @@ func (s *Server) isTOTPEnabled(ctx context.Context, userID uuid.UUID) bool {
 	return true
 }
 
+// ============================================================
+// User/Role Management gRPC methods
+// ============================================================
+
+// CreateUser создает нового пользователя (админ)
+func (s *Server) CreateUser(ctx context.Context, req *authv1.CreateUserRequest) (*authv1.CreateUserResponse, error) {
+	if req.Username == "" {
+		return nil, status.Error(codes.InvalidArgument, "username is required")
+	}
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+	if req.Password == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+	if req.RoleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "role_id is required")
+	}
+
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid role_id format")
+	}
+
+	user, err := s.authService.CreateUser(ctx, req.Username, req.Email, req.Password, roleID, req.Active)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка создания пользователя")
+		return nil, status.Error(codes.Internal, "failed to create user")
+	}
+
+	return &authv1.CreateUserResponse{
+		User: s.domainUserToProto(user),
+	}, nil
+}
+
+// UpdateUser обновляет пользователя
+func (s *Server) UpdateUser(ctx context.Context, req *authv1.UpdateUserRequest) (*authv1.UpdateUserResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	roleID := uuid.Nil
+	if req.RoleId != "" {
+		roleID, err = uuid.Parse(req.RoleId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid role_id format")
+		}
+	}
+
+	user, err := s.authService.UpdateUser(ctx, userID, req.Email, roleID, req.Active)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка обновления пользователя")
+		return nil, status.Error(codes.Internal, "failed to update user")
+	}
+
+	return &authv1.UpdateUserResponse{
+		User: s.domainUserToProto(user),
+	}, nil
+}
+
+// DeactivateUser деактивирует пользователя
+func (s *Server) DeactivateUser(ctx context.Context, req *authv1.DeactivateUserRequest) (*authv1.DeactivateUserResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = s.authService.DeactivateUser(ctx, userID)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка деактивации пользователя")
+		return nil, status.Error(codes.Internal, "failed to deactivate user")
+	}
+
+	return &authv1.DeactivateUserResponse{
+		Success: true,
+	}, nil
+}
+
+// ResetUser2FA сбрасывает 2FA пользователя (админ)
+func (s *Server) ResetUser2FA(ctx context.Context, req *authv1.ResetUser2FARequest) (*authv1.ResetUser2FAResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = s.authService.ResetUser2FA(ctx, userID)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка сброса 2FA пользователя")
+		return nil, status.Error(codes.Internal, "failed to reset user 2FA")
+	}
+
+	return &authv1.ResetUser2FAResponse{
+		Success: true,
+	}, nil
+}
+
+// ResetUserPassword сбрасывает пароль пользователя (админ)
+func (s *Server) ResetUserPassword(ctx context.Context, req *authv1.ResetUserPasswordRequest) (*authv1.ResetUserPasswordResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	tempPassword, err := s.authService.ResetUserPassword(ctx, userID)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка сброса пароля пользователя")
+		return nil, status.Error(codes.Internal, "failed to reset user password")
+	}
+
+	return &authv1.ResetUserPasswordResponse{
+		TemporaryPassword: tempPassword,
+	}, nil
+}
+
+// ListUsers получает список пользователей с фильтрацией
+func (s *Server) ListUsers(ctx context.Context, req *authv1.ListUsersRequest) (*authv1.ListUsersResponse, error) {
+	users, total, err := s.authService.ListUsers(ctx, req.Search, req.RoleId, req.ActiveOnly, req.Limit, req.Offset)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка пользователей")
+		return nil, status.Error(codes.Internal, "failed to list users")
+	}
+
+	protoUsers := make([]*authv1.UserDetailInfo, len(users))
+	for i, user := range users {
+		protoUsers[i] = s.domainUserToDetailProto(ctx, user)
+	}
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+
+	return &authv1.ListUsersResponse{
+		Users:  protoUsers,
+		Total:  total,
+		Limit:  limit,
+		Offset: req.Offset,
+	}, nil
+}
+
+// GetUser получает информацию о пользователе
+func (s *Server) GetUser(ctx context.Context, req *authv1.GetUserRequest) (*authv1.GetUserResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	user, err := s.authService.GetUser(ctx, userID)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка получения пользователя")
+		return nil, status.Error(codes.Internal, "failed to get user")
+	}
+
+	return &authv1.GetUserResponse{
+		User: s.domainUserToDetailProto(ctx, user),
+	}, nil
+}
+
+// CreateRole создает новую роль
+func (s *Server) CreateRole(ctx context.Context, req *authv1.CreateRoleRequest) (*authv1.CreateRoleResponse, error) {
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "name is required")
+	}
+
+	permissionIDs, err := parseUUIDs(req.PermissionIds)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid permission_id format")
+	}
+
+	role, err := s.authService.CreateRole(ctx, req.Name, req.Description, permissionIDs)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка создания роли")
+		return nil, status.Error(codes.Internal, "failed to create role")
+	}
+
+	return &authv1.CreateRoleResponse{
+		Role: s.domainRoleToDetailProto(role),
+	}, nil
+}
+
+// UpdateRole обновляет роль
+func (s *Server) UpdateRole(ctx context.Context, req *authv1.UpdateRoleRequest) (*authv1.UpdateRoleResponse, error) {
+	if req.RoleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "role_id is required")
+	}
+
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid role_id format")
+	}
+
+	permissionIDs, err := parseUUIDs(req.PermissionIds)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid permission_id format")
+	}
+
+	role, err := s.authService.UpdateRole(ctx, roleID, req.Name, req.Description, permissionIDs)
+	if err != nil {
+		if err == authrepo.ErrRoleNotFound {
+			return nil, status.Error(codes.NotFound, "role not found")
+		}
+		log.Error().Err(err).Msg("ошибка обновления роли")
+		return nil, status.Error(codes.Internal, "failed to update role")
+	}
+
+	return &authv1.UpdateRoleResponse{
+		Role: s.domainRoleToDetailProto(role),
+	}, nil
+}
+
+// DeleteRole удаляет роль
+func (s *Server) DeleteRole(ctx context.Context, req *authv1.DeleteRoleRequest) (*authv1.DeleteRoleResponse, error) {
+	if req.RoleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "role_id is required")
+	}
+
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid role_id format")
+	}
+
+	err = s.authService.DeleteRole(ctx, roleID)
+	if err != nil {
+		if err == authrepo.ErrRoleNotFound {
+			return nil, status.Error(codes.NotFound, "role not found")
+		}
+		log.Error().Err(err).Msg("ошибка удаления роли")
+		return nil, status.Error(codes.Internal, "failed to delete role")
+	}
+
+	return &authv1.DeleteRoleResponse{
+		Success: true,
+	}, nil
+}
+
+// ListRoles получает список ролей
+func (s *Server) ListRoles(ctx context.Context, req *authv1.ListRolesRequest) (*authv1.ListRolesResponse, error) {
+	roles, total, err := s.authService.ListRoles(ctx, req.Limit, req.Offset)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка ролей")
+		return nil, status.Error(codes.Internal, "failed to list roles")
+	}
+
+	protoRoles := make([]*authv1.RoleDetail, len(roles))
+	for i, role := range roles {
+		protoRoles[i] = s.domainRoleToDetailProto(role)
+	}
+
+	return &authv1.ListRolesResponse{
+		Roles: protoRoles,
+		Total: total,
+	}, nil
+}
+
+// GetRole получает информацию о роли
+func (s *Server) GetRole(ctx context.Context, req *authv1.GetRoleRequest) (*authv1.GetRoleResponse, error) {
+	if req.RoleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "role_id is required")
+	}
+
+	roleID, err := uuid.Parse(req.RoleId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid role_id format")
+	}
+
+	role, err := s.authService.GetRole(ctx, roleID)
+	if err != nil {
+		if err == authrepo.ErrRoleNotFound {
+			return nil, status.Error(codes.NotFound, "role not found")
+		}
+		log.Error().Err(err).Msg("ошибка получения роли")
+		return nil, status.Error(codes.Internal, "failed to get role")
+	}
+
+	return &authv1.GetRoleResponse{
+		Role: s.domainRoleToDetailProto(role),
+	}, nil
+}
+
+// ListAllPermissions получает все доступные права
+func (s *Server) ListAllPermissions(ctx context.Context, req *authv1.ListAllPermissionsRequest) (*authv1.ListAllPermissionsResponse, error) {
+	perms, err := s.authService.ListAllPermissions(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка прав")
+		return nil, status.Error(codes.Internal, "failed to list permissions")
+	}
+
+	protoPerms := make([]*authv1.Permission, len(perms))
+	for i, perm := range perms {
+		protoPerms[i] = &authv1.Permission{
+			Id:       perm.ID.String(),
+			Resource: perm.Resource,
+			Action:   perm.Action,
+		}
+	}
+
+	return &authv1.ListAllPermissionsResponse{
+		Permissions: protoPerms,
+	}, nil
+}
+
+// GetUserPermissions получает права конкретного пользователя
+func (s *Server) GetUserPermissions(ctx context.Context, req *authv1.GetUserPermissionsRequest) (*authv1.GetUserPermissionsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	perms, role, err := s.authService.GetUserPermissions(ctx, userID)
+	if err != nil {
+		if err == authrepo.ErrUserNotFound {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		log.Error().Err(err).Msg("ошибка получения прав пользователя")
+		return nil, status.Error(codes.Internal, "failed to get user permissions")
+	}
+
+	protoPerms := make([]*authv1.Permission, len(perms))
+	for i, perm := range perms {
+		protoPerms[i] = &authv1.Permission{
+			Id:       perm.ID.String(),
+			Resource: perm.Resource,
+			Action:   perm.Action,
+		}
+	}
+
+	var protoRole *authv1.Role
+	if role != nil {
+		protoRole = &authv1.Role{
+			Id:          role.ID.String(),
+			Name:        role.Name,
+			Description: role.Description,
+		}
+	}
+
+	return &authv1.GetUserPermissionsResponse{
+		Permissions: protoPerms,
+		Role:        protoRole,
+	}, nil
+}
+
+// ============================================================
+// Proto conversion helpers
+// ============================================================
+
+// domainUserToDetailProto преобразует domain.User в proto UserDetailInfo
+func (s *Server) domainUserToDetailProto(ctx context.Context, user *domain.User) *authv1.UserDetailInfo {
+	if user == nil {
+		return nil
+	}
+
+	detail := &authv1.UserDetailInfo{
+		Id:        user.ID.String(),
+		Username:  user.Username,
+		Email:     user.Email,
+		Active:    user.Active,
+		CreatedAt: timestamppb.New(user.CreatedAt),
+		UpdatedAt: timestamppb.New(user.UpdatedAt),
+	}
+
+	if user.Role != nil {
+		detail.Role = &authv1.Role{
+			Id:          user.Role.ID.String(),
+			Name:        user.Role.Name,
+			Description: user.Role.Description,
+		}
+	}
+
+	if user.LastLoginAt != nil {
+		detail.LastLoginAt = timestamppb.New(*user.LastLoginAt)
+	}
+
+	// Проверяем, включен ли TOTP
+	detail.TotpEnabled = s.isTOTPEnabled(ctx, user.ID)
+
+	return detail
+}
+
+// domainRoleToDetailProto преобразует domain.Role в proto RoleDetail
+func (s *Server) domainRoleToDetailProto(role *domain.Role) *authv1.RoleDetail {
+	if role == nil {
+		return nil
+	}
+
+	detail := &authv1.RoleDetail{
+		Id:          role.ID.String(),
+		Name:        role.Name,
+		Description: role.Description,
+		Builtin:     isBuiltinRole(role.Name),
+		UserCount:   role.UserCount,
+		CreatedAt:   timestamppb.New(role.CreatedAt),
+		UpdatedAt:   timestamppb.New(role.UpdatedAt),
+	}
+
+	protoPerms := make([]*authv1.Permission, len(role.Permissions))
+	for i, perm := range role.Permissions {
+		protoPerms[i] = &authv1.Permission{
+			Id:       perm.ID.String(),
+			Resource: perm.Resource,
+			Action:   perm.Action,
+		}
+	}
+	detail.Permissions = protoPerms
+
+	return detail
+}
+
+// isBuiltinRole проверяет, является ли роль встроенной
+func isBuiltinRole(name string) bool {
+	switch strings.ToLower(name) {
+	case "admin", "client", "operator":
+		return true
+	}
+	return false
+}
+
+// parseUUIDs парсит слайс строк в слайс UUID
+func parseUUIDs(ids []string) ([]uuid.UUID, error) {
+	result := make([]uuid.UUID, len(ids))
+	for i, id := range ids {
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = parsed
+	}
+	return result, nil
+}
+
 // domainUserToProto преобразует domain.User в proto UserInfo
 func (s *Server) domainUserToProto(user *domain.User) *authv1.UserInfo {
 	if user == nil {

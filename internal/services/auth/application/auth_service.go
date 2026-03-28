@@ -2,9 +2,11 @@ package application
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,6 +32,7 @@ var (
 type AuthService struct {
 	userRepo          UserRepository
 	apiKeyRepo        APIKeyRepository
+	roleRepo          RoleRepository
 	tokenService      *TokenService
 	passwordHasher    PasswordHasher
 	apiKeyGenerator   APIKeyGenerator
@@ -52,14 +55,19 @@ func NewAuthService(
 	userRepo UserRepository,
 	apiKeyRepo APIKeyRepository,
 	tokenService *TokenService,
+	roleRepo ...RoleRepository,
 ) *AuthService {
-	return &AuthService{
+	svc := &AuthService{
 		userRepo:        userRepo,
 		apiKeyRepo:      apiKeyRepo,
 		tokenService:    tokenService,
 		passwordHasher:  &authinfra.PasswordHasherImpl{},
 		apiKeyGenerator: &authinfra.APIKeyGeneratorImpl{},
 	}
+	if len(roleRepo) > 0 {
+		svc.roleRepo = roleRepo[0]
+	}
+	return svc
 }
 
 // NewAuthServiceWithDeps создает AuthService с явно указанными зависимостями (для тестов)
@@ -355,4 +363,169 @@ func (s *AuthService) hashAPIKey(key string) string {
 	// В production можно использовать bcrypt, но для ключей SHA256 достаточно
 	hash := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(hash[:])
+}
+
+// ============================================================
+// User/Role Management methods
+// ============================================================
+
+// CreateUser создает нового пользователя (админ-операция)
+func (s *AuthService) CreateUser(ctx context.Context, username, email, password string, roleID uuid.UUID, active bool) (*domain.User, error) {
+	// Хешируем пароль
+	passwordHash, err := s.passwordHasher.HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	user := &domain.User{
+		ID:           uuid.New(),
+		Username:     username,
+		Email:        email,
+		PasswordHash: passwordHash,
+		RoleID:       roleID,
+		Active:       active,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	if err := s.userRepo.Create(ctx, user); err != nil {
+		return nil, err
+	}
+
+	// Загружаем пользователя с ролью
+	return s.userRepo.GetByIDWithRole(ctx, user.ID)
+}
+
+// UpdateUser обновляет пользователя (email, роль, активность)
+func (s *AuthService) UpdateUser(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, active bool) (*domain.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	user.Email = email
+	user.RoleID = roleID
+	user.Active = active
+	user.UpdatedAt = time.Now()
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return s.userRepo.GetByIDWithRole(ctx, user.ID)
+}
+
+// DeactivateUser деактивирует пользователя
+func (s *AuthService) DeactivateUser(ctx context.Context, userID uuid.UUID) error {
+	return s.userRepo.Deactivate(ctx, userID)
+}
+
+// ResetUser2FA сбрасывает 2FA пользователя
+func (s *AuthService) ResetUser2FA(ctx context.Context, userID uuid.UUID) error {
+	return s.userRepo.ResetTOTP(ctx, userID)
+}
+
+// ResetUserPassword генерирует временный пароль, хеширует и сохраняет
+func (s *AuthService) ResetUserPassword(ctx context.Context, userID uuid.UUID) (string, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	// Генерируем случайный 12-символьный пароль
+	tempPassword, err := generateRandomPassword(12)
+	if err != nil {
+		return "", err
+	}
+
+	// Хешируем и сохраняем
+	passwordHash, err := s.passwordHasher.HashPassword(tempPassword)
+	if err != nil {
+		return "", err
+	}
+
+	user.PasswordHash = passwordHash
+	user.UpdatedAt = time.Now()
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return "", err
+	}
+
+	return tempPassword, nil
+}
+
+// ListUsers возвращает список пользователей с фильтрацией
+func (s *AuthService) ListUsers(ctx context.Context, search, roleID string, activeOnly bool, limit, offset int32) ([]*domain.User, int32, error) {
+	return s.userRepo.List(ctx, search, roleID, activeOnly, limit, offset)
+}
+
+// GetUser возвращает пользователя по ID с ролью и правами
+func (s *AuthService) GetUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
+	return s.userRepo.GetByIDWithRole(ctx, userID)
+}
+
+// CreateRole создает новую роль
+func (s *AuthService) CreateRole(ctx context.Context, name, description string, permissionIDs []uuid.UUID) (*domain.Role, error) {
+	return s.roleRepo.Create(ctx, name, description, permissionIDs)
+}
+
+// UpdateRole обновляет роль
+func (s *AuthService) UpdateRole(ctx context.Context, roleID uuid.UUID, name, description string, permissionIDs []uuid.UUID) (*domain.Role, error) {
+	return s.roleRepo.Update(ctx, roleID, name, description, permissionIDs)
+}
+
+// DeleteRole удаляет роль
+func (s *AuthService) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
+	return s.roleRepo.Delete(ctx, roleID)
+}
+
+// ListRoles возвращает список ролей
+func (s *AuthService) ListRoles(ctx context.Context, limit, offset int32) ([]*domain.Role, int32, error) {
+	return s.roleRepo.List(ctx, limit, offset)
+}
+
+// GetRole возвращает роль по ID с правами и количеством пользователей
+func (s *AuthService) GetRole(ctx context.Context, roleID uuid.UUID) (*domain.Role, error) {
+	role, err := s.roleRepo.GetByIDWithPermissions(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+
+	userCount, err := s.roleRepo.GetUserCount(ctx, roleID)
+	if err != nil {
+		log.Warn().Err(err).Msg("не удалось получить количество пользователей роли")
+	}
+	role.UserCount = userCount
+
+	return role, nil
+}
+
+// ListAllPermissions возвращает все доступные права
+func (s *AuthService) ListAllPermissions(ctx context.Context) ([]domain.Permission, error) {
+	return s.roleRepo.ListAllPermissions(ctx)
+}
+
+// GetUserPermissions возвращает права конкретного пользователя
+func (s *AuthService) GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]domain.Permission, *domain.Role, error) {
+	user, err := s.userRepo.GetByIDWithRole(ctx, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return user.Permissions, user.Role, nil
+}
+
+// generateRandomPassword генерирует случайный пароль указанной длины
+func generateRandomPassword(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, length)
+	for i := range result {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = charset[n.Int64()]
+	}
+	return string(result), nil
 }

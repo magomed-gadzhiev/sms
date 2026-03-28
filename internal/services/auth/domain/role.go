@@ -16,6 +16,7 @@ type Role struct {
 
 	// Загружаемые связи
 	Permissions []Permission `json:"permissions,omitempty" db:"-"`
+	UserCount   int32        `json:"user_count,omitempty" db:"-"`
 }
 
 // RoleName представляет предопределенные имена ролей

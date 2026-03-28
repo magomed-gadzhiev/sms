@@ -95,6 +95,7 @@ func main() {
 		userRepo,
 		apiKeyRepo,
 		tokenService,
+		roleRepo,
 	)
 
 	// Password hasher

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -188,6 +190,118 @@ func (r *UserRepository) getRoleByID(ctx context.Context, id uuid.UUID) (*domain
 	}
 
 	return &role, nil
+}
+
+// List возвращает список пользователей с фильтрацией и пагинацией
+func (r *UserRepository) List(ctx context.Context, search string, roleID string, activeOnly bool, limit, offset int32) ([]*domain.User, int32, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	// Строим WHERE условия
+	conditions := []string{}
+	args := []interface{}{}
+	argIdx := 1
+
+	if search != "" {
+		conditions = append(conditions, "(u.username ILIKE $"+itoa(argIdx)+" OR u.email ILIKE $"+itoa(argIdx)+")")
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	if roleID != "" {
+		conditions = append(conditions, "u.role_id = $"+itoa(argIdx))
+		args = append(args, roleID)
+		argIdx++
+	}
+
+	if activeOnly {
+		conditions = append(conditions, "u.active = true")
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Подсчет общего количества
+	countQuery := "SELECT COUNT(*) FROM users u " + whereClause
+	var total int32
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Получаем пользователей с ролями
+	query := `
+		SELECT u.id, u.username, u.email, u.password_hash, u.role_id, u.active, u.client_id, u.created_at, u.updated_at,
+			r.id, r.name, r.description, r.created_at, r.updated_at
+		FROM users u
+		LEFT JOIN roles r ON u.role_id = r.id
+		` + whereClause + `
+		ORDER BY u.created_at DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var user domain.User
+		var role domain.Role
+		err := rows.Scan(
+			&user.ID, &user.Username, &user.Email, &user.PasswordHash,
+			&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
+			&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		user.Role = &role
+		users = append(users, &user)
+	}
+
+	return users, total, nil
+}
+
+// Deactivate деактивирует пользователя
+func (r *UserRepository) Deactivate(ctx context.Context, userID uuid.UUID) error {
+	query := `UPDATE users SET active = false, updated_at = NOW() WHERE id = $1`
+	result, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
+// ResetTOTP удаляет TOTP секрет пользователя
+func (r *UserRepository) ResetTOTP(ctx context.Context, userID uuid.UUID) error {
+	query := `DELETE FROM totp_secrets WHERE user_id = $1`
+	_, err := r.db.ExecContext(ctx, query, userID)
+	return err
+}
+
+// itoa конвертирует int в строку для построения SQL запросов
+func itoa(i int) string {
+	return fmt.Sprintf("%d", i)
 }
 
 // getPermissionsByRoleID получает права роли по ID роли

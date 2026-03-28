@@ -15,6 +15,7 @@ type User struct {
 	RoleID       uuid.UUID `json:"role_id" db:"role_id"`
 	Active       bool       `json:"active" db:"active"`
 	ClientID     *uuid.UUID `json:"client_id,omitempty" db:"client_id"`
+	LastLoginAt  *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 

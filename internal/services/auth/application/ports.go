@@ -16,6 +16,22 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	GetByIDWithRole(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	Update(ctx context.Context, user *domain.User) error
+	List(ctx context.Context, search string, roleID string, activeOnly bool, limit, offset int32) ([]*domain.User, int32, error)
+	Deactivate(ctx context.Context, userID uuid.UUID) error
+	ResetTOTP(ctx context.Context, userID uuid.UUID) error
+}
+
+// RoleRepository интерфейс для работы с ролями
+type RoleRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Role, error)
+	GetByName(ctx context.Context, name string) (*domain.Role, error)
+	GetByIDWithPermissions(ctx context.Context, id uuid.UUID) (*domain.Role, error)
+	List(ctx context.Context, limit, offset int32) ([]*domain.Role, int32, error)
+	Create(ctx context.Context, name, description string, permissionIDs []uuid.UUID) (*domain.Role, error)
+	Update(ctx context.Context, roleID uuid.UUID, name, description string, permissionIDs []uuid.UUID) (*domain.Role, error)
+	Delete(ctx context.Context, roleID uuid.UUID) error
+	ListAllPermissions(ctx context.Context) ([]domain.Permission, error)
+	GetUserCount(ctx context.Context, roleID uuid.UUID) (int32, error)
 }
 
 // APIKeyRepository интерфейс для работы с API ключами
