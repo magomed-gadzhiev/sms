@@ -20,6 +20,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/smsc"
 	"github.com/smpp-server/smpp-server/internal/storage"
 
+	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -92,6 +93,22 @@ func main() {
 		}
 	}
 
+	// Подключение к billing-service gRPC
+	billingAddr := os.Getenv("BILLING_SERVICE_ADDR")
+	if billingAddr == "" {
+		billingAddr = "billing-service:9101"
+	}
+	billingConn, err := grpc.NewClient(billingAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Warn().Err(err).Msg("не удалось подключиться к billing-service, проверка заморозки отключена")
+	}
+	var billingClient billingv1.BillingServiceClient
+	if billingConn != nil {
+		billingClient = billingv1.NewBillingServiceClient(billingConn)
+		defer billingConn.Close()
+		log.Info().Str("addr", billingAddr).Msg("подключение к billing-service")
+	}
+
 	// Подключение к tarification-service gRPC
 	tarificationAddr := os.Getenv("TARIFICATION_SERVICE_ADDR")
 	if tarificationAddr == "" {
@@ -132,7 +149,7 @@ func main() {
 	// Создание Kafka consumer
 	consumer, err := queue.NewConsumer(
 		&cfg.Kafka,
-		createOutgoingHandler(messageRepo, msgRouter, sender, retryManager, workerID, tarificationClient),
+		createOutgoingHandler(messageRepo, msgRouter, sender, retryManager, workerID, tarificationClient, billingClient),
 		createDLRHandler(messageRepo),
 		createFailedHandler(messageRepo),
 	)
@@ -229,6 +246,7 @@ func createOutgoingHandler(
 	retryManager *router.RetryManager,
 	workerID string,
 	tarificationClient tarificationv1.TarificationServiceClient,
+	billingClient billingv1.BillingServiceClient,
 ) queue.MessageHandler {
 	return func(ctx context.Context, kafkaMsg *queue.KafkaMessage) error {
 		startTime := time.Now()
@@ -294,6 +312,26 @@ func createOutgoingHandler(
 			}
 
 			return err
+		}
+
+		// Проверяем заморозку аккаунта перед тарификацией
+		if billingClient != nil {
+			balanceResp, balanceErr := billingClient.GetBalance(ctx, &billingv1.GetBalanceRequest{
+				ClientId: dbMsg.ClientID.String(),
+			})
+			if balanceErr != nil {
+				log.Warn().Err(balanceErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка получения баланса (продолжаем)")
+			} else if balanceResp != nil && balanceResp.Frozen {
+				log.Warn().
+					Str("message_id", dbMsg.ID.String()).
+					Str("client_id", dbMsg.ClientID.String()).
+					Msg("аккаунт заморожен, сообщение отклонено")
+				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, "account frozen"); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
+				}
+				monitoring.WorkerMessagesProcessed.WithLabelValues(workerID, "account_frozen").Inc()
+				return nil
+			}
 		}
 
 		// Вызываем тарификацию
