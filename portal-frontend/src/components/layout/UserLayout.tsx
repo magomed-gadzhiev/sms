@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext';
 const USER_NAV: NavItem[] = [
   { path: '/dashboard', label: 'Дашборд' },
   { path: '/messages', label: 'Сообщения' },
+  { path: '/contact-lists', label: 'Контакты' },
+  { path: '/campaigns', label: 'Рассылки' },
   { path: '/providers', label: 'Провайдеры' },
   { path: '/api-keys', label: 'API Ключи' },
   { path: '/webhooks', label: 'Вебхуки' },

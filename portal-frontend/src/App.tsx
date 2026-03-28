@@ -18,6 +18,12 @@ import { SubAccountDetailPage } from './pages/sub-accounts/SubAccountDetailPage'
 import { AuditLogPage } from './pages/audit/AuditLogPage';
 import { ProvidersPage } from './pages/providers/ProvidersPage';
 import { ProviderWizardPage } from './pages/providers/ProviderWizardPage';
+import { ContactListsPage } from './pages/contacts/ContactListsPage';
+import { ContactListDetailPage } from './pages/contacts/ContactListDetailPage';
+import { ImportWizardPage } from './pages/contacts/ImportWizardPage';
+import { CampaignsPage } from './pages/campaigns/CampaignsPage';
+import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
+import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -52,6 +58,12 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/contact-lists" element={<ContactListsPage />} />
+        <Route path="/contact-lists/:id" element={<ContactListDetailPage />} />
+        <Route path="/contact-lists/:id/import" element={<ImportWizardPage />} />
+        <Route path="/campaigns" element={<CampaignsPage />} />
+        <Route path="/campaigns/new" element={<CampaignWizardPage />} />
+        <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
         <Route path="/api-keys" element={<APIKeysPage />} />
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
