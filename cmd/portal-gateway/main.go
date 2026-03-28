@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"fmt"
-
 	"github.com/IBM/sarama"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -106,6 +104,16 @@ func main() {
 
 	logger.Info().Str("addr", redisAddr).Msg("Redis клиент создан")
 
+	// Создание пула PostgreSQL для прямых запросов (сегменты и т.д.)
+	dbDSN := getEnvOrDefault("DATABASE_URL", "postgres://sms:sms@localhost:5432/sms?sslmode=disable")
+	dbPool, err := pgxpool.New(context.Background(), dbDSN)
+	if err != nil {
+		logger.Warn().Err(err).Msg("не удалось создать PostgreSQL pool, segment handlers будут недоступны")
+	}
+	if dbPool != nil {
+		defer dbPool.Close()
+	}
+
 	// Создание middleware
 	sessionAuthMw := middleware.SessionAuthMiddleware(redisClient)
 	csrfMw := middleware.CSRFMiddleware()
@@ -165,22 +173,8 @@ func main() {
 	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient)
 	domainHandlers := handlers.NewDomainHandlers(serviceClients.LinkDomainClient)
 
-	// Database pool for direct-query handlers (settings)
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		getEnvOrDefault("POSTGRES_USER", "smpp"),
-		getEnvOrDefault("POSTGRES_PASSWORD", "smpp_password"),
-		getEnvOrDefault("POSTGRES_HOST", "localhost"),
-		getEnvOrDefault("POSTGRES_PORT", "5432"),
-		getEnvOrDefault("POSTGRES_DB", "smpp_db"),
-	)
-	dbPool, err := pgxpool.New(context.Background(), dbURL)
-	if err != nil {
-		logger.Warn().Err(err).Msg("не удалось создать DB pool для settings handlers")
-	}
-	if dbPool != nil {
-		defer dbPool.Close()
-	}
 	settingsHandlers := handlers.NewSettingsHandlers(dbPool)
+	segmentHandlers := handlers.NewSegmentHandlers(dbPool)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -210,6 +204,7 @@ func main() {
 		tariffHandlers,
 		domainHandlers,
 		settingsHandlers,
+		segmentHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint
