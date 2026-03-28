@@ -35,8 +35,36 @@ func isPublicPath(path string) bool {
 	return false
 }
 
+// resolveUser аутентифицирует запрос через Bearer JWT или portal_session cookie.
+// Возвращает UserInfo при успехе, иначе nil.
+func resolveUser(r *http.Request, authClient authv1.AuthServiceClient) *authv1.UserInfo {
+	// 1. Bearer JWT
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token != "" {
+			resp, err := authClient.ValidateToken(r.Context(), &authv1.ValidateTokenRequest{Token: token})
+			if err == nil && resp.Valid && resp.User != nil {
+				return resp.User
+			}
+		}
+		return nil
+	}
+
+	// 2. Cookie portal_session
+	cookie, err := r.Cookie("portal_session")
+	if err != nil || cookie.Value == "" {
+		return nil
+	}
+	resp, err := authClient.ValidateSession(r.Context(), &authv1.ValidateSessionRequest{SessionId: cookie.Value})
+	if err != nil || !resp.Valid || resp.User == nil {
+		return nil
+	}
+	return resp.User
+}
+
 // AdminAuthMiddleware создает middleware для аутентификации администраторов.
-// Извлекает Bearer JWT из заголовка Authorization и валидирует через auth service.
+// Поддерживает Bearer JWT (Authorization header) и portal_session cookie.
 // Допускает только пользователей с ролью admin или superadmin.
 func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -47,43 +75,22 @@ func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler)
 				return
 			}
 
-			// Извлекаем Bearer token из заголовка Authorization
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-				respondError(w, shared.ErrUnauthorized("Authorization header with Bearer token required"))
-				return
-			}
-			token := strings.TrimPrefix(authHeader, "Bearer ")
-			if token == "" {
-				respondError(w, shared.ErrUnauthorized("Bearer token is empty"))
-				return
-			}
-
-			// Валидируем токен через auth service
-			resp, err := authClient.ValidateToken(r.Context(), &authv1.ValidateTokenRequest{
-				Token: token,
-			})
-			if err != nil || !resp.Valid {
-				respondError(w, shared.ErrUnauthorized("Invalid or expired token"))
-				return
-			}
-
-			// Проверяем наличие пользователя
-			if resp.User == nil {
-				respondError(w, shared.ErrUnauthorized("No user info in token"))
+			user := resolveUser(r, authClient)
+			if user == nil {
+				respondError(w, shared.ErrUnauthorized("Authentication required"))
 				return
 			}
 
 			// Проверяем, что пользователь активен
-			if !resp.User.Active {
+			if !user.Active {
 				respondError(w, shared.ErrForbidden("User account is inactive"))
 				return
 			}
 
 			// Проверяем роль — только admin и superadmin
 			role := ""
-			if resp.User.Role != nil {
-				role = resp.User.Role.Name
+			if user.Role != nil {
+				role = user.Role.Name
 			}
 			if role != "admin" && role != "superadmin" {
 				respondError(w, shared.ErrForbidden("Admin access required"))
@@ -91,7 +98,7 @@ func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler)
 			}
 
 			// Парсим user ID
-			userID, err := uuid.Parse(resp.User.Id)
+			userID, err := uuid.Parse(user.Id)
 			if err != nil {
 				respondError(w, shared.ErrInternalServer("Invalid user ID"))
 				return
@@ -100,12 +107,12 @@ func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler)
 			// Устанавливаем контекст
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
-			ctx = context.WithValue(ctx, UserKey, resp.User)
+			ctx = context.WithValue(ctx, UserKey, user)
 			ctx = context.WithValue(ctx, RoleKey, &authv1.Role{Name: role})
 
 			// Загружаем permissions если доступны
 			permResp, permErr := authClient.GetPermissions(r.Context(), &authv1.GetPermissionsRequest{
-				UserId: resp.User.Id,
+				UserId: user.Id,
 			})
 			if permErr == nil && permResp.Permissions != nil {
 				ctx = context.WithValue(ctx, PermissionsKey, permResp.Permissions)
