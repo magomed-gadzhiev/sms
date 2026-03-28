@@ -222,7 +222,8 @@ func (r *ClientRepository) List(ctx context.Context, activeOnly bool, search str
 
 	// Базовый запрос для получения клиентов
 	baseQuery := `
-		SELECT id, name, email, contact_person, phone, active, metadata,
+		SELECT id, name, COALESCE(email, '') AS email, COALESCE(contact_person, '') AS contact_person,
+		       COALESCE(phone, '') AS phone, active, metadata,
 		       parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
 		FROM clients
 		WHERE 1=1

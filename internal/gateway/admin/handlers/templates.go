@@ -22,11 +22,6 @@ func NewTemplateHandlers(templateClient templatev1.TemplateServiceClient) *Templ
 
 func (h *TemplateHandlers) ListTemplates(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
-	if clientID == "" {
-		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
-		return
-	}
-
 	status := r.URL.Query().Get("status")
 
 	limit := int32(100)

@@ -220,15 +220,15 @@ func (r *AccountRepository) SetLowBalanceThreshold(ctx context.Context, clientID
 // ListBalances получает список балансов с фильтрацией
 func (r *AccountRepository) ListBalances(ctx context.Context, search string, status string, belowThreshold bool, limit, offset int32) ([]domain.BalanceInfo, int32, error) {
 	baseQuery := `
-		SELECT a.client_id, c.client_name, a.balance, a.currency, a.frozen,
+		SELECT a.client_id, c.name AS client_name, a.balance, a.currency, a.frozen,
 			a.credit_limit, a.low_balance_threshold, a.frozen_at, a.frozen_by, a.updated_at
 		FROM accounts a
-		JOIN clients c ON c.client_id = a.client_id
+		JOIN clients c ON c.id = a.client_id
 	`
 	countQuery := `
 		SELECT COUNT(*)
 		FROM accounts a
-		JOIN clients c ON c.client_id = a.client_id
+		JOIN clients c ON c.id = a.client_id
 	`
 
 	var conditions []string

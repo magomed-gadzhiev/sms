@@ -147,6 +147,8 @@ type Provider struct {
 	Tags         StringArray     `json:"tags" db:"tags"`
 	TPSLimit     int             `json:"tps_limit" db:"tps_limit"`
 	RoutingRules json.RawMessage `json:"routing_rules" db:"routing_rules"`
+	DailyQuota   *int            `json:"daily_quota,omitempty" db:"daily_quota"`
+	MonthlyQuota *int            `json:"monthly_quota,omitempty" db:"monthly_quota"`
 }
 
 // Route представляет правило маршрутизации
