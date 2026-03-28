@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -17,15 +18,41 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/campaign/domain"
 )
 
+// CampaignServicer defines the business-logic interface that the gRPC server
+// depends on. *application.CampaignService satisfies this interface.
+type CampaignServicer interface {
+	CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error)
+	GetCampaign(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
+	ListCampaigns(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Campaign, int, error)
+	UpdateCampaign(ctx context.Context, id, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error)
+	DeleteCampaign(ctx context.Context, id, clientID uuid.UUID) error
+	LaunchCampaign(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
+	PauseCampaign(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
+	ResumeCampaign(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
+	CancelCampaign(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
+	SetVariants(ctx context.Context, campaignID, clientID uuid.UUID, variants []domain.Variant) ([]domain.Variant, error)
+	SetABConfig(ctx context.Context, campaignID, clientID uuid.UUID, metric string, testDurationHours int32, autoSelectWinner bool) (*domain.ABConfig, error)
+	SelectWinner(ctx context.Context, campaignID, clientID, variantID uuid.UUID) (*domain.Campaign, error)
+	SetRetryConfig(ctx context.Context, campaignID, clientID uuid.UUID, rc *domain.RetryConfig) (*domain.RetryConfig, error)
+	RetryFailed(ctx context.Context, campaignID, clientID uuid.UUID, alternativeTemplateID string) (*domain.Campaign, error)
+	GetStats(ctx context.Context, campaignID, clientID uuid.UUID) (*domain.StatsSnapshot, map[string]int32, []domain.Variant, error)
+	GetTimeline(ctx context.Context, campaignID, clientID uuid.UUID, interval, metric string) ([]domain.TimelinePoint, error)
+	GetHeatmap(ctx context.Context, campaignID, clientID uuid.UUID) ([]domain.HeatmapCell, error)
+	GetVariantComparison(ctx context.Context, campaignID, clientID uuid.UUID) ([]domain.VariantComparison, *uuid.UUID, error)
+	GetOptimalSendTimes(ctx context.Context, clientID uuid.UUID) ([]domain.TimeSlot, error)
+	ExportReport(ctx context.Context, campaignID, clientID uuid.UUID, format string) ([]byte, string, string, error)
+	PreviewTemplate(ctx context.Context, input application.TemplatePreviewInput) ([]application.TemplatePreviewResult, error)
+}
+
 // Server implements the gRPC CampaignServiceServer.
 type Server struct {
 	campaignv1.UnimplementedCampaignServiceServer
-	service *application.CampaignService
+	service CampaignServicer
 	logger  zerolog.Logger
 }
 
 // NewServer creates a new gRPC server for the campaign service.
-func NewServer(service *application.CampaignService) *Server {
+func NewServer(service CampaignServicer) *Server {
 	return &Server{
 		service: service,
 		logger:  log.With().Str("component", "campaign-grpc-server").Logger(),
