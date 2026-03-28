@@ -139,6 +139,8 @@ export interface TemplateInfo {
   name: string;
   body: string;
   status: string;
+  reviewer_id?: string;
+  reviewed_at?: string;
   created_at: string;
   updated_at: string;
 }
