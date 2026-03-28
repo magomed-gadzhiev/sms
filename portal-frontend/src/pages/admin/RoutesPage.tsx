@@ -67,7 +67,7 @@ export function RoutesPage() {
 
   return (
     <>
-      <PageHeader title="Routes" subtitle={`${total} routes`} actions={<Button onClick={openCreate}>Create Route</Button>} />
+      <PageHeader title="Routes" subtitle={`${total} routes`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Маршруты' }]} actions={<Button onClick={openCreate}>Create Route</Button>} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="route_id"
         rowActions={(r) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(r)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => setDeleteRoute(r)}>Delete</Button></div>)}
       />

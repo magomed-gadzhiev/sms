@@ -62,7 +62,7 @@ export function CountriesPage() {
 
   return (
     <>
-      <PageHeader title="Countries & Operators" />
+      <PageHeader title="Countries & Operators" breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Страны' }]} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div>
           <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">Countries</h2><Button size="sm" onClick={() => { setCountryForm({ name: '', code: '', phone_code: '' }); setShowCreateCountry(true); }}>Add</Button></div>

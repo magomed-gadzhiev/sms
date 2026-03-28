@@ -82,7 +82,7 @@ export function ProvidersPage() {
 
   return (
     <>
-      <PageHeader title="Providers" subtitle={`${total} providers`} actions={<Button onClick={openCreate}>Add Provider</Button>} />
+      <PageHeader title="Providers" subtitle={`${total} providers`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Провайдеры' }]} actions={<Button onClick={openCreate}>Add Provider</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="provider_id"
         rowActions={(p) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(p)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Delete</Button></div>)}

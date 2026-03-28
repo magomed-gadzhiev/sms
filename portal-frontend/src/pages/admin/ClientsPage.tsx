@@ -100,7 +100,7 @@ export function ClientsPage() {
 
   return (
     <>
-      <PageHeader title="Clients" subtitle={`${total} clients`} actions={<Button onClick={openCreate}>Create Client</Button>} />
+      <PageHeader title="Clients" subtitle={`${total} clients`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Клиенты' }]} actions={<Button onClick={openCreate}>Create Client</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="client_id"
         rowActions={(client) => (

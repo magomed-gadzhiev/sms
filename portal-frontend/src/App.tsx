@@ -37,7 +37,7 @@ const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => (
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
 const AdminProvidersPage = lazy(() => import('./pages/admin/ProvidersPage').then((m) => ({ default: m.ProvidersPage })));
 const AdminRoutesPage = lazy(() => import('./pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })));
-const AdminBillingPage = lazy(() => import('./pages/admin/BillingPage').then((m) => ({ default: m.BillingPage })));
+const AdminBillingPage = lazy(() => import('./pages/admin/billing/BillingPage').then((m) => ({ default: m.BillingPage })));
 const AdminMonitoringPage = lazy(() => import('./pages/admin/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 const AdminTemplatesPage = lazy(() => import('./pages/admin/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));

@@ -47,7 +47,7 @@ export function AnalyticsPage() {
 
   return (
     <>
-      <PageHeader title="Analytics" actions={<Button variant="secondary" onClick={fetchStats}>Refresh</Button>} />
+      <PageHeader title="Analytics" breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Аналитика' }]} actions={<Button variant="secondary" onClick={fetchStats}>Refresh</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} />
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard title="Total Sent" value={summary?.total_sent?.toLocaleString() ?? '-'} />

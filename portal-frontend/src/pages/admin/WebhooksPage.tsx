@@ -56,7 +56,7 @@ export function WebhooksPage() {
 
   return (
     <>
-      <PageHeader title="Webhooks" subtitle={`${data.length} webhooks`} actions={<Button onClick={() => { setForm({ client_id: '', url: '', events: '' }); setShowCreate(true); }}>Create Webhook</Button>} />
+      <PageHeader title="Webhooks" subtitle={`${data.length} webhooks`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Вебхуки' }]} actions={<Button onClick={() => { setForm({ client_id: '', url: '', events: '' }); setShowCreate(true); }}>Create Webhook</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} onReset={() => setFilterValues({})} />
       <DataTable columns={columns} data={data} total={data.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="webhook_id"
         rowActions={(w) => <Button size="sm" variant="ghost" onClick={() => setDeleteWebhook(w)}>Delete</Button>}

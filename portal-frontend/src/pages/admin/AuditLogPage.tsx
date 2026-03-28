@@ -10,6 +10,14 @@ const PAGE_SIZE = 30;
 const filters: FilterDef[] = [
   { key: 'user_id', label: 'User ID', type: 'text', placeholder: 'UUID...' },
   { key: 'action', label: 'Action', type: 'select', options: [{ value: 'login', label: 'Login' }, { value: 'logout', label: 'Logout' }, { value: 'create', label: 'Create' }, { value: 'update', label: 'Update' }, { value: 'delete', label: 'Delete' }] },
+  { key: 'resource_type', label: 'Resource Type', type: 'select', options: [
+    { value: 'client', label: 'Client' },
+    { value: 'provider', label: 'Provider' },
+    { value: 'template', label: 'Template' },
+    { value: 'user', label: 'User' },
+    { value: 'billing', label: 'Billing' },
+    { value: 'route', label: 'Route' },
+  ] },
   { key: 'from', label: 'From', type: 'date' },
   { key: 'to', label: 'To', type: 'date' },
 ];
@@ -46,7 +54,7 @@ export function AuditLogPage() {
 
   return (
     <>
-      <PageHeader title="Audit Log" subtitle={`${total} entries`} />
+      <PageHeader title="Audit Log" subtitle={`${total} entries`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Аудит' }]} />
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="id" />
     </>

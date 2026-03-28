@@ -49,7 +49,7 @@ export function HLRPage() {
 
   return (
     <>
-      <PageHeader title="HLR Providers & Routing Weights" />
+      <PageHeader title="HLR Providers & Routing Weights" breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'HLR' }]} />
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">HLR Providers</h2><Button size="sm" onClick={() => { setProviderForm({ name: '', active: true }); setShowCreateProvider(true); }}>Add Provider</Button></div>
         <DataTable columns={providerColumns} data={providers} total={providers.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="provider_id" rowActions={(p) => <Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Delete</Button>} />

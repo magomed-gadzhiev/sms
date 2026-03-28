@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { StatCard } from '../../components/data/StatCard';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
+import { usePolling } from '../../hooks/usePolling';
 import { analyticsAdminApi, providersApi, type ProviderInfo, type ProviderHealth, type RealTimeMetrics } from '../../api/admin';
 
 const REFRESH_INTERVAL = 10_000;
@@ -14,10 +15,7 @@ export function MonitoringPage() {
   const [metrics, setMetrics] = useState<RealTimeMetrics | null>(null);
   const [providers, setProviders] = useState<(ProviderInfo & { health?: ProviderHealth })[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -28,7 +26,6 @@ export function MonitoringPage() {
         catch { return { ...p, health: undefined }; }
       }));
       setProviders(withHealth);
-      setLastUpdate(new Date());
       setError(false);
       setLoading(false);
     } catch {
@@ -37,13 +34,7 @@ export function MonitoringPage() {
     }
   }, [loading, toast]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  useEffect(() => {
-    if (paused) { if (intervalRef.current) clearInterval(intervalRef.current); return; }
-    intervalRef.current = setInterval(fetchData, REFRESH_INTERVAL);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [paused, fetchData]);
+  const { isPaused, lastUpdated, pause, resume } = usePolling(fetchData, REFRESH_INTERVAL);
 
   const providerColumns: Column<(typeof providers)[0]>[] = [
     { key: 'name', header: 'Provider' },
@@ -55,11 +46,11 @@ export function MonitoringPage() {
     { key: 'last_error', header: 'Last Error', render: (p) => p.health?.last_error ? <span className="text-xs text-danger">{p.health.last_error}</span> : '-' },
   ];
 
-  const secondsAgo = lastUpdate ? Math.floor((Date.now() - lastUpdate.getTime()) / 1000) : null;
+  const secondsAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 1000) : null;
 
   return (
     <>
-      <PageHeader title="Monitoring" subtitle={error ? 'Connection lost' : lastUpdate ? `Updated ${secondsAgo}s ago` : undefined} actions={<Button variant={paused ? 'primary' : 'secondary'} onClick={() => setPaused(!paused)}>{paused ? 'Resume' : 'Pause'}</Button>} />
+      <PageHeader title="Monitoring" subtitle={error ? 'Connection lost' : lastUpdated ? `Updated ${secondsAgo}s ago` : undefined} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Мониторинг' }]} actions={<Button variant={isPaused ? 'primary' : 'secondary'} onClick={() => isPaused ? resume() : pause()}>{isPaused ? 'Resume' : 'Pause'}</Button>} />
       {error && <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">Connection issue. Retrying automatically...</div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard title="Messages/sec" value={metrics?.messages_per_second ?? '-'} />
