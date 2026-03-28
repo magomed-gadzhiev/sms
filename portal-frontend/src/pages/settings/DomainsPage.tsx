@@ -50,7 +50,7 @@ export function DomainsPage() {
 
   return (
     <div>
-      <PageHeader title="Кастомные домены" description="Управление доменами для коротких ссылок" />
+      <PageHeader title="Кастомные домены" subtitle="Управление доменами для коротких ссылок" />
 
       <div className="flex gap-2 mb-6">
         <input

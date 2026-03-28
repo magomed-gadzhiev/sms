@@ -24,7 +24,7 @@ export function SegmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Сегменты" description="Сохранённые сегменты для кампаний" />
+      <PageHeader title="Сегменты" subtitle="Сохранённые сегменты для кампаний" />
       <div className="mb-4">
         <Link to="/segments/new" className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
           Создать сегмент
