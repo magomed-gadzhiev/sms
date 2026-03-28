@@ -101,12 +101,13 @@ func (s *Server) GetTemplate(ctx context.Context, req *templatev1.GetTemplateReq
 }
 
 func (s *Server) ListTemplates(ctx context.Context, req *templatev1.ListTemplatesRequest) (*templatev1.ListTemplatesResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-	clientID, err := uuid.Parse(req.ClientId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	var clientID uuid.UUID
+	if req.ClientId != "" {
+		var err error
+		clientID, err = uuid.Parse(req.ClientId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		}
 	}
 
 	templates, total, err := s.templateService.ListTemplates(ctx, clientID, req.Status, int(req.Limit), int(req.Offset))

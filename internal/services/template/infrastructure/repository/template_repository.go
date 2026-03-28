@@ -113,15 +113,30 @@ func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*d
 }
 
 func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Template, int, error) {
-	countQuery := `SELECT COUNT(*) FROM templates WHERE client_id = $1`
+	countQuery := `SELECT COUNT(*) FROM templates`
 	listQuery := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
-		FROM templates WHERE client_id = $1`
-	args := []interface{}{clientID}
+		FROM templates`
+	args := []interface{}{}
+	paramIdx := 1
+	conditions := []string{}
 
+	if clientID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("client_id = $%d", paramIdx))
+		args = append(args, clientID)
+		paramIdx++
+	}
 	if status != "" {
-		countQuery += ` AND status = $2`
-		listQuery += ` AND status = $2`
+		conditions = append(conditions, fmt.Sprintf("status = $%d", paramIdx))
 		args = append(args, status)
+		paramIdx++
+	}
+	if len(conditions) > 0 {
+		where := " WHERE " + conditions[0]
+		for _, c := range conditions[1:] {
+			where += " AND " + c
+		}
+		countQuery += where
+		listQuery += where
 	}
 
 	var total int
