@@ -90,3 +90,4 @@ portal-frontend/node_modules/
 portal-frontend/dist/
 portal-frontend/.vite/
 .claude/worktrees/
+.superpowers/
