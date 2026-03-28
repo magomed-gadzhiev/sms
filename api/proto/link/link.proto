@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package link.v1;
+option go_package = "github.com/smpp-server/smpp-server/api/proto/linkv1";
+
+import "google/protobuf/timestamp.proto";
+
+service LinkService {
+  rpc ShortenURL(ShortenRequest) returns (ShortenResponse);
+  rpc ShortenBatch(ShortenBatchRequest) returns (ShortenBatchResponse);
+  rpc GetLinkStats(LinkStatsRequest) returns (LinkStatsResponse);
+}
+
+service DomainService {
+  rpc AddDomain(AddDomainRequest) returns (Domain);
+  rpc VerifyDomain(VerifyDomainRequest) returns (Domain);
+  rpc ListDomains(ListDomainsRequest) returns (ListDomainsResponse);
+  rpc DeleteDomain(DeleteDomainRequest) returns (Empty);
+}
+
+// --- Link messages ---
+
+message ShortenRequest {
+  string client_id = 1;
+  string original_url = 2;
+  string message_id = 3;
+  string campaign_id = 4;
+  string recipient_id = 5;
+}
+
+message ShortenResponse {
+  string short_url = 1;
+  string code = 2;
+}
+
+message ShortenBatchRequest {
+  string client_id = 1;
+  repeated ShortenRequest urls = 2;
+}
+
+message ShortenBatchResponse {
+  repeated ShortenResponse results = 1;
+}
+
+message LinkStatsRequest {
+  string short_link_id = 1;
+  string client_id = 2;
+}
+
+message LinkStatsResponse {
+  int32 total_clicks = 1;
+  int32 unique_clicks = 2;
+  google.protobuf.Timestamp last_clicked_at = 3;
+}
+
+// --- Domain messages ---
+
+message AddDomainRequest {
+  string client_id = 1;
+  string domain = 2;
+}
+
+message VerifyDomainRequest {
+  string client_id = 1;
+  string domain_id = 2;
+}
+
+message ListDomainsRequest {
+  string client_id = 1;
+}
+
+message ListDomainsResponse {
+  repeated Domain domains = 1;
+}
+
+message DeleteDomainRequest {
+  string client_id = 1;
+  string domain_id = 2;
+}
+
+message Domain {
+  string id = 1;
+  string client_id = 2;
+  string domain = 3;
+  string status = 4;
+  string dns_txt_record = 5;
+  google.protobuf.Timestamp dns_verified_at = 6;
+  google.protobuf.Timestamp ssl_expires_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message Empty {}
