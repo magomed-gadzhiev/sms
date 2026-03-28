@@ -37,16 +37,22 @@ func (h *AnalyticsHandlers) GetStatistics(w http.ResponseWriter, r *http.Request
 	if fromStr != "" {
 		t, err := time.Parse(time.RFC3339, fromStr)
 		if err != nil {
-			respondError(w, shared.ErrInvalidInput("Неверный формат параметра from (ожидается RFC3339)"))
-			return
+			t, err = time.Parse("2006-01-02", fromStr)
+			if err != nil {
+				respondError(w, shared.ErrInvalidInput("Неверный формат параметра from (ожидается RFC3339 или YYYY-MM-DD)"))
+				return
+			}
 		}
 		from = &t
 	}
 	if toStr != "" {
 		t, err := time.Parse(time.RFC3339, toStr)
 		if err != nil {
-			respondError(w, shared.ErrInvalidInput("Неверный формат параметра to (ожидается RFC3339)"))
-			return
+			t, err = time.Parse("2006-01-02", toStr)
+			if err != nil {
+				respondError(w, shared.ErrInvalidInput("Неверный формат параметра to (ожидается RFC3339 или YYYY-MM-DD)"))
+				return
+			}
 		}
 		to = &t
 	}

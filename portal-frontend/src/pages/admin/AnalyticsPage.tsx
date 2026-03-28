@@ -39,7 +39,8 @@ export function AnalyticsPage() {
       setStats(res as StatsResponse);
     } catch { toast.error('Failed to load analytics'); }
     finally { setLoading(false); }
-  }, [filterValues, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterValues]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
