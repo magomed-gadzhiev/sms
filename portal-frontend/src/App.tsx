@@ -45,6 +45,7 @@ const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((
 const AdminHLRPage = lazy(() => import('./pages/admin/HLRPage').then((m) => ({ default: m.HLRPage })));
 const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then((m) => ({ default: m.CountriesPage })));
 const AdminAuditLogPage = lazy(() => import('./pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })));
+const AdminTarificationPage = lazy(() => import('./pages/admin/tarification/TarificationPage').then((m) => ({ default: m.TarificationPage })));
 const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 
 function RequireAuth() {
@@ -115,6 +116,7 @@ export function App() {
         <Route path="webhooks" element={<Suspense fallback={null}><AdminWebhooksPage /></Suspense>} />
         <Route path="hlr" element={<Suspense fallback={null}><AdminHLRPage /></Suspense>} />
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />
+        <Route path="tarification" element={<Suspense fallback={null}><AdminTarificationPage /></Suspense>} />
         <Route path="audit" element={<Suspense fallback={null}><AdminAuditLogPage /></Suspense>} />
       </Route>
 
