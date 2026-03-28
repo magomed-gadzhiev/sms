@@ -19,6 +19,7 @@ const USER_NAV: NavItem[] = [
   { path: '/analytics', label: 'Аналитика' },
   { path: '/sub-accounts', label: 'Суб-аккаунты' },
   { path: '/profile', label: 'Профиль' },
+  { path: '/settings/domains', label: 'Домены' },
   { path: '/audit-log', label: 'Журнал аудита' },
 ];
 

@@ -47,6 +47,7 @@ func SetupRouter(
 	templateHandlers *handlers.TemplateHandlers,
 	billingHandlers *handlers.BillingHandlers,
 	tariffHandlers *handlers.TariffHandlers,
+	domainHandlers *handlers.DomainHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -231,6 +232,12 @@ func SetupRouter(
 	campaigns.HandleFunc("/{id}/heatmap", campaignHandlers.GetHeatmap).Methods("GET")
 	campaigns.HandleFunc("/{id}/optimal-time", campaignHandlers.GetOptimalSendTime).Methods("GET")
 	campaigns.HandleFunc("/{id}/report", campaignHandlers.ExportReport).Methods("GET")
+
+	// Domains (settings)
+	domains := protected.PathPrefix("/settings/domains").Subrouter()
+	domains.HandleFunc("", domainHandlers.AddDomain).Methods("POST")
+	domains.HandleFunc("", domainHandlers.ListDomains).Methods("GET")
+	domains.HandleFunc("/{id}", domainHandlers.DeleteDomain).Methods("DELETE")
 
 	return router
 }

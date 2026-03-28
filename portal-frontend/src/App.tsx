@@ -29,6 +29,7 @@ import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
 import { LookupPage } from './pages/lookup/LookupPage';
+import { DomainsPage } from './pages/settings/DomainsPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -83,6 +84,7 @@ export function App() {
         <Route path="/lookup" element={<LookupPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
+        <Route path="/settings/domains" element={<DomainsPage />} />
       </Route>
 
       <Route
