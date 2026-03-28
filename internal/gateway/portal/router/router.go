@@ -42,6 +42,8 @@ func SetupRouter(
 	lookupHandlers *handlers.LookupHandlers,
 	plansHandlers *handlers.PlansHandlers,
 	providerHandlers *handlers.ProviderHandlers,
+	contactHandlers *handlers.ContactHandlers,
+	campaignHandlers *handlers.CampaignHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -149,6 +151,52 @@ func SetupRouter(
 	providers.HandleFunc("/{id}", providerHandlers.GetProvider).Methods("GET")
 	providers.HandleFunc("/{id}", providerHandlers.UpdateProvider).Methods("PUT")
 	providers.HandleFunc("/{id}", providerHandlers.DeleteProvider).Methods("DELETE")
+
+	// Contact Lists
+	contactLists := protected.PathPrefix("/contact-lists").Subrouter()
+	contactLists.HandleFunc("", contactHandlers.CreateContactList).Methods("POST")
+	contactLists.HandleFunc("", contactHandlers.ListContactLists).Methods("GET")
+	contactLists.HandleFunc("/{id}", contactHandlers.GetContactList).Methods("GET")
+	contactLists.HandleFunc("/{id}", contactHandlers.UpdateContactList).Methods("PUT")
+	contactLists.HandleFunc("/{id}", contactHandlers.DeleteContactList).Methods("DELETE")
+	contactLists.HandleFunc("/{id}/attributes", contactHandlers.SetListAttributes).Methods("PUT")
+	contactLists.HandleFunc("/{id}/attributes", contactHandlers.GetListAttributes).Methods("GET")
+	contactLists.HandleFunc("/{id}/contacts", contactHandlers.CreateContact).Methods("POST")
+	contactLists.HandleFunc("/{id}/contacts", contactHandlers.ListContacts).Methods("GET")
+	contactLists.HandleFunc("/{id}/contacts/batch", contactHandlers.BatchUpsertContacts).Methods("POST")
+	contactLists.HandleFunc("/{id}/contacts/tags", contactHandlers.AddTags).Methods("POST")
+	contactLists.HandleFunc("/{id}/contacts/tags", contactHandlers.RemoveTags).Methods("DELETE")
+	contactLists.HandleFunc("/{id}/contacts/{cid}", contactHandlers.UpdateContact).Methods("PUT")
+	contactLists.HandleFunc("/{id}/contacts/{cid}", contactHandlers.DeleteContact).Methods("DELETE")
+	contactLists.HandleFunc("/{id}/tags", contactHandlers.ListTags).Methods("GET")
+	contactLists.HandleFunc("/{id}/imports/upload", contactHandlers.UploadImport).Methods("POST")
+	contactLists.HandleFunc("/{id}/imports/{iid}/start", contactHandlers.StartImport).Methods("POST")
+	contactLists.HandleFunc("/{id}/imports/{iid}", contactHandlers.GetImportStatus).Methods("GET")
+	contactLists.HandleFunc("/{id}/imports", contactHandlers.ListImports).Methods("GET")
+	contactLists.HandleFunc("/{id}/segment/preview", contactHandlers.PreviewSegment).Methods("POST")
+
+	// Campaigns
+	campaigns := protected.PathPrefix("/campaigns").Subrouter()
+	campaigns.HandleFunc("", campaignHandlers.CreateCampaign).Methods("POST")
+	campaigns.HandleFunc("", campaignHandlers.ListCampaigns).Methods("GET")
+	campaigns.HandleFunc("/{id}", campaignHandlers.GetCampaign).Methods("GET")
+	campaigns.HandleFunc("/{id}", campaignHandlers.UpdateCampaign).Methods("PUT")
+	campaigns.HandleFunc("/{id}", campaignHandlers.DeleteCampaign).Methods("DELETE")
+	campaigns.HandleFunc("/{id}/launch", campaignHandlers.LaunchCampaign).Methods("POST")
+	campaigns.HandleFunc("/{id}/pause", campaignHandlers.PauseCampaign).Methods("POST")
+	campaigns.HandleFunc("/{id}/resume", campaignHandlers.ResumeCampaign).Methods("POST")
+	campaigns.HandleFunc("/{id}/cancel", campaignHandlers.CancelCampaign).Methods("POST")
+	campaigns.HandleFunc("/{id}/variants", campaignHandlers.SetVariants).Methods("PUT")
+	campaigns.HandleFunc("/{id}/ab-config", campaignHandlers.SetABConfig).Methods("PUT")
+	campaigns.HandleFunc("/{id}/select-winner", campaignHandlers.SelectWinner).Methods("POST")
+	campaigns.HandleFunc("/{id}/retry-config", campaignHandlers.SetRetryConfig).Methods("PUT")
+	campaigns.HandleFunc("/{id}/retry", campaignHandlers.RetryFailed).Methods("POST")
+	campaigns.HandleFunc("/{id}/stats", campaignHandlers.GetCampaignStats).Methods("GET")
+	campaigns.HandleFunc("/{id}/timeline", campaignHandlers.GetTimeline).Methods("GET")
+	campaigns.HandleFunc("/{id}/variants/compare", campaignHandlers.GetVariantComparison).Methods("GET")
+	campaigns.HandleFunc("/{id}/heatmap", campaignHandlers.GetHeatmap).Methods("GET")
+	campaigns.HandleFunc("/{id}/optimal-time", campaignHandlers.GetOptimalSendTime).Methods("GET")
+	campaigns.HandleFunc("/{id}/report", campaignHandlers.ExportReport).Methods("GET")
 
 	return router
 }
