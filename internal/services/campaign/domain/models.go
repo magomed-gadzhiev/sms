@@ -80,9 +80,11 @@ type Variant struct {
 	Percentage     int32
 	IsWinner       bool
 	IsControl      bool
-	SentCount      int32
-	DeliveredCount int32
-	FailedCount    int32
+	SentCount        int32
+	DeliveredCount   int32
+	FailedCount      int32
+	ClickCount       int32
+	UniqueClickCount int32
 }
 
 // ABConfig represents A/B testing configuration for a campaign
@@ -93,6 +95,13 @@ type ABConfig struct {
 	AutoSelectWinner  bool
 	WinnerVariantID   *uuid.UUID
 	WinnerSelectedAt  *time.Time
+	// Test-then-send fields
+	Strategy         string     // "full_split" | "test_then_send"
+	TestPercentage   int32      // 1-100
+	TestPhase        string     // "none" | "testing" | "waiting_winner" | "rollout" | "completed"
+	WinningMetric    string     // "delivery_rate" | "click_rate" | "unique_click_rate"
+	TestStartedAt    *time.Time
+	RolloutStartedAt *time.Time
 }
 
 // RetryConfig represents retry configuration stored as JSONB
@@ -178,3 +187,18 @@ type TimeSlot struct {
 	AvgDeliveryTimeMs int32
 	Score             float64
 }
+
+// Test phase constants
+const (
+	TestPhaseNone          = "none"
+	TestPhaseTesting       = "testing"
+	TestPhaseWaitingWinner = "waiting_winner"
+	TestPhaseRollout       = "rollout"
+	TestPhaseCompleted     = "completed"
+)
+
+// Strategy constants
+const (
+	StrategyFullSplit    = "full_split"
+	StrategyTestThenSend = "test_then_send"
+)
