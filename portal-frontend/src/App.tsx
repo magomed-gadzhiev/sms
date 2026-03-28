@@ -45,6 +45,7 @@ const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((
 const AdminHLRPage = lazy(() => import('./pages/admin/HLRPage').then((m) => ({ default: m.HLRPage })));
 const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then((m) => ({ default: m.CountriesPage })));
 const AdminAuditLogPage = lazy(() => import('./pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })));
+const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -102,7 +103,8 @@ export function App() {
           </RequireRole>
         }
       >
-        <Route index element={<Navigate to="/admin/clients" replace />} />
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<Suspense fallback={null}><AdminDashboardPage /></Suspense>} />
         <Route path="clients" element={<Suspense fallback={null}><AdminClientsPage /></Suspense>} />
         <Route path="providers" element={<Suspense fallback={null}><AdminProvidersPage /></Suspense>} />
         <Route path="routes" element={<Suspense fallback={null}><AdminRoutesPage /></Suspense>} />
