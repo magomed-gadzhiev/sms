@@ -9,16 +9,15 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/template/domain"
-	"github.com/smpp-server/smpp-server/internal/services/template/infrastructure/repository"
 )
 
 type TemplateService struct {
-	templateRepo *repository.TemplateRepository
-	auditRepo    *repository.AuditRepository
+	templateRepo TemplateRepository
+	auditRepo    AuditRepository
 	logger       zerolog.Logger
 }
 
-func NewTemplateService(templateRepo *repository.TemplateRepository, auditRepo *repository.AuditRepository) *TemplateService {
+func NewTemplateService(templateRepo TemplateRepository, auditRepo AuditRepository) *TemplateService {
 	return &TemplateService{
 		templateRepo: templateRepo,
 		auditRepo:    auditRepo,
