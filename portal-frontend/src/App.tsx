@@ -47,6 +47,8 @@ const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then
 const AdminAuditLogPage = lazy(() => import('./pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })));
 const AdminTarificationPage = lazy(() => import('./pages/admin/tarification/TarificationPage').then((m) => ({ default: m.TarificationPage })));
 const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const AdminUsersPage = lazy(() => import('./pages/admin/users/UsersPage').then((m) => ({ default: m.UsersPage })));
+const AdminRolesPage = lazy(() => import('./pages/admin/users/RolesPage').then((m) => ({ default: m.RolesPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -118,6 +120,8 @@ export function App() {
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />
         <Route path="tarification" element={<Suspense fallback={null}><AdminTarificationPage /></Suspense>} />
         <Route path="audit" element={<Suspense fallback={null}><AdminAuditLogPage /></Suspense>} />
+        <Route path="users" element={<Suspense fallback={null}><AdminUsersPage /></Suspense>} />
+        <Route path="users/roles" element={<Suspense fallback={null}><AdminRolesPage /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
