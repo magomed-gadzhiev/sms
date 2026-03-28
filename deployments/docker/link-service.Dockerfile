@@ -31,5 +31,5 @@ RUN CGO_ENABLED=0 go build -o /link-service ./cmd/services/link-service
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata wget
 COPY --from=builder /link-service /link-service
-EXPOSE 9102 8085
+EXPOSE 9103 8085
 CMD ["/link-service"]

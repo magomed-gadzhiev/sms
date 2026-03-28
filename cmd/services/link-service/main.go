@@ -57,7 +57,7 @@ func main() {
 	service := application.NewLinkService(linkRepo, domainRepo, clickRepo, rdb)
 
 	// gRPC server
-	grpcPort := envOrDefault("LINK_GRPC_PORT", "9102")
+	grpcPort := envOrDefault("LINK_GRPC_PORT", "9103")
 	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to listen gRPC")

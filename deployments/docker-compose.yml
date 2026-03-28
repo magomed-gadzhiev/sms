@@ -1214,7 +1214,7 @@ services:
       dockerfile: deployments/docker/link-service.Dockerfile
     container_name: link-service
     ports:
-      - "9102:9102"
+      - "9103:9103"
       - "8085:8085"
     environment:
       - POSTGRES_HOST=postgres
@@ -1224,7 +1224,7 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - LINK_GRPC_PORT=9102
+      - LINK_GRPC_PORT=9103
     networks:
       - smpp-network
     depends_on:
