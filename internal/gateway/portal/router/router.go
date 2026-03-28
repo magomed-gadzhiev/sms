@@ -47,6 +47,7 @@ func SetupRouter(
 	templateHandlers *handlers.TemplateHandlers,
 	billingHandlers *handlers.BillingHandlers,
 	tariffHandlers *handlers.TariffHandlers,
+	segmentHandlers *handlers.SegmentHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -206,6 +207,15 @@ func SetupRouter(
 	contactLists.HandleFunc("/{id}/imports/{iid}", contactHandlers.GetImportStatus).Methods("GET")
 	contactLists.HandleFunc("/{id}/imports", contactHandlers.ListImports).Methods("GET")
 	contactLists.HandleFunc("/{id}/segment/preview", contactHandlers.PreviewSegment).Methods("POST")
+
+	// Segments
+	segments := protected.PathPrefix("/segments").Subrouter()
+	segments.HandleFunc("", segmentHandlers.CreateSegment).Methods("POST")
+	segments.HandleFunc("", segmentHandlers.ListSegments).Methods("GET")
+	segments.HandleFunc("/{id}", segmentHandlers.GetSegment).Methods("GET")
+	segments.HandleFunc("/{id}", segmentHandlers.UpdateSegment).Methods("PUT")
+	segments.HandleFunc("/{id}", segmentHandlers.DeleteSegment).Methods("DELETE")
+	segments.HandleFunc("/{id}/estimate", segmentHandlers.EstimateSegment).Methods("POST")
 
 	// Campaigns
 	campaigns := protected.PathPrefix("/campaigns").Subrouter()

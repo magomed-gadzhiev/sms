@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
@@ -102,6 +103,16 @@ func main() {
 
 	logger.Info().Str("addr", redisAddr).Msg("Redis клиент создан")
 
+	// Создание пула PostgreSQL для прямых запросов (сегменты и т.д.)
+	dbDSN := getEnvOrDefault("DATABASE_URL", "postgres://sms:sms@localhost:5432/sms?sslmode=disable")
+	dbPool, err := pgxpool.New(context.Background(), dbDSN)
+	if err != nil {
+		logger.Warn().Err(err).Msg("не удалось создать PostgreSQL pool, segment handlers будут недоступны")
+	}
+	if dbPool != nil {
+		defer dbPool.Close()
+	}
+
 	// Создание middleware
 	sessionAuthMw := middleware.SessionAuthMiddleware(redisClient)
 	csrfMw := middleware.CSRFMiddleware()
@@ -159,6 +170,7 @@ func main() {
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 	billingHandlers := handlers.NewBillingHandlers(serviceClients.BillingClient, payment.NewStubPaymentProvider())
 	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient)
+	segmentHandlers := handlers.NewSegmentHandlers(dbPool)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -186,6 +198,7 @@ func main() {
 		templateHandlers,
 		billingHandlers,
 		tariffHandlers,
+		segmentHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint
