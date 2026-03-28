@@ -248,7 +248,7 @@ func (r *AccountRepository) ListBalances(ctx context.Context, search string, sta
 	}
 
 	if belowThreshold {
-		conditions = append(conditions, "a.low_balance_threshold IS NOT NULL AND a.low_balance_threshold != '' AND a.balance::numeric < a.low_balance_threshold::numeric")
+		conditions = append(conditions, "(CASE WHEN a.low_balance_threshold IS NOT NULL AND a.low_balance_threshold != '' AND a.balance != '' THEN CAST(a.balance AS numeric) < CAST(a.low_balance_threshold AS numeric) ELSE false END)")
 	}
 
 	whereClause := ""
