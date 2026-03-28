@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -16,15 +17,53 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/contact/domain"
 )
 
+// ContactServiceInterface defines the application-layer operations required by the gRPC server.
+type ContactServiceInterface interface {
+	// Contact lists
+	CreateContactList(ctx context.Context, clientID uuid.UUID, name, description string) (*domain.ContactList, error)
+	GetContactList(ctx context.Context, id, clientID uuid.UUID) (*domain.ContactList, error)
+	ListContactLists(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.ContactList, int, error)
+	UpdateContactList(ctx context.Context, id, clientID uuid.UUID, name, description string) (*domain.ContactList, error)
+	DeleteContactList(ctx context.Context, id, clientID uuid.UUID) error
+
+	// Attributes
+	SetListAttributes(ctx context.Context, contactListID, clientID uuid.UUID, attrs []domain.ContactAttribute) ([]domain.ContactAttribute, error)
+	GetListAttributes(ctx context.Context, contactListID, clientID uuid.UUID) ([]domain.ContactAttribute, error)
+
+	// Contacts
+	CreateContact(ctx context.Context, contactListID, clientID uuid.UUID, phone string, attrs map[string]interface{}, tags []string) (*domain.Contact, error)
+	UpdateContact(ctx context.Context, id, contactListID, clientID uuid.UUID, phone string, attrs map[string]interface{}, tags []string) (*domain.Contact, error)
+	DeleteContact(ctx context.Context, id, contactListID, clientID uuid.UUID) error
+	ListContacts(ctx context.Context, contactListID, clientID uuid.UUID, limit, offset int, search string, tags []string) ([]*domain.Contact, int, error)
+	BatchUpsertContacts(ctx context.Context, contactListID, clientID uuid.UUID, contacts []domain.Contact) (*domain.BatchUpsertResult, error)
+
+	// Tags
+	AddTags(ctx context.Context, contactListID, clientID uuid.UUID, contactIDs []uuid.UUID, tags []string) error
+	RemoveTags(ctx context.Context, contactListID, clientID uuid.UUID, contactIDs []uuid.UUID, tags []string) error
+	ListTags(ctx context.Context, contactListID, clientID uuid.UUID) ([]string, error)
+
+	// Import
+	StartImport(ctx context.Context, contactListID, clientID uuid.UUID, importID uuid.UUID, fileName string, fileSize int64, columnMappingJSON string) (*domain.ImportJob, error)
+	GetImportStatus(ctx context.Context, id, contactListID, clientID uuid.UUID) (*domain.ImportJob, error)
+	ListImports(ctx context.Context, contactListID, clientID uuid.UUID, limit, offset int) ([]*domain.ImportJob, int, error)
+
+	// Segmentation
+	PreviewSegmentCount(ctx context.Context, contactListID, clientID uuid.UUID, rules *domain.SegmentRule, tags []string) (int32, error)
+	StreamSegment(ctx context.Context, contactListID, clientID uuid.UUID, rules *domain.SegmentRule, tags []string, fn func(*domain.Contact) error) error
+}
+
+// Compile-time check that *application.ContactService satisfies the interface.
+var _ ContactServiceInterface = (*application.ContactService)(nil)
+
 // Server implements the gRPC ContactServiceServer.
 type Server struct {
 	contactv1.UnimplementedContactServiceServer
-	service *application.ContactService
+	service ContactServiceInterface
 	logger  zerolog.Logger
 }
 
 // NewServer creates a new gRPC server for the contact service.
-func NewServer(service *application.ContactService) *Server {
+func NewServer(service ContactServiceInterface) *Server {
 	return &Server{
 		service: service,
 		logger:  log.With().Str("component", "contact-grpc-server").Logger(),
