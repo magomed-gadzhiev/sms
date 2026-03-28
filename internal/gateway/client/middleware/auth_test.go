@@ -140,6 +140,18 @@ func (m *mockAuthServiceClient) Logout(ctx context.Context, in *authv1.LogoutReq
 	return args.Get(0).(*authv1.LogoutResponse), args.Error(1)
 }
 
+func (m *mockAuthServiceClient) UpdateAPIKey(ctx context.Context, in *authv1.UpdateAPIKeyRequest, opts ...grpc.CallOption) (*authv1.UpdateAPIKeyResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) ChangePassword(ctx context.Context, in *authv1.ChangePasswordRequest, opts ...grpc.CallOption) (*authv1.ChangePasswordResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) RegisterClient(ctx context.Context, in *authv1.RegisterClientRequest, opts ...grpc.CallOption) (*authv1.RegisterClientResponse, error) {
+	return nil, nil
+}
+
 // nextHandlerRecorder записывает, был ли вызван следующий обработчик, и сохраняет контекст
 type nextHandlerRecorder struct {
 	called bool

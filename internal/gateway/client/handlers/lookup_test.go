@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	routingv1 "github.com/smpp-server/smpp-server/api/proto/routingv1"
@@ -129,6 +130,45 @@ func (m *mockRoutingClientForLookup) GetLookupHistory(ctx context.Context, in *r
 	return args.Get(0).(*routingv1.GetLookupHistoryResponse), args.Error(1)
 }
 func (m *mockRoutingClientForLookup) RouteMessageWithHLR(ctx context.Context, in *routingv1.RouteMessageWithHLRRequest, opts ...grpc.CallOption) (*routingv1.RouteMessageWithHLRResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) AssignProviderToClient(ctx context.Context, in *routingv1.AssignProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) RevokeProviderFromClient(ctx context.Context, in *routingv1.RevokeProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) ListClientProviders(ctx context.Context, in *routingv1.ListClientProvidersRequest, opts ...grpc.CallOption) (*routingv1.ListClientProvidersResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) UpdateClientProvider(ctx context.Context, in *routingv1.UpdateClientProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) ShareProviderWithChild(ctx context.Context, in *routingv1.ShareProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) RevokeSharedProvider(ctx context.Context, in *routingv1.RevokeSharedProviderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) CreateClientRoute(ctx context.Context, in *routingv1.CreateClientRouteRequest, opts ...grpc.CallOption) (*routingv1.ClientRouteProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) UpdateClientRoute(ctx context.Context, in *routingv1.UpdateClientRouteRequest, opts ...grpc.CallOption) (*routingv1.ClientRouteProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) DeleteClientRoute(ctx context.Context, in *routingv1.DeleteClientRouteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) ListClientRoutes(ctx context.Context, in *routingv1.ListClientRoutesRequest, opts ...grpc.CallOption) (*routingv1.ListClientRoutesResponse, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) SetRoutingStrategy(ctx context.Context, in *routingv1.SetRoutingStrategyRequest, opts ...grpc.CallOption) (*routingv1.ClientRoutingStrategyProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) GetRoutingStrategy(ctx context.Context, in *routingv1.GetRoutingStrategyRequest, opts ...grpc.CallOption) (*routingv1.ClientRoutingStrategyProto, error) {
+	return nil, nil
+}
+func (m *mockRoutingClientForLookup) DeleteRoutingStrategy(ctx context.Context, in *routingv1.DeleteRoutingStrategyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }
 

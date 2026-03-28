@@ -99,6 +99,11 @@ func (m *mockAPIKeyRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]
 	return args.Get(0).([]*domain.APIKey), args.Error(1)
 }
 
+func (m *mockAPIKeyRepo) Update(ctx context.Context, apiKey *domain.APIKey) error {
+	args := m.Called(ctx, apiKey)
+	return args.Error(0)
+}
+
 func (m *mockAPIKeyRepo) UpdateLastUsed(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)

@@ -145,6 +145,18 @@ func (m *mockAuthClient) Logout(ctx context.Context, in *authv1.LogoutRequest, o
 	return args.Get(0).(*authv1.LogoutResponse), args.Error(1)
 }
 
+func (m *mockAuthClient) UpdateAPIKey(ctx context.Context, in *authv1.UpdateAPIKeyRequest, opts ...grpc.CallOption) (*authv1.UpdateAPIKeyResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) ChangePassword(ctx context.Context, in *authv1.ChangePasswordRequest, opts ...grpc.CallOption) (*authv1.ChangePasswordResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) RegisterClient(ctx context.Context, in *authv1.RegisterClientRequest, opts ...grpc.CallOption) (*authv1.RegisterClientResponse, error) {
+	return nil, nil
+}
+
 // --- Mock audit.Publisher ---
 // Since audit.Publisher uses a Kafka SyncProducer that is hard to mock,
 // we pass nil for the audit publisher in tests. The handler checks for
