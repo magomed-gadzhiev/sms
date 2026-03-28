@@ -31,6 +31,8 @@ declare -a proto_files=(
     "api/proto/client/client.proto:api/proto/clientv1"
     "api/proto/analytics/analytics.proto:api/proto/analyticsv1"
     "api/proto/billing/billing.proto:api/proto/billingv1"
+    "api/proto/contact/contact.proto:api/proto/contactv1"
+    "api/proto/campaign/campaign.proto:api/proto/campaignv1"
 )
 
 errors=()

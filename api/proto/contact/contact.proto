@@ -1,0 +1,283 @@
+syntax = "proto3";
+package contact.v1;
+option go_package = "github.com/smpp-server/smpp-server/api/proto/contactv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+service ContactService {
+  // Contact Lists
+  rpc CreateContactList(CreateContactListRequest) returns (ContactList);
+  rpc ListContactLists(ListContactListsRequest) returns (ContactListPage);
+  rpc GetContactList(GetContactListRequest) returns (ContactList);
+  rpc UpdateContactList(UpdateContactListRequest) returns (ContactList);
+  rpc DeleteContactList(DeleteContactListRequest) returns (google.protobuf.Empty);
+
+  // Attributes
+  rpc SetListAttributes(SetListAttributesRequest) returns (AttributeList);
+  rpc GetListAttributes(GetListAttributesRequest) returns (AttributeList);
+
+  // Contacts
+  rpc CreateContact(CreateContactRequest) returns (Contact);
+  rpc UpdateContact(UpdateContactRequest) returns (Contact);
+  rpc DeleteContact(DeleteContactRequest) returns (google.protobuf.Empty);
+  rpc ListContacts(ListContactsRequest) returns (ContactPage);
+  rpc BatchUpsertContacts(BatchUpsertContactsRequest) returns (BatchResult);
+
+  // Tags
+  rpc AddTags(AddTagsRequest) returns (google.protobuf.Empty);
+  rpc RemoveTags(RemoveTagsRequest) returns (google.protobuf.Empty);
+  rpc ListTags(ListTagsRequest) returns (TagList);
+
+  // Import
+  rpc StartImport(StartImportRequest) returns (ImportJob);
+  rpc GetImportStatus(GetImportStatusRequest) returns (ImportJob);
+  rpc ListImports(ListImportsRequest) returns (ImportJobPage);
+
+  // Segmentation
+  rpc PreviewSegment(PreviewSegmentRequest) returns (SegmentPreview);
+  rpc StreamSegment(StreamSegmentRequest) returns (stream ContactBatch);
+}
+
+// === Contact List ===
+message ContactList {
+  string id = 1;
+  string client_id = 2;
+  string name = 3;
+  string description = 4;
+  int32 contacts_count = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateContactListRequest {
+  string client_id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message ListContactListsRequest {
+  string client_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ContactListPage {
+  repeated ContactList items = 1;
+  int32 total = 2;
+}
+
+message GetContactListRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message UpdateContactListRequest {
+  string id = 1;
+  string client_id = 2;
+  string name = 3;
+  string description = 4;
+}
+
+message DeleteContactListRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+// === Attributes ===
+message Attribute {
+  string id = 1;
+  string name = 2;
+  string display_name = 3;
+  string type = 4;
+  bool required = 5;
+  int32 position = 6;
+}
+
+message AttributeList {
+  repeated Attribute attributes = 1;
+}
+
+message SetListAttributesRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  repeated Attribute attributes = 3;
+}
+
+message GetListAttributesRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+}
+
+// === Contacts ===
+message Contact {
+  string id = 1;
+  string contact_list_id = 2;
+  string phone = 3;
+  google.protobuf.Struct attributes = 4;
+  repeated string tags = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateContactRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  string phone = 3;
+  google.protobuf.Struct attributes = 4;
+  repeated string tags = 5;
+}
+
+message UpdateContactRequest {
+  string id = 1;
+  string contact_list_id = 2;
+  string client_id = 3;
+  string phone = 4;
+  google.protobuf.Struct attributes = 5;
+  repeated string tags = 6;
+}
+
+message DeleteContactRequest {
+  string id = 1;
+  string contact_list_id = 2;
+  string client_id = 3;
+}
+
+message ListContactsRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  string search = 5;
+  repeated string tags = 6;
+}
+
+message ContactPage {
+  repeated Contact contacts = 1;
+  int32 total = 2;
+}
+
+message BatchUpsertContactsRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  repeated ContactInput contacts = 3;
+}
+
+message ContactInput {
+  string phone = 1;
+  google.protobuf.Struct attributes = 2;
+  repeated string tags = 3;
+}
+
+message BatchResult {
+  int32 created = 1;
+  int32 updated = 2;
+  int32 errors = 3;
+  repeated string error_messages = 4;
+}
+
+// === Tags ===
+message AddTagsRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  repeated string contact_ids = 3;
+  repeated string tags = 4;
+}
+
+message RemoveTagsRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  repeated string contact_ids = 3;
+  repeated string tags = 4;
+}
+
+message ListTagsRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+}
+
+message TagList {
+  repeated string tags = 1;
+}
+
+// === Import ===
+message StartImportRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  string import_id = 3;
+  string file_name = 4;
+  int64 file_size = 5;
+  string column_mapping = 6;
+}
+
+message ImportJob {
+  string id = 1;
+  string contact_list_id = 2;
+  string client_id = 3;
+  string file_name = 4;
+  int64 file_size = 5;
+  string status = 6;
+  int32 total_rows = 7;
+  int32 imported_count = 8;
+  int32 updated_count = 9;
+  int32 error_count = 10;
+  string errors = 11;
+  string column_mapping = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp completed_at = 14;
+}
+
+message GetImportStatusRequest {
+  string id = 1;
+  string contact_list_id = 2;
+  string client_id = 3;
+}
+
+message ListImportsRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ImportJobPage {
+  repeated ImportJob imports = 1;
+  int32 total = 2;
+}
+
+// === Segmentation ===
+message SegmentRule {
+  string operator = 1;
+  repeated SegmentCondition conditions = 2;
+  repeated SegmentRule nested = 3;
+}
+
+message SegmentCondition {
+  string field = 1;
+  string op = 2;
+  string value = 3;
+  string value2 = 4;
+}
+
+message PreviewSegmentRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  SegmentRule rules = 3;
+  repeated string tags = 4;
+}
+
+message SegmentPreview {
+  int32 count = 1;
+}
+
+message StreamSegmentRequest {
+  string contact_list_id = 1;
+  string client_id = 2;
+  SegmentRule rules = 3;
+  repeated string tags = 4;
+}
+
+message ContactBatch {
+  repeated Contact contacts = 1;
+}
