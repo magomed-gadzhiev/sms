@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 type contextKey string
@@ -24,24 +26,68 @@ func isLoadTestMode() bool {
 	return strings.EqualFold(os.Getenv("LOAD_TEST_MODE"), "true")
 }
 
+// skipPaths содержит пути, которые не требуют аутентификации
+var skipPaths = map[string]bool{
+	"/health":  true,
+	"/metrics": true,
+}
+
 // AuthMiddleware создает middleware для аутентификации по API ключу.
 // Если LOAD_TEST_MODE=true — использует dummy client ID (режим нагрузочного тестирования).
-// Если LOAD_TEST_MODE не установлен или false — возвращает 401 "auth not configured"
-// (сигнализирует о том, что middleware требует полной настройки gRPC клиента).
+// Иначе выполняет полную аутентификацию по API ключу из заголовка X-API-Key или Bearer токена.
 func AuthMiddleware(clientRepo ClientRepository, cfg *config.AuthConfig) func(http.Handler) http.Handler {
 	dummyID := uuid.MustParse("c0000000-0000-0000-0000-000000000001")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Пропускаем служебные эндпоинты
+			if skipPaths[r.URL.Path] {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Режим нагрузочного тестирования
 			if isLoadTestMode() {
 				ctx := context.WithValue(r.Context(), ClientIDKey, dummyID)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
-			respondError(w, &shared.AppError{
-				HTTPStatus: http.StatusUnauthorized,
-				Code:       "AUTH_NOT_CONFIGURED",
-				Message:    "auth not configured",
-			})
+
+			// Извлекаем API ключ из заголовков
+			apiKey := r.Header.Get(cfg.APIKeyHeader)
+			if apiKey == "" {
+				// Пробуем Bearer токен из Authorization заголовка
+				authHeader := r.Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					apiKey = strings.TrimPrefix(authHeader, "Bearer ")
+				}
+			}
+
+			if apiKey == "" {
+				respondError(w, shared.ErrUnauthorized("API key required"))
+				return
+			}
+
+			// Ищем клиента по API ключу
+			client, err := clientRepo.GetByAPIKey(r.Context(), apiKey)
+			if err != nil {
+				if errors.Is(err, storage.ErrNotFound) {
+					respondError(w, shared.ErrUnauthorized("invalid API key"))
+					return
+				}
+				respondError(w, shared.ErrDatabase("failed to authenticate", err))
+				return
+			}
+
+			// Проверяем активность клиента
+			if !client.Active {
+				respondError(w, shared.ErrForbidden("client is inactive"))
+				return
+			}
+
+			// Устанавливаем клиента в контекст
+			ctx := context.WithValue(r.Context(), ClientIDKey, client.ID)
+			ctx = context.WithValue(ctx, ClientKey, client)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
