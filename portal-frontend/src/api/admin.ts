@@ -276,6 +276,16 @@ export const billingApi = {
     adminFetch<{ rules: PricingRule[] }>(`/billing/pricing-rules${qs(params || {})}`),
   createPricingRule: (data: Partial<PricingRule>) =>
     adminFetch<void>('/billing/pricing-rules', { method: 'POST', body: JSON.stringify(data) }),
+  freeze: (clientId: string) =>
+    adminFetch<void>(`/billing/clients/${clientId}/freeze`, { method: 'POST' }),
+  unfreeze: (clientId: string) =>
+    adminFetch<void>(`/billing/clients/${clientId}/unfreeze`, { method: 'POST' }),
+  setCreditLimit: (clientId: string, data: { credit_limit: string }) =>
+    adminFetch<void>(`/billing/clients/${clientId}/credit-limit`, { method: 'PUT', body: JSON.stringify(data) }),
+  setLowBalanceThreshold: (clientId: string, data: { threshold: string }) =>
+    adminFetch<void>(`/billing/clients/${clientId}/low-balance-threshold`, { method: 'PUT', body: JSON.stringify(data) }),
+  listBalances: (params?: { search?: string; status?: string; below_threshold?: boolean; limit?: number; offset?: number }) =>
+    adminFetch<{ balances: BalanceInfoItem[]; total: number; limit: number; offset: number }>(`/billing/balances${qs(params || {})}`),
 };
 
 export const analyticsAdminApi = {
@@ -312,6 +322,10 @@ export const templatesApi = {
     adminFetch<void>(`/templates/${id}/reject`, { method: 'POST', body: JSON.stringify(data || {}) }),
   audit: (id: string) =>
     adminFetch<{ entries: AuditEntry[] }>(`/templates/${id}/audit`),
+  assign: (id: string) =>
+    adminFetch<void>(`/templates/${id}/assign`, { method: 'POST' }),
+  requestRevision: (id: string, data: { comment: string }) =>
+    adminFetch<void>(`/templates/${id}/request-revision`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const countriesApi = {
@@ -348,6 +362,22 @@ export const tarificationApi = {
   updateTariffPlan: (id: string, data: Partial<TariffPlan>) =>
     adminFetch<void>(`/tarification/tariff-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   listUsage: () => adminFetch<unknown>('/tarification/usage'),
+  listTariffPeriods: (params?: { tariff_plan_id?: string }) =>
+    adminFetch<{ periods: TariffPeriod[]; total: number }>(`/tarification/tariff-periods${qs(params || {})}`),
+  createTariffPeriod: (data: { tariff_plan_id: string; start_date: string; end_date: string }) =>
+    adminFetch<void>('/tarification/tariff-periods', { method: 'POST', body: JSON.stringify(data) }),
+  listTariffTiers: (params?: { tariff_period_id?: string }) =>
+    adminFetch<{ tiers: TariffTier[]; total: number }>(`/tarification/tariff-tiers${qs(params || {})}`),
+  createTariffTier: (data: { tariff_period_id: string; from_count: number; price_per_segment: string }) =>
+    adminFetch<void>('/tarification/tariff-tiers', { method: 'POST', body: JSON.stringify(data) }),
+  updateTariffTier: (id: string, data: { from_count: number; price_per_segment: string }) =>
+    adminFetch<void>(`/tarification/tariff-tiers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  listSenderRegistrations: (params?: { client_id?: string; operator_id?: string; limit?: number; offset?: number }) =>
+    adminFetch<{ registrations: SenderRegistration[]; total: number }>(`/tarification/sender-registrations${qs(params || {})}`),
+  createSenderRegistration: (data: { client_id: string; operator_id: string; sender_name: string; type: string }) =>
+    adminFetch<void>('/tarification/sender-registrations', { method: 'POST', body: JSON.stringify(data) }),
+  updateSenderRegistration: (id: string, data: { status: string; type: string }) =>
+    adminFetch<void>(`/tarification/sender-registrations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 export const hlrApi = {
@@ -370,4 +400,111 @@ export const hlrApi = {
 export const auditAdminApi = {
   list: (params?: { user_id?: string; action?: string; from?: string; to?: string; limit?: number; offset?: number }) =>
     adminFetch<{ entries: AuditEntry[]; total: number; limit: number; offset: number }>(`/audit${qs(params || {})}`),
+};
+
+// ── Extended Types ──
+
+export interface UserDetailInfo {
+  id: string;
+  username: string;
+  email: string;
+  role: { id: string; name: string; description: string };
+  active: boolean;
+  totp_enabled: boolean;
+  last_login_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoleDetail {
+  id: string;
+  name: string;
+  description: string;
+  builtin: boolean;
+  user_count: number;
+  permissions: PermissionInfo[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PermissionInfo {
+  id: string;
+  resource: string;
+  action: string;
+}
+
+export interface BalanceInfoItem {
+  client_id: string;
+  client_name: string;
+  balance: string;
+  currency: string;
+  frozen: boolean;
+  credit_limit: string;
+  low_balance_threshold: string;
+  frozen_at: string;
+  frozen_by: string;
+  updated_at: string;
+}
+
+export interface TariffPeriod {
+  id: string;
+  tariff_plan_id: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
+export interface TariffTier {
+  id: string;
+  tariff_period_id: string;
+  from_count: number;
+  price_per_segment: string;
+}
+
+export interface SenderRegistration {
+  id: string;
+  client_id: string;
+  operator_id: string;
+  sender_name: string;
+  type: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Users API ──
+
+export const usersApi = {
+  list: (params?: { search?: string; role_id?: string; active_only?: boolean; limit?: number; offset?: number }) =>
+    adminFetch<{ users: UserDetailInfo[]; total: number; limit: number; offset: number }>(`/users${qs(params || {})}`),
+  get: (id: string) => adminFetch<{ user: UserDetailInfo }>(`/users/${id}`),
+  create: (data: { username: string; email: string; password: string; role_id: string; active?: boolean }) =>
+    adminFetch<{ user: UserDetailInfo }>('/users', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { email?: string; role_id?: string; active?: boolean }) =>
+    adminFetch<{ user: UserDetailInfo }>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deactivate: (id: string) =>
+    adminFetch<void>(`/users/${id}/deactivate`, { method: 'POST' }),
+  reset2fa: (id: string) =>
+    adminFetch<void>(`/users/${id}/reset-2fa`, { method: 'POST' }),
+  resetPassword: (id: string) =>
+    adminFetch<{ temporary_password: string }>(`/users/${id}/reset-password`, { method: 'POST' }),
+};
+
+// ── Roles API ──
+
+export const rolesApi = {
+  list: (params?: { limit?: number; offset?: number }) =>
+    adminFetch<{ roles: RoleDetail[]; total: number }>(`/roles${qs(params || {})}`),
+  get: (id: string) => adminFetch<{ role: RoleDetail }>(`/roles/${id}`),
+  create: (data: { name: string; description: string; permission_ids: string[] }) =>
+    adminFetch<{ role: RoleDetail }>('/roles', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { name: string; description: string; permission_ids: string[] }) =>
+    adminFetch<{ role: RoleDetail }>(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => adminFetch<void>(`/roles/${id}`, { method: 'DELETE' }),
+};
+
+// ── Permissions API ──
+
+export const permissionsApi = {
+  list: () => adminFetch<{ permissions: PermissionInfo[] }>('/permissions'),
 };
