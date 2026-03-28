@@ -31,6 +31,21 @@ service BillingService {
 
   // TransferBalance переводит средства между клиентами
   rpc TransferBalance(TransferBalanceRequest) returns (TransferBalanceResponse);
+
+  // FreezeAccount замораживает счет клиента
+  rpc FreezeAccount(FreezeAccountRequest) returns (FreezeAccountResponse);
+
+  // UnfreezeAccount размораживает счет клиента
+  rpc UnfreezeAccount(UnfreezeAccountRequest) returns (UnfreezeAccountResponse);
+
+  // SetCreditLimit устанавливает кредитный лимит для клиента
+  rpc SetCreditLimit(SetCreditLimitRequest) returns (SetCreditLimitResponse);
+
+  // SetLowBalanceThreshold устанавливает порог низкого баланса
+  rpc SetLowBalanceThreshold(SetLowBalanceThresholdRequest) returns (SetLowBalanceThresholdResponse);
+
+  // ListBalances получает список балансов с фильтрацией
+  rpc ListBalances(ListBalancesRequest) returns (ListBalancesResponse);
 }
 
 // GetBalanceRequest представляет запрос на получение баланса
@@ -44,6 +59,8 @@ message GetBalanceResponse {
   string balance = 2;             // Баланс (в виде строки для точности)
   string currency = 3;            // Валюта (по умолчанию "USD")
   google.protobuf.Timestamp updated_at = 4;  // Время последнего обновления
+  bool frozen = 5;                            // Заморожен ли счет
+  string credit_limit = 6;                    // Кредитный лимит
 }
 
 // ChargeMessageRequest представляет запрос на списание за сообщение
@@ -182,4 +199,71 @@ message TransferBalanceResponse {
   string transfer_id = 1;         // ID перевода
   string from_balance = 2;        // Баланс отправителя после перевода
   string to_balance = 3;          // Баланс получателя после перевода
+}
+
+message FreezeAccountRequest {
+  string client_id = 1;
+  string admin_id = 2;
+}
+
+message FreezeAccountResponse {
+  bool success = 1;
+  google.protobuf.Timestamp frozen_at = 2;
+}
+
+message UnfreezeAccountRequest {
+  string client_id = 1;
+  string admin_id = 2;
+}
+
+message UnfreezeAccountResponse {
+  bool success = 1;
+}
+
+message SetCreditLimitRequest {
+  string client_id = 1;
+  string credit_limit = 2;
+}
+
+message SetCreditLimitResponse {
+  bool success = 1;
+  string credit_limit = 2;
+}
+
+message SetLowBalanceThresholdRequest {
+  string client_id = 1;
+  string threshold = 2;
+}
+
+message SetLowBalanceThresholdResponse {
+  bool success = 1;
+  string threshold = 2;
+}
+
+message ListBalancesRequest {
+  string search = 1;
+  string status = 2;
+  bool below_threshold = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message BalanceInfo {
+  string client_id = 1;
+  string client_name = 2;
+  string balance = 3;
+  string currency = 4;
+  bool frozen = 5;
+  string credit_limit = 6;
+  string low_balance_threshold = 7;
+  google.protobuf.Timestamp frozen_at = 8;
+  string frozen_by = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message ListBalancesResponse {
+  repeated BalanceInfo balances = 1;
+  int32 total = 2;
+  int32 limit = 3;
+  int32 offset = 4;
 }

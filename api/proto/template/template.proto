@@ -17,6 +17,8 @@ service TemplateService {
   rpc RejectTemplate(RejectTemplateRequest) returns (RejectTemplateResponse);
   rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse);
   rpc GetTemplateAuditLog(GetTemplateAuditLogRequest) returns (GetTemplateAuditLogResponse);
+  rpc AssignReviewer(AssignReviewerRequest) returns (AssignReviewerResponse);
+  rpc RequestRevision(RequestRevisionRequest) returns (RequestRevisionResponse);
 }
 
 message CreateTemplateRequest {
@@ -123,6 +125,9 @@ message TemplateInfo {
   string rejection_reason = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  string reviewer_id = 10;
+  string review_comment = 11;
+  google.protobuf.Timestamp reviewed_at = 12;
 }
 
 message AuditEntry {
@@ -135,4 +140,23 @@ message AuditEntry {
   string actor_type = 7;
   string reason = 8;
   google.protobuf.Timestamp created_at = 9;
+}
+
+message AssignReviewerRequest {
+  string template_id = 1;
+  string reviewer_id = 2;
+}
+
+message AssignReviewerResponse {
+  TemplateInfo template = 1;
+}
+
+message RequestRevisionRequest {
+  string template_id = 1;
+  string reviewer_id = 2;
+  string comment = 3;
+}
+
+message RequestRevisionResponse {
+  TemplateInfo template = 1;
 }

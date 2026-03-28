@@ -61,6 +61,48 @@ service AuthService {
 
   // RegisterClient регистрирует нового клиента (public self-service)
   rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+
+  // CreateUser создает нового пользователя (админ)
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+
+  // UpdateUser обновляет пользователя
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+
+  // DeactivateUser деактивирует пользователя
+  rpc DeactivateUser(DeactivateUserRequest) returns (DeactivateUserResponse);
+
+  // ResetUser2FA сбрасывает 2FA пользователя (админ)
+  rpc ResetUser2FA(ResetUser2FARequest) returns (ResetUser2FAResponse);
+
+  // ResetUserPassword сбрасывает пароль пользователя (админ)
+  rpc ResetUserPassword(ResetUserPasswordRequest) returns (ResetUserPasswordResponse);
+
+  // ListUsers получает список пользователей с фильтрацией
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+  // GetUser получает информацию о пользователе
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // CreateRole создает новую роль
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+
+  // UpdateRole обновляет роль
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse);
+
+  // DeleteRole удаляет роль
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+
+  // ListRoles получает список ролей
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+
+  // GetRole получает информацию о роли
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse);
+
+  // ListAllPermissions получает все доступные права
+  rpc ListAllPermissions(ListAllPermissionsRequest) returns (ListAllPermissionsResponse);
+
+  // GetUserPermissions получает права конкретного пользователя
+  rpc GetUserPermissions(GetUserPermissionsRequest) returns (GetUserPermissionsResponse);
 }
 
 // AuthenticateRequest представляет запрос на аутентификацию
@@ -326,4 +368,159 @@ message ChangePasswordRequest {
 // ChangePasswordResponse представляет ответ на смену пароля
 message ChangePasswordResponse {
   bool success = 1;
+}
+
+message CreateUserRequest {
+  string username = 1;
+  string email = 2;
+  string password = 3;
+  string role_id = 4;
+  bool active = 5;
+}
+
+message CreateUserResponse {
+  UserInfo user = 1;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  string email = 2;
+  string role_id = 3;
+  bool active = 4;
+}
+
+message UpdateUserResponse {
+  UserInfo user = 1;
+}
+
+message DeactivateUserRequest {
+  string user_id = 1;
+}
+
+message DeactivateUserResponse {
+  bool success = 1;
+}
+
+message ResetUser2FARequest {
+  string user_id = 1;
+}
+
+message ResetUser2FAResponse {
+  bool success = 1;
+}
+
+message ResetUserPasswordRequest {
+  string user_id = 1;
+}
+
+message ResetUserPasswordResponse {
+  string temporary_password = 1;
+}
+
+message ListUsersRequest {
+  string search = 1;
+  string role_id = 2;
+  bool active_only = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListUsersResponse {
+  repeated UserDetailInfo users = 1;
+  int32 total = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  UserDetailInfo user = 1;
+}
+
+message UserDetailInfo {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  Role role = 4;
+  bool active = 5;
+  bool totp_enabled = 6;
+  google.protobuf.Timestamp last_login_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  repeated string permission_ids = 3;
+}
+
+message CreateRoleResponse {
+  RoleDetail role = 1;
+}
+
+message UpdateRoleRequest {
+  string role_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string permission_ids = 4;
+}
+
+message UpdateRoleResponse {
+  RoleDetail role = 1;
+}
+
+message DeleteRoleRequest {
+  string role_id = 1;
+}
+
+message DeleteRoleResponse {
+  bool success = 1;
+}
+
+message ListRolesRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message ListRolesResponse {
+  repeated RoleDetail roles = 1;
+  int32 total = 2;
+}
+
+message GetRoleRequest {
+  string role_id = 1;
+}
+
+message GetRoleResponse {
+  RoleDetail role = 1;
+}
+
+message RoleDetail {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  bool builtin = 4;
+  int32 user_count = 5;
+  repeated Permission permissions = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListAllPermissionsRequest {}
+
+message ListAllPermissionsResponse {
+  repeated Permission permissions = 1;
+}
+
+message GetUserPermissionsRequest {
+  string user_id = 1;
+}
+
+message GetUserPermissionsResponse {
+  repeated Permission permissions = 1;
+  Role role = 2;
 }

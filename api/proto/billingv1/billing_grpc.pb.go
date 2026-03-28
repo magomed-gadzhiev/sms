@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: billing/billing.proto
+// source: api/proto/billing/billing.proto
 
 package billingv1
 
@@ -19,14 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BillingService_GetBalance_FullMethodName            = "/billing.v1.BillingService/GetBalance"
-	BillingService_ChargeMessage_FullMethodName         = "/billing.v1.BillingService/ChargeMessage"
-	BillingService_AddCredits_FullMethodName            = "/billing.v1.BillingService/AddCredits"
-	BillingService_DeductCredits_FullMethodName         = "/billing.v1.BillingService/DeductCredits"
-	BillingService_GetTransactionHistory_FullMethodName = "/billing.v1.BillingService/GetTransactionHistory"
-	BillingService_GetPricingRules_FullMethodName       = "/billing.v1.BillingService/GetPricingRules"
-	BillingService_CreatePricingRule_FullMethodName     = "/billing.v1.BillingService/CreatePricingRule"
-	BillingService_TransferBalance_FullMethodName       = "/billing.v1.BillingService/TransferBalance"
+	BillingService_GetBalance_FullMethodName             = "/billing.v1.BillingService/GetBalance"
+	BillingService_ChargeMessage_FullMethodName          = "/billing.v1.BillingService/ChargeMessage"
+	BillingService_AddCredits_FullMethodName             = "/billing.v1.BillingService/AddCredits"
+	BillingService_DeductCredits_FullMethodName          = "/billing.v1.BillingService/DeductCredits"
+	BillingService_GetTransactionHistory_FullMethodName  = "/billing.v1.BillingService/GetTransactionHistory"
+	BillingService_GetPricingRules_FullMethodName        = "/billing.v1.BillingService/GetPricingRules"
+	BillingService_CreatePricingRule_FullMethodName      = "/billing.v1.BillingService/CreatePricingRule"
+	BillingService_TransferBalance_FullMethodName        = "/billing.v1.BillingService/TransferBalance"
+	BillingService_FreezeAccount_FullMethodName          = "/billing.v1.BillingService/FreezeAccount"
+	BillingService_UnfreezeAccount_FullMethodName        = "/billing.v1.BillingService/UnfreezeAccount"
+	BillingService_SetCreditLimit_FullMethodName         = "/billing.v1.BillingService/SetCreditLimit"
+	BillingService_SetLowBalanceThreshold_FullMethodName = "/billing.v1.BillingService/SetLowBalanceThreshold"
+	BillingService_ListBalances_FullMethodName           = "/billing.v1.BillingService/ListBalances"
 )
 
 // BillingServiceClient is the client API for BillingService service.
@@ -51,6 +56,16 @@ type BillingServiceClient interface {
 	CreatePricingRule(ctx context.Context, in *CreatePricingRuleRequest, opts ...grpc.CallOption) (*CreatePricingRuleResponse, error)
 	// TransferBalance переводит средства между клиентами
 	TransferBalance(ctx context.Context, in *TransferBalanceRequest, opts ...grpc.CallOption) (*TransferBalanceResponse, error)
+	// FreezeAccount замораживает счет клиента
+	FreezeAccount(ctx context.Context, in *FreezeAccountRequest, opts ...grpc.CallOption) (*FreezeAccountResponse, error)
+	// UnfreezeAccount размораживает счет клиента
+	UnfreezeAccount(ctx context.Context, in *UnfreezeAccountRequest, opts ...grpc.CallOption) (*UnfreezeAccountResponse, error)
+	// SetCreditLimit устанавливает кредитный лимит для клиента
+	SetCreditLimit(ctx context.Context, in *SetCreditLimitRequest, opts ...grpc.CallOption) (*SetCreditLimitResponse, error)
+	// SetLowBalanceThreshold устанавливает порог низкого баланса
+	SetLowBalanceThreshold(ctx context.Context, in *SetLowBalanceThresholdRequest, opts ...grpc.CallOption) (*SetLowBalanceThresholdResponse, error)
+	// ListBalances получает список балансов с фильтрацией
+	ListBalances(ctx context.Context, in *ListBalancesRequest, opts ...grpc.CallOption) (*ListBalancesResponse, error)
 }
 
 type billingServiceClient struct {
@@ -141,6 +156,56 @@ func (c *billingServiceClient) TransferBalance(ctx context.Context, in *Transfer
 	return out, nil
 }
 
+func (c *billingServiceClient) FreezeAccount(ctx context.Context, in *FreezeAccountRequest, opts ...grpc.CallOption) (*FreezeAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FreezeAccountResponse)
+	err := c.cc.Invoke(ctx, BillingService_FreezeAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) UnfreezeAccount(ctx context.Context, in *UnfreezeAccountRequest, opts ...grpc.CallOption) (*UnfreezeAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnfreezeAccountResponse)
+	err := c.cc.Invoke(ctx, BillingService_UnfreezeAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SetCreditLimit(ctx context.Context, in *SetCreditLimitRequest, opts ...grpc.CallOption) (*SetCreditLimitResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetCreditLimitResponse)
+	err := c.cc.Invoke(ctx, BillingService_SetCreditLimit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SetLowBalanceThreshold(ctx context.Context, in *SetLowBalanceThresholdRequest, opts ...grpc.CallOption) (*SetLowBalanceThresholdResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetLowBalanceThresholdResponse)
+	err := c.cc.Invoke(ctx, BillingService_SetLowBalanceThreshold_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBalances(ctx context.Context, in *ListBalancesRequest, opts ...grpc.CallOption) (*ListBalancesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBalancesResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBalances_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BillingServiceServer is the server API for BillingService service.
 // All implementations must embed UnimplementedBillingServiceServer
 // for forward compatibility.
@@ -163,6 +228,16 @@ type BillingServiceServer interface {
 	CreatePricingRule(context.Context, *CreatePricingRuleRequest) (*CreatePricingRuleResponse, error)
 	// TransferBalance переводит средства между клиентами
 	TransferBalance(context.Context, *TransferBalanceRequest) (*TransferBalanceResponse, error)
+	// FreezeAccount замораживает счет клиента
+	FreezeAccount(context.Context, *FreezeAccountRequest) (*FreezeAccountResponse, error)
+	// UnfreezeAccount размораживает счет клиента
+	UnfreezeAccount(context.Context, *UnfreezeAccountRequest) (*UnfreezeAccountResponse, error)
+	// SetCreditLimit устанавливает кредитный лимит для клиента
+	SetCreditLimit(context.Context, *SetCreditLimitRequest) (*SetCreditLimitResponse, error)
+	// SetLowBalanceThreshold устанавливает порог низкого баланса
+	SetLowBalanceThreshold(context.Context, *SetLowBalanceThresholdRequest) (*SetLowBalanceThresholdResponse, error)
+	// ListBalances получает список балансов с фильтрацией
+	ListBalances(context.Context, *ListBalancesRequest) (*ListBalancesResponse, error)
 	mustEmbedUnimplementedBillingServiceServer()
 }
 
@@ -196,6 +271,21 @@ func (UnimplementedBillingServiceServer) CreatePricingRule(context.Context, *Cre
 }
 func (UnimplementedBillingServiceServer) TransferBalance(context.Context, *TransferBalanceRequest) (*TransferBalanceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TransferBalance not implemented")
+}
+func (UnimplementedBillingServiceServer) FreezeAccount(context.Context, *FreezeAccountRequest) (*FreezeAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FreezeAccount not implemented")
+}
+func (UnimplementedBillingServiceServer) UnfreezeAccount(context.Context, *UnfreezeAccountRequest) (*UnfreezeAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnfreezeAccount not implemented")
+}
+func (UnimplementedBillingServiceServer) SetCreditLimit(context.Context, *SetCreditLimitRequest) (*SetCreditLimitResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetCreditLimit not implemented")
+}
+func (UnimplementedBillingServiceServer) SetLowBalanceThreshold(context.Context, *SetLowBalanceThresholdRequest) (*SetLowBalanceThresholdResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetLowBalanceThreshold not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBalances(context.Context, *ListBalancesRequest) (*ListBalancesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBalances not implemented")
 }
 func (UnimplementedBillingServiceServer) mustEmbedUnimplementedBillingServiceServer() {}
 func (UnimplementedBillingServiceServer) testEmbeddedByValue()                        {}
@@ -362,6 +452,96 @@ func _BillingService_TransferBalance_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BillingService_FreezeAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FreezeAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).FreezeAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_FreezeAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).FreezeAccount(ctx, req.(*FreezeAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_UnfreezeAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnfreezeAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).UnfreezeAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_UnfreezeAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).UnfreezeAccount(ctx, req.(*UnfreezeAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SetCreditLimit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetCreditLimitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SetCreditLimit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SetCreditLimit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SetCreditLimit(ctx, req.(*SetCreditLimitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SetLowBalanceThreshold_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetLowBalanceThresholdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SetLowBalanceThreshold(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SetLowBalanceThreshold_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SetLowBalanceThreshold(ctx, req.(*SetLowBalanceThresholdRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBalances_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBalancesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBalances(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBalances_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBalances(ctx, req.(*ListBalancesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BillingService_ServiceDesc is the grpc.ServiceDesc for BillingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -401,7 +581,27 @@ var BillingService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "TransferBalance",
 			Handler:    _BillingService_TransferBalance_Handler,
 		},
+		{
+			MethodName: "FreezeAccount",
+			Handler:    _BillingService_FreezeAccount_Handler,
+		},
+		{
+			MethodName: "UnfreezeAccount",
+			Handler:    _BillingService_UnfreezeAccount_Handler,
+		},
+		{
+			MethodName: "SetCreditLimit",
+			Handler:    _BillingService_SetCreditLimit_Handler,
+		},
+		{
+			MethodName: "SetLowBalanceThreshold",
+			Handler:    _BillingService_SetLowBalanceThreshold_Handler,
+		},
+		{
+			MethodName: "ListBalances",
+			Handler:    _BillingService_ListBalances_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "billing/billing.proto",
+	Metadata: "api/proto/billing/billing.proto",
 }

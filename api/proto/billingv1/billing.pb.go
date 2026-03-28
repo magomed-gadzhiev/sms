@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: billing/billing.proto
+// source: api/proto/billing/billing.proto
 
 package billingv1
 
@@ -32,7 +32,7 @@ type GetBalanceRequest struct {
 
 func (x *GetBalanceRequest) Reset() {
 	*x = GetBalanceRequest{}
-	mi := &file_billing_billing_proto_msgTypes[0]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *GetBalanceRequest) String() string {
 func (*GetBalanceRequest) ProtoMessage() {}
 
 func (x *GetBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[0]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *GetBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBalanceRequest.ProtoReflect.Descriptor instead.
 func (*GetBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{0}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetBalanceRequest) GetClientId() string {
@@ -70,17 +70,19 @@ func (x *GetBalanceRequest) GetClientId() string {
 // GetBalanceResponse представляет ответ с балансом
 type GetBalanceResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`    // ID клиента
-	Balance       string                 `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`                      // Баланс (в виде строки для точности)
-	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                    // Валюта (по умолчанию "USD")
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // Время последнего обновления
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`          // ID клиента
+	Balance       string                 `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`                            // Баланс (в виде строки для точности)
+	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                          // Валюта (по умолчанию "USD")
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`       // Время последнего обновления
+	Frozen        bool                   `protobuf:"varint,5,opt,name=frozen,proto3" json:"frozen,omitempty"`                             // Заморожен ли счет
+	CreditLimit   string                 `protobuf:"bytes,6,opt,name=credit_limit,json=creditLimit,proto3" json:"credit_limit,omitempty"` // Кредитный лимит
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetBalanceResponse) Reset() {
 	*x = GetBalanceResponse{}
-	mi := &file_billing_billing_proto_msgTypes[1]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -92,7 +94,7 @@ func (x *GetBalanceResponse) String() string {
 func (*GetBalanceResponse) ProtoMessage() {}
 
 func (x *GetBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[1]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -105,7 +107,7 @@ func (x *GetBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBalanceResponse.ProtoReflect.Descriptor instead.
 func (*GetBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetBalanceResponse) GetClientId() string {
@@ -136,6 +138,20 @@ func (x *GetBalanceResponse) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetBalanceResponse) GetFrozen() bool {
+	if x != nil {
+		return x.Frozen
+	}
+	return false
+}
+
+func (x *GetBalanceResponse) GetCreditLimit() string {
+	if x != nil {
+		return x.CreditLimit
+	}
+	return ""
+}
+
 // ChargeMessageRequest представляет запрос на списание за сообщение
 type ChargeMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -151,7 +167,7 @@ type ChargeMessageRequest struct {
 
 func (x *ChargeMessageRequest) Reset() {
 	*x = ChargeMessageRequest{}
-	mi := &file_billing_billing_proto_msgTypes[2]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +179,7 @@ func (x *ChargeMessageRequest) String() string {
 func (*ChargeMessageRequest) ProtoMessage() {}
 
 func (x *ChargeMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[2]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +192,7 @@ func (x *ChargeMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChargeMessageRequest.ProtoReflect.Descriptor instead.
 func (*ChargeMessageRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ChargeMessageRequest) GetClientId() string {
@@ -234,7 +250,7 @@ type ChargeMessageResponse struct {
 
 func (x *ChargeMessageResponse) Reset() {
 	*x = ChargeMessageResponse{}
-	mi := &file_billing_billing_proto_msgTypes[3]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -246,7 +262,7 @@ func (x *ChargeMessageResponse) String() string {
 func (*ChargeMessageResponse) ProtoMessage() {}
 
 func (x *ChargeMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[3]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -259,7 +275,7 @@ func (x *ChargeMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChargeMessageResponse.ProtoReflect.Descriptor instead.
 func (*ChargeMessageResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ChargeMessageResponse) GetTransactionId() string {
@@ -304,7 +320,7 @@ type AddCreditsRequest struct {
 
 func (x *AddCreditsRequest) Reset() {
 	*x = AddCreditsRequest{}
-	mi := &file_billing_billing_proto_msgTypes[4]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -316,7 +332,7 @@ func (x *AddCreditsRequest) String() string {
 func (*AddCreditsRequest) ProtoMessage() {}
 
 func (x *AddCreditsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[4]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -329,7 +345,7 @@ func (x *AddCreditsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddCreditsRequest.ProtoReflect.Descriptor instead.
 func (*AddCreditsRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AddCreditsRequest) GetClientId() string {
@@ -380,7 +396,7 @@ type AddCreditsResponse struct {
 
 func (x *AddCreditsResponse) Reset() {
 	*x = AddCreditsResponse{}
-	mi := &file_billing_billing_proto_msgTypes[5]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +408,7 @@ func (x *AddCreditsResponse) String() string {
 func (*AddCreditsResponse) ProtoMessage() {}
 
 func (x *AddCreditsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[5]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,7 +421,7 @@ func (x *AddCreditsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddCreditsResponse.ProtoReflect.Descriptor instead.
 func (*AddCreditsResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AddCreditsResponse) GetTransactionId() string {
@@ -449,7 +465,7 @@ type DeductCreditsRequest struct {
 
 func (x *DeductCreditsRequest) Reset() {
 	*x = DeductCreditsRequest{}
-	mi := &file_billing_billing_proto_msgTypes[6]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +477,7 @@ func (x *DeductCreditsRequest) String() string {
 func (*DeductCreditsRequest) ProtoMessage() {}
 
 func (x *DeductCreditsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[6]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +490,7 @@ func (x *DeductCreditsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeductCreditsRequest.ProtoReflect.Descriptor instead.
 func (*DeductCreditsRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{6}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeductCreditsRequest) GetClientId() string {
@@ -518,7 +534,7 @@ type DeductCreditsResponse struct {
 
 func (x *DeductCreditsResponse) Reset() {
 	*x = DeductCreditsResponse{}
-	mi := &file_billing_billing_proto_msgTypes[7]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +546,7 @@ func (x *DeductCreditsResponse) String() string {
 func (*DeductCreditsResponse) ProtoMessage() {}
 
 func (x *DeductCreditsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[7]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -543,7 +559,7 @@ func (x *DeductCreditsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeductCreditsResponse.ProtoReflect.Descriptor instead.
 func (*DeductCreditsResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{7}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeductCreditsResponse) GetTransactionId() string {
@@ -589,7 +605,7 @@ type GetTransactionHistoryRequest struct {
 
 func (x *GetTransactionHistoryRequest) Reset() {
 	*x = GetTransactionHistoryRequest{}
-	mi := &file_billing_billing_proto_msgTypes[8]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -601,7 +617,7 @@ func (x *GetTransactionHistoryRequest) String() string {
 func (*GetTransactionHistoryRequest) ProtoMessage() {}
 
 func (x *GetTransactionHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[8]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -614,7 +630,7 @@ func (x *GetTransactionHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetTransactionHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{8}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetTransactionHistoryRequest) GetClientId() string {
@@ -672,7 +688,7 @@ type GetTransactionHistoryResponse struct {
 
 func (x *GetTransactionHistoryResponse) Reset() {
 	*x = GetTransactionHistoryResponse{}
-	mi := &file_billing_billing_proto_msgTypes[9]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -684,7 +700,7 @@ func (x *GetTransactionHistoryResponse) String() string {
 func (*GetTransactionHistoryResponse) ProtoMessage() {}
 
 func (x *GetTransactionHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[9]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -697,7 +713,7 @@ func (x *GetTransactionHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetTransactionHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{9}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetTransactionHistoryResponse) GetTransactions() []*Transaction {
@@ -738,7 +754,7 @@ type GetPricingRulesRequest struct {
 
 func (x *GetPricingRulesRequest) Reset() {
 	*x = GetPricingRulesRequest{}
-	mi := &file_billing_billing_proto_msgTypes[10]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -750,7 +766,7 @@ func (x *GetPricingRulesRequest) String() string {
 func (*GetPricingRulesRequest) ProtoMessage() {}
 
 func (x *GetPricingRulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[10]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,7 +779,7 @@ func (x *GetPricingRulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPricingRulesRequest.ProtoReflect.Descriptor instead.
 func (*GetPricingRulesRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{10}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetPricingRulesRequest) GetClientId() string {
@@ -783,7 +799,7 @@ type GetPricingRulesResponse struct {
 
 func (x *GetPricingRulesResponse) Reset() {
 	*x = GetPricingRulesResponse{}
-	mi := &file_billing_billing_proto_msgTypes[11]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -795,7 +811,7 @@ func (x *GetPricingRulesResponse) String() string {
 func (*GetPricingRulesResponse) ProtoMessage() {}
 
 func (x *GetPricingRulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[11]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -808,7 +824,7 @@ func (x *GetPricingRulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPricingRulesResponse.ProtoReflect.Descriptor instead.
 func (*GetPricingRulesResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{11}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetPricingRulesResponse) GetRules() []*PricingRule {
@@ -833,7 +849,7 @@ type CreatePricingRuleRequest struct {
 
 func (x *CreatePricingRuleRequest) Reset() {
 	*x = CreatePricingRuleRequest{}
-	mi := &file_billing_billing_proto_msgTypes[12]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -845,7 +861,7 @@ func (x *CreatePricingRuleRequest) String() string {
 func (*CreatePricingRuleRequest) ProtoMessage() {}
 
 func (x *CreatePricingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[12]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -858,7 +874,7 @@ func (x *CreatePricingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePricingRuleRequest.ProtoReflect.Descriptor instead.
 func (*CreatePricingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{12}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreatePricingRuleRequest) GetClientId() string {
@@ -914,7 +930,7 @@ type CreatePricingRuleResponse struct {
 
 func (x *CreatePricingRuleResponse) Reset() {
 	*x = CreatePricingRuleResponse{}
-	mi := &file_billing_billing_proto_msgTypes[13]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -926,7 +942,7 @@ func (x *CreatePricingRuleResponse) String() string {
 func (*CreatePricingRuleResponse) ProtoMessage() {}
 
 func (x *CreatePricingRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[13]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -939,7 +955,7 @@ func (x *CreatePricingRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePricingRuleResponse.ProtoReflect.Descriptor instead.
 func (*CreatePricingRuleResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{13}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreatePricingRuleResponse) GetRuleId() string {
@@ -976,7 +992,7 @@ type Transaction struct {
 
 func (x *Transaction) Reset() {
 	*x = Transaction{}
-	mi := &file_billing_billing_proto_msgTypes[14]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -988,7 +1004,7 @@ func (x *Transaction) String() string {
 func (*Transaction) ProtoMessage() {}
 
 func (x *Transaction) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[14]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1001,7 +1017,7 @@ func (x *Transaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Transaction.ProtoReflect.Descriptor instead.
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{14}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Transaction) GetTransactionId() string {
@@ -1099,7 +1115,7 @@ type PricingRule struct {
 
 func (x *PricingRule) Reset() {
 	*x = PricingRule{}
-	mi := &file_billing_billing_proto_msgTypes[15]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1111,7 +1127,7 @@ func (x *PricingRule) String() string {
 func (*PricingRule) ProtoMessage() {}
 
 func (x *PricingRule) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[15]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1124,7 +1140,7 @@ func (x *PricingRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PricingRule.ProtoReflect.Descriptor instead.
 func (*PricingRule) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{15}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PricingRule) GetRuleId() string {
@@ -1203,7 +1219,7 @@ type TransferBalanceRequest struct {
 
 func (x *TransferBalanceRequest) Reset() {
 	*x = TransferBalanceRequest{}
-	mi := &file_billing_billing_proto_msgTypes[16]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1215,7 +1231,7 @@ func (x *TransferBalanceRequest) String() string {
 func (*TransferBalanceRequest) ProtoMessage() {}
 
 func (x *TransferBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[16]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1228,7 +1244,7 @@ func (x *TransferBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferBalanceRequest.ProtoReflect.Descriptor instead.
 func (*TransferBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{16}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TransferBalanceRequest) GetFromClientId() string {
@@ -1271,7 +1287,7 @@ type TransferBalanceResponse struct {
 
 func (x *TransferBalanceResponse) Reset() {
 	*x = TransferBalanceResponse{}
-	mi := &file_billing_billing_proto_msgTypes[17]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1283,7 +1299,7 @@ func (x *TransferBalanceResponse) String() string {
 func (*TransferBalanceResponse) ProtoMessage() {}
 
 func (x *TransferBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_billing_proto_msgTypes[17]
+	mi := &file_api_proto_billing_billing_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1296,7 +1312,7 @@ func (x *TransferBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferBalanceResponse.ProtoReflect.Descriptor instead.
 func (*TransferBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_billing_billing_proto_rawDescGZIP(), []int{17}
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TransferBalanceResponse) GetTransferId() string {
@@ -1320,20 +1336,690 @@ func (x *TransferBalanceResponse) GetToBalance() string {
 	return ""
 }
 
-var File_billing_billing_proto protoreflect.FileDescriptor
+type FreezeAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	AdminId       string                 `protobuf:"bytes,2,opt,name=admin_id,json=adminId,proto3" json:"admin_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_billing_billing_proto_rawDesc = "" +
+func (x *FreezeAccountRequest) Reset() {
+	*x = FreezeAccountRequest{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FreezeAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FreezeAccountRequest) ProtoMessage() {}
+
+func (x *FreezeAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FreezeAccountRequest.ProtoReflect.Descriptor instead.
+func (*FreezeAccountRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *FreezeAccountRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *FreezeAccountRequest) GetAdminId() string {
+	if x != nil {
+		return x.AdminId
+	}
+	return ""
+}
+
+type FreezeAccountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	FrozenAt      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=frozen_at,json=frozenAt,proto3" json:"frozen_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FreezeAccountResponse) Reset() {
+	*x = FreezeAccountResponse{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FreezeAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FreezeAccountResponse) ProtoMessage() {}
+
+func (x *FreezeAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FreezeAccountResponse.ProtoReflect.Descriptor instead.
+func (*FreezeAccountResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *FreezeAccountResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *FreezeAccountResponse) GetFrozenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FrozenAt
+	}
+	return nil
+}
+
+type UnfreezeAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	AdminId       string                 `protobuf:"bytes,2,opt,name=admin_id,json=adminId,proto3" json:"admin_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnfreezeAccountRequest) Reset() {
+	*x = UnfreezeAccountRequest{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnfreezeAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnfreezeAccountRequest) ProtoMessage() {}
+
+func (x *UnfreezeAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnfreezeAccountRequest.ProtoReflect.Descriptor instead.
+func (*UnfreezeAccountRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *UnfreezeAccountRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *UnfreezeAccountRequest) GetAdminId() string {
+	if x != nil {
+		return x.AdminId
+	}
+	return ""
+}
+
+type UnfreezeAccountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnfreezeAccountResponse) Reset() {
+	*x = UnfreezeAccountResponse{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnfreezeAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnfreezeAccountResponse) ProtoMessage() {}
+
+func (x *UnfreezeAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnfreezeAccountResponse.ProtoReflect.Descriptor instead.
+func (*UnfreezeAccountResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *UnfreezeAccountResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type SetCreditLimitRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	CreditLimit   string                 `protobuf:"bytes,2,opt,name=credit_limit,json=creditLimit,proto3" json:"credit_limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetCreditLimitRequest) Reset() {
+	*x = SetCreditLimitRequest{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetCreditLimitRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetCreditLimitRequest) ProtoMessage() {}
+
+func (x *SetCreditLimitRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetCreditLimitRequest.ProtoReflect.Descriptor instead.
+func (*SetCreditLimitRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *SetCreditLimitRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *SetCreditLimitRequest) GetCreditLimit() string {
+	if x != nil {
+		return x.CreditLimit
+	}
+	return ""
+}
+
+type SetCreditLimitResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	CreditLimit   string                 `protobuf:"bytes,2,opt,name=credit_limit,json=creditLimit,proto3" json:"credit_limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetCreditLimitResponse) Reset() {
+	*x = SetCreditLimitResponse{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetCreditLimitResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetCreditLimitResponse) ProtoMessage() {}
+
+func (x *SetCreditLimitResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetCreditLimitResponse.ProtoReflect.Descriptor instead.
+func (*SetCreditLimitResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *SetCreditLimitResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SetCreditLimitResponse) GetCreditLimit() string {
+	if x != nil {
+		return x.CreditLimit
+	}
+	return ""
+}
+
+type SetLowBalanceThresholdRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Threshold     string                 `protobuf:"bytes,2,opt,name=threshold,proto3" json:"threshold,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetLowBalanceThresholdRequest) Reset() {
+	*x = SetLowBalanceThresholdRequest{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetLowBalanceThresholdRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetLowBalanceThresholdRequest) ProtoMessage() {}
+
+func (x *SetLowBalanceThresholdRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetLowBalanceThresholdRequest.ProtoReflect.Descriptor instead.
+func (*SetLowBalanceThresholdRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *SetLowBalanceThresholdRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *SetLowBalanceThresholdRequest) GetThreshold() string {
+	if x != nil {
+		return x.Threshold
+	}
+	return ""
+}
+
+type SetLowBalanceThresholdResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Threshold     string                 `protobuf:"bytes,2,opt,name=threshold,proto3" json:"threshold,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetLowBalanceThresholdResponse) Reset() {
+	*x = SetLowBalanceThresholdResponse{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetLowBalanceThresholdResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetLowBalanceThresholdResponse) ProtoMessage() {}
+
+func (x *SetLowBalanceThresholdResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetLowBalanceThresholdResponse.ProtoReflect.Descriptor instead.
+func (*SetLowBalanceThresholdResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SetLowBalanceThresholdResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SetLowBalanceThresholdResponse) GetThreshold() string {
+	if x != nil {
+		return x.Threshold
+	}
+	return ""
+}
+
+type ListBalancesRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Search         string                 `protobuf:"bytes,1,opt,name=search,proto3" json:"search,omitempty"`
+	Status         string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	BelowThreshold bool                   `protobuf:"varint,3,opt,name=below_threshold,json=belowThreshold,proto3" json:"below_threshold,omitempty"`
+	Limit          int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset         int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListBalancesRequest) Reset() {
+	*x = ListBalancesRequest{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBalancesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBalancesRequest) ProtoMessage() {}
+
+func (x *ListBalancesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBalancesRequest.ProtoReflect.Descriptor instead.
+func (*ListBalancesRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ListBalancesRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListBalancesRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListBalancesRequest) GetBelowThreshold() bool {
+	if x != nil {
+		return x.BelowThreshold
+	}
+	return false
+}
+
+func (x *ListBalancesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListBalancesRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type BalanceInfo struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	ClientId            string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ClientName          string                 `protobuf:"bytes,2,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	Balance             string                 `protobuf:"bytes,3,opt,name=balance,proto3" json:"balance,omitempty"`
+	Currency            string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
+	Frozen              bool                   `protobuf:"varint,5,opt,name=frozen,proto3" json:"frozen,omitempty"`
+	CreditLimit         string                 `protobuf:"bytes,6,opt,name=credit_limit,json=creditLimit,proto3" json:"credit_limit,omitempty"`
+	LowBalanceThreshold string                 `protobuf:"bytes,7,opt,name=low_balance_threshold,json=lowBalanceThreshold,proto3" json:"low_balance_threshold,omitempty"`
+	FrozenAt            *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=frozen_at,json=frozenAt,proto3" json:"frozen_at,omitempty"`
+	FrozenBy            string                 `protobuf:"bytes,9,opt,name=frozen_by,json=frozenBy,proto3" json:"frozen_by,omitempty"`
+	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *BalanceInfo) Reset() {
+	*x = BalanceInfo{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BalanceInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BalanceInfo) ProtoMessage() {}
+
+func (x *BalanceInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BalanceInfo.ProtoReflect.Descriptor instead.
+func (*BalanceInfo) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *BalanceInfo) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetBalance() string {
+	if x != nil {
+		return x.Balance
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetFrozen() bool {
+	if x != nil {
+		return x.Frozen
+	}
+	return false
+}
+
+func (x *BalanceInfo) GetCreditLimit() string {
+	if x != nil {
+		return x.CreditLimit
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetLowBalanceThreshold() string {
+	if x != nil {
+		return x.LowBalanceThreshold
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetFrozenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FrozenAt
+	}
+	return nil
+}
+
+func (x *BalanceInfo) GetFrozenBy() string {
+	if x != nil {
+		return x.FrozenBy
+	}
+	return ""
+}
+
+func (x *BalanceInfo) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ListBalancesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Balances      []*BalanceInfo         `protobuf:"bytes,1,rep,name=balances,proto3" json:"balances,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBalancesResponse) Reset() {
+	*x = ListBalancesResponse{}
+	mi := &file_api_proto_billing_billing_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBalancesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBalancesResponse) ProtoMessage() {}
+
+func (x *ListBalancesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_billing_billing_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBalancesResponse.ProtoReflect.Descriptor instead.
+func (*ListBalancesResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_billing_billing_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ListBalancesResponse) GetBalances() []*BalanceInfo {
+	if x != nil {
+		return x.Balances
+	}
+	return nil
+}
+
+func (x *ListBalancesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListBalancesResponse) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListBalancesResponse) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+var File_api_proto_billing_billing_proto protoreflect.FileDescriptor
+
+const file_api_proto_billing_billing_proto_rawDesc = "" +
 	"\n" +
-	"\x15billing/billing.proto\x12\n" +
+	"\x1fapi/proto/billing/billing.proto\x12\n" +
 	"billing.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"0\n" +
 	"\x11GetBalanceRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\"\xa2\x01\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\"\xdd\x01\n" +
 	"\x12GetBalanceResponse\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x18\n" +
 	"\abalance\x18\x02 \x01(\tR\abalance\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x129\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xcd\x01\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x16\n" +
+	"\x06frozen\x18\x05 \x01(\bR\x06frozen\x12!\n" +
+	"\fcredit_limit\x18\x06 \x01(\tR\vcreditLimit\"\xcd\x01\n" +
 	"\x14ChargeMessageRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1d\n" +
 	"\n" +
@@ -1436,7 +2122,55 @@ const file_billing_billing_proto_rawDesc = "" +
 	"transferId\x12!\n" +
 	"\ffrom_balance\x18\x02 \x01(\tR\vfromBalance\x12\x1d\n" +
 	"\n" +
-	"to_balance\x18\x03 \x01(\tR\ttoBalance2\xde\x05\n" +
+	"to_balance\x18\x03 \x01(\tR\ttoBalance\"N\n" +
+	"\x14FreezeAccountRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x19\n" +
+	"\badmin_id\x18\x02 \x01(\tR\aadminId\"j\n" +
+	"\x15FreezeAccountResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x127\n" +
+	"\tfrozen_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bfrozenAt\"P\n" +
+	"\x16UnfreezeAccountRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x19\n" +
+	"\badmin_id\x18\x02 \x01(\tR\aadminId\"3\n" +
+	"\x17UnfreezeAccountResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"W\n" +
+	"\x15SetCreditLimitRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12!\n" +
+	"\fcredit_limit\x18\x02 \x01(\tR\vcreditLimit\"U\n" +
+	"\x16SetCreditLimitResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12!\n" +
+	"\fcredit_limit\x18\x02 \x01(\tR\vcreditLimit\"Z\n" +
+	"\x1dSetLowBalanceThresholdRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1c\n" +
+	"\tthreshold\x18\x02 \x01(\tR\tthreshold\"X\n" +
+	"\x1eSetLowBalanceThresholdResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1c\n" +
+	"\tthreshold\x18\x02 \x01(\tR\tthreshold\"\x9c\x01\n" +
+	"\x13ListBalancesRequest\x12\x16\n" +
+	"\x06search\x18\x01 \x01(\tR\x06search\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12'\n" +
+	"\x0fbelow_threshold\x18\x03 \x01(\bR\x0ebelowThreshold\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x05 \x01(\x05R\x06offset\"\x81\x03\n" +
+	"\vBalanceInfo\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1f\n" +
+	"\vclient_name\x18\x02 \x01(\tR\n" +
+	"clientName\x12\x18\n" +
+	"\abalance\x18\x03 \x01(\tR\abalance\x12\x1a\n" +
+	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12\x16\n" +
+	"\x06frozen\x18\x05 \x01(\bR\x06frozen\x12!\n" +
+	"\fcredit_limit\x18\x06 \x01(\tR\vcreditLimit\x122\n" +
+	"\x15low_balance_threshold\x18\a \x01(\tR\x13lowBalanceThreshold\x127\n" +
+	"\tfrozen_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\bfrozenAt\x12\x1b\n" +
+	"\tfrozen_by\x18\t \x01(\tR\bfrozenBy\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x8f\x01\n" +
+	"\x14ListBalancesResponse\x123\n" +
+	"\bbalances\x18\x01 \x03(\v2\x17.billing.v1.BalanceInfoR\bbalances\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset2\xad\t\n" +
 	"\x0eBillingService\x12K\n" +
 	"\n" +
 	"GetBalance\x12\x1d.billing.v1.GetBalanceRequest\x1a\x1e.billing.v1.GetBalanceResponse\x12T\n" +
@@ -1447,95 +2181,125 @@ const file_billing_billing_proto_rawDesc = "" +
 	"\x15GetTransactionHistory\x12(.billing.v1.GetTransactionHistoryRequest\x1a).billing.v1.GetTransactionHistoryResponse\x12Z\n" +
 	"\x0fGetPricingRules\x12\".billing.v1.GetPricingRulesRequest\x1a#.billing.v1.GetPricingRulesResponse\x12`\n" +
 	"\x11CreatePricingRule\x12$.billing.v1.CreatePricingRuleRequest\x1a%.billing.v1.CreatePricingRuleResponse\x12Z\n" +
-	"\x0fTransferBalance\x12\".billing.v1.TransferBalanceRequest\x1a#.billing.v1.TransferBalanceResponseB8Z6github.com/smpp-server/smpp-server/api/proto/billingv1b\x06proto3"
+	"\x0fTransferBalance\x12\".billing.v1.TransferBalanceRequest\x1a#.billing.v1.TransferBalanceResponse\x12T\n" +
+	"\rFreezeAccount\x12 .billing.v1.FreezeAccountRequest\x1a!.billing.v1.FreezeAccountResponse\x12Z\n" +
+	"\x0fUnfreezeAccount\x12\".billing.v1.UnfreezeAccountRequest\x1a#.billing.v1.UnfreezeAccountResponse\x12W\n" +
+	"\x0eSetCreditLimit\x12!.billing.v1.SetCreditLimitRequest\x1a\".billing.v1.SetCreditLimitResponse\x12o\n" +
+	"\x16SetLowBalanceThreshold\x12).billing.v1.SetLowBalanceThresholdRequest\x1a*.billing.v1.SetLowBalanceThresholdResponse\x12Q\n" +
+	"\fListBalances\x12\x1f.billing.v1.ListBalancesRequest\x1a .billing.v1.ListBalancesResponseB8Z6github.com/smpp-server/smpp-server/api/proto/billingv1b\x06proto3"
 
 var (
-	file_billing_billing_proto_rawDescOnce sync.Once
-	file_billing_billing_proto_rawDescData []byte
+	file_api_proto_billing_billing_proto_rawDescOnce sync.Once
+	file_api_proto_billing_billing_proto_rawDescData []byte
 )
 
-func file_billing_billing_proto_rawDescGZIP() []byte {
-	file_billing_billing_proto_rawDescOnce.Do(func() {
-		file_billing_billing_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_billing_billing_proto_rawDesc), len(file_billing_billing_proto_rawDesc)))
+func file_api_proto_billing_billing_proto_rawDescGZIP() []byte {
+	file_api_proto_billing_billing_proto_rawDescOnce.Do(func() {
+		file_api_proto_billing_billing_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_proto_billing_billing_proto_rawDesc), len(file_api_proto_billing_billing_proto_rawDesc)))
 	})
-	return file_billing_billing_proto_rawDescData
+	return file_api_proto_billing_billing_proto_rawDescData
 }
 
-var file_billing_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
-var file_billing_billing_proto_goTypes = []any{
-	(*GetBalanceRequest)(nil),             // 0: billing.v1.GetBalanceRequest
-	(*GetBalanceResponse)(nil),            // 1: billing.v1.GetBalanceResponse
-	(*ChargeMessageRequest)(nil),          // 2: billing.v1.ChargeMessageRequest
-	(*ChargeMessageResponse)(nil),         // 3: billing.v1.ChargeMessageResponse
-	(*AddCreditsRequest)(nil),             // 4: billing.v1.AddCreditsRequest
-	(*AddCreditsResponse)(nil),            // 5: billing.v1.AddCreditsResponse
-	(*DeductCreditsRequest)(nil),          // 6: billing.v1.DeductCreditsRequest
-	(*DeductCreditsResponse)(nil),         // 7: billing.v1.DeductCreditsResponse
-	(*GetTransactionHistoryRequest)(nil),  // 8: billing.v1.GetTransactionHistoryRequest
-	(*GetTransactionHistoryResponse)(nil), // 9: billing.v1.GetTransactionHistoryResponse
-	(*GetPricingRulesRequest)(nil),        // 10: billing.v1.GetPricingRulesRequest
-	(*GetPricingRulesResponse)(nil),       // 11: billing.v1.GetPricingRulesResponse
-	(*CreatePricingRuleRequest)(nil),      // 12: billing.v1.CreatePricingRuleRequest
-	(*CreatePricingRuleResponse)(nil),     // 13: billing.v1.CreatePricingRuleResponse
-	(*Transaction)(nil),                   // 14: billing.v1.Transaction
-	(*PricingRule)(nil),                   // 15: billing.v1.PricingRule
-	(*TransferBalanceRequest)(nil),        // 16: billing.v1.TransferBalanceRequest
-	(*TransferBalanceResponse)(nil),       // 17: billing.v1.TransferBalanceResponse
-	(*timestamppb.Timestamp)(nil),         // 18: google.protobuf.Timestamp
+var file_api_proto_billing_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_api_proto_billing_billing_proto_goTypes = []any{
+	(*GetBalanceRequest)(nil),              // 0: billing.v1.GetBalanceRequest
+	(*GetBalanceResponse)(nil),             // 1: billing.v1.GetBalanceResponse
+	(*ChargeMessageRequest)(nil),           // 2: billing.v1.ChargeMessageRequest
+	(*ChargeMessageResponse)(nil),          // 3: billing.v1.ChargeMessageResponse
+	(*AddCreditsRequest)(nil),              // 4: billing.v1.AddCreditsRequest
+	(*AddCreditsResponse)(nil),             // 5: billing.v1.AddCreditsResponse
+	(*DeductCreditsRequest)(nil),           // 6: billing.v1.DeductCreditsRequest
+	(*DeductCreditsResponse)(nil),          // 7: billing.v1.DeductCreditsResponse
+	(*GetTransactionHistoryRequest)(nil),   // 8: billing.v1.GetTransactionHistoryRequest
+	(*GetTransactionHistoryResponse)(nil),  // 9: billing.v1.GetTransactionHistoryResponse
+	(*GetPricingRulesRequest)(nil),         // 10: billing.v1.GetPricingRulesRequest
+	(*GetPricingRulesResponse)(nil),        // 11: billing.v1.GetPricingRulesResponse
+	(*CreatePricingRuleRequest)(nil),       // 12: billing.v1.CreatePricingRuleRequest
+	(*CreatePricingRuleResponse)(nil),      // 13: billing.v1.CreatePricingRuleResponse
+	(*Transaction)(nil),                    // 14: billing.v1.Transaction
+	(*PricingRule)(nil),                    // 15: billing.v1.PricingRule
+	(*TransferBalanceRequest)(nil),         // 16: billing.v1.TransferBalanceRequest
+	(*TransferBalanceResponse)(nil),        // 17: billing.v1.TransferBalanceResponse
+	(*FreezeAccountRequest)(nil),           // 18: billing.v1.FreezeAccountRequest
+	(*FreezeAccountResponse)(nil),          // 19: billing.v1.FreezeAccountResponse
+	(*UnfreezeAccountRequest)(nil),         // 20: billing.v1.UnfreezeAccountRequest
+	(*UnfreezeAccountResponse)(nil),        // 21: billing.v1.UnfreezeAccountResponse
+	(*SetCreditLimitRequest)(nil),          // 22: billing.v1.SetCreditLimitRequest
+	(*SetCreditLimitResponse)(nil),         // 23: billing.v1.SetCreditLimitResponse
+	(*SetLowBalanceThresholdRequest)(nil),  // 24: billing.v1.SetLowBalanceThresholdRequest
+	(*SetLowBalanceThresholdResponse)(nil), // 25: billing.v1.SetLowBalanceThresholdResponse
+	(*ListBalancesRequest)(nil),            // 26: billing.v1.ListBalancesRequest
+	(*BalanceInfo)(nil),                    // 27: billing.v1.BalanceInfo
+	(*ListBalancesResponse)(nil),           // 28: billing.v1.ListBalancesResponse
+	(*timestamppb.Timestamp)(nil),          // 29: google.protobuf.Timestamp
 }
-var file_billing_billing_proto_depIdxs = []int32{
-	18, // 0: billing.v1.GetBalanceResponse.updated_at:type_name -> google.protobuf.Timestamp
-	18, // 1: billing.v1.GetTransactionHistoryRequest.from:type_name -> google.protobuf.Timestamp
-	18, // 2: billing.v1.GetTransactionHistoryRequest.to:type_name -> google.protobuf.Timestamp
+var file_api_proto_billing_billing_proto_depIdxs = []int32{
+	29, // 0: billing.v1.GetBalanceResponse.updated_at:type_name -> google.protobuf.Timestamp
+	29, // 1: billing.v1.GetTransactionHistoryRequest.from:type_name -> google.protobuf.Timestamp
+	29, // 2: billing.v1.GetTransactionHistoryRequest.to:type_name -> google.protobuf.Timestamp
 	14, // 3: billing.v1.GetTransactionHistoryResponse.transactions:type_name -> billing.v1.Transaction
 	15, // 4: billing.v1.GetPricingRulesResponse.rules:type_name -> billing.v1.PricingRule
-	18, // 5: billing.v1.CreatePricingRuleResponse.created_at:type_name -> google.protobuf.Timestamp
-	18, // 6: billing.v1.Transaction.created_at:type_name -> google.protobuf.Timestamp
-	18, // 7: billing.v1.PricingRule.created_at:type_name -> google.protobuf.Timestamp
-	18, // 8: billing.v1.PricingRule.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 9: billing.v1.BillingService.GetBalance:input_type -> billing.v1.GetBalanceRequest
-	2,  // 10: billing.v1.BillingService.ChargeMessage:input_type -> billing.v1.ChargeMessageRequest
-	4,  // 11: billing.v1.BillingService.AddCredits:input_type -> billing.v1.AddCreditsRequest
-	6,  // 12: billing.v1.BillingService.DeductCredits:input_type -> billing.v1.DeductCreditsRequest
-	8,  // 13: billing.v1.BillingService.GetTransactionHistory:input_type -> billing.v1.GetTransactionHistoryRequest
-	10, // 14: billing.v1.BillingService.GetPricingRules:input_type -> billing.v1.GetPricingRulesRequest
-	12, // 15: billing.v1.BillingService.CreatePricingRule:input_type -> billing.v1.CreatePricingRuleRequest
-	16, // 16: billing.v1.BillingService.TransferBalance:input_type -> billing.v1.TransferBalanceRequest
-	1,  // 17: billing.v1.BillingService.GetBalance:output_type -> billing.v1.GetBalanceResponse
-	3,  // 18: billing.v1.BillingService.ChargeMessage:output_type -> billing.v1.ChargeMessageResponse
-	5,  // 19: billing.v1.BillingService.AddCredits:output_type -> billing.v1.AddCreditsResponse
-	7,  // 20: billing.v1.BillingService.DeductCredits:output_type -> billing.v1.DeductCreditsResponse
-	9,  // 21: billing.v1.BillingService.GetTransactionHistory:output_type -> billing.v1.GetTransactionHistoryResponse
-	11, // 22: billing.v1.BillingService.GetPricingRules:output_type -> billing.v1.GetPricingRulesResponse
-	13, // 23: billing.v1.BillingService.CreatePricingRule:output_type -> billing.v1.CreatePricingRuleResponse
-	17, // 24: billing.v1.BillingService.TransferBalance:output_type -> billing.v1.TransferBalanceResponse
-	17, // [17:25] is the sub-list for method output_type
-	9,  // [9:17] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	29, // 5: billing.v1.CreatePricingRuleResponse.created_at:type_name -> google.protobuf.Timestamp
+	29, // 6: billing.v1.Transaction.created_at:type_name -> google.protobuf.Timestamp
+	29, // 7: billing.v1.PricingRule.created_at:type_name -> google.protobuf.Timestamp
+	29, // 8: billing.v1.PricingRule.updated_at:type_name -> google.protobuf.Timestamp
+	29, // 9: billing.v1.FreezeAccountResponse.frozen_at:type_name -> google.protobuf.Timestamp
+	29, // 10: billing.v1.BalanceInfo.frozen_at:type_name -> google.protobuf.Timestamp
+	29, // 11: billing.v1.BalanceInfo.updated_at:type_name -> google.protobuf.Timestamp
+	27, // 12: billing.v1.ListBalancesResponse.balances:type_name -> billing.v1.BalanceInfo
+	0,  // 13: billing.v1.BillingService.GetBalance:input_type -> billing.v1.GetBalanceRequest
+	2,  // 14: billing.v1.BillingService.ChargeMessage:input_type -> billing.v1.ChargeMessageRequest
+	4,  // 15: billing.v1.BillingService.AddCredits:input_type -> billing.v1.AddCreditsRequest
+	6,  // 16: billing.v1.BillingService.DeductCredits:input_type -> billing.v1.DeductCreditsRequest
+	8,  // 17: billing.v1.BillingService.GetTransactionHistory:input_type -> billing.v1.GetTransactionHistoryRequest
+	10, // 18: billing.v1.BillingService.GetPricingRules:input_type -> billing.v1.GetPricingRulesRequest
+	12, // 19: billing.v1.BillingService.CreatePricingRule:input_type -> billing.v1.CreatePricingRuleRequest
+	16, // 20: billing.v1.BillingService.TransferBalance:input_type -> billing.v1.TransferBalanceRequest
+	18, // 21: billing.v1.BillingService.FreezeAccount:input_type -> billing.v1.FreezeAccountRequest
+	20, // 22: billing.v1.BillingService.UnfreezeAccount:input_type -> billing.v1.UnfreezeAccountRequest
+	22, // 23: billing.v1.BillingService.SetCreditLimit:input_type -> billing.v1.SetCreditLimitRequest
+	24, // 24: billing.v1.BillingService.SetLowBalanceThreshold:input_type -> billing.v1.SetLowBalanceThresholdRequest
+	26, // 25: billing.v1.BillingService.ListBalances:input_type -> billing.v1.ListBalancesRequest
+	1,  // 26: billing.v1.BillingService.GetBalance:output_type -> billing.v1.GetBalanceResponse
+	3,  // 27: billing.v1.BillingService.ChargeMessage:output_type -> billing.v1.ChargeMessageResponse
+	5,  // 28: billing.v1.BillingService.AddCredits:output_type -> billing.v1.AddCreditsResponse
+	7,  // 29: billing.v1.BillingService.DeductCredits:output_type -> billing.v1.DeductCreditsResponse
+	9,  // 30: billing.v1.BillingService.GetTransactionHistory:output_type -> billing.v1.GetTransactionHistoryResponse
+	11, // 31: billing.v1.BillingService.GetPricingRules:output_type -> billing.v1.GetPricingRulesResponse
+	13, // 32: billing.v1.BillingService.CreatePricingRule:output_type -> billing.v1.CreatePricingRuleResponse
+	17, // 33: billing.v1.BillingService.TransferBalance:output_type -> billing.v1.TransferBalanceResponse
+	19, // 34: billing.v1.BillingService.FreezeAccount:output_type -> billing.v1.FreezeAccountResponse
+	21, // 35: billing.v1.BillingService.UnfreezeAccount:output_type -> billing.v1.UnfreezeAccountResponse
+	23, // 36: billing.v1.BillingService.SetCreditLimit:output_type -> billing.v1.SetCreditLimitResponse
+	25, // 37: billing.v1.BillingService.SetLowBalanceThreshold:output_type -> billing.v1.SetLowBalanceThresholdResponse
+	28, // 38: billing.v1.BillingService.ListBalances:output_type -> billing.v1.ListBalancesResponse
+	26, // [26:39] is the sub-list for method output_type
+	13, // [13:26] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_billing_billing_proto_init() }
-func file_billing_billing_proto_init() {
-	if File_billing_billing_proto != nil {
+func init() { file_api_proto_billing_billing_proto_init() }
+func file_api_proto_billing_billing_proto_init() {
+	if File_api_proto_billing_billing_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_billing_billing_proto_rawDesc), len(file_billing_billing_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_billing_billing_proto_rawDesc), len(file_api_proto_billing_billing_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_billing_billing_proto_goTypes,
-		DependencyIndexes: file_billing_billing_proto_depIdxs,
-		MessageInfos:      file_billing_billing_proto_msgTypes,
+		GoTypes:           file_api_proto_billing_billing_proto_goTypes,
+		DependencyIndexes: file_api_proto_billing_billing_proto_depIdxs,
+		MessageInfos:      file_api_proto_billing_billing_proto_msgTypes,
 	}.Build()
-	File_billing_billing_proto = out.File
-	file_billing_billing_proto_goTypes = nil
-	file_billing_billing_proto_depIdxs = nil
+	File_api_proto_billing_billing_proto = out.File
+	file_api_proto_billing_billing_proto_goTypes = nil
+	file_api_proto_billing_billing_proto_depIdxs = nil
 }
