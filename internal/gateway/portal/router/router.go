@@ -209,6 +209,8 @@ func SetupRouter(
 
 	// Campaigns
 	campaigns := protected.PathPrefix("/campaigns").Subrouter()
+	// Template preview (must be before /{id} routes)
+	campaigns.HandleFunc("/templates/preview", campaignHandlers.PreviewTemplate).Methods("POST")
 	campaigns.HandleFunc("", campaignHandlers.CreateCampaign).Methods("POST")
 	campaigns.HandleFunc("", campaignHandlers.ListCampaigns).Methods("GET")
 	campaigns.HandleFunc("/{id}", campaignHandlers.GetCampaign).Methods("GET")

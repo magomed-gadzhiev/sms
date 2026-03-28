@@ -390,6 +390,35 @@ func (h *CampaignHandlers) RetryFailed(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, resp)
 }
 
+// PreviewTemplate обрабатывает POST /campaigns/templates/preview
+func (h *CampaignHandlers) PreviewTemplate(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+
+	var req campaignv1.PreviewTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	req.ClientId = clientID.String()
+
+	if req.TemplateText == "" {
+		respondError(w, shared.ErrInvalidInput("template_text обязателен"))
+		return
+	}
+
+	resp, err := h.campaignClient.PreviewTemplate(r.Context(), &req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, resp)
+}
+
 // GetCampaignStats обрабатывает GET /campaigns/{id}/stats
 func (h *CampaignHandlers) GetCampaignStats(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())

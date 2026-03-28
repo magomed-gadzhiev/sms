@@ -105,17 +105,18 @@ type RetryConfig struct {
 
 // Recipient represents a campaign recipient
 type Recipient struct {
-	ID          uuid.UUID
-	CampaignID  uuid.UUID
-	ContactID   uuid.UUID
-	Phone       string
-	VariantID   *uuid.UUID
-	Status      string
-	MessageID   *uuid.UUID
-	RetryCount  int32
-	LastRetryAt *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           uuid.UUID
+	CampaignID   uuid.UUID
+	ContactID    uuid.UUID
+	Phone        string
+	VariantID    *uuid.UUID
+	Status       string
+	MessageID    *uuid.UUID
+	RenderedText *string
+	RetryCount   int32
+	LastRetryAt  *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // RetryLogEntry represents an entry in the campaign retry log

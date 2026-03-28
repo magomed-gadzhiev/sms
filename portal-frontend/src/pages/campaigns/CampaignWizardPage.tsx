@@ -5,6 +5,7 @@ import { contactListsApi, type ContactList } from '../../api/contacts';
 import { ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
+import { TemplatePreview } from '../../components/campaigns/TemplatePreview';
 
 type WizardStep = 'basics' | 'message' | 'schedule' | 'retry' | 'confirm';
 
@@ -259,6 +260,12 @@ export function CampaignWizardPage() {
                   ` (${Math.ceil(messageText.length / 153)} SMS)`}
               </p>
             </div>
+            {messageText && (
+              <TemplatePreview
+                templateText={messageText}
+                contactListId={contactListId}
+              />
+            )}
           </div>
         )}
 

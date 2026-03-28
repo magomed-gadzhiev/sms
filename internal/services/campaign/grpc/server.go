@@ -452,6 +452,39 @@ func (s *Server) ExportReport(ctx context.Context, req *campaignv1.ExportReportR
 	}, nil
 }
 
+// --- Template Preview ---
+
+func (s *Server) PreviewTemplate(ctx context.Context, req *campaignv1.PreviewTemplateRequest) (*campaignv1.PreviewTemplateResponse, error) {
+	testData := make([]map[string]interface{}, 0, len(req.GetTestData()))
+	for _, td := range req.GetTestData() {
+		bindings := make(map[string]interface{}, len(td.GetBindings()))
+		for k, v := range td.GetBindings() {
+			bindings[k] = v
+		}
+		testData = append(testData, bindings)
+	}
+
+	results, err := s.service.PreviewTemplate(ctx, application.TemplatePreviewInput{
+		TemplateText: req.GetTemplateText(),
+		TestData:     testData,
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err.Error())
+	}
+
+	resp := &campaignv1.PreviewTemplateResponse{}
+	for _, r := range results {
+		resp.Results = append(resp.Results, &campaignv1.TemplatePreviewResult{
+			Rendered: r.Rendered,
+			Length:   int32(r.Length),
+			Segments: int32(r.Segments),
+			Warnings: r.Warnings,
+			Error:    r.Error,
+		})
+	}
+	return resp, nil
+}
+
 // --- Error mapping ---
 
 func (s *Server) mapError(err error) error {

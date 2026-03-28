@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/campaign/domain"
 	"github.com/smpp-server/smpp-server/internal/services/campaign/infrastructure/repository"
+	smstpl "github.com/smpp-server/smpp-server/internal/shared/template"
 )
 
 // CampaignService implements the business logic for the campaign management domain.
@@ -535,4 +536,55 @@ func (s *CampaignService) ExportReport(ctx context.Context, campaignID, clientID
 
 	filename := fmt.Sprintf("campaign_%s_report.json", c.ID.String()[:8])
 	return data, filename, "application/json", nil
+}
+
+// --- Template Preview ---
+
+// TemplatePreviewInput holds input for template preview.
+type TemplatePreviewInput struct {
+	TemplateText string
+	TestData     []map[string]interface{}
+}
+
+// TemplatePreviewResult holds a single preview result.
+type TemplatePreviewResult struct {
+	Rendered string
+	Length   int
+	Segments int
+	Warnings []string
+	Error    string
+}
+
+// PreviewTemplate renders a template against multiple test data sets.
+func (s *CampaignService) PreviewTemplate(ctx context.Context, input TemplatePreviewInput) ([]TemplatePreviewResult, error) {
+	renderer := smstpl.NewRenderer()
+	validator := smstpl.NewValidator()
+
+	// Validate syntax first
+	vr := validator.Validate(input.TemplateText)
+	if !vr.Valid {
+		return nil, fmt.Errorf("invalid template: %s", vr.Errors[0])
+	}
+
+	results := make([]TemplatePreviewResult, 0, len(input.TestData))
+	for _, bindings := range input.TestData {
+		result := TemplatePreviewResult{}
+		rendered, err := renderer.Render(input.TemplateText, bindings)
+		if err != nil {
+			result.Error = err.Error()
+		} else {
+			result.Rendered = rendered
+			result.Length = len([]rune(rendered))
+			result.Segments = (result.Length + 159) / 160
+			if result.Segments < 1 {
+				result.Segments = 1
+			}
+			if result.Segments > 1 {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("Сообщение %d симв. (%d SMS-сегментов)", result.Length, result.Segments))
+			}
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
 }
