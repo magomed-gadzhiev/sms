@@ -1207,6 +1207,31 @@ services:
       retries: 5
       start_period: 60s
 
+  # Link Service (URL shortening, click tracking, custom domains)
+  link-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/link-service.Dockerfile
+    container_name: link-service
+    ports:
+      - "9102:9102"
+      - "8085:8085"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LINK_GRPC_PORT=9102
+    networks:
+      - smpp-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
   # Development container for running Go commands
   dev:
     build:
