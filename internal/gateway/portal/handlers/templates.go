@@ -248,6 +248,28 @@ func (h *TemplateHandlers) GetTemplateAuditLog(w http.ResponseWriter, r *http.Re
 	respondJSON(w, http.StatusOK, map[string]interface{}{"entries": entries, "total": resp.Total})
 }
 
+func (h *TemplateHandlers) SubmitForReview(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		respondError(w, shared.ErrInvalidInput("ID шаблона обязателен"))
+		return
+	}
+	resp, err := h.templateClient.SubmitForReview(r.Context(), &templatev1.SubmitForReviewRequest{
+		TemplateId: id,
+		ClientId:   clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, templateToJSON(resp.Template))
+}
+
 func templateToJSON(t *templatev1.TemplateInfo) map[string]interface{} {
 	if t == nil {
 		return nil

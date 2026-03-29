@@ -218,6 +218,18 @@ export interface AuditEntry {
   created_at: string;
 }
 
+export interface TemplateAuditEntry {
+  id: string;
+  template_id: string;
+  action: string;
+  old_body?: string;
+  new_body?: string;
+  actor_id?: string;
+  actor_type?: string;
+  reason?: string;
+  created_at: string;
+}
+
 export interface RealTimeMetrics {
   messages_per_second: number;
   messages_delivered: number;
@@ -323,7 +335,7 @@ export const templatesApi = {
   reject: (id: string, data?: { reason?: string }) =>
     adminFetch<void>(`/templates/${id}/reject`, { method: 'POST', body: JSON.stringify(data || {}) }),
   audit: (id: string) =>
-    adminFetch<{ entries: AuditEntry[] }>(`/templates/${id}/audit`),
+    adminFetch<{ entries: TemplateAuditEntry[] }>(`/templates/${id}/audit`),
   assign: (id: string) =>
     adminFetch<void>(`/templates/${id}/assign`, { method: 'POST' }),
   requestRevision: (id: string, data: { comment: string }) =>

@@ -4,7 +4,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: api/proto/template/template.proto
+// source: template.proto
 
 package templatev1
 
@@ -35,7 +35,7 @@ type CreateTemplateRequest struct {
 
 func (x *CreateTemplateRequest) Reset() {
 	*x = CreateTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[0]
+	mi := &file_template_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *CreateTemplateRequest) String() string {
 func (*CreateTemplateRequest) ProtoMessage() {}
 
 func (x *CreateTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[0]
+	mi := &file_template_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *CreateTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTemplateRequest.ProtoReflect.Descriptor instead.
 func (*CreateTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{0}
+	return file_template_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateTemplateRequest) GetClientId() string {
@@ -93,7 +93,7 @@ type CreateTemplateResponse struct {
 
 func (x *CreateTemplateResponse) Reset() {
 	*x = CreateTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[1]
+	mi := &file_template_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -105,7 +105,7 @@ func (x *CreateTemplateResponse) String() string {
 func (*CreateTemplateResponse) ProtoMessage() {}
 
 func (x *CreateTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[1]
+	mi := &file_template_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -118,7 +118,7 @@ func (x *CreateTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTemplateResponse.ProtoReflect.Descriptor instead.
 func (*CreateTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{1}
+	return file_template_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateTemplateResponse) GetTemplate() *TemplateInfo {
@@ -140,7 +140,7 @@ type UpdateTemplateRequest struct {
 
 func (x *UpdateTemplateRequest) Reset() {
 	*x = UpdateTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[2]
+	mi := &file_template_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -152,7 +152,7 @@ func (x *UpdateTemplateRequest) String() string {
 func (*UpdateTemplateRequest) ProtoMessage() {}
 
 func (x *UpdateTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[2]
+	mi := &file_template_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -165,7 +165,7 @@ func (x *UpdateTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTemplateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{2}
+	return file_template_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *UpdateTemplateRequest) GetId() string {
@@ -205,7 +205,7 @@ type UpdateTemplateResponse struct {
 
 func (x *UpdateTemplateResponse) Reset() {
 	*x = UpdateTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[3]
+	mi := &file_template_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -217,7 +217,7 @@ func (x *UpdateTemplateResponse) String() string {
 func (*UpdateTemplateResponse) ProtoMessage() {}
 
 func (x *UpdateTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[3]
+	mi := &file_template_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -230,7 +230,7 @@ func (x *UpdateTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTemplateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{3}
+	return file_template_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *UpdateTemplateResponse) GetTemplate() *TemplateInfo {
@@ -250,7 +250,7 @@ type DeleteTemplateRequest struct {
 
 func (x *DeleteTemplateRequest) Reset() {
 	*x = DeleteTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[4]
+	mi := &file_template_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +262,7 @@ func (x *DeleteTemplateRequest) String() string {
 func (*DeleteTemplateRequest) ProtoMessage() {}
 
 func (x *DeleteTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[4]
+	mi := &file_template_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +275,7 @@ func (x *DeleteTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTemplateRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{4}
+	return file_template_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeleteTemplateRequest) GetId() string {
@@ -301,7 +301,7 @@ type DeleteTemplateResponse struct {
 
 func (x *DeleteTemplateResponse) Reset() {
 	*x = DeleteTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[5]
+	mi := &file_template_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -313,7 +313,7 @@ func (x *DeleteTemplateResponse) String() string {
 func (*DeleteTemplateResponse) ProtoMessage() {}
 
 func (x *DeleteTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[5]
+	mi := &file_template_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -326,7 +326,7 @@ func (x *DeleteTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTemplateResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{5}
+	return file_template_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeleteTemplateResponse) GetSuccess() bool {
@@ -346,7 +346,7 @@ type GetTemplateRequest struct {
 
 func (x *GetTemplateRequest) Reset() {
 	*x = GetTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[6]
+	mi := &file_template_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -358,7 +358,7 @@ func (x *GetTemplateRequest) String() string {
 func (*GetTemplateRequest) ProtoMessage() {}
 
 func (x *GetTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[6]
+	mi := &file_template_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -371,7 +371,7 @@ func (x *GetTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateRequest.ProtoReflect.Descriptor instead.
 func (*GetTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{6}
+	return file_template_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetTemplateRequest) GetId() string {
@@ -397,7 +397,7 @@ type GetTemplateResponse struct {
 
 func (x *GetTemplateResponse) Reset() {
 	*x = GetTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[7]
+	mi := &file_template_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -409,7 +409,7 @@ func (x *GetTemplateResponse) String() string {
 func (*GetTemplateResponse) ProtoMessage() {}
 
 func (x *GetTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[7]
+	mi := &file_template_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -422,7 +422,7 @@ func (x *GetTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateResponse.ProtoReflect.Descriptor instead.
 func (*GetTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{7}
+	return file_template_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetTemplateResponse) GetTemplate() *TemplateInfo {
@@ -444,7 +444,7 @@ type ListTemplatesRequest struct {
 
 func (x *ListTemplatesRequest) Reset() {
 	*x = ListTemplatesRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[8]
+	mi := &file_template_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -456,7 +456,7 @@ func (x *ListTemplatesRequest) String() string {
 func (*ListTemplatesRequest) ProtoMessage() {}
 
 func (x *ListTemplatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[8]
+	mi := &file_template_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -469,7 +469,7 @@ func (x *ListTemplatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTemplatesRequest.ProtoReflect.Descriptor instead.
 func (*ListTemplatesRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{8}
+	return file_template_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListTemplatesRequest) GetClientId() string {
@@ -512,7 +512,7 @@ type ListTemplatesResponse struct {
 
 func (x *ListTemplatesResponse) Reset() {
 	*x = ListTemplatesResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[9]
+	mi := &file_template_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -524,7 +524,7 @@ func (x *ListTemplatesResponse) String() string {
 func (*ListTemplatesResponse) ProtoMessage() {}
 
 func (x *ListTemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[9]
+	mi := &file_template_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -537,7 +537,7 @@ func (x *ListTemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTemplatesResponse.ProtoReflect.Descriptor instead.
 func (*ListTemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{9}
+	return file_template_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListTemplatesResponse) GetTemplates() []*TemplateInfo {
@@ -578,7 +578,7 @@ type ApproveTemplateRequest struct {
 
 func (x *ApproveTemplateRequest) Reset() {
 	*x = ApproveTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[10]
+	mi := &file_template_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +590,7 @@ func (x *ApproveTemplateRequest) String() string {
 func (*ApproveTemplateRequest) ProtoMessage() {}
 
 func (x *ApproveTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[10]
+	mi := &file_template_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +603,7 @@ func (x *ApproveTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveTemplateRequest.ProtoReflect.Descriptor instead.
 func (*ApproveTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{10}
+	return file_template_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ApproveTemplateRequest) GetId() string {
@@ -629,7 +629,7 @@ type ApproveTemplateResponse struct {
 
 func (x *ApproveTemplateResponse) Reset() {
 	*x = ApproveTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[11]
+	mi := &file_template_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -641,7 +641,7 @@ func (x *ApproveTemplateResponse) String() string {
 func (*ApproveTemplateResponse) ProtoMessage() {}
 
 func (x *ApproveTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[11]
+	mi := &file_template_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -654,7 +654,7 @@ func (x *ApproveTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveTemplateResponse.ProtoReflect.Descriptor instead.
 func (*ApproveTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{11}
+	return file_template_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ApproveTemplateResponse) GetTemplate() *TemplateInfo {
@@ -675,7 +675,7 @@ type RejectTemplateRequest struct {
 
 func (x *RejectTemplateRequest) Reset() {
 	*x = RejectTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[12]
+	mi := &file_template_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -687,7 +687,7 @@ func (x *RejectTemplateRequest) String() string {
 func (*RejectTemplateRequest) ProtoMessage() {}
 
 func (x *RejectTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[12]
+	mi := &file_template_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -700,7 +700,7 @@ func (x *RejectTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectTemplateRequest.ProtoReflect.Descriptor instead.
 func (*RejectTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{12}
+	return file_template_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RejectTemplateRequest) GetId() string {
@@ -733,7 +733,7 @@ type RejectTemplateResponse struct {
 
 func (x *RejectTemplateResponse) Reset() {
 	*x = RejectTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[13]
+	mi := &file_template_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -745,7 +745,7 @@ func (x *RejectTemplateResponse) String() string {
 func (*RejectTemplateResponse) ProtoMessage() {}
 
 func (x *RejectTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[13]
+	mi := &file_template_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -758,7 +758,7 @@ func (x *RejectTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectTemplateResponse.ProtoReflect.Descriptor instead.
 func (*RejectTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{13}
+	return file_template_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RejectTemplateResponse) GetTemplate() *TemplateInfo {
@@ -779,7 +779,7 @@ type RenderTemplateRequest struct {
 
 func (x *RenderTemplateRequest) Reset() {
 	*x = RenderTemplateRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[14]
+	mi := &file_template_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -791,7 +791,7 @@ func (x *RenderTemplateRequest) String() string {
 func (*RenderTemplateRequest) ProtoMessage() {}
 
 func (x *RenderTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[14]
+	mi := &file_template_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -804,7 +804,7 @@ func (x *RenderTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderTemplateRequest.ProtoReflect.Descriptor instead.
 func (*RenderTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{14}
+	return file_template_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RenderTemplateRequest) GetTemplateId() string {
@@ -838,7 +838,7 @@ type RenderTemplateResponse struct {
 
 func (x *RenderTemplateResponse) Reset() {
 	*x = RenderTemplateResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[15]
+	mi := &file_template_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -850,7 +850,7 @@ func (x *RenderTemplateResponse) String() string {
 func (*RenderTemplateResponse) ProtoMessage() {}
 
 func (x *RenderTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[15]
+	mi := &file_template_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -863,7 +863,7 @@ func (x *RenderTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderTemplateResponse.ProtoReflect.Descriptor instead.
 func (*RenderTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{15}
+	return file_template_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RenderTemplateResponse) GetRenderedText() string {
@@ -891,7 +891,7 @@ type GetTemplateAuditLogRequest struct {
 
 func (x *GetTemplateAuditLogRequest) Reset() {
 	*x = GetTemplateAuditLogRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[16]
+	mi := &file_template_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -903,7 +903,7 @@ func (x *GetTemplateAuditLogRequest) String() string {
 func (*GetTemplateAuditLogRequest) ProtoMessage() {}
 
 func (x *GetTemplateAuditLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[16]
+	mi := &file_template_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -916,7 +916,7 @@ func (x *GetTemplateAuditLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateAuditLogRequest.ProtoReflect.Descriptor instead.
 func (*GetTemplateAuditLogRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{16}
+	return file_template_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetTemplateAuditLogRequest) GetTemplateId() string {
@@ -950,7 +950,7 @@ type GetTemplateAuditLogResponse struct {
 
 func (x *GetTemplateAuditLogResponse) Reset() {
 	*x = GetTemplateAuditLogResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[17]
+	mi := &file_template_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +962,7 @@ func (x *GetTemplateAuditLogResponse) String() string {
 func (*GetTemplateAuditLogResponse) ProtoMessage() {}
 
 func (x *GetTemplateAuditLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[17]
+	mi := &file_template_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +975,7 @@ func (x *GetTemplateAuditLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateAuditLogResponse.ProtoReflect.Descriptor instead.
 func (*GetTemplateAuditLogResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{17}
+	return file_template_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetTemplateAuditLogResponse) GetEntries() []*AuditEntry {
@@ -1012,7 +1012,7 @@ type TemplateInfo struct {
 
 func (x *TemplateInfo) Reset() {
 	*x = TemplateInfo{}
-	mi := &file_api_proto_template_template_proto_msgTypes[18]
+	mi := &file_template_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1024,7 +1024,7 @@ func (x *TemplateInfo) String() string {
 func (*TemplateInfo) ProtoMessage() {}
 
 func (x *TemplateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[18]
+	mi := &file_template_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1037,7 +1037,7 @@ func (x *TemplateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplateInfo.ProtoReflect.Descriptor instead.
 func (*TemplateInfo) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{18}
+	return file_template_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *TemplateInfo) GetId() string {
@@ -1141,7 +1141,7 @@ type AuditEntry struct {
 
 func (x *AuditEntry) Reset() {
 	*x = AuditEntry{}
-	mi := &file_api_proto_template_template_proto_msgTypes[19]
+	mi := &file_template_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1153,7 +1153,7 @@ func (x *AuditEntry) String() string {
 func (*AuditEntry) ProtoMessage() {}
 
 func (x *AuditEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[19]
+	mi := &file_template_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +1166,7 @@ func (x *AuditEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditEntry.ProtoReflect.Descriptor instead.
 func (*AuditEntry) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{19}
+	return file_template_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AuditEntry) GetId() string {
@@ -1242,7 +1242,7 @@ type AssignReviewerRequest struct {
 
 func (x *AssignReviewerRequest) Reset() {
 	*x = AssignReviewerRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[20]
+	mi := &file_template_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1254,7 +1254,7 @@ func (x *AssignReviewerRequest) String() string {
 func (*AssignReviewerRequest) ProtoMessage() {}
 
 func (x *AssignReviewerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[20]
+	mi := &file_template_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1267,7 +1267,7 @@ func (x *AssignReviewerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignReviewerRequest.ProtoReflect.Descriptor instead.
 func (*AssignReviewerRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{20}
+	return file_template_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AssignReviewerRequest) GetTemplateId() string {
@@ -1293,7 +1293,7 @@ type AssignReviewerResponse struct {
 
 func (x *AssignReviewerResponse) Reset() {
 	*x = AssignReviewerResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[21]
+	mi := &file_template_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1305,7 +1305,7 @@ func (x *AssignReviewerResponse) String() string {
 func (*AssignReviewerResponse) ProtoMessage() {}
 
 func (x *AssignReviewerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[21]
+	mi := &file_template_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1318,7 +1318,7 @@ func (x *AssignReviewerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignReviewerResponse.ProtoReflect.Descriptor instead.
 func (*AssignReviewerResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{21}
+	return file_template_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AssignReviewerResponse) GetTemplate() *TemplateInfo {
@@ -1339,7 +1339,7 @@ type RequestRevisionRequest struct {
 
 func (x *RequestRevisionRequest) Reset() {
 	*x = RequestRevisionRequest{}
-	mi := &file_api_proto_template_template_proto_msgTypes[22]
+	mi := &file_template_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1351,7 @@ func (x *RequestRevisionRequest) String() string {
 func (*RequestRevisionRequest) ProtoMessage() {}
 
 func (x *RequestRevisionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[22]
+	mi := &file_template_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1364,7 @@ func (x *RequestRevisionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestRevisionRequest.ProtoReflect.Descriptor instead.
 func (*RequestRevisionRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{22}
+	return file_template_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RequestRevisionRequest) GetTemplateId() string {
@@ -1397,7 +1397,7 @@ type RequestRevisionResponse struct {
 
 func (x *RequestRevisionResponse) Reset() {
 	*x = RequestRevisionResponse{}
-	mi := &file_api_proto_template_template_proto_msgTypes[23]
+	mi := &file_template_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1409,7 +1409,7 @@ func (x *RequestRevisionResponse) String() string {
 func (*RequestRevisionResponse) ProtoMessage() {}
 
 func (x *RequestRevisionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_template_template_proto_msgTypes[23]
+	mi := &file_template_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1422,7 +1422,7 @@ func (x *RequestRevisionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestRevisionResponse.ProtoReflect.Descriptor instead.
 func (*RequestRevisionResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_template_template_proto_rawDescGZIP(), []int{23}
+	return file_template_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RequestRevisionResponse) GetTemplate() *TemplateInfo {
@@ -1432,11 +1432,107 @@ func (x *RequestRevisionResponse) GetTemplate() *TemplateInfo {
 	return nil
 }
 
-var File_api_proto_template_template_proto protoreflect.FileDescriptor
+type SubmitForReviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TemplateId    string                 `protobuf:"bytes,1,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_api_proto_template_template_proto_rawDesc = "" +
+func (x *SubmitForReviewRequest) Reset() {
+	*x = SubmitForReviewRequest{}
+	mi := &file_template_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitForReviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitForReviewRequest) ProtoMessage() {}
+
+func (x *SubmitForReviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_template_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitForReviewRequest.ProtoReflect.Descriptor instead.
+func (*SubmitForReviewRequest) Descriptor() ([]byte, []int) {
+	return file_template_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *SubmitForReviewRequest) GetTemplateId() string {
+	if x != nil {
+		return x.TemplateId
+	}
+	return ""
+}
+
+func (x *SubmitForReviewRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+type SubmitForReviewResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Template      *TemplateInfo          `protobuf:"bytes,1,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitForReviewResponse) Reset() {
+	*x = SubmitForReviewResponse{}
+	mi := &file_template_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitForReviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitForReviewResponse) ProtoMessage() {}
+
+func (x *SubmitForReviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_template_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitForReviewResponse.ProtoReflect.Descriptor instead.
+func (*SubmitForReviewResponse) Descriptor() ([]byte, []int) {
+	return file_template_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SubmitForReviewResponse) GetTemplate() *TemplateInfo {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
+var File_template_proto protoreflect.FileDescriptor
+
+const file_template_proto_rawDesc = "" +
 	"\n" +
-	"!api/proto/template/template.proto\x12\vtemplate.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\\\n" +
+	"\x0etemplate.proto\x12\vtemplate.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\\\n" +
 	"\x15CreateTemplateRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -1548,7 +1644,13 @@ const file_api_proto_template_template_proto_rawDesc = "" +
 	"reviewerId\x12\x18\n" +
 	"\acomment\x18\x03 \x01(\tR\acomment\"P\n" +
 	"\x17RequestRevisionResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate2\x83\b\n" +
+	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"V\n" +
+	"\x16SubmitForReviewRequest\x12\x1f\n" +
+	"\vtemplate_id\x18\x01 \x01(\tR\n" +
+	"templateId\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\"P\n" +
+	"\x17SubmitForReviewResponse\x125\n" +
+	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate2\xe1\b\n" +
 	"\x0fTemplateService\x12Y\n" +
 	"\x0eCreateTemplate\x12\".template.v1.CreateTemplateRequest\x1a#.template.v1.CreateTemplateResponse\x12Y\n" +
 	"\x0eUpdateTemplate\x12\".template.v1.UpdateTemplateRequest\x1a#.template.v1.UpdateTemplateResponse\x12Y\n" +
@@ -1560,22 +1662,23 @@ const file_api_proto_template_template_proto_rawDesc = "" +
 	"\x0eRenderTemplate\x12\".template.v1.RenderTemplateRequest\x1a#.template.v1.RenderTemplateResponse\x12h\n" +
 	"\x13GetTemplateAuditLog\x12'.template.v1.GetTemplateAuditLogRequest\x1a(.template.v1.GetTemplateAuditLogResponse\x12Y\n" +
 	"\x0eAssignReviewer\x12\".template.v1.AssignReviewerRequest\x1a#.template.v1.AssignReviewerResponse\x12\\\n" +
-	"\x0fRequestRevision\x12#.template.v1.RequestRevisionRequest\x1a$.template.v1.RequestRevisionResponseB9Z7github.com/smpp-server/smpp-server/api/proto/templatev1b\x06proto3"
+	"\x0fRequestRevision\x12#.template.v1.RequestRevisionRequest\x1a$.template.v1.RequestRevisionResponse\x12\\\n" +
+	"\x0fSubmitForReview\x12#.template.v1.SubmitForReviewRequest\x1a$.template.v1.SubmitForReviewResponseB9Z7github.com/smpp-server/smpp-server/api/proto/templatev1b\x06proto3"
 
 var (
-	file_api_proto_template_template_proto_rawDescOnce sync.Once
-	file_api_proto_template_template_proto_rawDescData []byte
+	file_template_proto_rawDescOnce sync.Once
+	file_template_proto_rawDescData []byte
 )
 
-func file_api_proto_template_template_proto_rawDescGZIP() []byte {
-	file_api_proto_template_template_proto_rawDescOnce.Do(func() {
-		file_api_proto_template_template_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_proto_template_template_proto_rawDesc), len(file_api_proto_template_template_proto_rawDesc)))
+func file_template_proto_rawDescGZIP() []byte {
+	file_template_proto_rawDescOnce.Do(func() {
+		file_template_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_template_proto_rawDesc), len(file_template_proto_rawDesc)))
 	})
-	return file_api_proto_template_template_proto_rawDescData
+	return file_template_proto_rawDescData
 }
 
-var file_api_proto_template_template_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
-var file_api_proto_template_template_proto_goTypes = []any{
+var file_template_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_template_proto_goTypes = []any{
 	(*CreateTemplateRequest)(nil),       // 0: template.v1.CreateTemplateRequest
 	(*CreateTemplateResponse)(nil),      // 1: template.v1.CreateTemplateResponse
 	(*UpdateTemplateRequest)(nil),       // 2: template.v1.UpdateTemplateRequest
@@ -1600,74 +1703,79 @@ var file_api_proto_template_template_proto_goTypes = []any{
 	(*AssignReviewerResponse)(nil),      // 21: template.v1.AssignReviewerResponse
 	(*RequestRevisionRequest)(nil),      // 22: template.v1.RequestRevisionRequest
 	(*RequestRevisionResponse)(nil),     // 23: template.v1.RequestRevisionResponse
-	nil,                                 // 24: template.v1.RenderTemplateRequest.VariablesEntry
-	(*timestamppb.Timestamp)(nil),       // 25: google.protobuf.Timestamp
+	(*SubmitForReviewRequest)(nil),      // 24: template.v1.SubmitForReviewRequest
+	(*SubmitForReviewResponse)(nil),     // 25: template.v1.SubmitForReviewResponse
+	nil,                                 // 26: template.v1.RenderTemplateRequest.VariablesEntry
+	(*timestamppb.Timestamp)(nil),       // 27: google.protobuf.Timestamp
 }
-var file_api_proto_template_template_proto_depIdxs = []int32{
+var file_template_proto_depIdxs = []int32{
 	18, // 0: template.v1.CreateTemplateResponse.template:type_name -> template.v1.TemplateInfo
 	18, // 1: template.v1.UpdateTemplateResponse.template:type_name -> template.v1.TemplateInfo
 	18, // 2: template.v1.GetTemplateResponse.template:type_name -> template.v1.TemplateInfo
 	18, // 3: template.v1.ListTemplatesResponse.templates:type_name -> template.v1.TemplateInfo
 	18, // 4: template.v1.ApproveTemplateResponse.template:type_name -> template.v1.TemplateInfo
 	18, // 5: template.v1.RejectTemplateResponse.template:type_name -> template.v1.TemplateInfo
-	24, // 6: template.v1.RenderTemplateRequest.variables:type_name -> template.v1.RenderTemplateRequest.VariablesEntry
+	26, // 6: template.v1.RenderTemplateRequest.variables:type_name -> template.v1.RenderTemplateRequest.VariablesEntry
 	19, // 7: template.v1.GetTemplateAuditLogResponse.entries:type_name -> template.v1.AuditEntry
-	25, // 8: template.v1.TemplateInfo.created_at:type_name -> google.protobuf.Timestamp
-	25, // 9: template.v1.TemplateInfo.updated_at:type_name -> google.protobuf.Timestamp
-	25, // 10: template.v1.TemplateInfo.reviewed_at:type_name -> google.protobuf.Timestamp
-	25, // 11: template.v1.AuditEntry.created_at:type_name -> google.protobuf.Timestamp
+	27, // 8: template.v1.TemplateInfo.created_at:type_name -> google.protobuf.Timestamp
+	27, // 9: template.v1.TemplateInfo.updated_at:type_name -> google.protobuf.Timestamp
+	27, // 10: template.v1.TemplateInfo.reviewed_at:type_name -> google.protobuf.Timestamp
+	27, // 11: template.v1.AuditEntry.created_at:type_name -> google.protobuf.Timestamp
 	18, // 12: template.v1.AssignReviewerResponse.template:type_name -> template.v1.TemplateInfo
 	18, // 13: template.v1.RequestRevisionResponse.template:type_name -> template.v1.TemplateInfo
-	0,  // 14: template.v1.TemplateService.CreateTemplate:input_type -> template.v1.CreateTemplateRequest
-	2,  // 15: template.v1.TemplateService.UpdateTemplate:input_type -> template.v1.UpdateTemplateRequest
-	4,  // 16: template.v1.TemplateService.DeleteTemplate:input_type -> template.v1.DeleteTemplateRequest
-	6,  // 17: template.v1.TemplateService.GetTemplate:input_type -> template.v1.GetTemplateRequest
-	8,  // 18: template.v1.TemplateService.ListTemplates:input_type -> template.v1.ListTemplatesRequest
-	10, // 19: template.v1.TemplateService.ApproveTemplate:input_type -> template.v1.ApproveTemplateRequest
-	12, // 20: template.v1.TemplateService.RejectTemplate:input_type -> template.v1.RejectTemplateRequest
-	14, // 21: template.v1.TemplateService.RenderTemplate:input_type -> template.v1.RenderTemplateRequest
-	16, // 22: template.v1.TemplateService.GetTemplateAuditLog:input_type -> template.v1.GetTemplateAuditLogRequest
-	20, // 23: template.v1.TemplateService.AssignReviewer:input_type -> template.v1.AssignReviewerRequest
-	22, // 24: template.v1.TemplateService.RequestRevision:input_type -> template.v1.RequestRevisionRequest
-	1,  // 25: template.v1.TemplateService.CreateTemplate:output_type -> template.v1.CreateTemplateResponse
-	3,  // 26: template.v1.TemplateService.UpdateTemplate:output_type -> template.v1.UpdateTemplateResponse
-	5,  // 27: template.v1.TemplateService.DeleteTemplate:output_type -> template.v1.DeleteTemplateResponse
-	7,  // 28: template.v1.TemplateService.GetTemplate:output_type -> template.v1.GetTemplateResponse
-	9,  // 29: template.v1.TemplateService.ListTemplates:output_type -> template.v1.ListTemplatesResponse
-	11, // 30: template.v1.TemplateService.ApproveTemplate:output_type -> template.v1.ApproveTemplateResponse
-	13, // 31: template.v1.TemplateService.RejectTemplate:output_type -> template.v1.RejectTemplateResponse
-	15, // 32: template.v1.TemplateService.RenderTemplate:output_type -> template.v1.RenderTemplateResponse
-	17, // 33: template.v1.TemplateService.GetTemplateAuditLog:output_type -> template.v1.GetTemplateAuditLogResponse
-	21, // 34: template.v1.TemplateService.AssignReviewer:output_type -> template.v1.AssignReviewerResponse
-	23, // 35: template.v1.TemplateService.RequestRevision:output_type -> template.v1.RequestRevisionResponse
-	25, // [25:36] is the sub-list for method output_type
-	14, // [14:25] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	18, // 14: template.v1.SubmitForReviewResponse.template:type_name -> template.v1.TemplateInfo
+	0,  // 15: template.v1.TemplateService.CreateTemplate:input_type -> template.v1.CreateTemplateRequest
+	2,  // 16: template.v1.TemplateService.UpdateTemplate:input_type -> template.v1.UpdateTemplateRequest
+	4,  // 17: template.v1.TemplateService.DeleteTemplate:input_type -> template.v1.DeleteTemplateRequest
+	6,  // 18: template.v1.TemplateService.GetTemplate:input_type -> template.v1.GetTemplateRequest
+	8,  // 19: template.v1.TemplateService.ListTemplates:input_type -> template.v1.ListTemplatesRequest
+	10, // 20: template.v1.TemplateService.ApproveTemplate:input_type -> template.v1.ApproveTemplateRequest
+	12, // 21: template.v1.TemplateService.RejectTemplate:input_type -> template.v1.RejectTemplateRequest
+	14, // 22: template.v1.TemplateService.RenderTemplate:input_type -> template.v1.RenderTemplateRequest
+	16, // 23: template.v1.TemplateService.GetTemplateAuditLog:input_type -> template.v1.GetTemplateAuditLogRequest
+	20, // 24: template.v1.TemplateService.AssignReviewer:input_type -> template.v1.AssignReviewerRequest
+	22, // 25: template.v1.TemplateService.RequestRevision:input_type -> template.v1.RequestRevisionRequest
+	24, // 26: template.v1.TemplateService.SubmitForReview:input_type -> template.v1.SubmitForReviewRequest
+	1,  // 27: template.v1.TemplateService.CreateTemplate:output_type -> template.v1.CreateTemplateResponse
+	3,  // 28: template.v1.TemplateService.UpdateTemplate:output_type -> template.v1.UpdateTemplateResponse
+	5,  // 29: template.v1.TemplateService.DeleteTemplate:output_type -> template.v1.DeleteTemplateResponse
+	7,  // 30: template.v1.TemplateService.GetTemplate:output_type -> template.v1.GetTemplateResponse
+	9,  // 31: template.v1.TemplateService.ListTemplates:output_type -> template.v1.ListTemplatesResponse
+	11, // 32: template.v1.TemplateService.ApproveTemplate:output_type -> template.v1.ApproveTemplateResponse
+	13, // 33: template.v1.TemplateService.RejectTemplate:output_type -> template.v1.RejectTemplateResponse
+	15, // 34: template.v1.TemplateService.RenderTemplate:output_type -> template.v1.RenderTemplateResponse
+	17, // 35: template.v1.TemplateService.GetTemplateAuditLog:output_type -> template.v1.GetTemplateAuditLogResponse
+	21, // 36: template.v1.TemplateService.AssignReviewer:output_type -> template.v1.AssignReviewerResponse
+	23, // 37: template.v1.TemplateService.RequestRevision:output_type -> template.v1.RequestRevisionResponse
+	25, // 38: template.v1.TemplateService.SubmitForReview:output_type -> template.v1.SubmitForReviewResponse
+	27, // [27:39] is the sub-list for method output_type
+	15, // [15:27] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
-func init() { file_api_proto_template_template_proto_init() }
-func file_api_proto_template_template_proto_init() {
-	if File_api_proto_template_template_proto != nil {
+func init() { file_template_proto_init() }
+func file_template_proto_init() {
+	if File_template_proto != nil {
 		return
 	}
-	file_api_proto_template_template_proto_msgTypes[2].OneofWrappers = []any{}
+	file_template_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_template_template_proto_rawDesc), len(file_api_proto_template_template_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_template_proto_rawDesc), len(file_template_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   25,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_api_proto_template_template_proto_goTypes,
-		DependencyIndexes: file_api_proto_template_template_proto_depIdxs,
-		MessageInfos:      file_api_proto_template_template_proto_msgTypes,
+		GoTypes:           file_template_proto_goTypes,
+		DependencyIndexes: file_template_proto_depIdxs,
+		MessageInfos:      file_template_proto_msgTypes,
 	}.Build()
-	File_api_proto_template_template_proto = out.File
-	file_api_proto_template_template_proto_goTypes = nil
-	file_api_proto_template_template_proto_depIdxs = nil
+	File_template_proto = out.File
+	file_template_proto_goTypes = nil
+	file_template_proto_depIdxs = nil
 }

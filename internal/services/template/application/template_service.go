@@ -67,6 +67,10 @@ func (s *TemplateService) GetTemplate(ctx context.Context, id, clientID uuid.UUI
 	return s.templateRepo.GetByID(ctx, id, clientID)
 }
 
+func (s *TemplateService) GetTemplateAdmin(ctx context.Context, id uuid.UUID) (*domain.Template, error) {
+	return s.templateRepo.GetByIDAdmin(ctx, id)
+}
+
 func (s *TemplateService) ListTemplates(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Template, int, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 100
@@ -139,13 +143,38 @@ func (s *TemplateService) DeleteTemplate(ctx context.Context, id, clientID uuid.
 	return s.templateRepo.Delete(ctx, id, clientID)
 }
 
+func (s *TemplateService) SubmitForReview(ctx context.Context, id, clientID uuid.UUID) (*domain.Template, error) {
+	tmpl, err := s.templateRepo.GetByID(ctx, id, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if tmpl.Status != domain.StatusDraft && tmpl.Status != domain.StatusRevisionRequested {
+		return nil, fmt.Errorf("%w: can only submit draft or revision_requested templates", domain.ErrInvalidStatus)
+	}
+
+	updated, err := s.templateRepo.UpdateStatus(ctx, id, domain.StatusPending, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.auditRepo.Create(ctx, &domain.AuditEntry{
+		TemplateID: &id,
+		Action:     "submitted",
+		ActorType:  "client",
+	}); err != nil {
+		s.logger.Error().Err(err).Str("template_id", id.String()).Msg("failed to write audit log")
+	}
+
+	return updated, nil
+}
+
 func (s *TemplateService) ApproveTemplate(ctx context.Context, id uuid.UUID, actorID *uuid.UUID) (*domain.Template, error) {
 	tmpl, err := s.templateRepo.GetByIDAdmin(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if tmpl.Status != domain.StatusDraft {
-		return nil, fmt.Errorf("%w: can only approve draft templates", domain.ErrInvalidStatus)
+	if tmpl.Status != domain.StatusPending && tmpl.Status != domain.StatusReview {
+		return nil, fmt.Errorf("%w: can only approve pending or review templates", domain.ErrInvalidStatus)
 	}
 
 	updated, err := s.templateRepo.UpdateStatus(ctx, id, domain.StatusApproved, "")
@@ -170,8 +199,8 @@ func (s *TemplateService) RejectTemplate(ctx context.Context, id uuid.UUID, acto
 	if err != nil {
 		return nil, err
 	}
-	if tmpl.Status != domain.StatusDraft {
-		return nil, fmt.Errorf("%w: can only reject draft templates", domain.ErrInvalidStatus)
+	if tmpl.Status != domain.StatusPending && tmpl.Status != domain.StatusReview {
+		return nil, fmt.Errorf("%w: can only reject pending or review templates", domain.ErrInvalidStatus)
 	}
 
 	updated, err := s.templateRepo.UpdateStatus(ctx, id, domain.StatusRejected, reason)

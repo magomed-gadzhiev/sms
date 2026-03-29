@@ -3,7 +3,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { TimelineEvent } from '../../../components/data/TimelineEvent';
 import { useToast } from '../../../components/ui/Toast';
-import { templatesApi, type TemplateInfo, type AuditEntry } from '../../../api/admin';
+import { templatesApi, type TemplateInfo, type TemplateAuditEntry } from '../../../api/admin';
 
 interface TemplateReviewModalProps {
   template: TemplateInfo | null;
@@ -27,15 +27,17 @@ function highlightVariables(body: string) {
 
 const auditActionMap: Record<string, { icon: string; color: 'blue' | 'green' | 'red' | 'yellow'; title: string }> = {
   created: { icon: '✚', color: 'blue', title: 'Создан' },
+  submitted: { icon: '📤', color: 'blue', title: 'Отправлен на модерацию' },
   approved: { icon: '✓', color: 'green', title: 'Одобрен' },
   rejected: { icon: '✗', color: 'red', title: 'Отклонён' },
-  assign_reviewer: { icon: '👤', color: 'blue', title: 'Назначен ревьюер' },
-  request_revision: { icon: '↩', color: 'yellow', title: 'Запрошена доработка' },
+  reviewer_assigned: { icon: '👤', color: 'blue', title: 'Назначен ревьюер' },
+  revision_requested: { icon: '↩', color: 'yellow', title: 'Запрошена доработка' },
+  updated: { icon: '✏', color: 'blue', title: 'Обновлён' },
 };
 
 export function TemplateReviewModal({ template, open, onClose, onUpdate }: TemplateReviewModalProps) {
   const toast = useToast();
-  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditEntries, setAuditEntries] = useState<TemplateAuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revisionMode, setRevisionMode] = useState(false);
@@ -124,9 +126,9 @@ export function TemplateReviewModal({ template, open, onClose, onUpdate }: Templ
     }
   };
 
-  const getAuditDescription = (entry: AuditEntry): string | undefined => {
-    if (entry.action === 'rejected' || entry.action === 'request_revision') {
-      return (entry.details?.reason as string) || (entry.details?.comment as string) || undefined;
+  const getAuditDescription = (entry: TemplateAuditEntry): string | undefined => {
+    if (entry.action === 'rejected' || entry.action === 'revision_requested') {
+      return entry.reason || undefined;
     }
     return undefined;
   };
@@ -155,16 +157,13 @@ export function TemplateReviewModal({ template, open, onClose, onUpdate }: Templ
 
           {/* Action buttons */}
           <div className="space-y-3">
-            {template.status === 'pending' && (
+            {(template.status === 'pending' || template.status === 'review') && !revisionMode && !rejectMode && (
               <div className="flex gap-2">
-                <Button onClick={handleAssign} disabled={saving}>
-                  {saving ? 'Назначение...' : 'Взять на ревью'}
-                </Button>
-              </div>
-            )}
-
-            {template.status === 'review' && !revisionMode && !rejectMode && (
-              <div className="flex gap-2">
+                {template.status === 'pending' && (
+                  <Button onClick={handleAssign} disabled={saving}>
+                    {saving ? 'Назначение...' : 'Взять на ревью'}
+                  </Button>
+                )}
                 <Button variant="primary" onClick={handleApprove} disabled={saving}>
                   {saving ? 'Одобрение...' : 'Одобрить'}
                 </Button>
@@ -242,7 +241,7 @@ export function TemplateReviewModal({ template, open, onClose, onUpdate }: Templ
                       color={mapping.color}
                       title={mapping.title}
                       description={getAuditDescription(entry)}
-                      author={entry.user_id}
+                      author={entry.actor_id || ''}
                       date={entry.created_at}
                     />
                   );

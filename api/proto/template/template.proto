@@ -19,6 +19,7 @@ service TemplateService {
   rpc GetTemplateAuditLog(GetTemplateAuditLogRequest) returns (GetTemplateAuditLogResponse);
   rpc AssignReviewer(AssignReviewerRequest) returns (AssignReviewerResponse);
   rpc RequestRevision(RequestRevisionRequest) returns (RequestRevisionResponse);
+  rpc SubmitForReview(SubmitForReviewRequest) returns (SubmitForReviewResponse);
 }
 
 message CreateTemplateRequest {
@@ -158,5 +159,14 @@ message RequestRevisionRequest {
 }
 
 message RequestRevisionResponse {
+  TemplateInfo template = 1;
+}
+
+message SubmitForReviewRequest {
+  string template_id = 1;
+  string client_id = 2;
+}
+
+message SubmitForReviewResponse {
   TemplateInfo template = 1;
 }

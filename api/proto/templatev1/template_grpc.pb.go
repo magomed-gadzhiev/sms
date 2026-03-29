@@ -4,7 +4,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: api/proto/template/template.proto
+// source: template.proto
 
 package templatev1
 
@@ -32,6 +32,7 @@ const (
 	TemplateService_GetTemplateAuditLog_FullMethodName = "/template.v1.TemplateService/GetTemplateAuditLog"
 	TemplateService_AssignReviewer_FullMethodName      = "/template.v1.TemplateService/AssignReviewer"
 	TemplateService_RequestRevision_FullMethodName     = "/template.v1.TemplateService/RequestRevision"
+	TemplateService_SubmitForReview_FullMethodName     = "/template.v1.TemplateService/SubmitForReview"
 )
 
 // TemplateServiceClient is the client API for TemplateService service.
@@ -49,6 +50,7 @@ type TemplateServiceClient interface {
 	GetTemplateAuditLog(ctx context.Context, in *GetTemplateAuditLogRequest, opts ...grpc.CallOption) (*GetTemplateAuditLogResponse, error)
 	AssignReviewer(ctx context.Context, in *AssignReviewerRequest, opts ...grpc.CallOption) (*AssignReviewerResponse, error)
 	RequestRevision(ctx context.Context, in *RequestRevisionRequest, opts ...grpc.CallOption) (*RequestRevisionResponse, error)
+	SubmitForReview(ctx context.Context, in *SubmitForReviewRequest, opts ...grpc.CallOption) (*SubmitForReviewResponse, error)
 }
 
 type templateServiceClient struct {
@@ -169,6 +171,16 @@ func (c *templateServiceClient) RequestRevision(ctx context.Context, in *Request
 	return out, nil
 }
 
+func (c *templateServiceClient) SubmitForReview(ctx context.Context, in *SubmitForReviewRequest, opts ...grpc.CallOption) (*SubmitForReviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitForReviewResponse)
+	err := c.cc.Invoke(ctx, TemplateService_SubmitForReview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TemplateServiceServer is the server API for TemplateService service.
 // All implementations must embed UnimplementedTemplateServiceServer
 // for forward compatibility.
@@ -184,6 +196,7 @@ type TemplateServiceServer interface {
 	GetTemplateAuditLog(context.Context, *GetTemplateAuditLogRequest) (*GetTemplateAuditLogResponse, error)
 	AssignReviewer(context.Context, *AssignReviewerRequest) (*AssignReviewerResponse, error)
 	RequestRevision(context.Context, *RequestRevisionRequest) (*RequestRevisionResponse, error)
+	SubmitForReview(context.Context, *SubmitForReviewRequest) (*SubmitForReviewResponse, error)
 	mustEmbedUnimplementedTemplateServiceServer()
 }
 
@@ -226,6 +239,9 @@ func (UnimplementedTemplateServiceServer) AssignReviewer(context.Context, *Assig
 }
 func (UnimplementedTemplateServiceServer) RequestRevision(context.Context, *RequestRevisionRequest) (*RequestRevisionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RequestRevision not implemented")
+}
+func (UnimplementedTemplateServiceServer) SubmitForReview(context.Context, *SubmitForReviewRequest) (*SubmitForReviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitForReview not implemented")
 }
 func (UnimplementedTemplateServiceServer) mustEmbedUnimplementedTemplateServiceServer() {}
 func (UnimplementedTemplateServiceServer) testEmbeddedByValue()                         {}
@@ -446,6 +462,24 @@ func _TemplateService_RequestRevision_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TemplateService_SubmitForReview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitForReviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TemplateServiceServer).SubmitForReview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TemplateService_SubmitForReview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TemplateServiceServer).SubmitForReview(ctx, req.(*SubmitForReviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TemplateService_ServiceDesc is the grpc.ServiceDesc for TemplateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -497,7 +531,11 @@ var TemplateService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "RequestRevision",
 			Handler:    _TemplateService_RequestRevision_Handler,
 		},
+		{
+			MethodName: "SubmitForReview",
+			Handler:    _TemplateService_SubmitForReview_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/template/template.proto",
+	Metadata: "template.proto",
 }

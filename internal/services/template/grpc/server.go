@@ -85,12 +85,25 @@ func (s *Server) DeleteTemplate(ctx context.Context, req *templatev1.DeleteTempl
 }
 
 func (s *Server) GetTemplate(ctx context.Context, req *templatev1.GetTemplateRequest) (*templatev1.GetTemplateResponse, error) {
-	id, clientID, err := s.parseIDs(req.Id, req.ClientId)
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, "invalid id format")
 	}
 
-	tmpl, err := s.templateService.GetTemplate(ctx, id, clientID)
+	var tmpl *domain.Template
+	if req.ClientId == "" {
+		// Admin mode — no client_id restriction
+		tmpl, err = s.templateService.GetTemplateAdmin(ctx, id)
+	} else {
+		clientID, parseErr := uuid.Parse(req.ClientId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		}
+		tmpl, err = s.templateService.GetTemplate(ctx, id, clientID)
+	}
 	if err != nil {
 		return nil, s.mapError(err)
 	}
@@ -287,6 +300,33 @@ func (s *Server) RequestRevision(ctx context.Context, req *templatev1.RequestRev
 	}
 
 	return &templatev1.RequestRevisionResponse{
+		Template: templateToProto(tmpl),
+	}, nil
+}
+
+func (s *Server) SubmitForReview(ctx context.Context, req *templatev1.SubmitForReviewRequest) (*templatev1.SubmitForReviewResponse, error) {
+	if req.TemplateId == "" {
+		return nil, status.Error(codes.InvalidArgument, "template_id is required")
+	}
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+
+	templateID, err := uuid.Parse(req.TemplateId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid template_id format")
+	}
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
+
+	tmpl, err := s.templateService.SubmitForReview(ctx, templateID, clientID)
+	if err != nil {
+		return nil, s.mapError(err)
+	}
+
+	return &templatev1.SubmitForReviewResponse{
 		Template: templateToProto(tmpl),
 	}, nil
 }

@@ -13,6 +13,8 @@ const PAGE_SIZE = 20;
 const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
   draft: { variant: 'default', label: 'Черновик' },
   pending: { variant: 'warning', label: 'На модерации' },
+  review: { variant: 'warning', label: 'На ревью' },
+  revision_requested: { variant: 'danger', label: 'Доработка' },
   approved: { variant: 'success', label: 'Одобрен' },
   rejected: { variant: 'danger', label: 'Отклонён' },
 };
@@ -151,6 +153,18 @@ export function TemplatesPage() {
       setError(err instanceof ApiError ? err.message : 'Не удалось отрендерить шаблон');
     } finally {
       setPreviewing(false);
+    }
+  }
+
+  // --- Submit for review ---
+
+  async function handleSubmitForReview(id: string) {
+    setError('');
+    try {
+      await templatesApi.submit(id);
+      await fetchTemplates();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Не удалось отправить на модерацию');
     }
   }
 
@@ -341,7 +355,18 @@ export function TemplatesPage() {
               Превью
             </Button>
 
-            {tpl.status !== 'approved' && (
+            {(tpl.status === 'draft' || tpl.status === 'revision_requested') && (
+              <Button
+                variant="primary"
+                size="sm"
+                aria-label={`Отправить ${tpl.name} на модерацию`}
+                onClick={() => handleSubmitForReview(tpl.id)}
+              >
+                На модерацию
+              </Button>
+            )}
+
+            {(tpl.status === 'draft' || tpl.status === 'revision_requested' || tpl.status === 'rejected') && (
               <Button
                 variant="ghost"
                 size="sm"

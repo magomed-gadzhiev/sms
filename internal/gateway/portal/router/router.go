@@ -161,6 +161,7 @@ func SetupRouter(
 	templates.HandleFunc("/{id}", templateHandlers.DeleteTemplate).Methods("DELETE")
 	templates.HandleFunc("/{id}/render", templateHandlers.RenderTemplate).Methods("POST")
 	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAuditLog).Methods("GET")
+	templates.HandleFunc("/{id}/submit", templateHandlers.SubmitForReview).Methods("POST")
 
 	// Billing endpoints
 	billing := protected.PathPrefix("/billing").Subrouter()

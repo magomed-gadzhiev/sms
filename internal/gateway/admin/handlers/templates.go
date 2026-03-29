@@ -64,10 +64,6 @@ func (h *TemplateHandlers) ListTemplates(w http.ResponseWriter, r *http.Request)
 func (h *TemplateHandlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	clientID := r.URL.Query().Get("client_id")
-	if clientID == "" {
-		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
-		return
-	}
 
 	resp, err := h.templateClient.GetTemplate(r.Context(), &templatev1.GetTemplateRequest{
 		Id:       id,
@@ -77,7 +73,6 @@ func (h *TemplateHandlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
 		respondGRPCError(w, err)
 		return
 	}
-
 	respondJSON(w, http.StatusOK, templateToMap(resp.Template))
 }
 
@@ -244,19 +239,24 @@ func (h *TemplateHandlers) RequestRevision(w http.ResponseWriter, r *http.Reques
 
 func templateToMap(t *templatev1.TemplateInfo) map[string]interface{} {
 	result := map[string]interface{}{
-		"id":               t.Id,
+		"template_id":      t.Id,
 		"client_id":        t.ClientId,
 		"name":             t.Name,
 		"body":             t.Body,
 		"variables":        t.Variables,
 		"status":           t.Status,
 		"rejection_reason": t.RejectionReason,
+		"reviewer_id":      t.ReviewerId,
+		"review_comment":   t.ReviewComment,
 	}
 	if t.CreatedAt != nil {
 		result["created_at"] = t.CreatedAt.AsTime()
 	}
 	if t.UpdatedAt != nil {
 		result["updated_at"] = t.UpdatedAt.AsTime()
+	}
+	if t.ReviewedAt != nil {
+		result["reviewed_at"] = t.ReviewedAt.AsTime()
 	}
 	return result
 }

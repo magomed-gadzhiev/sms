@@ -22,6 +22,7 @@ var (
 
 const (
 	StatusDraft             = "draft"
+	StatusPending           = "pending"
 	StatusApproved          = "approved"
 	StatusRejected          = "rejected"
 	StatusReview            = "review"

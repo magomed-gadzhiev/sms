@@ -326,6 +326,8 @@ export const templatesApi = {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<{ entries: unknown[]; total: number }>(`/templates/${id}/audit?${qs}`);
   },
+  submit: (id: string) =>
+    apiFetch<TemplateInfo>(`/templates/${id}/submit`, { method: 'POST' }),
 };
 
 // Billing API
