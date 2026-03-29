@@ -40,6 +40,10 @@ export function UsersPage() {
   const [reset2faUser, setReset2faUser] = useState<UserDetailInfo | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Reset password result
+  const [resetPasswordResult, setResetPasswordResult] = useState<{ username: string; password: string } | null>(null);
+  const [resetPasswordCopied, setResetPasswordCopied] = useState(false);
+
   const [createForm, setCreateForm] = useState({
     username: '',
     email: '',
@@ -229,9 +233,18 @@ export function UsersPage() {
   const handleResetPassword = async (user: UserDetailInfo) => {
     try {
       const res = await usersApi.resetPassword(user.id);
-      toast.success(`Временный пароль: ${res.temporary_password}`);
+      setResetPasswordResult({ username: user.username, password: res.temporary_password });
+      setResetPasswordCopied(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось сбросить пароль');
+    }
+  };
+
+  const handleCopyPassword = () => {
+    if (resetPasswordResult) {
+      navigator.clipboard.writeText(resetPasswordResult.password);
+      setResetPasswordCopied(true);
+      setTimeout(() => setResetPasswordCopied(false), 2000);
     }
   };
 
@@ -401,6 +414,38 @@ export function UsersPage() {
         variant="danger"
         loading={saving}
       />
+
+      {/* Reset Password Result Modal */}
+      <Modal
+        open={!!resetPasswordResult}
+        onClose={() => setResetPasswordResult(null)}
+        title="Пароль сброшен"
+        description="Новый временный пароль для пользователя"
+      >
+        {resetPasswordResult && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Новый временный пароль для пользователя <strong>{resetPasswordResult.username}</strong>:
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm font-mono break-all select-all">
+                {resetPasswordResult.password}
+              </code>
+              <Button variant="secondary" size="sm" onClick={handleCopyPassword}>
+                {resetPasswordCopied ? 'Скопировано!' : 'Скопировать'}
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Передайте этот пароль пользователю. Он должен сменить его при следующем входе.
+            </p>
+            <div className="flex justify-end pt-2">
+              <Button onClick={() => setResetPasswordResult(null)}>
+                Закрыть
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   );
 }
