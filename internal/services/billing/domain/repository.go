@@ -38,6 +38,7 @@ type AccountRepository interface {
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction *Transaction) error
 	GetByID(ctx context.Context, id uuid.UUID) (*Transaction, error)
+	GetAll(ctx context.Context, limit, offset int) ([]*Transaction, error)
 	GetByClientID(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*Transaction, error)
 	GetByClientIDAndType(ctx context.Context, clientID uuid.UUID, transactionType TransactionType, limit, offset int) ([]*Transaction, error)
 	GetByClientIDAndPeriod(ctx context.Context, clientID uuid.UUID, from, to time.Time, limit, offset int) ([]*Transaction, error)

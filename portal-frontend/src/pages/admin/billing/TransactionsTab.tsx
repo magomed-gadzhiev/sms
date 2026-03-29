@@ -17,8 +17,8 @@ const txFilters: FilterDef[] = [
     label: 'Тип',
     type: 'select',
     options: [
-      { value: 'credit', label: 'Credit' },
-      { value: 'debit', label: 'Debit' },
+      { value: 'credit', label: 'Пополнение' },
+      { value: 'debit', label: 'Списание' },
     ],
   },
   { key: 'from', label: 'От', type: 'date' },
@@ -81,7 +81,8 @@ export function TransactionsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, filter, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filter]);
 
   useEffect(() => {
     fetchTransactions();

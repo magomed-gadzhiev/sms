@@ -10,41 +10,41 @@ import { TemplateReviewModal } from './TemplateReviewModal';
 const PAGE_SIZE = 20;
 
 const statusLabelMap: Record<string, string> = {
-  draft: 'Draft',
-  pending: 'Pending',
-  review: 'Review',
+  draft: 'Черновик',
+  pending: 'Ожидание',
+  review: 'На ревью',
   revision_requested: 'Доработка',
-  approved: 'Approved',
-  rejected: 'Rejected',
+  approved: 'Одобрен',
+  rejected: 'Отклонён',
 };
 
 const filters: FilterDef[] = [
   { key: 'client_id', label: 'Client ID', type: 'text', placeholder: 'UUID...' },
   {
     key: 'status',
-    label: 'Status',
+    label: 'Статус',
     type: 'select',
     options: [
-      { value: 'pending', label: 'Pending' },
-      { value: 'review', label: 'Review' },
-      { value: 'revision_requested', label: 'Revision Requested' },
-      { value: 'approved', label: 'Approved' },
-      { value: 'rejected', label: 'Rejected' },
+      { value: 'pending', label: 'Ожидание' },
+      { value: 'review', label: 'На ревью' },
+      { value: 'revision_requested', label: 'Доработка' },
+      { value: 'approved', label: 'Одобрен' },
+      { value: 'rejected', label: 'Отклонён' },
     ],
   },
 ];
 
 const columns: Column<TemplateInfo>[] = [
-  { key: 'name', header: 'Name', sortable: true },
-  { key: 'client_id', header: 'Client', render: (t) => t.client_id.slice(0, 8) + '...' },
+  { key: 'name', header: 'Название', sortable: true },
+  { key: 'client_id', header: 'Клиент', render: (t) => t.client_id.slice(0, 8) + '...' },
   {
     key: 'body',
-    header: 'Body',
+    header: 'Текст',
     render: (t) => <span className="truncate max-w-[200px] inline-block">{t.body}</span>,
   },
   {
     key: 'status',
-    header: 'Status',
+    header: 'Статус',
     render: (t) => {
       const label = statusLabelMap[t.status];
       return label ? <StatusBadge status={t.status} /> : <StatusBadge status={t.status} />;
@@ -52,17 +52,17 @@ const columns: Column<TemplateInfo>[] = [
   },
   {
     key: 'reviewer_id',
-    header: 'Reviewer',
+    header: 'Ревьюер',
     render: (t) => (t.reviewer_id ? t.reviewer_id.slice(0, 8) + '...' : '—'),
   },
   {
     key: 'reviewed_at',
-    header: 'Review Date',
+    header: 'Дата ревью',
     render: (t) => (t.reviewed_at ? new Date(t.reviewed_at).toLocaleDateString() : '—'),
   },
   {
     key: 'created_at',
-    header: 'Created',
+    header: 'Создан',
     render: (t) => new Date(t.created_at).toLocaleDateString(),
   },
 ];

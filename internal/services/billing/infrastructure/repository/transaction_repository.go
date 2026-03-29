@@ -116,6 +116,20 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	return &transaction, nil
 }
 
+// GetAll получает все транзакции с пагинацией (для админа)
+func (r *TransactionRepository) GetAll(ctx context.Context, limit, offset int) ([]*domain.Transaction, error) {
+	query := `
+		SELECT id, client_id, type, amount, currency,
+			balance_before, balance_after, description,
+			message_id, payment_method, metadata, created_at
+		FROM transactions
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	return r.scanTransactions(ctx, query, limit, offset)
+}
+
 // GetByClientID получает транзакции по client_id с пагинацией
 func (r *TransactionRepository) GetByClientID(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Transaction, error) {
 	query := `

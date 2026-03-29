@@ -37,28 +37,28 @@ export function MonitoringPage() {
   const { isPaused, lastUpdated, pause, resume } = usePolling(fetchData, REFRESH_INTERVAL);
 
   const providerColumns: Column<(typeof providers)[0]>[] = [
-    { key: 'name', header: 'Provider' },
-    { key: 'status', header: 'Status', render: (p) => <StatusBadge status={p.health?.status || 'unknown'} /> },
-    { key: 'connections', header: 'Connections', render: (p) => p.health ? `${p.health.active_connections}/${p.health.total_connections}` : '-' },
-    { key: 'success_rate', header: 'Success %', render: (p) => p.health ? `${p.health.success_rate}%` : '-' },
-    { key: 'sent_24h', header: 'Sent (24h)', render: (p) => p.health?.messages_sent_24h?.toLocaleString() || '-' },
-    { key: 'failed_24h', header: 'Failed (24h)', render: (p) => p.health?.messages_failed_24h?.toLocaleString() || '-' },
-    { key: 'last_error', header: 'Last Error', render: (p) => p.health?.last_error ? <span className="text-xs text-danger">{p.health.last_error}</span> : '-' },
+    { key: 'name', header: 'Провайдер' },
+    { key: 'status', header: 'Статус', render: (p) => <StatusBadge status={p.health?.status || 'unknown'} /> },
+    { key: 'connections', header: 'Подключения', render: (p) => p.health ? `${p.health.active_connections}/${p.health.total_connections}` : '-' },
+    { key: 'success_rate', header: 'Успех %', render: (p) => p.health ? `${p.health.success_rate}%` : '-' },
+    { key: 'sent_24h', header: 'Отправлено (24ч)', render: (p) => p.health?.messages_sent_24h?.toLocaleString() || '-' },
+    { key: 'failed_24h', header: 'Ошибки (24ч)', render: (p) => p.health?.messages_failed_24h?.toLocaleString() || '-' },
+    { key: 'last_error', header: 'Последняя ошибка', render: (p) => p.health?.last_error ? <span className="text-xs text-danger">{p.health.last_error}</span> : '-' },
   ];
 
   const secondsAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 1000) : null;
 
   return (
     <>
-      <PageHeader title="Monitoring" subtitle={error ? 'Connection lost' : lastUpdated ? `Updated ${secondsAgo}s ago` : undefined} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Мониторинг' }]} actions={<Button variant={isPaused ? 'primary' : 'secondary'} onClick={() => isPaused ? resume() : pause()}>{isPaused ? 'Resume' : 'Pause'}</Button>} />
-      {error && <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">Connection issue. Retrying automatically...</div>}
+      <PageHeader title="Мониторинг" subtitle={error ? 'Соединение потеряно' : lastUpdated ? `Обновлено ${secondsAgo}с назад` : undefined} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Мониторинг' }]} actions={<Button variant={isPaused ? 'primary' : 'secondary'} onClick={() => isPaused ? resume() : pause()}>{isPaused ? 'Продолжить' : 'Пауза'}</Button>} />
+      {error && <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">Проблема с подключением. Автоматическая переподключение...</div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Messages/sec" value={metrics?.messages_per_second ?? '-'} />
-        <StatCard title="Delivered" value={metrics?.messages_delivered?.toLocaleString() ?? '-'} />
-        <StatCard title="Failed" value={metrics?.messages_failed?.toLocaleString() ?? '-'} />
-        <StatCard title="Queue Depth" value={metrics?.queue_depth?.toLocaleString() ?? '-'} />
+        <StatCard title="Сообщений/сек" value={metrics?.messages_per_second ?? '-'} />
+        <StatCard title="Доставлено" value={metrics?.messages_delivered?.toLocaleString() ?? '-'} />
+        <StatCard title="Ошибки" value={metrics?.messages_failed?.toLocaleString() ?? '-'} />
+        <StatCard title="Очередь" value={metrics?.queue_depth?.toLocaleString() ?? '-'} />
       </div>
-      <h2 className="text-lg font-semibold mb-3">Provider Status</h2>
+      <h2 className="text-lg font-semibold mb-3">Статус провайдеров</h2>
       <DataTable columns={providerColumns} data={providers} total={providers.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="provider_id" />
     </>
   );

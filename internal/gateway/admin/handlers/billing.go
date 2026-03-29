@@ -112,10 +112,7 @@ func (h *BillingHandlers) GetTransactionHistory(w http.ResponseWriter, r *http.R
 	limit := parseInt(r.URL.Query().Get("limit"), 50)
 	offset := parseInt(r.URL.Query().Get("offset"), 0)
 
-	if clientID == "" {
-		respondError(w, shared.ErrInvalidInput("client_id обязателен"))
-		return
-	}
+	// client_id опционален для админа — без него возвращаем все транзакции
 
 	var from, to *time.Time
 	if fromStr != "" {

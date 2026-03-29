@@ -18,7 +18,6 @@ const balanceFilters: FilterDef[] = [
     label: 'Статус',
     type: 'select',
     options: [
-      { value: '', label: 'Все' },
       { value: 'active', label: 'Активен' },
       { value: 'frozen', label: 'Заморожен' },
     ],
@@ -28,7 +27,6 @@ const balanceFilters: FilterDef[] = [
     label: 'Ниже порога',
     type: 'select',
     options: [
-      { value: '', label: 'Все' },
       { value: 'yes', label: 'Да' },
     ],
   },
@@ -41,10 +39,10 @@ interface CreditDebitForm {
 }
 
 const typeOptions = [
-  { value: 'credit', label: 'Credit' },
-  { value: 'debit', label: 'Debit' },
-  { value: 'adjustment', label: 'Adjustment' },
-  { value: 'refund', label: 'Refund' },
+  { value: 'credit', label: 'Пополнение' },
+  { value: 'debit', label: 'Списание' },
+  { value: 'adjustment', label: 'Корректировка' },
+  { value: 'refund', label: 'Возврат' },
 ];
 
 export function BalancesTab() {
@@ -88,7 +86,8 @@ export function BalancesTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, filter, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filter]);
 
   useEffect(() => {
     fetchBalances();
@@ -161,7 +160,7 @@ export function BalancesTab() {
     {
       key: 'balance',
       header: 'Баланс',
-      render: (b) => `${b.balance} ${b.currency}`,
+      render: (b) => `${parseFloat(b.balance).toFixed(2)} ${b.currency}`,
       sortable: true,
     },
     {

@@ -36,7 +36,8 @@ export function CreditLimitsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   useEffect(() => {
     fetchData();
@@ -82,7 +83,7 @@ export function CreditLimitsTab() {
     {
       key: 'balance',
       header: 'Баланс',
-      render: (b) => `${b.balance} ${b.currency}`,
+      render: (b) => `${parseFloat(b.balance).toFixed(2)} ${b.currency}`,
       sortable: true,
     },
     {

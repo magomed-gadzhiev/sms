@@ -540,7 +540,7 @@ func TestBillingService(t *testing.T) {
 
 			transactionRepo.On("GetByClientID", ctx, clientID, 10, 0).Return(expectedTxs, nil)
 
-			txs, err := svc.GetTransactionHistory(ctx, clientID, 10, 0)
+			txs, err := svc.GetTransactionHistory(ctx, &clientID, 10, 0)
 
 			require.NoError(t, err)
 			assert.Len(t, txs, 2)

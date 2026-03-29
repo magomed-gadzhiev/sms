@@ -265,10 +265,13 @@ func (s *BillingService) ChargeMessage(
 // GetTransactionHistory получает историю транзакций
 func (s *BillingService) GetTransactionHistory(
 	ctx context.Context,
-	clientID uuid.UUID,
+	clientID *uuid.UUID,
 	limit, offset int,
 ) ([]*domain.Transaction, error) {
-	return s.transactionRepo.GetByClientID(ctx, clientID, limit, offset)
+	if clientID == nil {
+		return s.transactionRepo.GetAll(ctx, limit, offset)
+	}
+	return s.transactionRepo.GetByClientID(ctx, *clientID, limit, offset)
 }
 
 // TransferBalance переводит средства между клиентами (атомарная операция)

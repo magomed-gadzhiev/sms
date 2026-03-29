@@ -202,13 +202,13 @@ func (s *Server) DeductCredits(ctx context.Context, req *billingv1.DeductCredits
 
 // GetTransactionHistory получает историю транзакций
 func (s *Server) GetTransactionHistory(ctx context.Context, req *billingv1.GetTransactionHistoryRequest) (*billingv1.GetTransactionHistoryResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	var clientID *uuid.UUID
+	if req.ClientId != "" {
+		id, err := uuid.Parse(req.ClientId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		}
+		clientID = &id
 	}
 
 	limit := int(req.Limit)

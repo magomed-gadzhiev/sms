@@ -79,7 +79,6 @@ export function UsersPage() {
       label: 'Статус',
       type: 'select',
       options: [
-        { value: '', label: 'Все' },
         { value: 'true', label: 'Активные' },
       ],
     },

@@ -14,20 +14,19 @@ import { clientsApi, type ClientInfo } from '../../api/admin';
 const PAGE_SIZE = 20;
 
 const filters: FilterDef[] = [
-  { key: 'search', label: 'Search', type: 'text', placeholder: 'Name or email...' },
-  { key: 'active_only', label: 'Status', type: 'select', options: [
-    { value: 'true', label: 'Active only' },
-    { value: 'false', label: 'All' },
+  { key: 'search', label: 'Поиск', type: 'text', placeholder: 'Имя или email...' },
+  { key: 'active_only', label: 'Статус', type: 'select', options: [
+    { value: 'true', label: 'Только активные' },
   ]},
 ];
 
 const columns: Column<ClientInfo>[] = [
-  { key: 'name', header: 'Name', sortable: true },
+  { key: 'name', header: 'Название', sortable: true },
   { key: 'email', header: 'Email' },
-  { key: 'contact_person', header: 'Contact' },
-  { key: 'active', header: 'Status', render: (c) => <StatusBadge status={c.active ? 'active' : 'inactive'} /> },
-  { key: 'rate_limits', header: 'Rate (msg/s)', render: (c) => String(c.rate_limits?.messages_per_second ?? '-') },
-  { key: 'created_at', header: 'Created', render: (c) => new Date(c.created_at).toLocaleDateString() },
+  { key: 'contact_person', header: 'Контакт' },
+  { key: 'active', header: 'Статус', render: (c) => <StatusBadge status={c.active ? 'active' : 'inactive'} /> },
+  { key: 'rate_limits', header: 'Лимит (сообщ/с)', render: (c) => String(c.rate_limits?.messages_per_second ?? '-') },
+  { key: 'created_at', header: 'Создан', render: (c) => new Date(c.created_at).toLocaleDateString() },
 ];
 
 export function ClientsPage() {
@@ -53,9 +52,10 @@ export function ClientsPage() {
       });
       setData(res.clients || []);
       setTotal(res.total);
-    } catch { toast.error('Failed to load clients'); }
+    } catch { toast.error('Не удалось загрузить клиентов'); }
     finally { setLoading(false); }
-  }, [page, filterValues, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterValues]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -74,15 +74,15 @@ export function ClientsPage() {
     try {
       if (editClient) {
         await clientsApi.update(editClient.client_id, form);
-        toast.success('Client updated');
+        toast.success('Клиент обновлён');
         setEditClient(null);
       } else {
         await clientsApi.create(form);
-        toast.success('Client created');
+        toast.success('Клиент создан');
         setShowCreate(false);
       }
       fetchData();
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed'); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка сохранения'); }
     finally { setSaving(false); }
   };
 
@@ -91,39 +91,39 @@ export function ClientsPage() {
     setSaving(true);
     try {
       await clientsApi.delete(deleteClient.client_id);
-      toast.success('Client deleted');
+      toast.success('Клиент деактивирован');
       setDeleteClient(null);
       fetchData();
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Delete failed'); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка удаления'); }
     finally { setSaving(false); }
   };
 
   return (
     <>
-      <PageHeader title="Clients" subtitle={`${total} clients`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Клиенты' }]} actions={<Button onClick={openCreate}>Create Client</Button>} />
+      <PageHeader title="Клиенты" subtitle={`${total} клиентов`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Клиенты' }]} actions={<Button onClick={openCreate}>Создать клиента</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="client_id"
         rowActions={(client) => (
           <div className="flex gap-1">
-            <Button size="sm" variant="ghost" onClick={() => openEdit(client)}>Edit</Button>
-            <Button size="sm" variant="ghost" onClick={() => setDeleteClient(client)}>Delete</Button>
+            <Button size="sm" variant="ghost" onClick={() => openEdit(client)}>Изменить</Button>
+            <Button size="sm" variant="ghost" onClick={() => setDeleteClient(client)}>Удалить</Button>
           </div>
         )}
       />
-      <Modal open={showCreate || !!editClient} onClose={() => { setShowCreate(false); setEditClient(null); }} title={editClient ? 'Edit Client' : 'Create Client'}>
+      <Modal open={showCreate || !!editClient} onClose={() => { setShowCreate(false); setEditClient(null); }} title={editClient ? 'Редактирование клиента' : 'Создание клиента'}>
         <div className="space-y-4">
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <Input label="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-          <Input label="Contact Person" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
-          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Select label="Status" options={[{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }]} value={String(form.active)} onChange={(v) => setForm({ ...form, active: v === 'true' })} />
+          <Input label="Контактное лицо" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
+          <Input label="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Select label="Статус" options={[{ value: 'true', label: 'Активен' }, { value: 'false', label: 'Неактивен' }]} value={String(form.active)} onChange={(v) => setForm({ ...form, active: v === 'true' })} />
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => { setShowCreate(false); setEditClient(null); }}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.email}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button variant="secondary" onClick={() => { setShowCreate(false); setEditClient(null); }}>Отмена</Button>
+            <Button onClick={handleSave} disabled={saving || !form.name || !form.email}>{saving ? 'Сохранение...' : 'Сохранить'}</Button>
           </div>
         </div>
       </Modal>
-      <ConfirmDialog open={!!deleteClient} onConfirm={handleDelete} onCancel={() => setDeleteClient(null)} title="Delete Client" description={`Delete "${deleteClient?.name}"? This cannot be undone.`} confirmLabel="Delete" variant="danger" loading={saving} />
+      <ConfirmDialog open={!!deleteClient} onConfirm={handleDelete} onCancel={() => setDeleteClient(null)} title="Деактивация клиента" description={`Деактивировать "${deleteClient?.name}"? Клиент станет неактивным.`} confirmLabel="Деактивировать" variant="danger" loading={saving} />
     </>
   );
 }

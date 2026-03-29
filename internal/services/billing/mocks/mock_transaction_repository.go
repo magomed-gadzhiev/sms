@@ -28,6 +28,15 @@ func (m *MockTransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (
 	return tx, args.Error(1)
 }
 
+func (m *MockTransactionRepository) GetAll(ctx context.Context, limit, offset int) ([]*domain.Transaction, error) {
+	args := m.Called(ctx, limit, offset)
+	var txs []*domain.Transaction
+	if v := args.Get(0); v != nil {
+		txs = v.([]*domain.Transaction)
+	}
+	return txs, args.Error(1)
+}
+
 func (m *MockTransactionRepository) GetByClientID(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Transaction, error) {
 	args := m.Called(ctx, clientID, limit, offset)
 	var txs []*domain.Transaction

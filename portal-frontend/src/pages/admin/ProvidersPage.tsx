@@ -14,8 +14,8 @@ import { providersApi, type ProviderInfo, type ProviderHealth } from '../../api/
 const PAGE_SIZE = 20;
 
 const filters: FilterDef[] = [
-  { key: 'active_only', label: 'Status', type: 'select', options: [
-    { value: 'true', label: 'Active only' }, { value: 'false', label: 'All' },
+  { key: 'active_only', label: 'Статус', type: 'select', options: [
+    { value: 'true', label: 'Только активные' },
   ]},
 ];
 
@@ -43,20 +43,21 @@ export function ProvidersPage() {
       const map: Record<string, ProviderHealth> = {};
       healthEntries.forEach((r) => { if (r.status === 'fulfilled') map[r.value[0]] = r.value[1]; });
       setHealthMap(map);
-    } catch { toast.error('Failed to load providers'); }
+    } catch { toast.error('Не удалось загрузить провайдеров'); }
     finally { setLoading(false); }
-  }, [page, filterValues, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterValues]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const columns: Column<ProviderInfo>[] = [
-    { key: 'name', header: 'Name', sortable: true },
-    { key: 'host', header: 'Host', render: (p) => `${p.host}:${p.port}` },
+    { key: 'name', header: 'Название', sortable: true },
+    { key: 'host', header: 'Хост', render: (p) => `${p.host}:${p.port}` },
     { key: 'system_id', header: 'System ID' },
-    { key: 'max_connections', header: 'Max Conn' },
-    { key: 'active', header: 'Status', render: (p) => <StatusBadge status={p.active ? 'active' : 'inactive'} /> },
-    { key: 'health', header: 'Health', render: (p) => { const h = healthMap[p.provider_id]; return h ? <StatusBadge status={h.status} /> : '-'; }},
-    { key: 'success_rate', header: 'Success %', render: (p) => { const h = healthMap[p.provider_id]; return h ? `${h.success_rate}%` : '-'; }},
+    { key: 'max_connections', header: 'Макс. подкл.' },
+    { key: 'active', header: 'Статус', render: (p) => <StatusBadge status={p.active ? 'active' : 'inactive'} /> },
+    { key: 'health', header: 'Здоровье', render: (p) => { const h = healthMap[p.provider_id]; return h ? <StatusBadge status={h.status} /> : '-'; }},
+    { key: 'success_rate', header: 'Успех %', render: (p) => { const h = healthMap[p.provider_id]; return h ? `${h.success_rate}%` : '-'; }},
   ];
 
   const openCreate = () => { setForm({ name: '', host: '', port: 2775, system_id: '', password: '', system_type: '', bind_type: 1, max_connections: 1, window_size: 10, active: true }); setShowCreate(true); };
@@ -65,8 +66,8 @@ export function ProvidersPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (editProvider) { const { password: _p, ...rest } = form; await providersApi.update(editProvider.provider_id, rest); toast.success('Provider updated'); setEditProvider(null); }
-      else { await providersApi.create(form); toast.success('Provider created'); setShowCreate(false); }
+      if (editProvider) { const { password: _p, ...rest } = form; await providersApi.update(editProvider.provider_id, rest); toast.success('Провайдер обновлён'); setEditProvider(null); }
+      else { await providersApi.create(form); toast.success('Провайдер создан'); setShowCreate(false); }
       fetchData();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed'); }
     finally { setSaving(false); }
@@ -75,19 +76,19 @@ export function ProvidersPage() {
   const handleDelete = async () => {
     if (!deleteProvider) return;
     setSaving(true);
-    try { await providersApi.delete(deleteProvider.provider_id); toast.success('Provider deleted'); setDeleteProvider(null); fetchData(); }
+    try { await providersApi.delete(deleteProvider.provider_id); toast.success('Провайдер удалён'); setDeleteProvider(null); fetchData(); }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Delete failed'); }
     finally { setSaving(false); }
   };
 
   return (
     <>
-      <PageHeader title="Providers" subtitle={`${total} providers`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Провайдеры' }]} actions={<Button onClick={openCreate}>Add Provider</Button>} />
+      <PageHeader title="Провайдеры" subtitle={`${total} провайдеров`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Провайдеры' }]} actions={<Button onClick={openCreate}>Добавить провайдера</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="provider_id"
-        rowActions={(p) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(p)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Delete</Button></div>)}
+        rowActions={(p) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(p)}>Изменить</Button><Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Удалить</Button></div>)}
       />
-      <Modal open={showCreate || !!editProvider} onClose={() => { setShowCreate(false); setEditProvider(null); }} title={editProvider ? 'Edit Provider' : 'Add Provider'} wide>
+      <Modal open={showCreate || !!editProvider} onClose={() => { setShowCreate(false); setEditProvider(null); }} title={editProvider ? 'Редактирование провайдера' : 'Добавление провайдера'} wide>
         <div className="grid grid-cols-2 gap-4">
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label="Host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} required />
@@ -97,14 +98,14 @@ export function ProvidersPage() {
           <Input label="System Type" value={form.system_type} onChange={(e) => setForm({ ...form, system_type: e.target.value })} />
           <Input label="Max Connections" type="number" value={String(form.max_connections)} onChange={(e) => setForm({ ...form, max_connections: Number(e.target.value) })} />
           <Input label="Window Size" type="number" value={String(form.window_size)} onChange={(e) => setForm({ ...form, window_size: Number(e.target.value) })} />
-          <Select label="Status" options={[{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }]} value={String(form.active)} onChange={(v) => setForm({ ...form, active: v === 'true' })} />
+          <Select label="Статус" options={[{ value: 'true', label: 'Активен' }, { value: 'false', label: 'Неактивен' }]} value={String(form.active)} onChange={(v) => setForm({ ...form, active: v === 'true' })} />
         </div>
         <div className="flex justify-end gap-3 pt-4">
-          <Button variant="secondary" onClick={() => { setShowCreate(false); setEditProvider(null); }}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !form.name || !form.host}>{saving ? 'Saving...' : 'Save'}</Button>
+          <Button variant="secondary" onClick={() => { setShowCreate(false); setEditProvider(null); }}>Отмена</Button>
+          <Button onClick={handleSave} disabled={saving || !form.name || !form.host}>{saving ? 'Сохранение...' : 'Сохранить'}</Button>
         </div>
       </Modal>
-      <ConfirmDialog open={!!deleteProvider} onConfirm={handleDelete} onCancel={() => setDeleteProvider(null)} title="Delete Provider" description={`Delete "${deleteProvider?.name}"?`} confirmLabel="Delete" variant="danger" loading={saving} />
+      <ConfirmDialog open={!!deleteProvider} onConfirm={handleDelete} onCancel={() => setDeleteProvider(null)} title="Удаление провайдера" description={`Удалить "${deleteProvider?.name}"? Это действие необратимо.`} confirmLabel="Удалить" variant="danger" loading={saving} />
     </>
   );
 }
