@@ -728,6 +728,9 @@ func (s *Server) NumberLookup(ctx context.Context, req *routingv1.NumberLookupRe
 		if err == domain.ErrInvalidMSISDN {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if err == domain.ErrHLRProviderUnavailable || err == domain.ErrHLRLookupFailed {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
 		log.Error().Err(err).Str("msisdn", req.Msisdn).Msg("ошибка HLR lookup")
 		return nil, status.Error(codes.Internal, err.Error())
 	}

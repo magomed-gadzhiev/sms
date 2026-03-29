@@ -197,7 +197,7 @@ export function CampaignWizardPage() {
               onChange={(v) => setContactListId(v)}
               options={contactLists.map((l) => ({
                 value: l.id,
-                label: `${l.name} (${l.contacts_count.toLocaleString()} контактов)`,
+                label: `${l.name} (${(l.contacts_count ?? 0).toLocaleString()} контактов)`,
               }))}
               placeholder="-- Выберите базу --"
             />
@@ -368,7 +368,7 @@ export function CampaignWizardPage() {
                   {selectedList?.name ?? '—'}
                   {selectedList && (
                     <span className="text-gray-500 ml-1">
-                      ({selectedList.contacts_count.toLocaleString()} контактов)
+                      ({(selectedList.contacts_count ?? 0).toLocaleString()} контактов)
                     </span>
                   )}
                 </dd>

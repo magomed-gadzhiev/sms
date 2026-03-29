@@ -125,7 +125,21 @@ export function SubAccountsListPage() {
         actions={canCreate ? <Button onClick={() => setShowCreateForm(true)}>Создать суб-аккаунт</Button> : undefined}
       />
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && !canCreate && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+          <p className="text-amber-800 font-medium text-lg mb-2">Суб-аккаунты недоступны</p>
+          <p className="text-amber-600 text-sm">
+            Для управления суб-аккаунтами необходим тарифный план с поддержкой реселлерских функций.
+            Обратитесь к администратору для обновления тарифа.
+          </p>
+        </div>
+      )}
+
+      {error && canCreate && (
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-4 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Create form modal */}
       <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Создать суб-аккаунт">
@@ -185,15 +199,17 @@ export function SubAccountsListPage() {
       </Modal>
 
       {/* Sub-accounts table */}
-      <DataTable
-        columns={columns}
-        data={subAccounts}
-        total={subAccounts.length}
-        page={1}
-        pageSize={subAccounts.length}
-        onPageChange={() => {}}
-        keyField="id"
-      />
+      {canCreate && (
+        <DataTable
+          columns={columns}
+          data={subAccounts}
+          total={subAccounts.length}
+          page={1}
+          pageSize={subAccounts.length}
+          onPageChange={() => {}}
+          keyField="id"
+        />
+      )}
     </div>
   );
 }

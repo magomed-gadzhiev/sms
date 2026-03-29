@@ -366,13 +366,13 @@ export function CampaignDetailPage() {
                       {v.percentage}%
                     </td>
                     <td className="px-4 py-3 text-gray-800">
-                      {v.sent_count.toLocaleString()}
+                      {(v.sent_count ?? 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-green-600">
-                      {v.delivered_count.toLocaleString()}
+                      {(v.delivered_count ?? 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-red-600">
-                      {v.failed_count.toLocaleString()}
+                      {(v.failed_count ?? 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
                       {v.is_winner ? (
@@ -422,13 +422,13 @@ export function CampaignDetailPage() {
                       {pv.variant_name}
                     </td>
                     <td className="px-4 py-3 text-gray-800">
-                      {pv.sent.toLocaleString()}
+                      {(pv.sent ?? 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-green-600">
-                      {pv.delivered.toLocaleString()}
+                      {(pv.delivered ?? 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-gray-800">
-                      {(pv.delivery_rate * 100).toFixed(1)}%
+                      {((pv.delivery_rate ?? 0) * 100).toFixed(1)}%
                     </td>
                   </tr>
                 ))}

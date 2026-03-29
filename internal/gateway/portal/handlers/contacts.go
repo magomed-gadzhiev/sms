@@ -227,15 +227,34 @@ func (h *ContactHandlers) CreateContact(w http.ResponseWriter, r *http.Request) 
 
 	listID := mux.Vars(r)["id"]
 
-	var req contactv1.CreateContactRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// Use plain Go struct to decode — encoding/json cannot deserialize into google.protobuf.Struct
+	var body struct {
+		Phone      string                 `json:"phone"`
+		Attributes map[string]interface{} `json:"attributes"`
+		Tags       []string               `json:"tags"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
-	req.ContactListId = listID
-	req.ClientId = clientID.String()
 
-	resp, err := h.contactClient.CreateContact(r.Context(), &req)
+	grpcReq := &contactv1.CreateContactRequest{
+		ContactListId: listID,
+		ClientId:      clientID.String(),
+		Phone:         body.Phone,
+		Tags:          body.Tags,
+	}
+
+	if len(body.Attributes) > 0 {
+		protoStruct, err := convertMapToStruct(body.Attributes)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("Неверный формат атрибутов"))
+			return
+		}
+		grpcReq.Attributes = protoStruct
+	}
+
+	resp, err := h.contactClient.CreateContact(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -290,16 +309,35 @@ func (h *ContactHandlers) UpdateContact(w http.ResponseWriter, r *http.Request) 
 	listID := vars["id"]
 	contactID := vars["cid"]
 
-	var req contactv1.UpdateContactRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// Use plain Go struct to decode — encoding/json cannot deserialize into google.protobuf.Struct
+	var body struct {
+		Phone      string                 `json:"phone"`
+		Attributes map[string]interface{} `json:"attributes"`
+		Tags       []string               `json:"tags"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
-	req.Id = contactID
-	req.ContactListId = listID
-	req.ClientId = clientID.String()
 
-	resp, err := h.contactClient.UpdateContact(r.Context(), &req)
+	grpcReq := &contactv1.UpdateContactRequest{
+		Id:            contactID,
+		ContactListId: listID,
+		ClientId:      clientID.String(),
+		Phone:         body.Phone,
+		Tags:          body.Tags,
+	}
+
+	if len(body.Attributes) > 0 {
+		protoStruct, err := convertMapToStruct(body.Attributes)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("Неверный формат атрибутов"))
+			return
+		}
+		grpcReq.Attributes = protoStruct
+	}
+
+	resp, err := h.contactClient.UpdateContact(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

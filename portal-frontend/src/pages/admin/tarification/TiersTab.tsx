@@ -189,7 +189,7 @@ export function TiersTab() {
       key: 'from_count',
       header: 'От (кол-во)',
       sortable: true,
-      render: (t) => t.from_count.toLocaleString('ru-RU'),
+      render: (t) => (t.from_count ?? 0).toLocaleString('ru-RU'),
     },
     {
       key: 'price_per_segment',

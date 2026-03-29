@@ -117,7 +117,7 @@ export function CampaignsPage() {
       responsive: true,
       render: (c) => (
         <span className="font-mono text-sm">
-          {c.delivered_count.toLocaleString()}
+          {(c.delivered_count ?? 0).toLocaleString()}
         </span>
       ),
     },

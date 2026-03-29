@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -48,7 +49,7 @@ func (s *Server) GetBalance(ctx context.Context, req *billingv1.GetBalanceReques
 
 	account, err := s.billingService.GetBalance(ctx, clientID)
 	if err != nil {
-		if err == domain.ErrAccountNotFound {
+		if errors.Is(err, domain.ErrAccountNotFound) {
 			// Возвращаем баланс 0, если счет не найден
 			return &billingv1.GetBalanceResponse{
 				ClientId:  req.ClientId,
@@ -100,7 +101,7 @@ func (s *Server) ChargeMessage(ctx context.Context, req *billingv1.ChargeMessage
 
 	transaction, err := s.billingService.ChargeMessage(ctx, clientID, messageID, req.Amount, currency, req.Description)
 	if err != nil {
-		if err == domain.ErrInsufficientBalance {
+		if errors.Is(err, domain.ErrInsufficientBalance) {
 			return &billingv1.ChargeMessageResponse{
 				Success: false,
 				Error:   "insufficient balance",
@@ -180,7 +181,7 @@ func (s *Server) DeductCredits(ctx context.Context, req *billingv1.DeductCredits
 
 	transaction, err := s.billingService.DeductCredits(ctx, clientID, req.Amount, currency, req.Description)
 	if err != nil {
-		if err == domain.ErrInsufficientBalance {
+		if errors.Is(err, domain.ErrInsufficientBalance) {
 			return &billingv1.DeductCreditsResponse{
 				Success: false,
 				Error:   "insufficient balance",
@@ -328,7 +329,7 @@ func (s *Server) TransferBalance(ctx context.Context, req *billingv1.TransferBal
 
 	transferID, fromBalance, toBalance, err := s.billingService.TransferBalance(ctx, fromClientID, toClientID, req.Amount, currency)
 	if err != nil {
-		if err == domain.ErrInsufficientBalance {
+		if errors.Is(err, domain.ErrInsufficientBalance) {
 			return nil, status.Error(codes.FailedPrecondition, "insufficient balance")
 		}
 		s.logger.Error().Err(err).

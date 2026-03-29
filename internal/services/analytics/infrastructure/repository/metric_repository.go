@@ -177,32 +177,30 @@ func (r *MetricRepository) GetAggregated(ctx context.Context, filters *domain.Ag
 
 // GetStatistics получает статистику
 func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.StatisticsFilters) (*domain.Statistics, error) {
-	// Основной запрос для получения статистики из таблицы messages
-	query := `
-		SELECT 
-			status,
-			COUNT(*) as count,
-			AVG(EXTRACT(EPOCH FROM (COALESCE(delivered_at, updated_at) - created_at)) * 1000) as avg_delivery_time_ms
-		FROM messages
-		WHERE created_at >= $1 AND created_at <= $2
-	`
-
 	args := []interface{}{filters.From, filters.To}
 	argIndex := 3
 
+	// Общие условия WHERE
+	whereExtra := ""
 	if filters.ClientID != nil {
-		query += fmt.Sprintf(" AND client_id = $%d", argIndex)
+		whereExtra += fmt.Sprintf(" AND client_id = $%d", argIndex)
 		args = append(args, *filters.ClientID)
 		argIndex++
 	}
-
 	if len(filters.ProviderIDs) > 0 {
-		query += fmt.Sprintf(" AND provider_id = ANY($%d)", argIndex)
+		whereExtra += fmt.Sprintf(" AND provider_id = ANY($%d)", argIndex)
 		args = append(args, filters.ProviderIDs)
 		argIndex++
 	}
 
-	query += " GROUP BY status"
+	// 1. Запрос totals по статусам (всегда нужен)
+	totalsQuery := `
+		SELECT
+			status,
+			COUNT(*) as count,
+			AVG(EXTRACT(EPOCH FROM (COALESCE(delivered_at, updated_at) - created_at)) * 1000) as avg_delivery_time_ms
+		FROM messages
+		WHERE created_at >= $1 AND created_at <= $2` + whereExtra + ` GROUP BY status`
 
 	type statRow struct {
 		Status            string  `db:"status"`
@@ -210,17 +208,14 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 		AvgDeliveryTimeMs float64 `db:"avg_delivery_time_ms"`
 	}
 
-	var rows []statRow
-	err := r.db.SelectContext(ctx, &rows, query, args...)
+	var statusRows []statRow
+	err := r.db.SelectContext(ctx, &statusRows, totalsQuery, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	// Собираем общую статистику
 	totals := &domain.TotalStats{}
-	groups := make([]*domain.StatisticGroup, 0)
-
-	for _, row := range rows {
+	for _, row := range statusRows {
 		switch row.Status {
 		case "sent":
 			totals.TotalSent = row.Count
@@ -233,14 +228,6 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 		case "queued":
 			totals.TotalQueued = row.Count
 		}
-
-		groups = append(groups, &domain.StatisticGroup{
-			Key: row.Status,
-			Stats: &domain.TotalStats{
-				TotalSent:         row.Count,
-				AvgDeliveryTimeMs: int64(row.AvgDeliveryTimeMs),
-			},
-		})
 	}
 
 	// Вычисляем success rate
@@ -249,10 +236,10 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 		totals.SuccessRate = int32((float64(totals.TotalDelivered) / float64(totalProcessed)) * 100)
 	}
 
-	// Вычисляем среднее время доставки из всех строк
+	// Вычисляем среднее время доставки
 	var totalAvgDeliveryTime float64
 	var countWithDeliveryTime int
-	for _, row := range rows {
+	for _, row := range statusRows {
 		if row.AvgDeliveryTimeMs > 0 {
 			totalAvgDeliveryTime += row.AvgDeliveryTimeMs
 			countWithDeliveryTime++
@@ -260,6 +247,65 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 	}
 	if countWithDeliveryTime > 0 {
 		totals.AvgDeliveryTimeMs = int64(totalAvgDeliveryTime / float64(countWithDeliveryTime))
+	}
+
+	// 2. Запрос groups с группировкой по нужному полю
+	var groupByExpr, groupKeyExpr string
+	switch filters.GroupBy {
+	case "week":
+		groupByExpr = "DATE_TRUNC('week', created_at)"
+		groupKeyExpr = "TO_CHAR(DATE_TRUNC('week', created_at), 'YYYY-MM-DD')"
+	case "country":
+		groupByExpr = "COALESCE(country, 'unknown')"
+		groupKeyExpr = "COALESCE(country, 'unknown')"
+	default: // "day" or empty
+		groupByExpr = "DATE_TRUNC('day', created_at)"
+		groupKeyExpr = "TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD')"
+	}
+
+	groupQuery := fmt.Sprintf(`
+		SELECT
+			%s as group_key,
+			COUNT(*) as total_sent,
+			COUNT(*) FILTER (WHERE status = 'delivered') as total_delivered,
+			COUNT(*) FILTER (WHERE status = 'failed') as total_failed,
+			AVG(EXTRACT(EPOCH FROM (COALESCE(delivered_at, updated_at) - created_at)) * 1000) as avg_delivery_time_ms
+		FROM messages
+		WHERE created_at >= $1 AND created_at <= $2%s
+		GROUP BY %s
+		ORDER BY %s`, groupKeyExpr, whereExtra, groupByExpr, groupByExpr)
+
+	type groupRow struct {
+		GroupKey           string  `db:"group_key"`
+		TotalSent          int64   `db:"total_sent"`
+		TotalDelivered     int64   `db:"total_delivered"`
+		TotalFailed        int64   `db:"total_failed"`
+		AvgDeliveryTimeMs  float64 `db:"avg_delivery_time_ms"`
+	}
+
+	var groupRows []groupRow
+	err = r.db.SelectContext(ctx, &groupRows, groupQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	groups := make([]*domain.StatisticGroup, 0, len(groupRows))
+	for _, row := range groupRows {
+		successRate := int32(0)
+		processed := row.TotalDelivered + row.TotalFailed
+		if processed > 0 {
+			successRate = int32((float64(row.TotalDelivered) / float64(processed)) * 100)
+		}
+		groups = append(groups, &domain.StatisticGroup{
+			Key: row.GroupKey,
+			Stats: &domain.TotalStats{
+				TotalSent:         row.TotalSent,
+				TotalDelivered:    row.TotalDelivered,
+				TotalFailed:       row.TotalFailed,
+				SuccessRate:       successRate,
+				AvgDeliveryTimeMs: int64(row.AvgDeliveryTimeMs),
+			},
+		})
 	}
 
 	return &domain.Statistics{

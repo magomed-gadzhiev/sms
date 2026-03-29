@@ -8,9 +8,15 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// convertMapToStruct converts a map[string]interface{} to a *structpb.Struct
+func convertMapToStruct(m map[string]interface{}) (*structpb.Struct, error) {
+	return structpb.NewStruct(m)
+}
 
 // respondJSON отправляет JSON ответ
 func respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {

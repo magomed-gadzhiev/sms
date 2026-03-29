@@ -322,7 +322,7 @@ export function LookupPage() {
         <div className="mb-8 max-w-xs">
           <StatCard
             title="Всего проверок"
-            value={stats.total_lookups.toLocaleString()}
+            value={(stats.total_lookups ?? 0).toLocaleString()}
             subtitle={stats.period}
           />
         </div>
