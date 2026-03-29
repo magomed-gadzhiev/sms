@@ -96,7 +96,7 @@ export function TariffsPage() {
       <PageHeader title="Тарифы" subtitle="Управление тарифным планом" />
 
       {/* Current plan card */}
-      {current && (
+      {current?.plan && (
         <div className="bg-white border-2 border-primary/30 rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -171,7 +171,7 @@ export function TariffsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {plans.map((plan) => {
-          const isCurrent = current?.plan.name === plan.name;
+          const isCurrent = current?.plan?.name === plan.name;
           return (
             <div
               key={plan.name}
