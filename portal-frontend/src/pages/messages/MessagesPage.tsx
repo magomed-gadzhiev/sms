@@ -26,9 +26,18 @@ interface MessagesResponse {
   total_pages: number;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Ожидание',
+  queued: 'В очереди',
+  sent: 'Отправлено',
+  delivered: 'Доставлено',
+  failed: 'Ошибка',
+  expired: 'Истекло',
+  rejected: 'Отклонено',
+};
+
 const MESSAGE_FILTERS: FilterDef[] = [
   { key: 'status', label: 'Статус', type: 'select', options: [
-    { value: '', label: 'Все' },
     { value: 'pending', label: 'Ожидание' },
     { value: 'queued', label: 'В очереди' },
     { value: 'sent', label: 'Отправлено' },
@@ -47,7 +56,7 @@ const columns: Column<MessageItem>[] = [
   { key: 'source', header: 'Отправитель' },
   { key: 'destination', header: 'Получатель' },
   { key: 'text', header: 'Текст', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
-  { key: 'status', header: 'Статус' },
+  { key: 'status', header: 'Статус', render: (msg) => <>{STATUS_LABELS[msg.status] || msg.status}</> },
   { key: 'segment_count', header: 'Сегменты' },
   { key: 'created_at', header: 'Дата создания', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
 ];
@@ -109,8 +118,17 @@ export function MessagesPage() {
   };
 
   const handleSendSMS = async () => {
-    setSending(true);
     setSendError('');
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!phoneRegex.test(sendDest.replace(/\s/g, ''))) {
+      setSendError('Введите корректный номер телефона (например, +79001234567)');
+      return;
+    }
+    if (!sendSource.trim()) {
+      setSendError('Укажите Sender ID');
+      return;
+    }
+    setSending(true);
     try {
       await messagesApi.send({ destination: sendDest, text: sendText, source: sendSource || undefined });
       setShowSendModal(false);
@@ -119,7 +137,14 @@ export function MessagesPage() {
       setSendSource('');
       fetchMessages();
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : 'Ошибка отправки');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('source is required')) {
+        setSendError('Укажите Sender ID');
+      } else if (msg.includes('destination')) {
+        setSendError('Некорректный номер получателя');
+      } else {
+        setSendError(msg || 'Ошибка отправки');
+      }
     } finally {
       setSending(false);
     }
@@ -136,7 +161,7 @@ export function MessagesPage() {
         <div className="space-y-3">
           {sendError && <p role="alert" className="text-red-600 text-sm">{sendError}</p>}
           <Input label="Номер получателя *" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required />
-          <Input label="Sender ID" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" />
+          <Input label="Sender ID *" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" required />
           <div>
             <label htmlFor="sms-text" className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения *</label>
             <textarea id="sms-text" className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required />

@@ -41,7 +41,6 @@ interface TransactionsResponse {
 const PAGE_SIZE = 20;
 
 const TYPE_OPTIONS = [
-  { value: '', label: 'Все' },
   { value: 'charge', label: 'Списание' },
   { value: 'credit', label: 'Пополнение' },
   { value: 'refund', label: 'Возврат' },
@@ -146,7 +145,7 @@ export function BillingPage() {
     billingApi
       .getBalance()
       .then((resp) => setBalance(resp as BalanceInfo))
-      .catch((err) => setBalanceError(err.message || 'Не удалось загрузить баланс'))
+      .catch(() => setBalanceError('Не удалось загрузить данные биллинга'))
       .finally(() => setBalanceLoading(false));
   }, []);
 
@@ -165,7 +164,7 @@ export function BillingPage() {
     billingApi
       .getTransactions(params)
       .then((resp) => setData(resp as TransactionsResponse))
-      .catch((err) => setError(err.message || 'Не удалось загрузить транзакции'))
+      .catch(() => setError('Не удалось загрузить транзакции'))
       .finally(() => setLoading(false));
   }, [page, filterValues]);
 

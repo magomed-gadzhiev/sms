@@ -11,10 +11,20 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 const PAGE_SIZE = 20;
 
 const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
+  draft: { variant: 'default', label: 'Черновик' },
   pending: { variant: 'warning', label: 'На модерации' },
   approved: { variant: 'success', label: 'Одобрен' },
   rejected: { variant: 'danger', label: 'Отклонён' },
 };
+
+function pluralize(n: number, one: string, few: string, many: string): string {
+  const abs = Math.abs(n);
+  const mod10 = abs % 10;
+  const mod100 = abs % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} ${one}`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
 
 function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text;
@@ -195,7 +205,7 @@ export function TemplatesPage() {
     <div className="max-w-[900px]">
       <PageHeader
         title="Шаблоны"
-        subtitle={total > 0 ? `${total} шаблонов` : undefined}
+        subtitle={total > 0 ? pluralize(total, 'шаблон', 'шаблона', 'шаблонов') : undefined}
         actions={
           <Button onClick={openCreateForm}>
             Создать шаблон

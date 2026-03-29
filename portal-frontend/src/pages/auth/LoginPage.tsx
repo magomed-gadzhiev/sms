@@ -27,6 +27,12 @@ export function LoginPage() {
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
     setError('');
+
+    if (!email.trim() || !password.trim()) {
+      setError('Заполните все поля');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await login(email, password);
@@ -37,7 +43,14 @@ export function LoginPage() {
         navigate(dest, { replace: true });
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Ошибка входа');
+      if (err instanceof ApiError) {
+        const msg = err.message.toLowerCase();
+        setError(msg.includes('invalid credentials') || msg.includes('unauthorized')
+          ? 'Неверный email или пароль'
+          : err.message);
+      } else {
+        setError('Ошибка входа');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -102,8 +115,10 @@ export function LoginPage() {
         {submitting && <div role="status" className="text-sm text-gray-500 mb-4">Выполняется вход...</div>}
         <form onSubmit={handleLogin} className="space-y-4">
           <Input
+            id="email"
             label="Электронная почта"
             type="email"
+            placeholder="name@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -113,8 +128,10 @@ export function LoginPage() {
             aria-describedby={error ? 'login-error' : undefined}
           />
           <Input
+            id="password"
             label="Пароль"
             type="password"
+            placeholder="Ваш пароль"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

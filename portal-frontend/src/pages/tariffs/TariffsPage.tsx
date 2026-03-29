@@ -17,6 +17,20 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat('ru-RU').format(n);
 }
 
+/**
+ * Russian pluralization: picks the correct word form based on count.
+ * forms: [singular, genitive singular, genitive plural]
+ * e.g. pluralizeRu(1, ['подключение', 'подключения', 'подключений']) => 'подключение'
+ */
+function pluralizeRu(n: number, forms: [string, string, string]): string {
+  const abs = Math.abs(n);
+  const mod10 = abs % 10;
+  const mod100 = abs % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
+  return forms[2];
+}
+
 export function TariffsPage() {
   const [current, setCurrent] = useState<CurrentPlan | null>(null);
   const [plans, setPlans] = useState<TariffPlanInfo[]>([]);
@@ -205,11 +219,11 @@ export function TariffsPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                  {formatNumber(plan.max_smpp_connections)} SMPP подключений
+                  {formatNumber(plan.max_smpp_connections)} SMPP {pluralizeRu(plan.max_smpp_connections, ['подключение', 'подключения', 'подключений'])}
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                  {formatNumber(plan.max_users)} пользователей
+                  {formatNumber(plan.max_users)} {pluralizeRu(plan.max_users, ['пользователь', 'пользователя', 'пользователей'])}
                 </li>
                 {(() => {
                   const feats = plan.features;
