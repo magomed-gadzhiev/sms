@@ -47,9 +47,9 @@ const txColumns: Column<Transaction>[] = [
   {
     key: 'amount',
     header: 'Сумма',
-    render: (t) => `${t.amount} ${t.currency}`,
+    render: (t) => `${parseFloat(t.amount).toFixed(2)} ${t.currency}`,
   },
-  { key: 'balance_after', header: 'Баланс после' },
+  { key: 'balance_after', header: 'Баланс после', render: (t) => parseFloat(t.balance_after).toFixed(2) },
   { key: 'description', header: 'Описание' },
 ];
 
