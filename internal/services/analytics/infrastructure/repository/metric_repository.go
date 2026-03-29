@@ -230,10 +230,9 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 		}
 	}
 
-	// Вычисляем success rate
-	totalProcessed := totals.TotalDelivered + totals.TotalFailed
-	if totalProcessed > 0 {
-		totals.SuccessRate = int32((float64(totals.TotalDelivered) / float64(totalProcessed)) * 100)
+	// Вычисляем success rate (доставлено / всего отправлено)
+	if totals.TotalSent > 0 {
+		totals.SuccessRate = int32((float64(totals.TotalDelivered) / float64(totals.TotalSent)) * 100)
 	}
 
 	// Вычисляем среднее время доставки
@@ -292,9 +291,8 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 	groups := make([]*domain.StatisticGroup, 0, len(groupRows))
 	for _, row := range groupRows {
 		successRate := int32(0)
-		processed := row.TotalDelivered + row.TotalFailed
-		if processed > 0 {
-			successRate = int32((float64(row.TotalDelivered) / float64(processed)) * 100)
+		if row.TotalSent > 0 {
+			successRate = int32((float64(row.TotalDelivered) / float64(row.TotalSent)) * 100)
 		}
 		groups = append(groups, &domain.StatisticGroup{
 			Key: row.GroupKey,
@@ -364,10 +362,9 @@ func (r *MetricRepository) GetProviderPerformance(ctx context.Context, providerI
 	perf.TotalDelivered = totalDelivered
 	perf.TotalFailed = totalFailed
 
-	// Вычисляем success rate
-	totalProcessed := totalDelivered + totalFailed
-	if totalProcessed > 0 {
-		perf.SuccessRate = int32((float64(totalDelivered) / float64(totalProcessed)) * 100)
+	// Вычисляем success rate (доставлено / всего отправлено)
+	if totalSent > 0 {
+		perf.SuccessRate = int32((float64(totalDelivered) / float64(totalSent)) * 100)
 	}
 
 	return perf, nil

@@ -105,7 +105,15 @@ func main() {
 	logger.Info().Str("addr", redisAddr).Msg("Redis клиент создан")
 
 	// Создание пула PostgreSQL для прямых запросов (сегменты и т.д.)
-	dbDSN := getEnvOrDefault("DATABASE_URL", "postgres://sms:sms@localhost:5432/sms?sslmode=disable")
+	dbDSN := os.Getenv("DATABASE_URL")
+	if dbDSN == "" {
+		pgHost := getEnvOrDefault("POSTGRES_HOST", "localhost")
+		pgPort := getEnvOrDefault("POSTGRES_PORT", "5432")
+		pgUser := getEnvOrDefault("POSTGRES_USER", "smpp")
+		pgPass := getEnvOrDefault("POSTGRES_PASSWORD", "smpp_password")
+		pgDB := getEnvOrDefault("POSTGRES_DB", "smpp_db")
+		dbDSN = "postgres://" + pgUser + ":" + pgPass + "@" + pgHost + ":" + pgPort + "/" + pgDB + "?sslmode=disable"
+	}
 	dbPool, err := pgxpool.New(context.Background(), dbDSN)
 	if err != nil {
 		logger.Warn().Err(err).Msg("не удалось создать PostgreSQL pool, segment handlers будут недоступны")
