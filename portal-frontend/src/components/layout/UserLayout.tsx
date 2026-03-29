@@ -1,27 +1,55 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Sidebar, type NavItem } from './Sidebar';
+import { Sidebar, type NavItem, type NavGroup } from './Sidebar';
 import { SkipLink } from '../SkipLink';
 import { useAuth } from '../../contexts/AuthContext';
 
-const USER_NAV: NavItem[] = [
+const DASHBOARD_NAV: NavItem[] = [
   { path: '/dashboard', label: 'Дашборд' },
-  { path: '/messages', label: 'Сообщения' },
-  { path: '/templates', label: 'Шаблоны' },
-  { path: '/contact-lists', label: 'Контакты' },
-  { path: '/segments', label: 'Сегменты' },
-  { path: '/campaigns', label: 'Рассылки' },
-  { path: '/lookup', label: 'Lookup' },
-  { path: '/providers', label: 'Провайдеры' },
-  { path: '/billing', label: 'Биллинг' },
-  { path: '/tariffs', label: 'Тарифы' },
-  { path: '/api-keys', label: 'API Ключи' },
-  { path: '/webhooks', label: 'Вебхуки' },
   { path: '/analytics', label: 'Аналитика' },
-  { path: '/sub-accounts', label: 'Суб-аккаунты' },
-  { path: '/profile', label: 'Профиль' },
-  { path: '/settings/domains', label: 'Домены' },
-  { path: '/audit-log', label: 'Журнал аудита' },
+];
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Рассылки',
+    items: [
+      { path: '/messages', label: 'Сообщения' },
+      { path: '/campaigns', label: 'Рассылки' },
+      { path: '/templates', label: 'Шаблоны' },
+    ],
+  },
+  {
+    label: 'Контакты',
+    items: [
+      { path: '/contact-lists', label: 'Контактные базы' },
+      { path: '/segments', label: 'Сегменты' },
+    ],
+  },
+  {
+    label: 'Финансы',
+    items: [
+      { path: '/billing', label: 'Биллинг' },
+      { path: '/tariffs', label: 'Тарифы' },
+    ],
+  },
+  {
+    label: 'Интеграции',
+    items: [
+      { path: '/api-keys', label: 'API Ключи' },
+      { path: '/webhooks', label: 'Вебхуки' },
+      { path: '/providers', label: 'Провайдеры' },
+      { path: '/lookup', label: 'Lookup' },
+    ],
+  },
+  {
+    label: 'Настройки',
+    items: [
+      { path: '/profile', label: 'Профиль' },
+      { path: '/sub-accounts', label: 'Суб-аккаунты' },
+      { path: '/settings/domains', label: 'Домены' },
+      { path: '/audit-log', label: 'Журнал аудита' },
+    ],
+  },
 ];
 
 export function UserLayout() {
@@ -37,9 +65,9 @@ export function UserLayout() {
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="text-gray-600 hover:text-gray-900"
-          aria-label="Open menu"
+          aria-label="Открыть меню"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
@@ -48,7 +76,8 @@ export function UserLayout() {
 
       <Sidebar
         title="SMS Portal"
-        items={USER_NAV}
+        items={DASHBOARD_NAV}
+        groups={NAV_GROUPS}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         footer={

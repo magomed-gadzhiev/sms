@@ -54,7 +54,14 @@ function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50" role="status" aria-live="polite">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm text-gray-500">Загрузка...</p>
+      </div>
+    </div>
+  );
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
   return <UserLayout />;
 }

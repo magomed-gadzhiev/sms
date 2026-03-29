@@ -24,31 +24,31 @@ interface AuditLogResponse {
 }
 
 const ACTION_OPTIONS = [
-  { value: '', label: 'All actions' },
-  { value: 'auth.login', label: 'Login' },
-  { value: 'auth.logout', label: 'Logout' },
-  { value: 'auth.password_reset', label: 'Password Reset' },
-  { value: 'auth.totp_enabled', label: 'TOTP Enabled' },
-  { value: 'auth.totp_disabled', label: 'TOTP Disabled' },
-  { value: 'api_key.created', label: 'API Key Created' },
-  { value: 'api_key.revoked', label: 'API Key Revoked' },
-  { value: 'webhook.created', label: 'Webhook Created' },
-  { value: 'webhook.updated', label: 'Webhook Updated' },
-  { value: 'webhook.deleted', label: 'Webhook Deleted' },
-  { value: 'webhook.test_sent', label: 'Webhook Test Sent' },
-  { value: 'sub_account.created', label: 'Sub-account Created' },
-  { value: 'sub_account.deleted', label: 'Sub-account Deleted' },
-  { value: 'sub_account.limit_updated', label: 'Sub-account Limit Updated' },
-  { value: 'balance.transfer_out', label: 'Balance Transfer Out' },
-  { value: 'balance.transfer_in', label: 'Balance Transfer In' },
-  { value: 'profile.updated', label: 'Profile Updated' },
+  { value: '', label: 'Все действия' },
+  { value: 'auth.login', label: 'Вход' },
+  { value: 'auth.logout', label: 'Выход' },
+  { value: 'auth.password_reset', label: 'Сброс пароля' },
+  { value: 'auth.totp_enabled', label: '2FA включена' },
+  { value: 'auth.totp_disabled', label: '2FA отключена' },
+  { value: 'api_key.created', label: 'API ключ создан' },
+  { value: 'api_key.revoked', label: 'API ключ отозван' },
+  { value: 'webhook.created', label: 'Вебхук создан' },
+  { value: 'webhook.updated', label: 'Вебхук обновлён' },
+  { value: 'webhook.deleted', label: 'Вебхук удалён' },
+  { value: 'webhook.test_sent', label: 'Тест вебхука' },
+  { value: 'sub_account.created', label: 'Суб-аккаунт создан' },
+  { value: 'sub_account.deleted', label: 'Суб-аккаунт удалён' },
+  { value: 'sub_account.limit_updated', label: 'Лимит суб-аккаунта изменён' },
+  { value: 'balance.transfer_out', label: 'Перевод средств (исходящий)' },
+  { value: 'balance.transfer_in', label: 'Перевод средств (входящий)' },
+  { value: 'profile.updated', label: 'Профиль обновлён' },
 ];
 
 const AUDIT_FILTERS: FilterDef[] = [
-  { key: 'action', label: 'Action', type: 'select', options: ACTION_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-  { key: 'date_from', label: 'From', type: 'date' },
-  { key: 'date_to', label: 'To', type: 'date' },
-  { key: 'user_id', label: 'User ID', type: 'text', placeholder: 'Filter by user...' },
+  { key: 'action', label: 'Действие', type: 'select', options: ACTION_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+  { key: 'date_from', label: 'С даты', type: 'date' },
+  { key: 'date_to', label: 'По дату', type: 'date' },
+  { key: 'user_id', label: 'ID пользователя', type: 'text', placeholder: 'Фильтр по пользователю...' },
 ];
 
 const INITIAL_FILTERS: Record<string, string> = { action: '', date_from: '', date_to: '', user_id: '' };
@@ -66,13 +66,13 @@ const formatDetails = (details: string): string => {
 };
 
 const columns: Column<AuditEntry>[] = [
-  { key: 'created_at', header: 'Timestamp', render: (entry) => <span className="text-xs whitespace-nowrap">{entry.created_at ? new Date(entry.created_at).toLocaleString() : '-'}</span> },
-  { key: 'action', header: 'Action' },
-  { key: 'resource_type', header: 'Resource Type' },
-  { key: 'resource_id', header: 'Resource ID', render: (entry) => <span className="text-xs font-mono">{entry.resource_id ? `${entry.resource_id.substring(0, 8)}...` : '-'}</span> },
-  { key: 'user_id', header: 'User ID', render: (entry) => <span className="text-xs font-mono">{entry.user_id ? `${entry.user_id.substring(0, 8)}...` : '-'}</span> },
-  { key: 'ip_address', header: 'IP Address', render: (entry) => <span className="text-xs">{entry.ip_address || '-'}</span> },
-  { key: 'details', header: 'Details', render: (entry) => <span className="text-xs block max-w-[250px] truncate">{formatDetails(entry.details)}</span> },
+  { key: 'created_at', header: 'Дата и время', render: (entry) => <span className="text-xs whitespace-nowrap">{entry.created_at ? new Date(entry.created_at).toLocaleString() : '-'}</span> },
+  { key: 'action', header: 'Действие' },
+  { key: 'resource_type', header: 'Тип ресурса' },
+  { key: 'resource_id', header: 'ID ресурса', render: (entry) => <span className="text-xs font-mono">{entry.resource_id ? `${entry.resource_id.substring(0, 8)}...` : '-'}</span> },
+  { key: 'user_id', header: 'ID пользователя', render: (entry) => <span className="text-xs font-mono">{entry.user_id ? `${entry.user_id.substring(0, 8)}...` : '-'}</span> },
+  { key: 'ip_address', header: 'IP адрес', render: (entry) => <span className="text-xs">{entry.ip_address || '-'}</span> },
+  { key: 'details', header: 'Детали', render: (entry) => <span className="text-xs block max-w-[250px] truncate">{formatDetails(entry.details)}</span> },
 ];
 
 export function AuditLogPage() {
@@ -98,7 +98,7 @@ export function AuditLogPage() {
     auditApi
       .list(params)
       .then((resp) => setData(resp as AuditLogResponse))
-      .catch((err) => setError(err.message || 'Failed to load audit log'))
+      .catch((err) => setError(err.message || 'Не удалось загрузить журнал аудита'))
       .finally(() => setLoading(false));
   }, [page, filterValues]);
 
@@ -127,7 +127,7 @@ export function AuditLogPage() {
         onReset={handleFilterReset}
       />
 
-      {error && <div className="text-red-600 mb-3">Error: {error}</div>}
+      {error && <div className="text-red-600 mb-3">Ошибка: {error}</div>}
 
       {data && (
         <DataTable<AuditEntry>

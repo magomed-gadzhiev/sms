@@ -4,12 +4,15 @@ import { contactListsApi, type ContactList } from '../../api/contacts';
 import { ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { DataTable, type Column } from '../../components/data/DataTable';
+import { useToast } from '../../components/ui/Toast';
 
 export function ContactListsPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [lists, setLists] = useState<ContactList[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -21,6 +24,7 @@ export function ContactListsPage() {
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -49,6 +53,7 @@ export function ContactListsPage() {
   async function handleCreate() {
     if (!createName.trim()) return;
     setCreating(true);
+    setCreateError('');
     try {
       await contactListsApi.create({
         name: createName.trim(),
@@ -57,9 +62,10 @@ export function ContactListsPage() {
       setShowCreate(false);
       setCreateName('');
       setCreateDesc('');
+      toast.success('Контактная база создана');
       load();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при создании');
+      setCreateError(err instanceof ApiError ? err.message : 'Ошибка при создании');
     } finally {
       setCreating(false);
     }
@@ -73,8 +79,9 @@ export function ContactListsPage() {
       setLists((prev) => prev.filter((l) => l.id !== deleteId));
       setTotal((prev) => prev - 1);
       setDeleteId(null);
+      toast.success('Контактная база удалена');
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при удалении');
+      toast.error(err instanceof ApiError ? err.message : 'Ошибка при удалении');
     } finally {
       setDeleting(false);
     }
@@ -100,7 +107,7 @@ export function ContactListsPage() {
       key: 'contacts_count',
       header: 'Контактов',
       render: (item) => (
-        <span className="font-mono text-sm">{item.contacts_count.toLocaleString()}</span>
+        <span className="font-mono text-sm">{(item.contacts_count ?? 0).toLocaleString()}</span>
       ),
     },
     {
@@ -178,27 +185,29 @@ export function ContactListsPage() {
         title="Создать контактную базу"
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Название *
-            </label>
-            <input
-              type="text"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Например: Клиенты Москва"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          {createError && (
+            <p role="alert" className="text-sm text-danger bg-red-50 border border-red-200 rounded p-3">
+              {createError}
+            </p>
+          )}
+          <Input
+            label="Название *"
+            type="text"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            placeholder="Например: Клиенты Москва"
+            autoFocus
+            required
+          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="create-desc" className="text-sm font-medium text-gray-700">
               Описание
             </label>
             <textarea
+              id="create-desc"
               value={createDesc}
               onChange={(e) => setCreateDesc(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
               rows={3}
               placeholder="Необязательное описание списка"
             />

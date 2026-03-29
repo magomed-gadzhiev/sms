@@ -27,29 +27,29 @@ interface MessagesResponse {
 }
 
 const MESSAGE_FILTERS: FilterDef[] = [
-  { key: 'status', label: 'Status', type: 'select', options: [
-    { value: '', label: 'All' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'queued', label: 'Queued' },
-    { value: 'sent', label: 'Sent' },
-    { value: 'delivered', label: 'Delivered' },
-    { value: 'failed', label: 'Failed' },
-    { value: 'expired', label: 'Expired' },
-    { value: 'rejected', label: 'Rejected' },
+  { key: 'status', label: 'Статус', type: 'select', options: [
+    { value: '', label: 'Все' },
+    { value: 'pending', label: 'Ожидание' },
+    { value: 'queued', label: 'В очереди' },
+    { value: 'sent', label: 'Отправлено' },
+    { value: 'delivered', label: 'Доставлено' },
+    { value: 'failed', label: 'Ошибка' },
+    { value: 'expired', label: 'Истекло' },
+    { value: 'rejected', label: 'Отклонено' },
   ]},
-  { key: 'date_from', label: 'From', type: 'date' },
-  { key: 'date_to', label: 'To', type: 'date' },
-  { key: 'destination', label: 'Destination', type: 'text', placeholder: '+7...' },
+  { key: 'date_from', label: 'С даты', type: 'date' },
+  { key: 'date_to', label: 'По дату', type: 'date' },
+  { key: 'destination', label: 'Получатель', type: 'text', placeholder: '+7...' },
 ];
 
 const columns: Column<MessageItem>[] = [
   { key: 'message_id', header: 'ID', render: (msg) => <span className="font-mono text-xs">{msg.message_id.substring(0, 8)}...</span> },
-  { key: 'source', header: 'Source' },
-  { key: 'destination', header: 'Destination' },
-  { key: 'text', header: 'Text', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
-  { key: 'status', header: 'Status' },
-  { key: 'segment_count', header: 'Segments' },
-  { key: 'created_at', header: 'Created', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
+  { key: 'source', header: 'Отправитель' },
+  { key: 'destination', header: 'Получатель' },
+  { key: 'text', header: 'Текст', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
+  { key: 'status', header: 'Статус' },
+  { key: 'segment_count', header: 'Сегменты' },
+  { key: 'created_at', header: 'Дата создания', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
 ];
 
 const INITIAL_FILTERS: Record<string, string> = {
@@ -128,7 +128,7 @@ export function MessagesPage() {
   return (
     <div>
       <PageHeader
-        title="Messages"
+        title="Сообщения"
         actions={<Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>}
       />
 
@@ -155,7 +155,7 @@ export function MessagesPage() {
         onReset={handleReset}
       />
 
-      {error && <div className="text-red-600 mb-3">Error: {error}</div>}
+      {error && <div className="text-red-600 mb-3">Ошибка: {error}</div>}
 
       <DataTable
         columns={columns}

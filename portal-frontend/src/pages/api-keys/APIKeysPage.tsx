@@ -61,7 +61,7 @@ export function APIKeysPage() {
       const resp = await apiKeysApi.list();
       setKeys(resp.keys || []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load API keys');
+      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить API ключи');
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export function APIKeysPage() {
       setExpiresAt('');
       await loadKeys();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create API key');
+      setError(err instanceof ApiError ? err.message : 'Не удалось создать API ключ');
     } finally {
       setCreating(false);
     }
@@ -109,7 +109,7 @@ export function APIKeysPage() {
       setRevokeId(null);
       await loadKeys();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to revoke API key');
+      setError(err instanceof ApiError ? err.message : 'Не удалось отозвать API ключ');
     }
   }
 
@@ -183,48 +183,48 @@ export function APIKeysPage() {
   }
 
   const columns: Column<APIKeyInfo>[] = [
-    { key: 'name', header: 'Name' },
+    { key: 'name', header: 'Название' },
     {
       key: 'prefix',
-      header: 'Prefix',
+      header: 'Префикс',
       render: (key) => <code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{key.prefix}...</code>,
     },
     {
       key: 'status',
-      header: 'Status',
+      header: 'Статус',
       render: (key) => <StatusBadge status={key.active ? 'active' : 'inactive'} />,
     },
     {
       key: 'allowed_ips',
-      header: 'Allowed IPs',
+      header: 'Разрешённые IP',
       render: (key) =>
-        key.allowed_ips && key.allowed_ips.length > 0 ? key.allowed_ips.join(', ') : 'Any',
+        key.allowed_ips && key.allowed_ips.length > 0 ? key.allowed_ips.join(', ') : 'Любые',
     },
     {
       key: 'scopes',
-      header: 'Scopes',
+      header: 'Области доступа',
       render: (key) =>
-        key.scopes && key.scopes.length > 0 ? key.scopes.join(', ') : 'Full access',
+        key.scopes && key.scopes.length > 0 ? key.scopes.join(', ') : 'Полный доступ',
     },
     {
       key: 'created_at',
-      header: 'Created',
+      header: 'Создан',
       render: (key) => new Date(key.created_at).toLocaleDateString(),
     },
     {
       key: 'last_used_at',
-      header: 'Last Used',
+      header: 'Последнее использование',
       render: (key) =>
-        key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never',
+        key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Никогда',
     },
   ];
 
-  if (loading) return <div role="status">Loading API keys...</div>;
+  if (loading) return <div role="status">Загрузка API ключей...</div>;
 
   return (
     <div className="max-w-[900px]">
       <PageHeader
-        title="API Keys"
+        title="API Ключи"
         actions={
           <Button
             onClick={() => {
@@ -232,7 +232,7 @@ export function APIKeysPage() {
               setCreatedKey(null);
             }}
           >
-            Create API Key
+            Создать API ключ
           </Button>
         }
       />
@@ -243,55 +243,55 @@ export function APIKeysPage() {
       {createdKey && (
         <div role="alert" className="bg-green-50 border border-green-500 rounded p-4 mb-4">
           <p className="mb-2 font-bold">
-            API Key created successfully. Copy it now -- it will not be shown again.
+            API ключ создан успешно. Скопируйте его сейчас — он не будет показан снова.
           </p>
           <div className="flex items-center gap-2">
             <code className="bg-white px-2 py-1 rounded break-all flex-1">
               {createdKey.api_key}
             </code>
             <Button variant="secondary" size="sm" onClick={handleCopyKey}>
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? 'Скопировано!' : 'Скопировать'}
             </Button>
           </div>
           <button
             onClick={() => setCreatedKey(null)}
             className="mt-2 text-sm text-gray-600 underline hover:text-gray-800 bg-transparent border-none cursor-pointer"
           >
-            Dismiss
+            Скрыть
           </button>
         </div>
       )}
 
       {/* Create form modal */}
-      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Create New API Key">
+      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Создать API ключ">
         <form onSubmit={handleCreate}>
           <div className="mb-3">
             <Input
-              label="Name *"
+              label="Название *"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="e.g. Production Key"
+              placeholder="Например: Production Key"
               className="w-full max-w-[300px]"
             />
           </div>
 
           <div className="mb-3">
             <label className="text-sm font-medium text-gray-700">
-              Allowed IPs (comma or newline separated, supports CIDR)
+              Разрешённые IP (через запятую или по одному на строку, поддержка CIDR)
             </label>
             <textarea
               value={allowedIpsInput}
               onChange={(e) => setAllowedIpsInput(e.target.value)}
-              placeholder="e.g. 192.168.1.1, 10.0.0.0/8"
+              placeholder="Например: 192.168.1.1, 10.0.0.0/8"
               rows={3}
               className="mt-1 w-full max-w-[400px] rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
             />
           </div>
 
           <div className="mb-3">
-            <label className="text-sm font-medium text-gray-700">Scopes</label>
+            <label className="text-sm font-medium text-gray-700">Области доступа</label>
             <div className="flex flex-wrap gap-2 mt-1">
               {AVAILABLE_SCOPES.map((scope) => (
                 <label key={scope} className="flex items-center gap-1">
@@ -304,12 +304,12 @@ export function APIKeysPage() {
                 </label>
               ))}
             </div>
-            <small className="text-gray-500">Leave empty for full access</small>
+            <small className="text-gray-500">Оставьте пустым для полного доступа</small>
           </div>
 
           <div className="mb-3">
             <Input
-              label="Expires At (optional)"
+              label="Срок действия (опционально)"
               type="datetime-local"
               value={expiresAt}
               onChange={(e) => {
@@ -321,10 +321,10 @@ export function APIKeysPage() {
 
           <div className="flex gap-2">
             <Button type="submit" disabled={creating}>
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? 'Создание...' : 'Создать'}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
-              Cancel
+              Отмена
             </Button>
           </div>
         </form>
@@ -335,10 +335,10 @@ export function APIKeysPage() {
         open={revokeId !== null}
         onConfirm={() => revokeId && handleRevoke(revokeId)}
         onCancel={() => setRevokeId(null)}
-        title="Revoke API Key"
-        description="Are you sure you want to revoke this API key?"
+        title="Отозвать API ключ"
+        description="Вы уверены, что хотите отозвать этот API ключ?"
         variant="danger"
-        confirmLabel="Yes, revoke"
+        confirmLabel="Да, отозвать"
       />
 
       {/* Detail / Edit modal */}
@@ -362,11 +362,11 @@ export function APIKeysPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500">Scopes</dt>
+                <dt className="text-gray-500">Области доступа</dt>
                 <dd className="font-medium text-gray-900">
                   {detailKey.scopes && detailKey.scopes.length > 0
                     ? detailKey.scopes.join(', ')
-                    : 'Full access'}
+                    : 'Полный доступ'}
                 </dd>
               </div>
               <div>
@@ -419,7 +419,7 @@ export function APIKeysPage() {
             </div>
 
             <div className="mb-3">
-              <label className="text-sm font-medium text-gray-700">Scopes</label>
+              <label className="text-sm font-medium text-gray-700">Области доступа</label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {EDIT_SCOPES.map((scope) => (
                   <label key={scope} className="flex items-center gap-1">
@@ -489,7 +489,7 @@ export function APIKeysPage() {
               aria-label={`Revoke ${key.name}`}
               onClick={() => setRevokeId(key.id)}
             >
-              Revoke
+              Отозвать
             </Button>
           ) : null
         }

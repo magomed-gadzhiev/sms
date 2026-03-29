@@ -197,7 +197,14 @@ func (r *ProviderRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // ListByClientID возвращает провайдеров, принадлежащих клиенту
 func (r *ProviderRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*shared.Provider, error) {
 	var providers []*shared.Provider
-	query := `SELECT * FROM providers WHERE client_id = $1 ORDER BY created_at DESC`
+	query := `SELECT p.id, p.name, p.host, p.port, p.system_id, p.password, p.system_type,
+		p.bind_type, p.bind_ton, p.bind_npi, p.addr_ton, p.addr_npi, p.address_range,
+		p.max_connections, p.active, p.priority, p.throughput_per_second,
+		p.created_at, p.updated_at, p.daily_quota, p.monthly_quota
+		FROM providers p
+		INNER JOIN client_providers cp ON p.id = cp.provider_id
+		WHERE cp.client_id = $1 AND cp.active = true
+		ORDER BY p.created_at DESC`
 	err := r.db.SelectContext(ctx, &providers, query, clientID)
 	if err != nil {
 		return nil, err
@@ -208,7 +215,9 @@ func (r *ProviderRepository) ListByClientID(ctx context.Context, clientID uuid.U
 // CountByClientID считает провайдеров клиента
 func (r *ProviderRepository) CountByClientID(ctx context.Context, clientID uuid.UUID) (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM providers WHERE client_id = $1`
+	query := `SELECT COUNT(*) FROM providers p
+		INNER JOIN client_providers cp ON p.id = cp.provider_id
+		WHERE cp.client_id = $1 AND cp.active = true`
 	err := r.db.GetContext(ctx, &count, query, clientID)
 	return count, err
 }
@@ -216,7 +225,13 @@ func (r *ProviderRepository) CountByClientID(ctx context.Context, clientID uuid.
 // GetByIDAndClientID получает провайдера по ID с проверкой принадлежности клиенту
 func (r *ProviderRepository) GetByIDAndClientID(ctx context.Context, id, clientID uuid.UUID) (*shared.Provider, error) {
 	var provider shared.Provider
-	query := `SELECT * FROM providers WHERE id = $1 AND client_id = $2`
+	query := `SELECT p.id, p.name, p.host, p.port, p.system_id, p.password, p.system_type,
+		p.bind_type, p.bind_ton, p.bind_npi, p.addr_ton, p.addr_npi, p.address_range,
+		p.max_connections, p.active, p.priority, p.throughput_per_second,
+		p.created_at, p.updated_at, p.daily_quota, p.monthly_quota
+		FROM providers p
+		INNER JOIN client_providers cp ON p.id = cp.provider_id
+		WHERE p.id = $1 AND cp.client_id = $2 AND cp.active = true`
 	err := r.db.GetContext(ctx, &provider, query, id, clientID)
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -35,7 +35,7 @@ export function FilterBar({ filters, values, onChange, onReset }: FilterBarProps
                 options={f.options}
                 value={values[f.key] || ''}
                 onChange={(v) => update(f.key, v)}
-                placeholder={f.placeholder || 'All'}
+                placeholder={f.placeholder || 'Все'}
               />
             </div>
           );
@@ -54,7 +54,7 @@ export function FilterBar({ filters, values, onChange, onReset }: FilterBarProps
       })}
       {hasValues && onReset && (
         <Button variant="ghost" size="sm" onClick={onReset}>
-          Reset
+          Сбросить
         </Button>
       )}
     </div>

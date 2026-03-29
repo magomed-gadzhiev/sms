@@ -11,7 +11,7 @@ import { Step4Test } from './steps/Step4Test';
 import { Step5Routing } from './steps/Step5Routing';
 import { Step6Summary } from './steps/Step6Summary';
 
-const STEP_LABELS = ['Basic Info', 'Connection', 'Parameters', 'Test', 'Routing', 'Summary'];
+const STEP_LABELS = ['Основное', 'Подключение', 'Параметры', 'Тест', 'Маршрутизация', 'Итоги'];
 const TOTAL_STEPS = 6;
 
 const DEFAULTS: Partial<CreateProviderRequest> = {
@@ -35,12 +35,12 @@ export function ProviderWizardPage() {
   }
 
   function validateStep(s: number): string {
-    if (s === 1 && !data.name?.trim()) return 'Name is required';
+    if (s === 1 && !data.name?.trim()) return 'Название обязательно';
     if (s === 2) {
-      if (!data.host?.trim()) return 'Host is required';
-      if (!data.port || data.port <= 0) return 'Valid port is required';
-      if (!data.system_id?.trim()) return 'System ID is required';
-      if (!data.password?.trim()) return 'Password is required';
+      if (!data.host?.trim()) return 'Хост обязателен';
+      if (!data.port || data.port <= 0) return 'Укажите корректный порт';
+      if (!data.system_id?.trim()) return 'System ID обязателен';
+      if (!data.password?.trim()) return 'Пароль обязателен';
     }
     return '';
   }
@@ -64,7 +64,7 @@ export function ProviderWizardPage() {
       await providersApi.create(data as CreateProviderRequest);
       navigate('/providers');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create provider');
+      setError(err instanceof ApiError ? err.message : 'Не удалось создать провайдера');
     } finally {
       setSaving(false);
     }
@@ -72,7 +72,7 @@ export function ProviderWizardPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <PageHeader title="Add SMPP Provider" />
+      <PageHeader title="Добавить SMPP провайдера" />
       <WizardProgress currentStep={step} totalSteps={TOTAL_STEPS} labels={STEP_LABELS} />
 
       <div className="p-6 border border-gray-200 rounded-lg">

@@ -67,7 +67,7 @@ export function WebhooksPage() {
       const resp = (await webhooksApi.list()) as WebhookListResponse;
       setWebhooks(resp.subscriptions || []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load webhooks');
+      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить вебхуки');
     } finally {
       setLoading(false);
     }
@@ -92,7 +92,7 @@ export function WebhooksPage() {
       setFormEventTypes([]);
       await loadWebhooks();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create webhook');
+      setError(err instanceof ApiError ? err.message : 'Не удалось создать вебхук');
     } finally {
       setCreating(false);
     }
@@ -117,7 +117,7 @@ export function WebhooksPage() {
       setEditId(null);
       await loadWebhooks();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to update webhook');
+      setError(err instanceof ApiError ? err.message : 'Не удалось обновить вебхук');
     } finally {
       setSaving(false);
     }
@@ -130,7 +130,7 @@ export function WebhooksPage() {
       setDeleteId(null);
       await loadWebhooks();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete webhook');
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить вебхук');
     }
   }
 
@@ -139,9 +139,9 @@ export function WebhooksPage() {
     setTestResult(null);
     try {
       const resp = (await webhooksApi.test(id)) as { message: string };
-      setTestResult({ id, message: resp.message || 'Test event sent' });
+      setTestResult({ id, message: resp.message || 'Тестовое событие отправлено' });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to test webhook');
+      setError(err instanceof ApiError ? err.message : 'Не удалось протестировать вебхук');
     }
   }
 
@@ -167,7 +167,7 @@ export function WebhooksPage() {
     },
     {
       key: 'event_types',
-      header: 'Event Types',
+      header: 'Типы событий',
       render: (wh) => (
         <div className="flex flex-wrap gap-1">
           {wh.event_types.map((t) => (
@@ -178,22 +178,22 @@ export function WebhooksPage() {
     },
     {
       key: 'active',
-      header: 'Status',
+      header: 'Статус',
       render: (wh) => <StatusBadge status={wh.active ? 'active' : 'inactive'} />,
     },
     {
       key: 'created_at',
-      header: 'Created',
+      header: 'Создан',
       render: (wh) => (wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'),
     },
   ];
 
-  if (loading) return <div role="status">Loading webhooks...</div>;
+  if (loading) return <div role="status">Загрузка вебхуков...</div>;
 
   return (
     <div className="max-w-[900px]">
       <PageHeader
-        title="Webhooks"
+        title="Вебхуки"
         actions={
           <Button
             onClick={() => {
@@ -201,7 +201,7 @@ export function WebhooksPage() {
               setCreatedSecret(null);
             }}
           >
-            Create Webhook
+            Создать вебхук
           </Button>
         }
       />
@@ -215,21 +215,21 @@ export function WebhooksPage() {
           className="bg-green-50 border border-green-500 rounded p-4 mb-4"
         >
           <p className="mb-2 font-bold">
-            Webhook created. Copy the secret now -- it will not be shown again.
+            Вебхук создан. Скопируйте секрет сейчас — он не будет показан снова.
           </p>
           <div className="flex items-center gap-2">
             <code className="bg-white px-2 py-1 rounded break-all flex-1">
               {createdSecret}
             </code>
             <Button size="sm" variant="secondary" onClick={handleCopySecret}>
-              {secretCopied ? 'Copied!' : 'Copy'}
+              {secretCopied ? 'Скопировано!' : 'Скопировать'}
             </Button>
           </div>
           <button
             onClick={() => setCreatedSecret(null)}
             className="mt-2 bg-transparent border-none cursor-pointer underline text-sm text-gray-600"
           >
-            Dismiss
+            Скрыть
           </button>
         </div>
       )}
@@ -245,13 +245,13 @@ export function WebhooksPage() {
             onClick={() => setTestResult(null)}
             className="ml-3 bg-transparent border-none cursor-pointer underline text-sm text-gray-600"
           >
-            Dismiss
+            Скрыть
           </button>
         </div>
       )}
 
       {/* Create form modal */}
-      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Create Webhook">
+      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Создать вебхук">
         <form onSubmit={handleCreate}>
           <div className="mb-4">
             <Input
@@ -265,7 +265,7 @@ export function WebhooksPage() {
             />
           </div>
           <div className="mb-4">
-            <label className="text-sm font-medium text-gray-700">Event Types *</label>
+            <label className="text-sm font-medium text-gray-700">Типы событий *</label>
             <div className="flex flex-wrap gap-2 mt-1">
               {AVAILABLE_EVENT_TYPES.map((type) => (
                 <label key={type} className="flex items-center gap-1 text-sm">
@@ -281,17 +281,17 @@ export function WebhooksPage() {
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" type="button" onClick={() => setShowCreateForm(false)}>
-              Cancel
+              Отмена
             </Button>
             <Button type="submit" disabled={creating || formEventTypes.length === 0}>
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? 'Создание...' : 'Создать'}
             </Button>
           </div>
         </form>
       </Modal>
 
       {/* Edit form modal */}
-      <Modal open={!!editId} onClose={() => setEditId(null)} title="Edit Webhook">
+      <Modal open={!!editId} onClose={() => setEditId(null)} title="Редактировать вебхук">
         <form onSubmit={handleUpdate}>
           <div className="mb-4">
             <Input
@@ -304,7 +304,7 @@ export function WebhooksPage() {
             />
           </div>
           <div className="mb-4">
-            <label className="text-sm font-medium text-gray-700">Event Types</label>
+            <label className="text-sm font-medium text-gray-700">Типы событий</label>
             <div className="flex flex-wrap gap-2 mt-1">
               {AVAILABLE_EVENT_TYPES.map((type) => (
                 <label key={type} className="flex items-center gap-1 text-sm">
@@ -320,10 +320,10 @@ export function WebhooksPage() {
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" type="button" onClick={() => setEditId(null)}>
-              Cancel
+              Отмена
             </Button>
             <Button type="submit" disabled={saving || editEventTypes.length === 0}>
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Сохранение...' : 'Сохранить'}
             </Button>
           </div>
         </form>
@@ -334,9 +334,9 @@ export function WebhooksPage() {
         open={!!deleteId}
         onCancel={() => setDeleteId(null)}
         onConfirm={() => deleteId && handleDelete(deleteId)}
-        title="Delete Webhook"
-        description={`Are you sure you want to delete the webhook${deleteWebhook ? ` for ${deleteWebhook.url}` : ''}? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title="Удалить вебхук"
+        description={`Вы уверены, что хотите удалить вебхук${deleteWebhook ? ` ${deleteWebhook.url}` : ''}? Это действие нельзя отменить.`}
+        confirmLabel="Удалить"
         variant="danger"
       />
 
@@ -354,26 +354,26 @@ export function WebhooksPage() {
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Edit ${wh.url}`}
+              aria-label={`Редактировать ${wh.url}`}
               onClick={() => startEdit(wh)}
             >
-              Edit
+              Редактировать
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Test ${wh.url}`}
+              aria-label={`Тест ${wh.url}`}
               onClick={() => handleTest(wh.id)}
             >
-              Test
+              Тест
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Delete ${wh.url}`}
+              aria-label={`Удалить ${wh.url}`}
               onClick={() => setDeleteId(wh.id)}
             >
-              Delete
+              Удалить
             </Button>
           </div>
         )}

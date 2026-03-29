@@ -39,19 +39,19 @@ interface AnalyticsData {
 const PERIODS = ['7d', '30d', '90d'] as const;
 
 const timelineColumns: Column<TimelineEntry>[] = [
-  { key: 'period', header: 'Period' },
-  { key: 'sent', header: 'Sent' },
-  { key: 'delivered', header: 'Delivered' },
-  { key: 'failed', header: 'Failed' },
-  { key: 'delivery_rate', header: 'Delivery Rate', render: (row) => <>{row.delivery_rate}%</> },
+  { key: 'period', header: 'Период' },
+  { key: 'sent', header: 'Отправлено' },
+  { key: 'delivered', header: 'Доставлено' },
+  { key: 'failed', header: 'Ошибки' },
+  { key: 'delivery_rate', header: 'Доставляемость', render: (row) => <>{row.delivery_rate}%</> },
 ];
 
 const countryColumns: Column<CountryEntry>[] = [
-  { key: 'country', header: 'Country' },
-  { key: 'sent', header: 'Sent' },
-  { key: 'delivered', header: 'Delivered' },
-  { key: 'failed', header: 'Failed' },
-  { key: 'delivery_rate', header: 'Delivery Rate', render: (row) => <>{row.delivery_rate}%</> },
+  { key: 'country', header: 'Страна' },
+  { key: 'sent', header: 'Отправлено' },
+  { key: 'delivered', header: 'Доставлено' },
+  { key: 'failed', header: 'Ошибки' },
+  { key: 'delivery_rate', header: 'Доставляемость', render: (row) => <>{row.delivery_rate}%</> },
 ];
 
 export function AnalyticsPage() {
@@ -79,7 +79,7 @@ export function AnalyticsPage() {
       const resp = await analyticsApi.get(params);
       setData(resp as AnalyticsData);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load analytics');
+      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить аналитику');
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ export function AnalyticsPage() {
 
       {/* Period selector + date filters */}
       <fieldset className="border-none p-0 mb-4">
-        <legend className="font-bold mb-2">Filters</legend>
+        <legend className="font-bold mb-2">Фильтры</legend>
         <div className="flex gap-2 items-center flex-wrap">
           {PERIODS.map((p) => (
             <button
@@ -114,10 +114,10 @@ export function AnalyticsPage() {
             </button>
           ))}
 
-          <span className="mx-2 text-gray-400">or</span>
+          <span className="mx-2 text-gray-400">или</span>
 
           <label className="flex items-center gap-1">
-            From:
+            С:
             <input
               type="date"
               value={dateFrom}
@@ -129,7 +129,7 @@ export function AnalyticsPage() {
             />
           </label>
           <label className="flex items-center gap-1">
-            To:
+            По:
             <input
               type="date"
               value={dateTo}
@@ -144,38 +144,38 @@ export function AnalyticsPage() {
           <span className="mx-2 text-gray-400">|</span>
 
           <label className="flex items-center gap-1">
-            Group by:
+            Группировка:
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}
               className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             >
-              <option value="day">Day</option>
-              <option value="week">Week</option>
-              <option value="country">Country</option>
+              <option value="day">День</option>
+              <option value="week">Неделя</option>
+              <option value="country">Страна</option>
             </select>
           </label>
         </div>
       </fieldset>
 
       {error && <p className="text-red-600">{error}</p>}
-      {loading && <div role="status">Loading analytics...</div>}
+      {loading && <div role="status">Загрузка аналитики...</div>}
 
       {data && !loading && (
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <StatCard title="Sent" value={data.summary.total_sent} />
-            <StatCard title="Delivered" value={data.summary.total_delivered} />
-            <StatCard title="Failed" value={data.summary.total_failed} />
-            <StatCard title="Delivery Rate" value={`${data.summary.delivery_rate}%`} />
-            <StatCard title="Total Cost" value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : 'N/A'} />
+            <StatCard title="Отправлено" value={data.summary.total_sent} />
+            <StatCard title="Доставлено" value={data.summary.total_delivered} />
+            <StatCard title="Ошибки" value={data.summary.total_failed} />
+            <StatCard title="Доставляемость" value={`${data.summary.delivery_rate}%`} />
+            <StatCard title="Стоимость" value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : '—'} />
           </div>
 
           {/* Timeline table */}
           {data.timeline.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Timeline</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Хронология</h3>
               <DataTable<TimelineEntry>
                 columns={timelineColumns}
                 data={data.timeline}
@@ -191,7 +191,7 @@ export function AnalyticsPage() {
           {/* Country breakdown table */}
           {data.by_country.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">By Country</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">По странам</h3>
               <DataTable<CountryEntry>
                 columns={countryColumns}
                 data={data.by_country}

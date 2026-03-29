@@ -82,11 +82,11 @@ export function TariffsPage() {
     );
   }
 
-  const usagePercent = current
+  const usagePercent = current?.plan
     ? Math.min(
         100,
-        current.plan.max_sms_per_month > 0
-          ? Math.round((current.monthly_sms_count / current.plan.max_sms_per_month) * 100)
+        (current.plan.max_sms_per_month ?? 0) > 0
+          ? Math.round(((current.monthly_sms_count ?? 0) / current.plan.max_sms_per_month) * 100)
           : 0,
       )
     : 0;
@@ -211,7 +211,7 @@ export function TariffsPage() {
                   <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
                   {formatNumber(plan.max_users)} пользователей
                 </li>
-                {plan.features.map((feat) => (
+                {(plan.features ?? []).map((feat) => (
                   <li key={feat} className="flex items-center gap-2">
                     <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
                     {feat}

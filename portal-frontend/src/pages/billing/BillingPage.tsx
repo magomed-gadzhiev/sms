@@ -239,7 +239,7 @@ export function BillingPage() {
                 <span className="text-lg font-normal text-gray-500">{balance.currency}</span>
               </p>
               {balance.updated_at && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   Обновлено: {new Date(balance.updated_at).toLocaleString()}
                 </p>
               )}

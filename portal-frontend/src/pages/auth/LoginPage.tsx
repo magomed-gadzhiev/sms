@@ -74,6 +74,7 @@ export function LoginPage() {
               type="text"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
+              autoComplete="one-time-code"
               autoFocus
               required
               inputMode="numeric"
@@ -106,6 +107,7 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
             autoFocus
             error={error ? undefined : undefined}
             aria-describedby={error ? 'login-error' : undefined}
@@ -116,6 +118,7 @@ export function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="current-password"
             aria-describedby={error ? 'login-error' : undefined}
           />
           <Button type="submit" disabled={submitting} className="w-full">

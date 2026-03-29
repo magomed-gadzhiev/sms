@@ -284,7 +284,7 @@ export function LookupPage() {
                   <p className="text-gray-600 mb-1">
                     Перетащите CSV файл сюда или нажмите для выбора
                   </p>
-                  <p className="text-sm text-gray-400">Максимум 10 000 номеров</p>
+                  <p className="text-sm text-gray-500">Максимум 10 000 номеров</p>
                 </div>
               )}
             </div>

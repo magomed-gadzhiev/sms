@@ -13,11 +13,11 @@ import { Select } from '../../components/ui/Select';
 type TabName = 'overview' | 'messages' | 'analytics' | 'api-keys' | 'webhooks';
 
 const TABS: { key: TabName; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'messages', label: 'Messages' },
-  { key: 'analytics', label: 'Analytics' },
-  { key: 'api-keys', label: 'API Keys' },
-  { key: 'webhooks', label: 'Webhooks' },
+  { key: 'overview', label: 'Обзор' },
+  { key: 'messages', label: 'Сообщения' },
+  { key: 'analytics', label: 'Аналитика' },
+  { key: 'api-keys', label: 'API Ключи' },
+  { key: 'webhooks', label: 'Вебхуки' },
 ];
 
 interface SubAccountDetail {
@@ -107,7 +107,7 @@ export function SubAccountDetailPage() {
       const resp = await subAccountsApi.get(id);
       setDetail(resp as SubAccountDetail);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load sub-account');
+      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить суб-аккаунт');
     } finally {
       setLoading(false);
     }
@@ -117,15 +117,15 @@ export function SubAccountDetailPage() {
     loadDetail();
   }, [id]);
 
-  if (loading) return <div role="status">Loading...</div>;
+  if (loading) return <div role="status">Загрузка...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
-  if (!detail) return <div>Sub-account not found</div>;
+  if (!detail) return <div>Суб-аккаунт не найден</div>;
 
   return (
     <div className="max-w-5xl">
       <PageHeader
         title={detail.name}
-        breadcrumbs={[{ label: 'Sub-accounts', href: '/sub-accounts' }, { label: detail.name }]}
+        breadcrumbs={[{ label: 'Суб-аккаунты', href: '/sub-accounts' }, { label: detail.name }]}
         actions={<StatusBadge status={detail.active ? 'active' : 'inactive'} />}
       />
 
@@ -194,7 +194,7 @@ function OverviewTab({
       });
       onUpdate();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to update limits');
+      setError(err instanceof ApiError ? err.message : 'Не удалось обновить лимиты');
     } finally {
       setSavingLimits(false);
     }
@@ -209,7 +209,7 @@ function OverviewTab({
       setTransferAmount('');
       onUpdate();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to transfer balance');
+      setError(err instanceof ApiError ? err.message : 'Не удалось перевести средства');
     } finally {
       setTransferring(false);
     }
@@ -222,7 +222,7 @@ function OverviewTab({
       await subAccountsApi.remove(detail.id);
       onDeleted();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete sub-account');
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить суб-аккаунт');
       setDeleting(false);
     }
   }
@@ -233,43 +233,43 @@ function OverviewTab({
 
       {/* Info cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard title="Balance" value={detail.balance} />
-        <StatCard title="Daily Limit" value={`${detail.messages_today} / ${detail.daily_limit}`} />
-        <StatCard title="Monthly Limit" value={`${detail.messages_this_month} / ${detail.monthly_limit}`} />
+        <StatCard title="Баланс" value={detail.balance} />
+        <StatCard title="Дневной лимит" value={`${detail.messages_today} / ${detail.daily_limit}`} />
+        <StatCard title="Месячный лимит" value={`${detail.messages_this_month} / ${detail.monthly_limit}`} />
         <StatCard title="Email" value={detail.email} />
-        <StatCard title="Contact" value={detail.contact_person || '-'} />
+        <StatCard title="Контакт" value={detail.contact_person || '-'} />
       </div>
 
       {/* Edit limits form */}
       <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
-        <h3 className="mt-0 text-base font-semibold mb-3">Edit Limits</h3>
+        <h3 className="mt-0 text-base font-semibold mb-3">Изменить лимиты</h3>
         <form onSubmit={handleSaveLimits} className="flex gap-4 items-end flex-wrap">
           <Input
-            label="Daily Limit"
+            label="Дневной лимит"
             type="number"
             value={dailyLimit}
             onChange={(e) => setDailyLimit(e.target.value)}
             className="w-40"
           />
           <Input
-            label="Monthly Limit"
+            label="Месячный лимит"
             type="number"
             value={monthlyLimit}
             onChange={(e) => setMonthlyLimit(e.target.value)}
             className="w-40"
           />
           <Button type="submit" disabled={savingLimits}>
-            {savingLimits ? 'Saving...' : 'Save Limits'}
+            {savingLimits ? 'Сохранение...' : 'Сохранить лимиты'}
           </Button>
         </form>
       </div>
 
       {/* Balance transfer form */}
       <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
-        <h3 className="mt-0 text-base font-semibold mb-3">Balance Transfer</h3>
+        <h3 className="mt-0 text-base font-semibold mb-3">Перевод средств</h3>
         <form onSubmit={handleTransfer} className="flex gap-4 items-end">
           <Input
-            label="Amount"
+            label="Сумма"
             type="text"
             value={transferAmount}
             onChange={(e) => setTransferAmount(e.target.value)}
@@ -278,16 +278,16 @@ function OverviewTab({
             className="w-40"
           />
           <Button type="submit" disabled={transferring || !transferAmount}>
-            {transferring ? 'Transferring...' : 'Transfer'}
+            {transferring ? 'Перевод...' : 'Перевести'}
           </Button>
         </form>
       </div>
 
       {/* Delete section */}
       <div className="border border-red-600 rounded p-4">
-        <h3 className="mt-0 text-red-600 text-base font-semibold mb-3">Danger Zone</h3>
+        <h3 className="mt-0 text-red-600 text-base font-semibold mb-3">Зона риска</h3>
         <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-          Delete Sub-account
+          Удалить суб-аккаунт
         </Button>
       </div>
 
@@ -295,9 +295,9 @@ function OverviewTab({
         open={confirmDelete}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
-        title="Delete Sub-account"
-        description="Are you sure you want to delete this sub-account? This cannot be undone."
-        confirmLabel="Yes, Delete"
+        title="Удалить суб-аккаунт"
+        description="Вы уверены, что хотите удалить этот суб-аккаунт? Это действие нельзя отменить."
+        confirmLabel="Да, удалить"
         variant="danger"
         loading={deleting}
       />
@@ -315,11 +315,11 @@ const messageColumns: Column<MessageItem>[] = [
       <span className="text-xs font-mono">{msg.message_id.substring(0, 8)}...</span>
     ),
   },
-  { key: 'source', header: 'Source' },
-  { key: 'destination', header: 'Destination' },
+  { key: 'source', header: 'Отправитель' },
+  { key: 'destination', header: 'Получатель' },
   {
     key: 'text',
-    header: 'Text',
+    header: 'Текст',
     render: (msg) => (
       <span className="block max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
         {msg.text}
@@ -328,13 +328,13 @@ const messageColumns: Column<MessageItem>[] = [
   },
   {
     key: 'status',
-    header: 'Status',
+    header: 'Статус',
     render: (msg) => <StatusBadge status={msg.status} />,
   },
-  { key: 'segment_count', header: 'Segments' },
+  { key: 'segment_count', header: 'Сегменты' },
   {
     key: 'created_at',
-    header: 'Created',
+    header: 'Создан',
     render: (msg) => (
       <span className="text-xs">
         {msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}
@@ -344,11 +344,11 @@ const messageColumns: Column<MessageItem>[] = [
 ];
 
 const statusOptions = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'sent', label: 'Sent' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'failed', label: 'Failed' },
+  { value: '', label: 'Все' },
+  { value: 'pending', label: 'Ожидание' },
+  { value: 'sent', label: 'Отправлено' },
+  { value: 'delivered', label: 'Доставлено' },
+  { value: 'failed', label: 'Ошибка' },
 ];
 
 function MessagesTab({ subAccountId }: { subAccountId: string }) {
@@ -367,7 +367,7 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
     subAccountsApi
       .messages(subAccountId, params)
       .then((resp) => setData(resp as MessagesResponse))
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load messages'))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Не удалось загрузить сообщения'))
       .finally(() => setLoading(false));
   }, [subAccountId, page, status]);
 
@@ -379,7 +379,7 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
     <div>
       <div className="flex gap-3 mb-4 items-end">
         <Select
-          label="Status"
+          label="Статус"
           value={status}
           options={statusOptions}
           onChange={(val) => { setStatus(val); setPage(1); }}
@@ -407,13 +407,13 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
 const PERIOD_OPTIONS = ['7d', '30d', '90d'] as const;
 
 const timelineColumns: Column<TimelineEntry>[] = [
-  { key: 'period', header: 'Period' },
-  { key: 'sent', header: 'Sent' },
-  { key: 'delivered', header: 'Delivered' },
-  { key: 'failed', header: 'Failed' },
+  { key: 'period', header: 'Период' },
+  { key: 'sent', header: 'Отправлено' },
+  { key: 'delivered', header: 'Доставлено' },
+  { key: 'failed', header: 'Ошибки' },
   {
     key: 'delivery_rate',
-    header: 'Delivery Rate',
+    header: 'Доставляемость',
     render: (row) => <>{row.delivery_rate}%</>,
   },
 ];
@@ -430,7 +430,7 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
     subAccountsApi
       .analytics(subAccountId, { period, group_by: 'day' })
       .then((resp) => setData(resp as AnalyticsData))
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load analytics'))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Не удалось загрузить аналитику'))
       .finally(() => setLoading(false));
   }, [subAccountId, period]);
 
@@ -453,17 +453,17 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
       </div>
 
       {error && <p className="text-red-600">{error}</p>}
-      {loading && <div role="status">Loading analytics...</div>}
+      {loading && <div role="status">Загрузка аналитики...</div>}
 
       {data && !loading && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <StatCard title="Sent" value={data.summary.total_sent} />
-            <StatCard title="Delivered" value={data.summary.total_delivered} />
-            <StatCard title="Failed" value={data.summary.total_failed} />
-            <StatCard title="Delivery Rate" value={`${data.summary.delivery_rate}%`} />
+            <StatCard title="Отправлено" value={data.summary.total_sent} />
+            <StatCard title="Доставлено" value={data.summary.total_delivered} />
+            <StatCard title="Ошибки" value={data.summary.total_failed} />
+            <StatCard title="Доставляемость" value={`${data.summary.delivery_rate}%`} />
             <StatCard
-              title="Total Cost"
+              title="Стоимость"
               value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : 'N/A'}
             />
           </div>
@@ -488,20 +488,20 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
 // ---- API Keys Tab ----
 
 const apiKeyColumns: Column<APIKeyItem>[] = [
-  { key: 'name', header: 'Name' },
+  { key: 'name', header: 'Название' },
   {
     key: 'prefix',
-    header: 'Prefix',
+    header: 'Префикс',
     render: (k) => <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{k.prefix}...</code>,
   },
   {
     key: 'active',
-    header: 'Status',
+    header: 'Статус',
     render: (k) => <StatusBadge status={k.active ? 'active' : 'inactive'} />,
   },
   {
     key: 'created_at',
-    header: 'Created',
+    header: 'Создан',
     render: (k) => <>{new Date(k.created_at).toLocaleDateString()}</>,
   },
 ];
@@ -529,7 +529,7 @@ const webhookColumns: Column<WebhookItem>[] = [
   },
   {
     key: 'event_types',
-    header: 'Event Types',
+    header: 'Типы событий',
     render: (wh) => (
       <div className="flex flex-wrap gap-1">
         {wh.event_types.map((t) => (
@@ -540,12 +540,12 @@ const webhookColumns: Column<WebhookItem>[] = [
   },
   {
     key: 'active',
-    header: 'Status',
+    header: 'Статус',
     render: (wh) => <StatusBadge status={wh.active ? 'active' : 'inactive'} />,
   },
   {
     key: 'created_at',
-    header: 'Created',
+    header: 'Создан',
     render: (wh) => <>{wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'}</>,
   },
 ];

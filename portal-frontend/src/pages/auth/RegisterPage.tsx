@@ -77,6 +77,7 @@ export function RegisterPage() {
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             required
+            autoComplete="organization"
             autoFocus
             error={touched && !companyName ? 'Обязательное поле' : undefined}
             aria-describedby={error ? 'register-error' : undefined}
@@ -87,6 +88,7 @@ export function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
             error={touched && !email ? 'Обязательное поле' : undefined}
             aria-describedby={error ? 'register-error' : undefined}
           />
@@ -96,6 +98,7 @@ export function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="new-password"
             placeholder="минимум 8 символов"
             minLength={8}
             error={touched && password.length > 0 && password.length < 8 ? 'Минимум 8 символов' : touched && !password ? 'Обязательное поле' : undefined}
@@ -106,12 +109,14 @@ export function RegisterPage() {
             type="text"
             value={contactPerson}
             onChange={(e) => setContactPerson(e.target.value)}
+            autoComplete="name"
           />
           <Input
             label="Телефон"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            autoComplete="tel"
           />
           <fieldset className="border border-gray-300 rounded p-3">
             <legend className="text-sm font-medium text-gray-700 px-1">Тарифный план</legend>

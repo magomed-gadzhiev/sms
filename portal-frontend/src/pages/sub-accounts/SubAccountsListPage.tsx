@@ -29,7 +29,7 @@ interface SubAccountsListResponse {
 const columns: Column<SubAccount>[] = [
   {
     key: 'name',
-    header: 'Name',
+    header: 'Название',
     render: (sa) => (
       <Link to={`/sub-accounts/${sa.id}`} className="text-primary hover:underline">
         {sa.name}
@@ -39,14 +39,14 @@ const columns: Column<SubAccount>[] = [
   { key: 'email', header: 'Email' },
   {
     key: 'active',
-    header: 'Active',
+    header: 'Активен',
     render: (sa) => <StatusBadge status={sa.active ? 'active' : 'inactive'} />,
   },
-  { key: 'balance', header: 'Balance' },
-  { key: 'daily_limit', header: 'Daily Limit' },
-  { key: 'monthly_limit', header: 'Monthly Limit' },
-  { key: 'messages_today', header: 'Today' },
-  { key: 'messages_this_month', header: 'This Month' },
+  { key: 'balance', header: 'Баланс' },
+  { key: 'daily_limit', header: 'Дневной лимит' },
+  { key: 'monthly_limit', header: 'Месячный лимит' },
+  { key: 'messages_today', header: 'Сегодня' },
+  { key: 'messages_this_month', header: 'За месяц' },
 ];
 
 export function SubAccountsListPage() {
@@ -75,7 +75,7 @@ export function SubAccountsListPage() {
       if (err instanceof ApiError && err.status === 403) {
         setCanCreate(false);
       }
-      setError(err instanceof ApiError ? err.message : 'Failed to load sub-accounts');
+      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить суб-аккаунты');
     } finally {
       setLoading(false);
     }
@@ -107,35 +107,35 @@ export function SubAccountsListPage() {
       setFormMonthlyLimit('');
       await loadSubAccounts();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create sub-account');
+      setError(err instanceof ApiError ? err.message : 'Не удалось создать суб-аккаунт');
     } finally {
       setCreating(false);
     }
   }
 
-  if (loading) return <div role="status">Loading sub-accounts...</div>;
+  if (loading) return <div role="status">Загрузка суб-аккаунтов...</div>;
 
   const subAccounts = data?.sub_accounts ?? [];
 
   return (
     <div className="max-w-5xl">
       <PageHeader
-        title="Sub-accounts"
+        title="Суб-аккаунты"
         subtitle={data ? `${data.current_count} / ${data.max_sub_accounts}` : undefined}
-        actions={canCreate ? <Button onClick={() => setShowCreateForm(true)}>Create Sub-account</Button> : undefined}
+        actions={canCreate ? <Button onClick={() => setShowCreateForm(true)}>Создать суб-аккаунт</Button> : undefined}
       />
 
       {error && <p className="text-red-600">{error}</p>}
 
       {/* Create form modal */}
-      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Create Sub-account">
+      <Modal open={showCreateForm} onClose={() => setShowCreateForm(false)} title="Создать суб-аккаунт">
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
           <Input
-            label="Name"
+            label="Название"
             value={formName}
             onChange={(e) => setFormName(e.target.value)}
             required
-            placeholder="Sub-account name"
+            placeholder="Название суб-аккаунта"
           />
           <Input
             label="Email"
@@ -146,39 +146,39 @@ export function SubAccountsListPage() {
             placeholder="email@example.com"
           />
           <Input
-            label="Contact Person"
+            label="Контактное лицо"
             value={formContactPerson}
             onChange={(e) => setFormContactPerson(e.target.value)}
-            placeholder="Contact person name"
+            placeholder="Имя контактного лица"
           />
           <Input
-            label="Initial Balance"
+            label="Начальный баланс"
             value={formInitialBalance}
             onChange={(e) => setFormInitialBalance(e.target.value)}
             placeholder="0.00"
           />
           <div className="flex gap-4">
             <Input
-              label="Daily Limit"
+              label="Дневной лимит"
               type="number"
               value={formDailyLimit}
               onChange={(e) => setFormDailyLimit(e.target.value)}
-              placeholder="e.g. 1000"
+              placeholder="напр. 1000"
             />
             <Input
-              label="Monthly Limit"
+              label="Месячный лимит"
               type="number"
               value={formMonthlyLimit}
               onChange={(e) => setFormMonthlyLimit(e.target.value)}
-              placeholder="e.g. 30000"
+              placeholder="напр. 30000"
             />
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={creating}>
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? 'Создание...' : 'Создать'}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
-              Cancel
+              Отмена
             </Button>
           </div>
         </form>

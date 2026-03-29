@@ -22,20 +22,20 @@ export function Badge({ variant = 'default', children }: BadgeProps) {
 }
 
 const statusMap: Record<string, { variant: keyof typeof variantStyles; label: string }> = {
-  active: { variant: 'success', label: 'Active' },
-  inactive: { variant: 'default', label: 'Inactive' },
-  delivered: { variant: 'success', label: 'Delivered' },
-  failed: { variant: 'danger', label: 'Failed' },
-  pending: { variant: 'warning', label: 'Pending' },
-  blocked: { variant: 'danger', label: 'Blocked' },
-  approved: { variant: 'success', label: 'Approved' },
-  rejected: { variant: 'danger', label: 'Rejected' },
-  draft: { variant: 'default', label: 'Draft' },
-  review: { variant: 'info', label: 'Review' },
-  revision_requested: { variant: 'warning', label: 'Revision Requested' },
-  healthy: { variant: 'success', label: 'Healthy' },
-  unhealthy: { variant: 'danger', label: 'Unhealthy' },
-  degraded: { variant: 'warning', label: 'Degraded' },
+  active: { variant: 'success', label: 'Активен' },
+  inactive: { variant: 'default', label: 'Неактивен' },
+  delivered: { variant: 'success', label: 'Доставлено' },
+  failed: { variant: 'danger', label: 'Ошибка' },
+  pending: { variant: 'warning', label: 'Ожидание' },
+  blocked: { variant: 'danger', label: 'Заблокирован' },
+  approved: { variant: 'success', label: 'Одобрен' },
+  rejected: { variant: 'danger', label: 'Отклонён' },
+  draft: { variant: 'default', label: 'Черновик' },
+  review: { variant: 'info', label: 'На модерации' },
+  revision_requested: { variant: 'warning', label: 'Требуется доработка' },
+  healthy: { variant: 'success', label: 'Работает' },
+  unhealthy: { variant: 'danger', label: 'Не работает' },
+  degraded: { variant: 'warning', label: 'Деградация' },
 };
 
 export function StatusBadge({ status }: { status: string }) {

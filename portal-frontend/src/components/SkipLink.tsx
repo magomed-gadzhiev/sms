@@ -27,7 +27,7 @@ export function SkipLink({ targetId }: SkipLinkProps) {
         (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-100%)';
       }}
     >
-      Skip to main content
+      Перейти к основному содержимому
     </a>
   );
 }

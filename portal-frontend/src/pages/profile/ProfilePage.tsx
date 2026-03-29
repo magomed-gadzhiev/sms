@@ -46,10 +46,10 @@ export function ProfilePage() {
       const updated = await profileApi.update({ contact_person: contactPerson, phone });
       setProfile(updated);
       await refreshUser();
-      setSaveMsg('Profile updated');
+      setSaveMsg('Профиль обновлён');
       setSaveIsError(false);
     } catch (err) {
-      setSaveMsg(err instanceof ApiError ? err.message : 'Save failed');
+      setSaveMsg(err instanceof ApiError ? err.message : 'Не удалось сохранить');
       setSaveIsError(true);
     } finally {
       setSaving(false);
@@ -63,7 +63,7 @@ export function ProfilePage() {
       const setup = await profileApi.setupTOTP();
       setTotpSetup(setup);
     } catch (err) {
-      setTwoFaMsg(err instanceof ApiError ? err.message : 'Setup failed');
+      setTwoFaMsg(err instanceof ApiError ? err.message : 'Ошибка настройки');
       setTwoFaIsError(true);
     }
   }
@@ -78,10 +78,10 @@ export function ProfilePage() {
       setTotpCode('');
       const updated = await profileApi.get();
       setProfile(updated);
-      setTwoFaMsg('2FA enabled successfully');
+      setTwoFaMsg('2FA успешно включена');
       setTwoFaIsError(false);
     } catch (err) {
-      setTwoFaMsg(err instanceof ApiError ? err.message : 'Verification failed');
+      setTwoFaMsg(err instanceof ApiError ? err.message : 'Ошибка подтверждения');
       setTwoFaIsError(true);
     }
   }
@@ -95,10 +95,10 @@ export function ProfilePage() {
       setDisablePassword('');
       const updated = await profileApi.get();
       setProfile(updated);
-      setTwoFaMsg('2FA disabled');
+      setTwoFaMsg('2FA отключена');
       setTwoFaIsError(false);
     } catch (err) {
-      setTwoFaMsg(err instanceof ApiError ? err.message : 'Failed to disable 2FA');
+      setTwoFaMsg(err instanceof ApiError ? err.message : 'Не удалось отключить 2FA');
       setTwoFaIsError(true);
     }
   }
@@ -135,7 +135,7 @@ export function ProfilePage() {
     }
   }
 
-  if (!profile) return <div role="status">Loading profile...</div>;
+  if (!profile) return <div role="status">Загрузка профиля...</div>;
 
   return (
     <div className="max-w-xl">
@@ -143,7 +143,7 @@ export function ProfilePage() {
 
       <section className="mb-8">
         <p className="text-gray-700"><strong>Email:</strong> {profile.email}</p>
-        <p className="text-gray-700"><strong>Company:</strong> {profile.company_name}</p>
+        <p className="text-gray-700"><strong>Компания:</strong> {profile.company_name}</p>
 
         <form onSubmit={handleSaveProfile} className="mt-4">
           {saveMsg && saveIsError && (
@@ -151,26 +151,28 @@ export function ProfilePage() {
           )}
           <div className="mb-2">
             <Input
-              label="Contact Person"
+              label="Контактное лицо"
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
               maxLength={255}
+              autoComplete="name"
               aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
             />
           </div>
           <div className="mb-2">
             <Input
-              label="Phone"
+              label="Телефон"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               maxLength={50}
+              autoComplete="tel"
               aria-describedby={saveMsg && saveIsError ? 'profile-error' : undefined}
             />
           </div>
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={saving}>
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Сохранение...' : 'Сохранить'}
             </Button>
             {saveMsg && !saveIsError && (
               <p role="status" className="inline text-green-600">{saveMsg}</p>
@@ -180,7 +182,7 @@ export function ProfilePage() {
       </section>
 
       <section className="border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Two-Factor Authentication</h3>
+        <h3 className="text-lg font-semibold mb-4">Двухфакторная аутентификация</h3>
         {twoFaMsg && twoFaIsError && (
           <p id="profile-2fa-error" role="alert" className="text-red-600 mb-3">{twoFaMsg}</p>
         )}
@@ -190,28 +192,29 @@ export function ProfilePage() {
 
         {profile.totp_enabled ? (
           <div>
-            <p className="mb-3">2FA is currently enabled.</p>
+            <p className="mb-3">2FA включена.</p>
             <form onSubmit={handleDisableTOTP}>
               <div className="mb-3">
                 <Input
-                  label="Enter password to disable 2FA"
+                  label="Введите пароль для отключения 2FA"
                   type="password"
                   value={disablePassword}
                   onChange={(e) => setDisablePassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                 />
               </div>
-              <Button type="submit" variant="danger">Disable 2FA</Button>
+              <Button type="submit" variant="danger">Отключить 2FA</Button>
             </form>
           </div>
         ) : totpSetup ? (
           <div>
-            <p className="mb-3">Scan the QR code with your authenticator app:</p>
+            <p className="mb-3">Отсканируйте QR-код приложением-аутентификатором:</p>
             <div className="bg-gray-50 rounded-lg p-4 mb-4 inline-block">
               <img src={totpSetup.qr_code_url} alt="TOTP QR Code" className="max-w-[200px]" />
             </div>
             <p className="mb-3">
-              Or enter the secret manually:{' '}
+              Или введите секрет вручную:{' '}
               <code className="bg-white px-2 py-1 rounded border text-sm">{totpSetup.secret}</code>
               {' '}
               <Button
@@ -221,13 +224,13 @@ export function ProfilePage() {
                 onClick={() => navigator.clipboard.writeText(totpSetup.secret)}
                 className="ml-2"
               >
-                Copy secret
+                Скопировать секрет
               </Button>
             </p>
             <form onSubmit={handleVerifyTOTP}>
               <div className="mb-3">
                 <Input
-                  label="Verification Code"
+                  label="Код подтверждения"
                   value={totpCode}
                   onChange={(e) => setTotpCode(e.target.value)}
                   required
@@ -236,13 +239,13 @@ export function ProfilePage() {
                   maxLength={6}
                 />
               </div>
-              <Button type="submit">Verify &amp; Enable</Button>
+              <Button type="submit">Подтвердить и включить</Button>
             </form>
           </div>
         ) : (
           <div>
-            <p className="mb-3">2FA is not enabled.</p>
-            <Button onClick={handleSetupTOTP}>Set up 2FA</Button>
+            <p className="mb-3">2FA не включена.</p>
+            <Button onClick={handleSetupTOTP}>Настроить 2FA</Button>
           </div>
         )}
       </section>
@@ -265,6 +268,7 @@ export function ProfilePage() {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
+              autoComplete="current-password"
               aria-describedby={pwMsg && pwIsError ? 'pw-error' : undefined}
             />
           </div>
@@ -275,6 +279,7 @@ export function ProfilePage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
+              autoComplete="new-password"
               aria-describedby={pwMsg && pwIsError ? 'pw-error' : undefined}
             />
             <p className="text-xs text-gray-500 mt-1">Минимум 8 символов</p>
@@ -286,6 +291,7 @@ export function ProfilePage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              autoComplete="new-password"
               aria-describedby={pwMsg && pwIsError ? 'pw-error' : undefined}
             />
           </div>
