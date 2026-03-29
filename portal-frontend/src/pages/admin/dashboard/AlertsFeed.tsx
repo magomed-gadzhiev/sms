@@ -32,9 +32,9 @@ export function AlertsFeed({ alerts }: AlertsFeedProps) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
-      <h3 className="text-sm font-medium text-gray-700 mb-3">Alerts</h3>
+      <h3 className="text-sm font-medium text-gray-700 mb-3">Оповещения</h3>
       {sorted.length === 0 ? (
-        <p className="text-sm text-gray-400">No active alerts</p>
+        <p className="text-sm text-gray-400">Нет активных оповещений</p>
       ) : (
         <div className="space-y-2">
           {sorted.map((alert) => {

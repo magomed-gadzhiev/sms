@@ -19,7 +19,7 @@ const statusLabelMap: Record<string, string> = {
 };
 
 const filters: FilterDef[] = [
-  { key: 'client_id', label: 'Client ID', type: 'text', placeholder: 'UUID...' },
+  { key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'UUID...' },
   {
     key: 'status',
     label: 'Статус',

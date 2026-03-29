@@ -22,31 +22,31 @@ export function MetricsGrid({
     <div className="space-y-4 mb-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          title="Messages/sec"
+          title="Сообщений/сек"
           value={metrics?.messages_per_second ?? '-'}
         />
         <StatCard
-          title="Delivered Today"
+          title="Доставлено сегодня"
           value={metrics?.messages_delivered?.toLocaleString() ?? '-'}
         />
         <StatCard
-          title="Errors"
+          title="Ошибки"
           value={metrics?.messages_failed?.toLocaleString() ?? '-'}
         />
         <StatCard
-          title="Queue Depth"
+          title="Очередь"
           value={metrics?.queue_depth?.toLocaleString() ?? '-'}
         />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Active Clients" value={clientCount} />
-        <StatCard title="Revenue Today" value={`${revenue} \u20BD`} />
+        <StatCard title="Активные клиенты" value={clientCount} />
+        <StatCard title="Выручка сегодня" value={`${revenue} \u20BD`} />
         <StatCard
-          title="Providers"
-          value={`${healthyProviders}/${totalProviders} healthy`}
+          title="Провайдеры"
+          value={`${healthyProviders}/${totalProviders} исправны`}
         />
-        <StatCard title="Templates on Review" value={pendingTemplates} />
+        <StatCard title="Шаблоны на проверке" value={pendingTemplates} />
       </div>
     </div>
   );

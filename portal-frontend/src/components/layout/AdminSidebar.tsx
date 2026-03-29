@@ -18,7 +18,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     title: null,
     items: [
-      { path: '/admin', label: 'Dashboard', icon: '\u{1F4CA}', resource: 'analytics' },
+      { path: '/admin', label: 'Дашборд', icon: '\u{1F4CA}', resource: 'analytics' },
     ],
   },
   {
@@ -123,13 +123,13 @@ export function AdminSidebar() {
               onClick={logout}
               className="text-xs text-gray-500 hover:text-white transition-colors"
             >
-              Logout
+              Выход
             </button>
           </div>
         ) : (
           <button
             onClick={logout}
-            title="Logout"
+            title="Выход"
             className="text-gray-500 hover:text-white transition-colors text-base w-5 text-center"
           >
             &crarr;

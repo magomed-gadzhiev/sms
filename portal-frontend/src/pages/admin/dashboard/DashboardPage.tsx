@@ -105,8 +105,8 @@ export function DashboardPage() {
               newAlerts.push({
                 id: `provider-${providers[idx].provider_id}`,
                 type: 'critical',
-                title: `Provider "${providers[idx].name}" degraded`,
-                description: `Success rate: ${health.success_rate.toFixed(1)}%`,
+                title: `Провайдер «${providers[idx].name}» деградирован`,
+                description: `Успешность: ${health.success_rate.toFixed(1)}%`,
                 time: formatTime(now),
               });
             }
@@ -120,8 +120,8 @@ export function DashboardPage() {
           newAlerts.push({
             id: 'queue-depth',
             type: 'warning',
-            title: 'High queue depth',
-            description: `Queue depth: ${metricsData.queue_depth.toLocaleString()} messages`,
+            title: 'Большая очередь',
+            description: `Глубина очереди: ${metricsData.queue_depth.toLocaleString()} сообщений`,
             time: formatTime(now),
           });
         }
@@ -136,8 +136,8 @@ export function DashboardPage() {
               newAlerts.push({
                 id: `balance-${b.client_id}`,
                 type: 'warning',
-                title: `Low balance: ${b.client_name}`,
-                description: `Balance: ${b.balance} ${b.currency} (threshold: ${b.low_balance_threshold})`,
+                title: `Низкий баланс: ${b.client_name}`,
+                description: `Баланс: ${b.balance} ${b.currency} (порог: ${b.low_balance_threshold})`,
                 time: formatTime(now),
               });
             }
@@ -201,7 +201,7 @@ export function DashboardPage() {
       setError(null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load dashboard data',
+        err instanceof Error ? err.message : 'Ошибка загрузки данных панели',
       );
     } finally {
       setLoading(false);
@@ -214,13 +214,13 @@ export function DashboardPage() {
   );
 
   const lastUpdatedText = lastUpdated
-    ? `Last updated: ${formatTime(lastUpdated)}`
+    ? `Обновлено: ${formatTime(lastUpdated)}`
     : undefined;
 
   if (loading && !metrics) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400">
-        Loading dashboard...
+        Загрузка...
       </div>
     );
   }
@@ -228,16 +228,16 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
+        title="Панель управления"
         subtitle={lastUpdatedText}
-        breadcrumbs={[{ label: 'Admin' }, { label: 'Dashboard' }]}
+        breadcrumbs={[{ label: 'Админ' }, { label: 'Панель управления' }]}
         actions={
           <Button
             variant={isPaused ? 'primary' : 'secondary'}
             size="sm"
             onClick={isPaused ? resume : pause}
           >
-            {isPaused ? 'Resume' : 'Pause'}
+            {isPaused ? 'Продолжить' : 'Пауза'}
           </Button>
         }
       />

@@ -106,7 +106,7 @@ export function ClientsPage() {
         rowActions={(client) => (
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={() => openEdit(client)}>Изменить</Button>
-            <Button size="sm" variant="ghost" onClick={() => setDeleteClient(client)}>Удалить</Button>
+            <Button size="sm" variant="ghost" onClick={() => setDeleteClient(client)}>Деактивировать</Button>
           </div>
         )}
       />
