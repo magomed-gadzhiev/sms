@@ -116,7 +116,15 @@ export function ContactListsPage() {
       responsive: true,
       render: (item) => (
         <span className="text-gray-500 text-sm">
-          {new Date(item.created_at).toLocaleDateString('ru-RU')}
+          {(() => {
+            const d = item.created_at;
+            if (!d) return '—';
+            // Handle protobuf Timestamp {seconds, nanos}
+            if (typeof d === 'object' && 'seconds' in (d as any)) {
+              return new Date((d as any).seconds * 1000).toLocaleDateString('ru-RU');
+            }
+            return new Date(d).toLocaleDateString('ru-RU');
+          })()}
         </span>
       ),
     },

@@ -353,7 +353,7 @@ export interface TariffPlanInfo {
   max_sms_per_month: number;
   max_smpp_connections: number;
   max_users: number;
-  features: string[];
+  features: Record<string, boolean> | string[];
 }
 
 export interface CurrentPlan {

@@ -5,7 +5,7 @@ export interface ContactList {
   name: string;
   description: string;
   contacts_count: number;
-  created_at: string;
+  created_at: any; // string or protobuf Timestamp {seconds, nanos}
 }
 
 export interface ContactAttribute {

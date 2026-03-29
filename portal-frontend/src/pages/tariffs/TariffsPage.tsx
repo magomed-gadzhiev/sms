@@ -211,12 +211,28 @@ export function TariffsPage() {
                   <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
                   {formatNumber(plan.max_users)} пользователей
                 </li>
-                {(plan.features ?? []).map((feat) => (
-                  <li key={feat} className="flex items-center gap-2">
-                    <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                    {feat}
-                  </li>
-                ))}
+                {(() => {
+                  const feats = plan.features;
+                  if (!feats) return null;
+                  // API returns either string[] or Record<string, boolean>
+                  const items = Array.isArray(feats)
+                    ? feats
+                    : Object.entries(feats).filter(([, v]) => v).map(([k]) => k);
+                  const featureLabels: Record<string, string> = {
+                    analytics: 'Аналитика',
+                    hlr: 'HLR проверки',
+                    smart_routing: 'Умная маршрутизация',
+                    sub_accounts: 'Суб-аккаунты',
+                    webhooks: 'Вебхуки',
+                    white_label: 'White Label',
+                  };
+                  return items.map((feat) => (
+                    <li key={feat} className="flex items-center gap-2">
+                      <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
+                      {featureLabels[feat] || feat}
+                    </li>
+                  ));
+                })()}
               </ul>
 
               {/* Action */}
