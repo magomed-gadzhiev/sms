@@ -74,7 +74,7 @@ func (r *ContactRepository) Create(ctx context.Context, c *domain.Contact) (*dom
 
 	var row contactRow
 	err = r.db.QueryRowxContext(ctx, query,
-		c.ID, c.ContactListID, c.Phone, attrsJSON, pq.StringArray(c.Tags),
+		c.ID, c.ContactListID, c.Phone, string(attrsJSON), pq.StringArray(c.Tags),
 	).StructScan(&row)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -167,7 +167,7 @@ func (r *ContactRepository) Update(ctx context.Context, c *domain.Contact) (*dom
 
 	var row contactRow
 	err = r.db.QueryRowxContext(ctx, query,
-		c.Phone, attrsJSON, pq.StringArray(c.Tags), c.ID, c.ContactListID,
+		c.Phone, string(attrsJSON), pq.StringArray(c.Tags), c.ID, c.ContactListID,
 	).StructScan(&row)
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrContactNotFound
@@ -223,7 +223,7 @@ func (r *ContactRepository) BatchUpsert(ctx context.Context, contactListID uuid.
 			id = uuid.New()
 		}
 
-		args = append(args, id, contactListID, c.Phone, attrsJSON, pq.StringArray(c.Tags))
+		args = append(args, id, contactListID, c.Phone, string(attrsJSON), pq.StringArray(c.Tags))
 		argIdx += 5
 	}
 
