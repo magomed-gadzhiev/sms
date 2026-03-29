@@ -16,8 +16,8 @@ const columns: Column<RouteInfo>[] = [
   { key: 'name', header: 'Название', sortable: true },
   { key: 'pattern', header: 'Шаблон' },
   { key: 'priority', header: 'Приоритет', sortable: true },
-  { key: 'load_balance_strategy', header: 'Стратегия' },
-  { key: 'failover_enabled', header: 'Failover', render: (r) => r.failover_enabled ? 'Да' : 'Нет' },
+  { key: 'load_balance_strategy', header: 'Стратегия', render: (r) => ({ round_robin: 'По кругу', weighted: 'Взвешенная', priority: 'Приоритет' }[r.load_balance_strategy] ?? r.load_balance_strategy) },
+  { key: 'failover_enabled', header: 'Отказоуст.', render: (r) => r.failover_enabled ? 'Да' : 'Нет' },
   { key: 'provider_ids', header: 'Провайдеры', render: (r) => String(r.provider_ids?.length ?? 0) },
   { key: 'active', header: 'Статус', render: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> },
 ];
@@ -54,7 +54,7 @@ export function RoutesPage() {
       if (editRoute) { await routesApi.update(editRoute.route_id, payload); toast.success('Маршрут обновлён'); }
       else { await routesApi.create(payload); toast.success('Маршрут создан'); }
       setShowForm(false); setEditRoute(null); fetchData();
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed'); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка сохранения'); }
     finally { setSaving(false); }
   };
 
@@ -78,8 +78,8 @@ export function RoutesPage() {
           <Input label="Шаблон (regex)" value={form.pattern} onChange={(e) => setForm({ ...form, pattern: e.target.value })} required />
           <Input label="Приоритет" type="number" value={String(form.priority)} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })} />
           <Input label="ID провайдеров (через запятую)" value={form.provider_ids} onChange={(e) => setForm({ ...form, provider_ids: e.target.value })} required />
-          <Select label="Стратегия" options={[{ value: 'round_robin', label: 'Round Robin' }, { value: 'weighted', label: 'Weighted' }, { value: 'priority', label: 'Priority' }]} value={form.load_balance_strategy} onChange={(v) => setForm({ ...form, load_balance_strategy: v })} />
-          <Select label="Failover" options={[{ value: 'true', label: 'Включён' }, { value: 'false', label: 'Выключен' }]} value={String(form.failover_enabled)} onChange={(v) => setForm({ ...form, failover_enabled: v === 'true' })} />
+          <Select label="Стратегия" options={[{ value: 'round_robin', label: 'По кругу' }, { value: 'weighted', label: 'Взвешенная' }, { value: 'priority', label: 'Приоритет' }]} value={form.load_balance_strategy} onChange={(v) => setForm({ ...form, load_balance_strategy: v })} />
+          <Select label="Отказоустойчивость" options={[{ value: 'true', label: 'Включена' }, { value: 'false', label: 'Выключена' }]} value={String(form.failover_enabled)} onChange={(v) => setForm({ ...form, failover_enabled: v === 'true' })} />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => { setShowForm(false); setEditRoute(null); }}>Отмена</Button>
             <Button onClick={handleSave} disabled={saving || !form.name || !form.pattern}>{saving ? 'Сохранение...' : 'Сохранить'}</Button>

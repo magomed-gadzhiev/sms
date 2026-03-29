@@ -9,7 +9,7 @@ import { analyticsAdminApi } from '../../api/admin';
 
 const filters: FilterDef[] = [
   { key: 'period', label: 'Период', type: 'select', options: [{ value: '7d', label: 'Последние 7 дней' }, { value: '30d', label: 'Последние 30 дней' }, { value: '90d', label: 'Последние 90 дней' }] },
-  { key: 'client_id', label: 'Client ID', type: 'text', placeholder: 'Все клиенты' },
+  { key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'Все клиенты' },
   { key: 'group_by', label: 'Группировка', type: 'select', options: [{ value: 'day', label: 'По дням' }, { value: 'week', label: 'По неделям' }, { value: 'country', label: 'По странам' }] },
 ];
 

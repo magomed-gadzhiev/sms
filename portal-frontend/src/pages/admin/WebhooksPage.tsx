@@ -10,14 +10,14 @@ import { StatusBadge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import { webhooksAdminApi, type WebhookInfo } from '../../api/admin';
 
-const filters: FilterDef[] = [{ key: 'client_id', label: 'Client ID', type: 'text', placeholder: 'UUID...' }];
+const filters: FilterDef[] = [{ key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'UUID...' }];
 
 const columns: Column<WebhookInfo>[] = [
   { key: 'url', header: 'URL' },
-  { key: 'client_id', header: 'Client', render: (w) => w.client_id.slice(0, 8) + '...' },
-  { key: 'events', header: 'Events', render: (w) => (w.events || []).join(', ') },
-  { key: 'active', header: 'Status', render: (w) => <StatusBadge status={w.active ? 'active' : 'inactive'} /> },
-  { key: 'created_at', header: 'Created', render: (w) => new Date(w.created_at).toLocaleDateString() },
+  { key: 'client_id', header: 'Клиент', render: (w) => w.client_id.slice(0, 8) + '...' },
+  { key: 'events', header: 'События', render: (w) => (w.events || []).join(', ') },
+  { key: 'active', header: 'Статус', render: (w) => <StatusBadge status={w.active ? 'active' : 'inactive'} /> },
+  { key: 'created_at', header: 'Создан', render: (w) => new Date(w.created_at).toLocaleDateString() },
 ];
 
 export function WebhooksPage() {
@@ -33,7 +33,7 @@ export function WebhooksPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try { const res = await webhooksAdminApi.list(filterValues); setData(res.webhooks || []); }
-    catch { toast.error('Failed to load webhooks'); }
+    catch { toast.error('Не удалось загрузить вебхуки'); }
     finally { setLoading(false); }
   }, [filterValues, toast]);
 
@@ -41,38 +41,38 @@ export function WebhooksPage() {
 
   const handleCreate = async () => {
     setSaving(true);
-    try { await webhooksAdminApi.create({ client_id: form.client_id, url: form.url, events: form.events.split(',').map((s) => s.trim()).filter(Boolean), active: true }); toast.success('Webhook created'); setShowCreate(false); fetchData(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+    try { await webhooksAdminApi.create({ client_id: form.client_id, url: form.url, events: form.events.split(',').map((s) => s.trim()).filter(Boolean), active: true }); toast.success('Вебхук создан'); setShowCreate(false); fetchData(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
     if (!deleteWebhook) return;
     setSaving(true);
-    try { await webhooksAdminApi.delete(deleteWebhook.webhook_id, deleteWebhook.client_id); toast.success('Webhook deleted'); setDeleteWebhook(null); fetchData(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+    try { await webhooksAdminApi.delete(deleteWebhook.webhook_id, deleteWebhook.client_id); toast.success('Вебхук удалён'); setDeleteWebhook(null); fetchData(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
     finally { setSaving(false); }
   };
 
   return (
     <>
-      <PageHeader title="Webhooks" subtitle={`${data.length} webhooks`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Вебхуки' }]} actions={<Button onClick={() => { setForm({ client_id: '', url: '', events: '' }); setShowCreate(true); }}>Create Webhook</Button>} />
+      <PageHeader title="Вебхуки" subtitle={`${data.length} вебхуков`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Вебхуки' }]} actions={<Button onClick={() => { setForm({ client_id: '', url: '', events: '' }); setShowCreate(true); }}>Создать вебхук</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} onReset={() => setFilterValues({})} />
       <DataTable columns={columns} data={data} total={data.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="webhook_id"
-        rowActions={(w) => <Button size="sm" variant="ghost" onClick={() => setDeleteWebhook(w)}>Delete</Button>}
+        rowActions={(w) => <Button size="sm" variant="ghost" onClick={() => setDeleteWebhook(w)}>Удалить</Button>}
       />
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Webhook">
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Создание вебхука">
         <div className="space-y-4">
-          <Input label="Client ID" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} required placeholder="UUID" />
+          <Input label="ID клиента" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} required placeholder="UUID" />
           <Input label="URL" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required placeholder="https://..." />
-          <Input label="Events (comma-separated)" value={form.events} onChange={(e) => setForm({ ...form, events: e.target.value })} placeholder="message.delivered, message.failed" />
+          <Input label="События (через запятую)" value={form.events} onChange={(e) => setForm({ ...form, events: e.target.value })} placeholder="message.delivered, message.failed" />
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving || !form.client_id || !form.url}>{saving ? 'Creating...' : 'Create'}</Button>
+            <Button variant="secondary" onClick={() => setShowCreate(false)}>Отмена</Button>
+            <Button onClick={handleCreate} disabled={saving || !form.client_id || !form.url}>{saving ? 'Создание...' : 'Создать'}</Button>
           </div>
         </div>
       </Modal>
-      <ConfirmDialog open={!!deleteWebhook} onConfirm={handleDelete} onCancel={() => setDeleteWebhook(null)} title="Delete Webhook" description={`Delete webhook for "${deleteWebhook?.url}"?`} confirmLabel="Delete" variant="danger" loading={saving} />
+      <ConfirmDialog open={!!deleteWebhook} onConfirm={handleDelete} onCancel={() => setDeleteWebhook(null)} title="Удаление вебхука" description={`Удалить вебхук "${deleteWebhook?.url}"?`} confirmLabel="Удалить" variant="danger" loading={saving} />
     </>
   );
 }

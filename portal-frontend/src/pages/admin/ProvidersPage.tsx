@@ -90,14 +90,14 @@ export function ProvidersPage() {
       />
       <Modal open={showCreate || !!editProvider} onClose={() => { setShowCreate(false); setEditProvider(null); }} title={editProvider ? 'Редактирование провайдера' : 'Добавление провайдера'} wide>
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label="Host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} required />
-          <Input label="Port" type="number" value={String(form.port)} onChange={(e) => setForm({ ...form, port: Number(e.target.value) })} required />
+          <Input label="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <Input label="Хост" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} required />
+          <Input label="Порт" type="number" value={String(form.port)} onChange={(e) => setForm({ ...form, port: Number(e.target.value) })} required />
           <Input label="System ID" value={form.system_id} onChange={(e) => setForm({ ...form, system_id: e.target.value })} required />
-          {!editProvider && <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />}
-          <Input label="System Type" value={form.system_type} onChange={(e) => setForm({ ...form, system_type: e.target.value })} />
-          <Input label="Max Connections" type="number" value={String(form.max_connections)} onChange={(e) => setForm({ ...form, max_connections: Number(e.target.value) })} />
-          <Input label="Window Size" type="number" value={String(form.window_size)} onChange={(e) => setForm({ ...form, window_size: Number(e.target.value) })} />
+          {!editProvider && <Input label="Пароль" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />}
+          <Input label="Тип системы" value={form.system_type} onChange={(e) => setForm({ ...form, system_type: e.target.value })} />
+          <Input label="Макс. подключений" type="number" value={String(form.max_connections)} onChange={(e) => setForm({ ...form, max_connections: Number(e.target.value) })} />
+          <Input label="Размер окна" type="number" value={String(form.window_size)} onChange={(e) => setForm({ ...form, window_size: Number(e.target.value) })} />
           <Select label="Статус" options={[{ value: 'true', label: 'Активен' }, { value: 'false', label: 'Неактивен' }]} value={String(form.active)} onChange={(v) => setForm({ ...form, active: v === 'true' })} />
         </div>
         <div className="flex justify-end gap-3 pt-4">

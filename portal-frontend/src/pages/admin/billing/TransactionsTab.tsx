@@ -11,7 +11,7 @@ import { billingApi, type Transaction } from '../../../api/admin';
 const PAGE_SIZE = 20;
 
 const txFilters: FilterDef[] = [
-  { key: 'client_id', label: 'Client ID', type: 'text', placeholder: 'UUID...' },
+  { key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'UUID...' },
   {
     key: 'transaction_type',
     label: 'Тип',
@@ -41,7 +41,7 @@ const txColumns: Column<Transaction>[] = [
     key: 'type',
     header: 'Тип',
     render: (t) => (
-      <Badge variant={t.type === 'credit' ? 'success' : 'danger'}>{t.type}</Badge>
+      <Badge variant={t.type === 'credit' ? 'success' : 'danger'}>{t.type === 'credit' ? 'Пополнение' : t.type === 'charge' || t.type === 'debit' ? 'Списание' : t.type}</Badge>
     ),
   },
   {
@@ -144,7 +144,7 @@ export function TransactionsTab() {
       <Modal open={showAddCredits} onClose={() => setShowAddCredits(false)} title="Начисление средств">
         <div className="space-y-4">
           <Input
-            label="Client ID"
+            label="ID клиента"
             value={creditForm.client_id}
             onChange={(e) => setCreditForm({ ...creditForm, client_id: e.target.value })}
             required
