@@ -107,7 +107,7 @@ export const contactListsApi = {
     fd.append('file', file);
     return apiFetch<{ import_id: string; preview: string[][] }>(
       `/contact-lists/${id}/imports/upload`,
-      { method: 'POST', body: fd, headers: {} },
+      { method: 'POST', body: fd },
     );
   },
 

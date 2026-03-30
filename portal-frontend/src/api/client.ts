@@ -2,14 +2,15 @@ const API_BASE = '/portal/v1';
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const csrfToken = getCookie('csrf_token');
+  const isFormData = options?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
+    ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
       ...options?.headers,
     },
-    ...options,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
