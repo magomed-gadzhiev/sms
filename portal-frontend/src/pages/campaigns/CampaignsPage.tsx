@@ -127,7 +127,14 @@ export function CampaignsPage() {
       responsive: true,
       render: (c) => (
         <span className="text-gray-500 text-sm">
-          {c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : (c as any).createdAt ? new Date((c as any).createdAt).toLocaleDateString('ru-RU') : '-'}
+          {(() => {
+            const raw = c.created_at ?? (c as any).createdAt;
+            if (!raw) return '-';
+            const d = typeof raw === 'object' && raw !== null && 'seconds' in raw
+              ? new Date((raw as {seconds: number}).seconds * 1000)
+              : new Date(raw);
+            return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('ru-RU');
+          })()}
         </span>
       ),
     },
