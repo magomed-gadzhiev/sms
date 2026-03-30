@@ -812,6 +812,8 @@ services:
     ports:
       - "5012:5012"
       - "2130:2130"
+    volumes:
+      - contact-uploads:/root/uploads
     environment:
       - SERVICE_NAME=contact-service
       - POSTGRES_HOST=postgres
@@ -945,6 +947,8 @@ services:
     container_name: portal-gateway
     ports:
       - "18084:8082"  # HTTP (internal)
+    volumes:
+      - contact-uploads:/app/uploads
     environment:
       - SERVICE_NAME=portal-gateway
       - SERVICE_ENV=development
@@ -1257,5 +1261,6 @@ volumes:
   zookeeper-logs:
   prometheus-data:
   grafana-data:
+  contact-uploads:
   directus-uploads:
   directus-extensions:
