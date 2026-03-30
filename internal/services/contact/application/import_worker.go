@@ -155,7 +155,7 @@ func (w *ImportWorker) Process(job *domain.ImportJob) {
 
 		// Build attributes and tags from mapping
 		attrs := make(map[string]interface{})
-		var tags []string
+		tags := make([]string, 0)
 
 		for _, m := range mapping {
 			if m.Target.Type == "phone" {
