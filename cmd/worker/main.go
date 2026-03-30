@@ -140,6 +140,13 @@ func main() {
 		workerID = cfg.Service.Name
 	}
 
+	// Получаем ID оператора по умолчанию для тарификации
+	defaultOperatorID := os.Getenv("TARIFICATION_DEFAULT_OPERATOR_ID")
+	if defaultOperatorID == "" {
+		defaultOperatorID = "d0000000-0000-0000-0000-000000000001" // default Russia operator
+	}
+	log.Info().Str("operator_id", defaultOperatorID).Msg("оператор по умолчанию для тарификации")
+
 	// Ожидание готовности Kafka перед инициализацией consumer
 	log.Info().Msg("ожидание готовности Kafka брокеров")
 	if err := queue.WaitForKafka(&cfg.Kafka, 30, 2*time.Second); err != nil {
@@ -149,7 +156,7 @@ func main() {
 	// Создание Kafka consumer
 	consumer, err := queue.NewConsumer(
 		&cfg.Kafka,
-		createOutgoingHandler(messageRepo, msgRouter, sender, retryManager, workerID, tarificationClient, billingClient),
+		createOutgoingHandler(messageRepo, msgRouter, sender, retryManager, workerID, tarificationClient, billingClient, defaultOperatorID),
 		createDLRHandler(messageRepo),
 		createFailedHandler(messageRepo),
 	)
@@ -229,7 +236,7 @@ func main() {
 	}
 
 	// Остановка HTTP сервера для metrics
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.DefaultGracefulShutdownTimeout)
 	defer shutdownCancel()
 	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 		log.Error().Err(err).Msg("ошибка остановки HTTP сервера для metrics")
@@ -247,6 +254,7 @@ func createOutgoingHandler(
 	workerID string,
 	tarificationClient tarificationv1.TarificationServiceClient,
 	billingClient billingv1.BillingServiceClient,
+	defaultOperatorID string,
 ) queue.MessageHandler {
 	return func(ctx context.Context, kafkaMsg *queue.KafkaMessage) error {
 		startTime := time.Now()
@@ -281,40 +289,9 @@ func createOutgoingHandler(
 			return err
 		}
 
-		// Отправляем сообщение
-		smppMessageID, err := sender.SendMessage(ctx, dbMsg, provider)
-		if err != nil {
-			log.Error().
-				Err(err).
-				Str("message_id", dbMsg.ID.String()).
-				Str("provider", provider.Name).
-				Msg("ошибка отправки сообщения")
+		// === БИЛЛИНГ ДО ОТПРАВКИ ===
 
-			// Проверяем, стоит ли повторять попытку
-			if retryManager.IsPermanentError(err) {
-				// Постоянная ошибка - помечаем как failed
-				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, err.Error()); err != nil {
-					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
-				}
-				return err
-			}
-
-			// Временная ошибка - планируем retry
-			if retryManager.ShouldRetry(dbMsg) {
-				if err := retryManager.ScheduleRetry(ctx, dbMsg.ID, dbMsg.RetryCount); err != nil {
-					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка планирования retry")
-				}
-			} else {
-				// Достигнут максимум попыток
-				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, fmt.Sprintf("достигнут максимум попыток: %s", err.Error())); err != nil {
-					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
-				}
-			}
-
-			return err
-		}
-
-		// Проверяем заморозку аккаунта перед тарификацией
+		// 1. Проверяем заморозку аккаунта
 		if billingClient != nil {
 			balanceResp, balanceErr := billingClient.GetBalance(ctx, &billingv1.GetBalanceRequest{
 				ClientId: dbMsg.ClientID.String(),
@@ -334,7 +311,7 @@ func createOutgoingHandler(
 			}
 		}
 
-		// Вызываем тарификацию
+		// 2. Тарификация — ПЕРЕД отправкой
 		if tarificationClient != nil {
 			segCount := dbMsg.SegmentCount
 			if segCount == 0 {
@@ -343,21 +320,69 @@ func createOutgoingHandler(
 			tarifyResp, tarifyErr := tarificationClient.TarifyMessage(ctx, &tarificationv1.TarifyMessageRequest{
 				ClientId:       dbMsg.ClientID.String(),
 				MessageId:      dbMsg.ID.String(),
-				OperatorId:     "d0000000-0000-0000-0000-000000000005",
+				OperatorId:     defaultOperatorID,
 				SenderName:     dbMsg.Source,
 				SegmentCount:   int32(segCount),
 				IdempotencyKey: dbMsg.ID.String(),
 			})
 			if tarifyErr != nil {
-				log.Warn().Err(tarifyErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка тарификации (продолжаем)")
-			} else if tarifyResp != nil && !tarifyResp.Approved {
-				log.Warn().Str("message_id", dbMsg.ID.String()).Str("reason", tarifyResp.RejectionReason).Msg("тарификация отклонена")
+				log.Error().Err(tarifyErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка тарификации — сообщение отклонено")
+				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, fmt.Sprintf("tarification error: %s", tarifyErr.Error())); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
+				}
+				monitoring.WorkerMessagesProcessed.WithLabelValues(workerID, "tarification_error").Inc()
+				return nil
 			}
+			if tarifyResp != nil && !tarifyResp.Approved {
+				log.Warn().
+					Str("message_id", dbMsg.ID.String()).
+					Str("reason", tarifyResp.RejectionReason).
+					Msg("тарификация отклонена — сообщение не отправляется")
+				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, fmt.Sprintf("tarification rejected: %s", tarifyResp.RejectionReason)); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
+				}
+				monitoring.WorkerMessagesProcessed.WithLabelValues(workerID, "tarification_rejected").Inc()
+				return nil
+			}
+		}
+
+		// === ОТПРАВКА ПОСЛЕ УСПЕШНОЙ ТАРИФИКАЦИИ ===
+
+		smppMessageID, err := sender.SendMessage(ctx, dbMsg, provider)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("message_id", dbMsg.ID.String()).
+				Str("provider", provider.Name).
+				Msg("ошибка отправки сообщения")
+
+			// TODO: рефанд списанных средств при ошибке отправки
+
+			// Проверяем, стоит ли повторять попытку
+			if retryManager.IsPermanentError(err) {
+				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, err.Error()); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
+				}
+				return err
+			}
+
+			// Временная ошибка - планируем retry
+			if retryManager.ShouldRetry(dbMsg) {
+				if err := retryManager.ScheduleRetry(ctx, dbMsg.ID, dbMsg.RetryCount); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка планирования retry")
+				}
+			} else {
+				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, fmt.Sprintf("достигнут максимум попыток: %s", err.Error())); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
+				}
+			}
+
+			return err
 		}
 
 		// Обновляем статус сообщения в БД
 		now := time.Now()
-		dbMsg.SMPPMessageID = smppMessageID
+		dbMsg.SMPPMessageID = shared.NullString(smppMessageID)
 		dbMsg.ProviderID = &provider.ID
 		dbMsg.SubmittedAt = &now
 		dbMsg.UpdatedAt = now
@@ -430,7 +455,7 @@ func createDLRHandler(messageRepo *storage.MessageRepository) queue.DLRHandler {
 				Msg("неизвестный статус DLR")
 		}
 
-		msg.StatusMessage = dlr.Text
+		msg.StatusMessage = shared.NullString(dlr.Text)
 		msg.UpdatedAt = now
 
 		if err := messageRepo.Update(ctx, msg); err != nil {
@@ -472,7 +497,7 @@ func createFailedHandler(messageRepo *storage.MessageRepository) queue.FailedHan
 		// Помечаем как failed
 		now := time.Now()
 		msg.Status = shared.MessageStatusFailed
-		msg.StatusMessage = failed.Error
+		msg.StatusMessage = shared.NullString(failed.Error)
 		msg.FailedAt = &now
 		msg.UpdatedAt = now
 

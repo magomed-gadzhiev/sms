@@ -78,6 +78,64 @@ func (r *AccountRepository) GetByClientID(ctx context.Context, clientID uuid.UUI
 	return &account, nil
 }
 
+// BeginTx начинает транзакцию
+func (r *AccountRepository) BeginTx(ctx context.Context) (*sqlx.Tx, error) {
+	return r.db.BeginTxx(ctx, nil)
+}
+
+// GetByClientIDForUpdate получает счет с блокировкой строки (FOR UPDATE)
+func (r *AccountRepository) GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error) {
+	var account domain.Account
+	query := `
+		SELECT id, client_id, balance, currency, frozen, frozen_at, frozen_by,
+			credit_limit, low_balance_threshold, created_at, updated_at
+		FROM accounts
+		WHERE client_id = $1
+		FOR UPDATE
+	`
+	err := tx.QueryRowContext(ctx, query, clientID).Scan(
+		&account.ID,
+		&account.ClientID,
+		&account.Balance,
+		&account.Currency,
+		&account.Frozen,
+		&account.FrozenAt,
+		&account.FrozenBy,
+		&account.CreditLimit,
+		&account.LowBalanceThreshold,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrAccountNotFound
+		}
+		return nil, err
+	}
+	return &account, nil
+}
+
+// UpdateBalanceTx обновляет баланс в рамках транзакции
+func (r *AccountRepository) UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error {
+	query := `
+		UPDATE accounts
+		SET balance = $1, updated_at = NOW()
+		WHERE client_id = $2
+	`
+	result, err := tx.ExecContext(ctx, query, newBalance, clientID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return domain.ErrAccountNotFound
+	}
+	return nil
+}
+
 // Update обновляет счет
 func (r *AccountRepository) Update(ctx context.Context, account *domain.Account) error {
 	query := `

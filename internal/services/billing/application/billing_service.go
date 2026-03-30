@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
@@ -131,6 +132,111 @@ func (s *BillingService) DeductCredits(
 	clientID uuid.UUID,
 	amount, currency, description string,
 ) (*domain.Transaction, error) {
+	// Пробуем использовать транзакцию если репозиторий поддерживает
+	type txRepo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	}
+
+	if repo, ok := s.accountRepo.(txRepo); ok {
+		return s.deductCreditsWithTx(ctx, repo, clientID, amount, currency, description)
+	}
+
+	// Fallback без транзакции (для тестов с моками)
+	return s.deductCreditsNoTx(ctx, clientID, amount, currency, description)
+}
+
+// deductCreditsWithTx списывает средства с использованием транзакции и SELECT FOR UPDATE
+func (s *BillingService) deductCreditsWithTx(
+	ctx context.Context,
+	repo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	},
+	clientID uuid.UUID,
+	amount, currency, description string,
+) (*domain.Transaction, error) {
+	tx, err := repo.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	account, err := repo.GetByClientIDForUpdate(ctx, tx, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account for update: %w", err)
+	}
+
+	// Проверяем заморозку
+	if account.Frozen {
+		return nil, domain.ErrAccountFrozen
+	}
+
+	// Проверяем валюту: если не указана — используем валюту аккаунта
+	if currency == "" {
+		currency = account.Currency
+	} else if account.Currency != currency {
+		return nil, fmt.Errorf("currency mismatch: account has %s, but %s provided", account.Currency, currency)
+	}
+
+	// Проверяем баланс
+	newBalance, err := s.subtract(account.Balance, amount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate new balance: %w", err)
+	}
+
+	if s.isNegative(newBalance) {
+		return nil, domain.ErrInsufficientBalance
+	}
+
+	// Обновляем баланс в рамках транзакции
+	if err := repo.UpdateBalanceTx(ctx, tx, clientID, newBalance); err != nil {
+		return nil, fmt.Errorf("failed to update balance: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Создаем транзакцию
+	transaction := domain.NewTransaction(
+		clientID,
+		domain.TransactionTypeCharge,
+		amount,
+		account.Balance,
+		newBalance,
+		currency,
+	).WithDescription(description)
+
+	if err := transaction.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid transaction: %w", err)
+	}
+
+	if err := s.transactionRepo.Create(ctx, transaction); err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	// Публикуем события
+	if s.eventPublisher != nil {
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, clientID.String(), newBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish balance changed event")
+		}
+		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
+		}
+	}
+
+	return transaction, nil
+}
+
+// deductCreditsNoTx списывает средства без транзакции (fallback для тестов)
+func (s *BillingService) deductCreditsNoTx(
+	ctx context.Context,
+	clientID uuid.UUID,
+	amount, currency, description string,
+) (*domain.Transaction, error) {
 	account, err := s.accountRepo.GetByClientID(ctx, clientID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %w", err)
@@ -195,10 +301,9 @@ func (s *BillingService) ChargeMessage(
 	clientID, messageID uuid.UUID,
 	amount, currency, description string,
 ) (*domain.Transaction, error) {
-	// Проверяем, не была ли уже создана транзакция для этого сообщения
+	// Проверяем идемпотентность до начала транзакции
 	existing, err := s.transactionRepo.GetByMessageID(ctx, messageID)
 	if err == nil && existing != nil {
-		// Транзакция уже существует
 		s.logger.Debug().
 			Str("message_id", messageID.String()).
 			Str("transaction_id", existing.ID.String()).
@@ -206,6 +311,109 @@ func (s *BillingService) ChargeMessage(
 		return existing, nil
 	}
 
+	// Пробуем использовать транзакцию если репозиторий поддерживает
+	type txRepo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	}
+
+	if repo, ok := s.accountRepo.(txRepo); ok {
+		return s.chargeMessageWithTx(ctx, repo, clientID, messageID, amount, currency, description)
+	}
+
+	// Fallback без транзакции (для тестов с моками)
+	return s.chargeMessageNoTx(ctx, clientID, messageID, amount, currency, description)
+}
+
+// chargeMessageWithTx списывает средства за сообщение с использованием транзакции и SELECT FOR UPDATE
+func (s *BillingService) chargeMessageWithTx(
+	ctx context.Context,
+	repo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	},
+	clientID, messageID uuid.UUID,
+	amount, currency, description string,
+) (*domain.Transaction, error) {
+	tx, err := repo.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	account, err := repo.GetByClientIDForUpdate(ctx, tx, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account for update: %w", err)
+	}
+
+	// Проверяем заморозку
+	if account.Frozen {
+		return nil, domain.ErrAccountFrozen
+	}
+
+	// Проверяем валюту
+	if account.Currency != currency {
+		return nil, fmt.Errorf("currency mismatch: account has %s, but %s provided", account.Currency, currency)
+	}
+
+	// Проверяем баланс
+	newBalance, err := s.subtract(account.Balance, amount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate new balance: %w", err)
+	}
+
+	if s.isNegative(newBalance) {
+		return nil, domain.ErrInsufficientBalance
+	}
+
+	// Обновляем баланс в рамках транзакции
+	if err := repo.UpdateBalanceTx(ctx, tx, clientID, newBalance); err != nil {
+		return nil, fmt.Errorf("failed to update balance: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Создаем транзакцию
+	transaction := domain.NewTransaction(
+		clientID,
+		domain.TransactionTypeCharge,
+		amount,
+		account.Balance,
+		newBalance,
+		currency,
+	).WithMessageID(messageID).WithDescription(description)
+
+	if err := transaction.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid transaction: %w", err)
+	}
+
+	if err := s.transactionRepo.Create(ctx, transaction); err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	// Публикуем события
+	if s.eventPublisher != nil {
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, clientID.String(), newBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish balance changed event")
+		}
+		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
+		}
+	}
+
+	return transaction, nil
+}
+
+// chargeMessageNoTx списывает средства за сообщение без транзакции (fallback для тестов)
+func (s *BillingService) chargeMessageNoTx(
+	ctx context.Context,
+	clientID, messageID uuid.UUID,
+	amount, currency, description string,
+) (*domain.Transaction, error) {
 	account, err := s.accountRepo.GetByClientID(ctx, clientID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %w", err)
