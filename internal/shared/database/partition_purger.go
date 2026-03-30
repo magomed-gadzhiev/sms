@@ -9,6 +9,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"github.com/smpp-server/smpp-server/internal/config"
 )
 
 // PartitionPurger drops PostgreSQL partitions older than a given retention threshold.
@@ -28,7 +30,7 @@ func NewPartitionPurger() *PartitionPurger {
 // and drops any partition whose month-end is older than the retention cutoff.
 // Returns the list of dropped partition names.
 func (p *PartitionPurger) PurgeOldPartitions(db *sql.DB, parentTable string, retentionDays int) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultPartitionPurgeInterval)
 	defer cancel()
 
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)

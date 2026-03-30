@@ -16,6 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/smpp-server/smpp-server/internal/config"
+	sharedmw "github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/handlers"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
@@ -125,9 +126,9 @@ func main() {
 	// Создание middleware
 	sessionAuthMw := middleware.SessionAuthMiddleware(redisClient)
 	csrfMw := middleware.CSRFMiddleware()
-	loggingMw := middleware.LoggingMiddleware(logger)
-	recoveryMw := middleware.RecoveryMiddleware()
-	corsMw := middleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	loggingMw := sharedmw.LoggingMiddleware(logger)
+	recoveryMw := sharedmw.RecoveryMiddleware()
+	corsMw := sharedmw.CORSMiddlewareFromConfig(os.Getenv("CORS_ALLOWED_ORIGINS"))
 	tenantLoggerMw := middleware.TenantLoggerMiddleware(logger)
 
 	// Создание Kafka producer для audit events

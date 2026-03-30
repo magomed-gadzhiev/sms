@@ -21,6 +21,7 @@ type TariffPlan struct {
 	SenderCategory SenderCategory
 	Strategy       TarificationStrategy
 	Active         bool
+	Currency       string // ISO 4217, resolved from operator's country
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

@@ -96,7 +96,7 @@ func main() {
 	// Подключение к billing-service gRPC
 	billingAddr := os.Getenv("BILLING_SERVICE_ADDR")
 	if billingAddr == "" {
-		billingAddr = "billing-service:9101"
+		billingAddr = "billing-service:9097"
 	}
 	billingConn, err := grpc.NewClient(billingAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

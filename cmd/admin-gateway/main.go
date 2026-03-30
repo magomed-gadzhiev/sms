@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	sharedmw "github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/handlers"
@@ -107,9 +108,9 @@ func main() {
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
-	loggingMiddleware := middleware.LoggingMiddleware(logger)
-	recoveryMiddleware := middleware.RecoveryMiddleware()
-	corsMiddleware := middleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	loggingMiddleware := sharedmw.LoggingMiddleware(logger)
+	recoveryMiddleware := sharedmw.RecoveryMiddleware()
+	corsMiddleware := sharedmw.CORSMiddlewareFromConfig(os.Getenv("CORS_ALLOWED_ORIGINS"))
 
 	// Настройка HTTP роутера
 	router := adminrouter.SetupRouter(

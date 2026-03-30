@@ -47,9 +47,12 @@ func (r *TariffPlanRepository) Create(ctx context.Context, plan *domain.TariffPl
 func (r *TariffPlanRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.TariffPlan, error) {
 	var plan domain.TariffPlan
 	query := `
-		SELECT id, operator_id, sender_category, strategy, active, created_at, updated_at
-		FROM tariff_plans
-		WHERE id = $1
+		SELECT tp.id, tp.operator_id, tp.sender_category, tp.strategy, tp.active, tp.created_at, tp.updated_at,
+		       COALESCE(c.currency, '')
+		FROM tariff_plans tp
+		LEFT JOIN operators o ON o.id = tp.operator_id
+		LEFT JOIN countries c ON c.id = o.country_id
+		WHERE tp.id = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
@@ -60,6 +63,7 @@ func (r *TariffPlanRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 		&plan.Active,
 		&plan.CreatedAt,
 		&plan.UpdatedAt,
+		&plan.Currency,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -75,9 +79,12 @@ func (r *TariffPlanRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 func (r *TariffPlanRepository) GetActiveByOperatorAndCategory(ctx context.Context, operatorID uuid.UUID, category domain.SenderCategory) (*domain.TariffPlan, error) {
 	var plan domain.TariffPlan
 	query := `
-		SELECT id, operator_id, sender_category, strategy, active, created_at, updated_at
-		FROM tariff_plans
-		WHERE operator_id = $1 AND sender_category = $2 AND active = true
+		SELECT tp.id, tp.operator_id, tp.sender_category, tp.strategy, tp.active, tp.created_at, tp.updated_at,
+		       COALESCE(c.currency, '')
+		FROM tariff_plans tp
+		LEFT JOIN operators o ON o.id = tp.operator_id
+		LEFT JOIN countries c ON c.id = o.country_id
+		WHERE tp.operator_id = $1 AND tp.sender_category = $2 AND tp.active = true
 	`
 
 	err := r.db.QueryRowContext(ctx, query, operatorID, category).Scan(
@@ -88,6 +95,7 @@ func (r *TariffPlanRepository) GetActiveByOperatorAndCategory(ctx context.Contex
 		&plan.Active,
 		&plan.CreatedAt,
 		&plan.UpdatedAt,
+		&plan.Currency,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -138,8 +146,11 @@ func (r *TariffPlanRepository) List(ctx context.Context, operatorID *uuid.UUID, 
 
 	countQuery := `SELECT COUNT(*) FROM tariff_plans WHERE 1=1`
 	listQuery := `
-		SELECT id, operator_id, sender_category, strategy, active, created_at, updated_at
-		FROM tariff_plans
+		SELECT tp.id, tp.operator_id, tp.sender_category, tp.strategy, tp.active, tp.created_at, tp.updated_at,
+		       COALESCE(c.currency, '')
+		FROM tariff_plans tp
+		LEFT JOIN operators o ON o.id = tp.operator_id
+		LEFT JOIN countries c ON c.id = o.country_id
 		WHERE 1=1
 	`
 
@@ -147,17 +158,16 @@ func (r *TariffPlanRepository) List(ctx context.Context, operatorID *uuid.UUID, 
 	argIdx := 1
 
 	if operatorID != nil {
-		filter := fmt.Sprintf(` AND operator_id = $%d`, argIdx)
-		countQuery += filter
+		filter := fmt.Sprintf(` AND tp.operator_id = $%d`, argIdx)
+		countQuery += fmt.Sprintf(` AND operator_id = $%d`, argIdx)
 		listQuery += filter
 		args = append(args, *operatorID)
 		argIdx++
 	}
 
 	if activeOnly {
-		filter := ` AND active = true`
-		countQuery += filter
-		listQuery += filter
+		countQuery += ` AND active = true`
+		listQuery += ` AND tp.active = true`
 	}
 
 	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
@@ -165,7 +175,7 @@ func (r *TariffPlanRepository) List(ctx context.Context, operatorID *uuid.UUID, 
 		return nil, 0, err
 	}
 
-	listQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
+	listQuery += fmt.Sprintf(` ORDER BY tp.created_at DESC LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.QueryContext(ctx, listQuery, args...)
@@ -184,6 +194,7 @@ func (r *TariffPlanRepository) List(ctx context.Context, operatorID *uuid.UUID, 
 			&plan.Active,
 			&plan.CreatedAt,
 			&plan.UpdatedAt,
+			&plan.Currency,
 		); err != nil {
 			return nil, 0, err
 		}

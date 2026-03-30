@@ -2,12 +2,12 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
+	"github.com/smpp-server/smpp-server/internal/api/http/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -77,13 +77,13 @@ func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler)
 
 			user := resolveUser(r, authClient)
 			if user == nil {
-				respondError(w, shared.ErrUnauthorized("Authentication required"))
+				response.Error(w, shared.ErrUnauthorized("Authentication required"))
 				return
 			}
 
 			// Проверяем, что пользователь активен
 			if !user.Active {
-				respondError(w, shared.ErrForbidden("User account is inactive"))
+				response.Error(w, shared.ErrForbidden("User account is inactive"))
 				return
 			}
 
@@ -93,14 +93,14 @@ func AdminAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler)
 				role = user.Role.Name
 			}
 			if role != "admin" && role != "superadmin" {
-				respondError(w, shared.ErrForbidden("Admin access required"))
+				response.Error(w, shared.ErrForbidden("Admin access required"))
 				return
 			}
 
 			// Парсим user ID
 			userID, err := uuid.Parse(user.Id)
 			if err != nil {
-				respondError(w, shared.ErrInternalServer("Invalid user ID"))
+				response.Error(w, shared.ErrInternalServer("Invalid user ID"))
 				return
 			}
 
@@ -157,21 +157,3 @@ func HasPermission(ctx context.Context, resource, action string) bool {
 	return false
 }
 
-// respondError отправляет ошибку в формате JSON
-func respondError(w http.ResponseWriter, err *shared.AppError) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(err.HTTPStatus)
-
-	response := map[string]interface{}{
-		"error": map[string]interface{}{
-			"code":    err.Code,
-			"message": err.Message,
-		},
-	}
-
-	if err.Details != "" {
-		response["error"].(map[string]interface{})["details"] = err.Details
-	}
-
-	json.NewEncoder(w).Encode(response)
-}

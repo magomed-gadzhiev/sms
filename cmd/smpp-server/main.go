@@ -49,9 +49,10 @@ func main() {
 	
 	logger.Info().Msg("подключение к базе данных установлено")
 	
-	// Инициализация репозитория клиентов
+	// Инициализация репозиториев
 	clientRepo := storage.NewClientRepository(db)
-	
+	messageRepo := storage.NewMessageRepository(db)
+
 	// Ожидание готовности Kafka перед инициализацией producer
 	logger.Info().Msg("ожидание готовности Kafka брокеров")
 	if err := queue.WaitForKafka(&cfg.Kafka, 30, 2*time.Second); err != nil {
@@ -71,6 +72,7 @@ func main() {
 	smppServer := server.NewServer(
 		&cfg.SMSP,
 		clientRepo,
+		messageRepo,
 		producer,
 		logger,
 	)
@@ -132,7 +134,7 @@ func main() {
 	}
 
 	// Остановка HTTP сервера для metrics
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.DefaultGracefulShutdownTimeout)
 	defer shutdownCancel()
 	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error().Err(err).Msg("ошибка остановки HTTP сервера для metrics")

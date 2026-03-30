@@ -186,6 +186,19 @@ const (
 	BIND_TYPE_TRANSCEIVER = "transceiver"
 )
 
+// SMPP Message State (используется в query_sm_resp)
+const (
+	MSG_STATE_ENROUTE      byte = 1 // Message is in enroute state
+	MSG_STATE_DELIVERED    byte = 2 // Message is delivered to destination
+	MSG_STATE_EXPIRED      byte = 3 // Message validity period has expired
+	MSG_STATE_DELETED      byte = 4 // Message has been deleted
+	MSG_STATE_UNDELIVERABLE byte = 5 // Message is undeliverable
+	MSG_STATE_ACCEPTED     byte = 6 // Message is in accepted state
+	MSG_STATE_UNKNOWN      byte = 7 // Message is in invalid state
+	MSG_STATE_REJECTED     byte = 8 // Message is in a rejected state
+	MSG_STATE_SCHEDULED    byte = 9 // Message is in scheduled state (vendor extension)
+)
+
 // PDU Header размер
 const (
 	PDUHeaderLength = 16 // 4 байта command_length + 4 байта command_id + 4 байта command_status + 4 байта sequence_number

@@ -32,6 +32,7 @@ type kafkaOutgoingMsg struct {
 
 // startMaterializationWorker запускает горутину, которая каждые 5 секунд
 // ищет кампании со статусом "materializing" и разворачивает их в сообщения.
+// Также запускает воркер для досылки сообщений у получателей без message_id.
 func startMaterializationWorker(
 	ctx context.Context,
 	dbx *sqlx.DB,
@@ -50,6 +51,22 @@ func startMaterializationWorker(
 			case <-ticker.C:
 				if err := processMaterializingCampaigns(ctx, dbx, producer, topicOutgoing, recipientRepo, logger); err != nil {
 					logger.Error().Err(err).Msg("ошибка материализации кампаний")
+				}
+			}
+		}
+	}()
+
+	// Worker to resend messages for recipients with NULL message_id (partial materialization recovery)
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := processUnsentRecipients(ctx, dbx, producer, topicOutgoing, logger); err != nil {
+					logger.Error().Err(err).Msg("ошибка досылки сообщений")
 				}
 			}
 		}
@@ -259,5 +276,114 @@ func materializeCampaign(
 		Int("queued", len(recipients)).
 		Msg("кампания материализована и запущена")
 
+	return nil
+}
+
+// processUnsentRecipients находит получателей с message_id = NULL в running кампаниях
+// и создаёт/отправляет для них сообщения. Это восстановление после частичной материализации
+// (например, Kafka был недоступен при первой попытке).
+func processUnsentRecipients(
+	ctx context.Context,
+	dbx *sqlx.DB,
+	producer sarama.SyncProducer,
+	topicOutgoing string,
+	logger zerolog.Logger,
+) error {
+	type unsentRow struct {
+		RecipientID string
+		CampaignID  string
+		Phone       string
+		ClientID    string
+		Source      string
+		TemplateID  *string
+	}
+
+	rows, err := dbx.QueryContext(ctx, `
+		SELECT cr.id, cr.campaign_id, cr.phone, c.client_id, c.source, c.template_id::text
+		FROM campaign_recipients cr
+		JOIN campaigns c ON c.id = cr.campaign_id
+		WHERE cr.message_id IS NULL
+		  AND cr.status = 'pending'
+		  AND c.status = 'running'
+		LIMIT 100`)
+	if err != nil {
+		return fmt.Errorf("query unsent recipients: %w", err)
+	}
+	defer rows.Close()
+
+	renderer := smstpl.NewRenderer()
+	var count int
+
+	for rows.Next() {
+		var r unsentRow
+		if err := rows.Scan(&r.RecipientID, &r.CampaignID, &r.Phone, &r.ClientID, &r.Source, &r.TemplateID); err != nil {
+			continue
+		}
+
+		clientUUID, _ := uuid.Parse(r.ClientID)
+		msgID := uuid.New()
+		now := time.Now()
+
+		// Get template body
+		var text string
+		if r.TemplateID != nil && *r.TemplateID != "" {
+			_ = dbx.QueryRowContext(ctx, `SELECT body FROM templates WHERE id = $1`, *r.TemplateID).Scan(&text)
+
+			// Try to render with contact attributes
+			var attrs []byte
+			if err := dbx.QueryRowContext(ctx,
+				`SELECT co.attributes FROM contacts co
+				 JOIN campaign_recipients cr ON cr.contact_id = co.id
+				 WHERE cr.id = $1`, r.RecipientID).Scan(&attrs); err == nil && len(attrs) > 0 {
+				var bindings map[string]interface{}
+				if json.Unmarshal(attrs, &bindings) == nil {
+					if rendered, renderErr := renderer.Render(text, bindings); renderErr == nil {
+						text = rendered
+					}
+				}
+			}
+		}
+
+		// Insert message
+		_, err := dbx.ExecContext(ctx, `
+			INSERT INTO messages (
+				id, source, destination, text, encoding, data_coding, esm_class,
+				protocol_id, priority_flag, replace_if_present, registered_delivery,
+				service_type, source_addr_ton, source_addr_npi, dest_addr_ton, dest_addr_npi,
+				status, client_id, retry_count, max_retries, created_at, updated_at
+			) VALUES ($1,$2,$3,$4,'GSM7',0,0,0,0,0,1,'',0,0,0,0,'queued',$5,0,5,$6,$6)`,
+			msgID, r.Source, r.Phone, text, clientUUID, now,
+		)
+		if err != nil {
+			logger.Error().Err(err).Str("phone", r.Phone).Msg("ошибка вставки сообщения при досылке")
+			continue
+		}
+
+		// Publish to Kafka
+		km := kafkaOutgoingMsg{
+			ID: msgID.String(), MessageID: msgID,
+			Source: r.Source, Destination: r.Phone, Text: text,
+			ClientID: &clientUUID, MaxRetries: 5, CreatedAt: now,
+		}
+		data, _ := json.Marshal(km)
+		if _, _, kafkaErr := producer.SendMessage(&sarama.ProducerMessage{
+			Topic: topicOutgoing,
+			Value: sarama.ByteEncoder(data),
+		}); kafkaErr != nil {
+			logger.Error().Err(kafkaErr).Str("message_id", msgID.String()).Msg("ошибка публикации в Kafka при досылке")
+			continue
+		}
+
+		// Update recipient with message_id
+		_, _ = dbx.ExecContext(ctx,
+			`UPDATE campaign_recipients SET message_id = $1, updated_at = now() WHERE id = $2`,
+			msgID, r.RecipientID,
+		)
+		count++
+	}
+
+	if count > 0 {
+		logger.Info().Int("count", count).Msg("досланы сообщения для получателей без message_id")
+	}
 	return nil
 }

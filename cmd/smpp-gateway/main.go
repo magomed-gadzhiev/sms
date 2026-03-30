@@ -14,6 +14,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 	smppgateway "github.com/smpp-server/smpp-server/internal/gateway/smpp"
 	smppserver "github.com/smpp-server/smpp-server/internal/gateway/smpp/server"
 )
@@ -66,11 +67,27 @@ func main() {
 	defer producer.Close()
 	
 	logger.Info().Msg("Kafka producer инициализирован")
-	
+
+	// Инициализация базы данных для message repository
+	db, err := storage.NewDBWithConfig(
+		cfg.Database.GetDSN(),
+		cfg.Database.MaxOpenConns,
+		cfg.Database.MaxIdleConns,
+		cfg.Database.ConnMaxLifetime,
+		cfg.Database.ConnMaxIdleTime,
+	)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("ошибка подключения к базе данных")
+	}
+	defer db.Close()
+
+	messageRepo := storage.NewMessageRepository(db)
+
 	// Создание SMPP Gateway сервера
 	smppGateway := smppserver.NewServer(
 		&cfg.SMSP,
 		serviceClients.AuthClient,
+		messageRepo,
 		producer,
 		logger,
 	)
@@ -131,7 +148,7 @@ func main() {
 	}
 
 	// Остановка HTTP сервера для metrics
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.DefaultGracefulShutdownTimeout)
 	defer shutdownCancel()
 	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error().Err(err).Msg("ошибка остановки HTTP сервера для metrics")

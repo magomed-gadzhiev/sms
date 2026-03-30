@@ -110,7 +110,7 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 	var billingGRPCConn *grpc.ClientConn
 	billingAddr := os.Getenv("BILLING_SERVICE_ADDR")
 	if billingAddr == "" {
-		billingAddr = "billing-service:9101"
+		billingAddr = "billing-service:9097"
 	}
 	billingGRPCConn, err = grpc.NewClient(billingAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

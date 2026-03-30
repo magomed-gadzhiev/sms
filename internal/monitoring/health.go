@@ -9,6 +9,8 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/smpp-server/smpp-server/internal/config"
 )
 
 // HealthStatus представляет статус здоровья сервиса
@@ -191,7 +193,7 @@ func (h *HealthChecker) checkKafka(ctx context.Context) CheckResult {
 // Handler возвращает HTTP handler для health check
 func (h *HealthChecker) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), config.DefaultHealthCheckTimeout)
 		defer cancel()
 
 		status := h.Check(ctx)

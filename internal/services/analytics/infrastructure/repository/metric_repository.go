@@ -218,11 +218,13 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 	for _, row := range statusRows {
 		switch row.Status {
 		case "sent":
-			totals.TotalSent = row.Count
+			totals.TotalSent += row.Count
 		case "delivered":
 			totals.TotalDelivered = row.Count
-		case "failed":
-			totals.TotalFailed = row.Count
+			totals.TotalSent += row.Count
+		case "failed", "expired", "rejected":
+			totals.TotalFailed += row.Count
+			totals.TotalSent += row.Count
 		case "pending":
 			totals.TotalPending = row.Count
 		case "queued":
@@ -265,9 +267,9 @@ func (r *MetricRepository) GetStatistics(ctx context.Context, filters *domain.St
 	groupQuery := fmt.Sprintf(`
 		SELECT
 			%s as group_key,
-			COUNT(*) as total_sent,
+			COUNT(*) FILTER (WHERE status IN ('sent', 'delivered', 'failed', 'expired', 'rejected')) as total_sent,
 			COUNT(*) FILTER (WHERE status = 'delivered') as total_delivered,
-			COUNT(*) FILTER (WHERE status = 'failed') as total_failed,
+			COUNT(*) FILTER (WHERE status IN ('failed', 'expired', 'rejected')) as total_failed,
 			AVG(EXTRACT(EPOCH FROM (COALESCE(delivered_at, updated_at) - created_at)) * 1000) as avg_delivery_time_ms
 		FROM messages
 		WHERE created_at >= $1 AND created_at <= $2%s
@@ -348,11 +350,13 @@ func (r *MetricRepository) GetProviderPerformance(ctx context.Context, providerI
 
 		switch row.Status {
 		case "sent":
-			totalSent = row.Count
+			totalSent += row.Count
 		case "delivered":
-			totalDelivered = row.Count
-		case "failed":
-			totalFailed = row.Count
+			totalDelivered += row.Count
+			totalSent += row.Count
+		case "failed", "expired", "rejected":
+			totalFailed += row.Count
+			totalSent += row.Count
 		}
 
 		perf.AvgDeliveryTimeMs = int64(row.AvgDeliveryTimeMs)

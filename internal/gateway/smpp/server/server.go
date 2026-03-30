@@ -11,10 +11,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 	"github.com/smpp-server/smpp-server/internal/config"
+	smppsession "github.com/smpp-server/smpp-server/internal/gateway/smpp/session"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/smpp/protocol"
-	smppsession "github.com/smpp-server/smpp-server/internal/gateway/smpp/session"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // Server представляет SMPP Gateway сервер
@@ -24,9 +25,10 @@ type Server struct {
 	sessions    map[string]*smppsession.Session
 	sessionsMu  sync.RWMutex
 	authClient  authv1.AuthServiceClient
+	messageRepo *storage.MessageRepository
 	producer    *queue.Producer
 	logger      zerolog.Logger
-	
+
 	// Контекст для graceful shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -46,19 +48,21 @@ type UserInfo struct {
 func NewServer(
 	cfg *config.SMSPConfig,
 	authClient authv1.AuthServiceClient,
+	messageRepo *storage.MessageRepository,
 	producer *queue.Producer,
 	logger zerolog.Logger,
 ) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &Server{
-		config:     cfg,
-		sessions:   make(map[string]*smppsession.Session),
-		authClient: authClient,
-		producer:   producer,
-		logger:     logger.With().Str("component", "smpp_gateway").Logger(),
-		ctx:        ctx,
-		cancel:     cancel,
+		config:      cfg,
+		sessions:    make(map[string]*smppsession.Session),
+		authClient:  authClient,
+		messageRepo: messageRepo,
+		producer:    producer,
+		logger:      logger.With().Str("component", "smpp_gateway").Logger(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -182,7 +186,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	authAdapter := NewAuthAdapter(s.authClient, s.logger)
 	
 	// Создаем обработчик команд
-	handler := NewHandler(session, authAdapter, s.producer, s.logger)
+	handler := NewHandler(session, authAdapter, s.messageRepo, s.producer, s.logger)
 	
 	// Читаем и обрабатываем PDU
 	for {

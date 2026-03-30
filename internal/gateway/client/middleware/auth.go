@@ -2,13 +2,13 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
+	"github.com/smpp-server/smpp-server/internal/api/http/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -70,7 +70,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
 				if !strings.HasPrefix(authHeader, "Bearer ") {
-					respondError(w, &shared.AppError{
+					response.Error(w, &shared.AppError{
 						HTTPStatus: http.StatusUnauthorized,
 						Code:       "INVALID_AUTH_HEADER",
 						Message:    "Authorization header must use Bearer scheme",
@@ -83,7 +83,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 			}
 
 			if token == "" {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
 					Code:       "MISSING_CREDENTIALS",
 					Message:    "Authorization header or X-API-Key is required",
@@ -96,7 +96,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 				Token: token,
 			})
 			if err != nil {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
 					Code:       "INVALID_TOKEN",
 					Message:    "Invalid or expired token",
@@ -105,7 +105,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 			}
 
 			if !resp.Valid {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
 					Code:       "INVALID_TOKEN",
 					Message:    "Invalid or expired token",
@@ -115,7 +115,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 
 			// Проверяем наличие пользователя
 			if resp.User == nil {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusUnauthorized,
 					Code:       "INVALID_TOKEN",
 					Message:    "No user info in token",
@@ -125,7 +125,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 
 			// Проверяем, что пользователь активен
 			if !resp.User.Active {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusForbidden,
 					Code:       "USER_INACTIVE",
 					Message:    "User account is inactive",
@@ -139,7 +139,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 				role = resp.User.Role.Name
 			}
 			if role != "client" {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusForbidden,
 					Code:       "WRONG_ROLE",
 					Message:    "Client access required",
@@ -150,7 +150,7 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 			// Парсим user ID
 			userID, parseErr := uuid.Parse(resp.User.Id)
 			if parseErr != nil {
-				respondError(w, &shared.AppError{
+				response.Error(w, &shared.AppError{
 					HTTPStatus: http.StatusInternalServerError,
 					Code:       "AUTH_ERROR",
 					Message:    "Invalid user data from auth service",
@@ -224,21 +224,3 @@ func HasPermission(ctx context.Context, resource, action string) bool {
 	return false
 }
 
-// respondError отправляет ошибку в формате JSON
-func respondError(w http.ResponseWriter, err *shared.AppError) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(err.HTTPStatus)
-
-	response := map[string]interface{}{
-		"error": map[string]interface{}{
-			"code":    err.Code,
-			"message": err.Message,
-		},
-	}
-
-	if err.Details != "" {
-		response["error"].(map[string]interface{})["details"] = err.Details
-	}
-
-	json.NewEncoder(w).Encode(response)
-}

@@ -126,9 +126,9 @@ func main() {
 
 	// Создание middleware
 	authMiddleware := clientmiddleware.ClientAuthMiddleware(serviceClients.AuthClient)
-	loggingMiddleware := clientmiddleware.LoggingMiddleware(logger)
-	recoveryMiddleware := clientmiddleware.RecoveryMiddleware()
-	corsMiddleware := clientmiddleware.CORSMiddleware(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	loggingMiddleware := middleware.LoggingMiddleware(logger)
+	recoveryMiddleware := middleware.RecoveryMiddleware()
+	corsMiddleware := middleware.CORSMiddlewareFromConfig(os.Getenv("CORS_ALLOWED_ORIGINS"))
 	rateLimitMiddleware := middleware.RateLimitMiddleware(redisClient)
 	quotaMiddleware := middleware.QuotaMiddleware
 	tenantLoggerMiddleware := clientmiddleware.TenantLoggerMiddleware(logger)

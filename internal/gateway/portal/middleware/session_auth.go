@@ -2,13 +2,13 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	"github.com/smpp-server/smpp-server/internal/api/http/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -46,26 +46,26 @@ func SessionAuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Ha
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie("portal_session")
 			if err != nil || cookie.Value == "" {
-				respondError(w, shared.ErrUnauthorized("Сессия не найдена"))
+				response.Error(w, shared.ErrUnauthorized("Сессия не найдена"))
 				return
 			}
 
 			sessionKey := "session:" + cookie.Value
 			data, err := redisClient.HGetAll(r.Context(), sessionKey).Result()
 			if err != nil || len(data) == 0 {
-				respondError(w, shared.ErrUnauthorized("Сессия не найдена или истекла"))
+				response.Error(w, shared.ErrUnauthorized("Сессия не найдена или истекла"))
 				return
 			}
 
 			userIDStr, ok := data["user_id"]
 			if !ok || userIDStr == "" {
-				respondError(w, shared.ErrUnauthorized("Некорректная сессия"))
+				response.Error(w, shared.ErrUnauthorized("Некорректная сессия"))
 				return
 			}
 
 			userID, err := uuid.Parse(userIDStr)
 			if err != nil {
-				respondError(w, shared.ErrUnauthorized("Некорректный user_id в сессии"))
+				response.Error(w, shared.ErrUnauthorized("Некорректный user_id в сессии"))
 				return
 			}
 
@@ -116,21 +116,3 @@ func GetRole(ctx context.Context) (string, bool) {
 	return role, ok
 }
 
-// respondError отправляет ошибку в формате JSON
-func respondError(w http.ResponseWriter, err *shared.AppError) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(err.HTTPStatus)
-
-	response := map[string]interface{}{
-		"error": map[string]interface{}{
-			"code":    err.Code,
-			"message": err.Message,
-		},
-	}
-
-	if err.Details != "" {
-		response["error"].(map[string]interface{})["details"] = err.Details
-	}
-
-	json.NewEncoder(w).Encode(response)
-}

@@ -87,6 +87,46 @@ func (m *testBillingClient) TransferBalance(ctx context.Context, in *billingv1.T
 	return args.Get(0).(*billingv1.TransferBalanceResponse), args.Error(1)
 }
 
+func (m *testBillingClient) FreezeAccount(ctx context.Context, in *billingv1.FreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.FreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.FreezeAccountResponse), args.Error(1)
+}
+
+func (m *testBillingClient) UnfreezeAccount(ctx context.Context, in *billingv1.UnfreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.UnfreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.UnfreezeAccountResponse), args.Error(1)
+}
+
+func (m *testBillingClient) SetCreditLimit(ctx context.Context, in *billingv1.SetCreditLimitRequest, opts ...grpc.CallOption) (*billingv1.SetCreditLimitResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetCreditLimitResponse), args.Error(1)
+}
+
+func (m *testBillingClient) SetLowBalanceThreshold(ctx context.Context, in *billingv1.SetLowBalanceThresholdRequest, opts ...grpc.CallOption) (*billingv1.SetLowBalanceThresholdResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetLowBalanceThresholdResponse), args.Error(1)
+}
+
+func (m *testBillingClient) ListBalances(ctx context.Context, in *billingv1.ListBalancesRequest, opts ...grpc.CallOption) (*billingv1.ListBalancesResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.ListBalancesResponse), args.Error(1)
+}
+
 // testFixtures содержит общие данные для тестов TarificationService
 type testFixtures struct {
 	clientID   uuid.UUID
@@ -408,12 +448,25 @@ func TestTarificationService(t *testing.T) {
 			f.logRepo.On("GetByIdempotencyKey", ctx, "idem-dup-1").
 				Return(existingLog, nil)
 
+			// При идемпотентности вызывается GetByID для получения валюты
+			existingPlan := &domain.TariffPlan{
+				ID:             f.planID,
+				OperatorID:     f.operatorID,
+				SenderCategory: domain.CategoryShared,
+				Strategy:       domain.StrategyFixed,
+				Active:         true,
+				Currency:       "RUB",
+			}
+			f.planRepo.On("GetByID", ctx, f.planID).
+				Return(existingPlan, nil)
+
 			resp, err := f.service.TarifyMessage(ctx, req)
 
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			assert.True(t, resp.Approved)
 			assert.Equal(t, "0.050000", resp.TotalAmount)
+			assert.Equal(t, "RUB", resp.Currency)
 			assert.Equal(t, "fixed", resp.Strategy)
 			assert.Equal(t, f.planID.String(), resp.TariffPlanID)
 

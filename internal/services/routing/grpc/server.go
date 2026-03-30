@@ -153,10 +153,23 @@ func (s *Server) SelectProvider(ctx context.Context, req *routingv1.SelectProvid
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// Собираем список backup провайдеров из route.ProviderIDs (все кроме выбранного)
+	var backupProviders []string
+	if route.FailoverEnabled && len(route.ProviderIDs) > 1 {
+		for _, pid := range route.ProviderIDs {
+			if pid != providerID {
+				backupProviders = append(backupProviders, pid.String())
+			}
+		}
+	}
+	if backupProviders == nil {
+		backupProviders = []string{}
+	}
+
 	return &routingv1.SelectProviderResponse{
 		ProviderId:      providerID.String(),
 		Strategy:        string(route.LoadBalanceStrategy),
-		BackupProviders: []string{}, // TODO: добавить поддержку backup провайдеров
+		BackupProviders: backupProviders,
 	}, nil
 }
 

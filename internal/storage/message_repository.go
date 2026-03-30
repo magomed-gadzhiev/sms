@@ -260,7 +260,22 @@ func (r *MessageRepository) GetPendingForRetry(ctx context.Context, limit int) (
 func (r *MessageRepository) GetByClientID(ctx context.Context, clientID uuid.UUID, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error) {
 	var messages []*shared.Message
 	query := `
-		SELECT * FROM messages
+		SELECT id, COALESCE(message_id, '') as message_id, COALESCE(external_id, '') as external_id,
+			source, destination, text, COALESCE(encoding, 'GSM7') as encoding,
+			COALESCE(data_coding, 0) as data_coding, COALESCE(esm_class, 0) as esm_class,
+			COALESCE(protocol_id, 0) as protocol_id, COALESCE(priority_flag, 0) as priority_flag,
+			COALESCE(replace_if_present, 0) as replace_if_present,
+			COALESCE(registered_delivery, 1) as registered_delivery,
+			validity_period, COALESCE(service_type, '') as service_type,
+			COALESCE(source_addr_ton, 0) as source_addr_ton, COALESCE(source_addr_npi, 0) as source_addr_npi,
+			COALESCE(dest_addr_ton, 0) as dest_addr_ton, COALESCE(dest_addr_npi, 0) as dest_addr_npi,
+			COALESCE(status, 'pending') as status, COALESCE(status_message, '') as status_message,
+			provider_id, route_id, client_id,
+			COALESCE(retry_count, 0) as retry_count, COALESCE(max_retries, 5) as max_retries,
+			next_retry_at, COALESCE(smpp_message_id, '') as smpp_message_id,
+			submitted_at, delivered_at, failed_at, created_at, updated_at,
+			scheduled_at, COALESCE(segment_count, 1) as segment_count, expired_at
+		FROM messages
 		WHERE client_id = $1
 	`
 	args := []interface{}{clientID}
@@ -289,7 +304,23 @@ func (r *MessageRepository) GetByClientID(ctx context.Context, clientID uuid.UUI
 // GetAll получает все сообщения с фильтрацией
 func (r *MessageRepository) GetAll(ctx context.Context, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error) {
 	var messages []*shared.Message
-	query := `SELECT * FROM messages`
+	baseQuery := `SELECT id, COALESCE(message_id, '') as message_id, COALESCE(external_id, '') as external_id,
+		source, destination, text, COALESCE(encoding, 'GSM7') as encoding,
+		COALESCE(data_coding, 0) as data_coding, COALESCE(esm_class, 0) as esm_class,
+		COALESCE(protocol_id, 0) as protocol_id, COALESCE(priority_flag, 0) as priority_flag,
+		COALESCE(replace_if_present, 0) as replace_if_present,
+		COALESCE(registered_delivery, 1) as registered_delivery,
+		validity_period, COALESCE(service_type, '') as service_type,
+		COALESCE(source_addr_ton, 0) as source_addr_ton, COALESCE(source_addr_npi, 0) as source_addr_npi,
+		COALESCE(dest_addr_ton, 0) as dest_addr_ton, COALESCE(dest_addr_npi, 0) as dest_addr_npi,
+		COALESCE(status, 'pending') as status, COALESCE(status_message, '') as status_message,
+		provider_id, route_id, client_id,
+		COALESCE(retry_count, 0) as retry_count, COALESCE(max_retries, 5) as max_retries,
+		next_retry_at, COALESCE(smpp_message_id, '') as smpp_message_id,
+		submitted_at, delivered_at, failed_at, created_at, updated_at,
+		scheduled_at, COALESCE(segment_count, 1) as segment_count, expired_at
+		FROM messages`
+	query := baseQuery
 	args := []interface{}{}
 	argIndex := 1
 
@@ -448,6 +479,85 @@ func (r *MessageRepository) BulkUpdateStatusToExpired(ctx context.Context, ids [
 
 	_, err := r.db.ExecContext(ctx, query, now, pq.Array(ids))
 	return err
+}
+
+// UpdateStatusByMessageID обновляет статус сообщения по message_id
+func (r *MessageRepository) UpdateStatusByMessageID(ctx context.Context, messageID string, status shared.MessageStatus) error {
+	now := time.Now()
+	var setFields []string
+	var args []interface{}
+	argIndex := 1
+
+	setFields = append(setFields, fmt.Sprintf("status = $%d", argIndex))
+	args = append(args, status)
+	argIndex++
+
+	// Обновляем соответствующие timestamp поля
+	switch status {
+	case shared.MessageStatusSent:
+		setFields = append(setFields, fmt.Sprintf("submitted_at = $%d", argIndex))
+		args = append(args, now)
+		argIndex++
+	case shared.MessageStatusDelivered:
+		setFields = append(setFields, fmt.Sprintf("delivered_at = $%d", argIndex))
+		args = append(args, now)
+		argIndex++
+	case shared.MessageStatusFailed, shared.MessageStatusExpired, shared.MessageStatusRejected:
+		setFields = append(setFields, fmt.Sprintf("failed_at = $%d", argIndex))
+		args = append(args, now)
+		argIndex++
+	}
+
+	setFields = append(setFields, fmt.Sprintf("updated_at = $%d", argIndex))
+	args = append(args, now)
+	argIndex++
+
+	args = append(args, messageID)
+	finalArgIndex := argIndex
+
+	query := fmt.Sprintf(`
+		UPDATE messages SET %s WHERE message_id = $%d
+	`, joinSetFields(setFields, ", "), finalArgIndex)
+
+	result, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateTextByMessageID обновляет текст сообщения по message_id
+func (r *MessageRepository) UpdateTextByMessageID(ctx context.Context, messageID string, text string) error {
+	now := time.Now()
+	query := `
+		UPDATE messages SET text = $1, updated_at = $2 WHERE message_id = $3
+	`
+
+	result, err := r.db.ExecContext(ctx, query, text, now, messageID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
 }
 
 // joinSetFields вспомогательная функция для объединения SET полей

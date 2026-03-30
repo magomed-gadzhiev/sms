@@ -21,6 +21,7 @@ type Handler struct {
 	encoder      *protocol.Encoder
 	validator    *protocol.Validator
 	clientRepo   *storage.ClientRepository
+	messageRepo  *storage.MessageRepository
 	producer     *queue.Producer
 	logger       zerolog.Logger
 }
@@ -29,17 +30,19 @@ type Handler struct {
 func NewHandler(
 	session *Session,
 	clientRepo *storage.ClientRepository,
+	messageRepo *storage.MessageRepository,
 	producer *queue.Producer,
 	logger zerolog.Logger,
 ) *Handler {
 	return &Handler{
-		session:    session,
-		decoder:    protocol.NewDecoder(nil),
-		encoder:    protocol.NewEncoder(),
-		validator:  protocol.NewValidator(),
-		clientRepo: clientRepo,
-		producer:   producer,
-		logger:     logger,
+		session:     session,
+		decoder:     protocol.NewDecoder(nil),
+		encoder:     protocol.NewEncoder(),
+		validator:   protocol.NewValidator(),
+		clientRepo:  clientRepo,
+		messageRepo: messageRepo,
+		producer:    producer,
+		logger:      logger,
 	}
 }
 
@@ -330,21 +333,46 @@ func (h *Handler) handleQuerySM(pdu *protocol.PDU) error {
 	if !h.session.IsBound() {
 		return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_RINVBNDSTS, "", "", 0, 0)
 	}
-	
+
 	query, err := h.decoder.DecodeQuerySM(pdu.Body)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("ошибка декодирования query_sm")
 		return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN, "", "", 0, 0)
 	}
-	
+
 	if err := h.validator.ValidateQuerySM(query); err != nil {
 		h.logger.Error().Err(err).Msg("ошибка валидации query_sm")
 		return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN, "", "", 0, 0)
 	}
-	
-	// TODO: Реализовать запрос статуса из БД
-	// Пока возвращаем ошибку "запрос не найден"
-	return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_RQUERYFAIL, query.MessageID, "", 0, 0)
+
+	if h.messageRepo == nil {
+		h.logger.Warn().Msg("message repository не настроен, query_sm недоступен")
+		return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_RQUERYFAIL, query.MessageID, "", 0, 0)
+	}
+
+	ctx := context.Background()
+	msg, err := h.messageRepo.GetByMessageID(ctx, query.MessageID)
+	if err != nil {
+		h.logger.Warn().Err(err).Str("message_id", query.MessageID).Msg("сообщение не найдено для query_sm")
+		return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_RQUERYFAIL, query.MessageID, "", 0, 0)
+	}
+
+	// Формируем final_date для завершенных сообщений
+	finalDate := ""
+	if msg.DeliveredAt != nil {
+		finalDate = msg.DeliveredAt.Format("060102150405000") + "+"
+	} else if msg.FailedAt != nil {
+		finalDate = msg.FailedAt.Format("060102150405000") + "+"
+	}
+
+	smppState := mapMessageStatusToSMPP(msg.Status)
+	h.logger.Info().
+		Str("message_id", query.MessageID).
+		Str("status", string(msg.Status)).
+		Uint8("smpp_state", smppState).
+		Msg("query_sm выполнен успешно")
+
+	return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_ROK, msg.MessageID, finalDate, smppState, 0)
 }
 
 // handleCancelSM обрабатывает cancel_sm
@@ -352,21 +380,32 @@ func (h *Handler) handleCancelSM(pdu *protocol.PDU) error {
 	if !h.session.IsBound() {
 		return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_RINVBNDSTS)
 	}
-	
+
 	cancel, err := h.decoder.DecodeCancelSM(pdu.Body)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("ошибка декодирования cancel_sm")
 		return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN)
 	}
-	
+
 	if err := h.validator.ValidateCancelSM(cancel); err != nil {
 		h.logger.Error().Err(err).Msg("ошибка валидации cancel_sm")
 		return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN)
 	}
-	
-	// TODO: Реализовать отмену сообщения
-	// Пока возвращаем ошибку "отмена не удалась"
-	return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_RCANCELFAIL)
+
+	if h.messageRepo == nil {
+		h.logger.Warn().Msg("message repository не настроен, cancel_sm недоступен")
+		return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_RCANCELFAIL)
+	}
+
+	ctx := context.Background()
+	err = h.messageRepo.UpdateStatusByMessageID(ctx, cancel.MessageID, shared.MessageStatusCancelled)
+	if err != nil {
+		h.logger.Warn().Err(err).Str("message_id", cancel.MessageID).Msg("не удалось отменить сообщение")
+		return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_RCANCELFAIL)
+	}
+
+	h.logger.Info().Str("message_id", cancel.MessageID).Msg("сообщение отменено через cancel_sm")
+	return h.sendCancelSMResp(pdu.SequenceNumber, protocol.ESME_ROK)
 }
 
 // handleReplaceSM обрабатывает replace_sm
@@ -374,21 +413,71 @@ func (h *Handler) handleReplaceSM(pdu *protocol.PDU) error {
 	if !h.session.IsBound() {
 		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RINVBNDSTS)
 	}
-	
+
 	replace, err := h.decoder.DecodeReplaceSM(pdu.Body)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("ошибка декодирования replace_sm")
 		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN)
 	}
-	
+
 	if err := h.validator.ValidateReplaceSM(replace); err != nil {
 		h.logger.Error().Err(err).Msg("ошибка валидации replace_sm")
 		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN)
 	}
-	
-	// TODO: Реализовать замену сообщения
-	// Пока возвращаем ошибку "замена не удалась"
-	return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RREPLACEFAIL)
+
+	if h.messageRepo == nil {
+		h.logger.Warn().Msg("message repository не настроен, replace_sm недоступен")
+		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RREPLACEFAIL)
+	}
+
+	ctx := context.Background()
+	msg, err := h.messageRepo.GetByMessageID(ctx, replace.MessageID)
+	if err != nil {
+		h.logger.Warn().Err(err).Str("message_id", replace.MessageID).Msg("сообщение не найдено для replace_sm")
+		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RREPLACEFAIL)
+	}
+
+	// Замена допускается только для сообщений в статусе pending или queued
+	if msg.Status != shared.MessageStatusPending && msg.Status != shared.MessageStatusQueued {
+		h.logger.Warn().
+			Str("message_id", replace.MessageID).
+			Str("status", string(msg.Status)).
+			Msg("замена невозможна: сообщение не в статусе pending/queued")
+		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RREPLACEFAIL)
+	}
+
+	err = h.messageRepo.UpdateTextByMessageID(ctx, replace.MessageID, string(replace.ShortMessage))
+	if err != nil {
+		h.logger.Error().Err(err).Str("message_id", replace.MessageID).Msg("ошибка обновления текста сообщения")
+		return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_RREPLACEFAIL)
+	}
+
+	h.logger.Info().Str("message_id", replace.MessageID).Msg("текст сообщения заменен через replace_sm")
+	return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_ROK)
+}
+
+// mapMessageStatusToSMPP преобразует внутренний статус сообщения в SMPP message state
+func mapMessageStatusToSMPP(status shared.MessageStatus) byte {
+	switch status {
+	case shared.MessageStatusPending, shared.MessageStatusQueued:
+		return protocol.MSG_STATE_ENROUTE
+	case shared.MessageStatusSent:
+		return protocol.MSG_STATE_ACCEPTED
+	case shared.MessageStatusDelivered:
+		return protocol.MSG_STATE_DELIVERED
+	case shared.MessageStatusExpired:
+		return protocol.MSG_STATE_EXPIRED
+	case shared.MessageStatusFailed:
+		return protocol.MSG_STATE_UNDELIVERABLE
+	case shared.MessageStatusRejected:
+		return protocol.MSG_STATE_REJECTED
+	case shared.MessageStatusCancelled:
+		return protocol.MSG_STATE_DELETED
+	case shared.MessageStatusScheduled:
+		return protocol.MSG_STATE_SCHEDULED
+	default:
+		return protocol.MSG_STATE_UNKNOWN
+	}
 }
 
 // authenticate проверяет аутентификацию клиента

@@ -3,6 +3,8 @@ package middleware
 import (
 	"net/http"
 	"strings"
+
+	"github.com/smpp-server/smpp-server/internal/config"
 )
 
 // CORSMiddleware создает middleware для CORS
@@ -30,7 +32,7 @@ func CORSMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Request-ID")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Max-Age", "3600")
+				w.Header().Set("Access-Control-Max-Age", config.DefaultCORSMaxAge)
 			}
 
 			// Обрабатываем preflight запросы

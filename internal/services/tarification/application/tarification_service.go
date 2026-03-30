@@ -87,10 +87,16 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 		return nil, fmt.Errorf("idempotency check failed: %w", err)
 	}
 	if existing != nil {
+		// Resolve currency from the tariff plan's operator country
+		existingPlan, planErr := s.planRepo.GetByID(ctx, existing.TariffPlanID)
+		existingCurrency := ""
+		if planErr == nil && existingPlan != nil {
+			existingCurrency = existingPlan.Currency
+		}
 		return &TarifyMessageResponse{
 			Approved:     true,
 			TotalAmount:  existing.TotalAmount,
-			Currency:     "", // TODO: resolve from country
+			Currency:     existingCurrency,
 			Strategy:     string(existing.Strategy),
 			TariffPlanID: existing.TariffPlanID.String(),
 		}, nil
@@ -159,7 +165,7 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 		req.ClientID.String(),
 		req.MessageID.String(),
 		result.ChargeAmount,
-		"", // currency resolved from country
+		plan.Currency,
 		fmt.Sprintf("SMS tarification: %s strategy, %d segments", plan.Strategy, req.SegmentCount),
 		int32(req.SegmentCount),
 	)
@@ -198,7 +204,7 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 		go func() {
 			recalcCtx := context.Background()
 			recalcResult, recalcErr := s.saga.HandleRecalc(recalcCtx,
-				req.ClientID.String(), result.RecalcAmount, "")
+				req.ClientID.String(), result.RecalcAmount, plan.Currency)
 			if recalcErr != nil {
 				log.Error().Err(recalcErr).
 					Str("client_id", req.ClientID.String()).
@@ -229,7 +235,7 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 	return &TarifyMessageResponse{
 		Approved:         true,
 		TotalAmount:      result.ChargeAmount,
-		Currency:         "",
+		Currency:         plan.Currency,
 		Strategy:         string(plan.Strategy),
 		TariffPlanID:     plan.ID.String(),
 		ThresholdCrossed: result.ThresholdCrossed,

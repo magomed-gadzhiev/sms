@@ -23,9 +23,10 @@ type Server struct {
 	sessions    map[string]*Session
 	sessionsMu  sync.RWMutex
 	clientRepo  *storage.ClientRepository
+	messageRepo *storage.MessageRepository
 	producer    *queue.Producer
 	logger      zerolog.Logger
-	
+
 	// Контекст для graceful shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -36,19 +37,21 @@ type Server struct {
 func NewServer(
 	cfg *config.SMSPConfig,
 	clientRepo *storage.ClientRepository,
+	messageRepo *storage.MessageRepository,
 	producer *queue.Producer,
 	logger zerolog.Logger,
 ) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &Server{
-		config:     cfg,
-		sessions:   make(map[string]*Session),
-		clientRepo: clientRepo,
-		producer:   producer,
-		logger:     logger.With().Str("component", "smpp_server").Logger(),
-		ctx:        ctx,
-		cancel:     cancel,
+		config:      cfg,
+		sessions:    make(map[string]*Session),
+		clientRepo:  clientRepo,
+		messageRepo: messageRepo,
+		producer:    producer,
+		logger:      logger.With().Str("component", "smpp_server").Logger(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -169,7 +172,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		Msg("новое соединение")
 	
 	// Создаем обработчик команд
-	handler := NewHandler(session, s.clientRepo, s.producer, s.logger)
+	handler := NewHandler(session, s.clientRepo, s.messageRepo, s.producer, s.logger)
 	
 	// Читаем и обрабатываем PDU
 	for {

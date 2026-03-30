@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +21,7 @@ import (
 	campaignv1 "github.com/smpp-server/smpp-server/api/proto/campaignv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
+	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/services/campaign/application"
 	campaigngrpc "github.com/smpp-server/smpp-server/internal/services/campaign/grpc"
 	campaignrepo "github.com/smpp-server/smpp-server/internal/services/campaign/infrastructure/repository"
@@ -112,7 +115,7 @@ func main() {
 					case <-ctx.Done():
 						return
 					default:
-						handler := &statusConsumerHandler{logger: logger}
+						handler := &statusConsumerHandler{dbx: dbx, logger: logger}
 						if err := consumerGroup.Consume(ctx, []string{statusTopic}, handler); err != nil {
 							logger.Error().Err(err).Msg("ошибка потребления сообщений из Kafka")
 						}
@@ -219,6 +222,7 @@ func main() {
 
 // statusConsumerHandler implements sarama.ConsumerGroupHandler for processing delivery status updates.
 type statusConsumerHandler struct {
+	dbx    *sqlx.DB
 	logger zerolog.Logger
 }
 
@@ -226,9 +230,87 @@ func (h *statusConsumerHandler) Setup(_ sarama.ConsumerGroupSession) error   { r
 func (h *statusConsumerHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 func (h *statusConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		// Placeholder: process delivery status updates from sms.status
-		// In production, deserialize the message, update recipient status, and update campaign counters
+		h.processStatusMessage(msg)
 		session.MarkMessage(msg, "")
 	}
 	return nil
+}
+
+func (h *statusConsumerHandler) processStatusMessage(msg *sarama.ConsumerMessage) {
+	var status pipeline.StatusUpdate
+	if err := json.Unmarshal(msg.Value, &status); err != nil {
+		h.logger.Warn().Err(err).Msg("не удалось десериализовать StatusUpdate")
+		return
+	}
+
+	// Map pipeline status to recipient status
+	recipientStatus := mapToRecipientStatus(status.Status)
+	if recipientStatus == "" {
+		return
+	}
+
+	// Find and update recipient by message_id
+	var recipientID, campaignID string
+	err := h.dbx.QueryRow(
+		`UPDATE campaign_recipients SET status = $1, updated_at = now()
+		 WHERE message_id = $2 AND status NOT IN ('delivered', 'failed', 'cancelled')
+		 RETURNING id, campaign_id`,
+		recipientStatus, status.MessageID,
+	).Scan(&recipientID, &campaignID)
+	if err != nil {
+		// Not a campaign message or already in final status — skip
+		return
+	}
+
+	// Update campaign counters
+	counterCol := statusToCounterColumn(recipientStatus)
+	if counterCol != "" {
+		_, err = h.dbx.Exec(
+			fmt.Sprintf(`UPDATE campaigns SET %s = %s + 1, updated_at = now() WHERE id = $1`, counterCol, counterCol),
+			campaignID,
+		)
+		if err != nil {
+			h.logger.Error().Err(err).Str("campaign_id", campaignID).Msg("ошибка обновления счётчика кампании")
+		}
+	}
+
+	// Check if campaign is complete (all recipients processed)
+	var pending int
+	if err := h.dbx.QueryRow(
+		`SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id = $1 AND status IN ('pending', 'sent')`,
+		campaignID,
+	).Scan(&pending); err == nil && pending == 0 {
+		_, _ = h.dbx.Exec(
+			`UPDATE campaigns SET status = 'completed', completed_at = now(), updated_at = now()
+			 WHERE id = $1 AND status = 'running'`,
+			campaignID,
+		)
+		h.logger.Info().Str("campaign_id", campaignID).Msg("кампания завершена")
+	}
+}
+
+func mapToRecipientStatus(pipelineStatus string) string {
+	switch pipelineStatus {
+	case "sent", "accepted":
+		return "sent"
+	case "delivered":
+		return "delivered"
+	case "failed", "rejected", "expired", "undeliverable":
+		return "failed"
+	default:
+		return ""
+	}
+}
+
+func statusToCounterColumn(recipientStatus string) string {
+	switch recipientStatus {
+	case "sent":
+		return "sent_count"
+	case "delivered":
+		return "delivered_count"
+	case "failed":
+		return "failed_count"
+	default:
+		return ""
+	}
 }

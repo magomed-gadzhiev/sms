@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smpp-server/smpp-server/internal/api/http/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -19,7 +20,7 @@ func RecoveryMiddleware() func(http.Handler) http.Handler {
 						Str("path", r.URL.Path).
 						Msg("паника при обработке запроса")
 					
-					respondError(w, shared.ErrInternalServer("Внутренняя ошибка сервера"))
+					response.Error(w, shared.ErrInternalServer("Внутренняя ошибка сервера"))
 				}
 			}()
 			next.ServeHTTP(w, r)

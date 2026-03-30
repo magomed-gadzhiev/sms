@@ -1,10 +1,11 @@
 package middleware
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smpp-server/smpp-server/internal/api/http/response"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // RecoveryMiddleware создает middleware для восстановления после паник
@@ -19,14 +20,7 @@ func RecoveryMiddleware() func(http.Handler) http.Handler {
 						Str("path", r.URL.Path).
 						Msg("паника в HTTP handler")
 
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(map[string]interface{}{
-						"error": map[string]interface{}{
-							"code":    "INTERNAL_ERROR",
-							"message": "Внутренняя ошибка сервера",
-						},
-					})
+					response.Error(w, shared.ErrInternalServer("Внутренняя ошибка сервера"))
 				}
 			}()
 
