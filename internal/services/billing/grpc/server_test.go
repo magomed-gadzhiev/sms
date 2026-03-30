@@ -46,6 +46,34 @@ func (m *mockAccountRepo) UpdateBalance(ctx context.Context, clientID uuid.UUID,
 	return args.Error(0)
 }
 
+func (m *mockAccountRepo) FreezeAccount(ctx context.Context, clientID uuid.UUID, adminID uuid.UUID) (time.Time, error) {
+	args := m.Called(ctx, clientID, adminID)
+	return args.Get(0).(time.Time), args.Error(1)
+}
+
+func (m *mockAccountRepo) UnfreezeAccount(ctx context.Context, clientID uuid.UUID) error {
+	args := m.Called(ctx, clientID)
+	return args.Error(0)
+}
+
+func (m *mockAccountRepo) SetCreditLimit(ctx context.Context, clientID uuid.UUID, limit string) error {
+	args := m.Called(ctx, clientID, limit)
+	return args.Error(0)
+}
+
+func (m *mockAccountRepo) SetLowBalanceThreshold(ctx context.Context, clientID uuid.UUID, threshold string) error {
+	args := m.Called(ctx, clientID, threshold)
+	return args.Error(0)
+}
+
+func (m *mockAccountRepo) ListBalances(ctx context.Context, search string, status string, belowThreshold bool, limit, offset int32) ([]domain.BalanceInfo, int32, error) {
+	args := m.Called(ctx, search, status, belowThreshold, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int32), args.Error(2)
+	}
+	return args.Get(0).([]domain.BalanceInfo), args.Get(1).(int32), args.Error(2)
+}
+
 type mockTransactionRepo struct {
 	mock.Mock
 }
@@ -61,6 +89,14 @@ func (m *mockTransactionRepo) GetByID(ctx context.Context, id uuid.UUID) (*domai
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Transaction), args.Error(1)
+}
+
+func (m *mockTransactionRepo) GetAll(ctx context.Context, limit, offset int) ([]*domain.Transaction, error) {
+	args := m.Called(ctx, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Transaction), args.Error(1)
 }
 
 func (m *mockTransactionRepo) GetByClientID(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Transaction, error) {
@@ -219,11 +255,11 @@ func TestBillingServer_GetBalance(t *testing.T) {
 			ClientId: clientID.String(),
 		})
 
-		require.Error(t, err)
-		assert.Nil(t, resp)
-		st, ok := status.FromError(err)
-		require.True(t, ok)
-		assert.Equal(t, codes.Internal, st.Code())
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, clientID.String(), resp.ClientId)
+		assert.Equal(t, "0", resp.Balance)
+		assert.Equal(t, "USD", resp.Currency)
 	})
 
 	t.Run("empty client_id returns InvalidArgument", func(t *testing.T) {

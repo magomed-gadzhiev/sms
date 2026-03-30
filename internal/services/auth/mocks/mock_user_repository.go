@@ -54,3 +54,21 @@ func (m *MockUserRepository) Update(ctx context.Context, user *domain.User) erro
 	args := m.Called(ctx, user)
 	return args.Error(0)
 }
+
+func (m *MockUserRepository) List(ctx context.Context, search string, roleID string, activeOnly bool, limit, offset int32) ([]*domain.User, int32, error) {
+	args := m.Called(ctx, search, roleID, activeOnly, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int32), args.Error(2)
+	}
+	return args.Get(0).([]*domain.User), args.Get(1).(int32), args.Error(2)
+}
+
+func (m *MockUserRepository) Deactivate(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) ResetTOTP(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}

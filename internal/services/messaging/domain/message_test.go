@@ -247,8 +247,8 @@ func TestMessage_ToShared(t *testing.T) {
 		sharedMsg := msg.ToShared()
 
 		assert.Equal(t, msg.ID, sharedMsg.ID)
-		assert.Equal(t, msg.MessageID, sharedMsg.MessageID)
-		assert.Equal(t, msg.ExternalID, sharedMsg.ExternalID)
+		assert.Equal(t, shared.NullString(msg.MessageID), sharedMsg.MessageID)
+		assert.Equal(t, shared.NullString(msg.ExternalID), sharedMsg.ExternalID)
 		assert.Equal(t, msg.Source, sharedMsg.Source)
 		assert.Equal(t, msg.Destination, sharedMsg.Destination)
 		assert.Equal(t, msg.Text, sharedMsg.Text)
@@ -262,7 +262,7 @@ func TestMessageFromShared(t *testing.T) {
 		clientID := uuid.New()
 		sharedMsg := &shared.Message{
 			ID:          uuid.New(),
-			MessageID:   "msg-002",
+			MessageID:   shared.NullString("msg-002"),
 			Source:      "Src",
 			Destination: "+79001234567",
 			Text:        "Hello",
@@ -274,7 +274,7 @@ func TestMessageFromShared(t *testing.T) {
 		msg := MessageFromShared(sharedMsg)
 
 		assert.Equal(t, sharedMsg.ID, msg.ID)
-		assert.Equal(t, sharedMsg.MessageID, msg.MessageID)
+		assert.Equal(t, string(sharedMsg.MessageID), msg.MessageID)
 		assert.Equal(t, sharedMsg.Source, msg.Source)
 		assert.Equal(t, sharedMsg.Destination, msg.Destination)
 		assert.Equal(t, sharedMsg.Text, msg.Text)

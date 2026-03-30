@@ -354,10 +354,10 @@ func TestApproveTemplate_Success(t *testing.T) {
 
 	id := uuid.New()
 	clientID := uuid.New()
-	draft := makeTemplate(id, clientID, domain.StatusDraft)
+	pending := makeTemplate(id, clientID, domain.StatusPending)
 	approved := makeTemplate(id, clientID, domain.StatusApproved)
 
-	tmplRepo.On("GetByIDAdmin", mock.Anything, id).Return(draft, nil)
+	tmplRepo.On("GetByIDAdmin", mock.Anything, id).Return(pending, nil)
 	tmplRepo.On("UpdateStatus", mock.Anything, id, domain.StatusApproved, "").Return(approved, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 
@@ -409,11 +409,11 @@ func TestRejectTemplate_Success(t *testing.T) {
 
 	id := uuid.New()
 	clientID := uuid.New()
-	draft := makeTemplate(id, clientID, domain.StatusDraft)
+	pending := makeTemplate(id, clientID, domain.StatusPending)
 	rejected := makeTemplate(id, clientID, domain.StatusRejected)
 	rejected.RejectionReason = "policy violation"
 
-	tmplRepo.On("GetByIDAdmin", mock.Anything, id).Return(draft, nil)
+	tmplRepo.On("GetByIDAdmin", mock.Anything, id).Return(pending, nil)
 	tmplRepo.On("UpdateStatus", mock.Anything, id, domain.StatusRejected, "policy violation").Return(rejected, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 

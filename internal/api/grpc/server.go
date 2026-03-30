@@ -80,7 +80,7 @@ func (s *Server) SendSMS(ctx context.Context, req *smsv1.SendSMSRequest) (*smsv1
 		Source:            req.Source,
 		Destination:       req.Destination,
 		Text:              req.Text,
-		ExternalID:        req.ExternalId,
+		ExternalID:        shared.NullString(req.ExternalId),
 		PriorityFlag:     int(req.Priority),
 		RegisteredDelivery: boolToInt(req.RegisteredDelivery),
 		ServiceType:       req.ServiceType,
@@ -163,7 +163,7 @@ func (s *Server) SendBatchSMS(ctx context.Context, req *smsv1.SendBatchRequest) 
 			Source:            msgReq.Source,
 			Destination:       msgReq.Destination,
 			Text:              msgReq.Text,
-			ExternalID:        msgReq.ExternalId,
+			ExternalID:        shared.NullString(msgReq.ExternalId),
 			PriorityFlag:     int(msgReq.Priority),
 			RegisteredDelivery: boolToInt(msgReq.RegisteredDelivery),
 			ServiceType:       msgReq.ServiceType,
@@ -285,9 +285,9 @@ func (s *Server) GetStatus(ctx context.Context, req *smsv1.GetStatusRequest) (*s
 	resp := &smsv1.GetStatusResponse{
 		MessageId:     msg.ID.String(),
 		Status:        string(msg.Status),
-		StatusMessage: msg.StatusMessage,
+		StatusMessage: string(msg.StatusMessage),
 		CreatedAt:     timestamppb.New(msg.CreatedAt),
-		SmppMessageId: msg.SMPPMessageID,
+		SmppMessageId: string(msg.SMPPMessageID),
 	}
 
 	if msg.SubmittedAt != nil {

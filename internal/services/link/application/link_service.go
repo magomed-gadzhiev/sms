@@ -10,21 +10,20 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/internal/services/link/domain"
-	"github.com/smpp-server/smpp-server/internal/services/link/infrastructure/repository"
 )
 
 type LinkService struct {
-	linkRepo   *repository.LinkRepository
-	domainRepo *repository.DomainRepository
-	clickRepo  *repository.ClickRepository
+	linkRepo   LinkRepo
+	domainRepo DomainRepo
+	clickRepo  ClickRepo
 	rdb        *redis.Client
 	logger     zerolog.Logger
 }
 
 func NewLinkService(
-	linkRepo *repository.LinkRepository,
-	domainRepo *repository.DomainRepository,
-	clickRepo *repository.ClickRepository,
+	linkRepo LinkRepo,
+	domainRepo DomainRepo,
+	clickRepo ClickRepo,
 	rdb *redis.Client,
 ) *LinkService {
 	return &LinkService{

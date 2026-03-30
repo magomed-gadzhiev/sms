@@ -90,6 +90,46 @@ func (m *mockBillingClient) TransferBalance(ctx context.Context, in *billingv1.T
 	return args.Get(0).(*billingv1.TransferBalanceResponse), args.Error(1)
 }
 
+func (m *mockBillingClient) FreezeAccount(ctx context.Context, in *billingv1.FreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.FreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.FreezeAccountResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) UnfreezeAccount(ctx context.Context, in *billingv1.UnfreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.UnfreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.UnfreezeAccountResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) SetCreditLimit(ctx context.Context, in *billingv1.SetCreditLimitRequest, opts ...grpc.CallOption) (*billingv1.SetCreditLimitResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetCreditLimitResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) SetLowBalanceThreshold(ctx context.Context, in *billingv1.SetLowBalanceThresholdRequest, opts ...grpc.CallOption) (*billingv1.SetLowBalanceThresholdResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetLowBalanceThresholdResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) ListBalances(ctx context.Context, in *billingv1.ListBalancesRequest, opts ...grpc.CallOption) (*billingv1.ListBalancesResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.ListBalancesResponse), args.Error(1)
+}
+
 // --- Mock AnalyticsServiceClient ---
 
 type mockAnalyticsClient struct {

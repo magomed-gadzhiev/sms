@@ -270,7 +270,7 @@ func TestRetryManager(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, updatedMsg)
 			assert.Equal(t, shared.MessageStatusFailed, updatedMsg.Status)
-			assert.Equal(t, "test error message", updatedMsg.StatusMessage)
+			assert.Equal(t, shared.NullString("test error message"), updatedMsg.StatusMessage)
 			assert.NotNil(t, updatedMsg.FailedAt)
 		})
 	})

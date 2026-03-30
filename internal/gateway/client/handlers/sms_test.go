@@ -155,6 +155,30 @@ func (m *mockTemplateClient) GetTemplateAuditLog(ctx context.Context, in *templa
 	return args.Get(0).(*templatev1.GetTemplateAuditLogResponse), args.Error(1)
 }
 
+func (m *mockTemplateClient) AssignReviewer(ctx context.Context, in *templatev1.AssignReviewerRequest, opts ...grpc.CallOption) (*templatev1.AssignReviewerResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*templatev1.AssignReviewerResponse), args.Error(1)
+}
+
+func (m *mockTemplateClient) RequestRevision(ctx context.Context, in *templatev1.RequestRevisionRequest, opts ...grpc.CallOption) (*templatev1.RequestRevisionResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*templatev1.RequestRevisionResponse), args.Error(1)
+}
+
+func (m *mockTemplateClient) SubmitForReview(ctx context.Context, in *templatev1.SubmitForReviewRequest, opts ...grpc.CallOption) (*templatev1.SubmitForReviewResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*templatev1.SubmitForReviewResponse), args.Error(1)
+}
+
 // --- Helpers ---
 
 func contextWithClientID(ctx context.Context, clientID uuid.UUID) context.Context {

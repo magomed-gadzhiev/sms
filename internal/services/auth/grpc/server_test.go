@@ -66,6 +66,24 @@ func (m *mockUserRepo) Update(ctx context.Context, user *domain.User) error {
 	return args.Error(0)
 }
 
+func (m *mockUserRepo) List(ctx context.Context, search string, roleID string, activeOnly bool, limit, offset int32) ([]*domain.User, int32, error) {
+	args := m.Called(ctx, search, roleID, activeOnly, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int32), args.Error(2)
+	}
+	return args.Get(0).([]*domain.User), args.Get(1).(int32), args.Error(2)
+}
+
+func (m *mockUserRepo) Deactivate(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *mockUserRepo) ResetTOTP(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
 type mockAPIKeyRepo struct {
 	mock.Mock
 }

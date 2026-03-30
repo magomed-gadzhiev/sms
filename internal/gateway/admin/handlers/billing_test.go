@@ -78,6 +78,46 @@ func (m *mockBillingClient) TransferBalance(ctx context.Context, in *billingv1.T
 	return nil, nil
 }
 
+func (m *mockBillingClient) FreezeAccount(ctx context.Context, in *billingv1.FreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.FreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.FreezeAccountResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) UnfreezeAccount(ctx context.Context, in *billingv1.UnfreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.UnfreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.UnfreezeAccountResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) SetCreditLimit(ctx context.Context, in *billingv1.SetCreditLimitRequest, opts ...grpc.CallOption) (*billingv1.SetCreditLimitResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetCreditLimitResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) SetLowBalanceThreshold(ctx context.Context, in *billingv1.SetLowBalanceThresholdRequest, opts ...grpc.CallOption) (*billingv1.SetLowBalanceThresholdResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetLowBalanceThresholdResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) ListBalances(ctx context.Context, in *billingv1.ListBalancesRequest, opts ...grpc.CallOption) (*billingv1.ListBalancesResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.ListBalancesResponse), args.Error(1)
+}
+
 var _ billingv1.BillingServiceClient = (*mockBillingClient)(nil)
 
 // --- Tests ---
@@ -342,16 +382,31 @@ func TestBillingHandlers(t *testing.T) {
 			client.AssertExpectations(t)
 		})
 
-		t.Run("returns 400 when client_id is missing", func(t *testing.T) {
+		t.Run("returns all transactions when client_id is missing", func(t *testing.T) {
 			client := new(mockBillingClient)
 			handler := NewBillingHandlers(client)
+
+			client.On("GetTransactionHistory", mock.Anything, mock.MatchedBy(func(req *billingv1.GetTransactionHistoryRequest) bool {
+				return req.ClientId == ""
+			})).Return(&billingv1.GetTransactionHistoryResponse{
+				Transactions: []*billingv1.Transaction{},
+				Total:        0,
+			}, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/transactions", nil)
 
 			rr := httptest.NewRecorder()
 			handler.GetTransactionHistory(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp TransactionHistoryResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Len(t, resp.Transactions, 0)
+			assert.Equal(t, 0, resp.Total)
+
+			client.AssertExpectations(t)
 		})
 	})
 }

@@ -175,10 +175,10 @@ func TestApproveTemplate_Success(t *testing.T) {
 
 	tmplID := uuid.New()
 	actorID := uuid.New()
-	draft := &domain.Template{ID: tmplID, Status: domain.StatusDraft}
+	pending := &domain.Template{ID: tmplID, Status: domain.StatusPending}
 	approved := &domain.Template{ID: tmplID, Status: domain.StatusApproved}
 
-	tmplRepo.On("GetByIDAdmin", mock.Anything, tmplID).Return(draft, nil)
+	tmplRepo.On("GetByIDAdmin", mock.Anything, tmplID).Return(pending, nil)
 	tmplRepo.On("UpdateStatus", mock.Anything, tmplID, domain.StatusApproved, "").Return(approved, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 
@@ -211,10 +211,10 @@ func TestRejectTemplate_Success(t *testing.T) {
 	svc := newService(tmplRepo, auditRepo)
 
 	tmplID := uuid.New()
-	draft := &domain.Template{ID: tmplID, Status: domain.StatusDraft}
+	pending := &domain.Template{ID: tmplID, Status: domain.StatusPending}
 	rejected := &domain.Template{ID: tmplID, Status: domain.StatusRejected, RejectionReason: "spam"}
 
-	tmplRepo.On("GetByIDAdmin", mock.Anything, tmplID).Return(draft, nil)
+	tmplRepo.On("GetByIDAdmin", mock.Anything, tmplID).Return(pending, nil)
 	tmplRepo.On("UpdateStatus", mock.Anything, tmplID, domain.StatusRejected, "spam").Return(rejected, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 

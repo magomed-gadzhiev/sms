@@ -80,7 +80,7 @@ func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {
 		Source:            req.Source,
 		Destination:       req.Destination,
 		Text:              req.Text,
-		ExternalID:        req.ExternalID,
+		ExternalID:        shared.NullString(req.ExternalID),
 		PriorityFlag:      req.Priority,
 		RegisteredDelivery: boolToInt(req.RegisteredDelivery),
 		ValidityPeriod:    req.ValidityPeriod,
@@ -175,7 +175,7 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 			Source:            msgReq.Source,
 			Destination:       msgReq.Destination,
 			Text:              msgReq.Text,
-			ExternalID:        msgReq.ExternalID,
+			ExternalID:        shared.NullString(msgReq.ExternalID),
 			PriorityFlag:      msgReq.Priority,
 			RegisteredDelivery: boolToInt(msgReq.RegisteredDelivery),
 			ValidityPeriod:    msgReq.ValidityPeriod,
@@ -299,12 +299,12 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, GetStatusResponse{
 		MessageID:    msg.ID.String(),
 		Status:       string(msg.Status),
-		StatusMessage: msg.StatusMessage,
+		StatusMessage: string(msg.StatusMessage),
 		CreatedAt:    msg.CreatedAt,
 		SubmittedAt: msg.SubmittedAt,
 		DeliveredAt: msg.DeliveredAt,
 		FailedAt:    msg.FailedAt,
-		SMPPMessageID: msg.SMPPMessageID,
+		SMPPMessageID: string(msg.SMPPMessageID),
 	})
 }
 
@@ -363,12 +363,12 @@ func (h *Handler) GetHistory(w http.ResponseWriter, r *http.Request) {
 		results[i] = GetStatusResponse{
 			MessageID:    msg.ID.String(),
 			Status:       string(msg.Status),
-			StatusMessage: msg.StatusMessage,
+			StatusMessage: string(msg.StatusMessage),
 			CreatedAt:    msg.CreatedAt,
 			SubmittedAt: msg.SubmittedAt,
 			DeliveredAt: msg.DeliveredAt,
 			FailedAt:    msg.FailedAt,
-			SMPPMessageID: msg.SMPPMessageID,
+			SMPPMessageID: string(msg.SMPPMessageID),
 		}
 	}
 

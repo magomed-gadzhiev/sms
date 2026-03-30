@@ -403,7 +403,7 @@ func (h *Handler) handleQuerySM(pdu *protocol.PDU) error {
 		Uint8("smpp_state", smppState).
 		Msg("query_sm выполнен успешно")
 
-	return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_ROK, msg.MessageID, finalDate, smppState, 0)
+	return h.sendQuerySMResp(pdu.SequenceNumber, protocol.ESME_ROK, string(msg.MessageID), finalDate, smppState, 0)
 }
 
 // handleCancelSM обрабатывает cancel_sm

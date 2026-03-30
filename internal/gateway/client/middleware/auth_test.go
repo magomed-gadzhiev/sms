@@ -152,6 +152,62 @@ func (m *mockAuthServiceClient) RegisterClient(ctx context.Context, in *authv1.R
 	return nil, nil
 }
 
+func (m *mockAuthServiceClient) CreateUser(ctx context.Context, in *authv1.CreateUserRequest, opts ...grpc.CallOption) (*authv1.CreateUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) UpdateUser(ctx context.Context, in *authv1.UpdateUserRequest, opts ...grpc.CallOption) (*authv1.UpdateUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) DeactivateUser(ctx context.Context, in *authv1.DeactivateUserRequest, opts ...grpc.CallOption) (*authv1.DeactivateUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) ResetUser2FA(ctx context.Context, in *authv1.ResetUser2FARequest, opts ...grpc.CallOption) (*authv1.ResetUser2FAResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) ResetUserPassword(ctx context.Context, in *authv1.ResetUserPasswordRequest, opts ...grpc.CallOption) (*authv1.ResetUserPasswordResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) ListUsers(ctx context.Context, in *authv1.ListUsersRequest, opts ...grpc.CallOption) (*authv1.ListUsersResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) GetUser(ctx context.Context, in *authv1.GetUserRequest, opts ...grpc.CallOption) (*authv1.GetUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) CreateRole(ctx context.Context, in *authv1.CreateRoleRequest, opts ...grpc.CallOption) (*authv1.CreateRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) UpdateRole(ctx context.Context, in *authv1.UpdateRoleRequest, opts ...grpc.CallOption) (*authv1.UpdateRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) DeleteRole(ctx context.Context, in *authv1.DeleteRoleRequest, opts ...grpc.CallOption) (*authv1.DeleteRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) ListRoles(ctx context.Context, in *authv1.ListRolesRequest, opts ...grpc.CallOption) (*authv1.ListRolesResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) GetRole(ctx context.Context, in *authv1.GetRoleRequest, opts ...grpc.CallOption) (*authv1.GetRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) ListAllPermissions(ctx context.Context, in *authv1.ListAllPermissionsRequest, opts ...grpc.CallOption) (*authv1.ListAllPermissionsResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthServiceClient) GetUserPermissions(ctx context.Context, in *authv1.GetUserPermissionsRequest, opts ...grpc.CallOption) (*authv1.GetUserPermissionsResponse, error) {
+	return nil, nil
+}
+
 // nextHandlerRecorder записывает, был ли вызван следующий обработчик, и сохраняет контекст
 type nextHandlerRecorder struct {
 	called bool

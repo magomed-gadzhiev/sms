@@ -157,6 +157,62 @@ func (m *mockAuthClient) RegisterClient(ctx context.Context, in *authv1.Register
 	return nil, nil
 }
 
+func (m *mockAuthClient) CreateUser(ctx context.Context, in *authv1.CreateUserRequest, opts ...grpc.CallOption) (*authv1.CreateUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) UpdateUser(ctx context.Context, in *authv1.UpdateUserRequest, opts ...grpc.CallOption) (*authv1.UpdateUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) DeactivateUser(ctx context.Context, in *authv1.DeactivateUserRequest, opts ...grpc.CallOption) (*authv1.DeactivateUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) ResetUser2FA(ctx context.Context, in *authv1.ResetUser2FARequest, opts ...grpc.CallOption) (*authv1.ResetUser2FAResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) ResetUserPassword(ctx context.Context, in *authv1.ResetUserPasswordRequest, opts ...grpc.CallOption) (*authv1.ResetUserPasswordResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) ListUsers(ctx context.Context, in *authv1.ListUsersRequest, opts ...grpc.CallOption) (*authv1.ListUsersResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) GetUser(ctx context.Context, in *authv1.GetUserRequest, opts ...grpc.CallOption) (*authv1.GetUserResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) CreateRole(ctx context.Context, in *authv1.CreateRoleRequest, opts ...grpc.CallOption) (*authv1.CreateRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) UpdateRole(ctx context.Context, in *authv1.UpdateRoleRequest, opts ...grpc.CallOption) (*authv1.UpdateRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) DeleteRole(ctx context.Context, in *authv1.DeleteRoleRequest, opts ...grpc.CallOption) (*authv1.DeleteRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) ListRoles(ctx context.Context, in *authv1.ListRolesRequest, opts ...grpc.CallOption) (*authv1.ListRolesResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) GetRole(ctx context.Context, in *authv1.GetRoleRequest, opts ...grpc.CallOption) (*authv1.GetRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) ListAllPermissions(ctx context.Context, in *authv1.ListAllPermissionsRequest, opts ...grpc.CallOption) (*authv1.ListAllPermissionsResponse, error) {
+	return nil, nil
+}
+
+func (m *mockAuthClient) GetUserPermissions(ctx context.Context, in *authv1.GetUserPermissionsRequest, opts ...grpc.CallOption) (*authv1.GetUserPermissionsResponse, error) {
+	return nil, nil
+}
+
 // --- Mock audit.Publisher ---
 // Since audit.Publisher uses a Kafka SyncProducer that is hard to mock,
 // we pass nil for the audit publisher in tests. The handler checks for
