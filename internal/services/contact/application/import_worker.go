@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,9 +11,38 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/xuri/excelize/v2"
 	"github.com/smpp-server/smpp-server/internal/services/contact/domain"
 	"github.com/smpp-server/smpp-server/internal/services/contact/infrastructure/repository"
 )
+
+// getRowsFromFile читает все строки из CSV или XLSX файла.
+func getRowsFromFile(filePath string) ([][]string, error) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext == ".xlsx" || ext == ".xls" {
+		f, err := excelize.OpenFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		sheets := f.GetSheetList()
+		if len(sheets) == 0 {
+			return nil, fmt.Errorf("no sheets in file")
+		}
+		return f.GetRows(sheets[0])
+	}
+
+	// CSV (default)
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	r := csv.NewReader(f)
+	r.LazyQuotes = true
+	r.TrimLeadingSpace = true
+	return r.ReadAll()
+}
 
 const (
 	importBatchSize = 1000
@@ -60,25 +88,19 @@ func (w *ImportWorker) Process(job *domain.ImportJob) {
 		return
 	}
 
-	// Open CSV file
+	// Open file (CSV or XLSX)
 	filePath := filepath.Join(uploadsDir, job.ClientID.String(), job.ID.String(), job.FileName)
-	file, err := os.Open(filePath)
+	allRows, err := getRowsFromFile(filePath)
 	if err != nil {
 		w.failImport(ctx, job, fmt.Sprintf("failed to open file: %v", err))
 		return
 	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	reader.LazyQuotes = true
-	reader.TrimLeadingSpace = true
-
-	// Read header
-	header, err := reader.Read()
-	if err != nil {
-		w.failImport(ctx, job, fmt.Sprintf("failed to read CSV header: %v", err))
+	if len(allRows) == 0 {
+		w.failImport(ctx, job, "file is empty")
 		return
 	}
+
+	header := allRows[0]
 	_ = header // We use column_mapping to determine field positions
 
 	// Build column mapping index
@@ -103,25 +125,11 @@ func (w *ImportWorker) Process(job *domain.ImportJob) {
 
 	// Process rows in batches
 	var batch []domain.Contact
-	rowNum := 1 // 1-indexed, after header
 	totalRows := 0
 
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		rowNum++
+	for i, record := range allRows[1:] {
+		rowNum := i + 2 // 1-indexed, offset by header row
 		totalRows++
-
-		if err != nil {
-			job.ErrorCount++
-			job.Errors = append(job.Errors, domain.ImportError{
-				Row:     rowNum,
-				Message: fmt.Sprintf("CSV parse error: %v", err),
-			})
-			continue
-		}
 
 		// Extract phone
 		if phoneColIdx >= len(record) {
@@ -165,7 +173,6 @@ func (w *ImportWorker) Process(job *domain.ImportJob) {
 			case "attribute":
 				attrs[m.Target.Field] = value
 			case "tag":
-				// Split by comma if value contains commas, else single tag
 				for _, t := range strings.Split(value, ",") {
 					t = strings.TrimSpace(t)
 					if t != "" {

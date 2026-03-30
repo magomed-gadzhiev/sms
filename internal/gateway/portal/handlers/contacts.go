@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"github.com/xuri/excelize/v2"
 
 	contactv1 "github.com/smpp-server/smpp-server/api/proto/contactv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
@@ -541,7 +542,7 @@ func (h *ContactHandlers) UploadImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Парсим превью первых 5 строк
-	preview := parseCSVPreview(destPath, 5)
+	preview := parseFilePreview(destPath, 5)
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"import_id":       importID,
@@ -550,6 +551,37 @@ func (h *ContactHandlers) UploadImport(w http.ResponseWriter, r *http.Request) {
 		"file_size":       written,
 		"preview":         preview,
 	})
+}
+
+// parseFilePreview читает превью из CSV или XLSX файла.
+func parseFilePreview(filePath string, maxRows int) [][]string {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext == ".xlsx" || ext == ".xls" {
+		return parseXLSXPreview(filePath, maxRows)
+	}
+	return parseCSVPreview(filePath, maxRows)
+}
+
+// parseXLSXPreview читает первые N строк XLSX файла для превью.
+func parseXLSXPreview(filePath string, maxRows int) [][]string {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return nil
+	}
+	rows, err := f.GetRows(sheets[0])
+	if err != nil {
+		return nil
+	}
+	n := maxRows + 1 // включая заголовок
+	if len(rows) < n {
+		n = len(rows)
+	}
+	return rows[:n]
 }
 
 // parseCSVPreview читает первые N строк CSV файла для превью
