@@ -616,13 +616,45 @@ func (h *ContactHandlers) StartImport(w http.ResponseWriter, r *http.Request) {
 	listID := vars["id"]
 	importID := vars["iid"]
 
+	// column_mapping: { "phone": 0, "attr:Name": 1, "tags": 2 }
 	var req struct {
-		ColumnMapping string `json:"column_mapping"`
+		ColumnMapping map[string]int `json:"column_mapping"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
+
+	// Convert frontend format to domain []ColumnMapping JSON string
+	type columnTarget struct {
+		Field string `json:"field"`
+		Type  string `json:"type"`
+	}
+	type columnMapping struct {
+		Column int          `json:"column"`
+		Target columnTarget `json:"target"`
+	}
+	var domainMapping []columnMapping
+	for field, colIdx := range req.ColumnMapping {
+		var target columnTarget
+		switch {
+		case field == "phone":
+			target = columnTarget{Field: "phone", Type: "phone"}
+		case field == "tags":
+			target = columnTarget{Field: "tags", Type: "tag"}
+		case len(field) > 5 && field[:5] == "attr:":
+			target = columnTarget{Field: field[5:], Type: "attribute"}
+		default:
+			target = columnTarget{Field: field, Type: "attribute"}
+		}
+		domainMapping = append(domainMapping, columnMapping{Column: colIdx, Target: target})
+	}
+	mappingJSON, err := json.Marshal(domainMapping)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("Ошибка сериализации маппинга"))
+		return
+	}
+	columnMappingStr := string(mappingJSON)
 
 	// Определяем имя и размер файла из директории загрузки
 	uploadDir := filepath.Join("uploads", clientID.String(), importID)
@@ -644,7 +676,7 @@ func (h *ContactHandlers) StartImport(w http.ResponseWriter, r *http.Request) {
 		ImportId:      importID,
 		FileName:      fileName,
 		FileSize:      fileSize,
-		ColumnMapping: req.ColumnMapping,
+		ColumnMapping: columnMappingStr,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
