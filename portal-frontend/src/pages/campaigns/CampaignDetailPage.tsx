@@ -251,13 +251,23 @@ export function CampaignDetailPage() {
         <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
         {campaign.started_at && (
           <span className="text-sm text-gray-400 ml-3">
-            Начата: {new Date(campaign.started_at).toLocaleString('ru-RU')}
+            Начата: {(() => {
+              const d = typeof campaign.started_at === 'object' && campaign.started_at !== null && 'seconds' in campaign.started_at
+                ? new Date((campaign.started_at as {seconds: number}).seconds * 1000)
+                : new Date(campaign.started_at);
+              return isNaN(d.getTime()) ? '—' : d.toLocaleString('ru-RU');
+            })()}
           </span>
         )}
         {campaign.completed_at && (
           <span className="text-sm text-gray-400 ml-3">
             Завершена:{' '}
-            {new Date(campaign.completed_at).toLocaleString('ru-RU')}
+            {(() => {
+              const d = typeof campaign.completed_at === 'object' && campaign.completed_at !== null && 'seconds' in campaign.completed_at
+                ? new Date((campaign.completed_at as {seconds: number}).seconds * 1000)
+                : new Date(campaign.completed_at);
+              return isNaN(d.getTime()) ? '—' : d.toLocaleString('ru-RU');
+            })()}
           </span>
         )}
       </div>
@@ -286,9 +296,9 @@ export function CampaignDetailPage() {
         <StatCard
           label="Доставляемость"
           value={
-            stats
+            stats && isFinite(stats.delivery_rate)
               ? `${(stats.delivery_rate * 100).toFixed(1)}%`
-              : '—'
+              : '0%'
           }
           color="text-indigo-600"
           subtext={
@@ -305,7 +315,7 @@ export function CampaignDetailPage() {
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Прогресс отправки</span>
             <span>
-              {campaign.sent_count} / {campaign.total_recipients}
+              {campaign.sent_count ?? 0} / {campaign.total_recipients}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">

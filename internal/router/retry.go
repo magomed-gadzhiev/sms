@@ -145,7 +145,7 @@ func (rm *RetryManager) MarkAsFailed(ctx context.Context, messageID uuid.UUID, e
 	}
 
 	msg.Status = shared.MessageStatusFailed
-	msg.StatusMessage = errorMsg
+	msg.StatusMessage = shared.NullString(errorMsg)
 	msg.FailedAt = &time.Time{}
 	*msg.FailedAt = time.Now()
 	msg.UpdatedAt = time.Now()

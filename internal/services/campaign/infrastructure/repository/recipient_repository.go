@@ -86,23 +86,28 @@ func (r *RecipientRepository) BulkInsert(ctx context.Context, recipients []domai
 		batch := recipients[i:end]
 
 		var sb strings.Builder
-		sb.WriteString(`INSERT INTO campaign_recipients (id, campaign_id, contact_id, phone, variant_id, status) VALUES `)
+		sb.WriteString(`INSERT INTO campaign_recipients (id, campaign_id, contact_id, phone, variant_id, status, message_id) VALUES `)
 
-		args := make([]interface{}, 0, len(batch)*6)
+		args := make([]interface{}, 0, len(batch)*7)
 		for j, rec := range batch {
 			if j > 0 {
 				sb.WriteString(", ")
 			}
-			base := j * 6
-			sb.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
-				base+1, base+2, base+3, base+4, base+5, base+6))
+			base := j * 7
+			sb.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+				base+1, base+2, base+3, base+4, base+5, base+6, base+7))
 
 			var variantID sql.NullString
 			if rec.VariantID != nil {
 				variantID = sql.NullString{String: rec.VariantID.String(), Valid: true}
 			}
 
-			args = append(args, rec.ID, rec.CampaignID, rec.ContactID, rec.Phone, variantID, rec.Status)
+			var messageID sql.NullString
+			if rec.MessageID != nil {
+				messageID = sql.NullString{String: rec.MessageID.String(), Valid: true}
+			}
+
+			args = append(args, rec.ID, rec.CampaignID, rec.ContactID, rec.Phone, variantID, rec.Status, messageID)
 		}
 
 		_, err := r.db.ExecContext(ctx, sb.String(), args...)
