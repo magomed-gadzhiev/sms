@@ -192,8 +192,8 @@ func TestDeserializeMessage_DLR_HappyPath_DELIVRD(t *testing.T) {
 	s := newStageForTest()
 	providerID := uuid.New()
 	// Use Round(0) to strip monotonic clock reading which is lost through JSON serialization.
-	submitDate := time.Now().Add(-time.Minute).Round(0)
-	doneDate := time.Now().Round(0)
+	submitDate := time.Now().UTC().Add(-time.Minute).Round(0)
+	doneDate := time.Now().UTC().Round(0)
 
 	dlr := &queue.DLRMessage{
 		MessageID:     uuid.New(),
@@ -204,7 +204,7 @@ func TestDeserializeMessage_DLR_HappyPath_DELIVRD(t *testing.T) {
 		DoneDate:      &doneDate,
 		Source:        "Src",
 		Destination:   "+79001234567",
-		CreatedAt:     time.Now(),
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	msg := makeDLRConsumerMsg(t, dlr)
@@ -337,7 +337,7 @@ func TestStatusRecord_SentMessageFields(t *testing.T) {
 
 	s := newStageForTest()
 	providerID := uuid.New()
-	sentAt := time.Now().Truncate(time.Millisecond)
+	sentAt := time.Now().UTC().Truncate(time.Millisecond)
 
 	sent := &pipeline.SentMessage{
 		SchemaVersion: 1,
@@ -369,8 +369,8 @@ func TestStatusRecord_DLRFields(t *testing.T) {
 
 	s := newStageForTest()
 	providerID := uuid.New()
-	submitDate := time.Now().Add(-time.Minute).Round(0)
-	doneDate := time.Now().Round(0)
+	submitDate := time.Now().UTC().Add(-time.Minute).Round(0)
+	doneDate := time.Now().UTC().Round(0)
 
 	dlr := &queue.DLRMessage{
 		MessageID:     uuid.New(),
@@ -379,7 +379,7 @@ func TestStatusRecord_DLRFields(t *testing.T) {
 		Stat:          "DELIVRD",
 		SubmitDate:    &submitDate,
 		DoneDate:      &doneDate,
-		CreatedAt:     time.Now(),
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	msg := makeDLRConsumerMsg(t, dlr)
