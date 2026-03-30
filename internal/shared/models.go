@@ -10,6 +10,30 @@ import (
 	"github.com/lib/pq"
 )
 
+// NullString represents a string that may be null, scanning nulls to empty string.
+type NullString string
+
+func (ns *NullString) Scan(value interface{}) error {
+	if value == nil {
+		*ns = ""
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		*ns = NullString(v)
+	case []byte:
+		*ns = NullString(string(v))
+	}
+	return nil
+}
+
+func (ns NullString) Value() (driver.Value, error) {
+	if ns == "" {
+		return nil, nil // Write empty string as NULL to the DB
+	}
+	return string(ns), nil
+}
+
 // RoutingRule описывает правило маршрутизации через провайдера
 type RoutingRule struct {
 	Pattern  string `json:"pattern"`
@@ -209,9 +233,9 @@ const (
 // Message представляет SMS сообщение
 type Message struct {
 	ID             uuid.UUID     `json:"id" db:"id"`
-	MessageID      string        `json:"message_id,omitempty" db:"message_id"`
-	ExternalID     string        `json:"external_id,omitempty" db:"external_id"`
-	Source         string        `json:"source" db:"source"`
+	MessageID      NullString    `json:"message_id,omitempty" db:"message_id"`
+	ExternalID     NullString    `json:"external_id,omitempty" db:"external_id"`
+	Source         string        `json:"source" db:"source" `
 	Destination    string        `json:"destination" db:"destination"`
 	Text           string        `json:"text" db:"text"`
 	Encoding       MessageEncoding `json:"encoding" db:"encoding"`
@@ -228,14 +252,14 @@ type Message struct {
 	DestAddrTON    int           `json:"dest_addr_ton" db:"dest_addr_ton"`
 	DestAddrNPI    int           `json:"dest_addr_npi" db:"dest_addr_npi"`
 	Status         MessageStatus `json:"status" db:"status"`
-	StatusMessage  string        `json:"status_message,omitempty" db:"status_message"`
+	StatusMessage  NullString    `json:"status_message,omitempty" db:"status_message"`
 	ProviderID     *uuid.UUID    `json:"provider_id,omitempty" db:"provider_id"`
 	RouteID        *uuid.UUID    `json:"route_id,omitempty" db:"route_id"`
 	ClientID       *uuid.UUID    `json:"client_id,omitempty" db:"client_id"`
 	RetryCount     int           `json:"retry_count" db:"retry_count"`
 	MaxRetries     int           `json:"max_retries" db:"max_retries"`
 	NextRetryAt    *time.Time    `json:"next_retry_at,omitempty" db:"next_retry_at"`
-	SMPPMessageID  string        `json:"smpp_message_id,omitempty" db:"smpp_message_id"`
+	SMPPMessageID  NullString    `json:"smpp_message_id,omitempty" db:"smpp_message_id"`
 	SubmittedAt    *time.Time    `json:"submitted_at,omitempty" db:"submitted_at"`
 	DeliveredAt    *time.Time    `json:"delivered_at,omitempty" db:"delivered_at"`
 	FailedAt       *time.Time    `json:"failed_at,omitempty" db:"failed_at"`

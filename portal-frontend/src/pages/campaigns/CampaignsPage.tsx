@@ -127,7 +127,7 @@ export function CampaignsPage() {
       responsive: true,
       render: (c) => (
         <span className="text-gray-500 text-sm">
-          {new Date(c.created_at).toLocaleDateString('ru-RU')}
+          {c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU') : (c as any).createdAt ? new Date((c as any).createdAt).toLocaleDateString('ru-RU') : '-'}
         </span>
       ),
     },
