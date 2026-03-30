@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { campaignsApi } from '../../api/campaigns';
 import { contactListsApi, type ContactList } from '../../api/contacts';
-import { ApiError } from '../../api/client';
+import { ApiError, type TemplateInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { TemplatePreview } from '../../components/campaigns/TemplatePreview';
+import { TemplatePicker } from '../../components/campaigns/TemplatePicker';
 
 type WizardStep = 'basics' | 'message' | 'schedule' | 'retry' | 'confirm';
 
@@ -34,6 +35,7 @@ export function CampaignWizardPage() {
 
   // Step 2: Message
   const [templateId, setTemplateId] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateInfo | null>(null);
   const [messageText, setMessageText] = useState('');
 
   // Step 3: Schedule
@@ -222,18 +224,11 @@ export function CampaignWizardPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Сообщение
             </h3>
-            <div>
-              <Input
-                label="ID шаблона"
-                type="text"
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                placeholder="Введите ID шаблона из библиотеки"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Укажите ID ранее созданного шаблона сообщения
-              </p>
-            </div>
+            <TemplatePicker
+              value={templateId}
+              selectedTemplate={selectedTemplate}
+              onChange={(id, tpl) => { setTemplateId(id); setSelectedTemplate(tpl); }}
+            />
             <div className="flex flex-col gap-1">
               <label htmlFor="campaign-msg-text" className="text-sm font-medium text-gray-700">
                 Или текст сообщения
@@ -382,7 +377,7 @@ export function CampaignWizardPage() {
               <div className="flex justify-between">
                 <dt className="text-gray-500">Шаблон:</dt>
                 <dd className="font-medium text-gray-900">
-                  {templateId || 'Произвольный текст'}
+                  {selectedTemplate ? selectedTemplate.name : templateId ? templateId : 'Произвольный текст'}
                 </dd>
               </div>
               <div className="flex justify-between">
