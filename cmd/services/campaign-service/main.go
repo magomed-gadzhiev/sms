@@ -130,6 +130,14 @@ func main() {
 	// Application service
 	campaignService := application.NewCampaignService(campaignRepo, recipientRepo, statsRepo)
 
+	// Materialization worker
+	if kafkaProducer != nil {
+		startMaterializationWorker(ctx, dbx, kafkaProducer, cfg.Kafka.TopicOutgoing, recipientRepo, logger)
+		logger.Info().Msg("воркер материализации кампаний запущен")
+	} else {
+		logger.Warn().Msg("Kafka недоступна, воркер материализации отключён")
+	}
+
 	// Health checker
 	healthChecker := monitoring.NewHealthChecker("campaign-service", cfg.Service.Version)
 	healthChecker.SetDatabase(dbConn.DB)

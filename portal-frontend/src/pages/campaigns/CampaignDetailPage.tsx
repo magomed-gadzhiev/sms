@@ -16,6 +16,8 @@ const STATUS_CONFIG: Record<
   { variant: 'default' | 'info' | 'warning' | 'success' | 'danger'; label: string }
 > = {
   draft: { variant: 'default', label: 'Черновик' },
+  scheduled: { variant: 'default', label: 'Запланирована' },
+  materializing: { variant: 'warning', label: 'Подготовка' },
   running: { variant: 'info', label: 'Запущена' },
   paused: { variant: 'warning', label: 'На паузе' },
   completed: { variant: 'success', label: 'Завершена' },
@@ -79,9 +81,9 @@ export function CampaignDetailPage() {
     loadCampaign();
   }, [loadCampaign]);
 
-  // Poll for running campaigns
+  // Poll for running/materializing campaigns
   useEffect(() => {
-    if (!campaign || campaign.status !== 'running') return;
+    if (!campaign || (campaign.status !== 'running' && campaign.status !== 'materializing')) return;
     const interval = setInterval(() => {
       if (!id) return;
       campaignsApi.get(id).then(setCampaign).catch(() => {});
