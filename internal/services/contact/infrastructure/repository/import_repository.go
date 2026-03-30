@@ -103,7 +103,7 @@ func (r *ImportRepository) Create(ctx context.Context, job *domain.ImportJob) (*
 	err = r.db.QueryRowxContext(ctx, query,
 		job.ID, job.ContactListID, job.ClientID, job.FileName, job.FileSize,
 		job.Status, job.TotalRows, job.ImportedCount, job.UpdatedCount, job.ErrorCount,
-		errorsJSON, mappingJSON,
+		string(errorsJSON), string(mappingJSON),
 	).StructScan(&row)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create import job: %w", err)
@@ -181,7 +181,7 @@ func (r *ImportRepository) UpdateStatus(ctx context.Context, job *domain.ImportJ
 
 	_, err := r.db.ExecContext(ctx, query,
 		job.Status, job.TotalRows, job.ImportedCount, job.UpdatedCount,
-		job.ErrorCount, errorsJSON, completedAt, job.ID,
+		job.ErrorCount, string(errorsJSON), completedAt, job.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update import status: %w", err)
