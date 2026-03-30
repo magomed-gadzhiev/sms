@@ -3,12 +3,17 @@ package sender
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
+	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
@@ -21,16 +26,21 @@ import (
 
 // Stage — pipeline stage для отправки сообщений через SMPP.
 // Потребляет RoutedMessage из sms.routed, применяет backpressure,
-// отправляет через async SMPP pool, публикует SentMessage в sms.sent.
+// тарифицирует сообщение, отправляет через async SMPP pool, публикует SentMessage в sms.sent.
 type Stage struct {
-	consumer     *queue.BatchConsumer
-	producer     *queue.AsyncProducer
-	pool         *smsc.Pool
-	sender       *smsc.Sender
-	bpManager    *backpressure.Manager
-	providerRepo *storage.ProviderRepository
-	cfg          *config.Config
-	logger       zerolog.Logger
+	consumer           *queue.BatchConsumer
+	producer           *queue.AsyncProducer
+	pool               *smsc.Pool
+	sender             *smsc.Sender
+	bpManager          *backpressure.Manager
+	providerRepo       *storage.ProviderRepository
+	tarificationClient tarificationv1.TarificationServiceClient
+	billingClient      billingv1.BillingServiceClient
+	tarificationConn   *grpc.ClientConn
+	billingConn        *grpc.ClientConn
+	defaultOperatorID  string
+	cfg                *config.Config
+	logger             zerolog.Logger
 }
 
 // NewStage создает новый Sender stage pipeline.
@@ -95,15 +105,55 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 			Msg("провайдер подключён и зарегистрирован в backpressure")
 	}
 
+	// Подключение к billing-service gRPC
+	var billingClient billingv1.BillingServiceClient
+	var billingGRPCConn *grpc.ClientConn
+	billingAddr := os.Getenv("BILLING_SERVICE_ADDR")
+	if billingAddr == "" {
+		billingAddr = "billing-service:9101"
+	}
+	billingGRPCConn, err = grpc.NewClient(billingAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Warn().Err(err).Msg("не удалось подключиться к billing-service")
+	} else {
+		billingClient = billingv1.NewBillingServiceClient(billingGRPCConn)
+		logger.Info().Str("addr", billingAddr).Msg("подключение к billing-service")
+	}
+
+	// Подключение к tarification-service gRPC
+	var tarificationClient tarificationv1.TarificationServiceClient
+	var tarificationGRPCConn *grpc.ClientConn
+	tarificationAddr := os.Getenv("TARIFICATION_SERVICE_ADDR")
+	if tarificationAddr == "" {
+		tarificationAddr = "tarification-service:9100"
+	}
+	tarificationGRPCConn, err = grpc.NewClient(tarificationAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Warn().Err(err).Msg("не удалось подключиться к tarification-service")
+	} else {
+		tarificationClient = tarificationv1.NewTarificationServiceClient(tarificationGRPCConn)
+		logger.Info().Str("addr", tarificationAddr).Msg("подключение к tarification-service")
+	}
+
+	defaultOperatorID := os.Getenv("TARIFICATION_DEFAULT_OPERATOR_ID")
+	if defaultOperatorID == "" {
+		defaultOperatorID = "d0000000-0000-0000-0000-000000000001"
+	}
+
 	return &Stage{
-		consumer:     consumer,
-		producer:     producer,
-		pool:         pool,
-		sender:       snd,
-		bpManager:    bpManager,
-		providerRepo: providerRepo,
-		cfg:          cfg,
-		logger:       logger,
+		consumer:           consumer,
+		producer:           producer,
+		pool:               pool,
+		sender:             snd,
+		bpManager:          bpManager,
+		providerRepo:       providerRepo,
+		tarificationClient: tarificationClient,
+		billingClient:      billingClient,
+		tarificationConn:   tarificationGRPCConn,
+		billingConn:        billingGRPCConn,
+		defaultOperatorID:  defaultOperatorID,
+		cfg:                cfg,
+		logger:             logger,
 	}, nil
 }
 
@@ -151,7 +201,56 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		return fmt.Errorf("десериализация RoutedMessage: %w", err)
 	}
 
-	// 2. Backpressure check: если провайдер throttled, не обрабатываем —
+	// 2. Проверка заморозки и тарификация — ДО отправки.
+	if s.billingClient != nil && routedMsg.ClientID != nil {
+		balanceResp, balanceErr := s.billingClient.GetBalance(ctx, &billingv1.GetBalanceRequest{
+			ClientId: routedMsg.ClientID.String(),
+		})
+		if balanceErr != nil {
+			s.logger.Warn().Err(balanceErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка получения баланса (продолжаем)")
+		} else if balanceResp != nil && balanceResp.Frozen {
+			s.logger.Warn().
+				Str("message_id", routedMsg.MessageID.String()).
+				Str("client_id", routedMsg.ClientID.String()).
+				Msg("аккаунт заморожен — сообщение отклонено")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "account_frozen").Inc()
+			session.MarkMessage(msg, "")
+			return nil
+		}
+	}
+
+	if s.tarificationClient != nil && routedMsg.ClientID != nil {
+		segments := shared.SplitMessage(routedMsg.Text)
+		segCount := int32(len(segments))
+		if segCount == 0 {
+			segCount = 1
+		}
+		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(ctx, &tarificationv1.TarifyMessageRequest{
+			ClientId:       routedMsg.ClientID.String(),
+			MessageId:      routedMsg.MessageID.String(),
+			OperatorId:     s.defaultOperatorID,
+			SenderName:     routedMsg.Source,
+			SegmentCount:   segCount,
+			IdempotencyKey: routedMsg.MessageID.String(),
+		})
+		if tarifyErr != nil {
+			s.logger.Error().Err(tarifyErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка тарификации — сообщение отклонено")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_error").Inc()
+			session.MarkMessage(msg, "")
+			return nil
+		}
+		if tarifyResp != nil && !tarifyResp.Approved {
+			s.logger.Warn().
+				Str("message_id", routedMsg.MessageID.String()).
+				Str("reason", tarifyResp.RejectionReason).
+				Msg("тарификация отклонена — сообщение не отправляется")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_rejected").Inc()
+			session.MarkMessage(msg, "")
+			return nil
+		}
+	}
+
+	// 3. Backpressure check: если провайдер throttled, не обрабатываем —
 	// сообщение не маркируется и будет повторно доставлено Kafka.
 	if !s.bpManager.TryAcquire(routedMsg.ProviderID) {
 		s.logger.Warn().
@@ -367,6 +466,13 @@ func (s *Stage) Close() error {
 		if firstErr == nil {
 			firstErr = err
 		}
+	}
+
+	if s.billingConn != nil {
+		s.billingConn.Close()
+	}
+	if s.tarificationConn != nil {
+		s.tarificationConn.Close()
 	}
 
 	return firstErr
