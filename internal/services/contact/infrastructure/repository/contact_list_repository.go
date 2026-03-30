@@ -55,13 +55,8 @@ func (r *ContactListRepository) Create(ctx context.Context, cl *domain.ContactLi
 		VALUES ($1, $2, $3, $4, 0)
 		RETURNING id, client_id, name, description, contacts_count, created_at, updated_at`
 
-	var desc sql.NullString
-	if cl.Description != "" {
-		desc = sql.NullString{String: cl.Description, Valid: true}
-	}
-
 	var row contactListRow
-	err := r.db.QueryRowxContext(ctx, query, cl.ID, cl.ClientID, cl.Name, desc).StructScan(&row)
+	err := r.db.QueryRowxContext(ctx, query, cl.ID, cl.ClientID, cl.Name, cl.Description).StructScan(&row)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contact list: %w", err)
 	}
@@ -115,17 +110,12 @@ func (r *ContactListRepository) List(ctx context.Context, clientID uuid.UUID, li
 
 // Update updates a contact list's name and description.
 func (r *ContactListRepository) Update(ctx context.Context, cl *domain.ContactList) (*domain.ContactList, error) {
-	var desc sql.NullString
-	if cl.Description != "" {
-		desc = sql.NullString{String: cl.Description, Valid: true}
-	}
-
 	query := `UPDATE contact_lists SET name = $1, description = $2, updated_at = now()
 		WHERE id = $3 AND client_id = $4
 		RETURNING id, client_id, name, description, contacts_count, created_at, updated_at`
 
 	var row contactListRow
-	err := r.db.QueryRowxContext(ctx, query, cl.Name, desc, cl.ID, cl.ClientID).StructScan(&row)
+	err := r.db.QueryRowxContext(ctx, query, cl.Name, cl.Description, cl.ID, cl.ClientID).StructScan(&row)
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrContactListNotFound
 	}
