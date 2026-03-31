@@ -453,9 +453,9 @@ func processStaleQueued(
 		SELECT id::text, source, destination, text, client_id::text, created_at
 		FROM messages
 		WHERE status = 'queued'
-		  AND updated_at < now() - $1::interval
+		  AND updated_at < now() - ($1 * interval '1 second')
 		LIMIT 100`,
-		staleThreshold.String(),
+		int64(staleThreshold.Seconds()),
 	)
 	if err != nil {
 		return fmt.Errorf("query stale queued: %w", err)
