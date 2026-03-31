@@ -86,3 +86,13 @@ func SetupRouter(
 
 	return router
 }
+
+// RegisterCascadeRoutes добавляет маршруты каскадной доставки в уже настроенный router
+func RegisterCascadeRoutes(router *mux.Router, authMiddleware func(http.Handler) http.Handler, h *handlers.CascadeHandlers) {
+	cascade := router.PathPrefix("/api/v1/cascade").Subrouter()
+	cascade.Use(authMiddleware)
+	cascade.HandleFunc("/deliveries", h.CreateDelivery).Methods("POST")
+	cascade.HandleFunc("/deliveries", h.ListDeliveries).Methods("GET")
+	cascade.HandleFunc("/deliveries/{id}", h.GetDelivery).Methods("GET")
+	cascade.HandleFunc("/stats", h.GetStats).Methods("GET")
+}

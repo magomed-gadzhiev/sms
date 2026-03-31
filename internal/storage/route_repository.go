@@ -4,11 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+func normalizeRouteValue(v string) string {
+	return strings.TrimPrefix(strings.TrimSpace(v), "+")
+}
 
 // RouteRepository предоставляет методы для работы с маршрутами
 type RouteRepository struct {
@@ -86,16 +91,19 @@ func (r *RouteRepository) getAllRoutes(ctx context.Context, query string) ([]*sh
 
 // matchesPattern проверяет, соответствует ли номер паттерну маршрута
 func (r *RouteRepository) matchesPattern(route *shared.Route, destination string) bool {
+	normalizedDestination := normalizeRouteValue(destination)
+	normalizedPattern := normalizeRouteValue(route.Pattern)
+
 	switch route.PatternType {
 	case "prefix":
 		// Проверяем префикс
-		if len(destination) >= len(route.Pattern) {
-			return destination[:len(route.Pattern)] == route.Pattern
+		if len(normalizedDestination) >= len(normalizedPattern) {
+			return normalizedDestination[:len(normalizedPattern)] == normalizedPattern
 		}
 		return false
 	case "exact":
 		// Точное совпадение
-		return destination == route.Pattern
+		return normalizedDestination == normalizedPattern
 	case "regex":
 		// Проверяем regex паттерн
 		matched, err := regexp.MatchString(route.Pattern, destination)

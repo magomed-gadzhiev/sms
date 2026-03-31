@@ -286,3 +286,57 @@ func SetupRouter(
 
 	return router
 }
+
+// RegisterCascadeWebhookRoutes добавляет маршруты webhook для каскадных каналов
+func RegisterCascadeWebhookRoutes(router *mux.Router, h *handlers.CascadeWebhookHandlers) {
+	router.HandleFunc("/webhooks/cascade/flash-call/{attempt_id}", h.FlashCallWebhook).Methods("POST")
+}
+
+// RegisterMaxMessengerWebhookRoute добавляет маршрут webhook для Max Messenger
+func RegisterMaxMessengerWebhookRoute(router *mux.Router, handler http.HandlerFunc) {
+	router.HandleFunc("/webhooks/cascade/max_messenger", handler).Methods("POST")
+}
+
+// RegisterCascadeDeliveryRoutes добавляет маршруты для истории каскадных доставок (клиентский портал)
+func RegisterCascadeDeliveryRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	h *handlers.CascadeDeliveryHandlers,
+) {
+	cascade := router.PathPrefix("/portal/v1/cascade").Subrouter()
+	cascade.Use(sessionAuthMiddleware)
+	cascade.HandleFunc("/deliveries", h.ListDeliveries).Methods("GET")
+	cascade.HandleFunc("/deliveries/{id}", h.GetDelivery).Methods("GET")
+	cascade.HandleFunc("/stats", h.GetStats).Methods("GET")
+}
+
+// RegisterCascadeAdminRoutes добавляет admin-маршруты для управления каналами и стратегиями
+func RegisterCascadeAdminRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	channels *handlers.CascadeChannelHandlers,
+	strategies *handlers.CascadeStrategyHandlers,
+) {
+	admin := router.PathPrefix("/portal/v1/admin").Subrouter()
+	admin.Use(sessionAuthMiddleware)
+
+	// Channels
+	ch := admin.PathPrefix("/channels").Subrouter()
+	ch.HandleFunc("", channels.ListChannels).Methods("GET")
+	ch.HandleFunc("", channels.CreateChannel).Methods("POST")
+	ch.HandleFunc("/{id}", channels.GetChannel).Methods("GET")
+	ch.HandleFunc("/{id}", channels.UpdateChannel).Methods("PUT")
+	ch.HandleFunc("/{id}/toggle", channels.ToggleChannel).Methods("PUT")
+
+	// Delivery strategies
+	st := admin.PathPrefix("/delivery-strategies").Subrouter()
+	st.HandleFunc("", strategies.ListStrategies).Methods("GET")
+	st.HandleFunc("", strategies.CreateStrategy).Methods("POST")
+	st.HandleFunc("/{id}", strategies.GetStrategy).Methods("GET")
+	st.HandleFunc("/{id}", strategies.UpdateStrategy).Methods("PUT")
+	st.HandleFunc("/{id}", strategies.DeleteStrategy).Methods("DELETE")
+
+	// Operator channel support matrix
+	admin.HandleFunc("/operator-channel-support", strategies.GetOperatorChannelSupport).Methods("GET")
+	admin.HandleFunc("/operator-channel-support", strategies.UpdateOperatorChannelSupport).Methods("PUT")
+}

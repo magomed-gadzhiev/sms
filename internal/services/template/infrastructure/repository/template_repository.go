@@ -15,6 +15,13 @@ type TemplateRepository struct {
 	db *sqlx.DB
 }
 
+func normalizeVariables(vars []string) pq.StringArray {
+	if vars == nil {
+		return pq.StringArray{}
+	}
+	return pq.StringArray(vars)
+}
+
 func NewTemplateRepository(db *sqlx.DB) *TemplateRepository {
 	return &TemplateRepository{db: db}
 }
@@ -76,7 +83,7 @@ func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*d
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
-		t.ID, t.ClientID, t.Name, t.Body, pq.StringArray(t.Variables), t.Status, t.SenderNameID,
+		t.ID, t.ClientID, t.Name, t.Body, normalizeVariables(t.Variables), t.Status, t.SenderNameID,
 	).StructScan(&row)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -187,7 +194,7 @@ func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*d
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
-		t.Name, t.Body, pq.StringArray(t.Variables), t.Status, rejReason, t.SenderNameID, t.ID, t.ClientID,
+		t.Name, t.Body, normalizeVariables(t.Variables), t.Status, rejReason, t.SenderNameID, t.ID, t.ClientID,
 	).StructScan(&row)
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrTemplateNotFound

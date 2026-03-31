@@ -78,6 +78,7 @@ func main() {
 		Template:  getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
 		Client:    getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9091"),
+		Cascade:   getEnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9105"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -101,6 +102,7 @@ func main() {
 	webhookHandlers := handlers.NewWebhookHandlers(serviceClients.WebhookClient)
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 	lookupHandlers := handlers.NewLookupHandlers(serviceClients.RoutingClient)
+	cascadeHandlers := handlers.NewCascadeHandlers(serviceClients.CascadeClient)
 
 	// Инициализация Redis для rate limiting
 	redisClient := redis.NewClient(&redis.Options{
@@ -149,6 +151,9 @@ func main() {
 		quotaMiddleware,
 		tenantLoggerMiddleware,
 	)
+
+	// Добавляем маршруты каскадной доставки
+	clientrouter.RegisterCascadeRoutes(router, authMiddleware, cascadeHandlers)
 
 	// Добавляем Prometheus metrics endpoint
 	if cfg.Monitoring.Prometheus.Enabled {

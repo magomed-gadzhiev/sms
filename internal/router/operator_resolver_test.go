@@ -60,6 +60,9 @@ func TestOperatorResolver_ExactPrefixMatch(t *testing.T) {
 
 	got = resolver.Resolve(context.Background(), "79031234567")
 	assert.Equal(t, opBeeline, got)
+
+	got = resolver.Resolve(context.Background(), "+79101234567")
+	assert.Equal(t, opMTS, got)
 }
 
 func TestOperatorResolver_LongestPrefixWins(t *testing.T) {

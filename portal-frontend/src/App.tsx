@@ -34,6 +34,8 @@ import { LookupPage } from './pages/lookup/LookupPage';
 import { DomainsPage } from './pages/settings/DomainsPage';
 import { SegmentsPage } from './pages/segments/SegmentsPage';
 import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
+import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
+import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDetail';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -52,6 +54,8 @@ const AdminTarificationPage = lazy(() => import('./pages/admin/tarification/Tari
 const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const AdminUsersPage = lazy(() => import('./pages/admin/users/UsersPage').then((m) => ({ default: m.UsersPage })));
 const AdminRolesPage = lazy(() => import('./pages/admin/users/RolesPage').then((m) => ({ default: m.RolesPage })));
+const AdminChannelsPage = lazy(() => import('./pages/channels/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
+const AdminDeliveryStrategiesPage = lazy(() => import('./pages/delivery-strategies/DeliveryStrategiesPage').then((m) => ({ default: m.DeliveryStrategiesPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -106,6 +110,8 @@ export function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/settings/domains" element={<DomainsPage />} />
+        <Route path="/cascade/history" element={<CascadeHistoryPage />} />
+        <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />
       </Route>
 
       <Route
@@ -135,6 +141,8 @@ export function App() {
         <Route path="audit" element={<Suspense fallback={null}><AdminAuditLogPage /></Suspense>} />
         <Route path="users" element={<Suspense fallback={null}><AdminUsersPage /></Suspense>} />
         <Route path="users/roles" element={<Suspense fallback={null}><AdminRolesPage /></Suspense>} />
+        <Route path="channels" element={<Suspense fallback={null}><AdminChannelsPage /></Suspense>} />
+        <Route path="delivery-strategies" element={<Suspense fallback={null}><AdminDeliveryStrategiesPage /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

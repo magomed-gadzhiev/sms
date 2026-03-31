@@ -71,7 +71,7 @@ type AuditEntry struct {
 func ExtractVariables(body string) []string {
 	matches := variableRegex.FindAllStringSubmatch(body, -1)
 	seen := make(map[string]bool)
-	var vars []string
+	vars := make([]string, 0)
 	for _, match := range matches {
 		name := match[1]
 		if !seen[name] {

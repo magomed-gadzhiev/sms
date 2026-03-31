@@ -16,6 +16,7 @@ import (
 	clientv1 "github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
@@ -30,6 +31,7 @@ type ServiceClients struct {
 	TemplateClient  templatev1.TemplateServiceClient
 	RoutingClient   routingv1.RoutingServiceClient
 	ClientClient    clientv1.ClientServiceClient
+	CascadeClient   cascadev1.CascadeServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -44,6 +46,7 @@ type ServiceAddresses struct {
 	Template  string
 	Routing   string
 	Client    string
+	Cascade   string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -145,7 +148,19 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		clients.conns = append(clients.conns, conn)
 	}
 
-	return clients, nil
+
+	// Подключение к Cascade Service
+	if addresses.Cascade != "" {
+		conn, err := grpc.Dial(addresses.Cascade, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Cascade Service: %w", err)
+		}
+		clients.CascadeClient = cascadev1.NewCascadeServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+		return clients, nil
 }
 
 // Close закрывает все подключения

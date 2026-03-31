@@ -21,6 +21,7 @@ import (
 	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
 	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
@@ -44,6 +45,9 @@ type ServiceClients struct {
 	TarificationClient   tarificationv1.TarificationServiceClient
 	LinkDomainClient     linkv1.DomainServiceClient
 	SenderNameClient     sendernamev1.SenderNameServiceClient
+	CascadeClient         cascadev1.CascadeServiceClient
+	CascadeChannelAdmin   cascadev1.ChannelAdminServiceClient
+	CascadeStrategyAdmin  cascadev1.StrategyAdminServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -64,6 +68,7 @@ type ServiceAddresses struct {
 	Template     string
 	Tarification string
 	Link         string
+	Cascade      string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -229,6 +234,19 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Link Service: %w", err)
 		}
 		clients.LinkDomainClient = linkv1.NewDomainServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Cascade Service
+	if addresses.Cascade != "" {
+		conn, err := grpc.Dial(addresses.Cascade, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Cascade Service: %w", err)
+		}
+		clients.CascadeClient = cascadev1.NewCascadeServiceClient(conn)
+		clients.CascadeChannelAdmin = cascadev1.NewChannelAdminServiceClient(conn)
+		clients.CascadeStrategyAdmin = cascadev1.NewStrategyAdminServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 

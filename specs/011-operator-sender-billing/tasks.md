@@ -113,7 +113,7 @@ description: "Task list for 011-operator-sender-billing"
 
 - [X] T029 [P] Add Prometheus counter `billing_records_created_total` (label: `type=initial|monthly`) in `internal/services/tarification/application/sender_billing_service.go` and `billing_scheduler.go`
 - [X] T030 [P] Add Prometheus counter `billing_scheduler_run_total` (label: `status=success|error`) in `internal/services/tarification/application/billing_scheduler.go`
-- [ ] T031 Run quickstart.md validation scenarios manually: apply migrations, deploy routing-service + tarification-service + gateways, verify end-to-end flow per quickstart.md
+- [X] T031 Run quickstart.md validation scenarios manually: apply migrations, deploy routing-service + tarification-service + gateways, verify end-to-end flow per quickstart.md
 
 ---
 

@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 
+	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
 	routingv1 "github.com/smpp-server/smpp-server/api/proto/routingv1"
 	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
@@ -15,9 +16,10 @@ import (
 )
 
 type SenderNameHandlers struct {
-	client         sendernamev1.SenderNameServiceClient
-	routingClient  routingv1.RoutingServiceClient
-	tariffClient   tarificationv1.TarificationServiceClient
+	client        sendernamev1.SenderNameServiceClient
+	routingClient routingv1.RoutingServiceClient
+	tariffClient  tarificationv1.TarificationServiceClient
+	billingClient billingv1.BillingServiceClient
 }
 
 func NewSenderNameHandlers(client sendernamev1.SenderNameServiceClient) *SenderNameHandlers {
@@ -25,9 +27,14 @@ func NewSenderNameHandlers(client sendernamev1.SenderNameServiceClient) *SenderN
 }
 
 // SetBillingClients устанавливает gRPC клиенты для тарификации
-func (h *SenderNameHandlers) SetBillingClients(routingClient routingv1.RoutingServiceClient, tariffClient tarificationv1.TarificationServiceClient) {
+func (h *SenderNameHandlers) SetBillingClients(
+	routingClient routingv1.RoutingServiceClient,
+	tariffClient tarificationv1.TarificationServiceClient,
+	billingClient billingv1.BillingServiceClient,
+) {
 	h.routingClient = routingClient
 	h.tariffClient = tariffClient
+	h.billingClient = billingClient
 }
 
 type createSenderNameRequest struct {
@@ -288,7 +295,7 @@ func (h *SenderNameHandlers) CreateSenderRegistration(w http.ResponseWriter, r *
 		if err != nil {
 			log.Error().Err(err).Str("operator_id", req.OperatorID).Msg("не удалось получить тариф оператора для billing")
 		} else if op.MonthlyTariffAmount != "" {
-			_, billingErr := h.tariffClient.CreateSenderBillingRecord(r.Context(), &tarificationv1.CreateSenderBillingRecordRequest{
+			billingResp, billingErr := h.tariffClient.CreateSenderBillingRecord(r.Context(), &tarificationv1.CreateSenderBillingRecordRequest{
 				SenderRegistrationId: regResp.Id,
 				ClientId:             clientID.String(),
 				OperatorId:           req.OperatorID,
@@ -296,6 +303,18 @@ func (h *SenderNameHandlers) CreateSenderRegistration(w http.ResponseWriter, r *
 			})
 			if billingErr != nil {
 				log.Error().Err(billingErr).Str("registration_id", regResp.Id).Msg("не удалось создать billing record")
+			} else if !billingResp.GetAlreadyExisted() && h.billingClient != nil {
+				// Списываем только при первичном создании monthly billing record,
+				// чтобы избежать повторных списаний при ретраях.
+				_, chargeErr := h.billingClient.DeductCredits(r.Context(), &billingv1.DeductCreditsRequest{
+					ClientId:    clientID.String(),
+					Amount:      op.MonthlyTariffAmount,
+					Currency:    "RUB",
+					Description: "Paid sender name monthly fee",
+				})
+				if chargeErr != nil {
+					log.Error().Err(chargeErr).Str("registration_id", regResp.Id).Msg("не удалось списать оплату за платное имя")
+				}
 			}
 		}
 	}
@@ -331,10 +350,10 @@ func (h *SenderNameHandlers) GetOperatorSenderTariff(w http.ResponseWriter, r *h
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"operator_id":            op.Id,
-		"monthly_tariff_amount":  op.MonthlyTariffAmount,
-		"currency":               "RUB",
-		"current_month_amount":   op.MonthlyTariffAmount,
+		"operator_id":           op.Id,
+		"monthly_tariff_amount": op.MonthlyTariffAmount,
+		"currency":              "RUB",
+		"current_month_amount":  op.MonthlyTariffAmount,
 	})
 }
 

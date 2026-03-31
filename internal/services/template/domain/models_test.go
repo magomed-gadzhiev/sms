@@ -24,12 +24,12 @@ func TestExtractVariables_Duplicates(t *testing.T) {
 
 func TestExtractVariables_NoVars(t *testing.T) {
 	vars := ExtractVariables("No placeholders here.")
-	assert.Nil(t, vars)
+	assert.Empty(t, vars)
 }
 
 func TestExtractVariables_EmptyString(t *testing.T) {
 	vars := ExtractVariables("")
-	assert.Nil(t, vars)
+	assert.Empty(t, vars)
 }
 
 func TestExtractVariables_UnderscoredNames(t *testing.T) {
