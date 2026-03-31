@@ -137,6 +137,23 @@ func main() {
 	if kafkaProducer != nil {
 		startMaterializationWorker(ctx, dbx, kafkaProducer, cfg.Kafka.TopicOutgoing, recipientRepo, logger)
 		logger.Info().Msg("воркер материализации кампаний запущен")
+
+		// Reconciler: syncs campaign_recipients status from messages table
+		// and closes fully-processed running campaigns.
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := reconcileRunningCampaigns(ctx, dbx, logger); err != nil {
+						logger.Error().Err(err).Msg("ошибка reconcile running campaigns")
+					}
+				}
+			}
+		}()
 	} else {
 		logger.Warn().Msg("Kafka недоступна, воркер материализации отключён")
 	}
@@ -313,4 +330,113 @@ func statusToCounterColumn(recipientStatus string) string {
 	default:
 		return ""
 	}
+}
+
+// isCampaignComplete returns true when there are no recipients in a non-terminal
+// state (pending or sent). Extracted as a pure function for testability.
+func isCampaignComplete(counts map[string]int) bool {
+	return counts["pending"] == 0 && counts["sent"] == 0
+}
+
+// reconcileRunningCampaigns fixes campaigns whose campaign_recipients.status
+// has diverged from messages.status (e.g. after a service restart that missed
+// sms.status Kafka events).
+//
+// It runs three SQL steps:
+//  1. Sync recipient status from messages table.
+//  2. Recount per-campaign status totals and update counters.
+//  3. Mark campaigns with no pending/sent recipients as completed.
+func reconcileRunningCampaigns(ctx context.Context, dbx *sqlx.DB, logger zerolog.Logger) error {
+	// Step 1: sync campaign_recipients.status from messages for running campaigns.
+	res, err := dbx.ExecContext(ctx, `
+		UPDATE campaign_recipients cr
+		SET    status     = m.status,
+		       updated_at = now()
+		FROM   messages m
+		WHERE  m.id = cr.message_id
+		  AND  m.status IN ('sent', 'delivered', 'failed', 'expired', 'rejected')
+		  AND  cr.status  = 'pending'
+		  AND  cr.campaign_id IN (
+		           SELECT id FROM campaigns WHERE status = 'running'
+		       )
+	`)
+	if err != nil {
+		return fmt.Errorf("reconcile sync recipients: %w", err)
+	}
+	synced, _ := res.RowsAffected()
+	if synced == 0 {
+		return nil // nothing to do
+	}
+	logger.Info().Int64("synced", synced).Msg("reconcile: обновлены статусы получателей")
+
+	// Step 2: recount counters for affected campaigns and check completion.
+	rows, err := dbx.QueryContext(ctx, `
+		SELECT campaign_id, status, COUNT(*) as cnt
+		FROM   campaign_recipients
+		WHERE  campaign_id IN (SELECT id FROM campaigns WHERE status = 'running')
+		GROUP BY campaign_id, status
+	`)
+	if err != nil {
+		return fmt.Errorf("reconcile count recipients: %w", err)
+	}
+	defer rows.Close()
+
+	// Aggregate counts per campaign.
+	type campaignCounts struct {
+		counts map[string]int
+	}
+	campaignMap := map[string]*campaignCounts{}
+	for rows.Next() {
+		var campaignID, status string
+		var cnt int
+		if err := rows.Scan(&campaignID, &status, &cnt); err != nil {
+			continue
+		}
+		if campaignMap[campaignID] == nil {
+			campaignMap[campaignID] = &campaignCounts{counts: map[string]int{}}
+		}
+		campaignMap[campaignID].counts[status] = cnt
+	}
+	rows.Close()
+
+	for campaignID, cc := range campaignMap {
+		// Update counters.
+		_, err := dbx.ExecContext(ctx, `
+			UPDATE campaigns SET
+				sent_count      = $1,
+				delivered_count = $2,
+				failed_count    = $3,
+				updated_at      = now()
+			WHERE id = $4`,
+			cc.counts["sent"]+cc.counts["delivered"]+cc.counts["failed"],
+			cc.counts["delivered"],
+			cc.counts["failed"],
+			campaignID,
+		)
+		if err != nil {
+			logger.Error().Err(err).Str("campaign_id", campaignID).Msg("reconcile: ошибка обновления счётчиков")
+			continue
+		}
+
+		// Step 3: mark complete if no pending/sent remain.
+		if isCampaignComplete(cc.counts) {
+			res, err := dbx.ExecContext(ctx, `
+				UPDATE campaigns
+				SET    status       = 'completed',
+				       completed_at = now(),
+				       updated_at   = now()
+				WHERE  id     = $1
+				  AND  status = 'running'`,
+				campaignID,
+			)
+			if err != nil {
+				logger.Error().Err(err).Str("campaign_id", campaignID).Msg("reconcile: ошибка завершения кампании")
+				continue
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				logger.Info().Str("campaign_id", campaignID).Msg("reconcile: кампания завершена")
+			}
+		}
+	}
+	return nil
 }
