@@ -14,6 +14,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -97,6 +98,13 @@ func main() {
 	}
 	defer pgxPool.Close()
 
+	// Connect to Redis (for sender stage limits cache + pub/sub)
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.GetAddr(),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
 	// Wait for Kafka
 	log.Info().Msg("ожидание готовности Kafka брокеров")
 	if err := queue.WaitForKafka(&cfg.Kafka, 30, 2*time.Second); err != nil {
@@ -151,7 +159,7 @@ func main() {
 		case "router":
 			stageErr = runRouterStage(ctx, cfg, db)
 		case "sender":
-			stageErr = runSenderStage(ctx, cfg, db)
+			stageErr = runSenderStage(ctx, cfg, db, rdb)
 		case "status":
 			stageErr = runStatusStage(ctx, cfg, db, pgxPool)
 		case "persist":
@@ -206,8 +214,8 @@ func runRouterStage(ctx context.Context, cfg *config.Config, db *storage.DB) err
 	return stage.Run(ctx)
 }
 
-func runSenderStage(ctx context.Context, cfg *config.Config, db *storage.DB) error {
-	stage, err := pipelinesender.NewStage(cfg, db)
+func runSenderStage(ctx context.Context, cfg *config.Config, db *storage.DB, rdb *redis.Client) error {
+	stage, err := pipelinesender.NewStage(cfg, db, rdb)
 	if err != nil {
 		return fmt.Errorf("ошибка создания sender stage: %w", err)
 	}

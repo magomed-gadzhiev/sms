@@ -27,23 +27,6 @@ func NewSender(pool *Pool) *Sender {
 	}
 }
 
-// simulateSend эмулирует мгновенную отправку для SIMULATOR-провайдеров
-func (s *Sender) simulateSend(msg *shared.Message, provider *shared.Provider) (string, error) {
-	smppMsgID := fmt.Sprintf("SIM-%s", msg.ID.String()[:8])
-
-	monitoring.SMPPMessagesSent.WithLabelValues(provider.ID.String(), provider.Name, "success").Inc()
-	monitoring.SMPPMessagesDelivered.WithLabelValues(provider.ID.String(), provider.Name).Inc()
-	monitoring.SMPPProviderThroughput.WithLabelValues(provider.ID.String(), provider.Name).Set(float64(provider.ThroughputPerSec))
-
-	s.logger.Debug().
-		Str("message_id", msg.ID.String()).
-		Str("smpp_message_id", smppMsgID).
-		Str("provider", provider.Name).
-		Msg("сообщение отправлено через симулятор")
-
-	return smppMsgID, nil
-}
-
 // sendSinglePDU отправляет один submit_sm PDU и возвращает SMPP message ID
 func (s *Sender) sendSinglePDU(conn *Connection, submitSM *smppprotocol.SubmitSMPDU, provider *shared.Provider) (string, error) {
 	encoder := smppprotocol.NewEncoder()
@@ -124,11 +107,6 @@ func (s *Sender) SendMessage(ctx context.Context, msg *shared.Message, provider 
 	defer func() {
 		monitoring.SMPPProcessingDuration.WithLabelValues("send_to_provider").Observe(time.Since(startTime).Seconds())
 	}()
-
-	// Симулятор — мгновенная "отправка" без реального SMPP
-	if IsSimulator(provider) {
-		return s.simulateSend(msg, provider)
-	}
 
 	// Получаем соединение
 	conn, err := s.pool.GetConnection(provider.ID)
@@ -290,11 +268,6 @@ func (s *Sender) SendMessageAsync(
 		monitoring.SMPPProcessingDuration.WithLabelValues("async_send_to_provider").Observe(time.Since(startTime).Seconds())
 	}()
 
-	// Симулятор — мгновенная "отправка" без реального SMPP
-	if IsSimulator(provider) {
-		return s.simulateAsyncSend(msg, provider)
-	}
-
 	// Строим SubmitSM PDU (идентично sendSinglePDU)
 	submitSM := &smppprotocol.SubmitSMPDU{
 		ServiceType:          msg.ServiceType,
@@ -424,20 +397,3 @@ func (s *Sender) SendMessageAsync(
 	}
 }
 
-// simulateAsyncSend эмулирует async-отправку для SIMULATOR-провайдеров.
-// Идентична simulateSend, но с метками для async пути.
-func (s *Sender) simulateAsyncSend(msg *shared.Message, provider *shared.Provider) (string, error) {
-	smppMsgID := fmt.Sprintf("SIM-ASYNC-%s", msg.ID.String()[:8])
-
-	monitoring.SMPPMessagesSent.WithLabelValues(provider.ID.String(), provider.Name, "success").Inc()
-	monitoring.SMPPMessagesDelivered.WithLabelValues(provider.ID.String(), provider.Name).Inc()
-	monitoring.SMPPProviderThroughput.WithLabelValues(provider.ID.String(), provider.Name).Set(float64(provider.ThroughputPerSec))
-
-	s.logger.Debug().
-		Str("message_id", msg.ID.String()).
-		Str("smpp_message_id", smppMsgID).
-		Str("provider", provider.Name).
-		Msg("async: сообщение отправлено через симулятор")
-
-	return smppMsgID, nil
-}

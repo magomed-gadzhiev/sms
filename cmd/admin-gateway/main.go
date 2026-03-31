@@ -22,6 +22,7 @@ import (
 	adminrouter "github.com/smpp-server/smpp-server/internal/gateway/admin/router"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 func main() {
@@ -103,6 +104,25 @@ func main() {
 	tarificationHandlers := handlers.NewTarificationHandler(serviceClients.TarificationClient)
 	hlrHandlers := handlers.NewHLRHandlers(serviceClients.RoutingClient)
 	clientRoutingHandlers := handlers.NewClientRoutingHandlers(serviceClients.RoutingClient, serviceClients.TarificationClient)
+
+	// DB connection for system_defaults and stub_config handlers
+	adminDB, dbErr := storage.NewDBWithConfig(
+		cfg.Database.GetDSN(),
+		cfg.Database.MaxOpenConns,
+		cfg.Database.MaxIdleConns,
+		cfg.Database.ConnMaxLifetime,
+		cfg.Database.ConnMaxIdleTime,
+	)
+	if dbErr != nil {
+		logger.Fatal().Err(dbErr).Msg("ошибка подключения к БД для admin handlers")
+	}
+	defer adminDB.Close()
+
+	systemDefaultsRepo := storage.NewSystemDefaultsRepository(adminDB)
+	systemDefaultsHandlers := handlers.NewSystemDefaultsHandlers(systemDefaultsRepo)
+	stubConfigRepo := storage.NewStubConfigRepository(adminDB)
+	stubConfigHandlers := handlers.NewStubConfigHandlers(stubConfigRepo)
+
 	userHandlers := handlers.NewUserHandlers(serviceClients.AuthClient)
 	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
 
@@ -126,6 +146,8 @@ func main() {
 		tarificationHandlers,
 		hlrHandlers,
 		clientRoutingHandlers,
+		systemDefaultsHandlers,
+		stubConfigHandlers,
 		userHandlers,
 		roleHandlers,
 		healthChecker,

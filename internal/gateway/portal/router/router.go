@@ -50,6 +50,7 @@ func SetupRouter(
 	domainHandlers *handlers.DomainHandlers,
 	settingsHandlers *handlers.SettingsHandlers,
 	segmentHandlers *handlers.SegmentHandlers,
+	subAccountRoutingHandlers *handlers.SubAccountRoutingHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -144,6 +145,13 @@ func SetupRouter(
 	subAccounts.HandleFunc("/{id}/analytics", subAccountHandlers.GetSubAccountAnalytics).Methods("GET")
 	subAccounts.HandleFunc("/{id}/api-keys", subAccountHandlers.GetSubAccountAPIKeys).Methods("GET")
 	subAccounts.HandleFunc("/{id}/webhooks", subAccountHandlers.GetSubAccountWebhooks).Methods("GET")
+
+	// Sub-account routing (reseller management)
+	subAccounts.HandleFunc("/{id}/providers", subAccountRoutingHandlers.AssignProvider).Methods("POST")
+	subAccounts.HandleFunc("/{id}/providers", subAccountRoutingHandlers.ListProviders).Methods("GET")
+	subAccounts.HandleFunc("/{id}/providers/{pid}", subAccountRoutingHandlers.RevokeProvider).Methods("DELETE")
+	subAccounts.HandleFunc("/{id}/routes", subAccountRoutingHandlers.CreateRoute).Methods("POST")
+	subAccounts.HandleFunc("/{id}/routes", subAccountRoutingHandlers.ListRoutes).Methods("GET")
 
 	// Lookup endpoints
 	lookup := protected.PathPrefix("/lookup").Subrouter()

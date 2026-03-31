@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -13,23 +14,23 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
-	cache "github.com/smpp-server/smpp-server/internal/pipeline/cache"
 	"github.com/smpp-server/smpp-server/internal/queue"
-	msgrouter "github.com/smpp-server/smpp-server/internal/router"
+	msgunifiedrouter "github.com/smpp-server/smpp-server/internal/router"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // Stage — pipeline stage для маршрутизации сообщений.
-// Потребляет из sms.outgoing и sms.failed, вызывает router.RouteMessage()
-// для определения primary + fallback провайдера, публикует RoutedMessage
+// Потребляет из sms.outgoing и sms.failed, вызывает UnifiedRouter
+// для определения провайдера по 3-уровневой схеме, публикует RoutedMessage
 // в sms.routed.
 type Stage struct {
-	consumer   *queue.BatchConsumer
-	producer   *queue.AsyncProducer
-	router     *msgrouter.CachedRouter
-	routeCache *cache.RouteCache
-	cfg        *config.Config
-	logger     zerolog.Logger
+	consumer         *queue.BatchConsumer
+	producer         *queue.AsyncProducer
+	unifiedRouter    *msgunifiedrouter.CachedUnifiedRouter
+	operatorResolver *msgunifiedrouter.OperatorResolver
+	defaultOperatorID uuid.UUID
+	cfg              *config.Config
+	logger           zerolog.Logger
 }
 
 // NewStage создает новый Router stage pipeline.
@@ -51,29 +52,36 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 		return nil, fmt.Errorf("ошибка создания async producer: %w", err)
 	}
 
-	providerRepo := storage.NewProviderRepository(db)
-	routeRepo := storage.NewRouteRepository(db)
-	routeCache := cache.NewRouteCache(routeRepo, providerRepo, 30*time.Second)
-	msgRouter := msgrouter.NewCachedRouter(routeCache)
+	// UnifiedRouter: 3-уровневая маршрутизация (client → reseller → platform)
+	clientRouteRepo := storage.NewClientRouteRepository(db)
+	unifiedRouterInner := msgunifiedrouter.NewUnifiedRouter(clientRouteRepo, clientRouteRepo)
+	unifiedRouter := msgunifiedrouter.NewCachedUnifiedRouter(unifiedRouterInner)
+
+	// OperatorResolver: определение оператора по номеру телефона
+	defaultOpIDStr := os.Getenv("TARIFICATION_DEFAULT_OPERATOR_ID")
+	defaultOpID, _ := uuid.Parse(defaultOpIDStr)
+	if defaultOpID == uuid.Nil {
+		defaultOpID, _ = uuid.Parse("d0000000-0000-0000-0000-000000000001")
+	}
+	opPrefixRepo := storage.NewOperatorPrefixRepository(db)
+	operatorResolver := msgunifiedrouter.NewOperatorResolver(opPrefixRepo, defaultOpID)
 
 	logger := log.With().Str("component", "pipeline_router").Logger()
 
 	return &Stage{
-		consumer:   consumer,
-		producer:   producer,
-		router:     msgRouter,
-		routeCache: routeCache,
-		cfg:        cfg,
-		logger:     logger,
+		consumer:          consumer,
+		producer:          producer,
+		unifiedRouter:     unifiedRouter,
+		operatorResolver:  operatorResolver,
+		defaultOperatorID: defaultOpID,
+		cfg:               cfg,
+		logger:            logger,
 	}, nil
 }
 
 // Run запускает цикл потребления и маршрутизации. Блокирует до отмены ctx.
 func (s *Stage) Run(ctx context.Context) error {
 	s.logger.Info().Msg("запуск router stage")
-	if err := s.routeCache.Start(ctx); err != nil {
-		return fmt.Errorf("ошибка запуска кеша маршрутов: %w", err)
-	}
 	return s.consumer.ConsumeBatches(ctx, s.handleBatch)
 }
 
@@ -109,44 +117,48 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		return fmt.Errorf("десериализация: %w", err)
 	}
 
-	sharedMsg := kafkaMsg.ToMessage()
-
-	provider, err := s.router.RouteMessage(ctx, sharedMsg)
-	if err != nil {
-		return fmt.Errorf("маршрутизация message_id=%s: %w", kafkaMsg.MessageID, err)
+	// Определяем оператора по номеру получателя
+	var operatorID uuid.UUID
+	if kafkaMsg.ClientID != nil {
+		operatorID = s.operatorResolver.Resolve(ctx, kafkaMsg.Destination)
+	} else {
+		operatorID = s.defaultOperatorID
 	}
 
-	// Определяем fallback провайдера, если есть route_id.
-	var fallbackProviderID *uuid.UUID
-	if kafkaMsg.RouteID != nil {
-		fallback, fbErr := s.router.GetFailoverProvider(ctx, *kafkaMsg.RouteID)
-		if fbErr != nil {
-			// Отсутствие fallback — не критичная ошибка, просто логируем.
-			s.logger.Debug().
-				Err(fbErr).
-				Str("message_id", kafkaMsg.MessageID.String()).
-				Msg("fallback провайдер недоступен")
-		} else if fallback.ID != provider.ID {
-			fallbackProviderID = &fallback.ID
+	// Маршрутизация через UnifiedRouter (3 уровня: client → reseller → platform)
+	var providerID uuid.UUID
+	var routeID *uuid.UUID
+
+	if kafkaMsg.ClientID != nil {
+		decision, routeErr := s.unifiedRouter.Route(ctx, *kafkaMsg.ClientID, operatorID)
+		if routeErr != nil {
+			return fmt.Errorf("маршрутизация message_id=%s: %w", kafkaMsg.MessageID, routeErr)
 		}
+		providerID = decision.ProviderID
+		routeID = &decision.RouteID
+	} else {
+		// Нет ClientID — используем старый path (RoutedMessage с ProviderID)
+		if kafkaMsg.ProviderID == nil {
+			return fmt.Errorf("message_id=%s: нет client_id и provider_id", kafkaMsg.MessageID)
+		}
+		providerID = *kafkaMsg.ProviderID
 	}
 
 	routed := &pipeline.RoutedMessage{
-		SchemaVersion:      1,
-		MessageID:          kafkaMsg.MessageID,
-		Source:             kafkaMsg.Source,
-		Destination:        kafkaMsg.Destination,
-		Text:               kafkaMsg.Text,
-		ClientID:           kafkaMsg.ClientID,
-		ProviderID:         provider.ID,
-		FallbackProviderID: fallbackProviderID,
-		RouteID:            kafkaMsg.RouteID,
-		Priority:           kafkaMsg.Priority,
-		RetryCount:         kafkaMsg.RetryCount,
-		MaxRetries:         kafkaMsg.MaxRetries,
-		RoutedAt:           time.Now(),
-		CreatedAt:          kafkaMsg.CreatedAt,
-		Metadata:           kafkaMsg.Metadata,
+		SchemaVersion: 1,
+		MessageID:     kafkaMsg.MessageID,
+		Source:        kafkaMsg.Source,
+		Destination:   kafkaMsg.Destination,
+		Text:          kafkaMsg.Text,
+		ClientID:      kafkaMsg.ClientID,
+		ProviderID:    providerID,
+		RouteID:       routeID,
+		Priority:      kafkaMsg.Priority,
+		RetryCount:    kafkaMsg.RetryCount,
+		MaxRetries:    kafkaMsg.MaxRetries,
+		RoutedAt:      time.Now(),
+		CreatedAt:     kafkaMsg.CreatedAt,
+		Metadata:      kafkaMsg.Metadata,
 	}
 
 	data, err := routed.Serialize()
@@ -160,13 +172,13 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		data,
 		[]sarama.RecordHeader{
 			{Key: []byte("message_id"), Value: []byte(kafkaMsg.MessageID.String())},
-			{Key: []byte("provider_id"), Value: []byte(provider.ID.String())},
+			{Key: []byte("provider_id"), Value: []byte(providerID.String())},
 		},
 	)
 
 	s.logger.Debug().
 		Str("message_id", kafkaMsg.MessageID.String()).
-		Str("provider_id", provider.ID.String()).
+		Str("provider_id", providerID.String()).
 		Str("topic", s.cfg.Kafka.TopicRouted).
 		Msg("сообщение маршрутизировано")
 

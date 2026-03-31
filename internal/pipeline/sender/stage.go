@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -18,6 +21,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/pipeline/backpressure"
+	"github.com/smpp-server/smpp-server/internal/pipeline/limits"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/smsc"
@@ -25,15 +29,16 @@ import (
 )
 
 // Stage — pipeline stage для отправки сообщений через SMPP.
-// Потребляет RoutedMessage из sms.routed, применяет backpressure,
-// тарифицирует сообщение, отправляет через async SMPP pool, публикует SentMessage в sms.sent.
+// Потребляет RoutedMessage из sms.routed, применяет двухуровневый backpressure,
+// тарифицирует сообщение, отправляет через SenderFactory (SMPP/Stub), публикует SentMessage в sms.sent.
 type Stage struct {
 	consumer           *queue.BatchConsumer
 	producer           *queue.AsyncProducer
 	pool               *smsc.Pool
-	sender             *smsc.Sender
+	senderFactory      *smsc.SenderFactory
 	bpManager          *backpressure.Manager
 	providerRepo       *storage.ProviderRepository
+	limitResolver      *limits.CachedLimitResolver
 	tarificationClient tarificationv1.TarificationServiceClient
 	billingClient      billingv1.BillingServiceClient
 	tarificationConn   *grpc.ClientConn
@@ -44,7 +49,7 @@ type Stage struct {
 }
 
 // NewStage создает новый Sender stage pipeline.
-func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
+func NewStage(cfg *config.Config, db *storage.DB, rdb *redis.Client) (*Stage, error) {
 	consumer, err := queue.NewBatchConsumer(
 		&cfg.Kafka,
 		"pipeline-sender",
@@ -63,7 +68,6 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 	}
 
 	pool := smsc.NewPool(&cfg.Worker)
-	snd := smsc.NewSender(pool)
 	bpManager := backpressure.NewManager()
 	providerRepo := storage.NewProviderRepository(db)
 
@@ -104,6 +108,31 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 			Int("throughput_per_sec", p.ThroughputPerSec).
 			Msg("провайдер подключён и зарегистрирован в backpressure")
 	}
+
+	// Инициализация LimitResolver
+	var limitResolver *limits.CachedLimitResolver
+	if rdb != nil {
+		querier := storage.NewLimitQuerierDB(db)
+		dbResolver := limits.NewDBLimitResolver(querier)
+		limitResolver = limits.NewCachedLimitResolver(dbResolver, rdb)
+	}
+
+	// Загрузка per-client TPS из client_providers
+	cpRepo := storage.NewClientProviderRepository(db)
+	clientProviders, cpErr := cpRepo.GetAllActiveWithTPS(context.Background())
+	if cpErr == nil {
+		for _, cp := range clientProviders {
+			if cp.TPSLimit != nil {
+				bpManager.RegisterClient(cp.ClientID, cp.ProviderID, *cp.TPSLimit)
+			}
+		}
+	}
+
+	// SenderFactory: SMPP vs Stub dispatch
+	stubConfigRepo := storage.NewStubConfigRepository(db)
+	stubSender := smsc.NewStubSender(stubConfigRepo, producer, cfg.Kafka.TopicDLR)
+	smppSender := smsc.NewSender(pool)
+	senderFactory := smsc.NewSenderFactory(smppSender, stubSender)
 
 	// Подключение к billing-service gRPC
 	var billingClient billingv1.BillingServiceClient
@@ -146,13 +175,38 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 		defaultOperatorID = "d0000000-0000-0000-0000-000000000001"
 	}
 
+	// Pub/sub listener для инвалидации per-client TPS
+	if limitResolver != nil && rdb != nil {
+		go func() {
+			redisSub := rdb.Subscribe(context.Background(), "limits:invalidate")
+			ch := redisSub.Channel()
+			for msg := range ch {
+				parts := strings.SplitN(msg.Payload, ":", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				cid, err1 := uuid.Parse(parts[0])
+				pid, err2 := uuid.Parse(parts[1])
+				if err1 != nil || err2 != nil {
+					continue
+				}
+				tps, resolveErr := limitResolver.ResolveProviderTPS(context.Background(), cid, pid)
+				if resolveErr == nil {
+					bpManager.UpdateClient(cid, pid, tps)
+					limitResolver.InvalidateProviderTPS(context.Background(), cid, pid)
+				}
+			}
+		}()
+	}
+
 	return &Stage{
 		consumer:           consumer,
 		producer:           producer,
 		pool:               pool,
-		sender:             snd,
+		senderFactory:      senderFactory,
 		bpManager:          bpManager,
 		providerRepo:       providerRepo,
+		limitResolver:      limitResolver,
 		tarificationClient: tarificationClient,
 		billingClient:      billingClient,
 		tarificationConn:   tarificationGRPCConn,
@@ -270,7 +324,11 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 
 	// 3. Backpressure check: если провайдер throttled, не обрабатываем —
 	// сообщение не маркируется и будет повторно доставлено Kafka.
-	if !s.bpManager.TryAcquire(routedMsg.ProviderID) {
+	var bpClientID uuid.UUID
+	if routedMsg.ClientID != nil {
+		bpClientID = *routedMsg.ClientID
+	}
+	if !s.bpManager.TryAcquire(bpClientID, routedMsg.ProviderID) {
 		s.logger.Warn().
 			Str("message_id", routedMsg.MessageID.String()).
 			Str("provider_id", routedMsg.ProviderID.String()).
@@ -278,47 +336,30 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		return fmt.Errorf("backpressure: провайдер %s throttled", routedMsg.ProviderID)
 	}
 
-	// 3. Получаем провайдера из БД.
+	// 4. Получаем провайдера из БД.
 	provider, err := s.providerRepo.GetByID(ctx, routedMsg.ProviderID)
 	if err != nil {
 		return fmt.Errorf("получение провайдера %s: %w", routedMsg.ProviderID, err)
 	}
 
-	// 4. Получаем async соединение из пула.
-	conn, err := s.pool.GetAsyncConnection(routedMsg.ProviderID)
-	if err != nil {
-		return fmt.Errorf("получение async соединения для провайдера %s: %w", routedMsg.ProviderID, err)
+	// 5. Получаем соединение (nil для stub-провайдеров).
+	var conn *smsc.AsyncConnection
+	if !smsc.IsSimulator(provider) {
+		conn, err = s.pool.GetAsyncConnection(routedMsg.ProviderID)
+		if err != nil {
+			return fmt.Errorf("получение async соединения для провайдера %s: %w", routedMsg.ProviderID, err)
+		}
 	}
 
-	// 5. Конвертируем RoutedMessage в shared.Message для SendMessageAsync.
+	// 6. Конвертируем RoutedMessage в shared.Message и отправляем через SenderFactory.
 	sharedMsg := routedToSharedMessage(routedMsg)
+	sender := s.senderFactory.For(provider)
+	smppMsgID, sendErr := sender.SendMessageAsync(ctx, sharedMsg, provider, conn)
 
-	// 6. Отправляем через async SMPP.
-	smppMsgID, sendErr := s.sender.SendMessageAsync(ctx, sharedMsg, provider, conn)
-
-	// 6a. Failover: при ошибке primary пробуем fallback_provider_id (R-007).
 	usedProviderID := routedMsg.ProviderID
-	usedConnID := conn.ID
-	if sendErr != nil && routedMsg.FallbackProviderID != nil {
-		s.logger.Warn().
-			Err(sendErr).
-			Str("message_id", routedMsg.MessageID.String()).
-			Str("primary_provider", routedMsg.ProviderID.String()).
-			Str("fallback_provider", routedMsg.FallbackProviderID.String()).
-			Msg("primary send failed, trying fallback provider")
-
-		fallbackProvider, fbErr := s.providerRepo.GetByID(ctx, *routedMsg.FallbackProviderID)
-		if fbErr == nil {
-			fbConn, fbConnErr := s.pool.GetAsyncConnection(*routedMsg.FallbackProviderID)
-			if fbConnErr == nil {
-				sharedMsg.ProviderID = routedMsg.FallbackProviderID
-				smppMsgID, sendErr = s.sender.SendMessageAsync(ctx, sharedMsg, fallbackProvider, fbConn)
-				if sendErr == nil {
-					usedProviderID = *routedMsg.FallbackProviderID
-					usedConnID = fbConn.ID
-				}
-			}
-		}
+	usedConnID := ""
+	if conn != nil {
+		usedConnID = conn.ID
 	}
 
 	// 6b. Рефанд при окончательном провале (все retry исчерпаны).
@@ -424,41 +465,14 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		},
 	)
 
-	// Для SIMULATOR-провайдеров генерируем DLR (DELIVRD) — полный lifecycle без реального SMSC.
-	if sendErr == nil && smsc.IsSimulator(provider) {
-		now := time.Now()
-		dlrMsg := &queue.DLRMessage{
-			MessageID:     routedMsg.MessageID,
-			SMPPMessageID: smppMsgID,
-			ProviderID:    &usedProviderID,
-			ClientID:      routedMsg.ClientID,
-			Stat:          "DELIVRD",
-			SubmitDate:    &sentMsg.SentAt,
-			DoneDate:      &now,
-			Source:        routedMsg.Source,
-			Destination:   routedMsg.Destination,
-			CreatedAt:     now,
-		}
-		dlrData, dlrErr := dlrMsg.Serialize()
-		if dlrErr == nil {
-			s.producer.PublishAsync(
-				s.cfg.Kafka.TopicDLR,
-				routedMsg.MessageID.String(),
-				dlrData,
-				[]sarama.RecordHeader{
-					{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
-					{Key: []byte("stat"), Value: []byte("DELIVRD")},
-				},
-			)
-		}
-	}
+	// DLR для SIMULATOR-провайдеров теперь генерируется StubSender внутренне.
 
 	s.logger.Debug().
 		Str("message_id", routedMsg.MessageID.String()).
 		Str("provider_id", routedMsg.ProviderID.String()).
 		Str("smpp_message_id", sentMsg.SMPPMessageID).
 		Str("status", sentMsg.Status).
-		Str("connection_id", conn.ID).
+		Str("connection_id", usedConnID).
 		Int("segments", sentMsg.SegmentsCount).
 		Msg("сообщение обработано sender stage")
 

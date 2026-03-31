@@ -22,6 +22,8 @@ func SetupRouter(
 	tarificationHandlers *handlers.TarificationHandler,
 	hlrHandlers *handlers.HLRHandlers,
 	clientRoutingHandlers *handlers.ClientRoutingHandlers,
+	systemDefaultsHandlers *handlers.SystemDefaultsHandlers,
+	stubConfigHandlers *handlers.StubConfigHandlers,
 	userHandlers *handlers.UserHandlers,
 	roleHandlers *handlers.RoleHandlers,
 	healthChecker *monitoring.HealthChecker,
@@ -75,6 +77,13 @@ func SetupRouter(
 	providers.HandleFunc("/{id}", providerHandlers.UpdateProvider).Methods("PUT")
 	providers.HandleFunc("/{id}", providerHandlers.DeleteProvider).Methods("DELETE")
 	providers.HandleFunc("/{id}/health", providerHandlers.GetProviderHealth).Methods("GET")
+	providers.HandleFunc("/{id}/stub-config", stubConfigHandlers.Get).Methods("GET")
+	providers.HandleFunc("/{id}/stub-config", stubConfigHandlers.Upsert).Methods("PUT")
+
+	// System defaults
+	system := adminV1.PathPrefix("/system").Subrouter()
+	system.HandleFunc("/defaults", systemDefaultsHandlers.GetAll).Methods("GET")
+	system.HandleFunc("/defaults/{key}", systemDefaultsHandlers.Set).Methods("PUT")
 
 	// Routes endpoints
 	routes := adminV1.PathPrefix("/routes").Subrouter()
