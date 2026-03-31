@@ -101,7 +101,7 @@ export function CascadeDeliveryDetail() {
     return (
       <div className="p-6">
         <div className="text-red-600 mb-4">{error || 'Доставка не найдена'}</div>
-        <Button variant="outline" onClick={() => navigate(-1)}>Назад</Button>
+        <Button variant="secondary" onClick={() => navigate(-1)}>Назад</Button>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export function CascadeDeliveryDetail() {
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>← Назад</Button>
+        <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>← Назад</Button>
         <h1 className="text-xl font-semibold">Детали доставки</h1>
       </div>
 

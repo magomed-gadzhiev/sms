@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { senderNamesApi, senderTariffApi, ApiError, type SenderNameInfo, type SenderNameHistoryEntry } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -32,7 +31,6 @@ function formatDate(dt: string) {
 }
 
 export function SenderNamesPage() {
-  const navigate = useNavigate();
   const [items, setItems] = useState<SenderNameInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

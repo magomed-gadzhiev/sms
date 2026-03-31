@@ -92,8 +92,6 @@ export function CascadeHistoryPage() {
     { key: 'created_at', header: 'Дата', render: (d) => formatDate(d.created_at) },
   ];
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-6">История каскадных доставок</h1>
@@ -138,32 +136,14 @@ export function CascadeHistoryPage() {
         columns={columns}
         data={deliveries}
         loading={loading}
-        keyExtractor={(d) => d.id}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        keyField="id"
         onRowClick={(d) => navigate(`/cascade/history/${d.id}`)}
       />
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-end gap-2 mt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-40"
-          >
-            ←
-          </button>
-          <span className="px-3 py-1 text-sm text-gray-600">
-            {page} / {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-40"
-          >
-            →
-          </button>
-        </div>
-      )}
     </div>
   );
 }

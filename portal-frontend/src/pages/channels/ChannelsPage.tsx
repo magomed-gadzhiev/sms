@@ -79,11 +79,11 @@ export function ChannelsPage() {
       header: 'Действия',
       render: (ch) => (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleEdit(ch)}>
+          <Button variant="secondary" size="sm" onClick={() => handleEdit(ch)}>
             Редактировать
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => handleToggle(ch)}
           >
@@ -111,7 +111,11 @@ export function ChannelsPage() {
         columns={columns}
         data={channels}
         loading={loading}
-        keyExtractor={(ch) => ch.channel_id}
+        total={channels.length}
+        page={1}
+        pageSize={channels.length || 1}
+        onPageChange={() => {}}
+        keyField="channel_id"
       />
 
       {modalOpen && (

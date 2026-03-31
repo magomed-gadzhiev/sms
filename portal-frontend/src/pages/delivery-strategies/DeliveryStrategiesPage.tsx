@@ -69,10 +69,10 @@ export function DeliveryStrategiesPage() {
       header: 'Действия',
       render: (s) => (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setEditTarget(s); setModalOpen(true); }}>
+          <Button variant="secondary" size="sm" onClick={() => { setEditTarget(s); setModalOpen(true); }}>
             Редактировать
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleDelete(s)}>
+          <Button variant="secondary" size="sm" onClick={() => handleDelete(s)}>
             Удалить
           </Button>
         </div>
@@ -85,7 +85,7 @@ export function DeliveryStrategiesPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Стратегии доставки</h1>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => setOcsOpen(true)}>
+          <Button variant="secondary" onClick={() => setOcsOpen(true)}>
             OCS матрица
           </Button>
           <Button onClick={() => { setEditTarget(null); setModalOpen(true); }}>
@@ -104,7 +104,11 @@ export function DeliveryStrategiesPage() {
         columns={columns}
         data={strategies}
         loading={loading}
-        keyExtractor={(s) => s.strategy_id}
+        total={strategies.length}
+        page={1}
+        pageSize={strategies.length || 1}
+        onPageChange={() => {}}
+        keyField="strategy_id"
       />
 
       {modalOpen && (

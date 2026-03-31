@@ -56,7 +56,7 @@ export function ChannelFormModal({ channel, onClose, onSaved }: Props) {
   };
 
   return (
-    <Modal title={isEdit ? 'Редактировать канал' : 'Добавить канал'} onClose={onClose}>
+    <Modal open={true} title={isEdit ? 'Редактировать канал' : 'Добавить канал'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {!isEdit && (
           <div>
@@ -110,10 +110,10 @@ export function ChannelFormModal({ channel, onClose, onSaved }: Props) {
         )}
 
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
             Отмена
           </Button>
-          <Button type="submit" loading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {isEdit ? 'Сохранить' : 'Создать'}
           </Button>
         </div>

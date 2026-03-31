@@ -78,7 +78,7 @@ export function StrategyFormModal({ strategy, onClose, onSaved }: Props) {
   };
 
   return (
-    <Modal title={isEdit ? 'Редактировать стратегию' : 'Добавить стратегию'} onClose={onClose}>
+    <Modal open={true} title={isEdit ? 'Редактировать стратегию' : 'Добавить стратегию'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
@@ -112,7 +112,7 @@ export function StrategyFormModal({ strategy, onClose, onSaved }: Props) {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium text-gray-700">Шаги</label>
-            <Button type="button" variant="outline" size="sm" onClick={addStep}>
+            <Button type="button" variant="secondary" size="sm" onClick={addStep}>
               + Шаг
             </Button>
           </div>
@@ -178,10 +178,10 @@ export function StrategyFormModal({ strategy, onClose, onSaved }: Props) {
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
             Отмена
           </Button>
-          <Button type="submit" loading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {isEdit ? 'Сохранить' : 'Создать'}
           </Button>
         </div>

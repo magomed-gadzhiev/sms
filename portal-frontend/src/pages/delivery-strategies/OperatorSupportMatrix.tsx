@@ -90,7 +90,7 @@ export function OperatorSupportMatrix({ onClose }: Props) {
   }));
 
   return (
-    <Modal title="Матрица поддержки каналов операторами" onClose={onClose}>
+    <Modal open={true} title="Матрица поддержки каналов операторами" onClose={onClose}>
       {loading ? (
         <div className="py-8 text-center text-gray-400 text-sm">Загрузка...</div>
       ) : (
@@ -137,9 +137,9 @@ export function OperatorSupportMatrix({ onClose }: Props) {
                   ))}
                   <td className="py-2 pl-4">
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
-                      loading={saving}
+                      disabled={saving}
                       onClick={() => saveRow(row.operator_id)}
                     >
                       Сохранить
