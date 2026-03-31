@@ -38,8 +38,14 @@ interface AnalyticsData {
 
 const PERIODS = ['7d', '30d', '90d'] as const;
 
+function formatPeriod(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  return iso;
+}
+
 const timelineColumns: Column<TimelineEntry>[] = [
-  { key: 'period', header: 'Период' },
+  { key: 'period', header: 'Период', render: (row) => <>{formatPeriod(row.period)}</> },
   { key: 'sent', header: 'Отправлено' },
   { key: 'delivered', header: 'Доставлено' },
   { key: 'failed', header: 'Ошибки' },
@@ -169,7 +175,7 @@ export function AnalyticsPage() {
             <StatCard title="Доставлено" value={data.summary.total_delivered} />
             <StatCard title="Ошибки" value={data.summary.total_failed} />
             <StatCard title="Доставляемость" value={`${data.summary.delivery_rate}%`} />
-            <StatCard title="Стоимость" value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : '—'} />
+            <StatCard title="Стоимость" value={data.summary.total_cost ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(data.summary.total_cost) || 0) : '—'} />
           </div>
 
           {/* Timeline table */}

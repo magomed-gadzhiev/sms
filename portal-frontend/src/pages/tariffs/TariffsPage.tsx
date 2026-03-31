@@ -68,7 +68,7 @@ export function TariffsPage() {
     setSwitching(true);
     setSwitchError('');
     try {
-      await tariffsApi.switchPlan(switchTarget.name);
+      await tariffsApi.switchPlan(switchTarget.id);
       setSwitchTarget(null);
       await loadData();
     } catch (err) {

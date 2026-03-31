@@ -47,8 +47,12 @@ export function DashboardPage() {
   if (error) return <div className="text-red-600">Ошибка: {error}</div>;
   if (!data) return <div>Нет данных</div>;
 
+  const formattedBalance = new Intl.NumberFormat('ru-RU', {
+    style: 'currency', currency: 'RUB', minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(parseFloat(data.balance) || 0);
+
   const cards: { label: string; value: string | number; href?: string }[] = [
-    { label: 'Баланс', value: `${data.balance || '0.00'} ${data.currency || '\u20BD'}`.trim() },
+    { label: 'Баланс', value: formattedBalance },
     { label: 'Сообщений сегодня', value: data.messages_today, href: '/messages' },
     { label: 'Доставлено сегодня', value: data.messages_delivered_today, href: '/messages' },
     { label: 'Доставляемость', value: `${data.delivery_rate_today}%` },

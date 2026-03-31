@@ -234,8 +234,7 @@ export function BillingPage() {
             <div>
               <p className="text-sm text-gray-500 mb-1">Текущий баланс</p>
               <p className="text-3xl font-bold tabular-nums">
-                {balance.balance}{' '}
-                <span className="text-lg font-normal text-gray-500">{balance.currency}</span>
+                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(balance.balance) || 0)}
               </p>
               {balance.updated_at && (
                 <p className="text-xs text-gray-500 mt-1">

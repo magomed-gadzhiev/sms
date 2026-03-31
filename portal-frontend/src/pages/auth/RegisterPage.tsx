@@ -55,7 +55,20 @@ export function RegisterPage() {
       await refreshUser();
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Ошибка регистрации');
+      if (err instanceof ApiError) {
+        const msg = err.message.toLowerCase();
+        if (msg.includes('already registered') || msg.includes('already exists')) {
+          setError('Пользователь с таким email уже зарегистрирован');
+        } else if (msg.includes('invalid') && msg.includes('email')) {
+          setError('Некорректный email');
+        } else if (msg.includes('password')) {
+          setError('Пароль не соответствует требованиям');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('Ошибка регистрации');
+      }
     } finally {
       setSubmitting(false);
     }

@@ -350,6 +350,7 @@ export const billingApi = {
 
 // Tariffs API
 export interface TariffPlanInfo {
+  id: string;
   name: string;
   display_name: string;
   monthly_price_rub: number;
@@ -367,13 +368,11 @@ export interface CurrentPlan {
 export const tariffsApi = {
   getCurrent: () => apiFetch<CurrentPlan>('/tariffs/current'),
   listPlans: () => apiFetch<{ plans: TariffPlanInfo[] }>('/tariffs/plans'),
-  switchPlan: (planName: string) =>
-    apiFetch<{ success: boolean }>('/tariffs/switch', {
+  switchPlan: (planId: string) =>
+    apiFetch<{ message: string }>('/tariffs/change', {
       method: 'POST',
-      body: JSON.stringify({ plan_name: planName }),
+      body: JSON.stringify({ plan_id: planId }),
     }),
-  changePlan: (planId: string) =>
-    apiFetch<unknown>('/tariffs/change', { method: 'POST', body: JSON.stringify({ plan_id: planId }) }),
   getUsage: () => apiFetch<{ counters: unknown[]; total: number }>('/tariffs/usage'),
 };
 
