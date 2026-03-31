@@ -7,4 +7,7 @@ CREATE TABLE IF NOT EXISTS operator_prefixes (
     UNIQUE(prefix)
 );
 
-CREATE INDEX idx_operator_prefixes_active ON operator_prefixes(prefix) WHERE active = true;
+-- Добавить столбец active если таблица уже существовала без него
+ALTER TABLE operator_prefixes ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
+
+CREATE INDEX IF NOT EXISTS idx_operator_prefixes_active ON operator_prefixes(prefix) WHERE active = true;
