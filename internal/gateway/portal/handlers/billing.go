@@ -144,6 +144,9 @@ func (h *BillingHandlers) TopUpCallback(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	signature := r.Header.Get("X-Signature")
+	if signature == "" {
+		signature = r.URL.RawQuery
+	}
 	result, err := h.paymentProvider.HandleCallback(r.Context(), body, signature)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка обработки callback платежа")

@@ -85,7 +85,7 @@ func SetupRouter(
 	authProtected.HandleFunc("/logout", authHandlers.Logout).Methods("POST")
 
 	// Billing callback — public, без session auth
-	portalV1.HandleFunc("/billing/top-up/callback", billingHandlers.TopUpCallback).Methods("POST")
+	portalV1.HandleFunc("/billing/top-up/callback", billingHandlers.TopUpCallback).Methods("GET", "POST")
 
 	// === Защищённые маршруты (с session auth + csrf) ===
 	protected := portalV1.PathPrefix("").Subrouter()
