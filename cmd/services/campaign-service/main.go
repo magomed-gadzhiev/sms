@@ -351,12 +351,15 @@ func reconcileRunningCampaigns(ctx context.Context, dbx *sqlx.DB, logger zerolog
 	// Step 1: sync campaign_recipients.status from messages for running campaigns.
 	res, err := dbx.ExecContext(ctx, `
 		UPDATE campaign_recipients cr
-		SET    status     = m.status,
+		SET    status     = CASE m.status
+		                        WHEN 'delivered' THEN 'delivered'
+		                        ELSE                 'failed'
+		                    END,
 		       updated_at = now()
 		FROM   messages m
 		WHERE  m.id = cr.message_id
-		  AND  m.status IN ('sent', 'delivered', 'failed', 'expired', 'rejected', 'undeliverable')
-		  AND  cr.status  = 'pending'
+		  AND  m.status IN ('delivered', 'failed', 'expired', 'rejected', 'undeliverable')
+		  AND  cr.status IN ('pending', 'sent')
 		  AND  cr.campaign_id IN (
 		           SELECT id FROM campaigns WHERE status = 'running'
 		       )
