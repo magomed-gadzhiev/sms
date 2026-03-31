@@ -1,6 +1,7 @@
 package status
 
 import (
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +16,38 @@ import (
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/queue"
 )
+
+// ---------------------------------------------------------------------------
+// mockPublisher — test double for asyncPublisher (Bug #2)
+// ---------------------------------------------------------------------------
+
+type publishedMsg struct {
+	topic   string
+	key     string
+	value   []byte
+	headers []sarama.RecordHeader
+}
+
+type mockPublisher struct {
+	mu        sync.Mutex
+	published []publishedMsg
+}
+
+func (m *mockPublisher) PublishAsync(topic, key string, value []byte, headers []sarama.RecordHeader) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.published = append(m.published, publishedMsg{topic: topic, key: key, value: value, headers: headers})
+}
+
+func (m *mockPublisher) Close() error { return nil }
+
+func (m *mockPublisher) messages() []publishedMsg {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]publishedMsg, len(m.published))
+	copy(out, m.published)
+	return out
+}
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -523,4 +556,101 @@ func TestMapStatus_PassthroughForCustomStatuses(t *testing.T) {
 		assert.Equal(t, status, result,
 			"mapStatus should pass through status=%s as-is (no mapping for custom statuses)", status)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// publishStatusUpdates — Bug #2: status stage must publish to sms.status
+// so campaign-service can update sent/delivered/failed counters.
+// ---------------------------------------------------------------------------
+
+func newStageWithMockPublisher(pub *mockPublisher) *Stage {
+	cfg := &config.Config{
+		Kafka: config.KafkaConfig{
+			TopicSent:   "sms.sent",
+			TopicDLR:    "sms.dlr",
+			TopicStatus: "sms.status",
+		},
+	}
+	return &Stage{
+		cfg:           cfg,
+		logger:        zerolog.Nop(),
+		asyncProducer: pub,
+	}
+}
+
+func TestPublishStatusUpdates_PublishesToStatusTopic(t *testing.T) {
+	// Regression: before the fix nothing was published to sms.status,
+	// so campaign-service never received events and counters stayed at 0.
+	t.Parallel()
+
+	pub := &mockPublisher{}
+	s := newStageWithMockPublisher(pub)
+
+	providerID := uuid.New()
+	records := []*statusRecord{
+		{MessageID: uuid.New(), Status: "sent", SMPPMessageID: "S1", ProviderID: &providerID, UpdatedAt: time.Now()},
+		{MessageID: uuid.New(), Status: "delivered", SMPPMessageID: "S2", UpdatedAt: time.Now()},
+		{MessageID: uuid.New(), Status: "failed", SMPPMessageID: "S3", UpdatedAt: time.Now()},
+	}
+
+	s.publishStatusUpdates(records)
+
+	msgs := pub.messages()
+	require.Len(t, msgs, 3, "one message per record must be published")
+
+	for i, msg := range msgs {
+		assert.Equal(t, "sms.status", msg.topic, "must publish to sms.status topic")
+		assert.Equal(t, records[i].MessageID.String(), msg.key, "partition key must be message_id")
+
+		var update pipeline.StatusUpdate
+		require.NoError(t, json.Unmarshal(msg.value, &update))
+		assert.Equal(t, records[i].MessageID, update.MessageID)
+		assert.Equal(t, records[i].Status, update.Status)
+		assert.Equal(t, records[i].SMPPMessageID, update.SMPPMessageID)
+	}
+}
+
+func TestPublishStatusUpdates_ProviderIDPropagated(t *testing.T) {
+	t.Parallel()
+
+	pub := &mockPublisher{}
+	s := newStageWithMockPublisher(pub)
+
+	providerID := uuid.New()
+	rec := &statusRecord{MessageID: uuid.New(), Status: "sent", ProviderID: &providerID, UpdatedAt: time.Now()}
+	s.publishStatusUpdates([]*statusRecord{rec})
+
+	msgs := pub.messages()
+	require.Len(t, msgs, 1)
+
+	var update pipeline.StatusUpdate
+	require.NoError(t, json.Unmarshal(msgs[0].value, &update))
+	require.NotNil(t, update.ProviderID)
+	assert.Equal(t, providerID, *update.ProviderID)
+}
+
+func TestPublishStatusUpdates_EmptyRecords(t *testing.T) {
+	t.Parallel()
+
+	pub := &mockPublisher{}
+	s := newStageWithMockPublisher(pub)
+	s.publishStatusUpdates([]*statusRecord{})
+
+	assert.Empty(t, pub.messages(), "no messages must be published for empty input")
+}
+
+func TestPublishStatusUpdates_MessageIDHeader(t *testing.T) {
+	t.Parallel()
+
+	pub := &mockPublisher{}
+	s := newStageWithMockPublisher(pub)
+
+	msgID := uuid.New()
+	s.publishStatusUpdates([]*statusRecord{{MessageID: msgID, Status: "sent", UpdatedAt: time.Now()}})
+
+	msgs := pub.messages()
+	require.Len(t, msgs, 1)
+	require.Len(t, msgs[0].headers, 1)
+	assert.Equal(t, "message_id", string(msgs[0].headers[0].Key))
+	assert.Equal(t, msgID.String(), string(msgs[0].headers[0].Value))
 }

@@ -32,13 +32,20 @@ type statusRecord struct {
 	SegmentCount  int
 }
 
+// asyncPublisher — минимальный интерфейс для публикации статусов.
+// Позволяет подменять реальный AsyncProducer на mock в тестах.
+type asyncPublisher interface {
+	PublishAsync(topic string, key string, value []byte, headers []sarama.RecordHeader)
+	Close() error
+}
+
 // Stage — pipeline stage для записи статусов сообщений в БД.
 // Потребляет SentMessage из sms.sent и DLRMessage из sms.dlr,
 // выполняет batch upsert в таблицу messages через INSERT ... ON CONFLICT (id) DO UPDATE.
 // После успешного upsert публикует StatusUpdate в sms.status для campaign-service.
 type Stage struct {
 	consumer      *queue.BatchConsumer
-	asyncProducer *queue.AsyncProducer
+	asyncProducer asyncPublisher
 	db            *storage.DB
 	pgxPool       *pgxpool.Pool
 	cfg           *config.Config
