@@ -113,3 +113,48 @@ func TestIsCampaignComplete_Empty(t *testing.T) {
 	t.Parallel()
 	assert.True(t, isCampaignComplete(map[string]int{}))
 }
+
+// TestCompletionCondition_PendingBlocksCompletion verifies that a single
+// pending recipient prevents campaign from being marked complete —
+// mirroring the SQL WHERE status IN ('pending','sent') check in processStatusMessage.
+func TestCompletionCondition_PendingBlocksCompletion(t *testing.T) {
+	t.Parallel()
+
+	// Scenario: 84 delivered, 1 still pending → not complete
+	counts := map[string]int{"delivered": 84, "pending": 1}
+	assert.False(t, isCampaignComplete(counts),
+		"campaign must not complete while a recipient is still pending")
+}
+
+// TestCompletionCondition_SentBlocksCompletion verifies that a recipient in
+// 'sent' state (awaiting DLR) also blocks completion.
+func TestCompletionCondition_SentBlocksCompletion(t *testing.T) {
+	t.Parallel()
+
+	counts := map[string]int{"delivered": 84, "sent": 1}
+	assert.False(t, isCampaignComplete(counts),
+		"campaign must not complete while a recipient is awaiting DLR (sent)")
+}
+
+// TestCompletionCondition_LastRecipientDelivered verifies that transitioning
+// the last pending recipient to delivered triggers completion.
+func TestCompletionCondition_LastRecipientDelivered(t *testing.T) {
+	t.Parallel()
+
+	before := map[string]int{"delivered": 84, "pending": 1}
+	assert.False(t, isCampaignComplete(before))
+
+	after := map[string]int{"delivered": 85}
+	assert.True(t, isCampaignComplete(after),
+		"campaign must complete once all recipients reach terminal status")
+}
+
+// TestCompletionCondition_LastRecipientFailed verifies that a final 'failed'
+// recipient also completes the campaign (failure is terminal).
+func TestCompletionCondition_LastRecipientFailed(t *testing.T) {
+	t.Parallel()
+
+	counts := map[string]int{"delivered": 80, "failed": 5}
+	assert.True(t, isCampaignComplete(counts),
+		"failed is a terminal status — campaign should complete")
+}
