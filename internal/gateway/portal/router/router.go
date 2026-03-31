@@ -276,5 +276,13 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}/resubmit", senderNameHandlers.ResubmitSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/history", senderNameHandlers.GetSenderNameHistory).Methods("GET")
 
+	// Sender Registration endpoints
+	senderRegs := protected.PathPrefix("/sender-registrations").Subrouter()
+	senderRegs.HandleFunc("", senderNameHandlers.CreateSenderRegistration).Methods("POST")
+	senderRegs.HandleFunc("/{id}/billing", senderNameHandlers.GetSenderRegistrationBilling).Methods("GET")
+
+	// Operator Sender Tariff
+	protected.HandleFunc("/operators/{id}/sender-tariff", senderNameHandlers.GetOperatorSenderTariff).Methods("GET")
+
 	return router
 }

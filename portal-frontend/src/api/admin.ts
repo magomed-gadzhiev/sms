@@ -167,10 +167,15 @@ export interface CountryInfo {
 
 export interface OperatorInfo {
   operator_id: string;
+  id?: string;
   name: string;
+  code?: string;
   country_id: string;
   mcc: string;
   mnc: string;
+  supports_paid_sender?: boolean;
+  supports_free_sender?: boolean;
+  monthly_tariff_amount?: string;
   active: boolean;
   created_at: string;
   updated_at: string;

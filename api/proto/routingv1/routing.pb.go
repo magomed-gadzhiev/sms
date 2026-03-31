@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: routing/routing.proto
+// source: routing.proto
 
 package routingv1
 
@@ -63,11 +63,11 @@ func (x NumberStatus) String() string {
 }
 
 func (NumberStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_routing_routing_proto_enumTypes[0].Descriptor()
+	return file_routing_proto_enumTypes[0].Descriptor()
 }
 
 func (NumberStatus) Type() protoreflect.EnumType {
-	return &file_routing_routing_proto_enumTypes[0]
+	return &file_routing_proto_enumTypes[0]
 }
 
 func (x NumberStatus) Number() protoreflect.EnumNumber {
@@ -76,7 +76,7 @@ func (x NumberStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NumberStatus.Descriptor instead.
 func (NumberStatus) EnumDescriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{0}
+	return file_routing_proto_rawDescGZIP(), []int{0}
 }
 
 // NumberType представляет тип номера
@@ -116,11 +116,11 @@ func (x NumberType) String() string {
 }
 
 func (NumberType) Descriptor() protoreflect.EnumDescriptor {
-	return file_routing_routing_proto_enumTypes[1].Descriptor()
+	return file_routing_proto_enumTypes[1].Descriptor()
 }
 
 func (NumberType) Type() protoreflect.EnumType {
-	return &file_routing_routing_proto_enumTypes[1]
+	return &file_routing_proto_enumTypes[1]
 }
 
 func (x NumberType) Number() protoreflect.EnumNumber {
@@ -129,7 +129,7 @@ func (x NumberType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NumberType.Descriptor instead.
 func (NumberType) EnumDescriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{1}
+	return file_routing_proto_rawDescGZIP(), []int{1}
 }
 
 // GetRouteRequest представляет запрос на получение маршрута
@@ -144,7 +144,7 @@ type GetRouteRequest struct {
 
 func (x *GetRouteRequest) Reset() {
 	*x = GetRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[0]
+	mi := &file_routing_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -156,7 +156,7 @@ func (x *GetRouteRequest) String() string {
 func (*GetRouteRequest) ProtoMessage() {}
 
 func (x *GetRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[0]
+	mi := &file_routing_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -169,7 +169,7 @@ func (x *GetRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRouteRequest.ProtoReflect.Descriptor instead.
 func (*GetRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{0}
+	return file_routing_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetRouteRequest) GetDestination() string {
@@ -203,7 +203,7 @@ type GetRouteResponse struct {
 
 func (x *GetRouteResponse) Reset() {
 	*x = GetRouteResponse{}
-	mi := &file_routing_routing_proto_msgTypes[1]
+	mi := &file_routing_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -215,7 +215,7 @@ func (x *GetRouteResponse) String() string {
 func (*GetRouteResponse) ProtoMessage() {}
 
 func (x *GetRouteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[1]
+	mi := &file_routing_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -228,7 +228,7 @@ func (x *GetRouteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRouteResponse.ProtoReflect.Descriptor instead.
 func (*GetRouteResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{1}
+	return file_routing_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetRouteResponse) GetRoute() *RouteInfo {
@@ -250,7 +250,7 @@ type SelectProviderRequest struct {
 
 func (x *SelectProviderRequest) Reset() {
 	*x = SelectProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[2]
+	mi := &file_routing_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +262,7 @@ func (x *SelectProviderRequest) String() string {
 func (*SelectProviderRequest) ProtoMessage() {}
 
 func (x *SelectProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[2]
+	mi := &file_routing_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +275,7 @@ func (x *SelectProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectProviderRequest.ProtoReflect.Descriptor instead.
 func (*SelectProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{2}
+	return file_routing_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SelectProviderRequest) GetRoute() *RouteInfo {
@@ -311,7 +311,7 @@ type SelectProviderResponse struct {
 
 func (x *SelectProviderResponse) Reset() {
 	*x = SelectProviderResponse{}
-	mi := &file_routing_routing_proto_msgTypes[3]
+	mi := &file_routing_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +323,7 @@ func (x *SelectProviderResponse) String() string {
 func (*SelectProviderResponse) ProtoMessage() {}
 
 func (x *SelectProviderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[3]
+	mi := &file_routing_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -336,7 +336,7 @@ func (x *SelectProviderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectProviderResponse.ProtoReflect.Descriptor instead.
 func (*SelectProviderResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{3}
+	return file_routing_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SelectProviderResponse) GetProviderId() string {
@@ -376,7 +376,7 @@ type CreateRouteRequest struct {
 
 func (x *CreateRouteRequest) Reset() {
 	*x = CreateRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[4]
+	mi := &file_routing_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +388,7 @@ func (x *CreateRouteRequest) String() string {
 func (*CreateRouteRequest) ProtoMessage() {}
 
 func (x *CreateRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[4]
+	mi := &file_routing_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +401,7 @@ func (x *CreateRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRouteRequest.ProtoReflect.Descriptor instead.
 func (*CreateRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{4}
+	return file_routing_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateRouteRequest) GetName() string {
@@ -464,7 +464,7 @@ type CreateRouteResponse struct {
 
 func (x *CreateRouteResponse) Reset() {
 	*x = CreateRouteResponse{}
-	mi := &file_routing_routing_proto_msgTypes[5]
+	mi := &file_routing_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +476,7 @@ func (x *CreateRouteResponse) String() string {
 func (*CreateRouteResponse) ProtoMessage() {}
 
 func (x *CreateRouteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[5]
+	mi := &file_routing_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -489,7 +489,7 @@ func (x *CreateRouteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRouteResponse.ProtoReflect.Descriptor instead.
 func (*CreateRouteResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{5}
+	return file_routing_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateRouteResponse) GetRouteId() string {
@@ -524,7 +524,7 @@ type UpdateRouteRequest struct {
 
 func (x *UpdateRouteRequest) Reset() {
 	*x = UpdateRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[6]
+	mi := &file_routing_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -536,7 +536,7 @@ func (x *UpdateRouteRequest) String() string {
 func (*UpdateRouteRequest) ProtoMessage() {}
 
 func (x *UpdateRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[6]
+	mi := &file_routing_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -549,7 +549,7 @@ func (x *UpdateRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRouteRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{6}
+	return file_routing_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *UpdateRouteRequest) GetRouteId() string {
@@ -625,7 +625,7 @@ type UpdateRouteResponse struct {
 
 func (x *UpdateRouteResponse) Reset() {
 	*x = UpdateRouteResponse{}
-	mi := &file_routing_routing_proto_msgTypes[7]
+	mi := &file_routing_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +637,7 @@ func (x *UpdateRouteResponse) String() string {
 func (*UpdateRouteResponse) ProtoMessage() {}
 
 func (x *UpdateRouteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[7]
+	mi := &file_routing_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +650,7 @@ func (x *UpdateRouteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRouteResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRouteResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{7}
+	return file_routing_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpdateRouteResponse) GetSuccess() bool {
@@ -670,7 +670,7 @@ type DeleteRouteRequest struct {
 
 func (x *DeleteRouteRequest) Reset() {
 	*x = DeleteRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[8]
+	mi := &file_routing_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -682,7 +682,7 @@ func (x *DeleteRouteRequest) String() string {
 func (*DeleteRouteRequest) ProtoMessage() {}
 
 func (x *DeleteRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[8]
+	mi := &file_routing_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -695,7 +695,7 @@ func (x *DeleteRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRouteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{8}
+	return file_routing_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeleteRouteRequest) GetRouteId() string {
@@ -715,7 +715,7 @@ type DeleteRouteResponse struct {
 
 func (x *DeleteRouteResponse) Reset() {
 	*x = DeleteRouteResponse{}
-	mi := &file_routing_routing_proto_msgTypes[9]
+	mi := &file_routing_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +727,7 @@ func (x *DeleteRouteResponse) String() string {
 func (*DeleteRouteResponse) ProtoMessage() {}
 
 func (x *DeleteRouteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[9]
+	mi := &file_routing_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +740,7 @@ func (x *DeleteRouteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRouteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRouteResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{9}
+	return file_routing_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteRouteResponse) GetSuccess() bool {
@@ -762,7 +762,7 @@ type ListRoutesRequest struct {
 
 func (x *ListRoutesRequest) Reset() {
 	*x = ListRoutesRequest{}
-	mi := &file_routing_routing_proto_msgTypes[10]
+	mi := &file_routing_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -774,7 +774,7 @@ func (x *ListRoutesRequest) String() string {
 func (*ListRoutesRequest) ProtoMessage() {}
 
 func (x *ListRoutesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[10]
+	mi := &file_routing_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -787,7 +787,7 @@ func (x *ListRoutesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoutesRequest.ProtoReflect.Descriptor instead.
 func (*ListRoutesRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{10}
+	return file_routing_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListRoutesRequest) GetActiveOnly() bool {
@@ -822,7 +822,7 @@ type ListRoutesResponse struct {
 
 func (x *ListRoutesResponse) Reset() {
 	*x = ListRoutesResponse{}
-	mi := &file_routing_routing_proto_msgTypes[11]
+	mi := &file_routing_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -834,7 +834,7 @@ func (x *ListRoutesResponse) String() string {
 func (*ListRoutesResponse) ProtoMessage() {}
 
 func (x *ListRoutesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[11]
+	mi := &file_routing_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -847,7 +847,7 @@ func (x *ListRoutesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoutesResponse.ProtoReflect.Descriptor instead.
 func (*ListRoutesResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{11}
+	return file_routing_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListRoutesResponse) GetRoutes() []*RouteInfo {
@@ -884,7 +884,7 @@ type RouteInfo struct {
 
 func (x *RouteInfo) Reset() {
 	*x = RouteInfo{}
-	mi := &file_routing_routing_proto_msgTypes[12]
+	mi := &file_routing_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +896,7 @@ func (x *RouteInfo) String() string {
 func (*RouteInfo) ProtoMessage() {}
 
 func (x *RouteInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[12]
+	mi := &file_routing_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -909,7 +909,7 @@ func (x *RouteInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteInfo.ProtoReflect.Descriptor instead.
 func (*RouteInfo) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{12}
+	return file_routing_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RouteInfo) GetRouteId() string {
@@ -1005,7 +1005,7 @@ type Country struct {
 
 func (x *Country) Reset() {
 	*x = Country{}
-	mi := &file_routing_routing_proto_msgTypes[13]
+	mi := &file_routing_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1017,7 +1017,7 @@ func (x *Country) String() string {
 func (*Country) ProtoMessage() {}
 
 func (x *Country) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[13]
+	mi := &file_routing_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1030,7 +1030,7 @@ func (x *Country) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Country.ProtoReflect.Descriptor instead.
 func (*Country) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{13}
+	return file_routing_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Country) GetId() string {
@@ -1095,7 +1095,7 @@ type CreateCountryRequest struct {
 
 func (x *CreateCountryRequest) Reset() {
 	*x = CreateCountryRequest{}
-	mi := &file_routing_routing_proto_msgTypes[14]
+	mi := &file_routing_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1107,7 @@ func (x *CreateCountryRequest) String() string {
 func (*CreateCountryRequest) ProtoMessage() {}
 
 func (x *CreateCountryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[14]
+	mi := &file_routing_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1120,7 +1120,7 @@ func (x *CreateCountryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCountryRequest.ProtoReflect.Descriptor instead.
 func (*CreateCountryRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{14}
+	return file_routing_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CreateCountryRequest) GetName() string {
@@ -1161,7 +1161,7 @@ type GetCountryRequest struct {
 
 func (x *GetCountryRequest) Reset() {
 	*x = GetCountryRequest{}
-	mi := &file_routing_routing_proto_msgTypes[15]
+	mi := &file_routing_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1173,7 +1173,7 @@ func (x *GetCountryRequest) String() string {
 func (*GetCountryRequest) ProtoMessage() {}
 
 func (x *GetCountryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[15]
+	mi := &file_routing_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1186,7 +1186,7 @@ func (x *GetCountryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCountryRequest.ProtoReflect.Descriptor instead.
 func (*GetCountryRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{15}
+	return file_routing_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetCountryRequest) GetId() string {
@@ -1207,7 +1207,7 @@ type ListCountriesRequest struct {
 
 func (x *ListCountriesRequest) Reset() {
 	*x = ListCountriesRequest{}
-	mi := &file_routing_routing_proto_msgTypes[16]
+	mi := &file_routing_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1219,7 +1219,7 @@ func (x *ListCountriesRequest) String() string {
 func (*ListCountriesRequest) ProtoMessage() {}
 
 func (x *ListCountriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[16]
+	mi := &file_routing_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1232,7 +1232,7 @@ func (x *ListCountriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCountriesRequest.ProtoReflect.Descriptor instead.
 func (*ListCountriesRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{16}
+	return file_routing_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListCountriesRequest) GetLimit() int32 {
@@ -1260,7 +1260,7 @@ type ListCountriesResponse struct {
 
 func (x *ListCountriesResponse) Reset() {
 	*x = ListCountriesResponse{}
-	mi := &file_routing_routing_proto_msgTypes[17]
+	mi := &file_routing_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1272,7 +1272,7 @@ func (x *ListCountriesResponse) String() string {
 func (*ListCountriesResponse) ProtoMessage() {}
 
 func (x *ListCountriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[17]
+	mi := &file_routing_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1285,7 +1285,7 @@ func (x *ListCountriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCountriesResponse.ProtoReflect.Descriptor instead.
 func (*ListCountriesResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{17}
+	return file_routing_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListCountriesResponse) GetCountries() []*Country {
@@ -1316,7 +1316,7 @@ type UpdateCountryRequest struct {
 
 func (x *UpdateCountryRequest) Reset() {
 	*x = UpdateCountryRequest{}
-	mi := &file_routing_routing_proto_msgTypes[18]
+	mi := &file_routing_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1328,7 +1328,7 @@ func (x *UpdateCountryRequest) String() string {
 func (*UpdateCountryRequest) ProtoMessage() {}
 
 func (x *UpdateCountryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[18]
+	mi := &file_routing_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1341,7 +1341,7 @@ func (x *UpdateCountryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCountryRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCountryRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{18}
+	return file_routing_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UpdateCountryRequest) GetId() string {
@@ -1381,23 +1381,24 @@ func (x *UpdateCountryRequest) GetCurrency() string {
 
 // Operator представляет мобильного оператора
 type Operator struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                              // ID оператора
-	CountryId          string                 `protobuf:"bytes,2,opt,name=country_id,json=countryId,proto3" json:"country_id,omitempty"`                               // ID страны
-	Name               string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                                          // Название оператора
-	Code               string                 `protobuf:"bytes,4,opt,name=code,proto3" json:"code,omitempty"`                                                          // Код оператора
-	SupportsPaidSender bool                   `protobuf:"varint,5,opt,name=supports_paid_sender,json=supportsPaidSender,proto3" json:"supports_paid_sender,omitempty"` // Поддержка платного отправителя
-	SupportsFreeSender bool                   `protobuf:"varint,6,opt,name=supports_free_sender,json=supportsFreeSender,proto3" json:"supports_free_sender,omitempty"` // Поддержка бесплатного отправителя
-	Active             bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`                                                     // Активен ли оператор
-	CreatedAt          *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                               // Время создания
-	UpdatedAt          *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                               // Время обновления
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                                 // ID оператора
+	CountryId           string                 `protobuf:"bytes,2,opt,name=country_id,json=countryId,proto3" json:"country_id,omitempty"`                                  // ID страны
+	Name                string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                                             // Название оператора
+	Code                string                 `protobuf:"bytes,4,opt,name=code,proto3" json:"code,omitempty"`                                                             // Код оператора
+	SupportsPaidSender  bool                   `protobuf:"varint,5,opt,name=supports_paid_sender,json=supportsPaidSender,proto3" json:"supports_paid_sender,omitempty"`    // Поддержка платного отправителя
+	SupportsFreeSender  bool                   `protobuf:"varint,6,opt,name=supports_free_sender,json=supportsFreeSender,proto3" json:"supports_free_sender,omitempty"`    // Поддержка бесплатного отправителя
+	Active              bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`                                                        // Активен ли оператор
+	CreatedAt           *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                  // Время создания
+	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                  // Время обновления
+	MonthlyTariffAmount string                 `protobuf:"bytes,10,opt,name=monthly_tariff_amount,json=monthlyTariffAmount,proto3" json:"monthly_tariff_amount,omitempty"` // Ежемесячный тариф в RUB; пустая строка = не задан (free-only)
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Operator) Reset() {
 	*x = Operator{}
-	mi := &file_routing_routing_proto_msgTypes[19]
+	mi := &file_routing_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1409,7 +1410,7 @@ func (x *Operator) String() string {
 func (*Operator) ProtoMessage() {}
 
 func (x *Operator) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[19]
+	mi := &file_routing_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1422,7 +1423,7 @@ func (x *Operator) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operator.ProtoReflect.Descriptor instead.
 func (*Operator) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{19}
+	return file_routing_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Operator) GetId() string {
@@ -1488,21 +1489,29 @@ func (x *Operator) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Operator) GetMonthlyTariffAmount() string {
+	if x != nil {
+		return x.MonthlyTariffAmount
+	}
+	return ""
+}
+
 // CreateOperatorRequest представляет запрос на создание оператора
 type CreateOperatorRequest struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	CountryId          string                 `protobuf:"bytes,1,opt,name=country_id,json=countryId,proto3" json:"country_id,omitempty"`                               // ID страны
-	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                          // Название оператора
-	Code               string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`                                                          // Код оператора
-	SupportsPaidSender bool                   `protobuf:"varint,4,opt,name=supports_paid_sender,json=supportsPaidSender,proto3" json:"supports_paid_sender,omitempty"` // Поддержка платного отправителя
-	SupportsFreeSender bool                   `protobuf:"varint,5,opt,name=supports_free_sender,json=supportsFreeSender,proto3" json:"supports_free_sender,omitempty"` // Поддержка бесплатного отправителя
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	CountryId           string                 `protobuf:"bytes,1,opt,name=country_id,json=countryId,proto3" json:"country_id,omitempty"`                                 // ID страны
+	Name                string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                            // Название оператора
+	Code                string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`                                                            // Код оператора
+	SupportsPaidSender  bool                   `protobuf:"varint,4,opt,name=supports_paid_sender,json=supportsPaidSender,proto3" json:"supports_paid_sender,omitempty"`   // Поддержка платного отправителя
+	SupportsFreeSender  bool                   `protobuf:"varint,5,opt,name=supports_free_sender,json=supportsFreeSender,proto3" json:"supports_free_sender,omitempty"`   // Поддержка бесплатного отправителя
+	MonthlyTariffAmount string                 `protobuf:"bytes,6,opt,name=monthly_tariff_amount,json=monthlyTariffAmount,proto3" json:"monthly_tariff_amount,omitempty"` // Ежемесячный тариф в RUB; "" или "0" = не задан
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *CreateOperatorRequest) Reset() {
 	*x = CreateOperatorRequest{}
-	mi := &file_routing_routing_proto_msgTypes[20]
+	mi := &file_routing_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1523,7 @@ func (x *CreateOperatorRequest) String() string {
 func (*CreateOperatorRequest) ProtoMessage() {}
 
 func (x *CreateOperatorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[20]
+	mi := &file_routing_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1527,7 +1536,7 @@ func (x *CreateOperatorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOperatorRequest.ProtoReflect.Descriptor instead.
 func (*CreateOperatorRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{20}
+	return file_routing_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateOperatorRequest) GetCountryId() string {
@@ -1565,6 +1574,13 @@ func (x *CreateOperatorRequest) GetSupportsFreeSender() bool {
 	return false
 }
 
+func (x *CreateOperatorRequest) GetMonthlyTariffAmount() string {
+	if x != nil {
+		return x.MonthlyTariffAmount
+	}
+	return ""
+}
+
 // GetOperatorRequest представляет запрос на получение оператора
 type GetOperatorRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1575,7 +1591,7 @@ type GetOperatorRequest struct {
 
 func (x *GetOperatorRequest) Reset() {
 	*x = GetOperatorRequest{}
-	mi := &file_routing_routing_proto_msgTypes[21]
+	mi := &file_routing_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1587,7 +1603,7 @@ func (x *GetOperatorRequest) String() string {
 func (*GetOperatorRequest) ProtoMessage() {}
 
 func (x *GetOperatorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[21]
+	mi := &file_routing_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1616,7 @@ func (x *GetOperatorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOperatorRequest.ProtoReflect.Descriptor instead.
 func (*GetOperatorRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{21}
+	return file_routing_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetOperatorRequest) GetId() string {
@@ -1623,7 +1639,7 @@ type ListOperatorsRequest struct {
 
 func (x *ListOperatorsRequest) Reset() {
 	*x = ListOperatorsRequest{}
-	mi := &file_routing_routing_proto_msgTypes[22]
+	mi := &file_routing_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1635,7 +1651,7 @@ func (x *ListOperatorsRequest) String() string {
 func (*ListOperatorsRequest) ProtoMessage() {}
 
 func (x *ListOperatorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[22]
+	mi := &file_routing_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1648,7 +1664,7 @@ func (x *ListOperatorsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperatorsRequest.ProtoReflect.Descriptor instead.
 func (*ListOperatorsRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{22}
+	return file_routing_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListOperatorsRequest) GetCountryId() string {
@@ -1690,7 +1706,7 @@ type ListOperatorsResponse struct {
 
 func (x *ListOperatorsResponse) Reset() {
 	*x = ListOperatorsResponse{}
-	mi := &file_routing_routing_proto_msgTypes[23]
+	mi := &file_routing_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1702,7 +1718,7 @@ func (x *ListOperatorsResponse) String() string {
 func (*ListOperatorsResponse) ProtoMessage() {}
 
 func (x *ListOperatorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[23]
+	mi := &file_routing_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1715,7 +1731,7 @@ func (x *ListOperatorsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperatorsResponse.ProtoReflect.Descriptor instead.
 func (*ListOperatorsResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{23}
+	return file_routing_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListOperatorsResponse) GetOperators() []*Operator {
@@ -1734,20 +1750,21 @@ func (x *ListOperatorsResponse) GetTotal() int32 {
 
 // UpdateOperatorRequest представляет запрос на обновление оператора
 type UpdateOperatorRequest struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                              // ID оператора
-	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                          // Название оператора
-	Code               string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`                                                          // Код оператора
-	SupportsPaidSender bool                   `protobuf:"varint,4,opt,name=supports_paid_sender,json=supportsPaidSender,proto3" json:"supports_paid_sender,omitempty"` // Поддержка платного отправителя
-	SupportsFreeSender bool                   `protobuf:"varint,5,opt,name=supports_free_sender,json=supportsFreeSender,proto3" json:"supports_free_sender,omitempty"` // Поддержка бесплатного отправителя
-	Active             bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                     // Активен ли оператор
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                                // ID оператора
+	Name                string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                            // Название оператора
+	Code                string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`                                                            // Код оператора
+	SupportsPaidSender  bool                   `protobuf:"varint,4,opt,name=supports_paid_sender,json=supportsPaidSender,proto3" json:"supports_paid_sender,omitempty"`   // Поддержка платного отправителя
+	SupportsFreeSender  bool                   `protobuf:"varint,5,opt,name=supports_free_sender,json=supportsFreeSender,proto3" json:"supports_free_sender,omitempty"`   // Поддержка бесплатного отправителя
+	Active              bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                       // Активен ли оператор
+	MonthlyTariffAmount string                 `protobuf:"bytes,7,opt,name=monthly_tariff_amount,json=monthlyTariffAmount,proto3" json:"monthly_tariff_amount,omitempty"` // Ежемесячный тариф в RUB; "" или "0" = сбросить
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *UpdateOperatorRequest) Reset() {
 	*x = UpdateOperatorRequest{}
-	mi := &file_routing_routing_proto_msgTypes[24]
+	mi := &file_routing_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1759,7 +1776,7 @@ func (x *UpdateOperatorRequest) String() string {
 func (*UpdateOperatorRequest) ProtoMessage() {}
 
 func (x *UpdateOperatorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[24]
+	mi := &file_routing_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1772,7 +1789,7 @@ func (x *UpdateOperatorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOperatorRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOperatorRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{24}
+	return file_routing_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UpdateOperatorRequest) GetId() string {
@@ -1817,6 +1834,13 @@ func (x *UpdateOperatorRequest) GetActive() bool {
 	return false
 }
 
+func (x *UpdateOperatorRequest) GetMonthlyTariffAmount() string {
+	if x != nil {
+		return x.MonthlyTariffAmount
+	}
+	return ""
+}
+
 // OperatorPrefix представляет префикс номера оператора
 type OperatorPrefix struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1831,7 +1855,7 @@ type OperatorPrefix struct {
 
 func (x *OperatorPrefix) Reset() {
 	*x = OperatorPrefix{}
-	mi := &file_routing_routing_proto_msgTypes[25]
+	mi := &file_routing_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1843,7 +1867,7 @@ func (x *OperatorPrefix) String() string {
 func (*OperatorPrefix) ProtoMessage() {}
 
 func (x *OperatorPrefix) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[25]
+	mi := &file_routing_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1856,7 +1880,7 @@ func (x *OperatorPrefix) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OperatorPrefix.ProtoReflect.Descriptor instead.
 func (*OperatorPrefix) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{25}
+	return file_routing_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *OperatorPrefix) GetId() string {
@@ -1906,7 +1930,7 @@ type CreateOperatorPrefixRequest struct {
 
 func (x *CreateOperatorPrefixRequest) Reset() {
 	*x = CreateOperatorPrefixRequest{}
-	mi := &file_routing_routing_proto_msgTypes[26]
+	mi := &file_routing_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1918,7 +1942,7 @@ func (x *CreateOperatorPrefixRequest) String() string {
 func (*CreateOperatorPrefixRequest) ProtoMessage() {}
 
 func (x *CreateOperatorPrefixRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[26]
+	mi := &file_routing_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1931,7 +1955,7 @@ func (x *CreateOperatorPrefixRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOperatorPrefixRequest.ProtoReflect.Descriptor instead.
 func (*CreateOperatorPrefixRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{26}
+	return file_routing_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CreateOperatorPrefixRequest) GetOperatorId() string {
@@ -1965,7 +1989,7 @@ type ListOperatorPrefixesRequest struct {
 
 func (x *ListOperatorPrefixesRequest) Reset() {
 	*x = ListOperatorPrefixesRequest{}
-	mi := &file_routing_routing_proto_msgTypes[27]
+	mi := &file_routing_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1977,7 +2001,7 @@ func (x *ListOperatorPrefixesRequest) String() string {
 func (*ListOperatorPrefixesRequest) ProtoMessage() {}
 
 func (x *ListOperatorPrefixesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[27]
+	mi := &file_routing_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1990,7 +2014,7 @@ func (x *ListOperatorPrefixesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperatorPrefixesRequest.ProtoReflect.Descriptor instead.
 func (*ListOperatorPrefixesRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{27}
+	return file_routing_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListOperatorPrefixesRequest) GetOperatorId() string {
@@ -2010,7 +2034,7 @@ type ListOperatorPrefixesResponse struct {
 
 func (x *ListOperatorPrefixesResponse) Reset() {
 	*x = ListOperatorPrefixesResponse{}
-	mi := &file_routing_routing_proto_msgTypes[28]
+	mi := &file_routing_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2022,7 +2046,7 @@ func (x *ListOperatorPrefixesResponse) String() string {
 func (*ListOperatorPrefixesResponse) ProtoMessage() {}
 
 func (x *ListOperatorPrefixesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[28]
+	mi := &file_routing_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2035,7 +2059,7 @@ func (x *ListOperatorPrefixesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperatorPrefixesResponse.ProtoReflect.Descriptor instead.
 func (*ListOperatorPrefixesResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{28}
+	return file_routing_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListOperatorPrefixesResponse) GetPrefixes() []*OperatorPrefix {
@@ -2055,7 +2079,7 @@ type DeleteOperatorPrefixRequest struct {
 
 func (x *DeleteOperatorPrefixRequest) Reset() {
 	*x = DeleteOperatorPrefixRequest{}
-	mi := &file_routing_routing_proto_msgTypes[29]
+	mi := &file_routing_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2067,7 +2091,7 @@ func (x *DeleteOperatorPrefixRequest) String() string {
 func (*DeleteOperatorPrefixRequest) ProtoMessage() {}
 
 func (x *DeleteOperatorPrefixRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[29]
+	mi := &file_routing_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2080,7 +2104,7 @@ func (x *DeleteOperatorPrefixRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOperatorPrefixRequest.ProtoReflect.Descriptor instead.
 func (*DeleteOperatorPrefixRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{29}
+	return file_routing_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DeleteOperatorPrefixRequest) GetId() string {
@@ -2100,7 +2124,7 @@ type DeleteOperatorPrefixResponse struct {
 
 func (x *DeleteOperatorPrefixResponse) Reset() {
 	*x = DeleteOperatorPrefixResponse{}
-	mi := &file_routing_routing_proto_msgTypes[30]
+	mi := &file_routing_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2112,7 +2136,7 @@ func (x *DeleteOperatorPrefixResponse) String() string {
 func (*DeleteOperatorPrefixResponse) ProtoMessage() {}
 
 func (x *DeleteOperatorPrefixResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[30]
+	mi := &file_routing_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2125,7 +2149,7 @@ func (x *DeleteOperatorPrefixResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOperatorPrefixResponse.ProtoReflect.Descriptor instead.
 func (*DeleteOperatorPrefixResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{30}
+	return file_routing_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DeleteOperatorPrefixResponse) GetSuccess() bool {
@@ -2146,7 +2170,7 @@ type ResolveOperatorRequest struct {
 
 func (x *ResolveOperatorRequest) Reset() {
 	*x = ResolveOperatorRequest{}
-	mi := &file_routing_routing_proto_msgTypes[31]
+	mi := &file_routing_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2158,7 +2182,7 @@ func (x *ResolveOperatorRequest) String() string {
 func (*ResolveOperatorRequest) ProtoMessage() {}
 
 func (x *ResolveOperatorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[31]
+	mi := &file_routing_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2171,7 +2195,7 @@ func (x *ResolveOperatorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveOperatorRequest.ProtoReflect.Descriptor instead.
 func (*ResolveOperatorRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{31}
+	return file_routing_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ResolveOperatorRequest) GetPhoneNumber() string {
@@ -2203,7 +2227,7 @@ type ResolveOperatorResponse struct {
 
 func (x *ResolveOperatorResponse) Reset() {
 	*x = ResolveOperatorResponse{}
-	mi := &file_routing_routing_proto_msgTypes[32]
+	mi := &file_routing_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2215,7 +2239,7 @@ func (x *ResolveOperatorResponse) String() string {
 func (*ResolveOperatorResponse) ProtoMessage() {}
 
 func (x *ResolveOperatorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[32]
+	mi := &file_routing_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2228,7 +2252,7 @@ func (x *ResolveOperatorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveOperatorResponse.ProtoReflect.Descriptor instead.
 func (*ResolveOperatorResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{32}
+	return file_routing_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ResolveOperatorResponse) GetOperatorId() string {
@@ -2286,7 +2310,7 @@ type NumberLookupRequest struct {
 
 func (x *NumberLookupRequest) Reset() {
 	*x = NumberLookupRequest{}
-	mi := &file_routing_routing_proto_msgTypes[33]
+	mi := &file_routing_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2298,7 +2322,7 @@ func (x *NumberLookupRequest) String() string {
 func (*NumberLookupRequest) ProtoMessage() {}
 
 func (x *NumberLookupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[33]
+	mi := &file_routing_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2311,7 +2335,7 @@ func (x *NumberLookupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NumberLookupRequest.ProtoReflect.Descriptor instead.
 func (*NumberLookupRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{33}
+	return file_routing_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *NumberLookupRequest) GetMsisdn() string {
@@ -2361,7 +2385,7 @@ type NumberLookupResponse struct {
 
 func (x *NumberLookupResponse) Reset() {
 	*x = NumberLookupResponse{}
-	mi := &file_routing_routing_proto_msgTypes[34]
+	mi := &file_routing_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2373,7 +2397,7 @@ func (x *NumberLookupResponse) String() string {
 func (*NumberLookupResponse) ProtoMessage() {}
 
 func (x *NumberLookupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[34]
+	mi := &file_routing_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2386,7 +2410,7 @@ func (x *NumberLookupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NumberLookupResponse.ProtoReflect.Descriptor instead.
 func (*NumberLookupResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{34}
+	return file_routing_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *NumberLookupResponse) GetMsisdn() string {
@@ -2472,7 +2496,7 @@ type BulkNumberLookupRequest struct {
 
 func (x *BulkNumberLookupRequest) Reset() {
 	*x = BulkNumberLookupRequest{}
-	mi := &file_routing_routing_proto_msgTypes[35]
+	mi := &file_routing_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2484,7 +2508,7 @@ func (x *BulkNumberLookupRequest) String() string {
 func (*BulkNumberLookupRequest) ProtoMessage() {}
 
 func (x *BulkNumberLookupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[35]
+	mi := &file_routing_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2497,7 +2521,7 @@ func (x *BulkNumberLookupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkNumberLookupRequest.ProtoReflect.Descriptor instead.
 func (*BulkNumberLookupRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{35}
+	return file_routing_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *BulkNumberLookupRequest) GetMsisdns() []string {
@@ -2541,7 +2565,7 @@ type BulkNumberLookupResponse struct {
 
 func (x *BulkNumberLookupResponse) Reset() {
 	*x = BulkNumberLookupResponse{}
-	mi := &file_routing_routing_proto_msgTypes[36]
+	mi := &file_routing_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2553,7 +2577,7 @@ func (x *BulkNumberLookupResponse) String() string {
 func (*BulkNumberLookupResponse) ProtoMessage() {}
 
 func (x *BulkNumberLookupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[36]
+	mi := &file_routing_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2566,7 +2590,7 @@ func (x *BulkNumberLookupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkNumberLookupResponse.ProtoReflect.Descriptor instead.
 func (*BulkNumberLookupResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{36}
+	return file_routing_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *BulkNumberLookupResponse) GetResults() []*NumberLookupResponse {
@@ -2620,7 +2644,7 @@ type HLRProviderProto struct {
 
 func (x *HLRProviderProto) Reset() {
 	*x = HLRProviderProto{}
-	mi := &file_routing_routing_proto_msgTypes[37]
+	mi := &file_routing_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2632,7 +2656,7 @@ func (x *HLRProviderProto) String() string {
 func (*HLRProviderProto) ProtoMessage() {}
 
 func (x *HLRProviderProto) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[37]
+	mi := &file_routing_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2645,7 +2669,7 @@ func (x *HLRProviderProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HLRProviderProto.ProtoReflect.Descriptor instead.
 func (*HLRProviderProto) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{37}
+	return file_routing_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *HLRProviderProto) GetId() string {
@@ -2761,7 +2785,7 @@ type CreateHLRProviderRequest struct {
 
 func (x *CreateHLRProviderRequest) Reset() {
 	*x = CreateHLRProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[38]
+	mi := &file_routing_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2773,7 +2797,7 @@ func (x *CreateHLRProviderRequest) String() string {
 func (*CreateHLRProviderRequest) ProtoMessage() {}
 
 func (x *CreateHLRProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[38]
+	mi := &file_routing_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2786,7 +2810,7 @@ func (x *CreateHLRProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateHLRProviderRequest.ProtoReflect.Descriptor instead.
 func (*CreateHLRProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{38}
+	return file_routing_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CreateHLRProviderRequest) GetName() string {
@@ -2848,7 +2872,7 @@ type UpdateHLRProviderRequest struct {
 
 func (x *UpdateHLRProviderRequest) Reset() {
 	*x = UpdateHLRProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[39]
+	mi := &file_routing_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2860,7 +2884,7 @@ func (x *UpdateHLRProviderRequest) String() string {
 func (*UpdateHLRProviderRequest) ProtoMessage() {}
 
 func (x *UpdateHLRProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[39]
+	mi := &file_routing_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2873,7 +2897,7 @@ func (x *UpdateHLRProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateHLRProviderRequest.ProtoReflect.Descriptor instead.
 func (*UpdateHLRProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{39}
+	return file_routing_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *UpdateHLRProviderRequest) GetId() string {
@@ -2942,7 +2966,7 @@ type DeleteHLRProviderRequest struct {
 
 func (x *DeleteHLRProviderRequest) Reset() {
 	*x = DeleteHLRProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[40]
+	mi := &file_routing_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2954,7 +2978,7 @@ func (x *DeleteHLRProviderRequest) String() string {
 func (*DeleteHLRProviderRequest) ProtoMessage() {}
 
 func (x *DeleteHLRProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[40]
+	mi := &file_routing_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2967,7 +2991,7 @@ func (x *DeleteHLRProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteHLRProviderRequest.ProtoReflect.Descriptor instead.
 func (*DeleteHLRProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{40}
+	return file_routing_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeleteHLRProviderRequest) GetId() string {
@@ -2987,7 +3011,7 @@ type GetHLRProviderRequest struct {
 
 func (x *GetHLRProviderRequest) Reset() {
 	*x = GetHLRProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[41]
+	mi := &file_routing_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2999,7 +3023,7 @@ func (x *GetHLRProviderRequest) String() string {
 func (*GetHLRProviderRequest) ProtoMessage() {}
 
 func (x *GetHLRProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[41]
+	mi := &file_routing_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3012,7 +3036,7 @@ func (x *GetHLRProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHLRProviderRequest.ProtoReflect.Descriptor instead.
 func (*GetHLRProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{41}
+	return file_routing_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetHLRProviderRequest) GetId() string {
@@ -3032,7 +3056,7 @@ type ListHLRProvidersRequest struct {
 
 func (x *ListHLRProvidersRequest) Reset() {
 	*x = ListHLRProvidersRequest{}
-	mi := &file_routing_routing_proto_msgTypes[42]
+	mi := &file_routing_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3044,7 +3068,7 @@ func (x *ListHLRProvidersRequest) String() string {
 func (*ListHLRProvidersRequest) ProtoMessage() {}
 
 func (x *ListHLRProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[42]
+	mi := &file_routing_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3057,7 +3081,7 @@ func (x *ListHLRProvidersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHLRProvidersRequest.ProtoReflect.Descriptor instead.
 func (*ListHLRProvidersRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{42}
+	return file_routing_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListHLRProvidersRequest) GetActiveOnly() bool {
@@ -3077,7 +3101,7 @@ type ListHLRProvidersResponse struct {
 
 func (x *ListHLRProvidersResponse) Reset() {
 	*x = ListHLRProvidersResponse{}
-	mi := &file_routing_routing_proto_msgTypes[43]
+	mi := &file_routing_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3089,7 +3113,7 @@ func (x *ListHLRProvidersResponse) String() string {
 func (*ListHLRProvidersResponse) ProtoMessage() {}
 
 func (x *ListHLRProvidersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[43]
+	mi := &file_routing_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3102,7 +3126,7 @@ func (x *ListHLRProvidersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHLRProvidersResponse.ProtoReflect.Descriptor instead.
 func (*ListHLRProvidersResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{43}
+	return file_routing_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListHLRProvidersResponse) GetProviders() []*HLRProviderProto {
@@ -3129,7 +3153,7 @@ type SmartRouteWeightProto struct {
 
 func (x *SmartRouteWeightProto) Reset() {
 	*x = SmartRouteWeightProto{}
-	mi := &file_routing_routing_proto_msgTypes[44]
+	mi := &file_routing_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3141,7 +3165,7 @@ func (x *SmartRouteWeightProto) String() string {
 func (*SmartRouteWeightProto) ProtoMessage() {}
 
 func (x *SmartRouteWeightProto) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[44]
+	mi := &file_routing_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3154,7 +3178,7 @@ func (x *SmartRouteWeightProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SmartRouteWeightProto.ProtoReflect.Descriptor instead.
 func (*SmartRouteWeightProto) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{44}
+	return file_routing_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *SmartRouteWeightProto) GetId() string {
@@ -3226,7 +3250,7 @@ type SetSmartRouteWeightsRequest struct {
 
 func (x *SetSmartRouteWeightsRequest) Reset() {
 	*x = SetSmartRouteWeightsRequest{}
-	mi := &file_routing_routing_proto_msgTypes[45]
+	mi := &file_routing_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3238,7 +3262,7 @@ func (x *SetSmartRouteWeightsRequest) String() string {
 func (*SetSmartRouteWeightsRequest) ProtoMessage() {}
 
 func (x *SetSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[45]
+	mi := &file_routing_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3251,7 +3275,7 @@ func (x *SetSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSmartRouteWeightsRequest.ProtoReflect.Descriptor instead.
 func (*SetSmartRouteWeightsRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{45}
+	return file_routing_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *SetSmartRouteWeightsRequest) GetOperatorCode() string {
@@ -3293,7 +3317,7 @@ type GetSmartRouteWeightsRequest struct {
 
 func (x *GetSmartRouteWeightsRequest) Reset() {
 	*x = GetSmartRouteWeightsRequest{}
-	mi := &file_routing_routing_proto_msgTypes[46]
+	mi := &file_routing_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3305,7 +3329,7 @@ func (x *GetSmartRouteWeightsRequest) String() string {
 func (*GetSmartRouteWeightsRequest) ProtoMessage() {}
 
 func (x *GetSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[46]
+	mi := &file_routing_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3318,7 +3342,7 @@ func (x *GetSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSmartRouteWeightsRequest.ProtoReflect.Descriptor instead.
 func (*GetSmartRouteWeightsRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{46}
+	return file_routing_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetSmartRouteWeightsRequest) GetOperatorCode() string {
@@ -3345,7 +3369,7 @@ type ListSmartRouteWeightsRequest struct {
 
 func (x *ListSmartRouteWeightsRequest) Reset() {
 	*x = ListSmartRouteWeightsRequest{}
-	mi := &file_routing_routing_proto_msgTypes[47]
+	mi := &file_routing_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3357,7 +3381,7 @@ func (x *ListSmartRouteWeightsRequest) String() string {
 func (*ListSmartRouteWeightsRequest) ProtoMessage() {}
 
 func (x *ListSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[47]
+	mi := &file_routing_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3370,7 +3394,7 @@ func (x *ListSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSmartRouteWeightsRequest.ProtoReflect.Descriptor instead.
 func (*ListSmartRouteWeightsRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{47}
+	return file_routing_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListSmartRouteWeightsRequest) GetCountryCode() string {
@@ -3390,7 +3414,7 @@ type ListSmartRouteWeightsResponse struct {
 
 func (x *ListSmartRouteWeightsResponse) Reset() {
 	*x = ListSmartRouteWeightsResponse{}
-	mi := &file_routing_routing_proto_msgTypes[48]
+	mi := &file_routing_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3402,7 +3426,7 @@ func (x *ListSmartRouteWeightsResponse) String() string {
 func (*ListSmartRouteWeightsResponse) ProtoMessage() {}
 
 func (x *ListSmartRouteWeightsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[48]
+	mi := &file_routing_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3415,7 +3439,7 @@ func (x *ListSmartRouteWeightsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSmartRouteWeightsResponse.ProtoReflect.Descriptor instead.
 func (*ListSmartRouteWeightsResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{48}
+	return file_routing_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ListSmartRouteWeightsResponse) GetWeights() []*SmartRouteWeightProto {
@@ -3435,7 +3459,7 @@ type DeleteSmartRouteWeightsRequest struct {
 
 func (x *DeleteSmartRouteWeightsRequest) Reset() {
 	*x = DeleteSmartRouteWeightsRequest{}
-	mi := &file_routing_routing_proto_msgTypes[49]
+	mi := &file_routing_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3447,7 +3471,7 @@ func (x *DeleteSmartRouteWeightsRequest) String() string {
 func (*DeleteSmartRouteWeightsRequest) ProtoMessage() {}
 
 func (x *DeleteSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[49]
+	mi := &file_routing_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3460,7 +3484,7 @@ func (x *DeleteSmartRouteWeightsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSmartRouteWeightsRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSmartRouteWeightsRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{49}
+	return file_routing_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *DeleteSmartRouteWeightsRequest) GetId() string {
@@ -3494,7 +3518,7 @@ type LookupLogEntry struct {
 
 func (x *LookupLogEntry) Reset() {
 	*x = LookupLogEntry{}
-	mi := &file_routing_routing_proto_msgTypes[50]
+	mi := &file_routing_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3506,7 +3530,7 @@ func (x *LookupLogEntry) String() string {
 func (*LookupLogEntry) ProtoMessage() {}
 
 func (x *LookupLogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[50]
+	mi := &file_routing_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3519,7 +3543,7 @@ func (x *LookupLogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupLogEntry.ProtoReflect.Descriptor instead.
 func (*LookupLogEntry) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{50}
+	return file_routing_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *LookupLogEntry) GetId() string {
@@ -3643,7 +3667,7 @@ type GetLookupHistoryRequest struct {
 
 func (x *GetLookupHistoryRequest) Reset() {
 	*x = GetLookupHistoryRequest{}
-	mi := &file_routing_routing_proto_msgTypes[51]
+	mi := &file_routing_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3655,7 +3679,7 @@ func (x *GetLookupHistoryRequest) String() string {
 func (*GetLookupHistoryRequest) ProtoMessage() {}
 
 func (x *GetLookupHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[51]
+	mi := &file_routing_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3668,7 +3692,7 @@ func (x *GetLookupHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLookupHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetLookupHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{51}
+	return file_routing_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *GetLookupHistoryRequest) GetClientId() string {
@@ -3733,7 +3757,7 @@ type GetLookupHistoryResponse struct {
 
 func (x *GetLookupHistoryResponse) Reset() {
 	*x = GetLookupHistoryResponse{}
-	mi := &file_routing_routing_proto_msgTypes[52]
+	mi := &file_routing_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3745,7 +3769,7 @@ func (x *GetLookupHistoryResponse) String() string {
 func (*GetLookupHistoryResponse) ProtoMessage() {}
 
 func (x *GetLookupHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[52]
+	mi := &file_routing_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3758,7 +3782,7 @@ func (x *GetLookupHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLookupHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetLookupHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{52}
+	return file_routing_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *GetLookupHistoryResponse) GetItems() []*LookupLogEntry {
@@ -3803,7 +3827,7 @@ type RouteMessageWithHLRRequest struct {
 
 func (x *RouteMessageWithHLRRequest) Reset() {
 	*x = RouteMessageWithHLRRequest{}
-	mi := &file_routing_routing_proto_msgTypes[53]
+	mi := &file_routing_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3815,7 +3839,7 @@ func (x *RouteMessageWithHLRRequest) String() string {
 func (*RouteMessageWithHLRRequest) ProtoMessage() {}
 
 func (x *RouteMessageWithHLRRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[53]
+	mi := &file_routing_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3828,7 +3852,7 @@ func (x *RouteMessageWithHLRRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteMessageWithHLRRequest.ProtoReflect.Descriptor instead.
 func (*RouteMessageWithHLRRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{53}
+	return file_routing_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *RouteMessageWithHLRRequest) GetMessageId() string {
@@ -3880,7 +3904,7 @@ type RouteMessageWithHLRResponse struct {
 
 func (x *RouteMessageWithHLRResponse) Reset() {
 	*x = RouteMessageWithHLRResponse{}
-	mi := &file_routing_routing_proto_msgTypes[54]
+	mi := &file_routing_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3892,7 +3916,7 @@ func (x *RouteMessageWithHLRResponse) String() string {
 func (*RouteMessageWithHLRResponse) ProtoMessage() {}
 
 func (x *RouteMessageWithHLRResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[54]
+	mi := &file_routing_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3905,7 +3929,7 @@ func (x *RouteMessageWithHLRResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteMessageWithHLRResponse.ProtoReflect.Descriptor instead.
 func (*RouteMessageWithHLRResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{54}
+	return file_routing_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *RouteMessageWithHLRResponse) GetRouteId() string {
@@ -3962,7 +3986,7 @@ type ClientProviderProto struct {
 
 func (x *ClientProviderProto) Reset() {
 	*x = ClientProviderProto{}
-	mi := &file_routing_routing_proto_msgTypes[55]
+	mi := &file_routing_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3974,7 +3998,7 @@ func (x *ClientProviderProto) String() string {
 func (*ClientProviderProto) ProtoMessage() {}
 
 func (x *ClientProviderProto) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[55]
+	mi := &file_routing_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3987,7 +4011,7 @@ func (x *ClientProviderProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientProviderProto.ProtoReflect.Descriptor instead.
 func (*ClientProviderProto) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{55}
+	return file_routing_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ClientProviderProto) GetId() string {
@@ -4079,7 +4103,7 @@ type AssignProviderRequest struct {
 
 func (x *AssignProviderRequest) Reset() {
 	*x = AssignProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[56]
+	mi := &file_routing_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4091,7 +4115,7 @@ func (x *AssignProviderRequest) String() string {
 func (*AssignProviderRequest) ProtoMessage() {}
 
 func (x *AssignProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[56]
+	mi := &file_routing_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4104,7 +4128,7 @@ func (x *AssignProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignProviderRequest.ProtoReflect.Descriptor instead.
 func (*AssignProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{56}
+	return file_routing_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *AssignProviderRequest) GetClientId() string {
@@ -4145,7 +4169,7 @@ type RevokeProviderRequest struct {
 
 func (x *RevokeProviderRequest) Reset() {
 	*x = RevokeProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[57]
+	mi := &file_routing_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4157,7 +4181,7 @@ func (x *RevokeProviderRequest) String() string {
 func (*RevokeProviderRequest) ProtoMessage() {}
 
 func (x *RevokeProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[57]
+	mi := &file_routing_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4170,7 +4194,7 @@ func (x *RevokeProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeProviderRequest.ProtoReflect.Descriptor instead.
 func (*RevokeProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{57}
+	return file_routing_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *RevokeProviderRequest) GetClientId() string {
@@ -4197,7 +4221,7 @@ type ListClientProvidersRequest struct {
 
 func (x *ListClientProvidersRequest) Reset() {
 	*x = ListClientProvidersRequest{}
-	mi := &file_routing_routing_proto_msgTypes[58]
+	mi := &file_routing_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4209,7 +4233,7 @@ func (x *ListClientProvidersRequest) String() string {
 func (*ListClientProvidersRequest) ProtoMessage() {}
 
 func (x *ListClientProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[58]
+	mi := &file_routing_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4222,7 +4246,7 @@ func (x *ListClientProvidersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientProvidersRequest.ProtoReflect.Descriptor instead.
 func (*ListClientProvidersRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{58}
+	return file_routing_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ListClientProvidersRequest) GetClientId() string {
@@ -4248,7 +4272,7 @@ type ListClientProvidersResponse struct {
 
 func (x *ListClientProvidersResponse) Reset() {
 	*x = ListClientProvidersResponse{}
-	mi := &file_routing_routing_proto_msgTypes[59]
+	mi := &file_routing_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4260,7 +4284,7 @@ func (x *ListClientProvidersResponse) String() string {
 func (*ListClientProvidersResponse) ProtoMessage() {}
 
 func (x *ListClientProvidersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[59]
+	mi := &file_routing_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4273,7 +4297,7 @@ func (x *ListClientProvidersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientProvidersResponse.ProtoReflect.Descriptor instead.
 func (*ListClientProvidersResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{59}
+	return file_routing_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ListClientProvidersResponse) GetProviders() []*ClientProviderProto {
@@ -4296,7 +4320,7 @@ type UpdateClientProviderRequest struct {
 
 func (x *UpdateClientProviderRequest) Reset() {
 	*x = UpdateClientProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[60]
+	mi := &file_routing_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4308,7 +4332,7 @@ func (x *UpdateClientProviderRequest) String() string {
 func (*UpdateClientProviderRequest) ProtoMessage() {}
 
 func (x *UpdateClientProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[60]
+	mi := &file_routing_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4321,7 +4345,7 @@ func (x *UpdateClientProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientProviderRequest.ProtoReflect.Descriptor instead.
 func (*UpdateClientProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{60}
+	return file_routing_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *UpdateClientProviderRequest) GetId() string {
@@ -4372,7 +4396,7 @@ type ShareProviderRequest struct {
 
 func (x *ShareProviderRequest) Reset() {
 	*x = ShareProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[61]
+	mi := &file_routing_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4384,7 +4408,7 @@ func (x *ShareProviderRequest) String() string {
 func (*ShareProviderRequest) ProtoMessage() {}
 
 func (x *ShareProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[61]
+	mi := &file_routing_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4397,7 +4421,7 @@ func (x *ShareProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareProviderRequest.ProtoReflect.Descriptor instead.
 func (*ShareProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{61}
+	return file_routing_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ShareProviderRequest) GetParentClientId() string {
@@ -4444,7 +4468,7 @@ type RevokeSharedProviderRequest struct {
 
 func (x *RevokeSharedProviderRequest) Reset() {
 	*x = RevokeSharedProviderRequest{}
-	mi := &file_routing_routing_proto_msgTypes[62]
+	mi := &file_routing_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4456,7 +4480,7 @@ func (x *RevokeSharedProviderRequest) String() string {
 func (*RevokeSharedProviderRequest) ProtoMessage() {}
 
 func (x *RevokeSharedProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[62]
+	mi := &file_routing_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4469,7 +4493,7 @@ func (x *RevokeSharedProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeSharedProviderRequest.ProtoReflect.Descriptor instead.
 func (*RevokeSharedProviderRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{62}
+	return file_routing_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *RevokeSharedProviderRequest) GetId() string {
@@ -4496,7 +4520,7 @@ type ClientRouteProto struct {
 
 func (x *ClientRouteProto) Reset() {
 	*x = ClientRouteProto{}
-	mi := &file_routing_routing_proto_msgTypes[63]
+	mi := &file_routing_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4508,7 +4532,7 @@ func (x *ClientRouteProto) String() string {
 func (*ClientRouteProto) ProtoMessage() {}
 
 func (x *ClientRouteProto) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[63]
+	mi := &file_routing_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4521,7 +4545,7 @@ func (x *ClientRouteProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientRouteProto.ProtoReflect.Descriptor instead.
 func (*ClientRouteProto) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{63}
+	return file_routing_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ClientRouteProto) GetId() string {
@@ -4600,7 +4624,7 @@ type CreateClientRouteRequest struct {
 
 func (x *CreateClientRouteRequest) Reset() {
 	*x = CreateClientRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[64]
+	mi := &file_routing_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4612,7 +4636,7 @@ func (x *CreateClientRouteRequest) String() string {
 func (*CreateClientRouteRequest) ProtoMessage() {}
 
 func (x *CreateClientRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[64]
+	mi := &file_routing_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4625,7 +4649,7 @@ func (x *CreateClientRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateClientRouteRequest.ProtoReflect.Descriptor instead.
 func (*CreateClientRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{64}
+	return file_routing_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *CreateClientRouteRequest) GetClientId() string {
@@ -4675,7 +4699,7 @@ type UpdateClientRouteRequest struct {
 
 func (x *UpdateClientRouteRequest) Reset() {
 	*x = UpdateClientRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[65]
+	mi := &file_routing_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4687,7 +4711,7 @@ func (x *UpdateClientRouteRequest) String() string {
 func (*UpdateClientRouteRequest) ProtoMessage() {}
 
 func (x *UpdateClientRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[65]
+	mi := &file_routing_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4700,7 +4724,7 @@ func (x *UpdateClientRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateClientRouteRequest.ProtoReflect.Descriptor instead.
 func (*UpdateClientRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{65}
+	return file_routing_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *UpdateClientRouteRequest) GetId() string {
@@ -4740,7 +4764,7 @@ type DeleteClientRouteRequest struct {
 
 func (x *DeleteClientRouteRequest) Reset() {
 	*x = DeleteClientRouteRequest{}
-	mi := &file_routing_routing_proto_msgTypes[66]
+	mi := &file_routing_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4752,7 +4776,7 @@ func (x *DeleteClientRouteRequest) String() string {
 func (*DeleteClientRouteRequest) ProtoMessage() {}
 
 func (x *DeleteClientRouteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[66]
+	mi := &file_routing_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4765,7 +4789,7 @@ func (x *DeleteClientRouteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteClientRouteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteClientRouteRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{66}
+	return file_routing_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *DeleteClientRouteRequest) GetId() string {
@@ -4785,7 +4809,7 @@ type ListClientRoutesRequest struct {
 
 func (x *ListClientRoutesRequest) Reset() {
 	*x = ListClientRoutesRequest{}
-	mi := &file_routing_routing_proto_msgTypes[67]
+	mi := &file_routing_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4797,7 +4821,7 @@ func (x *ListClientRoutesRequest) String() string {
 func (*ListClientRoutesRequest) ProtoMessage() {}
 
 func (x *ListClientRoutesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[67]
+	mi := &file_routing_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4810,7 +4834,7 @@ func (x *ListClientRoutesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientRoutesRequest.ProtoReflect.Descriptor instead.
 func (*ListClientRoutesRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{67}
+	return file_routing_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ListClientRoutesRequest) GetClientId() string {
@@ -4836,7 +4860,7 @@ type ListClientRoutesResponse struct {
 
 func (x *ListClientRoutesResponse) Reset() {
 	*x = ListClientRoutesResponse{}
-	mi := &file_routing_routing_proto_msgTypes[68]
+	mi := &file_routing_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4848,7 +4872,7 @@ func (x *ListClientRoutesResponse) String() string {
 func (*ListClientRoutesResponse) ProtoMessage() {}
 
 func (x *ListClientRoutesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[68]
+	mi := &file_routing_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4861,7 +4885,7 @@ func (x *ListClientRoutesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientRoutesResponse.ProtoReflect.Descriptor instead.
 func (*ListClientRoutesResponse) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{68}
+	return file_routing_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ListClientRoutesResponse) GetRoutes() []*ClientRouteProto {
@@ -4885,7 +4909,7 @@ type ClientRoutingStrategyProto struct {
 
 func (x *ClientRoutingStrategyProto) Reset() {
 	*x = ClientRoutingStrategyProto{}
-	mi := &file_routing_routing_proto_msgTypes[69]
+	mi := &file_routing_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4897,7 +4921,7 @@ func (x *ClientRoutingStrategyProto) String() string {
 func (*ClientRoutingStrategyProto) ProtoMessage() {}
 
 func (x *ClientRoutingStrategyProto) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[69]
+	mi := &file_routing_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4910,7 +4934,7 @@ func (x *ClientRoutingStrategyProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientRoutingStrategyProto.ProtoReflect.Descriptor instead.
 func (*ClientRoutingStrategyProto) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{69}
+	return file_routing_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ClientRoutingStrategyProto) GetId() string {
@@ -4966,7 +4990,7 @@ type SetRoutingStrategyRequest struct {
 
 func (x *SetRoutingStrategyRequest) Reset() {
 	*x = SetRoutingStrategyRequest{}
-	mi := &file_routing_routing_proto_msgTypes[70]
+	mi := &file_routing_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4978,7 +5002,7 @@ func (x *SetRoutingStrategyRequest) String() string {
 func (*SetRoutingStrategyRequest) ProtoMessage() {}
 
 func (x *SetRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[70]
+	mi := &file_routing_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4991,7 +5015,7 @@ func (x *SetRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRoutingStrategyRequest.ProtoReflect.Descriptor instead.
 func (*SetRoutingStrategyRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{70}
+	return file_routing_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *SetRoutingStrategyRequest) GetClientId() string {
@@ -5025,7 +5049,7 @@ type GetRoutingStrategyRequest struct {
 
 func (x *GetRoutingStrategyRequest) Reset() {
 	*x = GetRoutingStrategyRequest{}
-	mi := &file_routing_routing_proto_msgTypes[71]
+	mi := &file_routing_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5037,7 +5061,7 @@ func (x *GetRoutingStrategyRequest) String() string {
 func (*GetRoutingStrategyRequest) ProtoMessage() {}
 
 func (x *GetRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[71]
+	mi := &file_routing_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5050,7 +5074,7 @@ func (x *GetRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRoutingStrategyRequest.ProtoReflect.Descriptor instead.
 func (*GetRoutingStrategyRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{71}
+	return file_routing_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *GetRoutingStrategyRequest) GetClientId() string {
@@ -5077,7 +5101,7 @@ type DeleteRoutingStrategyRequest struct {
 
 func (x *DeleteRoutingStrategyRequest) Reset() {
 	*x = DeleteRoutingStrategyRequest{}
-	mi := &file_routing_routing_proto_msgTypes[72]
+	mi := &file_routing_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5089,7 +5113,7 @@ func (x *DeleteRoutingStrategyRequest) String() string {
 func (*DeleteRoutingStrategyRequest) ProtoMessage() {}
 
 func (x *DeleteRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_routing_routing_proto_msgTypes[72]
+	mi := &file_routing_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5102,7 +5126,7 @@ func (x *DeleteRoutingStrategyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoutingStrategyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRoutingStrategyRequest) Descriptor() ([]byte, []int) {
-	return file_routing_routing_proto_rawDescGZIP(), []int{72}
+	return file_routing_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *DeleteRoutingStrategyRequest) GetClientId() string {
@@ -5119,11 +5143,11 @@ func (x *DeleteRoutingStrategyRequest) GetOperatorId() string {
 	return ""
 }
 
-var File_routing_routing_proto protoreflect.FileDescriptor
+var File_routing_proto protoreflect.FileDescriptor
 
-const file_routing_routing_proto_rawDesc = "" +
+const file_routing_proto_rawDesc = "" +
 	"\n" +
-	"\x15routing/routing.proto\x12\n" +
+	"\rrouting.proto\x12\n" +
 	"routing.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"h\n" +
 	"\x0fGetRouteRequest\x12 \n" +
 	"\vdestination\x18\x01 \x01(\tR\vdestination\x12\x1b\n" +
@@ -5231,7 +5255,7 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\biso_code\x18\x03 \x01(\tR\aisoCode\x12\x1d\n" +
 	"\n" +
 	"phone_code\x18\x04 \x01(\tR\tphoneCode\x12\x1a\n" +
-	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\xd3\x02\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\x87\x03\n" +
 	"\bOperator\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -5244,14 +5268,17 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xc2\x01\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x122\n" +
+	"\x15monthly_tariff_amount\x18\n" +
+	" \x01(\tR\x13monthlyTariffAmount\"\xf6\x01\n" +
 	"\x15CreateOperatorRequest\x12\x1d\n" +
 	"\n" +
 	"country_id\x18\x01 \x01(\tR\tcountryId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\tR\x04code\x120\n" +
 	"\x14supports_paid_sender\x18\x04 \x01(\bR\x12supportsPaidSender\x120\n" +
-	"\x14supports_free_sender\x18\x05 \x01(\bR\x12supportsFreeSender\"$\n" +
+	"\x14supports_free_sender\x18\x05 \x01(\bR\x12supportsFreeSender\x122\n" +
+	"\x15monthly_tariff_amount\x18\x06 \x01(\tR\x13monthlyTariffAmount\"$\n" +
 	"\x12GetOperatorRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x84\x01\n" +
 	"\x14ListOperatorsRequest\x12\x1d\n" +
@@ -5263,14 +5290,15 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\x06offset\x18\x04 \x01(\x05R\x06offset\"a\n" +
 	"\x15ListOperatorsResponse\x122\n" +
 	"\toperators\x18\x01 \x03(\v2\x14.routing.v1.OperatorR\toperators\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xcb\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xff\x01\n" +
 	"\x15UpdateOperatorRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\tR\x04code\x120\n" +
 	"\x14supports_paid_sender\x18\x04 \x01(\bR\x12supportsPaidSender\x120\n" +
 	"\x14supports_free_sender\x18\x05 \x01(\bR\x12supportsFreeSender\x12\x16\n" +
-	"\x06active\x18\x06 \x01(\bR\x06active\"\xb0\x01\n" +
+	"\x06active\x18\x06 \x01(\bR\x06active\x122\n" +
+	"\x15monthly_tariff_amount\x18\a \x01(\tR\x13monthlyTariffAmount\"\xb0\x01\n" +
 	"\x0eOperatorPrefix\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\voperator_id\x18\x02 \x01(\tR\n" +
@@ -5631,20 +5659,20 @@ const file_routing_routing_proto_rawDesc = "" +
 	"\x15DeleteRoutingStrategy\x12(.routing.v1.DeleteRoutingStrategyRequest\x1a\x16.google.protobuf.EmptyB8Z6github.com/smpp-server/smpp-server/api/proto/routingv1b\x06proto3"
 
 var (
-	file_routing_routing_proto_rawDescOnce sync.Once
-	file_routing_routing_proto_rawDescData []byte
+	file_routing_proto_rawDescOnce sync.Once
+	file_routing_proto_rawDescData []byte
 )
 
-func file_routing_routing_proto_rawDescGZIP() []byte {
-	file_routing_routing_proto_rawDescOnce.Do(func() {
-		file_routing_routing_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_routing_routing_proto_rawDesc), len(file_routing_routing_proto_rawDesc)))
+func file_routing_proto_rawDescGZIP() []byte {
+	file_routing_proto_rawDescOnce.Do(func() {
+		file_routing_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_routing_proto_rawDesc), len(file_routing_proto_rawDesc)))
 	})
-	return file_routing_routing_proto_rawDescData
+	return file_routing_proto_rawDescData
 }
 
-var file_routing_routing_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_routing_routing_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
-var file_routing_routing_proto_goTypes = []any{
+var file_routing_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_routing_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
+var file_routing_proto_goTypes = []any{
 	(NumberStatus)(0),                      // 0: routing.v1.NumberStatus
 	(NumberType)(0),                        // 1: routing.v1.NumberType
 	(*GetRouteRequest)(nil),                // 2: routing.v1.GetRouteRequest
@@ -5726,7 +5754,7 @@ var file_routing_routing_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),          // 78: google.protobuf.Timestamp
 	(*emptypb.Empty)(nil),                  // 79: google.protobuf.Empty
 }
-var file_routing_routing_proto_depIdxs = []int32{
+var file_routing_proto_depIdxs = []int32{
 	14, // 0: routing.v1.GetRouteResponse.route:type_name -> routing.v1.RouteInfo
 	14, // 1: routing.v1.SelectProviderRequest.route:type_name -> routing.v1.RouteInfo
 	75, // 2: routing.v1.CreateRouteRequest.metadata:type_name -> routing.v1.CreateRouteRequest.MetadataEntry
@@ -5866,27 +5894,27 @@ var file_routing_routing_proto_depIdxs = []int32{
 	0,  // [0:44] is the sub-list for field type_name
 }
 
-func init() { file_routing_routing_proto_init() }
-func file_routing_routing_proto_init() {
-	if File_routing_routing_proto != nil {
+func init() { file_routing_proto_init() }
+func file_routing_proto_init() {
+	if File_routing_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_routing_routing_proto_rawDesc), len(file_routing_routing_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_routing_proto_rawDesc), len(file_routing_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_routing_routing_proto_goTypes,
-		DependencyIndexes: file_routing_routing_proto_depIdxs,
-		EnumInfos:         file_routing_routing_proto_enumTypes,
-		MessageInfos:      file_routing_routing_proto_msgTypes,
+		GoTypes:           file_routing_proto_goTypes,
+		DependencyIndexes: file_routing_proto_depIdxs,
+		EnumInfos:         file_routing_proto_enumTypes,
+		MessageInfos:      file_routing_proto_msgTypes,
 	}.Build()
-	File_routing_routing_proto = out.File
-	file_routing_routing_proto_goTypes = nil
-	file_routing_routing_proto_depIdxs = nil
+	File_routing_proto = out.File
+	file_routing_proto_goTypes = nil
+	file_routing_proto_depIdxs = nil
 }

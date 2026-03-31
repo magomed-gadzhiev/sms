@@ -68,6 +68,10 @@ service TarificationService {
 
   // Margin Analytics
   rpc GetMarginReport(MarginReportRequest) returns (MarginReportResponse);
+
+  // Sender Name Billing
+  rpc CreateSenderBillingRecord(CreateSenderBillingRecordRequest) returns (CreateSenderBillingRecordResponse);
+  rpc ListSenderBillingRecords(ListSenderBillingRecordsRequest) returns (ListSenderBillingRecordsResponse);
 }
 
 // TarifyMessageRequest представляет запрос на тарификацию сообщения
@@ -394,4 +398,39 @@ message MarginReportEntry {
   string revenue = 6;
   string cost = 7;
   string margin = 8;
+}
+
+// ==================== Sender Name Billing ====================
+
+message SenderNameBillingRecordProto {
+  string id = 1;
+  string sender_registration_id = 2;
+  string client_id = 3;
+  string operator_id = 4;
+  string billing_month = 5;         // ISO date "2026-04-01"
+  string amount = 6;                // сумма в RUB (строковое представление)
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateSenderBillingRecordRequest {
+  string sender_registration_id = 1;
+  string client_id = 2;
+  string operator_id = 3;
+  string amount = 4;                // тариф оператора на момент регистрации
+}
+
+message CreateSenderBillingRecordResponse {
+  SenderNameBillingRecordProto record = 1;
+  bool already_existed = 2;
+}
+
+message ListSenderBillingRecordsRequest {
+  string sender_registration_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListSenderBillingRecordsResponse {
+  repeated SenderNameBillingRecordProto records = 1;
+  int32 total = 2;
 }

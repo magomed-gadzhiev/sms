@@ -186,6 +186,7 @@ func main() {
 	segmentHandlers := handlers.NewSegmentHandlers(dbPool)
 	subAccountRoutingHandlers := handlers.NewSubAccountRoutingHandlers(serviceClients.RoutingClient)
 	senderNameHandlers := handlers.NewSenderNameHandlers(serviceClients.SenderNameClient)
+	senderNameHandlers.SetBillingClients(serviceClients.RoutingClient, serviceClients.TarificationClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(

@@ -500,6 +500,9 @@ func (s *Server) CreateOperator(ctx context.Context, req *routingv1.CreateOperat
 	}
 
 	operator := domain.NewOperator(countryID, req.Name, req.Code, req.SupportsPaidSender, req.SupportsFreeSender)
+	if req.MonthlyTariffAmount != "" && req.MonthlyTariffAmount != "0" {
+		operator.MonthlyTariffAmount = &req.MonthlyTariffAmount
+	}
 	if err := s.operatorRepo.Create(ctx, operator); err != nil {
 		log.Error().Err(err).Msg("ошибка создания оператора")
 		return nil, status.Error(codes.Internal, err.Error())
@@ -594,6 +597,11 @@ func (s *Server) UpdateOperator(ctx context.Context, req *routingv1.UpdateOperat
 	operator.SupportsPaidSender = req.SupportsPaidSender
 	operator.SupportsFreeSender = req.SupportsFreeSender
 	operator.Active = req.Active
+	if req.MonthlyTariffAmount != "" && req.MonthlyTariffAmount != "0" {
+		operator.MonthlyTariffAmount = &req.MonthlyTariffAmount
+	} else if req.MonthlyTariffAmount == "0" {
+		operator.MonthlyTariffAmount = nil
+	}
 	operator.UpdatedAt = time.Now()
 
 	if err := s.operatorRepo.Update(ctx, operator); err != nil {
@@ -1292,16 +1300,21 @@ func countryToProto(country *domain.Country) *routingv1.Country {
 
 // operatorToProto преобразует domain.Operator в proto.Operator
 func operatorToProto(operator *domain.Operator) *routingv1.Operator {
+	monthlyTariff := ""
+	if operator.MonthlyTariffAmount != nil {
+		monthlyTariff = *operator.MonthlyTariffAmount
+	}
 	return &routingv1.Operator{
-		Id:                 operator.ID.String(),
-		CountryId:          operator.CountryID.String(),
-		Name:               operator.Name,
-		Code:               operator.Code,
-		SupportsPaidSender: operator.SupportsPaidSender,
-		SupportsFreeSender: operator.SupportsFreeSender,
-		Active:             operator.Active,
-		CreatedAt:          timestamppb.New(operator.CreatedAt),
-		UpdatedAt:          timestamppb.New(operator.UpdatedAt),
+		Id:                  operator.ID.String(),
+		CountryId:           operator.CountryID.String(),
+		Name:                operator.Name,
+		Code:                operator.Code,
+		SupportsPaidSender:  operator.SupportsPaidSender,
+		SupportsFreeSender:  operator.SupportsFreeSender,
+		MonthlyTariffAmount: monthlyTariff,
+		Active:              operator.Active,
+		CreatedAt:           timestamppb.New(operator.CreatedAt),
+		UpdatedAt:           timestamppb.New(operator.UpdatedAt),
 	}
 }
 

@@ -14,6 +14,8 @@ type SenderRegistrationRepository interface {
 	GetActiveByClientOperatorName(ctx context.Context, clientID, operatorID uuid.UUID, senderName string) (*SenderRegistration, error)
 	Update(ctx context.Context, reg *SenderRegistration) error
 	List(ctx context.Context, clientID, operatorID *uuid.UUID, limit, offset int) ([]*SenderRegistration, int, error)
+	// ListActivePaid возвращает все активные платные регистрации (для планировщика)
+	ListActivePaid(ctx context.Context) ([]*SenderRegistration, error)
 }
 
 type TariffPlanRepository interface {
@@ -64,4 +66,15 @@ type TarificationLogRepository interface {
 	Create(ctx context.Context, log *TarificationLog) error
 	GetByIdempotencyKey(ctx context.Context, key string) (*TarificationLog, error)
 	GetByMessageID(ctx context.Context, messageID uuid.UUID) (*TarificationLog, error)
+}
+
+type SenderBillingRepository interface {
+	// Create создаёт billing record; при дубликате (reg_id + month) возвращает ошибку
+	Create(ctx context.Context, record *SenderNameBillingRecord) error
+	// CreateIfNotExists использует INSERT ON CONFLICT DO NOTHING; возвращает (created bool, err error)
+	CreateIfNotExists(ctx context.Context, record *SenderNameBillingRecord) (bool, error)
+	// ListByRegistration возвращает все записи по регистрации, DESC по billing_month
+	ListByRegistration(ctx context.Context, regID uuid.UUID, limit, offset int) ([]*SenderNameBillingRecord, int, error)
+	// ListByClient возвращает все записи по клиенту за период
+	ListByClient(ctx context.Context, clientID uuid.UUID, from, to time.Time, limit, offset int) ([]*SenderNameBillingRecord, int, error)
 }

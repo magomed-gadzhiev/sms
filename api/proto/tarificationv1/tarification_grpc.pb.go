@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: tarification/tarification.proto
+// source: tarification.proto
 
 package tarificationv1
 
@@ -43,6 +43,8 @@ const (
 	TarificationService_CreateProviderTariffTier_FullMethodName   = "/tarification.v1.TarificationService/CreateProviderTariffTier"
 	TarificationService_UpdateProviderTariffTier_FullMethodName   = "/tarification.v1.TarificationService/UpdateProviderTariffTier"
 	TarificationService_GetMarginReport_FullMethodName            = "/tarification.v1.TarificationService/GetMarginReport"
+	TarificationService_CreateSenderBillingRecord_FullMethodName  = "/tarification.v1.TarificationService/CreateSenderBillingRecord"
+	TarificationService_ListSenderBillingRecords_FullMethodName   = "/tarification.v1.TarificationService/ListSenderBillingRecords"
 )
 
 // TarificationServiceClient is the client API for TarificationService service.
@@ -93,6 +95,9 @@ type TarificationServiceClient interface {
 	UpdateProviderTariffTier(ctx context.Context, in *UpdateProviderTariffTierRequest, opts ...grpc.CallOption) (*ProviderTariffTierProto, error)
 	// Margin Analytics
 	GetMarginReport(ctx context.Context, in *MarginReportRequest, opts ...grpc.CallOption) (*MarginReportResponse, error)
+	// Sender Name Billing
+	CreateSenderBillingRecord(ctx context.Context, in *CreateSenderBillingRecordRequest, opts ...grpc.CallOption) (*CreateSenderBillingRecordResponse, error)
+	ListSenderBillingRecords(ctx context.Context, in *ListSenderBillingRecordsRequest, opts ...grpc.CallOption) (*ListSenderBillingRecordsResponse, error)
 }
 
 type tarificationServiceClient struct {
@@ -343,6 +348,26 @@ func (c *tarificationServiceClient) GetMarginReport(ctx context.Context, in *Mar
 	return out, nil
 }
 
+func (c *tarificationServiceClient) CreateSenderBillingRecord(ctx context.Context, in *CreateSenderBillingRecordRequest, opts ...grpc.CallOption) (*CreateSenderBillingRecordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateSenderBillingRecordResponse)
+	err := c.cc.Invoke(ctx, TarificationService_CreateSenderBillingRecord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tarificationServiceClient) ListSenderBillingRecords(ctx context.Context, in *ListSenderBillingRecordsRequest, opts ...grpc.CallOption) (*ListSenderBillingRecordsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSenderBillingRecordsResponse)
+	err := c.cc.Invoke(ctx, TarificationService_ListSenderBillingRecords_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TarificationServiceServer is the server API for TarificationService service.
 // All implementations must embed UnimplementedTarificationServiceServer
 // for forward compatibility.
@@ -391,6 +416,9 @@ type TarificationServiceServer interface {
 	UpdateProviderTariffTier(context.Context, *UpdateProviderTariffTierRequest) (*ProviderTariffTierProto, error)
 	// Margin Analytics
 	GetMarginReport(context.Context, *MarginReportRequest) (*MarginReportResponse, error)
+	// Sender Name Billing
+	CreateSenderBillingRecord(context.Context, *CreateSenderBillingRecordRequest) (*CreateSenderBillingRecordResponse, error)
+	ListSenderBillingRecords(context.Context, *ListSenderBillingRecordsRequest) (*ListSenderBillingRecordsResponse, error)
 	mustEmbedUnimplementedTarificationServiceServer()
 }
 
@@ -472,6 +500,12 @@ func (UnimplementedTarificationServiceServer) UpdateProviderTariffTier(context.C
 }
 func (UnimplementedTarificationServiceServer) GetMarginReport(context.Context, *MarginReportRequest) (*MarginReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMarginReport not implemented")
+}
+func (UnimplementedTarificationServiceServer) CreateSenderBillingRecord(context.Context, *CreateSenderBillingRecordRequest) (*CreateSenderBillingRecordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSenderBillingRecord not implemented")
+}
+func (UnimplementedTarificationServiceServer) ListSenderBillingRecords(context.Context, *ListSenderBillingRecordsRequest) (*ListSenderBillingRecordsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSenderBillingRecords not implemented")
 }
 func (UnimplementedTarificationServiceServer) mustEmbedUnimplementedTarificationServiceServer() {}
 func (UnimplementedTarificationServiceServer) testEmbeddedByValue()                             {}
@@ -926,6 +960,42 @@ func _TarificationService_GetMarginReport_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TarificationService_CreateSenderBillingRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSenderBillingRecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TarificationServiceServer).CreateSenderBillingRecord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TarificationService_CreateSenderBillingRecord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TarificationServiceServer).CreateSenderBillingRecord(ctx, req.(*CreateSenderBillingRecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TarificationService_ListSenderBillingRecords_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSenderBillingRecordsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TarificationServiceServer).ListSenderBillingRecords(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TarificationService_ListSenderBillingRecords_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TarificationServiceServer).ListSenderBillingRecords(ctx, req.(*ListSenderBillingRecordsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TarificationService_ServiceDesc is the grpc.ServiceDesc for TarificationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1029,7 +1099,15 @@ var TarificationService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetMarginReport",
 			Handler:    _TarificationService_GetMarginReport_Handler,
 		},
+		{
+			MethodName: "CreateSenderBillingRecord",
+			Handler:    _TarificationService_CreateSenderBillingRecord_Handler,
+		},
+		{
+			MethodName: "ListSenderBillingRecords",
+			Handler:    _TarificationService_ListSenderBillingRecords_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "tarification/tarification.proto",
+	Metadata: "tarification.proto",
 }

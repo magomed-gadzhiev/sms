@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
-import { senderNamesApi, ApiError, type SenderNameInfo, type SenderNameHistoryEntry } from '../../api/client';
+import { useNavigate } from 'react-router-dom';
+import { senderNamesApi, senderTariffApi, ApiError, type SenderNameInfo, type SenderNameHistoryEntry } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -31,6 +32,7 @@ function formatDate(dt: string) {
 }
 
 export function SenderNamesPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<SenderNameInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -54,6 +56,15 @@ export function SenderNamesPage() {
   const [history, setHistory] = useState<SenderNameHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Register with operator (paid/free)
+  const [showRegister, setShowRegister] = useState(false);
+  const [regOperatorId, setRegOperatorId] = useState('');
+  const [regType, setRegType] = useState<'free' | 'paid'>('free');
+  const [regTariff, setRegTariff] = useState<string | null>(null);
+  const [regTariffLoading, setRegTariffLoading] = useState(false);
+  const [regError, setRegError] = useState('');
+  const [registering, setRegistering] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -132,6 +143,36 @@ export function SenderNamesPage() {
     }
   };
 
+  const fetchTariff = useCallback(async (operatorId: string) => {
+    if (!operatorId) { setRegTariff(null); return; }
+    setRegTariffLoading(true);
+    try {
+      const res = await senderTariffApi.getOperatorTariff(operatorId);
+      setRegTariff(res.monthly_tariff_amount || null);
+    } catch {
+      setRegTariff(null);
+    } finally {
+      setRegTariffLoading(false);
+    }
+  }, []);
+
+  const handleRegister = async () => {
+    if (!selected || !regOperatorId) return;
+    setRegistering(true);
+    setRegError('');
+    try {
+      await senderTariffApi.createRegistration({ operator_id: regOperatorId, sender_name: selected.name, type: regType });
+      setShowRegister(false);
+      setRegOperatorId('');
+      setRegType('free');
+      setRegTariff(null);
+    } catch (e) {
+      setRegError(e instanceof ApiError ? e.message : 'Ошибка регистрации');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   const loadHistory = async (id: string) => {
     setHistoryLoading(true);
     try {
@@ -145,6 +186,11 @@ export function SenderNamesPage() {
     }
   };
 
+  function nextBillingDate() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
   const columns: Column<SenderNameInfo>[] = [
     { key: 'name', header: 'Имя отправителя', render: (sn) => <span className="font-mono font-medium">{sn.name}</span> },
     {
@@ -153,6 +199,7 @@ export function SenderNamesPage() {
         return <Badge variant={s.variant}>{s.label}</Badge>;
       },
     },
+    { key: 'created_at', header: 'Следующее начисление', render: () => <span className="text-xs text-gray-400">{nextBillingDate()}</span> },
     { key: 'created_at', header: 'Создано', render: (sn) => formatDate(sn.created_at) },
     {
       key: 'actions', header: '', render: (sn) => (
@@ -280,6 +327,54 @@ export function SenderNamesPage() {
                 </div>
               )}
             </div>
+
+            {selected.status === 'approved' && (
+              <div className="border-t pt-4">
+                {!showRegister ? (
+                  <Button variant="secondary" size="sm" onClick={() => { setShowRegister(true); setRegOperatorId(''); setRegType('free'); setRegTariff(null); setRegError(''); }}>
+                    Зарегистрировать у оператора
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-gray-700">Регистрация у оператора</p>
+                    <Input
+                      label="ID оператора"
+                      value={regOperatorId}
+                      onChange={(e) => { setRegOperatorId(e.target.value); if (regType === 'paid') fetchTariff(e.target.value); }}
+                      placeholder="UUID оператора"
+                    />
+                    <div className="flex gap-4 text-sm">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" checked={regType === 'free'} onChange={() => { setRegType('free'); setRegTariff(null); }} />
+                        Бесплатная
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" checked={regType === 'paid'} onChange={() => { setRegType('paid'); if (regOperatorId) fetchTariff(regOperatorId); }} />
+                        Платная
+                      </label>
+                    </div>
+                    {regType === 'paid' && regOperatorId && (
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 text-sm">
+                        {regTariffLoading ? (
+                          <span className="text-gray-400">Загрузка тарифа...</span>
+                        ) : regTariff ? (
+                          <span>Стоимость: <strong className="text-blue-700">{parseFloat(regTariff).toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}/мес</strong></span>
+                        ) : (
+                          <span className="text-gray-400">Тариф не задан для этого оператора</span>
+                        )}
+                      </div>
+                    )}
+                    {regError && <p className="text-sm text-red-600">{regError}</p>}
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleRegister} disabled={registering || !regOperatorId}>
+                        {registering ? 'Регистрация...' : 'Зарегистрировать'}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowRegister(false)}>Отмена</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end">
               <Button variant="ghost" onClick={() => setSelected(null)}>Закрыть</Button>

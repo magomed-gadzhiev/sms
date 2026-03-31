@@ -381,6 +381,23 @@ export const senderNamesApi = {
     ),
 };
 
+// Sender Tariff API
+export const senderTariffApi = {
+  getOperatorTariff: (operatorId: string) =>
+    apiFetch<{ operator_id: string; monthly_tariff_amount: string; currency: string; current_month_amount: string }>(
+      `/operators/${operatorId}/sender-tariff`,
+    ),
+  createRegistration: (data: { operator_id: string; sender_name: string; type: 'paid' | 'free' }) =>
+    apiFetch<{ id: string; client_id: string; operator_id: string; sender_name: string; type: string; status: string }>(
+      '/sender-registrations',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  getBillingHistory: (registrationId: string) =>
+    apiFetch<{ records: Array<{ id: string; billing_month: string; amount: string; created_at: string }>; total: number }>(
+      `/sender-registrations/${registrationId}/billing`,
+    ),
+};
+
 // Billing API
 export const billingApi = {
   getBalance: () =>

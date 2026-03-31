@@ -22,7 +22,7 @@ export function CountriesPage() {
   const [operators, setOperators] = useState<OperatorInfo[]>([]);
   const [operatorsLoading, setOperatorsLoading] = useState(false);
   const [showCreateOperator, setShowCreateOperator] = useState(false);
-  const [operatorForm, setOperatorForm] = useState({ name: '', mcc: '', mnc: '' });
+  const [operatorForm, setOperatorForm] = useState({ name: '', mcc: '', mnc: '', supports_paid_sender: false, supports_free_sender: true, monthly_tariff_amount: '' });
   const [selectedOperator, setSelectedOperator] = useState<OperatorInfo | null>(null);
   const [prefixes, setPrefixes] = useState<OperatorPrefix[]>([]);
   const [prefixInput, setPrefixInput] = useState('');
@@ -53,7 +53,18 @@ export function CountriesPage() {
   const selectOperator = (op: OperatorInfo) => { setSelectedOperator(op); fetchPrefixes(op.operator_id); };
 
   const handleCreateCountry = async () => { setSaving(true); try { await countriesApi.create(countryForm); toast.success('Country created'); setShowCreateCountry(false); fetchCountries(); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setSaving(false); } };
-  const handleCreateOperator = async () => { if (!selectedCountry) return; setSaving(true); try { await operatorsApi.create({ ...operatorForm, country_id: selectedCountry.country_id, active: true }); toast.success('Operator created'); setShowCreateOperator(false); fetchOperators(selectedCountry.country_id); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setSaving(false); } };
+  const handleCreateOperator = async () => {
+    if (!selectedCountry) return;
+    setSaving(true);
+    try {
+      const data: Partial<OperatorInfo> = { ...operatorForm, country_id: selectedCountry.country_id, active: true };
+      if (!operatorForm.supports_paid_sender || !operatorForm.monthly_tariff_amount) delete data.monthly_tariff_amount;
+      await operatorsApi.create(data);
+      toast.success('Operator created');
+      setShowCreateOperator(false);
+      fetchOperators(selectedCountry.country_id);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setSaving(false); }
+  };
   const handleAddPrefix = async () => { if (!selectedOperator || !prefixInput) return; setSaving(true); try { await operatorsApi.createPrefix(selectedOperator.operator_id, { prefix: prefixInput }); toast.success('Prefix added'); setPrefixInput(''); fetchPrefixes(selectedOperator.operator_id); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setSaving(false); } };
   const handleDeletePrefix = async (prefixId: string) => { if (!selectedOperator) return; try { await operatorsApi.deletePrefix(selectedOperator.operator_id, prefixId); toast.success('Prefix removed'); fetchPrefixes(selectedOperator.operator_id); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } };
 
@@ -69,13 +80,19 @@ export function CountriesPage() {
           <DataTable columns={countryColumns} data={countries} total={countryTotal} page={countryPage} pageSize={PAGE_SIZE} onPageChange={setCountryPage} loading={loading} keyField="country_id" onRowClick={selectCountry} />
         </div>
         <div>
-          <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">{selectedCountry ? `Operators — ${selectedCountry.name}` : 'Operators'}</h2>{selectedCountry && <Button size="sm" onClick={() => { setOperatorForm({ name: '', mcc: '', mnc: '' }); setShowCreateOperator(true); }}>Add</Button>}</div>
+          <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">{selectedCountry ? `Operators — ${selectedCountry.name}` : 'Operators'}</h2>{selectedCountry && <Button size="sm" onClick={() => { setOperatorForm({ name: '', mcc: '', mnc: '', supports_paid_sender: false, supports_free_sender: true, monthly_tariff_amount: '' }); setShowCreateOperator(true); }}>Add</Button>}</div>
           {selectedCountry ? <DataTable columns={operatorColumns} data={operators} total={operators.length} page={1} pageSize={100} onPageChange={() => {}} loading={operatorsLoading} keyField="operator_id" onRowClick={selectOperator} /> : <div className="text-sm text-gray-400 p-4 border border-gray-200 rounded-lg">Select a country</div>}
         </div>
         <div>
           <h2 className="text-lg font-semibold mb-3">{selectedOperator ? `Prefixes — ${selectedOperator.name}` : 'Prefixes'}</h2>
           {selectedOperator ? (
             <>
+              {selectedOperator.supports_paid_sender && selectedOperator.monthly_tariff_amount && (
+                <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-100 text-sm">
+                  <span className="text-gray-600">Ежемесячный тариф: </span>
+                  <span className="font-semibold text-blue-700">{parseFloat(selectedOperator.monthly_tariff_amount).toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}</span>
+                </div>
+              )}
               <div className="flex gap-2 mb-3"><Input value={prefixInput} onChange={(e) => setPrefixInput(e.target.value)} placeholder="e.g. +7921" /><Button size="sm" onClick={handleAddPrefix} disabled={saving || !prefixInput}>Add</Button></div>
               <ul className="space-y-1">
                 {prefixes.map((p) => (<li key={p.prefix_id} className="flex items-center justify-between py-1 px-2 bg-gray-50 rounded text-sm"><span className="font-mono">{p.prefix}</span><button className="text-xs text-danger hover:underline" onClick={() => handleDeletePrefix(p.prefix_id)}>Remove</button></li>))}
@@ -98,6 +115,17 @@ export function CountriesPage() {
           <Input label="Name" value={operatorForm.name} onChange={(e) => setOperatorForm({ ...operatorForm, name: e.target.value })} required />
           <Input label="MCC" value={operatorForm.mcc} onChange={(e) => setOperatorForm({ ...operatorForm, mcc: e.target.value })} required />
           <Input label="MNC" value={operatorForm.mnc} onChange={(e) => setOperatorForm({ ...operatorForm, mnc: e.target.value })} required />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={operatorForm.supports_free_sender} onChange={(e) => setOperatorForm({ ...operatorForm, supports_free_sender: e.target.checked })} className="rounded" />
+            Поддержка бесплатной регистрации имени
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={operatorForm.supports_paid_sender} onChange={(e) => setOperatorForm({ ...operatorForm, supports_paid_sender: e.target.checked, monthly_tariff_amount: e.target.checked ? operatorForm.monthly_tariff_amount : '' })} className="rounded" />
+            Поддержка платной регистрации имени
+          </label>
+          {operatorForm.supports_paid_sender && (
+            <Input label="Ежемесячный тариф (RUB)" type="number" min="0" step="0.01" value={operatorForm.monthly_tariff_amount} onChange={(e) => setOperatorForm({ ...operatorForm, monthly_tariff_amount: e.target.value })} placeholder="1500.00" />
+          )}
           <div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setShowCreateOperator(false)}>Cancel</Button><Button onClick={handleCreateOperator} disabled={saving}>{saving ? 'Creating...' : 'Create'}</Button></div>
         </div>
       </Modal>
