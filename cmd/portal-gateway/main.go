@@ -25,7 +25,9 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
+	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
+	cascadepg "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/postgres"
 )
 
 func main() {
@@ -206,6 +208,7 @@ func main() {
 
 	// Создание cascade webhook handler
 	var cascadeWebhookHandlers *handlers.CascadeWebhookHandlers
+	var maxMessengerWebhookHandler http.HandlerFunc
 	if kafkaProducer != nil {
 		cascadeTopics := cascadekafka.CascadeTopics{
 			Start:         getEnvOrDefault("CASCADE_TOPIC_START", "cascade.start"),
@@ -215,6 +218,15 @@ func main() {
 		}
 		cascadeProducer := cascadekafka.NewCascadeProducer(kafkaProducer, cascadeTopics)
 		cascadeWebhookHandlers = handlers.NewCascadeWebhookHandlers(cascadeProducer, logger)
+
+		// Max Messenger webhook handler requires direct access to channel/attempt repositories.
+		if dbPool != nil {
+			channelRepo := cascadepg.NewChannelRepository(dbPool)
+			attemptRepo := cascadepg.NewAttemptRepository(dbPool)
+			maxMessengerMetrics := max_messenger.NewMaxMessengerMetrics()
+			maxMessengerWebhook := max_messenger.NewWebhookHandler(channelRepo, attemptRepo, cascadeProducer, maxMessengerMetrics, logger)
+			maxMessengerWebhookHandler = maxMessengerWebhook.Handle
+		}
 	}
 
 	// Настройка HTTP роутера
@@ -253,6 +265,9 @@ func main() {
 	// Регистрируем маршруты cascade webhook
 	if cascadeWebhookHandlers != nil {
 		portalrouter.RegisterCascadeWebhookRoutes(router, cascadeWebhookHandlers)
+	}
+	if maxMessengerWebhookHandler != nil {
+		portalrouter.RegisterMaxMessengerWebhookRoute(router, maxMessengerWebhookHandler)
 	}
 
 	// Регистрируем маршруты cascade

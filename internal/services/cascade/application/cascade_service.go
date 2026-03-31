@@ -8,9 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	flashchannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/flash_call"
+	maxchannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
+	smschannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/sms"
 	"github.com/smpp-server/smpp-server/internal/services/cascade/domain"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
-	smschannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/sms"
 )
 
 // CascadeProducer — интерфейс Kafka producer для каскадного сервиса
@@ -292,8 +294,15 @@ func (s *CascadeService) executeNextStep(ctx context.Context, delivery *domain.D
 		return fmt.Errorf("no adapter for channel type: %s", nextStep.ChannelType)
 	}
 
-	// Добавляем delivery в контекст для адаптеров
-	ctx = smschannel.WithDelivery(ctx, delivery)
+	// Добавляем delivery в контекст для адаптеров, которые используют context-based contract.
+	switch nextStep.ChannelType {
+	case domain.ChannelSMS:
+		ctx = smschannel.WithDelivery(ctx, delivery)
+	case domain.ChannelFlashCall:
+		ctx = flashchannel.WithDelivery(ctx, delivery)
+	case domain.ChannelMaxMessenger:
+		ctx = maxchannel.WithDelivery(ctx, delivery)
+	}
 
 	if err := adapter.Send(ctx, attempt, channelCfg); err != nil {
 		s.logger.Error().Err(err).

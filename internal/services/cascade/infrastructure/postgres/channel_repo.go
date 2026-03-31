@@ -105,7 +105,7 @@ func (r *ChannelRepo) Create(ctx context.Context, ch *domain.ChannelConfig) erro
 	query := `INSERT INTO delivery_channels (id, channel_type, name, description, config, active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	_, err = r.pool.Exec(ctx, query,
-		ch.ID, string(ch.ChannelType), ch.Name, ch.Description, configJSON,
+		ch.ID, string(ch.ChannelType), ch.Name, ch.Description, string(configJSON),
 		ch.Active, ch.CreatedAt, ch.UpdatedAt,
 	)
 	if err != nil {
@@ -124,7 +124,7 @@ func (r *ChannelRepo) Update(ctx context.Context, ch *domain.ChannelConfig) erro
 
 	query := `UPDATE delivery_channels SET name = $1, description = $2, config = $3, updated_at = $4
 		WHERE id = $5`
-	tag, err := r.pool.Exec(ctx, query, ch.Name, ch.Description, configJSON, ch.UpdatedAt, ch.ID)
+	tag, err := r.pool.Exec(ctx, query, ch.Name, ch.Description, string(configJSON), ch.UpdatedAt, ch.ID)
 	if err != nil {
 		return fmt.Errorf("update channel: %w", err)
 	}

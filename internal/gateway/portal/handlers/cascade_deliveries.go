@@ -23,7 +23,7 @@ func NewCascadeDeliveryHandlers(client cascadev1.CascadeServiceClient) *CascadeD
 
 // ListDeliveries обрабатывает GET /cascade/deliveries
 func (h *CascadeDeliveryHandlers) ListDeliveries(w http.ResponseWriter, r *http.Request) {
-	clientID, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -57,7 +57,7 @@ func (h *CascadeDeliveryHandlers) ListDeliveries(w http.ResponseWriter, r *http.
 
 // GetDelivery обрабатывает GET /cascade/deliveries/{id}
 func (h *CascadeDeliveryHandlers) GetDelivery(w http.ResponseWriter, r *http.Request) {
-	clientID, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -77,7 +77,7 @@ func (h *CascadeDeliveryHandlers) GetDelivery(w http.ResponseWriter, r *http.Req
 
 // GetStats обрабатывает GET /cascade/stats
 func (h *CascadeDeliveryHandlers) GetStats(w http.ResponseWriter, r *http.Request) {
-	clientID, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
