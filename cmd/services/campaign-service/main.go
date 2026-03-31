@@ -137,26 +137,27 @@ func main() {
 	if kafkaProducer != nil {
 		startMaterializationWorker(ctx, dbx, kafkaProducer, cfg.Kafka.TopicOutgoing, recipientRepo, logger)
 		logger.Info().Msg("воркер материализации кампаний запущен")
-
-		// Reconciler: syncs campaign_recipients status from messages table
-		// and closes fully-processed running campaigns.
-		go func() {
-			ticker := time.NewTicker(30 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					if err := reconcileRunningCampaigns(ctx, dbx, logger); err != nil {
-						logger.Error().Err(err).Msg("ошибка reconcile running campaigns")
-					}
-				}
-			}
-		}()
 	} else {
 		logger.Warn().Msg("Kafka недоступна, воркер материализации отключён")
 	}
+
+	// Reconciler: syncs campaign_recipients status from messages table
+	// and closes fully-processed running campaigns.
+	// Runs regardless of Kafka availability — uses only PostgreSQL.
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := reconcileRunningCampaigns(ctx, dbx, logger); err != nil {
+					logger.Error().Err(err).Msg("ошибка reconcile running campaigns")
+				}
+			}
+		}
+	}()
 
 	// Health checker
 	healthChecker := monitoring.NewHealthChecker("campaign-service", cfg.Service.Version)
@@ -354,7 +355,7 @@ func reconcileRunningCampaigns(ctx context.Context, dbx *sqlx.DB, logger zerolog
 		       updated_at = now()
 		FROM   messages m
 		WHERE  m.id = cr.message_id
-		  AND  m.status IN ('sent', 'delivered', 'failed', 'expired', 'rejected')
+		  AND  m.status IN ('sent', 'delivered', 'failed', 'expired', 'rejected', 'undeliverable')
 		  AND  cr.status  = 'pending'
 		  AND  cr.campaign_id IN (
 		           SELECT id FROM campaigns WHERE status = 'running'
@@ -408,7 +409,7 @@ func reconcileRunningCampaigns(ctx context.Context, dbx *sqlx.DB, logger zerolog
 				failed_count    = $3,
 				updated_at      = now()
 			WHERE id = $4`,
-			cc.counts["sent"]+cc.counts["delivered"]+cc.counts["failed"],
+			cc.counts["sent"],
 			cc.counts["delivered"],
 			cc.counts["failed"],
 			campaignID,
