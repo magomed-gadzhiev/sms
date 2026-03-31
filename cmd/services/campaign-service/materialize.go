@@ -71,6 +71,23 @@ func startMaterializationWorker(
 			}
 		}
 	}()
+
+	// Worker to re-publish messages that are stuck in 'queued' state
+	// (Kafka publish failed during materialization).
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := processStaleQueued(ctx, dbx, producer, topicOutgoing, 5*time.Minute, logger); err != nil {
+					logger.Error().Err(err).Msg("ошибка переотправки stale queued сообщений")
+				}
+			}
+		}
+	}()
 }
 
 func processMaterializingCampaigns(
@@ -384,6 +401,101 @@ func processUnsentRecipients(
 
 	if count > 0 {
 		logger.Info().Int("count", count).Msg("досланы сообщения для получателей без message_id")
+	}
+	return nil
+}
+
+// staleRow holds the DB columns fetched for re-queuing.
+type staleRow struct {
+	ID          string
+	Source      string
+	Destination string
+	Text        string
+	ClientID    string
+	CreatedAt   time.Time
+}
+
+// buildStaleKafkaMsg converts a staleRow into a kafkaOutgoingMsg ready for publishing.
+// Extracted as a pure function so it can be unit-tested without DB.
+func buildStaleKafkaMsg(row staleRow) (kafkaOutgoingMsg, error) {
+	msgID, err := uuid.Parse(row.ID)
+	if err != nil {
+		return kafkaOutgoingMsg{}, fmt.Errorf("invalid message_id %q: %w", row.ID, err)
+	}
+	clientID, err := uuid.Parse(row.ClientID)
+	if err != nil {
+		return kafkaOutgoingMsg{}, fmt.Errorf("invalid client_id %q: %w", row.ClientID, err)
+	}
+	return kafkaOutgoingMsg{
+		ID:          msgID.String(),
+		MessageID:   msgID,
+		Source:      row.Source,
+		Destination: row.Destination,
+		Text:        row.Text,
+		ClientID:    &clientID,
+		MaxRetries:  5,
+		CreatedAt:   row.CreatedAt,
+	}, nil
+}
+
+// processStaleQueued finds messages in 'queued' state older than staleThreshold
+// and re-publishes them to sms.outgoing. This recovers messages whose Kafka
+// publish failed during materialization.
+func processStaleQueued(
+	ctx context.Context,
+	dbx *sqlx.DB,
+	producer sarama.SyncProducer,
+	topicOutgoing string,
+	staleThreshold time.Duration,
+	logger zerolog.Logger,
+) error {
+	rows, err := dbx.QueryContext(ctx, `
+		SELECT id::text, source, destination, text, client_id::text, created_at
+		FROM messages
+		WHERE status = 'queued'
+		  AND updated_at < now() - $1::interval
+		LIMIT 100`,
+		staleThreshold.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("query stale queued: %w", err)
+	}
+	defer rows.Close()
+
+	var stale []staleRow
+	for rows.Next() {
+		var r staleRow
+		if err := rows.Scan(&r.ID, &r.Source, &r.Destination, &r.Text, &r.ClientID, &r.CreatedAt); err != nil {
+			logger.Error().Err(err).Msg("ошибка сканирования stale row")
+			continue
+		}
+		stale = append(stale, r)
+	}
+	rows.Close()
+
+	var published int
+	for _, row := range stale {
+		msg, err := buildStaleKafkaMsg(row)
+		if err != nil {
+			logger.Error().Err(err).Str("message_id", row.ID).Msg("ошибка построения Kafka сообщения для stale")
+			continue
+		}
+		data, _ := json.Marshal(msg)
+		if _, _, kafkaErr := producer.SendMessage(&sarama.ProducerMessage{
+			Topic: topicOutgoing,
+			Value: sarama.ByteEncoder(data),
+		}); kafkaErr != nil {
+			logger.Error().Err(kafkaErr).Str("message_id", row.ID).Msg("ошибка публикации stale сообщения")
+			continue // do not refresh updated_at so it will be retried
+		}
+		// Refresh updated_at so we don't re-publish on the next tick.
+		_, _ = dbx.ExecContext(ctx,
+			`UPDATE messages SET updated_at = now() WHERE id = $1`, row.ID)
+		published++
+	}
+
+	if published > 0 {
+		logger.Info().Int("count", published).Msg("переотправлены зависшие queued сообщения")
 	}
 	return nil
 }
