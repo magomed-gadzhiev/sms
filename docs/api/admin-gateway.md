@@ -410,7 +410,7 @@ GET /admin/v1/billing/transactions?client_id=...&limit=100&offset=0
       "client_id": "550e8400-e29b-41d4-a716-446655440000",
       "type": "charge",
       "amount": "0.05",
-      "currency": "USD",
+      "currency": "RUB",
       "message_id": "990e8400-e29b-41d4-a716-446655440000",
       "created_at": "2024-01-01T12:00:00Z"
     }
@@ -435,7 +435,7 @@ GET /admin/v1/billing/accounts?client_id=...
       "id": "aa0e8400-e29b-41d4-a716-446655440000",
       "client_id": "550e8400-e29b-41d4-a716-446655440000",
       "balance": "1000.00",
-      "currency": "USD",
+      "currency": "RUB",
       "updated_at": "2024-01-01T12:00:00Z"
     }
   ]
@@ -450,7 +450,7 @@ Content-Type: application/json
 
 {
   "amount": "100.00",
-  "currency": "USD",
+  "currency": "RUB",
   "description": "Manual credit"
 }
 ```

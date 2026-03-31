@@ -70,7 +70,7 @@ func (s *PricingService) GetPriceForDestination(
 	if err != nil {
 		if err == domain.ErrPricingRuleNotFound {
 			// Возвращаем дефолтную цену
-			return "0.01", "USD", nil
+			return "0.01", "RUB", nil
 		}
 		return "", "", fmt.Errorf("failed to get pricing rule: %w", err)
 	}

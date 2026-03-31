@@ -501,7 +501,7 @@ func TestGetBalance_Success(t *testing.T) {
 	expected := &billingv1.GetBalanceResponse{
 		ClientId: clientID.String(),
 		Balance:  "100.50",
-		Currency: "USD",
+		Currency: "RUB",
 	}
 	bc.On("GetBalance", ctx, mock.MatchedBy(func(req *billingv1.GetBalanceRequest) bool {
 		return req.ClientId == clientID.String()
@@ -510,7 +510,7 @@ func TestGetBalance_Success(t *testing.T) {
 	resp, err := srv.GetBalance(ctx, &billingv1.GetBalanceRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "100.50", resp.Balance)
-	assert.Equal(t, "USD", resp.Currency)
+	assert.Equal(t, "RUB", resp.Currency)
 
 	bc.AssertExpectations(t)
 }

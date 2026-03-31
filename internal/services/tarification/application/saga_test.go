@@ -132,7 +132,7 @@ func TestSagaOrchestrator(t *testing.T) {
 				ClientId:    "client-1",
 				MessageId:   "msg-1",
 				Amount:      "0.500000",
-				Currency:    "USD",
+				Currency:    "RUB",
 				Description: "test charge",
 			}).Return(&billingv1.ChargeMessageResponse{
 				TransactionId: "tx-1",
@@ -140,7 +140,7 @@ func TestSagaOrchestrator(t *testing.T) {
 				Success:       true,
 			}, nil)
 
-			result, err := saga.Charge(context.Background(), "client-1", "msg-1", "0.500000", "USD", "test charge", 1)
+			result, err := saga.Charge(context.Background(), "client-1", "msg-1", "0.500000", "RUB", "test charge", 1)
 
 			require.NoError(t, err)
 			assert.True(t, result.Success)
@@ -191,7 +191,7 @@ func TestSagaOrchestrator(t *testing.T) {
 			bc.On("AddCredits", mock.Anything, &billingv1.AddCreditsRequest{
 				ClientId:    "client-1",
 				Amount:      "5.000000",
-				Currency:    "USD",
+				Currency:    "RUB",
 				Description: "refund",
 			}).Return(&billingv1.AddCreditsResponse{
 				TransactionId: "tx-refund-1",
@@ -199,7 +199,7 @@ func TestSagaOrchestrator(t *testing.T) {
 				Success:       true,
 			}, nil)
 
-			result, err := saga.Refund(context.Background(), "client-1", "5.000000", "USD", "refund")
+			result, err := saga.Refund(context.Background(), "client-1", "5.000000", "RUB", "refund")
 
 			require.NoError(t, err)
 			assert.True(t, result.Success)
@@ -216,7 +216,7 @@ func TestSagaOrchestrator(t *testing.T) {
 			bc.On("DeductCredits", mock.Anything, &billingv1.DeductCreditsRequest{
 				ClientId:    "client-1",
 				Amount:      "2.500000",
-				Currency:    "USD",
+				Currency:    "RUB",
 				Description: "threshold recalculation charge",
 			}).Return(&billingv1.DeductCreditsResponse{
 				TransactionId: "tx-recalc-1",
@@ -224,7 +224,7 @@ func TestSagaOrchestrator(t *testing.T) {
 				Success:       true,
 			}, nil)
 
-			result, err := saga.HandleRecalc(context.Background(), "client-1", "2.500000", "USD")
+			result, err := saga.HandleRecalc(context.Background(), "client-1", "2.500000", "RUB")
 
 			require.NoError(t, err)
 			assert.True(t, result.Success)
@@ -239,7 +239,7 @@ func TestSagaOrchestrator(t *testing.T) {
 			bc.On("AddCredits", mock.Anything, &billingv1.AddCreditsRequest{
 				ClientId:    "client-1",
 				Amount:      "1.500000",
-				Currency:    "USD",
+				Currency:    "RUB",
 				Description: "threshold recalculation refund",
 			}).Return(&billingv1.AddCreditsResponse{
 				TransactionId: "tx-refund-1",
@@ -247,7 +247,7 @@ func TestSagaOrchestrator(t *testing.T) {
 				Success:       true,
 			}, nil)
 
-			result, err := saga.HandleRecalc(context.Background(), "client-1", "-1.500000", "USD")
+			result, err := saga.HandleRecalc(context.Background(), "client-1", "-1.500000", "RUB")
 
 			require.NoError(t, err)
 			assert.True(t, result.Success)
@@ -259,7 +259,7 @@ func TestSagaOrchestrator(t *testing.T) {
 			bc := new(mockBillingClient)
 			saga := NewSagaOrchestrator(bc)
 
-			result, err := saga.HandleRecalc(context.Background(), "client-1", "0.000000", "USD")
+			result, err := saga.HandleRecalc(context.Background(), "client-1", "0.000000", "RUB")
 
 			require.NoError(t, err)
 			assert.True(t, result.Success)
@@ -278,7 +278,7 @@ func TestSagaOrchestrator(t *testing.T) {
 					Error:   "insufficient balance",
 				}, nil)
 
-			result, err := saga.HandleRecalc(context.Background(), "client-1", "100.000000", "USD")
+			result, err := saga.HandleRecalc(context.Background(), "client-1", "100.000000", "RUB")
 
 			require.NoError(t, err)
 			assert.False(t, result.Success)
@@ -290,7 +290,7 @@ func TestSagaOrchestrator(t *testing.T) {
 			bc := new(mockBillingClient)
 			saga := NewSagaOrchestrator(bc)
 
-			result, err := saga.HandleRecalc(context.Background(), "client-1", "not-a-number", "USD")
+			result, err := saga.HandleRecalc(context.Background(), "client-1", "not-a-number", "RUB")
 
 			assert.Nil(t, result)
 			assert.Error(t, err)

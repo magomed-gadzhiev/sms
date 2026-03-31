@@ -57,7 +57,7 @@ message GetBalanceRequest {
 message GetBalanceResponse {
   string client_id = 1;           // ID клиента
   string balance = 2;             // Баланс (в виде строки для точности)
-  string currency = 3;            // Валюта (по умолчанию "USD")
+  string currency = 3;            // Валюта (по умолчанию "RUB")
   google.protobuf.Timestamp updated_at = 4;  // Время последнего обновления
   bool frozen = 5;                            // Заморожен ли счет
   string credit_limit = 6;                    // Кредитный лимит
@@ -68,7 +68,7 @@ message ChargeMessageRequest {
   string client_id = 1;           // ID клиента
   string message_id = 2;          // ID сообщения
   string amount = 3;              // Сумма за один сегмент
-  string currency = 4;            // Валюта (по умолчанию "USD")
+  string currency = 4;            // Валюта (по умолчанию "RUB")
   string description = 5;         // Описание транзакции
   int32 segment_count = 6;        // Количество сегментов (умножается на amount)
 }
@@ -85,7 +85,7 @@ message ChargeMessageResponse {
 message AddCreditsRequest {
   string client_id = 1;           // ID клиента
   string amount = 2;              // Сумма для добавления
-  string currency = 3;            // Валюта (по умолчанию "USD")
+  string currency = 3;            // Валюта (по умолчанию "RUB")
   string description = 4;         // Описание транзакции
   string payment_method = 5;      // Способ оплаты (опционально)
 }
@@ -102,7 +102,7 @@ message AddCreditsResponse {
 message DeductCreditsRequest {
   string client_id = 1;           // ID клиента
   string amount = 2;              // Сумма для списания
-  string currency = 3;            // Валюта (по умолчанию "USD")
+  string currency = 3;            // Валюта (по умолчанию "RUB")
   string description = 4;         // Описание транзакции
 }
 
@@ -147,7 +147,7 @@ message CreatePricingRuleRequest {
   string client_id = 1;           // ID клиента (пусто для глобального правила)
   string destination_pattern = 2; // Паттерн номера получателя (regex)
   string price_per_message = 3;   // Цена за сообщение
-  string currency = 4;            // Валюта (по умолчанию "USD")
+  string currency = 4;            // Валюта (по умолчанию "RUB")
   int32 priority = 5;             // Приоритет правила
   bool active = 6;                // Активно ли правило
 }

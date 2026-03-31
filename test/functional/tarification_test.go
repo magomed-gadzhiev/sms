@@ -358,14 +358,14 @@ func TestTariffPrepaidFee(t *testing.T) {
 		prepaidRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.PrepaidFee")).
 			Return(nil).Once()
 
-		fee, err := svc.CreatePrepaidFee(ctx, plan.ID, period.ID, "500.000000", "USD")
+		fee, err := svc.CreatePrepaidFee(ctx, plan.ID, period.ID, "500.000000", "RUB")
 		require.NoError(t, err)
 		require.NotNil(t, fee)
 
 		assert.Equal(t, plan.ID, fee.TariffPlanID)
 		assert.Equal(t, period.ID, fee.TariffPeriodID)
 		assert.Equal(t, "500.000000", fee.Amount)
-		assert.Equal(t, "USD", fee.Currency)
+		assert.Equal(t, "RUB", fee.Currency)
 		assert.False(t, fee.Charged)
 
 		planRepo.AssertExpectations(t)

@@ -128,7 +128,7 @@ func TestMockPaymentProvider_CreatePayment_Success(t *testing.T) {
 	req := CreatePaymentRequest{
 		ClientID:  "client-1",
 		Amount:    "200.00",
-		Currency:  "USD",
+		Currency:  "RUB",
 		ReturnURL: "https://example.com",
 	}
 
@@ -174,7 +174,7 @@ func TestMockPaymentProvider_HandleCallback_Success(t *testing.T) {
 		PaymentID: "pay-123",
 		Status:    "success",
 		Amount:    "200.00",
-		Currency:  "USD",
+		Currency:  "RUB",
 		ClientID:  "client-1",
 	}
 

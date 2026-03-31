@@ -156,7 +156,7 @@ func (r *CreateCountryRequest) Validate() error {
 		return shared.ErrInvalidInput("phone_code обязателен")
 	}
 	if r.Currency == "" {
-		r.Currency = "USD"
+		r.Currency = "RUB"
 	}
 	return nil
 }

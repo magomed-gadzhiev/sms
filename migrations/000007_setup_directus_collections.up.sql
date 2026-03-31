@@ -311,7 +311,7 @@ BEGIN
     PERFORM setup_directus_field(
         'accounts',
         'currency',
-        '{"width": "half", "options": {"choices": [{"text": "USD", "value": "USD"}, {"text": "EUR", "value": "EUR"}, {"text": "RUB", "value": "RUB"}]}}'::jsonb,
+        '{"width": "half", "options": {"choices": [{"text": "RUB", "value": "RUB"}]}}'::jsonb,
         'select-dropdown'
     );
 END $$;
@@ -403,7 +403,7 @@ BEGIN
     PERFORM setup_directus_field(
         'pricing_rules',
         'currency',
-        '{"width": "half", "options": {"choices": [{"text": "USD", "value": "USD"}, {"text": "EUR", "value": "EUR"}, {"text": "RUB", "value": "RUB"}]}}'::jsonb,
+        '{"width": "half", "options": {"choices": [{"text": "RUB", "value": "RUB"}]}}'::jsonb,
         'select-dropdown'
     );
     

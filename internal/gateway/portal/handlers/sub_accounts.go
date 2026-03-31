@@ -166,7 +166,7 @@ func (h *SubAccountHandlers) CreateSubAccount(w http.ResponseWriter, r *http.Req
 
 	// Если указан начальный баланс, переводим средства
 	if req.InitialBalance != "" && req.InitialBalance != "0" {
-		currency := "USD"
+		currency := "RUB"
 		transferResp, err := h.billingClient.TransferBalance(r.Context(), &billingv1.TransferBalanceRequest{
 			FromClientId: parentClientID,
 			ToClientId:   createResp.SubAccount.Id,
@@ -328,7 +328,7 @@ func (h *SubAccountHandlers) TransferBalance(w http.ResponseWriter, r *http.Requ
 
 	currency := req.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 
 	// Проверяем, что суб-аккаунт принадлежит родителю

@@ -36,7 +36,7 @@ func TestBillingChain(t *testing.T) {
 		transactionRepo := billingRepo.NewTransactionRepository(db)
 
 		// Create an account with balance 100.00
-		account := billingDomain.NewAccount(clientID, "USD")
+		account := billingDomain.NewAccount(clientID, "RUB")
 		account.Balance = "100.000000"
 		err = accountRepo.Create(ctx, account)
 		require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestBillingChain(t *testing.T) {
 		svc := application.NewBillingService(accountRepo, transactionRepo, mockPublisher)
 
 		// DeductCredits with 10.50
-		tx, err := svc.DeductCredits(ctx, clientID, "10.500000", "USD", "test charge")
+		tx, err := svc.DeductCredits(ctx, clientID, "10.500000", "RUB", "test charge")
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 
@@ -77,7 +77,7 @@ func TestBillingChain(t *testing.T) {
 
 		// Verify events were published
 		mockPublisher.AssertCalled(t, "PublishBalanceChanged",
-			mock.Anything, clientID.String(), "89.500000", "USD")
+			mock.Anything, clientID.String(), "89.500000", "RUB")
 	})
 
 	t.Run("InsufficientFunds", func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestBillingChain(t *testing.T) {
 		transactionRepo := billingRepo.NewTransactionRepository(db)
 
 		// Create account with balance 0.10
-		account := billingDomain.NewAccount(clientID, "USD")
+		account := billingDomain.NewAccount(clientID, "RUB")
 		account.Balance = "0.100000"
 		err = accountRepo.Create(ctx, account)
 		require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestBillingChain(t *testing.T) {
 		svc := application.NewBillingService(accountRepo, transactionRepo, mockPublisher)
 
 		// Attempt to deduct 0.50 -- should fail with insufficient balance
-		_, err = svc.DeductCredits(ctx, clientID, "0.500000", "USD", "should fail")
+		_, err = svc.DeductCredits(ctx, clientID, "0.500000", "RUB", "should fail")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, billingDomain.ErrInsufficientBalance)
 
@@ -141,7 +141,7 @@ func TestBillingChain(t *testing.T) {
 		transactionRepo := billingRepo.NewTransactionRepository(db)
 
 		// Create account with balance 100.00
-		account := billingDomain.NewAccount(clientID, "USD")
+		account := billingDomain.NewAccount(clientID, "RUB")
 		account.Balance = "100.000000"
 		err = accountRepo.Create(ctx, account)
 		require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestBillingChain(t *testing.T) {
 		svc := application.NewBillingService(accountRepo, transactionRepo, mockPublisher)
 
 		// Step 1: Charge 25.00
-		chargeTx, err := svc.DeductCredits(ctx, clientID, "25.000000", "USD", "initial charge")
+		chargeTx, err := svc.DeductCredits(ctx, clientID, "25.000000", "RUB", "initial charge")
 		require.NoError(t, err)
 		require.NotNil(t, chargeTx)
 
@@ -172,7 +172,7 @@ func TestBillingChain(t *testing.T) {
 		assert.Equal(t, "75.000000", acct.Balance)
 
 		// Step 2: Add credits (refund) of 25.00
-		refundTx, err := svc.AddCredits(ctx, clientID, "25.000000", "USD", "refund", nil)
+		refundTx, err := svc.AddCredits(ctx, clientID, "25.000000", "RUB", "refund", nil)
 		require.NoError(t, err)
 		require.NotNil(t, refundTx)
 

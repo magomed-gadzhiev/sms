@@ -184,7 +184,7 @@ func TestAccountHandlers(t *testing.T) {
 			})).Return(&billingv1.GetBalanceResponse{
 				ClientId:  clientID.String(),
 				Balance:   "150.50",
-				Currency:  "USD",
+				Currency:  "RUB",
 				UpdatedAt: timestamppb.Now(),
 			}, nil)
 
@@ -201,7 +201,7 @@ func TestAccountHandlers(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, clientID.String(), resp["client_id"])
 			assert.Equal(t, "150.50", resp["balance"])
-			assert.Equal(t, "USD", resp["currency"])
+			assert.Equal(t, "RUB", resp["currency"])
 			assert.NotNil(t, resp["updated_at"])
 
 			billingClient.AssertExpectations(t)

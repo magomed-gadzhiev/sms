@@ -133,7 +133,7 @@ func TestBillingHandlers(t *testing.T) {
 			})).Return(&billingv1.GetBalanceResponse{
 				ClientId:  "client-abc",
 				Balance:   "500.00",
-				Currency:  "USD",
+				Currency:  "RUB",
 				UpdatedAt: timestamppb.Now(),
 			}, nil)
 
@@ -150,7 +150,7 @@ func TestBillingHandlers(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "client-abc", resp.ClientID)
 			assert.Equal(t, "500.00", resp.Balance)
-			assert.Equal(t, "USD", resp.Currency)
+			assert.Equal(t, "RUB", resp.Currency)
 
 			client.AssertExpectations(t)
 		})
@@ -217,7 +217,7 @@ func TestBillingHandlers(t *testing.T) {
 			client.On("AddCredits", mock.Anything, mock.MatchedBy(func(req *billingv1.AddCreditsRequest) bool {
 				return req.ClientId == "client-abc" &&
 					req.Amount == "100.00" &&
-					req.Currency == "USD"
+					req.Currency == "RUB"
 			})).Return(&billingv1.AddCreditsResponse{
 				TransactionId: "tx-123",
 				NewBalance:    "600.00",
@@ -226,7 +226,7 @@ func TestBillingHandlers(t *testing.T) {
 
 			body, _ := json.Marshal(AddCreditsRequest{
 				Amount:      "100.00",
-				Currency:    "USD",
+				Currency:    "RUB",
 				Description: "Manual top-up",
 			})
 
@@ -255,7 +255,7 @@ func TestBillingHandlers(t *testing.T) {
 
 			body, _ := json.Marshal(AddCreditsRequest{
 				Amount:   "",
-				Currency: "USD",
+				Currency: "RUB",
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/clients/client-abc/credits", bytes.NewReader(body))
@@ -284,7 +284,7 @@ func TestBillingHandlers(t *testing.T) {
 			body, _ := json.Marshal(CreatePricingRuleRequest{
 				DestinationPattern: "^\\+7",
 				PricePerMessage:    "0.05",
-				Currency:           "USD",
+				Currency:           "RUB",
 				Priority:           10,
 				Active:             true,
 			})
@@ -356,7 +356,7 @@ func TestBillingHandlers(t *testing.T) {
 						ClientId:      "client-abc",
 						Type:          "credit",
 						Amount:        "100.00",
-						Currency:      "USD",
+						Currency:      "RUB",
 						BalanceBefore: "500.00",
 						BalanceAfter:  "600.00",
 						CreatedAt:     timestamppb.Now(),

@@ -659,12 +659,12 @@ func TestTariffPlanService(t *testing.T) {
 			f.periodRepo.On("GetByID", ctx, periodID).Return(&domain.TariffPeriod{ID: periodID}, nil)
 			f.prepaidRepo.On("Create", ctx, mock.AnythingOfType("*domain.PrepaidFee")).Return(nil)
 
-			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "USD")
+			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "RUB")
 
 			require.NoError(t, err)
 			require.NotNil(t, fee)
 			assert.Equal(t, "100.00", fee.Amount)
-			assert.Equal(t, "USD", fee.Currency)
+			assert.Equal(t, "RUB", fee.Currency)
 			assert.False(t, fee.Charged)
 		})
 
@@ -676,7 +676,7 @@ func TestTariffPlanService(t *testing.T) {
 
 			f.planRepo.On("GetByID", ctx, planID).Return(nil, domain.ErrTariffPlanNotFound)
 
-			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "USD")
+			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "RUB")
 
 			assert.Nil(t, fee)
 			assert.Error(t, err)
@@ -691,7 +691,7 @@ func TestTariffPlanService(t *testing.T) {
 			f.planRepo.On("GetByID", ctx, planID).Return(&domain.TariffPlan{ID: planID}, nil)
 			f.periodRepo.On("GetByID", ctx, periodID).Return(nil, domain.ErrTariffPeriodNotFound)
 
-			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "USD")
+			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "RUB")
 
 			assert.Nil(t, fee)
 			assert.Error(t, err)
@@ -723,7 +723,7 @@ func TestTariffPlanService(t *testing.T) {
 			f.periodRepo.On("GetByID", ctx, periodID).Return(&domain.TariffPeriod{ID: periodID}, nil)
 			f.prepaidRepo.On("Create", ctx, mock.AnythingOfType("*domain.PrepaidFee")).Return(errors.New("db error"))
 
-			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "USD")
+			fee, err := f.service.CreatePrepaidFee(ctx, planID, periodID, "100.00", "RUB")
 
 			assert.Nil(t, fee)
 			assert.Error(t, err)

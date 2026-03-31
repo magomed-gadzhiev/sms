@@ -4,7 +4,7 @@ SELECT
     uuid_generate_v4(),
     c.id,
     0,
-    'USD',
+    'RUB',
     NOW(),
     NOW()
 FROM clients c
@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION create_account_for_new_client()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO accounts (id, client_id, balance, currency, created_at, updated_at)
-    VALUES (uuid_generate_v4(), NEW.id, 0, 'USD', NOW(), NOW())
+    VALUES (uuid_generate_v4(), NEW.id, 0, 'RUB', NOW(), NOW())
     ON CONFLICT (client_id) DO NOTHING;
     RETURN NEW;
 END;

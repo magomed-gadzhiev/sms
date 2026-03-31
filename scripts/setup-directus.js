@@ -451,8 +451,6 @@ async function setupAccountsCollection() {
             width: 'half',
             options: {
                 choices: [
-                    { text: 'USD', value: 'USD' },
-                    { text: 'EUR', value: 'EUR' },
                     { text: 'RUB', value: 'RUB' }
                 ]
             }

@@ -26,7 +26,7 @@ func TestPricingService(t *testing.T) {
 				ClientID:           nil,
 				DestinationPattern: "^\\+7916",
 				PricePerMessage:    "0.050000",
-				Currency:           "USD",
+				Currency:           "RUB",
 				Priority:           10,
 				Active:             true,
 			}
@@ -37,7 +37,7 @@ func TestPricingService(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, "0.050000", price)
-			assert.Equal(t, "USD", currency)
+			assert.Equal(t, "RUB", currency)
 
 			pricingRepo.AssertExpectations(t)
 		})
@@ -55,7 +55,7 @@ func TestPricingService(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, "0.01", price)
-			assert.Equal(t, "USD", currency)
+			assert.Equal(t, "RUB", currency)
 
 			pricingRepo.AssertExpectations(t)
 		})
@@ -118,8 +118,8 @@ func TestPricingService(t *testing.T) {
 			clientID := uuid.New()
 
 			expectedRules := []*domain.PricingRule{
-				{ID: uuid.New(), ClientID: &clientID, DestinationPattern: "^\\+7", PricePerMessage: "0.05", Currency: "USD"},
-				{ID: uuid.New(), ClientID: &clientID, DestinationPattern: "^\\+1", PricePerMessage: "0.03", Currency: "USD"},
+				{ID: uuid.New(), ClientID: &clientID, DestinationPattern: "^\\+7", PricePerMessage: "0.05", Currency: "RUB"},
+				{ID: uuid.New(), ClientID: &clientID, DestinationPattern: "^\\+1", PricePerMessage: "0.03", Currency: "RUB"},
 			}
 
 			pricingRepo.On("GetByClientID", ctx, &clientID, false).Return(expectedRules, nil)
@@ -140,7 +140,7 @@ func TestPricingService(t *testing.T) {
 			ctx := context.Background()
 
 			expectedRules := []*domain.PricingRule{
-				{ID: uuid.New(), ClientID: nil, DestinationPattern: "^\\+", PricePerMessage: "0.01", Currency: "USD"},
+				{ID: uuid.New(), ClientID: nil, DestinationPattern: "^\\+", PricePerMessage: "0.01", Currency: "RUB"},
 			}
 
 			pricingRepo.On("GetByClientID", ctx, (*uuid.UUID)(nil), false).Return(expectedRules, nil)
@@ -164,14 +164,14 @@ func TestPricingService(t *testing.T) {
 
 			pricingRepo.On("Create", ctx, mock.AnythingOfType("*domain.PricingRule")).Return(nil)
 
-			rule, err := svc.CreatePricingRule(ctx, &clientID, "^\\+7", "0.050000", "USD", 10, true)
+			rule, err := svc.CreatePricingRule(ctx, &clientID, "^\\+7", "0.050000", "RUB", 10, true)
 
 			require.NoError(t, err)
 			require.NotNil(t, rule)
 			assert.Equal(t, &clientID, rule.ClientID)
 			assert.Equal(t, "^\\+7", rule.DestinationPattern)
 			assert.Equal(t, "0.050000", rule.PricePerMessage)
-			assert.Equal(t, "USD", rule.Currency)
+			assert.Equal(t, "RUB", rule.Currency)
 			assert.Equal(t, 10, rule.Priority)
 			assert.True(t, rule.Active)
 
@@ -185,7 +185,7 @@ func TestPricingService(t *testing.T) {
 
 			pricingRepo.On("Create", ctx, mock.AnythingOfType("*domain.PricingRule")).Return(nil)
 
-			rule, err := svc.CreatePricingRule(ctx, nil, "^\\+1", "0.020000", "USD", 5, false)
+			rule, err := svc.CreatePricingRule(ctx, nil, "^\\+1", "0.020000", "RUB", 5, false)
 
 			require.NoError(t, err)
 			require.NotNil(t, rule)
@@ -200,7 +200,7 @@ func TestPricingService(t *testing.T) {
 			svc := NewPricingService(pricingRepo)
 			ctx := context.Background()
 
-			rule, err := svc.CreatePricingRule(ctx, nil, "", "0.050000", "USD", 10, true)
+			rule, err := svc.CreatePricingRule(ctx, nil, "", "0.050000", "RUB", 10, true)
 
 			require.Error(t, err)
 			assert.Nil(t, rule)

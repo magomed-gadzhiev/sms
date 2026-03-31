@@ -72,7 +72,7 @@ type GetBalanceResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`          // ID клиента
 	Balance       string                 `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`                            // Баланс (в виде строки для точности)
-	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                          // Валюта (по умолчанию "USD")
+	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                          // Валюта (по умолчанию "RUB")
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`       // Время последнего обновления
 	Frozen        bool                   `protobuf:"varint,5,opt,name=frozen,proto3" json:"frozen,omitempty"`                             // Заморожен ли счет
 	CreditLimit   string                 `protobuf:"bytes,6,opt,name=credit_limit,json=creditLimit,proto3" json:"credit_limit,omitempty"` // Кредитный лимит
@@ -158,7 +158,7 @@ type ChargeMessageRequest struct {
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`              // ID клиента
 	MessageId     string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`           // ID сообщения
 	Amount        string                 `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`                                  // Сумма за один сегмент
-	Currency      string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`                              // Валюта (по умолчанию "USD")
+	Currency      string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`                              // Валюта (по умолчанию "RUB")
 	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`                        // Описание транзакции
 	SegmentCount  int32                  `protobuf:"varint,6,opt,name=segment_count,json=segmentCount,proto3" json:"segment_count,omitempty"` // Количество сегментов (умножается на amount)
 	unknownFields protoimpl.UnknownFields
@@ -311,7 +311,7 @@ type AddCreditsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`                // ID клиента
 	Amount        string                 `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`                                    // Сумма для добавления
-	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                                // Валюта (по умолчанию "USD")
+	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                                // Валюта (по умолчанию "RUB")
 	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`                          // Описание транзакции
 	PaymentMethod string                 `protobuf:"bytes,5,opt,name=payment_method,json=paymentMethod,proto3" json:"payment_method,omitempty"` // Способ оплаты (опционально)
 	unknownFields protoimpl.UnknownFields
@@ -457,7 +457,7 @@ type DeductCreditsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"` // ID клиента
 	Amount        string                 `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`                     // Сумма для списания
-	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                 // Валюта (по умолчанию "USD")
+	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                 // Валюта (по умолчанию "RUB")
 	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`           // Описание транзакции
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -840,7 +840,7 @@ type CreatePricingRuleRequest struct {
 	ClientId           string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`                               // ID клиента (пусто для глобального правила)
 	DestinationPattern string                 `protobuf:"bytes,2,opt,name=destination_pattern,json=destinationPattern,proto3" json:"destination_pattern,omitempty"` // Паттерн номера получателя (regex)
 	PricePerMessage    string                 `protobuf:"bytes,3,opt,name=price_per_message,json=pricePerMessage,proto3" json:"price_per_message,omitempty"`        // Цена за сообщение
-	Currency           string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`                                               // Валюта (по умолчанию "USD")
+	Currency           string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`                                               // Валюта (по умолчанию "RUB")
 	Priority           int32                  `protobuf:"varint,5,opt,name=priority,proto3" json:"priority,omitempty"`                                              // Приоритет правила
 	Active             bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                  // Активно ли правило
 	unknownFields      protoimpl.UnknownFields

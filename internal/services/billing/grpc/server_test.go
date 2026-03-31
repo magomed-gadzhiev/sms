@@ -224,7 +224,7 @@ func TestBillingServer_GetBalance(t *testing.T) {
 			ID:        uuid.New(),
 			ClientID:  clientID,
 			Balance:   "1000.50",
-			Currency:  "USD",
+			Currency:  "RUB",
 			UpdatedAt: time.Now(),
 		}
 
@@ -238,7 +238,7 @@ func TestBillingServer_GetBalance(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.Equal(t, clientID.String(), resp.ClientId)
 		assert.Equal(t, "1000.50", resp.Balance)
-		assert.Equal(t, "USD", resp.Currency)
+		assert.Equal(t, "RUB", resp.Currency)
 	})
 
 	t.Run("account not found returns zero balance", func(t *testing.T) {
@@ -259,7 +259,7 @@ func TestBillingServer_GetBalance(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.Equal(t, clientID.String(), resp.ClientId)
 		assert.Equal(t, "0", resp.Balance)
-		assert.Equal(t, "USD", resp.Currency)
+		assert.Equal(t, "RUB", resp.Currency)
 	})
 
 	t.Run("empty client_id returns InvalidArgument", func(t *testing.T) {
@@ -312,19 +312,19 @@ func TestBillingServer_DeductCredits(t *testing.T) {
 			ID:       uuid.New(),
 			ClientID: clientID,
 			Balance:  "500.00",
-			Currency: "USD",
+			Currency: "RUB",
 		}
 
 		accountRepo.On("GetByClientID", mock.Anything, clientID).Return(account, nil)
 		accountRepo.On("UpdateBalance", mock.Anything, clientID, mock.AnythingOfType("string")).Return(nil)
 		txRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-		pub.On("PublishBalanceChanged", mock.Anything, clientID.String(), mock.Anything, "USD").Return(nil)
-		pub.On("PublishTransactionCompleted", mock.Anything, mock.Anything, clientID.String(), "charge", "100.00", "USD").Return(nil)
+		pub.On("PublishBalanceChanged", mock.Anything, clientID.String(), mock.Anything, "RUB").Return(nil)
+		pub.On("PublishTransactionCompleted", mock.Anything, mock.Anything, clientID.String(), "charge", "100.00", "RUB").Return(nil)
 
 		resp, err := srv.DeductCredits(context.Background(), &billingv1.DeductCreditsRequest{
 			ClientId:    clientID.String(),
 			Amount:      "100.00",
-			Currency:    "USD",
+			Currency:    "RUB",
 			Description: "test deduction",
 		})
 
@@ -346,7 +346,7 @@ func TestBillingServer_DeductCredits(t *testing.T) {
 			ID:       uuid.New(),
 			ClientID: clientID,
 			Balance:  "10.00",
-			Currency: "USD",
+			Currency: "RUB",
 		}
 
 		accountRepo.On("GetByClientID", mock.Anything, clientID).Return(account, nil)
@@ -354,7 +354,7 @@ func TestBillingServer_DeductCredits(t *testing.T) {
 		resp, err := srv.DeductCredits(context.Background(), &billingv1.DeductCreditsRequest{
 			ClientId:    clientID.String(),
 			Amount:      "500.00",
-			Currency:    "USD",
+			Currency:    "RUB",
 			Description: "test deduction",
 		})
 
@@ -417,7 +417,7 @@ func TestBillingServer_ChargeMessage(t *testing.T) {
 			ID:       uuid.New(),
 			ClientID: clientID,
 			Balance:  "500.00",
-			Currency: "USD",
+			Currency: "RUB",
 		}
 
 		// ChargeMessage first checks if transaction already exists for this message
@@ -425,14 +425,14 @@ func TestBillingServer_ChargeMessage(t *testing.T) {
 		accountRepo.On("GetByClientID", mock.Anything, clientID).Return(account, nil)
 		accountRepo.On("UpdateBalance", mock.Anything, clientID, mock.AnythingOfType("string")).Return(nil)
 		txRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-		pub.On("PublishBalanceChanged", mock.Anything, clientID.String(), mock.Anything, "USD").Return(nil)
-		pub.On("PublishTransactionCompleted", mock.Anything, mock.Anything, clientID.String(), "charge", "5.00", "USD").Return(nil)
+		pub.On("PublishBalanceChanged", mock.Anything, clientID.String(), mock.Anything, "RUB").Return(nil)
+		pub.On("PublishTransactionCompleted", mock.Anything, mock.Anything, clientID.String(), "charge", "5.00", "RUB").Return(nil)
 
 		resp, err := srv.ChargeMessage(context.Background(), &billingv1.ChargeMessageRequest{
 			ClientId:    clientID.String(),
 			MessageId:   messageID.String(),
 			Amount:      "5.00",
-			Currency:    "USD",
+			Currency:    "RUB",
 			Description: "SMS charge",
 		})
 
@@ -455,7 +455,7 @@ func TestBillingServer_ChargeMessage(t *testing.T) {
 			ID:       uuid.New(),
 			ClientID: clientID,
 			Balance:  "1.00",
-			Currency: "USD",
+			Currency: "RUB",
 		}
 
 		txRepo.On("GetByMessageID", mock.Anything, messageID).Return(nil, domain.ErrTransactionNotFound)
@@ -465,7 +465,7 @@ func TestBillingServer_ChargeMessage(t *testing.T) {
 			ClientId:    clientID.String(),
 			MessageId:   messageID.String(),
 			Amount:      "100.00",
-			Currency:    "USD",
+			Currency:    "RUB",
 			Description: "SMS charge",
 		})
 

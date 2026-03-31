@@ -180,7 +180,7 @@ docker-compose -f deployments/docker-compose.yml exec postgres psql -U smpp -d s
   - Format: число с 6 знаками после запятой
   - Изменяется только через транзакции
 - `currency` - dropdown
-  - Choices: USD, EUR, RUB
+  - Choices: RUB
 
 **Permissions:**
 - Administrator: полный доступ
@@ -224,7 +224,7 @@ docker-compose -f deployments/docker-compose.yml exec postgres psql -U smpp -d s
 - `price_per_message` - обязательное поле
   - Format: число с 6 знаками после запятой
 - `currency` - dropdown
-  - Choices: USD, EUR, RUB
+  - Choices: RUB
 - `priority` - число (меньше = выше приоритет)
 
 **Permissions:**

@@ -3,7 +3,7 @@ CREATE TABLE accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
     balance NUMERIC(20, 6) NOT NULL DEFAULT 0 CHECK (balance >= 0),
-    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    currency VARCHAR(3) NOT NULL DEFAULT 'RUB',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     UNIQUE(client_id)
@@ -17,7 +17,7 @@ CREATE TABLE transactions (
     client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
     type VARCHAR(20) NOT NULL CHECK (type IN ('charge', 'credit', 'refund', 'adjustment')),
     amount NUMERIC(20, 6) NOT NULL,
-    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    currency VARCHAR(3) NOT NULL DEFAULT 'RUB',
     balance_before NUMERIC(20, 6) NOT NULL,
     balance_after NUMERIC(20, 6) NOT NULL,
     description TEXT,
@@ -39,7 +39,7 @@ CREATE TABLE pricing_rules (
     client_id UUID REFERENCES clients(id) ON DELETE CASCADE, -- NULL для глобальных правил
     destination_pattern VARCHAR(255) NOT NULL, -- regex паттерн номера получателя
     price_per_message NUMERIC(20, 6) NOT NULL CHECK (price_per_message >= 0),
-    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    currency VARCHAR(3) NOT NULL DEFAULT 'RUB',
     priority INTEGER NOT NULL DEFAULT 0, -- Чем выше, тем выше приоритет
     active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,

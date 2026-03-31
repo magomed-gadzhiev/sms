@@ -54,7 +54,7 @@ func (s *Server) GetBalance(ctx context.Context, req *billingv1.GetBalanceReques
 			return &billingv1.GetBalanceResponse{
 				ClientId:  req.ClientId,
 				Balance:   "0",
-				Currency:  "USD",
+				Currency:  "RUB",
 				UpdatedAt: timestamppb.Now(),
 			}, nil
 		}
@@ -96,7 +96,7 @@ func (s *Server) ChargeMessage(ctx context.Context, req *billingv1.ChargeMessage
 
 	currency := req.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 
 	transaction, err := s.billingService.ChargeMessage(ctx, clientID, messageID, req.Amount, currency, req.Description)
@@ -137,7 +137,7 @@ func (s *Server) AddCredits(ctx context.Context, req *billingv1.AddCreditsReques
 
 	currency := req.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 
 	var paymentMethod *string
@@ -176,7 +176,7 @@ func (s *Server) DeductCredits(ctx context.Context, req *billingv1.DeductCredits
 
 	currency := req.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 
 	transaction, err := s.billingService.DeductCredits(ctx, clientID, req.Amount, currency, req.Description)
@@ -324,7 +324,7 @@ func (s *Server) TransferBalance(ctx context.Context, req *billingv1.TransferBal
 
 	currency := req.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 
 	transferID, fromBalance, toBalance, err := s.billingService.TransferBalance(ctx, fromClientID, toClientID, req.Amount, currency)
@@ -367,7 +367,7 @@ func (s *Server) CreatePricingRule(ctx context.Context, req *billingv1.CreatePri
 
 	currency := req.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 
 	priority := int(req.Priority)

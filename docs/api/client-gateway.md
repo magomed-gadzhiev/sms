@@ -215,7 +215,7 @@ X-API-Key: <api-key>
 ```json
 {
   "balance": "1000.50",
-  "currency": "USD",
+  "currency": "RUB",
   "updated_at": "2024-01-01T12:00:00Z"
 }
 ```
@@ -247,7 +247,7 @@ X-API-Key: <api-key>
   "delivery_rate": 98.99,
   "average_delivery_time": 5.2,
   "spent": "5000.00",
-  "currency": "USD"
+  "currency": "RUB"
 }
 ```
 

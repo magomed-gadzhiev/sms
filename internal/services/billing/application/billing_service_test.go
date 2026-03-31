@@ -42,16 +42,16 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
 			accountRepo.On("UpdateBalance", ctx, clientID, "90.000000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "90.000000", "USD").Return(nil)
-			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "charge", "10.000000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "90.000000", "RUB").Return(nil)
+			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "charge", "10.000000", "RUB").Return(nil)
 
-			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "USD", "SMS charge")
+			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "RUB", "SMS charge")
 
 			require.NoError(t, err)
 			require.NotNil(t, tx)
@@ -60,7 +60,7 @@ func TestBillingService(t *testing.T) {
 			assert.Equal(t, "10.000000", tx.Amount)
 			assert.Equal(t, "100.000000", tx.BalanceBefore)
 			assert.Equal(t, "90.000000", tx.BalanceAfter)
-			assert.Equal(t, "USD", tx.Currency)
+			assert.Equal(t, "RUB", tx.Currency)
 			assert.Equal(t, "SMS charge", tx.Description)
 
 			accountRepo.AssertExpectations(t)
@@ -77,12 +77,12 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "5.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
 
-			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "USD", "SMS charge")
+			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "RUB", "SMS charge")
 
 			require.Error(t, err)
 			assert.Nil(t, tx)
@@ -100,7 +100,7 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
@@ -121,7 +121,7 @@ func TestBillingService(t *testing.T) {
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(nil, domain.ErrAccountNotFound)
 
-			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "USD", "SMS charge")
+			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "RUB", "SMS charge")
 
 			require.Error(t, err)
 			assert.Nil(t, tx)
@@ -138,16 +138,16 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "10.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
 			accountRepo.On("UpdateBalance", ctx, clientID, "0.000000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "0.000000", "USD").Return(nil)
-			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "charge", "10.000000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "0.000000", "RUB").Return(nil)
+			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "charge", "10.000000", "RUB").Return(nil)
 
-			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "USD", "Full deduction")
+			tx, err := svc.DeductCredits(ctx, clientID, "10.000000", "RUB", "Full deduction")
 
 			require.NoError(t, err)
 			require.NotNil(t, tx)
@@ -169,17 +169,17 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "50.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			transactionRepo.On("GetByMessageID", ctx, messageID).Return(nil, domain.ErrTransactionNotFound)
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
 			accountRepo.On("UpdateBalance", ctx, clientID, "49.990000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "49.990000", "USD").Return(nil)
-			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "charge", "0.010000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "49.990000", "RUB").Return(nil)
+			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "charge", "0.010000", "RUB").Return(nil)
 
-			tx, err := svc.ChargeMessage(ctx, clientID, messageID, "0.010000", "USD", "Message charge")
+			tx, err := svc.ChargeMessage(ctx, clientID, messageID, "0.010000", "RUB", "Message charge")
 
 			require.NoError(t, err)
 			require.NotNil(t, tx)
@@ -204,12 +204,12 @@ func TestBillingService(t *testing.T) {
 				ClientID: clientID,
 				Type:     domain.TransactionTypeCharge,
 				Amount:   "0.010000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			transactionRepo.On("GetByMessageID", ctx, messageID).Return(existingTx, nil)
 
-			tx, err := svc.ChargeMessage(ctx, clientID, messageID, "0.010000", "USD", "Message charge")
+			tx, err := svc.ChargeMessage(ctx, clientID, messageID, "0.010000", "RUB", "Message charge")
 
 			require.NoError(t, err)
 			assert.Equal(t, existingTx.ID, tx.ID)
@@ -227,13 +227,13 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "0.005000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			transactionRepo.On("GetByMessageID", ctx, messageID).Return(nil, domain.ErrTransactionNotFound)
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
 
-			tx, err := svc.ChargeMessage(ctx, clientID, messageID, "0.010000", "USD", "Message charge")
+			tx, err := svc.ChargeMessage(ctx, clientID, messageID, "0.010000", "RUB", "Message charge")
 
 			require.Error(t, err)
 			assert.Nil(t, tx)
@@ -254,7 +254,7 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "250.500000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
@@ -265,7 +265,7 @@ func TestBillingService(t *testing.T) {
 			require.NotNil(t, result)
 			assert.Equal(t, clientID, result.ClientID)
 			assert.Equal(t, "250.500000", result.Balance)
-			assert.Equal(t, "USD", result.Currency)
+			assert.Equal(t, "RUB", result.Currency)
 
 			accountRepo.AssertExpectations(t)
 		})
@@ -296,17 +296,17 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
 			accountRepo.On("UpdateBalance", ctx, clientID, "150.000000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "150.000000", "USD").Return(nil)
-			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "credit", "50.000000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "150.000000", "RUB").Return(nil)
+			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "credit", "50.000000", "RUB").Return(nil)
 
 			paymentMethod := "credit_card"
-			tx, err := svc.AddCredits(ctx, clientID, "50.000000", "USD", "Top-up", &paymentMethod)
+			tx, err := svc.AddCredits(ctx, clientID, "50.000000", "RUB", "Top-up", &paymentMethod)
 
 			require.NoError(t, err)
 			require.NotNil(t, tx)
@@ -331,10 +331,10 @@ func TestBillingService(t *testing.T) {
 			accountRepo.On("Create", ctx, mock.AnythingOfType("*domain.Account")).Return(nil)
 			accountRepo.On("UpdateBalance", ctx, clientID, "50.000000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "50.000000", "USD").Return(nil)
-			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "credit", "50.000000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, clientID.String(), "50.000000", "RUB").Return(nil)
+			eventPublisher.On("PublishTransactionCompleted", ctx, mock.AnythingOfType("string"), clientID.String(), "credit", "50.000000", "RUB").Return(nil)
 
-			tx, err := svc.AddCredits(ctx, clientID, "50.000000", "USD", "Initial top-up", nil)
+			tx, err := svc.AddCredits(ctx, clientID, "50.000000", "RUB", "Initial top-up", nil)
 
 			require.NoError(t, err)
 			require.NotNil(t, tx)
@@ -355,7 +355,7 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: clientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, clientID).Return(account, nil)
@@ -381,14 +381,14 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: fromClientID,
 				Balance:  "200.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			toAccount := &domain.Account{
 				ID:       uuid.New(),
 				ClientID: toClientID,
 				Balance:  "50.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, fromClientID).Return(fromAccount, nil)
@@ -397,10 +397,10 @@ func TestBillingService(t *testing.T) {
 			accountRepo.On("UpdateBalance", ctx, toClientID, "100.000000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil).Twice()
 			transferRepo.On("Create", ctx, mock.AnythingOfType("*domain.BalanceTransfer")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, fromClientID.String(), "150.000000", "USD").Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, toClientID.String(), "100.000000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, fromClientID.String(), "150.000000", "RUB").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, toClientID.String(), "100.000000", "RUB").Return(nil)
 
-			transferID, fromBalance, toBalance, err := svc.TransferBalance(ctx, fromClientID, toClientID, "50.000000", "USD")
+			transferID, fromBalance, toBalance, err := svc.TransferBalance(ctx, fromClientID, toClientID, "50.000000", "RUB")
 
 			require.NoError(t, err)
 			assert.NotEmpty(t, transferID)
@@ -423,12 +423,12 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: fromClientID,
 				Balance:  "10.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, fromClientID).Return(fromAccount, nil)
 
-			_, _, _, err := svc.TransferBalance(ctx, fromClientID, toClientID, "50.000000", "USD")
+			_, _, _, err := svc.TransferBalance(ctx, fromClientID, toClientID, "50.000000", "RUB")
 
 			require.Error(t, err)
 			assert.ErrorIs(t, err, domain.ErrInsufficientBalance)
@@ -446,7 +446,7 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: fromClientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, fromClientID).Return(fromAccount, nil)
@@ -456,10 +456,10 @@ func TestBillingService(t *testing.T) {
 			accountRepo.On("UpdateBalance", ctx, toClientID, "30.000000").Return(nil)
 			transactionRepo.On("Create", ctx, mock.AnythingOfType("*domain.Transaction")).Return(nil).Twice()
 			transferRepo.On("Create", ctx, mock.AnythingOfType("*domain.BalanceTransfer")).Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, fromClientID.String(), "70.000000", "USD").Return(nil)
-			eventPublisher.On("PublishBalanceChanged", ctx, toClientID.String(), "30.000000", "USD").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, fromClientID.String(), "70.000000", "RUB").Return(nil)
+			eventPublisher.On("PublishBalanceChanged", ctx, toClientID.String(), "30.000000", "RUB").Return(nil)
 
-			transferID, fromBalance, toBalance, err := svc.TransferBalance(ctx, fromClientID, toClientID, "30.000000", "USD")
+			transferID, fromBalance, toBalance, err := svc.TransferBalance(ctx, fromClientID, toClientID, "30.000000", "RUB")
 
 			require.NoError(t, err)
 			assert.NotEmpty(t, transferID)
@@ -482,7 +482,7 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: fromClientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			accountRepo.On("GetByClientID", ctx, fromClientID).Return(fromAccount, nil)
@@ -505,7 +505,7 @@ func TestBillingService(t *testing.T) {
 				ID:       uuid.New(),
 				ClientID: fromClientID,
 				Balance:  "100.000000",
-				Currency: "USD",
+				Currency: "RUB",
 			}
 
 			toAccount := &domain.Account{
@@ -518,7 +518,7 @@ func TestBillingService(t *testing.T) {
 			accountRepo.On("GetByClientID", ctx, fromClientID).Return(fromAccount, nil)
 			accountRepo.On("GetByClientID", ctx, toClientID).Return(toAccount, nil)
 
-			_, _, _, err := svc.TransferBalance(ctx, fromClientID, toClientID, "30.000000", "USD")
+			_, _, _, err := svc.TransferBalance(ctx, fromClientID, toClientID, "30.000000", "RUB")
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "currency mismatch")
