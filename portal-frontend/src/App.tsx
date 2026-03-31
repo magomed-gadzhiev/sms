@@ -25,6 +25,7 @@ import { CampaignsPage } from './pages/campaigns/CampaignsPage';
 import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
 import { TemplatesPage } from './pages/templates/TemplatesPage';
+import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
 import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
@@ -41,6 +42,7 @@ const AdminBillingPage = lazy(() => import('./pages/admin/billing/BillingPage').
 const AdminMonitoringPage = lazy(() => import('./pages/admin/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 const AdminTemplatesPage = lazy(() => import('./pages/admin/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));
+const AdminSenderNamesPage = lazy(() => import('./pages/admin/SenderNamesAdminPage').then((m) => ({ default: m.SenderNamesAdminPage })));
 const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((m) => ({ default: m.WebhooksPage })));
 const AdminHLRPage = lazy(() => import('./pages/admin/HLRPage').then((m) => ({ default: m.HLRPage })));
 const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then((m) => ({ default: m.CountriesPage })));
@@ -95,6 +97,7 @@ export function App() {
         <Route path="/sub-accounts" element={<SubAccountsListPage />} />
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/sender-names" element={<SenderNamesPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/tariffs" element={<TariffsPage />} />
         <Route path="/lookup" element={<LookupPage />} />
@@ -122,6 +125,7 @@ export function App() {
         <Route path="monitoring" element={<Suspense fallback={null}><AdminMonitoringPage /></Suspense>} />
         <Route path="analytics" element={<Suspense fallback={null}><AdminAnalyticsPage /></Suspense>} />
         <Route path="templates" element={<Suspense fallback={null}><AdminTemplatesPage /></Suspense>} />
+        <Route path="sender-names" element={<Suspense fallback={null}><AdminSenderNamesPage /></Suspense>} />
         <Route path="webhooks" element={<Suspense fallback={null}><AdminWebhooksPage /></Suspense>} />
         <Route path="hlr" element={<Suspense fallback={null}><AdminHLRPage /></Suspense>} />
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />

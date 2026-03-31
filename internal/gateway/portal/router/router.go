@@ -51,6 +51,7 @@ func SetupRouter(
 	settingsHandlers *handlers.SettingsHandlers,
 	segmentHandlers *handlers.SegmentHandlers,
 	subAccountRoutingHandlers *handlers.SubAccountRoutingHandlers,
+	senderNameHandlers *handlers.SenderNameHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -265,6 +266,15 @@ func SetupRouter(
 	settings.HandleFunc("/frequency-caps", settingsHandlers.UpsertFrequencyCap).Methods("PUT")
 	settings.HandleFunc("/quiet-hours", settingsHandlers.GetQuietHours).Methods("GET")
 	settings.HandleFunc("/quiet-hours", settingsHandlers.UpsertQuietHours).Methods("PUT")
+
+	// Sender Names endpoints
+	senderNames := protected.PathPrefix("/sender-names").Subrouter()
+	senderNames.HandleFunc("", senderNameHandlers.CreateSenderName).Methods("POST")
+	senderNames.HandleFunc("", senderNameHandlers.ListSenderNames).Methods("GET")
+	senderNames.HandleFunc("/{id}", senderNameHandlers.GetSenderName).Methods("GET")
+	senderNames.HandleFunc("/{id}", senderNameHandlers.UpdateSenderName).Methods("PUT")
+	senderNames.HandleFunc("/{id}/resubmit", senderNameHandlers.ResubmitSenderName).Methods("POST")
+	senderNames.HandleFunc("/{id}/history", senderNameHandlers.GetSenderNameHistory).Methods("GET")
 
 	return router
 }

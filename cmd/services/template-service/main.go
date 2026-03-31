@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -63,9 +64,12 @@ func main() {
 	// Repositories
 	templateRepo := templaterepo.NewTemplateRepository(dbx)
 	auditRepo := templaterepo.NewAuditRepository(dbx)
+	senderNameRepo := templaterepo.NewSenderNameRepository(dbx)
 
-	// Application service
+	// Application services
 	templateService := application.NewTemplateService(templateRepo, auditRepo)
+	templateService.WithSenderNameRepo(senderNameRepo)
+	senderNameService := application.NewSenderNameService(senderNameRepo)
 
 	// Health checker
 	healthChecker := monitoring.NewHealthChecker("template-service", cfg.Service.Version)
@@ -79,6 +83,9 @@ func main() {
 
 	templateGrpcServer := templategrpc.NewServer(templateService)
 	templatev1.RegisterTemplateServiceServer(grpcServer, templateGrpcServer)
+
+	senderNameHandler := templategrpc.NewSenderNameHandler(senderNameService)
+	sendernamev1.RegisterSenderNameServiceServer(grpcServer, senderNameHandler)
 
 	if cfg.Service.Env == "development" {
 		reflection.Register(grpcServer)

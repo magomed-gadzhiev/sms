@@ -1,0 +1,196 @@
+// api/proto/sender-name/sender_name.proto
+syntax = "proto3";
+
+package sendername.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/sendernamev1";
+
+import "google/protobuf/timestamp.proto";
+
+// SenderNameService управляет именами отправителей SMS.
+// Размещается в template-service (порт 9099).
+service SenderNameService {
+  // --- Operator (Portal) ---
+
+  // Создать заявку на регистрацию имени отправителя.
+  // Новая заявка получает статус "pending".
+  rpc CreateSenderName(CreateSenderNameRequest) returns (CreateSenderNameResponse);
+
+  // Обновить имя отправителя. Разрешено только в статусе "rejected".
+  // После обновления статус НЕ меняется автоматически — нужен ResubmitSenderName.
+  rpc UpdateSenderName(UpdateSenderNameRequest) returns (UpdateSenderNameResponse);
+
+  // Получить имя отправителя по ID.
+  rpc GetSenderName(GetSenderNameRequest) returns (GetSenderNameResponse);
+
+  // Получить список имён отправителей клиента.
+  rpc ListSenderNames(ListSenderNamesRequest) returns (ListSenderNamesResponse);
+
+  // Повторно отправить отклонённую заявку на рассмотрение.
+  // Статус меняется rejected → pending.
+  rpc ResubmitSenderName(ResubmitSenderNameRequest) returns (ResubmitSenderNameResponse);
+
+  // Получить историю изменений статуса.
+  rpc GetSenderNameHistory(GetSenderNameHistoryRequest) returns (GetSenderNameHistoryResponse);
+
+  // --- Admin ---
+
+  // Одобрить заявку. Статус pending → approved.
+  rpc ApproveSenderName(ApproveSenderNameRequest) returns (ApproveSenderNameResponse);
+
+  // Отклонить заявку с указанием причины. Статус pending → rejected.
+  rpc RejectSenderName(RejectSenderNameRequest) returns (RejectSenderNameResponse);
+
+  // Деактивировать одобренное имя. Статус approved → deactivated.
+  rpc DeactivateSenderName(DeactivateSenderNameRequest) returns (DeactivateSenderNameResponse);
+
+  // Список всех заявок (для admin panel), с фильтрацией по статусу.
+  rpc ListAllSenderNames(ListAllSenderNamesRequest) returns (ListAllSenderNamesResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Shared message types
+// ---------------------------------------------------------------------------
+
+message SenderNameInfo {
+  string id = 1;
+  string client_id = 2;
+  string name = 3;
+  // status: pending | approved | rejected | deactivated
+  string status = 4;
+  string rejection_reason = 5;
+  string reviewer_id = 6;
+  google.protobuf.Timestamp reviewed_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message SenderNameHistoryEntry {
+  string id = 1;
+  string sender_name_id = 2;
+  string old_status = 3;
+  string new_status = 4;
+  string actor_id = 5;
+  // actor_type: client | admin | system
+  string actor_type = 6;
+  string comment = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+// ---------------------------------------------------------------------------
+// Operator RPCs
+// ---------------------------------------------------------------------------
+
+message CreateSenderNameRequest {
+  string client_id = 1;
+  string name = 2;
+}
+
+message CreateSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message UpdateSenderNameRequest {
+  string id = 1;
+  string client_id = 2;
+  string name = 3;
+}
+
+message UpdateSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message GetSenderNameRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message GetSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message ListSenderNamesRequest {
+  string client_id = 1;
+  // Фильтр по статусу (пустая строка = все)
+  string status = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListSenderNamesResponse {
+  repeated SenderNameInfo sender_names = 1;
+  int32 total = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ResubmitSenderNameRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message ResubmitSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message GetSenderNameHistoryRequest {
+  string sender_name_id = 1;
+  // client_id для авторизации (оператор видит только свои)
+  string client_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message GetSenderNameHistoryResponse {
+  repeated SenderNameHistoryEntry entries = 1;
+  int32 total = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Admin RPCs
+// ---------------------------------------------------------------------------
+
+message ApproveSenderNameRequest {
+  string id = 1;
+  string actor_id = 2;
+}
+
+message ApproveSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message RejectSenderNameRequest {
+  string id = 1;
+  string actor_id = 2;
+  string reason = 3;
+}
+
+message RejectSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message DeactivateSenderNameRequest {
+  string id = 1;
+  string actor_id = 2;
+  string reason = 3;
+}
+
+message DeactivateSenderNameResponse {
+  SenderNameInfo sender_name = 1;
+}
+
+message ListAllSenderNamesRequest {
+  // Фильтры
+  string client_id = 1;     // опционально
+  string status = 2;        // опционально
+  string name_query = 3;    // опционально, поиск по подстроке
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListAllSenderNamesResponse {
+  repeated SenderNameInfo sender_names = 1;
+  int32 total = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}

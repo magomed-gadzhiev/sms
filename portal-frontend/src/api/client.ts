@@ -303,6 +303,8 @@ export interface TemplateInfo {
   variables: string[];
   status: string;
   rejection_reason?: string;
+  sender_name_id?: string;
+  sender_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -313,9 +315,9 @@ export const templatesApi = {
     return apiFetch<{ templates: TemplateInfo[]; total: number; page: number; per_page: number; total_pages: number }>(`/templates?${qs}`);
   },
   get: (id: string) => apiFetch<TemplateInfo>(`/templates/${id}`),
-  create: (data: { name: string; body: string }) =>
+  create: (data: { name: string; body: string; sender_name_id?: string }) =>
     apiFetch<TemplateInfo>('/templates', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { name?: string; body?: string }) =>
+  update: (id: string, data: { name?: string; body?: string; sender_name_id?: string }) =>
     apiFetch<TemplateInfo>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id: string) => apiFetch<void>(`/templates/${id}`, { method: 'DELETE' }),
   render: (id: string, variables: Record<string, string>) =>
@@ -329,6 +331,54 @@ export const templatesApi = {
   },
   submit: (id: string) =>
     apiFetch<TemplateInfo>(`/templates/${id}/submit`, { method: 'POST' }),
+};
+
+// Sender Names API
+export interface SenderNameInfo {
+  id: string;
+  client_id: string;
+  name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'deactivated';
+  rejection_reason?: string;
+  reviewer_id?: string;
+  reviewed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SenderNameHistoryEntry {
+  id: string;
+  sender_name_id: string;
+  old_status?: string;
+  new_status: string;
+  actor_id?: string;
+  actor_type: string;
+  comment?: string;
+  created_at: string;
+}
+
+export const senderNamesApi = {
+  list: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ sender_names: SenderNameInfo[]; total: number; page: number; per_page: number; total_pages: number }>(
+      `/sender-names?${qs}`,
+    );
+  },
+  get: (id: string) => apiFetch<SenderNameInfo>(`/sender-names/${id}`),
+  create: (name: string) =>
+    apiFetch<SenderNameInfo>('/sender-names', { method: 'POST', body: JSON.stringify({ name }) }),
+  update: (id: string, name: string) =>
+    apiFetch<SenderNameInfo>(`/sender-names/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+  resubmit: (id: string) =>
+    apiFetch<SenderNameInfo>(`/sender-names/${id}/resubmit`, { method: 'POST' }),
+  getHistory: (id: string, params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ entries: SenderNameHistoryEntry[]; total: number }>(`/sender-names/${id}/history?${qs}`);
+  },
+  listApproved: () =>
+    apiFetch<{ sender_names: SenderNameInfo[]; total: number; page: number; per_page: number; total_pages: number }>(
+      '/sender-names?status=approved&per_page=100',
+    ),
 };
 
 // Billing API

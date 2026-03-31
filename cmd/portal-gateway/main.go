@@ -185,6 +185,7 @@ func main() {
 	settingsHandlers := handlers.NewSettingsHandlers(dbPool)
 	segmentHandlers := handlers.NewSegmentHandlers(dbPool)
 	subAccountRoutingHandlers := handlers.NewSubAccountRoutingHandlers(serviceClients.RoutingClient)
+	senderNameHandlers := handlers.NewSenderNameHandlers(serviceClients.SenderNameClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -216,6 +217,7 @@ func main() {
 		settingsHandlers,
 		segmentHandlers,
 		subAccountRoutingHandlers,
+		senderNameHandlers,
 	)
 
 	// Добавляем Prometheus metrics endpoint

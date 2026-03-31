@@ -522,3 +522,36 @@ export const rolesApi = {
 export const permissionsApi = {
   list: () => adminFetch<{ permissions: PermissionInfo[] }>('/permissions'),
 };
+
+// ── Sender Names Admin API ──
+
+export interface AdminSenderNameInfo {
+  id: string;
+  client_id: string;
+  name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'deactivated';
+  rejection_reason?: string;
+  reviewer_id?: string;
+  reviewed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const adminSenderNamesApi = {
+  list: (params?: { client_id?: string; status?: string; name_query?: string; limit?: number; offset?: number }) =>
+    adminFetch<{ sender_names: AdminSenderNameInfo[]; total: number; limit: number; offset: number }>(
+      `/sender-names${qs(params || {})}`,
+    ),
+  approve: (id: string) =>
+    adminFetch<AdminSenderNameInfo>(`/sender-names/${id}/approve`, { method: 'POST' }),
+  reject: (id: string, reason: string) =>
+    adminFetch<AdminSenderNameInfo>(`/sender-names/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  deactivate: (id: string, reason: string) =>
+    adminFetch<AdminSenderNameInfo>(`/sender-names/${id}/deactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+};

@@ -45,7 +45,16 @@ func (s *Server) CreateTemplate(ctx context.Context, req *templatev1.CreateTempl
 		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
 	}
 
-	tmpl, err := s.templateService.CreateTemplate(ctx, clientID, req.Name, req.Body)
+	var senderNameID *uuid.UUID
+	if req.SenderNameId != nil && *req.SenderNameId != "" {
+		parsed, err := uuid.Parse(*req.SenderNameId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid sender_name_id format")
+		}
+		senderNameID = &parsed
+	}
+
+	tmpl, err := s.templateService.CreateTemplate(ctx, clientID, req.Name, req.Body, senderNameID)
 	if err != nil {
 		return nil, s.mapError(err)
 	}
@@ -61,7 +70,7 @@ func (s *Server) UpdateTemplate(ctx context.Context, req *templatev1.UpdateTempl
 		return nil, err
 	}
 
-	tmpl, err := s.templateService.UpdateTemplate(ctx, id, clientID, req.Name, req.Body)
+	tmpl, err := s.templateService.UpdateTemplate(ctx, id, clientID, req.Name, req.Body, nil)
 	if err != nil {
 		return nil, s.mapError(err)
 	}
@@ -369,6 +378,10 @@ func (s *Server) mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrDuplicateTemplateName):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrSenderNameNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrSenderNameNotApproved):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		s.logger.Error().Err(err).Msg("internal error")
 		return status.Error(codes.Internal, err.Error())
@@ -394,6 +407,10 @@ func templateToProto(tmpl *domain.Template) *templatev1.TemplateInfo {
 	if tmpl.ReviewedAt != nil {
 		info.ReviewedAt = timestamppb.New(*tmpl.ReviewedAt)
 	}
+	if tmpl.SenderNameID != nil {
+		info.SenderNameId = tmpl.SenderNameID.String()
+	}
+	info.SenderName = tmpl.SenderName
 	return info
 }
 

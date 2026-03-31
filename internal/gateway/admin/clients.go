@@ -16,6 +16,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/providerv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	"github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
@@ -23,15 +24,16 @@ import (
 
 // ServiceClients содержит gRPC клиенты для всех сервисов
 type ServiceClients struct {
-	AuthClient      authv1.AuthServiceClient
-	ClientClient    clientv1.ClientServiceClient
-	ProviderClient  providerv1.ProviderServiceClient
-	RoutingClient   routingv1.RoutingServiceClient
-	AnalyticsClient analyticsv1.AnalyticsServiceClient
-	BillingClient   billingv1.BillingServiceClient
-	WebhookClient   webhookv1.WebhookServiceClient
-	TemplateClient       templatev1.TemplateServiceClient
-	TarificationClient   tarificationv1.TarificationServiceClient
+	AuthClient         authv1.AuthServiceClient
+	ClientClient       clientv1.ClientServiceClient
+	ProviderClient     providerv1.ProviderServiceClient
+	RoutingClient      routingv1.RoutingServiceClient
+	AnalyticsClient    analyticsv1.AnalyticsServiceClient
+	BillingClient      billingv1.BillingServiceClient
+	WebhookClient      webhookv1.WebhookServiceClient
+	TemplateClient     templatev1.TemplateServiceClient
+	TarificationClient tarificationv1.TarificationServiceClient
+	SenderNameClient   sendernamev1.SenderNameServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -137,7 +139,7 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		clients.conns = append(clients.conns, conn)
 	}
 
-	// Подключение к Template Service
+	// Подключение к Template Service (также регистрирует SenderNameService)
 	if addresses.Template != "" {
 		conn, err := grpc.Dial(addresses.Template, opts...)
 		if err != nil {
@@ -145,6 +147,7 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Template Service: %w", err)
 		}
 		clients.TemplateClient = templatev1.NewTemplateServiceClient(conn)
+		clients.SenderNameClient = sendernamev1.NewSenderNameServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 

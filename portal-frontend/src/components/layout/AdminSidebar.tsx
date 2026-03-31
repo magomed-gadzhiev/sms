@@ -26,6 +26,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { path: '/admin/clients', label: '\u041A\u043B\u0438\u0435\u043D\u0442\u044B', icon: '\u{1F465}', resource: 'clients' },
       { path: '/admin/templates', label: '\u0428\u0430\u0431\u043B\u043E\u043D\u044B', icon: '\u{1F4DD}', resource: 'templates' },
+      { path: '/admin/sender-names', label: '\u0418\u043C\u0435\u043D\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u0435\u0439', icon: '\u{1F4F1}', resource: 'templates' },
       { path: '/admin/users', label: '\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0438', icon: '\u{1F511}', resource: 'users' },
     ],
   },

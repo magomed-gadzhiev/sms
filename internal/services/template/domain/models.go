@@ -50,6 +50,8 @@ type Template struct {
 	ReviewedAt      *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	SenderNameID    *uuid.UUID
+	SenderName      string // denormalized for display
 }
 
 // AuditEntry represents a template audit log entry
