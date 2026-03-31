@@ -15,6 +15,13 @@ type TemplateRepository struct {
 	db *sqlx.DB
 }
 
+func normalizeVariables(vars []string) pq.StringArray {
+	if vars == nil {
+		return pq.StringArray{}
+	}
+	return pq.StringArray(vars)
+}
+
 func NewTemplateRepository(db *sqlx.DB) *TemplateRepository {
 	return &TemplateRepository{db: db}
 }
@@ -32,17 +39,20 @@ type templateRow struct {
 	ReviewedAt      sql.NullTime   `db:"reviewed_at"`
 	CreatedAt       sql.NullTime   `db:"created_at"`
 	UpdatedAt       sql.NullTime   `db:"updated_at"`
+	SenderNameID    *uuid.UUID     `db:"sender_name_id"`
+	SenderName      sql.NullString `db:"sender_name"`
 }
 
 func (r *templateRow) toDomain() *domain.Template {
 	t := &domain.Template{
-		ID:         r.ID,
-		ClientID:   r.ClientID,
-		Name:       r.Name,
-		Body:       r.Body,
-		Variables:  []string(r.Variables),
-		Status:     r.Status,
-		ReviewerID: r.ReviewerID,
+		ID:           r.ID,
+		ClientID:     r.ClientID,
+		Name:         r.Name,
+		Body:         r.Body,
+		Variables:    []string(r.Variables),
+		Status:       r.Status,
+		ReviewerID:   r.ReviewerID,
+		SenderNameID: r.SenderNameID,
 	}
 	if r.RejectionReason.Valid {
 		t.RejectionReason = r.RejectionReason.String
@@ -60,17 +70,20 @@ func (r *templateRow) toDomain() *domain.Template {
 	if r.UpdatedAt.Valid {
 		t.UpdatedAt = r.UpdatedAt.Time
 	}
+	if r.SenderName.Valid {
+		t.SenderName = r.SenderName.String
+	}
 	return t
 }
 
 func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*domain.Template, error) {
-	query := `INSERT INTO templates (id, client_id, name, body, variables, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at`
+	query := `INSERT INTO templates (id, client_id, name, body, variables, status, sender_name_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
-		t.ID, t.ClientID, t.Name, t.Body, pq.StringArray(t.Variables), t.Status,
+		t.ID, t.ClientID, t.Name, t.Body, normalizeVariables(t.Variables), t.Status, t.SenderNameID,
 	).StructScan(&row)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -82,8 +95,10 @@ func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*d
 }
 
 func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID) (*domain.Template, error) {
-	query := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
-		FROM templates WHERE id = $1 AND client_id = $2`
+	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
+		FROM templates t
+		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id
+		WHERE t.id = $1 AND t.client_id = $2`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, id, clientID).StructScan(&row)
@@ -98,8 +113,10 @@ func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID
 
 // GetByIDAdmin retrieves a template without client_id check (for admin operations)
 func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*domain.Template, error) {
-	query := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
-		FROM templates WHERE id = $1`
+	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
+		FROM templates t
+		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id
+		WHERE t.id = $1`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, id).StructScan(&row)
@@ -113,20 +130,21 @@ func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*d
 }
 
 func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Template, int, error) {
-	countQuery := `SELECT COUNT(*) FROM templates`
-	listQuery := `SELECT id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at
-		FROM templates`
+	countQuery := `SELECT COUNT(*) FROM templates t`
+	listQuery := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
+		FROM templates t
+		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id`
 	args := []interface{}{}
 	paramIdx := 1
 	conditions := []string{}
 
 	if clientID != uuid.Nil {
-		conditions = append(conditions, fmt.Sprintf("client_id = $%d", paramIdx))
+		conditions = append(conditions, fmt.Sprintf("t.client_id = $%d", paramIdx))
 		args = append(args, clientID)
 		paramIdx++
 	}
 	if status != "" {
-		conditions = append(conditions, fmt.Sprintf("status = $%d", paramIdx))
+		conditions = append(conditions, fmt.Sprintf("t.status = $%d", paramIdx))
 		args = append(args, status)
 		paramIdx++
 	}
@@ -165,9 +183,9 @@ func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.U
 }
 
 func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*domain.Template, error) {
-	query := `UPDATE templates SET name = $1, body = $2, variables = $3, status = $4, rejection_reason = $5
-		WHERE id = $6 AND client_id = $7
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at`
+	query := `UPDATE templates SET name = $1, body = $2, variables = $3, status = $4, rejection_reason = $5, sender_name_id = $6
+		WHERE id = $7 AND client_id = $8
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name`
 
 	var rejReason sql.NullString
 	if t.RejectionReason != "" {
@@ -176,7 +194,7 @@ func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*d
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
-		t.Name, t.Body, pq.StringArray(t.Variables), t.Status, rejReason, t.ID, t.ClientID,
+		t.Name, t.Body, normalizeVariables(t.Variables), t.Status, rejReason, t.SenderNameID, t.ID, t.ClientID,
 	).StructScan(&row)
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrTemplateNotFound
@@ -199,7 +217,7 @@ func (r *TemplateRepository) UpdateStatus(ctx context.Context, id uuid.UUID, sta
 
 	query := `UPDATE templates SET status = $1, rejection_reason = $2
 		WHERE id = $3
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at`
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, status, rejReason, id).StructScan(&row)

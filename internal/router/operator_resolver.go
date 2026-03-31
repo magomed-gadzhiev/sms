@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,11 @@ func NewOperatorResolver(repo OperatorPrefixRepository, defaultOperatorID uuid.U
 
 // Resolve возвращает operator_id для номера.
 func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID {
+	normalized := normalizePhoneNumber(number)
+	if normalized == "" {
+		return r.defaultOperatorID
+	}
+
 	r.mu.RLock()
 	stale := time.Since(r.lastRefresh) > r.refreshTTL
 	r.mu.RUnlock()
@@ -49,11 +55,15 @@ func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID
 	defer r.mu.RUnlock()
 
 	for _, p := range r.prefixes {
-		if len(number) >= len(p.Prefix) && number[:len(p.Prefix)] == p.Prefix {
+		if len(normalized) >= len(p.Prefix) && normalized[:len(p.Prefix)] == p.Prefix {
 			return p.OperatorID
 		}
 	}
 	return r.defaultOperatorID
+}
+
+func normalizePhoneNumber(number string) string {
+	return strings.TrimPrefix(strings.TrimSpace(number), "+")
 }
 
 func (r *OperatorResolver) refresh(ctx context.Context) {

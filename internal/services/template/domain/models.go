@@ -50,6 +50,8 @@ type Template struct {
 	ReviewedAt      *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	SenderNameID    *uuid.UUID
+	SenderName      string // denormalized for display
 }
 
 // AuditEntry represents a template audit log entry
@@ -69,7 +71,7 @@ type AuditEntry struct {
 func ExtractVariables(body string) []string {
 	matches := variableRegex.FindAllStringSubmatch(body, -1)
 	seen := make(map[string]bool)
-	var vars []string
+	vars := make([]string, 0)
 	for _, match := range matches {
 		name := match[1]
 		if !seen[name] {

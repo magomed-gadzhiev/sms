@@ -8,15 +8,21 @@ import (
 
 // Operator представляет доменную модель мобильного оператора
 type Operator struct {
-	ID                 uuid.UUID
-	CountryID          uuid.UUID
-	Name               string
-	Code               string // unique code e.g. "mts-ru"
-	SupportsPaidSender bool
-	SupportsFreeSender bool
-	Active             bool
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                  uuid.UUID
+	CountryID           uuid.UUID
+	Name                string
+	Code                string // unique code e.g. "mts-ru"
+	SupportsPaidSender  bool
+	SupportsFreeSender  bool
+	MonthlyTariffAmount *string // ежемесячный тариф в RUB; nil = free-only оператор
+	Active              bool
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+// HasPaidRegistration возвращает true если оператор поддерживает платную регистрацию
+func (o *Operator) HasPaidRegistration() bool {
+	return o.SupportsPaidSender && o.MonthlyTariffAmount != nil && *o.MonthlyTariffAmount != "" && *o.MonthlyTariffAmount != "0"
 }
 
 // NewOperator создает нового оператора

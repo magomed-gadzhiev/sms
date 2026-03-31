@@ -1,26 +1,31 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
+func normalizeDialString(v string) string {
+	return strings.TrimPrefix(strings.TrimSpace(v), "+")
+}
+
 // Route представляет доменную модель маршрута
 type Route struct {
-	ID                uuid.UUID
-	Name              string
-	Pattern           string
-	PatternType       PatternType
-	ProviderIDs       []uuid.UUID
-	Priority          int
-	Active            bool
-	FailoverEnabled   bool
+	ID                  uuid.UUID
+	Name                string
+	Pattern             string
+	PatternType         PatternType
+	ProviderIDs         []uuid.UUID
+	Priority            int
+	Active              bool
+	FailoverEnabled     bool
 	LoadBalanceStrategy LoadBalanceStrategy
-	Metadata          map[string]string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	Metadata            map[string]string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // PatternType представляет тип паттерна маршрута
@@ -36,9 +41,9 @@ const (
 type LoadBalanceStrategy string
 
 const (
-	LoadBalanceRoundRobin LoadBalanceStrategy = "round_robin"
+	LoadBalanceRoundRobin  LoadBalanceStrategy = "round_robin"
 	LoadBalanceLeastLoaded LoadBalanceStrategy = "least_loaded"
-	LoadBalanceCheapest   LoadBalanceStrategy = "cheapest"
+	LoadBalanceCheapest    LoadBalanceStrategy = "cheapest"
 )
 
 // NewRoute создает новый маршрут
@@ -51,33 +56,36 @@ func NewRoute(
 	strategy LoadBalanceStrategy,
 ) *Route {
 	now := time.Now()
-	
+
 	return &Route{
-		ID:                uuid.New(),
-		Name:              name,
-		Pattern:           pattern,
-		PatternType:       patternType,
-		ProviderIDs:       providerIDs,
-		Priority:          priority,
-		Active:            true,
-		FailoverEnabled:   false,
+		ID:                  uuid.New(),
+		Name:                name,
+		Pattern:             pattern,
+		PatternType:         patternType,
+		ProviderIDs:         providerIDs,
+		Priority:            priority,
+		Active:              true,
+		FailoverEnabled:     false,
 		LoadBalanceStrategy: strategy,
-		Metadata:          make(map[string]string),
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		Metadata:            make(map[string]string),
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 }
 
 // Matches проверяет, соответствует ли номер назначения паттерну маршрута
 func (r *Route) Matches(destination string) bool {
+	normalizedDestination := normalizeDialString(destination)
+	normalizedPattern := normalizeDialString(r.Pattern)
+
 	switch r.PatternType {
 	case PatternTypePrefix:
-		if len(destination) >= len(r.Pattern) {
-			return destination[:len(r.Pattern)] == r.Pattern
+		if len(normalizedDestination) >= len(normalizedPattern) {
+			return normalizedDestination[:len(normalizedPattern)] == normalizedPattern
 		}
 		return false
 	case PatternTypeExact:
-		return destination == r.Pattern
+		return normalizedDestination == normalizedPattern
 	case PatternTypeRegex:
 		// Регулярное выражение проверяется в репозитории
 		// Здесь возвращаем true, т.к. валидация уже выполнена
@@ -136,24 +144,24 @@ func (r *Route) ToShared() *shared.Route {
 	if len(r.ProviderIDs) > 0 {
 		providerID = r.ProviderIDs[0]
 	}
-	
+
 	var failoverProviderID *uuid.UUID
 	if r.FailoverEnabled && len(r.ProviderIDs) > 1 {
 		failoverID := r.ProviderIDs[1]
 		failoverProviderID = &failoverID
 	}
-	
+
 	return &shared.Route{
-		ID:               r.ID,
-		Name:             r.Name,
-		Pattern:          r.Pattern,
-		PatternType:      string(r.PatternType),
-		ProviderID:       providerID,
-		Priority:         r.Priority,
-		Active:           r.Active,
+		ID:                 r.ID,
+		Name:               r.Name,
+		Pattern:            r.Pattern,
+		PatternType:        string(r.PatternType),
+		ProviderID:         providerID,
+		Priority:           r.Priority,
+		Active:             r.Active,
 		FailoverProviderID: failoverProviderID,
-		CreatedAt:        r.CreatedAt,
-		UpdatedAt:        r.UpdatedAt,
+		CreatedAt:          r.CreatedAt,
+		UpdatedAt:          r.UpdatedAt,
 	}
 }
 
@@ -163,21 +171,21 @@ func RouteFromShared(route *shared.Route) *Route {
 	if route.FailoverProviderID != nil {
 		providerIDs = append(providerIDs, *route.FailoverProviderID)
 	}
-	
+
 	failoverEnabled := route.FailoverProviderID != nil
-	
+
 	return &Route{
-		ID:                route.ID,
-		Name:              route.Name,
-		Pattern:           route.Pattern,
-		PatternType:       PatternType(route.PatternType),
-		ProviderIDs:       providerIDs,
-		Priority:          route.Priority,
-		Active:            route.Active,
-		FailoverEnabled:   failoverEnabled,
+		ID:                  route.ID,
+		Name:                route.Name,
+		Pattern:             route.Pattern,
+		PatternType:         PatternType(route.PatternType),
+		ProviderIDs:         providerIDs,
+		Priority:            route.Priority,
+		Active:              route.Active,
+		FailoverEnabled:     failoverEnabled,
 		LoadBalanceStrategy: LoadBalanceRoundRobin, // По умолчанию
-		Metadata:          make(map[string]string),
-		CreatedAt:         route.CreatedAt,
-		UpdatedAt:         route.UpdatedAt,
+		Metadata:            make(map[string]string),
+		CreatedAt:           route.CreatedAt,
+		UpdatedAt:           route.UpdatedAt,
 	}
 }

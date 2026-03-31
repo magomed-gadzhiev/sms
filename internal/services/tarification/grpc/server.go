@@ -21,6 +21,7 @@ type Server struct {
 	tarificationService  *application.TarificationService
 	senderService        *application.SenderService
 	tariffPlanService    *application.TariffPlanService
+	senderBillingService *application.SenderBillingService
 	providerPlanRepo     domain.ProviderTariffPlanRepository
 	providerPeriodRepo   domain.ProviderTariffPeriodRepository
 	providerTierRepo     domain.ProviderTariffTierRepository
@@ -33,11 +34,13 @@ func NewServer(
 	tarificationService *application.TarificationService,
 	senderService *application.SenderService,
 	tariffPlanService *application.TariffPlanService,
+	senderBillingService *application.SenderBillingService,
 ) *Server {
 	return &Server{
-		tarificationService: tarificationService,
-		senderService:       senderService,
-		tariffPlanService:   tariffPlanService,
+		tarificationService:  tarificationService,
+		senderService:        senderService,
+		tariffPlanService:    tariffPlanService,
+		senderBillingService: senderBillingService,
 	}
 }
 
@@ -734,5 +737,91 @@ func providerTariffPlanToProto(p *domain.ProviderTariffPlan) *tarificationv1.Pro
 		Active:     p.Active,
 		CreatedAt:  timestamppb.New(p.CreatedAt),
 		UpdatedAt:  timestamppb.New(p.UpdatedAt),
+	}
+}
+
+// ==================== Sender Name Billing ====================
+
+// CreateSenderBillingRecord создаёт billing-запись для платного имени отправителя
+func (s *Server) CreateSenderBillingRecord(ctx context.Context, req *tarificationv1.CreateSenderBillingRecordRequest) (*tarificationv1.CreateSenderBillingRecordResponse, error) {
+	if req.SenderRegistrationId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sender_registration_id is required")
+	}
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+	if req.OperatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
+	}
+	if req.Amount == "" {
+		return nil, status.Error(codes.InvalidArgument, "amount is required")
+	}
+
+	regID, err := uuid.Parse(req.SenderRegistrationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid sender_registration_id")
+	}
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id")
+	}
+	operatorID, err := uuid.Parse(req.OperatorId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid operator_id")
+	}
+
+	record, created, err := s.senderBillingService.CreateBillingRecord(ctx, regID, clientID, operatorID, req.Amount)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "create billing record: %v", err)
+	}
+
+	return &tarificationv1.CreateSenderBillingRecordResponse{
+		Record:        senderBillingRecordToProto(record),
+		AlreadyExisted: !created,
+	}, nil
+}
+
+// ListSenderBillingRecords возвращает историю начислений по регистрации
+func (s *Server) ListSenderBillingRecords(ctx context.Context, req *tarificationv1.ListSenderBillingRecordsRequest) (*tarificationv1.ListSenderBillingRecordsResponse, error) {
+	if req.SenderRegistrationId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sender_registration_id is required")
+	}
+
+	regID, err := uuid.Parse(req.SenderRegistrationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid sender_registration_id")
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 50
+	}
+	offset := int(req.Offset)
+
+	records, total, err := s.senderBillingService.ListBillingRecords(ctx, regID, limit, offset)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list billing records: %v", err)
+	}
+
+	protoRecords := make([]*tarificationv1.SenderNameBillingRecordProto, len(records))
+	for i, r := range records {
+		protoRecords[i] = senderBillingRecordToProto(r)
+	}
+
+	return &tarificationv1.ListSenderBillingRecordsResponse{
+		Records: protoRecords,
+		Total:   int32(total),
+	}, nil
+}
+
+func senderBillingRecordToProto(r *domain.SenderNameBillingRecord) *tarificationv1.SenderNameBillingRecordProto {
+	return &tarificationv1.SenderNameBillingRecordProto{
+		Id:                   r.ID.String(),
+		SenderRegistrationId: r.SenderRegistrationID.String(),
+		ClientId:             r.ClientID.String(),
+		OperatorId:           r.OperatorID.String(),
+		BillingMonth:         r.BillingMonth.Format("2006-01-02"),
+		Amount:               r.Amount,
+		CreatedAt:            timestamppb.New(r.CreatedAt),
 	}
 }

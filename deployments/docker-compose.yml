@@ -47,6 +47,7 @@ services:
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - TEMPLATE_SERVICE_ADDR=template-service:9099
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - CASCADE_SERVICE_ADDR=cascade-service:9110
       - CLIENT_SERVICE_ADDR=client-service:9095
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
@@ -109,6 +110,7 @@ services:
       - WEBHOOK_SERVICE_ADDR=webhook-service:9098
       - TEMPLATE_SERVICE_ADDR=template-service:9099
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - CASCADE_SERVICE_ADDR=cascade-service:9110
       - CLIENT_SERVICE_ADDR=client-service:9095
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
@@ -908,6 +910,56 @@ services:
       timeout: 5s
       retries: 3
 
+  # Cascade Service
+  cascade-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: cascade-service
+        SERVICE_PATH: cmd/services/cascade-service
+    container_name: cascade-service
+    ports:
+      - "9110:9110"  # gRPC
+      - "2132:2132"  # Metrics
+    environment:
+      - SERVICE_NAME=cascade-service
+      - GRPC_PORT=9110
+      - METRICS_PORT=2132
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp_password
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CASCADE_SCHEDULER_INTERVAL=5s
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      tarification-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2132/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # Audit Service
   audit-service:
     build:
@@ -967,6 +1019,7 @@ services:
       - CONTACT_SERVICE_ADDR=contact-service:5012
       - CAMPAIGN_SERVICE_ADDR=campaign-service:5013
       - LINK_SERVICE_ADDR=link-service:9103
+      - CASCADE_SERVICE_ADDR=cascade-service:9110
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -1000,6 +1053,8 @@ services:
       contact-service:
         condition: service_healthy
       campaign-service:
+        condition: service_healthy
+      cascade-service:
         condition: service_healthy
       postgres:
         condition: service_healthy

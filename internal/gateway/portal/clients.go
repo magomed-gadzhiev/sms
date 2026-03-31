@@ -18,10 +18,12 @@ import (
 	cpv1 "github.com/smpp-server/smpp-server/api/proto/clientproviderv1"
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	contactv1 "github.com/smpp-server/smpp-server/api/proto/contactv1"
+	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
+	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
+	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
-	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
@@ -42,6 +44,10 @@ type ServiceClients struct {
 	TemplateClient       templatev1.TemplateServiceClient
 	TarificationClient   tarificationv1.TarificationServiceClient
 	LinkDomainClient     linkv1.DomainServiceClient
+	SenderNameClient     sendernamev1.SenderNameServiceClient
+	CascadeClient         cascadev1.CascadeServiceClient
+	CascadeChannelAdmin   cascadev1.ChannelAdminServiceClient
+	CascadeStrategyAdmin  cascadev1.StrategyAdminServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -62,6 +68,7 @@ type ServiceAddresses struct {
 	Template     string
 	Tarification string
 	Link         string
+	Cascade      string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -196,7 +203,7 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		clients.conns = append(clients.conns, conn)
 	}
 
-	// Подключение к Template Service
+	// Подключение к Template Service (также регистрирует SenderNameService)
 	if addresses.Template != "" {
 		conn, err := grpc.Dial(addresses.Template, opts...)
 		if err != nil {
@@ -204,6 +211,7 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Template Service: %w", err)
 		}
 		clients.TemplateClient = templatev1.NewTemplateServiceClient(conn)
+		clients.SenderNameClient = sendernamev1.NewSenderNameServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
@@ -226,6 +234,19 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 			return nil, fmt.Errorf("не удалось подключиться к Link Service: %w", err)
 		}
 		clients.LinkDomainClient = linkv1.NewDomainServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Cascade Service
+	if addresses.Cascade != "" {
+		conn, err := grpc.Dial(addresses.Cascade, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Cascade Service: %w", err)
+		}
+		clients.CascadeClient = cascadev1.NewCascadeServiceClient(conn)
+		clients.CascadeChannelAdmin = cascadev1.NewChannelAdminServiceClient(conn)
+		clients.CascadeStrategyAdmin = cascadev1.NewStrategyAdminServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 

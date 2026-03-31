@@ -12,9 +12,10 @@ import (
 )
 
 type TemplateService struct {
-	templateRepo TemplateRepository
-	auditRepo    AuditRepository
-	logger       zerolog.Logger
+	templateRepo   TemplateRepository
+	auditRepo      AuditRepository
+	senderNameRepo SenderNameRepository
+	logger         zerolog.Logger
 }
 
 func NewTemplateService(templateRepo TemplateRepository, auditRepo AuditRepository) *TemplateService {
@@ -25,23 +26,34 @@ func NewTemplateService(templateRepo TemplateRepository, auditRepo AuditReposito
 	}
 }
 
-func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID, name, body string) (*domain.Template, error) {
+// WithSenderNameRepo injects a SenderNameRepository to enable sender_name_id validation.
+func (s *TemplateService) WithSenderNameRepo(repo SenderNameRepository) {
+	s.senderNameRepo = repo
+}
+
+func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID, name, body string, senderNameID *uuid.UUID) (*domain.Template, error) {
 	if err := validateName(name); err != nil {
 		return nil, err
 	}
 	if err := validateBody(body); err != nil {
 		return nil, err
 	}
+	if senderNameID != nil && s.senderNameRepo != nil {
+		if err := validateSenderNameForTemplate(ctx, s.senderNameRepo, *senderNameID, clientID); err != nil {
+			return nil, err
+		}
+	}
 
 	variables := domain.ExtractVariables(body)
 
 	tmpl := &domain.Template{
-		ID:        uuid.New(),
-		ClientID:  clientID,
-		Name:      name,
-		Body:      body,
-		Variables: variables,
-		Status:    domain.StatusDraft,
+		ID:           uuid.New(),
+		ClientID:     clientID,
+		Name:         name,
+		Body:         body,
+		Variables:    variables,
+		Status:       domain.StatusDraft,
+		SenderNameID: senderNameID,
 	}
 
 	created, err := s.templateRepo.Create(ctx, tmpl)
@@ -81,7 +93,7 @@ func (s *TemplateService) ListTemplates(ctx context.Context, clientID uuid.UUID,
 	return s.templateRepo.ListByClientID(ctx, clientID, status, limit, offset)
 }
 
-func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.UUID, name, body *string) (*domain.Template, error) {
+func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.UUID, name, body *string, senderNameID *uuid.UUID) (*domain.Template, error) {
 	existing, err := s.templateRepo.GetByID(ctx, id, clientID)
 	if err != nil {
 		return nil, err
@@ -106,6 +118,13 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.
 		// Reset status to draft when body changes
 		existing.Status = domain.StatusDraft
 		existing.RejectionReason = ""
+	}
+
+	if senderNameID != nil && s.senderNameRepo != nil {
+		if err := validateSenderNameForTemplate(ctx, s.senderNameRepo, *senderNameID, clientID); err != nil {
+			return nil, err
+		}
+		existing.SenderNameID = senderNameID
 	}
 
 	updated, err := s.templateRepo.Update(ctx, existing)
@@ -317,6 +336,20 @@ func (s *TemplateService) GetAuditLog(ctx context.Context, templateID uuid.UUID,
 		offset = 0
 	}
 	return s.auditRepo.ListByTemplateID(ctx, templateID, limit, offset)
+}
+
+func validateSenderNameForTemplate(ctx context.Context, repo SenderNameRepository, senderNameID, clientID uuid.UUID) error {
+	sn, err := repo.GetByID(ctx, senderNameID)
+	if err != nil {
+		return err
+	}
+	if sn.ClientID != clientID {
+		return domain.ErrSenderNameNotFound
+	}
+	if sn.Status != domain.SenderNameStatusApproved {
+		return domain.ErrSenderNameNotApproved
+	}
+	return nil
 }
 
 func validateName(name string) error {

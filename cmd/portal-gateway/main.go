@@ -15,16 +15,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/smpp-server/smpp-server/internal/config"
 	sharedmw "github.com/smpp-server/smpp-server/internal/api/middleware"
+	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/handlers"
-	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
 	portalrouter "github.com/smpp-server/smpp-server/internal/gateway/portal/router"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
+	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
+	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
+	cascadepg "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/postgres"
 )
 
 func main() {
@@ -58,20 +61,21 @@ func main() {
 
 	// Получение адресов сервисов из переменных окружения или использование значений по умолчанию
 	serviceAddresses := portal.ServiceAddresses{
-		Auth:      getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
-		Client:    getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
-		Billing:   getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Messaging: getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
-		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
-		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
-		Audit:     getEnvOrDefault("AUDIT_SERVICE_ADDR", ""),
-		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
-		Provider:  getEnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9094"),
-		Contact:   getEnvOrDefault("CONTACT_SERVICE_ADDR", "localhost:5012"),
+		Auth:         getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
+		Client:       getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
+		Billing:      getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
+		Messaging:    getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
+		Analytics:    getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
+		Webhook:      getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Audit:        getEnvOrDefault("AUDIT_SERVICE_ADDR", ""),
+		Routing:      getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Provider:     getEnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9094"),
+		Contact:      getEnvOrDefault("CONTACT_SERVICE_ADDR", "localhost:5012"),
 		Campaign:     getEnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
 		Template:     getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Tarification: getEnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
 		Link:         getEnvOrDefault("LINK_SERVICE_ADDR", "localhost:9103"),
+		Cascade:      getEnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9110"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -185,6 +189,45 @@ func main() {
 	settingsHandlers := handlers.NewSettingsHandlers(dbPool)
 	segmentHandlers := handlers.NewSegmentHandlers(dbPool)
 	subAccountRoutingHandlers := handlers.NewSubAccountRoutingHandlers(serviceClients.RoutingClient)
+	senderNameHandlers := handlers.NewSenderNameHandlers(serviceClients.SenderNameClient)
+	senderNameHandlers.SetBillingClients(
+		serviceClients.RoutingClient,
+		serviceClients.TarificationClient,
+		serviceClients.BillingClient,
+	)
+
+	// Создание cascade handlers
+	var cascadeChannelHandlers *handlers.CascadeChannelHandlers
+	var cascadeStrategyHandlers *handlers.CascadeStrategyHandlers
+	var cascadeDeliveryHandlers *handlers.CascadeDeliveryHandlers
+	if serviceClients.CascadeChannelAdmin != nil {
+		cascadeChannelHandlers = handlers.NewCascadeChannelHandlers(serviceClients.CascadeChannelAdmin)
+		cascadeStrategyHandlers = handlers.NewCascadeStrategyHandlers(serviceClients.CascadeStrategyAdmin)
+		cascadeDeliveryHandlers = handlers.NewCascadeDeliveryHandlers(serviceClients.CascadeClient)
+	}
+
+	// Создание cascade webhook handler
+	var cascadeWebhookHandlers *handlers.CascadeWebhookHandlers
+	var maxMessengerWebhookHandler http.HandlerFunc
+	if kafkaProducer != nil {
+		cascadeTopics := cascadekafka.CascadeTopics{
+			Start:         getEnvOrDefault("CASCADE_TOPIC_START", "cascade.start"),
+			AttemptSend:   getEnvOrDefault("CASCADE_TOPIC_ATTEMPT_SEND", "cascade.attempt.send"),
+			AttemptResult: getEnvOrDefault("CASCADE_TOPIC_ATTEMPT_RESULT", "cascade.attempt.result"),
+			Billing:       getEnvOrDefault("CASCADE_TOPIC_BILLING", "cascade.billing"),
+		}
+		cascadeProducer := cascadekafka.NewCascadeProducer(kafkaProducer, cascadeTopics)
+		cascadeWebhookHandlers = handlers.NewCascadeWebhookHandlers(cascadeProducer, logger)
+
+		// Max Messenger webhook handler requires direct access to channel/attempt repositories.
+		if dbPool != nil {
+			channelRepo := cascadepg.NewChannelRepository(dbPool)
+			attemptRepo := cascadepg.NewAttemptRepository(dbPool)
+			maxMessengerMetrics := max_messenger.NewMaxMessengerMetrics()
+			maxMessengerWebhook := max_messenger.NewWebhookHandler(channelRepo, attemptRepo, cascadeProducer, maxMessengerMetrics, logger)
+			maxMessengerWebhookHandler = maxMessengerWebhook.Handle
+		}
+	}
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -216,7 +259,22 @@ func main() {
 		settingsHandlers,
 		segmentHandlers,
 		subAccountRoutingHandlers,
+		senderNameHandlers,
 	)
+
+	// Регистрируем маршруты cascade webhook
+	if cascadeWebhookHandlers != nil {
+		portalrouter.RegisterCascadeWebhookRoutes(router, cascadeWebhookHandlers)
+	}
+	if maxMessengerWebhookHandler != nil {
+		portalrouter.RegisterMaxMessengerWebhookRoute(router, maxMessengerWebhookHandler)
+	}
+
+	// Регистрируем маршруты cascade
+	if cascadeChannelHandlers != nil {
+		portalrouter.RegisterCascadeAdminRoutes(router, sessionAuthMw, cascadeChannelHandlers, cascadeStrategyHandlers)
+		portalrouter.RegisterCascadeDeliveryRoutes(router, sessionAuthMw, cascadeDeliveryHandlers)
+	}
 
 	// Добавляем Prometheus metrics endpoint
 	if cfg.Monitoring.Prometheus.Enabled {

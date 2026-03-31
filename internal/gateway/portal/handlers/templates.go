@@ -21,8 +21,9 @@ func NewTemplateHandlers(templateClient templatev1.TemplateServiceClient) *Templ
 }
 
 type createTemplateRequest struct {
-	Name string `json:"name"`
-	Body string `json:"body"`
+	Name         string  `json:"name"`
+	Body         string  `json:"body"`
+	SenderNameID *string `json:"sender_name_id,omitempty"`
 }
 
 func (h *TemplateHandlers) CreateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -45,9 +46,10 @@ func (h *TemplateHandlers) CreateTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 	resp, err := h.templateClient.CreateTemplate(r.Context(), &templatev1.CreateTemplateRequest{
-		ClientId: clientID.String(),
-		Name:     req.Name,
-		Body:     req.Body,
+		ClientId:     clientID.String(),
+		Name:         req.Name,
+		Body:         req.Body,
+		SenderNameId: req.SenderNameID,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка создания шаблона")
@@ -280,6 +282,12 @@ func templateToJSON(t *templatev1.TemplateInfo) map[string]interface{} {
 	}
 	if t.RejectionReason != "" {
 		m["rejection_reason"] = t.RejectionReason
+	}
+	if t.SenderNameId != "" {
+		m["sender_name_id"] = t.SenderNameId
+	}
+	if t.SenderName != "" {
+		m["sender_name"] = t.SenderName
 	}
 	if t.CreatedAt != nil {
 		m["created_at"] = t.CreatedAt.AsTime()

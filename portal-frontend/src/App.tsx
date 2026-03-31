@@ -25,6 +25,8 @@ import { CampaignsPage } from './pages/campaigns/CampaignsPage';
 import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
 import { TemplatesPage } from './pages/templates/TemplatesPage';
+import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
+import { SenderNameBillingHistory } from './pages/sender-names/SenderNameBillingHistory';
 import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
@@ -32,6 +34,8 @@ import { LookupPage } from './pages/lookup/LookupPage';
 import { DomainsPage } from './pages/settings/DomainsPage';
 import { SegmentsPage } from './pages/segments/SegmentsPage';
 import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
+import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
+import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDetail';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -41,6 +45,7 @@ const AdminBillingPage = lazy(() => import('./pages/admin/billing/BillingPage').
 const AdminMonitoringPage = lazy(() => import('./pages/admin/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 const AdminTemplatesPage = lazy(() => import('./pages/admin/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));
+const AdminSenderNamesPage = lazy(() => import('./pages/admin/SenderNamesAdminPage').then((m) => ({ default: m.SenderNamesAdminPage })));
 const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((m) => ({ default: m.WebhooksPage })));
 const AdminHLRPage = lazy(() => import('./pages/admin/HLRPage').then((m) => ({ default: m.HLRPage })));
 const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then((m) => ({ default: m.CountriesPage })));
@@ -49,6 +54,8 @@ const AdminTarificationPage = lazy(() => import('./pages/admin/tarification/Tari
 const AdminDashboardPage = lazy(() => import('./pages/admin/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const AdminUsersPage = lazy(() => import('./pages/admin/users/UsersPage').then((m) => ({ default: m.UsersPage })));
 const AdminRolesPage = lazy(() => import('./pages/admin/users/RolesPage').then((m) => ({ default: m.RolesPage })));
+const AdminChannelsPage = lazy(() => import('./pages/channels/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
+const AdminDeliveryStrategiesPage = lazy(() => import('./pages/delivery-strategies/DeliveryStrategiesPage').then((m) => ({ default: m.DeliveryStrategiesPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -95,12 +102,16 @@ export function App() {
         <Route path="/sub-accounts" element={<SubAccountsListPage />} />
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/sender-names" element={<SenderNamesPage />} />
+        <Route path="/sender-registrations/:id/billing" element={<SenderNameBillingHistory />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/tariffs" element={<TariffsPage />} />
         <Route path="/lookup" element={<LookupPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/settings/domains" element={<DomainsPage />} />
+        <Route path="/cascade/history" element={<CascadeHistoryPage />} />
+        <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />
       </Route>
 
       <Route
@@ -122,6 +133,7 @@ export function App() {
         <Route path="monitoring" element={<Suspense fallback={null}><AdminMonitoringPage /></Suspense>} />
         <Route path="analytics" element={<Suspense fallback={null}><AdminAnalyticsPage /></Suspense>} />
         <Route path="templates" element={<Suspense fallback={null}><AdminTemplatesPage /></Suspense>} />
+        <Route path="sender-names" element={<Suspense fallback={null}><AdminSenderNamesPage /></Suspense>} />
         <Route path="webhooks" element={<Suspense fallback={null}><AdminWebhooksPage /></Suspense>} />
         <Route path="hlr" element={<Suspense fallback={null}><AdminHLRPage /></Suspense>} />
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />
@@ -129,6 +141,8 @@ export function App() {
         <Route path="audit" element={<Suspense fallback={null}><AdminAuditLogPage /></Suspense>} />
         <Route path="users" element={<Suspense fallback={null}><AdminUsersPage /></Suspense>} />
         <Route path="users/roles" element={<Suspense fallback={null}><AdminRolesPage /></Suspense>} />
+        <Route path="channels" element={<Suspense fallback={null}><AdminChannelsPage /></Suspense>} />
+        <Route path="delivery-strategies" element={<Suspense fallback={null}><AdminDeliveryStrategiesPage /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

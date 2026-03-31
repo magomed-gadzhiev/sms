@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: tarification/tarification.proto
+// source: tarification.proto
 
 package tarificationv1
 
@@ -37,7 +37,7 @@ type TarifyMessageRequest struct {
 
 func (x *TarifyMessageRequest) Reset() {
 	*x = TarifyMessageRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[0]
+	mi := &file_tarification_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +49,7 @@ func (x *TarifyMessageRequest) String() string {
 func (*TarifyMessageRequest) ProtoMessage() {}
 
 func (x *TarifyMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[0]
+	mi := &file_tarification_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *TarifyMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TarifyMessageRequest.ProtoReflect.Descriptor instead.
 func (*TarifyMessageRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{0}
+	return file_tarification_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *TarifyMessageRequest) GetClientId() string {
@@ -124,7 +124,7 @@ type TarifyMessageResponse struct {
 
 func (x *TarifyMessageResponse) Reset() {
 	*x = TarifyMessageResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[1]
+	mi := &file_tarification_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -136,7 +136,7 @@ func (x *TarifyMessageResponse) String() string {
 func (*TarifyMessageResponse) ProtoMessage() {}
 
 func (x *TarifyMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[1]
+	mi := &file_tarification_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -149,7 +149,7 @@ func (x *TarifyMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TarifyMessageResponse.ProtoReflect.Descriptor instead.
 func (*TarifyMessageResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{1}
+	return file_tarification_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *TarifyMessageResponse) GetApproved() bool {
@@ -220,7 +220,7 @@ type TarifyLookupRequest struct {
 
 func (x *TarifyLookupRequest) Reset() {
 	*x = TarifyLookupRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[2]
+	mi := &file_tarification_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -232,7 +232,7 @@ func (x *TarifyLookupRequest) String() string {
 func (*TarifyLookupRequest) ProtoMessage() {}
 
 func (x *TarifyLookupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[2]
+	mi := &file_tarification_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -245,7 +245,7 @@ func (x *TarifyLookupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TarifyLookupRequest.ProtoReflect.Descriptor instead.
 func (*TarifyLookupRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{2}
+	return file_tarification_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TarifyLookupRequest) GetClientId() string {
@@ -284,7 +284,7 @@ type TarifyLookupResponse struct {
 
 func (x *TarifyLookupResponse) Reset() {
 	*x = TarifyLookupResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[3]
+	mi := &file_tarification_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +296,7 @@ func (x *TarifyLookupResponse) String() string {
 func (*TarifyLookupResponse) ProtoMessage() {}
 
 func (x *TarifyLookupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[3]
+	mi := &file_tarification_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +309,7 @@ func (x *TarifyLookupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TarifyLookupResponse.ProtoReflect.Descriptor instead.
 func (*TarifyLookupResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{3}
+	return file_tarification_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TarifyLookupResponse) GetApproved() bool {
@@ -371,7 +371,7 @@ type SenderRegistration struct {
 
 func (x *SenderRegistration) Reset() {
 	*x = SenderRegistration{}
-	mi := &file_tarification_tarification_proto_msgTypes[4]
+	mi := &file_tarification_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -383,7 +383,7 @@ func (x *SenderRegistration) String() string {
 func (*SenderRegistration) ProtoMessage() {}
 
 func (x *SenderRegistration) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[4]
+	mi := &file_tarification_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -396,7 +396,7 @@ func (x *SenderRegistration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SenderRegistration.ProtoReflect.Descriptor instead.
 func (*SenderRegistration) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{4}
+	return file_tarification_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SenderRegistration) GetId() string {
@@ -468,7 +468,7 @@ type CreateSenderRegistrationRequest struct {
 
 func (x *CreateSenderRegistrationRequest) Reset() {
 	*x = CreateSenderRegistrationRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[5]
+	mi := &file_tarification_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -480,7 +480,7 @@ func (x *CreateSenderRegistrationRequest) String() string {
 func (*CreateSenderRegistrationRequest) ProtoMessage() {}
 
 func (x *CreateSenderRegistrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[5]
+	mi := &file_tarification_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -493,7 +493,7 @@ func (x *CreateSenderRegistrationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSenderRegistrationRequest.ProtoReflect.Descriptor instead.
 func (*CreateSenderRegistrationRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{5}
+	return file_tarification_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateSenderRegistrationRequest) GetClientId() string {
@@ -537,7 +537,7 @@ type ListSenderRegistrationsRequest struct {
 
 func (x *ListSenderRegistrationsRequest) Reset() {
 	*x = ListSenderRegistrationsRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[6]
+	mi := &file_tarification_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +549,7 @@ func (x *ListSenderRegistrationsRequest) String() string {
 func (*ListSenderRegistrationsRequest) ProtoMessage() {}
 
 func (x *ListSenderRegistrationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[6]
+	mi := &file_tarification_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +562,7 @@ func (x *ListSenderRegistrationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSenderRegistrationsRequest.ProtoReflect.Descriptor instead.
 func (*ListSenderRegistrationsRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{6}
+	return file_tarification_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListSenderRegistrationsRequest) GetClientId() string {
@@ -604,7 +604,7 @@ type ListSenderRegistrationsResponse struct {
 
 func (x *ListSenderRegistrationsResponse) Reset() {
 	*x = ListSenderRegistrationsResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[7]
+	mi := &file_tarification_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -616,7 +616,7 @@ func (x *ListSenderRegistrationsResponse) String() string {
 func (*ListSenderRegistrationsResponse) ProtoMessage() {}
 
 func (x *ListSenderRegistrationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[7]
+	mi := &file_tarification_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -629,7 +629,7 @@ func (x *ListSenderRegistrationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSenderRegistrationsResponse.ProtoReflect.Descriptor instead.
 func (*ListSenderRegistrationsResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{7}
+	return file_tarification_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListSenderRegistrationsResponse) GetRegistrations() []*SenderRegistration {
@@ -658,7 +658,7 @@ type UpdateSenderRegistrationRequest struct {
 
 func (x *UpdateSenderRegistrationRequest) Reset() {
 	*x = UpdateSenderRegistrationRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[8]
+	mi := &file_tarification_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +670,7 @@ func (x *UpdateSenderRegistrationRequest) String() string {
 func (*UpdateSenderRegistrationRequest) ProtoMessage() {}
 
 func (x *UpdateSenderRegistrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[8]
+	mi := &file_tarification_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +683,7 @@ func (x *UpdateSenderRegistrationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSenderRegistrationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSenderRegistrationRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{8}
+	return file_tarification_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateSenderRegistrationRequest) GetId() string {
@@ -723,7 +723,7 @@ type TariffPlan struct {
 
 func (x *TariffPlan) Reset() {
 	*x = TariffPlan{}
-	mi := &file_tarification_tarification_proto_msgTypes[9]
+	mi := &file_tarification_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -735,7 +735,7 @@ func (x *TariffPlan) String() string {
 func (*TariffPlan) ProtoMessage() {}
 
 func (x *TariffPlan) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[9]
+	mi := &file_tarification_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -748,7 +748,7 @@ func (x *TariffPlan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TariffPlan.ProtoReflect.Descriptor instead.
 func (*TariffPlan) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{9}
+	return file_tarification_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TariffPlan) GetId() string {
@@ -812,7 +812,7 @@ type CreateTariffPlanRequest struct {
 
 func (x *CreateTariffPlanRequest) Reset() {
 	*x = CreateTariffPlanRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[10]
+	mi := &file_tarification_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -824,7 +824,7 @@ func (x *CreateTariffPlanRequest) String() string {
 func (*CreateTariffPlanRequest) ProtoMessage() {}
 
 func (x *CreateTariffPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[10]
+	mi := &file_tarification_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -837,7 +837,7 @@ func (x *CreateTariffPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTariffPlanRequest.ProtoReflect.Descriptor instead.
 func (*CreateTariffPlanRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{10}
+	return file_tarification_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CreateTariffPlanRequest) GetOperatorId() string {
@@ -871,7 +871,7 @@ type GetTariffPlanRequest struct {
 
 func (x *GetTariffPlanRequest) Reset() {
 	*x = GetTariffPlanRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[11]
+	mi := &file_tarification_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -883,7 +883,7 @@ func (x *GetTariffPlanRequest) String() string {
 func (*GetTariffPlanRequest) ProtoMessage() {}
 
 func (x *GetTariffPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[11]
+	mi := &file_tarification_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -896,7 +896,7 @@ func (x *GetTariffPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTariffPlanRequest.ProtoReflect.Descriptor instead.
 func (*GetTariffPlanRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{11}
+	return file_tarification_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetTariffPlanRequest) GetId() string {
@@ -919,7 +919,7 @@ type ListTariffPlansRequest struct {
 
 func (x *ListTariffPlansRequest) Reset() {
 	*x = ListTariffPlansRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[12]
+	mi := &file_tarification_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -931,7 +931,7 @@ func (x *ListTariffPlansRequest) String() string {
 func (*ListTariffPlansRequest) ProtoMessage() {}
 
 func (x *ListTariffPlansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[12]
+	mi := &file_tarification_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -944,7 +944,7 @@ func (x *ListTariffPlansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTariffPlansRequest.ProtoReflect.Descriptor instead.
 func (*ListTariffPlansRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{12}
+	return file_tarification_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListTariffPlansRequest) GetOperatorId() string {
@@ -986,7 +986,7 @@ type ListTariffPlansResponse struct {
 
 func (x *ListTariffPlansResponse) Reset() {
 	*x = ListTariffPlansResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[13]
+	mi := &file_tarification_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -998,7 +998,7 @@ func (x *ListTariffPlansResponse) String() string {
 func (*ListTariffPlansResponse) ProtoMessage() {}
 
 func (x *ListTariffPlansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[13]
+	mi := &file_tarification_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1011,7 +1011,7 @@ func (x *ListTariffPlansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTariffPlansResponse.ProtoReflect.Descriptor instead.
 func (*ListTariffPlansResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{13}
+	return file_tarification_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListTariffPlansResponse) GetPlans() []*TariffPlan {
@@ -1039,7 +1039,7 @@ type UpdateTariffPlanRequest struct {
 
 func (x *UpdateTariffPlanRequest) Reset() {
 	*x = UpdateTariffPlanRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[14]
+	mi := &file_tarification_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +1051,7 @@ func (x *UpdateTariffPlanRequest) String() string {
 func (*UpdateTariffPlanRequest) ProtoMessage() {}
 
 func (x *UpdateTariffPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[14]
+	mi := &file_tarification_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +1064,7 @@ func (x *UpdateTariffPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTariffPlanRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTariffPlanRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{14}
+	return file_tarification_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateTariffPlanRequest) GetId() string {
@@ -1095,7 +1095,7 @@ type TariffPeriod struct {
 
 func (x *TariffPeriod) Reset() {
 	*x = TariffPeriod{}
-	mi := &file_tarification_tarification_proto_msgTypes[15]
+	mi := &file_tarification_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1107,7 @@ func (x *TariffPeriod) String() string {
 func (*TariffPeriod) ProtoMessage() {}
 
 func (x *TariffPeriod) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[15]
+	mi := &file_tarification_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1120,7 +1120,7 @@ func (x *TariffPeriod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TariffPeriod.ProtoReflect.Descriptor instead.
 func (*TariffPeriod) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{15}
+	return file_tarification_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TariffPeriod) GetId() string {
@@ -1170,7 +1170,7 @@ type CreateTariffPeriodRequest struct {
 
 func (x *CreateTariffPeriodRequest) Reset() {
 	*x = CreateTariffPeriodRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[16]
+	mi := &file_tarification_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1182,7 +1182,7 @@ func (x *CreateTariffPeriodRequest) String() string {
 func (*CreateTariffPeriodRequest) ProtoMessage() {}
 
 func (x *CreateTariffPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[16]
+	mi := &file_tarification_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1195,7 +1195,7 @@ func (x *CreateTariffPeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTariffPeriodRequest.ProtoReflect.Descriptor instead.
 func (*CreateTariffPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{16}
+	return file_tarification_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CreateTariffPeriodRequest) GetTariffPlanId() string {
@@ -1232,7 +1232,7 @@ type TariffTier struct {
 
 func (x *TariffTier) Reset() {
 	*x = TariffTier{}
-	mi := &file_tarification_tarification_proto_msgTypes[17]
+	mi := &file_tarification_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1244,7 +1244,7 @@ func (x *TariffTier) String() string {
 func (*TariffTier) ProtoMessage() {}
 
 func (x *TariffTier) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[17]
+	mi := &file_tarification_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1257,7 +1257,7 @@ func (x *TariffTier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TariffTier.ProtoReflect.Descriptor instead.
 func (*TariffTier) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{17}
+	return file_tarification_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TariffTier) GetId() string {
@@ -1300,7 +1300,7 @@ type CreateTariffTierRequest struct {
 
 func (x *CreateTariffTierRequest) Reset() {
 	*x = CreateTariffTierRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[18]
+	mi := &file_tarification_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1312,7 +1312,7 @@ func (x *CreateTariffTierRequest) String() string {
 func (*CreateTariffTierRequest) ProtoMessage() {}
 
 func (x *CreateTariffTierRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[18]
+	mi := &file_tarification_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1325,7 +1325,7 @@ func (x *CreateTariffTierRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTariffTierRequest.ProtoReflect.Descriptor instead.
 func (*CreateTariffTierRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{18}
+	return file_tarification_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateTariffTierRequest) GetTariffPeriodId() string {
@@ -1361,7 +1361,7 @@ type UpdateTariffTierRequest struct {
 
 func (x *UpdateTariffTierRequest) Reset() {
 	*x = UpdateTariffTierRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[19]
+	mi := &file_tarification_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1373,7 +1373,7 @@ func (x *UpdateTariffTierRequest) String() string {
 func (*UpdateTariffTierRequest) ProtoMessage() {}
 
 func (x *UpdateTariffTierRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[19]
+	mi := &file_tarification_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1386,7 +1386,7 @@ func (x *UpdateTariffTierRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTariffTierRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTariffTierRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{19}
+	return file_tarification_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateTariffTierRequest) GetId() string {
@@ -1424,7 +1424,7 @@ type PricingPeriod struct {
 
 func (x *PricingPeriod) Reset() {
 	*x = PricingPeriod{}
-	mi := &file_tarification_tarification_proto_msgTypes[20]
+	mi := &file_tarification_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1436,7 +1436,7 @@ func (x *PricingPeriod) String() string {
 func (*PricingPeriod) ProtoMessage() {}
 
 func (x *PricingPeriod) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[20]
+	mi := &file_tarification_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1449,7 +1449,7 @@ func (x *PricingPeriod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PricingPeriod.ProtoReflect.Descriptor instead.
 func (*PricingPeriod) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{20}
+	return file_tarification_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *PricingPeriod) GetId() string {
@@ -1499,7 +1499,7 @@ type CreatePricingPeriodRequest struct {
 
 func (x *CreatePricingPeriodRequest) Reset() {
 	*x = CreatePricingPeriodRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[21]
+	mi := &file_tarification_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1511,7 +1511,7 @@ func (x *CreatePricingPeriodRequest) String() string {
 func (*CreatePricingPeriodRequest) ProtoMessage() {}
 
 func (x *CreatePricingPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[21]
+	mi := &file_tarification_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1524,7 +1524,7 @@ func (x *CreatePricingPeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePricingPeriodRequest.ProtoReflect.Descriptor instead.
 func (*CreatePricingPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{21}
+	return file_tarification_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CreatePricingPeriodRequest) GetTariffPeriodId() string {
@@ -1565,7 +1565,7 @@ type PrepaidFee struct {
 
 func (x *PrepaidFee) Reset() {
 	*x = PrepaidFee{}
-	mi := &file_tarification_tarification_proto_msgTypes[22]
+	mi := &file_tarification_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1577,7 +1577,7 @@ func (x *PrepaidFee) String() string {
 func (*PrepaidFee) ProtoMessage() {}
 
 func (x *PrepaidFee) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[22]
+	mi := &file_tarification_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1590,7 +1590,7 @@ func (x *PrepaidFee) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepaidFee.ProtoReflect.Descriptor instead.
 func (*PrepaidFee) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{22}
+	return file_tarification_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PrepaidFee) GetId() string {
@@ -1662,7 +1662,7 @@ type CreatePrepaidFeeRequest struct {
 
 func (x *CreatePrepaidFeeRequest) Reset() {
 	*x = CreatePrepaidFeeRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[23]
+	mi := &file_tarification_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1674,7 +1674,7 @@ func (x *CreatePrepaidFeeRequest) String() string {
 func (*CreatePrepaidFeeRequest) ProtoMessage() {}
 
 func (x *CreatePrepaidFeeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[23]
+	mi := &file_tarification_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1687,7 +1687,7 @@ func (x *CreatePrepaidFeeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePrepaidFeeRequest.ProtoReflect.Descriptor instead.
 func (*CreatePrepaidFeeRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{23}
+	return file_tarification_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CreatePrepaidFeeRequest) GetTariffPlanId() string {
@@ -1733,7 +1733,7 @@ type UsageCounter struct {
 
 func (x *UsageCounter) Reset() {
 	*x = UsageCounter{}
-	mi := &file_tarification_tarification_proto_msgTypes[24]
+	mi := &file_tarification_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1745,7 +1745,7 @@ func (x *UsageCounter) String() string {
 func (*UsageCounter) ProtoMessage() {}
 
 func (x *UsageCounter) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[24]
+	mi := &file_tarification_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1758,7 +1758,7 @@ func (x *UsageCounter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageCounter.ProtoReflect.Descriptor instead.
 func (*UsageCounter) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{24}
+	return file_tarification_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UsageCounter) GetId() string {
@@ -1815,7 +1815,7 @@ type GetUsageCounterRequest struct {
 
 func (x *GetUsageCounterRequest) Reset() {
 	*x = GetUsageCounterRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[25]
+	mi := &file_tarification_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1827,7 +1827,7 @@ func (x *GetUsageCounterRequest) String() string {
 func (*GetUsageCounterRequest) ProtoMessage() {}
 
 func (x *GetUsageCounterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[25]
+	mi := &file_tarification_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1840,7 +1840,7 @@ func (x *GetUsageCounterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUsageCounterRequest.ProtoReflect.Descriptor instead.
 func (*GetUsageCounterRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{25}
+	return file_tarification_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetUsageCounterRequest) GetClientId() string {
@@ -1877,7 +1877,7 @@ type ListUsageCountersRequest struct {
 
 func (x *ListUsageCountersRequest) Reset() {
 	*x = ListUsageCountersRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[26]
+	mi := &file_tarification_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1889,7 +1889,7 @@ func (x *ListUsageCountersRequest) String() string {
 func (*ListUsageCountersRequest) ProtoMessage() {}
 
 func (x *ListUsageCountersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[26]
+	mi := &file_tarification_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1902,7 +1902,7 @@ func (x *ListUsageCountersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsageCountersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsageCountersRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{26}
+	return file_tarification_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListUsageCountersRequest) GetClientId() string {
@@ -1944,7 +1944,7 @@ type ListUsageCountersResponse struct {
 
 func (x *ListUsageCountersResponse) Reset() {
 	*x = ListUsageCountersResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[27]
+	mi := &file_tarification_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1956,7 +1956,7 @@ func (x *ListUsageCountersResponse) String() string {
 func (*ListUsageCountersResponse) ProtoMessage() {}
 
 func (x *ListUsageCountersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[27]
+	mi := &file_tarification_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1969,7 +1969,7 @@ func (x *ListUsageCountersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsageCountersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsageCountersResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{27}
+	return file_tarification_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListUsageCountersResponse) GetCounters() []*UsageCounter {
@@ -2001,7 +2001,7 @@ type ProviderTariffPlanProto struct {
 
 func (x *ProviderTariffPlanProto) Reset() {
 	*x = ProviderTariffPlanProto{}
-	mi := &file_tarification_tarification_proto_msgTypes[28]
+	mi := &file_tarification_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2013,7 +2013,7 @@ func (x *ProviderTariffPlanProto) String() string {
 func (*ProviderTariffPlanProto) ProtoMessage() {}
 
 func (x *ProviderTariffPlanProto) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[28]
+	mi := &file_tarification_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2026,7 +2026,7 @@ func (x *ProviderTariffPlanProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderTariffPlanProto.ProtoReflect.Descriptor instead.
 func (*ProviderTariffPlanProto) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{28}
+	return file_tarification_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ProviderTariffPlanProto) GetId() string {
@@ -2089,7 +2089,7 @@ type CreateProviderTariffPlanRequest struct {
 
 func (x *CreateProviderTariffPlanRequest) Reset() {
 	*x = CreateProviderTariffPlanRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[29]
+	mi := &file_tarification_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2101,7 +2101,7 @@ func (x *CreateProviderTariffPlanRequest) String() string {
 func (*CreateProviderTariffPlanRequest) ProtoMessage() {}
 
 func (x *CreateProviderTariffPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[29]
+	mi := &file_tarification_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2114,7 +2114,7 @@ func (x *CreateProviderTariffPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProviderTariffPlanRequest.ProtoReflect.Descriptor instead.
 func (*CreateProviderTariffPlanRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{29}
+	return file_tarification_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CreateProviderTariffPlanRequest) GetProviderId() string {
@@ -2147,7 +2147,7 @@ type GetProviderTariffPlanRequest struct {
 
 func (x *GetProviderTariffPlanRequest) Reset() {
 	*x = GetProviderTariffPlanRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[30]
+	mi := &file_tarification_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2159,7 +2159,7 @@ func (x *GetProviderTariffPlanRequest) String() string {
 func (*GetProviderTariffPlanRequest) ProtoMessage() {}
 
 func (x *GetProviderTariffPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[30]
+	mi := &file_tarification_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2172,7 +2172,7 @@ func (x *GetProviderTariffPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProviderTariffPlanRequest.ProtoReflect.Descriptor instead.
 func (*GetProviderTariffPlanRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{30}
+	return file_tarification_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetProviderTariffPlanRequest) GetId() string {
@@ -2194,7 +2194,7 @@ type ListProviderTariffPlansRequest struct {
 
 func (x *ListProviderTariffPlansRequest) Reset() {
 	*x = ListProviderTariffPlansRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[31]
+	mi := &file_tarification_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2206,7 +2206,7 @@ func (x *ListProviderTariffPlansRequest) String() string {
 func (*ListProviderTariffPlansRequest) ProtoMessage() {}
 
 func (x *ListProviderTariffPlansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[31]
+	mi := &file_tarification_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2219,7 +2219,7 @@ func (x *ListProviderTariffPlansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProviderTariffPlansRequest.ProtoReflect.Descriptor instead.
 func (*ListProviderTariffPlansRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{31}
+	return file_tarification_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListProviderTariffPlansRequest) GetProviderId() string {
@@ -2260,7 +2260,7 @@ type ListProviderTariffPlansResponse struct {
 
 func (x *ListProviderTariffPlansResponse) Reset() {
 	*x = ListProviderTariffPlansResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[32]
+	mi := &file_tarification_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2272,7 +2272,7 @@ func (x *ListProviderTariffPlansResponse) String() string {
 func (*ListProviderTariffPlansResponse) ProtoMessage() {}
 
 func (x *ListProviderTariffPlansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[32]
+	mi := &file_tarification_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2285,7 +2285,7 @@ func (x *ListProviderTariffPlansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProviderTariffPlansResponse.ProtoReflect.Descriptor instead.
 func (*ListProviderTariffPlansResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{32}
+	return file_tarification_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListProviderTariffPlansResponse) GetPlans() []*ProviderTariffPlanProto {
@@ -2312,7 +2312,7 @@ type UpdateProviderTariffPlanRequest struct {
 
 func (x *UpdateProviderTariffPlanRequest) Reset() {
 	*x = UpdateProviderTariffPlanRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[33]
+	mi := &file_tarification_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2324,7 +2324,7 @@ func (x *UpdateProviderTariffPlanRequest) String() string {
 func (*UpdateProviderTariffPlanRequest) ProtoMessage() {}
 
 func (x *UpdateProviderTariffPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[33]
+	mi := &file_tarification_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2337,7 +2337,7 @@ func (x *UpdateProviderTariffPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProviderTariffPlanRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProviderTariffPlanRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{33}
+	return file_tarification_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UpdateProviderTariffPlanRequest) GetId() string {
@@ -2367,7 +2367,7 @@ type ProviderTariffPeriodProto struct {
 
 func (x *ProviderTariffPeriodProto) Reset() {
 	*x = ProviderTariffPeriodProto{}
-	mi := &file_tarification_tarification_proto_msgTypes[34]
+	mi := &file_tarification_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2379,7 +2379,7 @@ func (x *ProviderTariffPeriodProto) String() string {
 func (*ProviderTariffPeriodProto) ProtoMessage() {}
 
 func (x *ProviderTariffPeriodProto) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[34]
+	mi := &file_tarification_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2392,7 +2392,7 @@ func (x *ProviderTariffPeriodProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderTariffPeriodProto.ProtoReflect.Descriptor instead.
 func (*ProviderTariffPeriodProto) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{34}
+	return file_tarification_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ProviderTariffPeriodProto) GetId() string {
@@ -2441,7 +2441,7 @@ type CreateProviderTariffPeriodRequest struct {
 
 func (x *CreateProviderTariffPeriodRequest) Reset() {
 	*x = CreateProviderTariffPeriodRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[35]
+	mi := &file_tarification_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2453,7 +2453,7 @@ func (x *CreateProviderTariffPeriodRequest) String() string {
 func (*CreateProviderTariffPeriodRequest) ProtoMessage() {}
 
 func (x *CreateProviderTariffPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[35]
+	mi := &file_tarification_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2466,7 +2466,7 @@ func (x *CreateProviderTariffPeriodRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CreateProviderTariffPeriodRequest.ProtoReflect.Descriptor instead.
 func (*CreateProviderTariffPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{35}
+	return file_tarification_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CreateProviderTariffPeriodRequest) GetProviderTariffPlanId() string {
@@ -2502,7 +2502,7 @@ type ProviderTariffTierProto struct {
 
 func (x *ProviderTariffTierProto) Reset() {
 	*x = ProviderTariffTierProto{}
-	mi := &file_tarification_tarification_proto_msgTypes[36]
+	mi := &file_tarification_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2514,7 +2514,7 @@ func (x *ProviderTariffTierProto) String() string {
 func (*ProviderTariffTierProto) ProtoMessage() {}
 
 func (x *ProviderTariffTierProto) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[36]
+	mi := &file_tarification_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2527,7 +2527,7 @@ func (x *ProviderTariffTierProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderTariffTierProto.ProtoReflect.Descriptor instead.
 func (*ProviderTariffTierProto) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{36}
+	return file_tarification_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ProviderTariffTierProto) GetId() string {
@@ -2569,7 +2569,7 @@ type CreateProviderTariffTierRequest struct {
 
 func (x *CreateProviderTariffTierRequest) Reset() {
 	*x = CreateProviderTariffTierRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[37]
+	mi := &file_tarification_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2581,7 +2581,7 @@ func (x *CreateProviderTariffTierRequest) String() string {
 func (*CreateProviderTariffTierRequest) ProtoMessage() {}
 
 func (x *CreateProviderTariffTierRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[37]
+	mi := &file_tarification_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2594,7 +2594,7 @@ func (x *CreateProviderTariffTierRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProviderTariffTierRequest.ProtoReflect.Descriptor instead.
 func (*CreateProviderTariffTierRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{37}
+	return file_tarification_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CreateProviderTariffTierRequest) GetProviderTariffPeriodId() string {
@@ -2629,7 +2629,7 @@ type UpdateProviderTariffTierRequest struct {
 
 func (x *UpdateProviderTariffTierRequest) Reset() {
 	*x = UpdateProviderTariffTierRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[38]
+	mi := &file_tarification_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2641,7 +2641,7 @@ func (x *UpdateProviderTariffTierRequest) String() string {
 func (*UpdateProviderTariffTierRequest) ProtoMessage() {}
 
 func (x *UpdateProviderTariffTierRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[38]
+	mi := &file_tarification_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2654,7 +2654,7 @@ func (x *UpdateProviderTariffTierRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProviderTariffTierRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProviderTariffTierRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{38}
+	return file_tarification_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *UpdateProviderTariffTierRequest) GetId() string {
@@ -2689,7 +2689,7 @@ type MarginReportRequest struct {
 
 func (x *MarginReportRequest) Reset() {
 	*x = MarginReportRequest{}
-	mi := &file_tarification_tarification_proto_msgTypes[39]
+	mi := &file_tarification_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2701,7 +2701,7 @@ func (x *MarginReportRequest) String() string {
 func (*MarginReportRequest) ProtoMessage() {}
 
 func (x *MarginReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[39]
+	mi := &file_tarification_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2714,7 +2714,7 @@ func (x *MarginReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarginReportRequest.ProtoReflect.Descriptor instead.
 func (*MarginReportRequest) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{39}
+	return file_tarification_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *MarginReportRequest) GetClientId() string {
@@ -2750,7 +2750,7 @@ type MarginReportResponse struct {
 
 func (x *MarginReportResponse) Reset() {
 	*x = MarginReportResponse{}
-	mi := &file_tarification_tarification_proto_msgTypes[40]
+	mi := &file_tarification_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2762,7 +2762,7 @@ func (x *MarginReportResponse) String() string {
 func (*MarginReportResponse) ProtoMessage() {}
 
 func (x *MarginReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[40]
+	mi := &file_tarification_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2775,7 +2775,7 @@ func (x *MarginReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarginReportResponse.ProtoReflect.Descriptor instead.
 func (*MarginReportResponse) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{40}
+	return file_tarification_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *MarginReportResponse) GetEntries() []*MarginReportEntry {
@@ -2822,7 +2822,7 @@ type MarginReportEntry struct {
 
 func (x *MarginReportEntry) Reset() {
 	*x = MarginReportEntry{}
-	mi := &file_tarification_tarification_proto_msgTypes[41]
+	mi := &file_tarification_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2834,7 +2834,7 @@ func (x *MarginReportEntry) String() string {
 func (*MarginReportEntry) ProtoMessage() {}
 
 func (x *MarginReportEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_tarification_tarification_proto_msgTypes[41]
+	mi := &file_tarification_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2847,7 +2847,7 @@ func (x *MarginReportEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarginReportEntry.ProtoReflect.Descriptor instead.
 func (*MarginReportEntry) Descriptor() ([]byte, []int) {
-	return file_tarification_tarification_proto_rawDescGZIP(), []int{41}
+	return file_tarification_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *MarginReportEntry) GetOperatorId() string {
@@ -2906,11 +2906,335 @@ func (x *MarginReportEntry) GetMargin() string {
 	return ""
 }
 
-var File_tarification_tarification_proto protoreflect.FileDescriptor
+type SenderNameBillingRecordProto struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Id                   string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	SenderRegistrationId string                 `protobuf:"bytes,2,opt,name=sender_registration_id,json=senderRegistrationId,proto3" json:"sender_registration_id,omitempty"`
+	ClientId             string                 `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId           string                 `protobuf:"bytes,4,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	BillingMonth         string                 `protobuf:"bytes,5,opt,name=billing_month,json=billingMonth,proto3" json:"billing_month,omitempty"` // ISO date "2026-04-01"
+	Amount               string                 `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`                                 // сумма в RUB (строковое представление)
+	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
 
-const file_tarification_tarification_proto_rawDesc = "" +
+func (x *SenderNameBillingRecordProto) Reset() {
+	*x = SenderNameBillingRecordProto{}
+	mi := &file_tarification_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SenderNameBillingRecordProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SenderNameBillingRecordProto) ProtoMessage() {}
+
+func (x *SenderNameBillingRecordProto) ProtoReflect() protoreflect.Message {
+	mi := &file_tarification_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SenderNameBillingRecordProto.ProtoReflect.Descriptor instead.
+func (*SenderNameBillingRecordProto) Descriptor() ([]byte, []int) {
+	return file_tarification_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *SenderNameBillingRecordProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SenderNameBillingRecordProto) GetSenderRegistrationId() string {
+	if x != nil {
+		return x.SenderRegistrationId
+	}
+	return ""
+}
+
+func (x *SenderNameBillingRecordProto) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *SenderNameBillingRecordProto) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+func (x *SenderNameBillingRecordProto) GetBillingMonth() string {
+	if x != nil {
+		return x.BillingMonth
+	}
+	return ""
+}
+
+func (x *SenderNameBillingRecordProto) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *SenderNameBillingRecordProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type CreateSenderBillingRecordRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SenderRegistrationId string                 `protobuf:"bytes,1,opt,name=sender_registration_id,json=senderRegistrationId,proto3" json:"sender_registration_id,omitempty"`
+	ClientId             string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	OperatorId           string                 `protobuf:"bytes,3,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	Amount               string                 `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"` // тариф оператора на момент регистрации
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *CreateSenderBillingRecordRequest) Reset() {
+	*x = CreateSenderBillingRecordRequest{}
+	mi := &file_tarification_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSenderBillingRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSenderBillingRecordRequest) ProtoMessage() {}
+
+func (x *CreateSenderBillingRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tarification_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSenderBillingRecordRequest.ProtoReflect.Descriptor instead.
+func (*CreateSenderBillingRecordRequest) Descriptor() ([]byte, []int) {
+	return file_tarification_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *CreateSenderBillingRecordRequest) GetSenderRegistrationId() string {
+	if x != nil {
+		return x.SenderRegistrationId
+	}
+	return ""
+}
+
+func (x *CreateSenderBillingRecordRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *CreateSenderBillingRecordRequest) GetOperatorId() string {
+	if x != nil {
+		return x.OperatorId
+	}
+	return ""
+}
+
+func (x *CreateSenderBillingRecordRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+type CreateSenderBillingRecordResponse struct {
+	state          protoimpl.MessageState        `protogen:"open.v1"`
+	Record         *SenderNameBillingRecordProto `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	AlreadyExisted bool                          `protobuf:"varint,2,opt,name=already_existed,json=alreadyExisted,proto3" json:"already_existed,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CreateSenderBillingRecordResponse) Reset() {
+	*x = CreateSenderBillingRecordResponse{}
+	mi := &file_tarification_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSenderBillingRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSenderBillingRecordResponse) ProtoMessage() {}
+
+func (x *CreateSenderBillingRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_tarification_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSenderBillingRecordResponse.ProtoReflect.Descriptor instead.
+func (*CreateSenderBillingRecordResponse) Descriptor() ([]byte, []int) {
+	return file_tarification_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *CreateSenderBillingRecordResponse) GetRecord() *SenderNameBillingRecordProto {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+func (x *CreateSenderBillingRecordResponse) GetAlreadyExisted() bool {
+	if x != nil {
+		return x.AlreadyExisted
+	}
+	return false
+}
+
+type ListSenderBillingRecordsRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SenderRegistrationId string                 `protobuf:"bytes,1,opt,name=sender_registration_id,json=senderRegistrationId,proto3" json:"sender_registration_id,omitempty"`
+	Limit                int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset               int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ListSenderBillingRecordsRequest) Reset() {
+	*x = ListSenderBillingRecordsRequest{}
+	mi := &file_tarification_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSenderBillingRecordsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSenderBillingRecordsRequest) ProtoMessage() {}
+
+func (x *ListSenderBillingRecordsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tarification_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSenderBillingRecordsRequest.ProtoReflect.Descriptor instead.
+func (*ListSenderBillingRecordsRequest) Descriptor() ([]byte, []int) {
+	return file_tarification_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListSenderBillingRecordsRequest) GetSenderRegistrationId() string {
+	if x != nil {
+		return x.SenderRegistrationId
+	}
+	return ""
+}
+
+func (x *ListSenderBillingRecordsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListSenderBillingRecordsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type ListSenderBillingRecordsResponse struct {
+	state         protoimpl.MessageState          `protogen:"open.v1"`
+	Records       []*SenderNameBillingRecordProto `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	Total         int32                           `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSenderBillingRecordsResponse) Reset() {
+	*x = ListSenderBillingRecordsResponse{}
+	mi := &file_tarification_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSenderBillingRecordsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSenderBillingRecordsResponse) ProtoMessage() {}
+
+func (x *ListSenderBillingRecordsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_tarification_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSenderBillingRecordsResponse.ProtoReflect.Descriptor instead.
+func (*ListSenderBillingRecordsResponse) Descriptor() ([]byte, []int) {
+	return file_tarification_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListSenderBillingRecordsResponse) GetRecords() []*SenderNameBillingRecordProto {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+func (x *ListSenderBillingRecordsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+var File_tarification_proto protoreflect.FileDescriptor
+
+const file_tarification_proto_rawDesc = "" +
 	"\n" +
-	"\x1ftarification/tarification.proto\x12\x0ftarification.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe2\x01\n" +
+	"\x12tarification.proto\x12\x0ftarification.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe2\x01\n" +
 	"\x14TarifyMessageRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1d\n" +
 	"\n" +
@@ -3168,7 +3492,33 @@ const file_tarification_tarification_proto_rawDesc = "" +
 	"\bsegments\x18\x05 \x01(\x05R\bsegments\x12\x18\n" +
 	"\arevenue\x18\x06 \x01(\tR\arevenue\x12\x12\n" +
 	"\x04cost\x18\a \x01(\tR\x04cost\x12\x16\n" +
-	"\x06margin\x18\b \x01(\tR\x06margin2\xf2\x13\n" +
+	"\x06margin\x18\b \x01(\tR\x06margin\"\x9a\x02\n" +
+	"\x1cSenderNameBillingRecordProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
+	"\x16sender_registration_id\x18\x02 \x01(\tR\x14senderRegistrationId\x12\x1b\n" +
+	"\tclient_id\x18\x03 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x04 \x01(\tR\n" +
+	"operatorId\x12#\n" +
+	"\rbilling_month\x18\x05 \x01(\tR\fbillingMonth\x12\x16\n" +
+	"\x06amount\x18\x06 \x01(\tR\x06amount\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xae\x01\n" +
+	" CreateSenderBillingRecordRequest\x124\n" +
+	"\x16sender_registration_id\x18\x01 \x01(\tR\x14senderRegistrationId\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x1f\n" +
+	"\voperator_id\x18\x03 \x01(\tR\n" +
+	"operatorId\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\tR\x06amount\"\x93\x01\n" +
+	"!CreateSenderBillingRecordResponse\x12E\n" +
+	"\x06record\x18\x01 \x01(\v2-.tarification.v1.SenderNameBillingRecordProtoR\x06record\x12'\n" +
+	"\x0falready_existed\x18\x02 \x01(\bR\x0ealreadyExisted\"\x85\x01\n" +
+	"\x1fListSenderBillingRecordsRequest\x124\n" +
+	"\x16sender_registration_id\x18\x01 \x01(\tR\x14senderRegistrationId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\x81\x01\n" +
+	" ListSenderBillingRecordsResponse\x12G\n" +
+	"\arecords\x18\x01 \x03(\v2-.tarification.v1.SenderNameBillingRecordProtoR\arecords\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total2\xf8\x15\n" +
 	"\x13TarificationService\x12^\n" +
 	"\rTarifyMessage\x12%.tarification.v1.TarifyMessageRequest\x1a&.tarification.v1.TarifyMessageResponse\x12q\n" +
 	"\x18CreateSenderRegistration\x120.tarification.v1.CreateSenderRegistrationRequest\x1a#.tarification.v1.SenderRegistration\x12|\n" +
@@ -3193,22 +3543,24 @@ const file_tarification_tarification_proto_rawDesc = "" +
 	"\x1aCreateProviderTariffPeriod\x122.tarification.v1.CreateProviderTariffPeriodRequest\x1a*.tarification.v1.ProviderTariffPeriodProto\x12v\n" +
 	"\x18CreateProviderTariffTier\x120.tarification.v1.CreateProviderTariffTierRequest\x1a(.tarification.v1.ProviderTariffTierProto\x12v\n" +
 	"\x18UpdateProviderTariffTier\x120.tarification.v1.UpdateProviderTariffTierRequest\x1a(.tarification.v1.ProviderTariffTierProto\x12^\n" +
-	"\x0fGetMarginReport\x12$.tarification.v1.MarginReportRequest\x1a%.tarification.v1.MarginReportResponseB=Z;github.com/smpp-server/smpp-server/api/proto/tarificationv1b\x06proto3"
+	"\x0fGetMarginReport\x12$.tarification.v1.MarginReportRequest\x1a%.tarification.v1.MarginReportResponse\x12\x82\x01\n" +
+	"\x19CreateSenderBillingRecord\x121.tarification.v1.CreateSenderBillingRecordRequest\x1a2.tarification.v1.CreateSenderBillingRecordResponse\x12\x7f\n" +
+	"\x18ListSenderBillingRecords\x120.tarification.v1.ListSenderBillingRecordsRequest\x1a1.tarification.v1.ListSenderBillingRecordsResponseB=Z;github.com/smpp-server/smpp-server/api/proto/tarificationv1b\x06proto3"
 
 var (
-	file_tarification_tarification_proto_rawDescOnce sync.Once
-	file_tarification_tarification_proto_rawDescData []byte
+	file_tarification_proto_rawDescOnce sync.Once
+	file_tarification_proto_rawDescData []byte
 )
 
-func file_tarification_tarification_proto_rawDescGZIP() []byte {
-	file_tarification_tarification_proto_rawDescOnce.Do(func() {
-		file_tarification_tarification_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_tarification_tarification_proto_rawDesc), len(file_tarification_tarification_proto_rawDesc)))
+func file_tarification_proto_rawDescGZIP() []byte {
+	file_tarification_proto_rawDescOnce.Do(func() {
+		file_tarification_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_tarification_proto_rawDesc), len(file_tarification_proto_rawDesc)))
 	})
-	return file_tarification_tarification_proto_rawDescData
+	return file_tarification_proto_rawDescData
 }
 
-var file_tarification_tarification_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
-var file_tarification_tarification_proto_goTypes = []any{
+var file_tarification_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
+var file_tarification_proto_goTypes = []any{
 	(*TarifyMessageRequest)(nil),              // 0: tarification.v1.TarifyMessageRequest
 	(*TarifyMessageResponse)(nil),             // 1: tarification.v1.TarifyMessageResponse
 	(*TarifyLookupRequest)(nil),               // 2: tarification.v1.TarifyLookupRequest
@@ -3251,101 +3603,113 @@ var file_tarification_tarification_proto_goTypes = []any{
 	(*MarginReportRequest)(nil),               // 39: tarification.v1.MarginReportRequest
 	(*MarginReportResponse)(nil),              // 40: tarification.v1.MarginReportResponse
 	(*MarginReportEntry)(nil),                 // 41: tarification.v1.MarginReportEntry
-	(*timestamppb.Timestamp)(nil),             // 42: google.protobuf.Timestamp
+	(*SenderNameBillingRecordProto)(nil),      // 42: tarification.v1.SenderNameBillingRecordProto
+	(*CreateSenderBillingRecordRequest)(nil),  // 43: tarification.v1.CreateSenderBillingRecordRequest
+	(*CreateSenderBillingRecordResponse)(nil), // 44: tarification.v1.CreateSenderBillingRecordResponse
+	(*ListSenderBillingRecordsRequest)(nil),   // 45: tarification.v1.ListSenderBillingRecordsRequest
+	(*ListSenderBillingRecordsResponse)(nil),  // 46: tarification.v1.ListSenderBillingRecordsResponse
+	(*timestamppb.Timestamp)(nil),             // 47: google.protobuf.Timestamp
 }
-var file_tarification_tarification_proto_depIdxs = []int32{
-	42, // 0: tarification.v1.SenderRegistration.created_at:type_name -> google.protobuf.Timestamp
-	42, // 1: tarification.v1.SenderRegistration.updated_at:type_name -> google.protobuf.Timestamp
+var file_tarification_proto_depIdxs = []int32{
+	47, // 0: tarification.v1.SenderRegistration.created_at:type_name -> google.protobuf.Timestamp
+	47, // 1: tarification.v1.SenderRegistration.updated_at:type_name -> google.protobuf.Timestamp
 	4,  // 2: tarification.v1.ListSenderRegistrationsResponse.registrations:type_name -> tarification.v1.SenderRegistration
-	42, // 3: tarification.v1.TariffPlan.created_at:type_name -> google.protobuf.Timestamp
-	42, // 4: tarification.v1.TariffPlan.updated_at:type_name -> google.protobuf.Timestamp
+	47, // 3: tarification.v1.TariffPlan.created_at:type_name -> google.protobuf.Timestamp
+	47, // 4: tarification.v1.TariffPlan.updated_at:type_name -> google.protobuf.Timestamp
 	9,  // 5: tarification.v1.ListTariffPlansResponse.plans:type_name -> tarification.v1.TariffPlan
-	42, // 6: tarification.v1.TariffPeriod.created_at:type_name -> google.protobuf.Timestamp
-	42, // 7: tarification.v1.PricingPeriod.created_at:type_name -> google.protobuf.Timestamp
-	42, // 8: tarification.v1.PrepaidFee.charged_at:type_name -> google.protobuf.Timestamp
-	42, // 9: tarification.v1.PrepaidFee.created_at:type_name -> google.protobuf.Timestamp
-	42, // 10: tarification.v1.UsageCounter.updated_at:type_name -> google.protobuf.Timestamp
+	47, // 6: tarification.v1.TariffPeriod.created_at:type_name -> google.protobuf.Timestamp
+	47, // 7: tarification.v1.PricingPeriod.created_at:type_name -> google.protobuf.Timestamp
+	47, // 8: tarification.v1.PrepaidFee.charged_at:type_name -> google.protobuf.Timestamp
+	47, // 9: tarification.v1.PrepaidFee.created_at:type_name -> google.protobuf.Timestamp
+	47, // 10: tarification.v1.UsageCounter.updated_at:type_name -> google.protobuf.Timestamp
 	24, // 11: tarification.v1.ListUsageCountersResponse.counters:type_name -> tarification.v1.UsageCounter
-	42, // 12: tarification.v1.ProviderTariffPlanProto.created_at:type_name -> google.protobuf.Timestamp
-	42, // 13: tarification.v1.ProviderTariffPlanProto.updated_at:type_name -> google.protobuf.Timestamp
+	47, // 12: tarification.v1.ProviderTariffPlanProto.created_at:type_name -> google.protobuf.Timestamp
+	47, // 13: tarification.v1.ProviderTariffPlanProto.updated_at:type_name -> google.protobuf.Timestamp
 	28, // 14: tarification.v1.ListProviderTariffPlansResponse.plans:type_name -> tarification.v1.ProviderTariffPlanProto
-	42, // 15: tarification.v1.ProviderTariffPeriodProto.created_at:type_name -> google.protobuf.Timestamp
+	47, // 15: tarification.v1.ProviderTariffPeriodProto.created_at:type_name -> google.protobuf.Timestamp
 	41, // 16: tarification.v1.MarginReportResponse.entries:type_name -> tarification.v1.MarginReportEntry
-	0,  // 17: tarification.v1.TarificationService.TarifyMessage:input_type -> tarification.v1.TarifyMessageRequest
-	5,  // 18: tarification.v1.TarificationService.CreateSenderRegistration:input_type -> tarification.v1.CreateSenderRegistrationRequest
-	6,  // 19: tarification.v1.TarificationService.ListSenderRegistrations:input_type -> tarification.v1.ListSenderRegistrationsRequest
-	8,  // 20: tarification.v1.TarificationService.UpdateSenderRegistration:input_type -> tarification.v1.UpdateSenderRegistrationRequest
-	10, // 21: tarification.v1.TarificationService.CreateTariffPlan:input_type -> tarification.v1.CreateTariffPlanRequest
-	11, // 22: tarification.v1.TarificationService.GetTariffPlan:input_type -> tarification.v1.GetTariffPlanRequest
-	12, // 23: tarification.v1.TarificationService.ListTariffPlans:input_type -> tarification.v1.ListTariffPlansRequest
-	14, // 24: tarification.v1.TarificationService.UpdateTariffPlan:input_type -> tarification.v1.UpdateTariffPlanRequest
-	16, // 25: tarification.v1.TarificationService.CreateTariffPeriod:input_type -> tarification.v1.CreateTariffPeriodRequest
-	18, // 26: tarification.v1.TarificationService.CreateTariffTier:input_type -> tarification.v1.CreateTariffTierRequest
-	19, // 27: tarification.v1.TarificationService.UpdateTariffTier:input_type -> tarification.v1.UpdateTariffTierRequest
-	21, // 28: tarification.v1.TarificationService.CreatePricingPeriod:input_type -> tarification.v1.CreatePricingPeriodRequest
-	23, // 29: tarification.v1.TarificationService.CreatePrepaidFee:input_type -> tarification.v1.CreatePrepaidFeeRequest
-	2,  // 30: tarification.v1.TarificationService.TarifyLookup:input_type -> tarification.v1.TarifyLookupRequest
-	25, // 31: tarification.v1.TarificationService.GetUsageCounter:input_type -> tarification.v1.GetUsageCounterRequest
-	26, // 32: tarification.v1.TarificationService.ListUsageCounters:input_type -> tarification.v1.ListUsageCountersRequest
-	29, // 33: tarification.v1.TarificationService.CreateProviderTariffPlan:input_type -> tarification.v1.CreateProviderTariffPlanRequest
-	30, // 34: tarification.v1.TarificationService.GetProviderTariffPlan:input_type -> tarification.v1.GetProviderTariffPlanRequest
-	31, // 35: tarification.v1.TarificationService.ListProviderTariffPlans:input_type -> tarification.v1.ListProviderTariffPlansRequest
-	33, // 36: tarification.v1.TarificationService.UpdateProviderTariffPlan:input_type -> tarification.v1.UpdateProviderTariffPlanRequest
-	35, // 37: tarification.v1.TarificationService.CreateProviderTariffPeriod:input_type -> tarification.v1.CreateProviderTariffPeriodRequest
-	37, // 38: tarification.v1.TarificationService.CreateProviderTariffTier:input_type -> tarification.v1.CreateProviderTariffTierRequest
-	38, // 39: tarification.v1.TarificationService.UpdateProviderTariffTier:input_type -> tarification.v1.UpdateProviderTariffTierRequest
-	39, // 40: tarification.v1.TarificationService.GetMarginReport:input_type -> tarification.v1.MarginReportRequest
-	1,  // 41: tarification.v1.TarificationService.TarifyMessage:output_type -> tarification.v1.TarifyMessageResponse
-	4,  // 42: tarification.v1.TarificationService.CreateSenderRegistration:output_type -> tarification.v1.SenderRegistration
-	7,  // 43: tarification.v1.TarificationService.ListSenderRegistrations:output_type -> tarification.v1.ListSenderRegistrationsResponse
-	4,  // 44: tarification.v1.TarificationService.UpdateSenderRegistration:output_type -> tarification.v1.SenderRegistration
-	9,  // 45: tarification.v1.TarificationService.CreateTariffPlan:output_type -> tarification.v1.TariffPlan
-	9,  // 46: tarification.v1.TarificationService.GetTariffPlan:output_type -> tarification.v1.TariffPlan
-	13, // 47: tarification.v1.TarificationService.ListTariffPlans:output_type -> tarification.v1.ListTariffPlansResponse
-	9,  // 48: tarification.v1.TarificationService.UpdateTariffPlan:output_type -> tarification.v1.TariffPlan
-	15, // 49: tarification.v1.TarificationService.CreateTariffPeriod:output_type -> tarification.v1.TariffPeriod
-	17, // 50: tarification.v1.TarificationService.CreateTariffTier:output_type -> tarification.v1.TariffTier
-	17, // 51: tarification.v1.TarificationService.UpdateTariffTier:output_type -> tarification.v1.TariffTier
-	20, // 52: tarification.v1.TarificationService.CreatePricingPeriod:output_type -> tarification.v1.PricingPeriod
-	22, // 53: tarification.v1.TarificationService.CreatePrepaidFee:output_type -> tarification.v1.PrepaidFee
-	3,  // 54: tarification.v1.TarificationService.TarifyLookup:output_type -> tarification.v1.TarifyLookupResponse
-	24, // 55: tarification.v1.TarificationService.GetUsageCounter:output_type -> tarification.v1.UsageCounter
-	27, // 56: tarification.v1.TarificationService.ListUsageCounters:output_type -> tarification.v1.ListUsageCountersResponse
-	28, // 57: tarification.v1.TarificationService.CreateProviderTariffPlan:output_type -> tarification.v1.ProviderTariffPlanProto
-	28, // 58: tarification.v1.TarificationService.GetProviderTariffPlan:output_type -> tarification.v1.ProviderTariffPlanProto
-	32, // 59: tarification.v1.TarificationService.ListProviderTariffPlans:output_type -> tarification.v1.ListProviderTariffPlansResponse
-	28, // 60: tarification.v1.TarificationService.UpdateProviderTariffPlan:output_type -> tarification.v1.ProviderTariffPlanProto
-	34, // 61: tarification.v1.TarificationService.CreateProviderTariffPeriod:output_type -> tarification.v1.ProviderTariffPeriodProto
-	36, // 62: tarification.v1.TarificationService.CreateProviderTariffTier:output_type -> tarification.v1.ProviderTariffTierProto
-	36, // 63: tarification.v1.TarificationService.UpdateProviderTariffTier:output_type -> tarification.v1.ProviderTariffTierProto
-	40, // 64: tarification.v1.TarificationService.GetMarginReport:output_type -> tarification.v1.MarginReportResponse
-	41, // [41:65] is the sub-list for method output_type
-	17, // [17:41] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	47, // 17: tarification.v1.SenderNameBillingRecordProto.created_at:type_name -> google.protobuf.Timestamp
+	42, // 18: tarification.v1.CreateSenderBillingRecordResponse.record:type_name -> tarification.v1.SenderNameBillingRecordProto
+	42, // 19: tarification.v1.ListSenderBillingRecordsResponse.records:type_name -> tarification.v1.SenderNameBillingRecordProto
+	0,  // 20: tarification.v1.TarificationService.TarifyMessage:input_type -> tarification.v1.TarifyMessageRequest
+	5,  // 21: tarification.v1.TarificationService.CreateSenderRegistration:input_type -> tarification.v1.CreateSenderRegistrationRequest
+	6,  // 22: tarification.v1.TarificationService.ListSenderRegistrations:input_type -> tarification.v1.ListSenderRegistrationsRequest
+	8,  // 23: tarification.v1.TarificationService.UpdateSenderRegistration:input_type -> tarification.v1.UpdateSenderRegistrationRequest
+	10, // 24: tarification.v1.TarificationService.CreateTariffPlan:input_type -> tarification.v1.CreateTariffPlanRequest
+	11, // 25: tarification.v1.TarificationService.GetTariffPlan:input_type -> tarification.v1.GetTariffPlanRequest
+	12, // 26: tarification.v1.TarificationService.ListTariffPlans:input_type -> tarification.v1.ListTariffPlansRequest
+	14, // 27: tarification.v1.TarificationService.UpdateTariffPlan:input_type -> tarification.v1.UpdateTariffPlanRequest
+	16, // 28: tarification.v1.TarificationService.CreateTariffPeriod:input_type -> tarification.v1.CreateTariffPeriodRequest
+	18, // 29: tarification.v1.TarificationService.CreateTariffTier:input_type -> tarification.v1.CreateTariffTierRequest
+	19, // 30: tarification.v1.TarificationService.UpdateTariffTier:input_type -> tarification.v1.UpdateTariffTierRequest
+	21, // 31: tarification.v1.TarificationService.CreatePricingPeriod:input_type -> tarification.v1.CreatePricingPeriodRequest
+	23, // 32: tarification.v1.TarificationService.CreatePrepaidFee:input_type -> tarification.v1.CreatePrepaidFeeRequest
+	2,  // 33: tarification.v1.TarificationService.TarifyLookup:input_type -> tarification.v1.TarifyLookupRequest
+	25, // 34: tarification.v1.TarificationService.GetUsageCounter:input_type -> tarification.v1.GetUsageCounterRequest
+	26, // 35: tarification.v1.TarificationService.ListUsageCounters:input_type -> tarification.v1.ListUsageCountersRequest
+	29, // 36: tarification.v1.TarificationService.CreateProviderTariffPlan:input_type -> tarification.v1.CreateProviderTariffPlanRequest
+	30, // 37: tarification.v1.TarificationService.GetProviderTariffPlan:input_type -> tarification.v1.GetProviderTariffPlanRequest
+	31, // 38: tarification.v1.TarificationService.ListProviderTariffPlans:input_type -> tarification.v1.ListProviderTariffPlansRequest
+	33, // 39: tarification.v1.TarificationService.UpdateProviderTariffPlan:input_type -> tarification.v1.UpdateProviderTariffPlanRequest
+	35, // 40: tarification.v1.TarificationService.CreateProviderTariffPeriod:input_type -> tarification.v1.CreateProviderTariffPeriodRequest
+	37, // 41: tarification.v1.TarificationService.CreateProviderTariffTier:input_type -> tarification.v1.CreateProviderTariffTierRequest
+	38, // 42: tarification.v1.TarificationService.UpdateProviderTariffTier:input_type -> tarification.v1.UpdateProviderTariffTierRequest
+	39, // 43: tarification.v1.TarificationService.GetMarginReport:input_type -> tarification.v1.MarginReportRequest
+	43, // 44: tarification.v1.TarificationService.CreateSenderBillingRecord:input_type -> tarification.v1.CreateSenderBillingRecordRequest
+	45, // 45: tarification.v1.TarificationService.ListSenderBillingRecords:input_type -> tarification.v1.ListSenderBillingRecordsRequest
+	1,  // 46: tarification.v1.TarificationService.TarifyMessage:output_type -> tarification.v1.TarifyMessageResponse
+	4,  // 47: tarification.v1.TarificationService.CreateSenderRegistration:output_type -> tarification.v1.SenderRegistration
+	7,  // 48: tarification.v1.TarificationService.ListSenderRegistrations:output_type -> tarification.v1.ListSenderRegistrationsResponse
+	4,  // 49: tarification.v1.TarificationService.UpdateSenderRegistration:output_type -> tarification.v1.SenderRegistration
+	9,  // 50: tarification.v1.TarificationService.CreateTariffPlan:output_type -> tarification.v1.TariffPlan
+	9,  // 51: tarification.v1.TarificationService.GetTariffPlan:output_type -> tarification.v1.TariffPlan
+	13, // 52: tarification.v1.TarificationService.ListTariffPlans:output_type -> tarification.v1.ListTariffPlansResponse
+	9,  // 53: tarification.v1.TarificationService.UpdateTariffPlan:output_type -> tarification.v1.TariffPlan
+	15, // 54: tarification.v1.TarificationService.CreateTariffPeriod:output_type -> tarification.v1.TariffPeriod
+	17, // 55: tarification.v1.TarificationService.CreateTariffTier:output_type -> tarification.v1.TariffTier
+	17, // 56: tarification.v1.TarificationService.UpdateTariffTier:output_type -> tarification.v1.TariffTier
+	20, // 57: tarification.v1.TarificationService.CreatePricingPeriod:output_type -> tarification.v1.PricingPeriod
+	22, // 58: tarification.v1.TarificationService.CreatePrepaidFee:output_type -> tarification.v1.PrepaidFee
+	3,  // 59: tarification.v1.TarificationService.TarifyLookup:output_type -> tarification.v1.TarifyLookupResponse
+	24, // 60: tarification.v1.TarificationService.GetUsageCounter:output_type -> tarification.v1.UsageCounter
+	27, // 61: tarification.v1.TarificationService.ListUsageCounters:output_type -> tarification.v1.ListUsageCountersResponse
+	28, // 62: tarification.v1.TarificationService.CreateProviderTariffPlan:output_type -> tarification.v1.ProviderTariffPlanProto
+	28, // 63: tarification.v1.TarificationService.GetProviderTariffPlan:output_type -> tarification.v1.ProviderTariffPlanProto
+	32, // 64: tarification.v1.TarificationService.ListProviderTariffPlans:output_type -> tarification.v1.ListProviderTariffPlansResponse
+	28, // 65: tarification.v1.TarificationService.UpdateProviderTariffPlan:output_type -> tarification.v1.ProviderTariffPlanProto
+	34, // 66: tarification.v1.TarificationService.CreateProviderTariffPeriod:output_type -> tarification.v1.ProviderTariffPeriodProto
+	36, // 67: tarification.v1.TarificationService.CreateProviderTariffTier:output_type -> tarification.v1.ProviderTariffTierProto
+	36, // 68: tarification.v1.TarificationService.UpdateProviderTariffTier:output_type -> tarification.v1.ProviderTariffTierProto
+	40, // 69: tarification.v1.TarificationService.GetMarginReport:output_type -> tarification.v1.MarginReportResponse
+	44, // 70: tarification.v1.TarificationService.CreateSenderBillingRecord:output_type -> tarification.v1.CreateSenderBillingRecordResponse
+	46, // 71: tarification.v1.TarificationService.ListSenderBillingRecords:output_type -> tarification.v1.ListSenderBillingRecordsResponse
+	46, // [46:72] is the sub-list for method output_type
+	20, // [20:46] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
-func init() { file_tarification_tarification_proto_init() }
-func file_tarification_tarification_proto_init() {
-	if File_tarification_tarification_proto != nil {
+func init() { file_tarification_proto_init() }
+func file_tarification_proto_init() {
+	if File_tarification_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tarification_tarification_proto_rawDesc), len(file_tarification_tarification_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tarification_proto_rawDesc), len(file_tarification_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_tarification_tarification_proto_goTypes,
-		DependencyIndexes: file_tarification_tarification_proto_depIdxs,
-		MessageInfos:      file_tarification_tarification_proto_msgTypes,
+		GoTypes:           file_tarification_proto_goTypes,
+		DependencyIndexes: file_tarification_proto_depIdxs,
+		MessageInfos:      file_tarification_proto_msgTypes,
 	}.Build()
-	File_tarification_tarification_proto = out.File
-	file_tarification_tarification_proto_goTypes = nil
-	file_tarification_tarification_proto_depIdxs = nil
+	File_tarification_proto = out.File
+	file_tarification_proto_goTypes = nil
+	file_tarification_proto_depIdxs = nil
 }

@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
+	routingv1 "github.com/smpp-server/smpp-server/api/proto/routingv1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -139,6 +140,8 @@ func main() {
 	logger.Info().Str("addr", billingAddr).Msg("подключение к billing-service установлено")
 
 	// Инициализация сервисов
+	senderBillingRepo := tarificationrepo.NewSenderBillingRepository(dbx)
+	senderBillingService := application.NewSenderBillingService(senderBillingRepo)
 	senderService := application.NewSenderService(senderRegistrationRepo)
 	tariffPlanService := application.NewTariffPlanService(
 		tariffPlanRepo, tariffPeriodRepo, tariffTierRepo, pricingPeriodRepo, prepaidFeeRepo,
@@ -168,7 +171,7 @@ func main() {
 
 	// Регистрация gRPC сервиса
 	tarificationGrpcServer := tarificationgrpc.NewServer(
-		tarificationService, senderService, tariffPlanService,
+		tarificationService, senderService, tariffPlanService, senderBillingService,
 	)
 	tarificationv1.RegisterTarificationServiceServer(grpcServer, tarificationGrpcServer)
 
@@ -176,6 +179,25 @@ func main() {
 		providerPlanRepo, providerPeriodRepo, providerTierRepo,
 		marginRepo, providerTarificationService,
 	)
+
+	// Подключение к routing-service для планировщика биллинга
+	routingAddr := os.Getenv("ROUTING_GRPC_ADDR")
+	if routingAddr == "" {
+		routingAddr = "routing-service:9090"
+	}
+	routingConn, err := grpc.NewClient(routingAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("ошибка подключения к routing-service")
+	}
+	defer routingConn.Close()
+	routingClient := routingv1.NewRoutingServiceClient(routingConn)
+	logger.Info().Str("addr", routingAddr).Msg("подключение к routing-service установлено")
+
+	// Запуск планировщика ежемесячного биллинга
+	billingScheduler := application.NewBillingScheduler(senderRegistrationRepo, senderBillingService, routingClient)
+	billingScheduler.Start()
 
 	// Включение reflection для разработки
 	if cfg.Service.Env == "development" {
@@ -239,6 +261,9 @@ func main() {
 	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Остановка планировщика биллинга
+	billingScheduler.Stop()
 
 	// Остановка gRPC сервера
 	grpcServer.GracefulStop()

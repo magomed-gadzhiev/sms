@@ -247,6 +247,7 @@ message Operator {
   bool active = 7;                            // Активен ли оператор
   google.protobuf.Timestamp created_at = 8;   // Время создания
   google.protobuf.Timestamp updated_at = 9;   // Время обновления
+  string monthly_tariff_amount = 10;          // Ежемесячный тариф в RUB; пустая строка = не задан (free-only)
 }
 
 // CreateOperatorRequest представляет запрос на создание оператора
@@ -256,6 +257,7 @@ message CreateOperatorRequest {
   string code = 3;                            // Код оператора
   bool supports_paid_sender = 4;              // Поддержка платного отправителя
   bool supports_free_sender = 5;              // Поддержка бесплатного отправителя
+  string monthly_tariff_amount = 6;           // Ежемесячный тариф в RUB; "" или "0" = не задан
 }
 
 // GetOperatorRequest представляет запрос на получение оператора
@@ -285,6 +287,7 @@ message UpdateOperatorRequest {
   bool supports_paid_sender = 4;              // Поддержка платного отправителя
   bool supports_free_sender = 5;              // Поддержка бесплатного отправителя
   bool active = 6;                            // Активен ли оператор
+  string monthly_tariff_amount = 7;           // Ежемесячный тариф в RUB; "" или "0" = сбросить
 }
 
 // OperatorPrefix представляет префикс номера оператора

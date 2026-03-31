@@ -27,9 +27,9 @@ func (r *OperatorRepository) Create(ctx context.Context, operator *domain.Operat
 	query := `
 		INSERT INTO operators (
 			id, country_id, name, code, supports_paid_sender, supports_free_sender,
-			active, created_at, updated_at
+			monthly_tariff_amount, active, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
 	`
 
@@ -40,6 +40,7 @@ func (r *OperatorRepository) Create(ctx context.Context, operator *domain.Operat
 		operator.Code,
 		operator.SupportsPaidSender,
 		operator.SupportsFreeSender,
+		operator.MonthlyTariffAmount,
 		operator.Active,
 		operator.CreatedAt,
 		operator.UpdatedAt,
@@ -53,7 +54,7 @@ func (r *OperatorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	var operator domain.Operator
 	query := `
 		SELECT id, country_id, name, code, supports_paid_sender, supports_free_sender,
-			active, created_at, updated_at
+			monthly_tariff_amount, active, created_at, updated_at
 		FROM operators
 		WHERE id = $1
 	`
@@ -65,6 +66,7 @@ func (r *OperatorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		&operator.Code,
 		&operator.SupportsPaidSender,
 		&operator.SupportsFreeSender,
+		&operator.MonthlyTariffAmount,
 		&operator.Active,
 		&operator.CreatedAt,
 		&operator.UpdatedAt,
@@ -84,7 +86,7 @@ func (r *OperatorRepository) GetByCode(ctx context.Context, code string) (*domai
 	var operator domain.Operator
 	query := `
 		SELECT id, country_id, name, code, supports_paid_sender, supports_free_sender,
-			active, created_at, updated_at
+			monthly_tariff_amount, active, created_at, updated_at
 		FROM operators
 		WHERE code = $1
 	`
@@ -96,6 +98,7 @@ func (r *OperatorRepository) GetByCode(ctx context.Context, code string) (*domai
 		&operator.Code,
 		&operator.SupportsPaidSender,
 		&operator.SupportsFreeSender,
+		&operator.MonthlyTariffAmount,
 		&operator.Active,
 		&operator.CreatedAt,
 		&operator.UpdatedAt,
@@ -115,8 +118,8 @@ func (r *OperatorRepository) Update(ctx context.Context, operator *domain.Operat
 	query := `
 		UPDATE operators
 		SET name = $1, code = $2, supports_paid_sender = $3, supports_free_sender = $4,
-			active = $5, updated_at = $6
-		WHERE id = $7
+			monthly_tariff_amount = $5, active = $6, updated_at = $7
+		WHERE id = $8
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -124,6 +127,7 @@ func (r *OperatorRepository) Update(ctx context.Context, operator *domain.Operat
 		operator.Code,
 		operator.SupportsPaidSender,
 		operator.SupportsFreeSender,
+		operator.MonthlyTariffAmount,
 		operator.Active,
 		operator.UpdatedAt,
 		operator.ID,
@@ -168,7 +172,7 @@ func (r *OperatorRepository) List(ctx context.Context, countryID *uuid.UUID, act
 
 	query := fmt.Sprintf(`
 		SELECT id, country_id, name, code, supports_paid_sender, supports_free_sender,
-			active, created_at, updated_at
+			monthly_tariff_amount, active, created_at, updated_at
 		FROM operators
 		%s
 		ORDER BY name ASC
@@ -193,6 +197,7 @@ func (r *OperatorRepository) List(ctx context.Context, countryID *uuid.UUID, act
 			&operator.Code,
 			&operator.SupportsPaidSender,
 			&operator.SupportsFreeSender,
+			&operator.MonthlyTariffAmount,
 			&operator.Active,
 			&operator.CreatedAt,
 			&operator.UpdatedAt,

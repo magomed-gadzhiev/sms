@@ -235,3 +235,37 @@ func (r *SenderRegistrationRepository) List(ctx context.Context, clientID, opera
 
 	return regs, total, rows.Err()
 }
+
+// ListActivePaid возвращает все активные платные регистрации для планировщика
+func (r *SenderRegistrationRepository) ListActivePaid(ctx context.Context) ([]*domain.SenderRegistration, error) {
+	query := `
+		SELECT id, client_id, operator_id, sender_name, type, status, created_at, updated_at
+		FROM sender_registrations
+		WHERE type = 'paid' AND status = 'active'
+		ORDER BY created_at ASC
+	`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var regs []*domain.SenderRegistration
+	for rows.Next() {
+		var reg domain.SenderRegistration
+		if err := rows.Scan(
+			&reg.ID,
+			&reg.ClientID,
+			&reg.OperatorID,
+			&reg.SenderName,
+			&reg.Type,
+			&reg.Status,
+			&reg.CreatedAt,
+			&reg.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		regs = append(regs, &reg)
+	}
+	return regs, rows.Err()
+}

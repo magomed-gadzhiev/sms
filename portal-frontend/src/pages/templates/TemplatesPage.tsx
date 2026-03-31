@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
-import { templatesApi, ApiError, type TemplateInfo } from '../../api/client';
+import { templatesApi, senderNamesApi, ApiError, type TemplateInfo, type SenderNameInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -46,11 +46,15 @@ export function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Approved sender names for dropdown
+  const [approvedSenderNames, setApprovedSenderNames] = useState<SenderNameInfo[]>([]);
+
   // Create / Edit modal
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TemplateInfo | null>(null);
   const [formName, setFormName] = useState('');
   const [formBody, setFormBody] = useState('');
+  const [formSenderNameId, setFormSenderNameId] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Preview modal
@@ -83,12 +87,17 @@ export function TemplatesPage() {
     fetchTemplates();
   }, [fetchTemplates]);
 
+  useEffect(() => {
+    senderNamesApi.listApproved().then((res) => setApprovedSenderNames(res.sender_names || [])).catch(() => {});
+  }, []);
+
   // --- Create / Edit ---
 
   function openCreateForm() {
     setEditingTemplate(null);
     setFormName('');
     setFormBody('');
+    setFormSenderNameId('');
     setShowForm(true);
   }
 
@@ -96,6 +105,7 @@ export function TemplatesPage() {
     setEditingTemplate(tpl);
     setFormName(tpl.name);
     setFormBody(tpl.body);
+    setFormSenderNameId(tpl.sender_name_id || '');
     setShowForm(true);
   }
 
@@ -104,6 +114,7 @@ export function TemplatesPage() {
     setEditingTemplate(null);
     setFormName('');
     setFormBody('');
+    setFormSenderNameId('');
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -112,9 +123,17 @@ export function TemplatesPage() {
     setError('');
     try {
       if (editingTemplate) {
-        await templatesApi.update(editingTemplate.id, { name: formName, body: formBody });
+        await templatesApi.update(editingTemplate.id, {
+          name: formName,
+          body: formBody,
+          sender_name_id: formSenderNameId || undefined,
+        });
       } else {
-        await templatesApi.create({ name: formName, body: formBody });
+        await templatesApi.create({
+          name: formName,
+          body: formBody,
+          sender_name_id: formSenderNameId || undefined,
+        });
       }
       closeForm();
       await fetchTemplates();
@@ -194,6 +213,16 @@ export function TemplatesPage() {
       },
     },
     {
+      key: 'sender_name',
+      header: 'Отправитель',
+      render: (tpl) =>
+        tpl.sender_name ? (
+          <span className="text-sm font-medium">{tpl.sender_name}</span>
+        ) : (
+          <span className="text-gray-400 text-sm">—</span>
+        ),
+    },
+    {
       key: 'body',
       header: 'Текст',
       render: (tpl) => (
@@ -247,6 +276,24 @@ export function TemplatesPage() {
               className="w-full"
             />
           </div>
+
+          {approvedSenderNames.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Имя отправителя
+              </label>
+              <select
+                value={formSenderNameId}
+                onChange={(e) => setFormSenderNameId(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              >
+                <option value="">— Без отправителя —</option>
+                {approvedSenderNames.map((sn) => (
+                  <option key={sn.id} value={sn.id}>{sn.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">

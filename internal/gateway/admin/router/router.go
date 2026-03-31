@@ -26,6 +26,7 @@ func SetupRouter(
 	stubConfigHandlers *handlers.StubConfigHandlers,
 	userHandlers *handlers.UserHandlers,
 	roleHandlers *handlers.RoleHandlers,
+	senderNameHandlers *handlers.AdminSenderNameHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -197,6 +198,13 @@ func SetupRouter(
 
 	// Permissions endpoint
 	adminV1.HandleFunc("/permissions", roleHandlers.ListPermissions).Methods("GET")
+
+	// Sender Names endpoints
+	senderNames := adminV1.PathPrefix("/sender-names").Subrouter()
+	senderNames.HandleFunc("", senderNameHandlers.ListAllSenderNames).Methods("GET")
+	senderNames.HandleFunc("/{id}/approve", senderNameHandlers.ApproveSenderName).Methods("POST")
+	senderNames.HandleFunc("/{id}/reject", senderNameHandlers.RejectSenderName).Methods("POST")
+	senderNames.HandleFunc("/{id}/deactivate", senderNameHandlers.DeactivateSenderName).Methods("POST")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

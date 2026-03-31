@@ -38,11 +38,12 @@ func (h *OperatorHandler) CreateOperator(w http.ResponseWriter, r *http.Request)
 	}
 
 	grpcReq := &routingv1.CreateOperatorRequest{
-		CountryId:          req.CountryID,
-		Name:               req.Name,
-		Code:               req.Code,
-		SupportsPaidSender: req.SupportsPaidSender,
-		SupportsFreeSender: req.SupportsFreeSender,
+		CountryId:           req.CountryID,
+		Name:                req.Name,
+		Code:                req.Code,
+		SupportsPaidSender:  req.SupportsPaidSender,
+		SupportsFreeSender:  req.SupportsFreeSender,
+		MonthlyTariffAmount: req.MonthlyTariffAmount,
 	}
 
 	resp, err := h.routingClient.CreateOperator(r.Context(), grpcReq)
@@ -124,12 +125,13 @@ func (h *OperatorHandler) UpdateOperator(w http.ResponseWriter, r *http.Request)
 	}
 
 	grpcReq := &routingv1.UpdateOperatorRequest{
-		Id:                 id,
-		Name:               req.Name,
-		Code:               req.Code,
-		SupportsPaidSender: req.SupportsPaidSender,
-		SupportsFreeSender: req.SupportsFreeSender,
-		Active:             req.Active,
+		Id:                  id,
+		Name:                req.Name,
+		Code:                req.Code,
+		SupportsPaidSender:  req.SupportsPaidSender,
+		SupportsFreeSender:  req.SupportsFreeSender,
+		Active:              req.Active,
+		MonthlyTariffAmount: req.MonthlyTariffAmount,
 	}
 
 	resp, err := h.routingClient.UpdateOperator(r.Context(), grpcReq)
@@ -232,11 +234,12 @@ func (h *OperatorHandler) DeleteOperatorPrefix(w http.ResponseWriter, r *http.Re
 // Типы запросов и ответов
 
 type CreateOperatorRequest struct {
-	CountryID          string `json:"country_id"`
-	Name               string `json:"name"`
-	Code               string `json:"code"`
-	SupportsPaidSender bool   `json:"supports_paid_sender"`
-	SupportsFreeSender bool   `json:"supports_free_sender"`
+	CountryID           string `json:"country_id"`
+	Name                string `json:"name"`
+	Code                string `json:"code"`
+	SupportsPaidSender  bool   `json:"supports_paid_sender"`
+	SupportsFreeSender  bool   `json:"supports_free_sender"`
+	MonthlyTariffAmount string `json:"monthly_tariff_amount,omitempty"`
 }
 
 func (r *CreateOperatorRequest) Validate() error {
@@ -253,23 +256,25 @@ func (r *CreateOperatorRequest) Validate() error {
 }
 
 type UpdateOperatorRequest struct {
-	Name               string `json:"name,omitempty"`
-	Code               string `json:"code,omitempty"`
-	SupportsPaidSender bool   `json:"supports_paid_sender"`
-	SupportsFreeSender bool   `json:"supports_free_sender"`
-	Active             bool   `json:"active"`
+	Name                string `json:"name,omitempty"`
+	Code                string `json:"code,omitempty"`
+	SupportsPaidSender  bool   `json:"supports_paid_sender"`
+	SupportsFreeSender  bool   `json:"supports_free_sender"`
+	Active              bool   `json:"active"`
+	MonthlyTariffAmount string `json:"monthly_tariff_amount,omitempty"`
 }
 
 type OperatorResponse struct {
-	ID                 string    `json:"id"`
-	CountryID          string    `json:"country_id"`
-	Name               string    `json:"name"`
-	Code               string    `json:"code"`
-	SupportsPaidSender bool      `json:"supports_paid_sender"`
-	SupportsFreeSender bool      `json:"supports_free_sender"`
-	Active             bool      `json:"active"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                  string    `json:"id"`
+	CountryID           string    `json:"country_id"`
+	Name                string    `json:"name"`
+	Code                string    `json:"code"`
+	SupportsPaidSender  bool      `json:"supports_paid_sender"`
+	SupportsFreeSender  bool      `json:"supports_free_sender"`
+	MonthlyTariffAmount string    `json:"monthly_tariff_amount,omitempty"`
+	Active              bool      `json:"active"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 type ListOperatorsResponse struct {
@@ -302,13 +307,14 @@ type DeleteOperatorPrefixResponse struct {
 
 func operatorProtoToResponse(op *routingv1.Operator) OperatorResponse {
 	resp := OperatorResponse{
-		ID:                 op.Id,
-		CountryID:          op.CountryId,
-		Name:               op.Name,
-		Code:               op.Code,
-		SupportsPaidSender: op.SupportsPaidSender,
-		SupportsFreeSender: op.SupportsFreeSender,
-		Active:             op.Active,
+		ID:                  op.Id,
+		CountryID:           op.CountryId,
+		Name:                op.Name,
+		Code:                op.Code,
+		SupportsPaidSender:  op.SupportsPaidSender,
+		SupportsFreeSender:  op.SupportsFreeSender,
+		MonthlyTariffAmount: op.MonthlyTariffAmount,
+		Active:              op.Active,
 	}
 	if op.CreatedAt != nil {
 		resp.CreatedAt = op.CreatedAt.AsTime()

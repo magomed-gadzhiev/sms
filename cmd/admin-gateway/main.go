@@ -125,6 +125,7 @@ func main() {
 
 	userHandlers := handlers.NewUserHandlers(serviceClients.AuthClient)
 	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
+	senderNameHandlers := handlers.NewAdminSenderNameHandlers(serviceClients.SenderNameClient)
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
@@ -150,6 +151,7 @@ func main() {
 		stubConfigHandlers,
 		userHandlers,
 		roleHandlers,
+		senderNameHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,

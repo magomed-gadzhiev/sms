@@ -26,6 +26,7 @@ message CreateTemplateRequest {
   string client_id = 1;
   string name = 2;
   string body = 3;
+  optional string sender_name_id = 4;
 }
 
 message CreateTemplateResponse {
@@ -129,6 +130,8 @@ message TemplateInfo {
   string reviewer_id = 10;
   string review_comment = 11;
   google.protobuf.Timestamp reviewed_at = 12;
+  string sender_name_id = 13;
+  string sender_name = 14;
 }
 
 message AuditEntry {

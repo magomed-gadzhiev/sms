@@ -29,6 +29,7 @@ type CreateTemplateRequest struct {
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Body          string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	SenderNameId  *string                `protobuf:"bytes,4,opt,name=sender_name_id,json=senderNameId,proto3,oneof" json:"sender_name_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -80,6 +81,13 @@ func (x *CreateTemplateRequest) GetName() string {
 func (x *CreateTemplateRequest) GetBody() string {
 	if x != nil {
 		return x.Body
+	}
+	return ""
+}
+
+func (x *CreateTemplateRequest) GetSenderNameId() string {
+	if x != nil && x.SenderNameId != nil {
+		return *x.SenderNameId
 	}
 	return ""
 }
@@ -1006,6 +1014,8 @@ type TemplateInfo struct {
 	ReviewerId      string                 `protobuf:"bytes,10,opt,name=reviewer_id,json=reviewerId,proto3" json:"reviewer_id,omitempty"`
 	ReviewComment   string                 `protobuf:"bytes,11,opt,name=review_comment,json=reviewComment,proto3" json:"review_comment,omitempty"`
 	ReviewedAt      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=reviewed_at,json=reviewedAt,proto3" json:"reviewed_at,omitempty"`
+	SenderNameId    string                 `protobuf:"bytes,13,opt,name=sender_name_id,json=senderNameId,proto3" json:"sender_name_id,omitempty"`
+	SenderName      string                 `protobuf:"bytes,14,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1122,6 +1132,20 @@ func (x *TemplateInfo) GetReviewedAt() *timestamppb.Timestamp {
 		return x.ReviewedAt
 	}
 	return nil
+}
+
+func (x *TemplateInfo) GetSenderNameId() string {
+	if x != nil {
+		return x.SenderNameId
+	}
+	return ""
+}
+
+func (x *TemplateInfo) GetSenderName() string {
+	if x != nil {
+		return x.SenderName
+	}
+	return ""
 }
 
 type AuditEntry struct {
@@ -1532,11 +1556,13 @@ var File_template_proto protoreflect.FileDescriptor
 
 const file_template_proto_rawDesc = "" +
 	"\n" +
-	"\x0etemplate.proto\x12\vtemplate.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\\\n" +
+	"\x0etemplate.proto\x12\vtemplate.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x01\n" +
 	"\x15CreateTemplateRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04body\x18\x03 \x01(\tR\x04body\"O\n" +
+	"\x04body\x18\x03 \x01(\tR\x04body\x12)\n" +
+	"\x0esender_name_id\x18\x04 \x01(\tH\x00R\fsenderNameId\x88\x01\x01B\x11\n" +
+	"\x0f_sender_name_id\"O\n" +
 	"\x16CreateTemplateResponse\x125\n" +
 	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"\x88\x01\n" +
 	"\x15UpdateTemplateRequest\x12\x0e\n" +
@@ -1597,7 +1623,7 @@ const file_template_proto_rawDesc = "" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\"f\n" +
 	"\x1bGetTemplateAuditLogResponse\x121\n" +
 	"\aentries\x18\x01 \x03(\v2\x17.template.v1.AuditEntryR\aentries\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xbf\x03\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x86\x04\n" +
 	"\fTemplateInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x12\n" +
@@ -1615,7 +1641,10 @@ const file_template_proto_rawDesc = "" +
 	"reviewerId\x12%\n" +
 	"\x0ereview_comment\x18\v \x01(\tR\rreviewComment\x12;\n" +
 	"\vreviewed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"reviewedAt\"\x98\x02\n" +
+	"reviewedAt\x12$\n" +
+	"\x0esender_name_id\x18\r \x01(\tR\fsenderNameId\x12\x1f\n" +
+	"\vsender_name\x18\x0e \x01(\tR\n" +
+	"senderName\"\x98\x02\n" +
 	"\n" +
 	"AuditEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
@@ -1760,6 +1789,7 @@ func file_template_proto_init() {
 	if File_template_proto != nil {
 		return
 	}
+	file_template_proto_msgTypes[0].OneofWrappers = []any{}
 	file_template_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
