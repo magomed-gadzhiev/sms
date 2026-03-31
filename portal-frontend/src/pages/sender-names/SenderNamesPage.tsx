@@ -145,8 +145,6 @@ export function SenderNamesPage() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   const columns: Column<SenderNameInfo>[] = [
     { key: 'name', header: 'Имя отправителя', render: (sn) => <span className="font-mono font-medium">{sn.name}</span> },
     {
@@ -169,8 +167,8 @@ export function SenderNamesPage() {
     <div>
       <PageHeader
         title="Имена отправителей"
-        description="Управление зарегистрированными именами отправителей SMS"
-        action={<Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateError(''); }}>Зарегистрировать имя</Button>}
+        subtitle="Управление зарегистрированными именами отправителей SMS"
+        actions={<Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateError(''); }}>Зарегистрировать имя</Button>}
       />
 
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
@@ -180,7 +178,10 @@ export function SenderNamesPage() {
         data={items}
         loading={loading}
         onRowClick={openDetail}
-        pagination={{ page, totalPages, onPageChange: setPage }}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
       />
 
       {/* Create modal */}
@@ -201,7 +202,7 @@ export function SenderNamesPage() {
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Отмена</Button>
-            <Button type="submit" loading={creating}>Зарегистрировать</Button>
+            <Button type="submit" disabled={creating}>Зарегистрировать</Button>
           </div>
         </form>
       </Modal>
@@ -228,7 +229,7 @@ export function SenderNamesPage() {
             {selected.status === 'rejected' && (
               <div className="border-t pt-4">
                 {!showEdit ? (
-                  <Button variant="outline" onClick={() => setShowEdit(true)}>Редактировать и повторить</Button>
+                  <Button variant="secondary" onClick={() => setShowEdit(true)}>Редактировать и повторить</Button>
                 ) : (
                   <form onSubmit={handleUpdate} className="space-y-3">
                     <Input
@@ -239,8 +240,8 @@ export function SenderNamesPage() {
                     />
                     {editError && <p className="text-sm text-red-600">{editError}</p>}
                     <div className="flex gap-2">
-                      <Button type="submit" loading={editing} disabled={editing}>Сохранить</Button>
-                      <Button type="button" variant="outline" onClick={handleResubmit} loading={editing} disabled={editing}>
+                      <Button type="submit" disabled={editing}>Сохранить</Button>
+                      <Button type="button" variant="secondary" onClick={handleResubmit} disabled={editing}>
                         Отправить на рассмотрение
                       </Button>
                       <Button type="button" variant="ghost" onClick={() => setShowEdit(false)}>Отмена</Button>
@@ -256,7 +257,7 @@ export function SenderNamesPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => loadHistory(selected.id)}
-                  loading={historyLoading}
+                  disabled={historyLoading}
                 >
                   Показать историю статусов
                 </Button>

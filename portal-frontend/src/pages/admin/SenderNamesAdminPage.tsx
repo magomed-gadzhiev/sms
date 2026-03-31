@@ -111,7 +111,6 @@ export function SenderNamesAdminPage() {
   };
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const columns: Column<AdminSenderNameInfo>[] = [
     { key: 'name', header: 'Имя', render: (sn) => <span className="font-mono font-medium">{sn.name}</span> },
@@ -128,7 +127,7 @@ export function SenderNamesAdminPage() {
         <div className="flex gap-1">
           {sn.status === 'pending' && (
             <>
-              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleApprove(sn); }}>Одобрить</Button>
+              <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); handleApprove(sn); }}>Одобрить</Button>
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setRejectTarget(sn); setRejectReason(''); setRejectError(''); }}>Отклонить</Button>
             </>
           )}
@@ -169,7 +168,10 @@ export function SenderNamesAdminPage() {
         columns={columns}
         data={items}
         loading={loading}
-        pagination={{ page, totalPages, onPageChange: (p) => setOffset((p - 1) * PAGE_SIZE) }}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        onPageChange={(p) => setOffset((p - 1) * PAGE_SIZE)}
       />
 
       {/* Reject modal */}
@@ -185,7 +187,7 @@ export function SenderNamesAdminPage() {
           {rejectError && <p className="text-sm text-red-600">{rejectError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setRejectTarget(null)}>Отмена</Button>
-            <Button type="submit" loading={submitting}>Отклонить</Button>
+            <Button type="submit" disabled={submitting}>Отклонить</Button>
           </div>
         </form>
       </Modal>
@@ -203,7 +205,7 @@ export function SenderNamesAdminPage() {
           {deactivateError && <p className="text-sm text-red-600">{deactivateError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setDeactivateTarget(null)}>Отмена</Button>
-            <Button type="submit" loading={submitting}>Деактивировать</Button>
+            <Button type="submit" disabled={submitting}>Деактивировать</Button>
           </div>
         </form>
       </Modal>
