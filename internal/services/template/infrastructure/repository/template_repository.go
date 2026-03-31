@@ -123,7 +123,7 @@ func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*d
 }
 
 func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Template, int, error) {
-	countQuery := `SELECT COUNT(*) FROM templates`
+	countQuery := `SELECT COUNT(*) FROM templates t`
 	listQuery := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
 		FROM templates t
 		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id`
