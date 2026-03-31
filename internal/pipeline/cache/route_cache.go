@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -90,11 +91,12 @@ func (c *RouteCache) MatchRoutes(destination string) []*shared.Route {
 }
 
 func matchesPattern(route *shared.Route, destination string) bool {
+	dest := strings.TrimPrefix(destination, "+")
 	switch route.PatternType {
 	case "prefix":
-		return len(destination) >= len(route.Pattern) && destination[:len(route.Pattern)] == route.Pattern
+		return len(dest) >= len(route.Pattern) && dest[:len(route.Pattern)] == route.Pattern
 	case "exact":
-		return destination == route.Pattern
+		return dest == route.Pattern
 	default:
 		return false
 	}

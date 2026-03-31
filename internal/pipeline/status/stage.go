@@ -35,12 +35,14 @@ type statusRecord struct {
 // Stage — pipeline stage для записи статусов сообщений в БД.
 // Потребляет SentMessage из sms.sent и DLRMessage из sms.dlr,
 // выполняет batch upsert в таблицу messages через INSERT ... ON CONFLICT (id) DO UPDATE.
+// После успешного upsert публикует StatusUpdate в sms.status для campaign-service.
 type Stage struct {
-	consumer *queue.BatchConsumer
-	db       *storage.DB
-	pgxPool  *pgxpool.Pool
-	cfg      *config.Config
-	logger   zerolog.Logger
+	consumer      *queue.BatchConsumer
+	asyncProducer *queue.AsyncProducer
+	db            *storage.DB
+	pgxPool       *pgxpool.Pool
+	cfg           *config.Config
+	logger        zerolog.Logger
 
 	// T030: Write-ahead buffer для retry при ошибках БД.
 	failedMu     sync.Mutex
@@ -61,14 +63,20 @@ func NewStage(cfg *config.Config, db *storage.DB, pgxPool *pgxpool.Pool) (*Stage
 		return nil, fmt.Errorf("ошибка создания batch consumer: %w", err)
 	}
 
+	asyncProducer, err := queue.NewAsyncProducer(&cfg.Kafka)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания async producer: %w", err)
+	}
+
 	logger := log.With().Str("component", "pipeline_status").Logger()
 
 	return &Stage{
-		consumer: consumer,
-		db:       db,
-		pgxPool:  pgxPool,
-		cfg:      cfg,
-		logger:   logger,
+		consumer:      consumer,
+		asyncProducer: asyncProducer,
+		db:            db,
+		pgxPool:       pgxPool,
+		cfg:           cfg,
+		logger:        logger,
 	}, nil
 }
 
@@ -125,7 +133,10 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 		return nil
 	}
 
-	// 3. Метрики.
+	// 3. Публикуем StatusUpdate в sms.status для campaign-service.
+	s.publishStatusUpdates(records)
+
+	// 4. Метрики.
 	monitoring.PipelineMessagesProcessed.WithLabelValues("status", "success").Add(float64(len(records)))
 	elapsed := time.Since(start).Seconds()
 	monitoring.PipelineProcessingDuration.WithLabelValues("status").Observe(elapsed)
@@ -283,6 +294,31 @@ func mapDLRStat(stat string) string {
 	}
 }
 
+// publishStatusUpdates публикует StatusUpdate сообщения в sms.status
+// чтобы campaign-service мог обновить счётчики кампании.
+func (s *Stage) publishStatusUpdates(records []*statusRecord) {
+	topic := s.cfg.Kafka.TopicStatus
+	for _, r := range records {
+		update := &pipeline.StatusUpdate{
+			SchemaVersion: 1,
+			MessageID:     r.MessageID,
+			Status:        r.Status,
+			SMPPMessageID: r.SMPPMessageID,
+			ProviderID:    r.ProviderID,
+			SubmitDate:    r.SubmittedAt,
+			UpdatedAt:     r.UpdatedAt,
+		}
+		data, err := update.Serialize()
+		if err != nil {
+			s.logger.Error().Err(err).Str("message_id", r.MessageID.String()).Msg("ошибка сериализации StatusUpdate")
+			continue
+		}
+		s.asyncProducer.PublishAsync(topic, r.MessageID.String(), data, []sarama.RecordHeader{
+			{Key: []byte("message_id"), Value: []byte(r.MessageID.String())},
+		})
+	}
+}
+
 // retryLoop — T030: фоновая горутина для периодического retry failedBuffer
 // с экспоненциальным backoff.
 func (s *Stage) retryLoop(ctx context.Context) {
@@ -352,8 +388,11 @@ func (s *Stage) retryLoop(ctx context.Context) {
 	}
 }
 
-// Close выполняет graceful shutdown stage: закрывает consumer.
+// Close выполняет graceful shutdown stage: закрывает consumer и producer.
 func (s *Stage) Close() error {
 	s.logger.Info().Msg("закрытие status writer stage")
+	if err := s.asyncProducer.Close(); err != nil {
+		s.logger.Error().Err(err).Msg("ошибка закрытия async producer")
+	}
 	return s.consumer.Close()
 }
