@@ -141,6 +141,9 @@ func (r *RecipientRepository) GetPendingBatch(ctx context.Context, campaignID uu
 		}
 		recipients = append(recipients, row.toDomain())
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return recipients, nil
 }
 
@@ -208,6 +211,9 @@ func (r *RecipientRepository) GetFailedForRetry(ctx context.Context, campaignID 
 		}
 		recipients = append(recipients, row.toDomain())
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return recipients, nil
 }
 
@@ -244,6 +250,9 @@ func (r *RecipientRepository) CountByStatus(ctx context.Context, campaignID uuid
 			return nil, fmt.Errorf("failed to scan status count: %w", err)
 		}
 		counts[status] = cnt
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 	return counts, nil
 }

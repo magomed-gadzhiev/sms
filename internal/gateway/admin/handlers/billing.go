@@ -52,7 +52,7 @@ func (h *BillingHandlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		ClientID:  resp.ClientId,
 		Balance:   resp.Balance,
 		Currency:  resp.Currency,
-		UpdatedAt: resp.UpdatedAt.AsTime(),
+		UpdatedAt: safeTimestamp(resp.UpdatedAt),
 	})
 }
 
@@ -219,7 +219,7 @@ func (h *BillingHandlers) CreatePricingRule(w http.ResponseWriter, r *http.Reque
 
 	respondJSON(w, http.StatusCreated, CreatePricingRuleResponse{
 		RuleID:    resp.RuleId,
-		CreatedAt: resp.CreatedAt.AsTime(),
+		CreatedAt: safeTimestamp(resp.CreatedAt),
 	})
 }
 

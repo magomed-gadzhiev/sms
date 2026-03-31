@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	grpcapi "github.com/smpp-server/smpp-server/internal/api/grpc"
+
 	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
 	"github.com/smpp-server/smpp-server/internal/services/link/application"
 	linkgrpc "github.com/smpp-server/smpp-server/internal/services/link/grpc"
@@ -63,7 +65,9 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to listen gRPC")
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(grpcapi.TraceUnaryServerInterceptor()),
+	)
 	linkv1.RegisterLinkServiceServer(grpcServer, linkgrpc.NewLinkGrpcServer(service))
 	linkv1.RegisterDomainServiceServer(grpcServer, linkgrpc.NewDomainGrpcServer(service))
 	reflection.Register(grpcServer)

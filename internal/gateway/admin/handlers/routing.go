@@ -55,7 +55,7 @@ func (h *RoutingHandlers) CreateRoute(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusCreated, CreateRouteResponse{
 		RouteID:   resp.RouteId,
-		CreatedAt: resp.CreatedAt.AsTime(),
+		CreatedAt: safeTimestamp(resp.CreatedAt),
 	})
 }
 

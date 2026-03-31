@@ -573,7 +573,9 @@ func (h *SubAccountHandlers) GetSubAccountAPIKeys(w http.ResponseWriter, r *http
 			"active":      key.Active,
 			"scopes":      key.Scopes,
 			"allowed_ips": key.AllowedIps,
-			"created_at":  key.CreatedAt.AsTime(),
+		}
+		if key.CreatedAt != nil {
+			keys[i]["created_at"] = key.CreatedAt.AsTime()
 		}
 		if key.ExpiresAt != nil {
 			keys[i]["expires_at"] = key.ExpiresAt.AsTime()

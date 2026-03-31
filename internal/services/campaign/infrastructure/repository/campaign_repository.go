@@ -268,6 +268,9 @@ func (r *CampaignRepository) List(ctx context.Context, clientID uuid.UUID, statu
 		}
 		campaigns = append(campaigns, row.toDomain())
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return campaigns, total, nil
 }
 
@@ -450,6 +453,9 @@ func (r *CampaignRepository) GetVariants(ctx context.Context, campaignID uuid.UU
 		}
 		variants = append(variants, row.toDomain())
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return variants, nil
 }
 
@@ -548,6 +554,9 @@ func (r *CampaignRepository) GetRunningCampaigns(ctx context.Context) ([]*domain
 		}
 		campaigns = append(campaigns, row.toDomain())
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return campaigns, nil
 }
 
@@ -572,6 +581,9 @@ func (r *CampaignRepository) GetCampaignsWithRetry(ctx context.Context) ([]*doma
 			return nil, fmt.Errorf("failed to scan campaign: %w", err)
 		}
 		campaigns = append(campaigns, row.toDomain())
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 	return campaigns, nil
 }

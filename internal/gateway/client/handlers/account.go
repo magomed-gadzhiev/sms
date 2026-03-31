@@ -51,10 +51,12 @@ func (h *AccountHandlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 
 	// Формируем ответ
 	response := map[string]interface{}{
-		"client_id":  resp.ClientId,
-		"balance":    resp.Balance,
-		"currency":   resp.Currency,
-		"updated_at": resp.UpdatedAt.AsTime(),
+		"client_id": resp.ClientId,
+		"balance":   resp.Balance,
+		"currency":  resp.Currency,
+	}
+	if resp.UpdatedAt != nil {
+		response["updated_at"] = resp.UpdatedAt.AsTime()
 	}
 
 	respondJSON(w, http.StatusOK, response)

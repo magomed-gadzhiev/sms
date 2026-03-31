@@ -56,7 +56,7 @@ func (h *ClientHandlers) CreateClient(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusCreated, CreateClientResponse{
 		ClientID:  resp.ClientId,
-		CreatedAt: resp.CreatedAt.AsTime(),
+		CreatedAt: safeTimestamp(resp.CreatedAt),
 	})
 }
 
@@ -74,6 +74,10 @@ func (h *ClientHandlers) GetClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if resp.Client == nil {
+		respondError(w, shared.ErrNotFound("клиент не найден"))
+		return
+	}
 	respondJSON(w, http.StatusOK, clientInfoToResponse(resp.Client))
 }
 

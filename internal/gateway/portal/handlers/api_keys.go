@@ -63,7 +63,9 @@ func (h *APIKeyHandlers) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 			"active":     key.Active,
 			"scopes":     key.Scopes,
 			"allowed_ips": key.AllowedIps,
-			"created_at": key.CreatedAt.AsTime(),
+		}
+		if key.CreatedAt != nil {
+			keys[i]["created_at"] = key.CreatedAt.AsTime()
 		}
 		if key.ExpiresAt != nil {
 			keys[i]["expires_at"] = key.ExpiresAt.AsTime()
@@ -136,7 +138,9 @@ func (h *APIKeyHandlers) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	result := map[string]interface{}{
 		"api_key":    resp.ApiKey,
 		"api_key_id": resp.ApiKeyId,
-		"created_at": resp.CreatedAt.AsTime(),
+	}
+	if resp.CreatedAt != nil {
+		result["created_at"] = resp.CreatedAt.AsTime()
 	}
 	if resp.ExpiresAt != nil {
 		result["expires_at"] = resp.ExpiresAt.AsTime()
@@ -176,7 +180,9 @@ func (h *APIKeyHandlers) GetAPIKey(w http.ResponseWriter, r *http.Request) {
 				"active":      key.Active,
 				"scopes":      key.Scopes,
 				"allowed_ips": key.AllowedIps,
-				"created_at":  key.CreatedAt.AsTime(),
+			}
+			if key.CreatedAt != nil {
+				result["created_at"] = key.CreatedAt.AsTime()
 			}
 			if key.ExpiresAt != nil {
 				result["expires_at"] = key.ExpiresAt.AsTime()
@@ -291,7 +297,9 @@ func (h *APIKeyHandlers) UpdateAPIKey(w http.ResponseWriter, r *http.Request) {
 		"active":      resp.Key.Active,
 		"scopes":      resp.Key.Scopes,
 		"allowed_ips": resp.Key.AllowedIps,
-		"created_at":  resp.Key.CreatedAt.AsTime(),
+	}
+	if resp.Key.CreatedAt != nil {
+		result["created_at"] = resp.Key.CreatedAt.AsTime()
 	}
 	if resp.Key.ExpiresAt != nil {
 		result["expires_at"] = resp.Key.ExpiresAt.AsTime()

@@ -77,6 +77,9 @@ portal-gateway
 messaging-service
 template-service
 webhook-service
+campaign-service
+worker
+link-service
 
 # Stray dependency directories
 github.com/

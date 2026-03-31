@@ -165,7 +165,8 @@ func main() {
 
 	// Создание gRPC сервера
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(
+		grpc.ChainUnaryInterceptor(
+			grpcapi.TraceUnaryServerInterceptor(),
 			grpcapi.AuthInterceptor(clientRepo, &cfg.API.Auth),
 		),
 		grpc.MaxRecvMsgSize(cfg.API.GRPC.MaxRecv),

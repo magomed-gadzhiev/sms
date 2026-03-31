@@ -124,7 +124,7 @@ func (h *AnalyticsHandlers) GenerateReport(w http.ResponseWriter, r *http.Reques
 		ReportID:    resp.ReportId,
 		Format:      resp.Format,
 		Data:        resp.Data,
-		GeneratedAt: resp.GeneratedAt.AsTime(),
+		GeneratedAt: safeTimestamp(resp.GeneratedAt),
 	})
 }
 
@@ -144,7 +144,7 @@ func (h *AnalyticsHandlers) GetRealtimeMetrics(w http.ResponseWriter, r *http.Re
 		ActiveProviders:        resp.ActiveProviders,
 		ActiveConnections:      resp.ActiveConnections,
 		ProviderMetrics:        resp.ProviderMetrics,
-		Timestamp:              resp.Timestamp.AsTime(),
+		Timestamp:              safeTimestamp(resp.Timestamp),
 	})
 }
 
@@ -202,10 +202,10 @@ func (h *AnalyticsHandlers) GetProviderPerformance(w http.ResponseWriter, r *htt
 	points := make([]PerformancePoint, len(resp.Points))
 	for i, p := range resp.Points {
 		points[i] = PerformancePoint{
-			Timestamp:  p.Timestamp.AsTime(),
-			Sent:       p.Sent,
-			Delivered:  p.Delivered,
-			Failed:     p.Failed,
+			Timestamp:   safeTimestamp(p.Timestamp),
+			Sent:        p.Sent,
+			Delivered:   p.Delivered,
+			Failed:      p.Failed,
 			SuccessRate: int(p.SuccessRate),
 		}
 	}
@@ -307,6 +307,9 @@ func statisticGroupToResponse(g *analyticsv1.StatisticGroup) StatisticGroup {
 }
 
 func totalStatsToResponse(ts *analyticsv1.TotalStats) TotalStats {
+	if ts == nil {
+		return TotalStats{}
+	}
 	return TotalStats{
 		TotalSent:         ts.TotalSent,
 		TotalDelivered:    ts.TotalDelivered,

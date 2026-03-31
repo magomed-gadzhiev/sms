@@ -57,13 +57,48 @@ func (s *BillingService) AddCredits(
 	amount, currency, description string,
 	paymentMethod *string,
 ) (*domain.Transaction, error) {
-	// Получаем или создаем счет
+	// Пробуем использовать транзакцию если репозиторий поддерживает
+	type txAccountRepo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	}
+	type txTransactionRepo interface {
+		CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error
+	}
+
+	accRepo, accOk := s.accountRepo.(txAccountRepo)
+	txnRepo, txnOk := s.transactionRepo.(txTransactionRepo)
+
+	if accOk && txnOk {
+		return s.addCreditsWithTx(ctx, accRepo, txnRepo, clientID, amount, currency, description, paymentMethod)
+	}
+
+	// Fallback без транзакции (для тестов с моками)
+	return s.addCreditsNoTx(ctx, clientID, amount, currency, description, paymentMethod)
+}
+
+// addCreditsWithTx добавляет средства атомарно через DB-транзакцию
+func (s *BillingService) addCreditsWithTx(
+	ctx context.Context,
+	accRepo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	},
+	txnRepo interface {
+		CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error
+	},
+	clientID uuid.UUID,
+	amount, currency, description string,
+	paymentMethod *string,
+) (*domain.Transaction, error) {
+	// Создаём счёт если его нет (вне транзакции — идемпотентно)
 	account, err := s.accountRepo.GetByClientID(ctx, clientID)
 	if err != nil {
 		if err != domain.ErrAccountNotFound {
 			return nil, fmt.Errorf("failed to get account: %w", err)
 		}
-		// Создаем новый счет
 		account = domain.NewAccount(clientID, currency)
 		if err := account.Validate(); err != nil {
 			return nil, fmt.Errorf("invalid account: %w", err)
@@ -73,32 +108,105 @@ func (s *BillingService) AddCredits(
 		}
 	}
 
-	// Проверяем валюту: если не указана — используем валюту аккаунта
+	tx, err := accRepo.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Блокируем счёт для атомарного обновления
+	account, err = accRepo.GetByClientIDForUpdate(ctx, tx, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account for update: %w", err)
+	}
+
 	if currency == "" {
 		currency = account.Currency
 	} else if account.Currency != currency {
 		return nil, fmt.Errorf("currency mismatch: account has %s, but %s provided", account.Currency, currency)
 	}
 
-	// Вычисляем новый баланс
 	newBalance, err := s.add(account.Balance, amount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate new balance: %w", err)
 	}
 
-	// Обновляем баланс
+	if err := accRepo.UpdateBalanceTx(ctx, tx, clientID, newBalance); err != nil {
+		return nil, fmt.Errorf("failed to update balance: %w", err)
+	}
+
+	transaction := domain.NewTransaction(
+		clientID, domain.TransactionTypeCredit, amount,
+		account.Balance, newBalance, currency,
+	).WithDescription(description)
+
+	if paymentMethod != nil {
+		transaction = transaction.WithPaymentMethod(*paymentMethod)
+	}
+
+	if err := transaction.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid transaction: %w", err)
+	}
+
+	if err := txnRepo.CreateTx(ctx, tx, transaction); err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	if s.eventPublisher != nil {
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, clientID.String(), newBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish balance changed event")
+		}
+		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
+		}
+	}
+
+	return transaction, nil
+}
+
+// addCreditsNoTx — fallback без транзакции (для тестов с моками)
+func (s *BillingService) addCreditsNoTx(
+	ctx context.Context,
+	clientID uuid.UUID,
+	amount, currency, description string,
+	paymentMethod *string,
+) (*domain.Transaction, error) {
+	account, err := s.accountRepo.GetByClientID(ctx, clientID)
+	if err != nil {
+		if err != domain.ErrAccountNotFound {
+			return nil, fmt.Errorf("failed to get account: %w", err)
+		}
+		account = domain.NewAccount(clientID, currency)
+		if err := account.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid account: %w", err)
+		}
+		if err := s.accountRepo.Create(ctx, account); err != nil {
+			return nil, fmt.Errorf("failed to create account: %w", err)
+		}
+	}
+
+	if currency == "" {
+		currency = account.Currency
+	} else if account.Currency != currency {
+		return nil, fmt.Errorf("currency mismatch: account has %s, but %s provided", account.Currency, currency)
+	}
+
+	newBalance, err := s.add(account.Balance, amount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate new balance: %w", err)
+	}
+
 	if err := s.accountRepo.UpdateBalance(ctx, clientID, newBalance); err != nil {
 		return nil, fmt.Errorf("failed to update balance: %w", err)
 	}
 
-	// Создаем транзакцию
 	transaction := domain.NewTransaction(
-		clientID,
-		domain.TransactionTypeCredit,
-		amount,
-		account.Balance,
-		newBalance,
-		currency,
+		clientID, domain.TransactionTypeCredit, amount,
+		account.Balance, newBalance, currency,
 	).WithDescription(description)
 
 	if paymentMethod != nil {
@@ -113,7 +221,6 @@ func (s *BillingService) AddCredits(
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// Публикуем события
 	if s.eventPublisher != nil {
 		if err := s.eventPublisher.PublishBalanceChanged(ctx, clientID.String(), newBalance, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish balance changed event")
@@ -196,11 +303,7 @@ func (s *BillingService) deductCreditsWithTx(
 		return nil, fmt.Errorf("failed to update balance: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// Создаем транзакцию
+	// Создаём запись транзакции ВНУТРИ DB-транзакции (до коммита)
 	transaction := domain.NewTransaction(
 		clientID,
 		domain.TransactionTypeCharge,
@@ -214,11 +317,26 @@ func (s *BillingService) deductCreditsWithTx(
 		return nil, fmt.Errorf("invalid transaction: %w", err)
 	}
 
-	if err := s.transactionRepo.Create(ctx, transaction); err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	// Записываем транзакцию через tx, если репозиторий поддерживает
+	type txTransactionRepo interface {
+		CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error
+	}
+	if txRepo, ok := s.transactionRepo.(txTransactionRepo); ok {
+		if err := txRepo.CreateTx(ctx, tx, transaction); err != nil {
+			return nil, fmt.Errorf("failed to create transaction: %w", err)
+		}
+	} else {
+		// Fallback: создаём вне транзакции (для старых реализаций)
+		if err := s.transactionRepo.Create(ctx, transaction); err != nil {
+			return nil, fmt.Errorf("failed to create transaction: %w", err)
+		}
 	}
 
-	// Публикуем события
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Публикуем события (после коммита — идемпотентно)
 	if s.eventPublisher != nil {
 		if err := s.eventPublisher.PublishBalanceChanged(ctx, clientID.String(), newBalance, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish balance changed event")
@@ -373,11 +491,7 @@ func (s *BillingService) chargeMessageWithTx(
 		return nil, fmt.Errorf("failed to update balance: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// Создаем транзакцию
+	// Создаём запись транзакции ВНУТРИ DB-транзакции (до коммита)
 	transaction := domain.NewTransaction(
 		clientID,
 		domain.TransactionTypeCharge,
@@ -391,11 +505,24 @@ func (s *BillingService) chargeMessageWithTx(
 		return nil, fmt.Errorf("invalid transaction: %w", err)
 	}
 
-	if err := s.transactionRepo.Create(ctx, transaction); err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	type txTransactionRepo interface {
+		CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error
+	}
+	if txRepo, ok := s.transactionRepo.(txTransactionRepo); ok {
+		if err := txRepo.CreateTx(ctx, tx, transaction); err != nil {
+			return nil, fmt.Errorf("failed to create transaction: %w", err)
+		}
+	} else {
+		if err := s.transactionRepo.Create(ctx, transaction); err != nil {
+			return nil, fmt.Errorf("failed to create transaction: %w", err)
+		}
 	}
 
-	// Публикуем события
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Публикуем события (после коммита)
 	if s.eventPublisher != nil {
 		if err := s.eventPublisher.PublishBalanceChanged(ctx, clientID.String(), newBalance, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish balance changed event")
@@ -488,42 +615,111 @@ func (s *BillingService) TransferBalance(
 	fromClientID, toClientID uuid.UUID,
 	amount, currency string,
 ) (transferID, fromBalance, toBalance string, err error) {
-	// Получаем счёт отправителя
-	fromAccount, err := s.accountRepo.GetByClientID(ctx, fromClientID)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to get sender account: %w", err)
+	// Пробуем использовать транзакцию если репозиторий поддерживает
+	type txAccountRepo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	}
+	type txTransactionRepo interface {
+		CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error
 	}
 
-	// Проверяем валюту
+	accRepo, accOk := s.accountRepo.(txAccountRepo)
+	txnRepo, txnOk := s.transactionRepo.(txTransactionRepo)
+
+	if accOk && txnOk {
+		return s.transferBalanceWithTx(ctx, accRepo, txnRepo, fromClientID, toClientID, amount, currency)
+	}
+
+	// Fallback без транзакции (для тестов с моками)
+	return s.transferBalanceNoTx(ctx, fromClientID, toClientID, amount, currency)
+}
+
+// transferBalanceWithTx выполняет перевод в рамках DB-транзакции с SELECT FOR UPDATE
+func (s *BillingService) transferBalanceWithTx(
+	ctx context.Context,
+	accRepo interface {
+		BeginTx(ctx context.Context) (*sqlx.Tx, error)
+		GetByClientIDForUpdate(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID) (*domain.Account, error)
+		UpdateBalanceTx(ctx context.Context, tx *sqlx.Tx, clientID uuid.UUID, newBalance string) error
+	},
+	txnRepo interface {
+		CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error
+	},
+	fromClientID, toClientID uuid.UUID,
+	amount, currency string,
+) (string, string, string, error) {
+	tx, err := accRepo.BeginTx(ctx)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Блокируем оба счёта в стабильном порядке (по UUID) для предотвращения deadlock
+	var firstID, secondID uuid.UUID
+	if fromClientID.String() < toClientID.String() {
+		firstID, secondID = fromClientID, toClientID
+	} else {
+		firstID, secondID = toClientID, fromClientID
+	}
+
+	first, err := accRepo.GetByClientIDForUpdate(ctx, tx, firstID)
+	if err != nil {
+		if err == domain.ErrAccountNotFound && firstID == toClientID {
+			// Создаем счёт получателя внутри транзакции
+			first = domain.NewAccount(toClientID, currency)
+			createQuery := `INSERT INTO accounts (id, client_id, balance, currency, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, $5, $6)`
+			if _, execErr := tx.ExecContext(ctx, createQuery,
+				first.ID, first.ClientID, first.Balance, first.Currency, first.CreatedAt, first.UpdatedAt,
+			); execErr != nil {
+				return "", "", "", fmt.Errorf("failed to create receiver account: %w", execErr)
+			}
+		} else {
+			return "", "", "", fmt.Errorf("failed to lock account %s: %w", firstID, err)
+		}
+	}
+
+	second, err := accRepo.GetByClientIDForUpdate(ctx, tx, secondID)
+	if err != nil {
+		if err == domain.ErrAccountNotFound && secondID == toClientID {
+			second = domain.NewAccount(toClientID, currency)
+			createQuery := `INSERT INTO accounts (id, client_id, balance, currency, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, $5, $6)`
+			if _, execErr := tx.ExecContext(ctx, createQuery,
+				second.ID, second.ClientID, second.Balance, second.Currency, second.CreatedAt, second.UpdatedAt,
+			); execErr != nil {
+				return "", "", "", fmt.Errorf("failed to create receiver account: %w", execErr)
+			}
+		} else {
+			return "", "", "", fmt.Errorf("failed to lock account %s: %w", secondID, err)
+		}
+	}
+
+	// Определяем fromAccount и toAccount
+	var fromAccount, toAccount *domain.Account
+	if firstID == fromClientID {
+		fromAccount, toAccount = first, second
+	} else {
+		fromAccount, toAccount = second, first
+	}
+
+	// Проверяем валюту отправителя
 	if fromAccount.Currency != currency {
 		return "", "", "", fmt.Errorf("currency mismatch: sender account has %s, but %s provided", fromAccount.Currency, currency)
 	}
+	if toAccount.Currency != currency {
+		return "", "", "", fmt.Errorf("currency mismatch: receiver account has %s, but %s provided", toAccount.Currency, currency)
+	}
 
-	// Проверяем баланс отправителя
+	// Вычисляем новые балансы
 	newFromBalance, err := s.subtract(fromAccount.Balance, amount)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to calculate sender balance: %w", err)
 	}
-
 	if s.isNegative(newFromBalance) {
 		return "", "", "", domain.ErrInsufficientBalance
-	}
-
-	// Получаем или создаем счёт получателя
-	toAccount, err := s.accountRepo.GetByClientID(ctx, toClientID)
-	if err != nil {
-		if err != domain.ErrAccountNotFound {
-			return "", "", "", fmt.Errorf("failed to get receiver account: %w", err)
-		}
-		// Создаем новый счёт для получателя
-		toAccount = domain.NewAccount(toClientID, currency)
-		if err := s.accountRepo.Create(ctx, toAccount); err != nil {
-			return "", "", "", fmt.Errorf("failed to create receiver account: %w", err)
-		}
-	}
-
-	if toAccount.Currency != currency {
-		return "", "", "", fmt.Errorf("currency mismatch: receiver account has %s, but %s provided", toAccount.Currency, currency)
 	}
 
 	newToBalance, err := s.add(toAccount.Balance, amount)
@@ -531,47 +727,40 @@ func (s *BillingService) TransferBalance(
 		return "", "", "", fmt.Errorf("failed to calculate receiver balance: %w", err)
 	}
 
-	// Списываем со счёта отправителя
-	if err := s.accountRepo.UpdateBalance(ctx, fromClientID, newFromBalance); err != nil {
+	// Обновляем балансы в рамках транзакции
+	if err := accRepo.UpdateBalanceTx(ctx, tx, fromClientID, newFromBalance); err != nil {
 		return "", "", "", fmt.Errorf("failed to debit sender: %w", err)
 	}
-
-	// Зачисляем на счёт получателя
-	if err := s.accountRepo.UpdateBalance(ctx, toClientID, newToBalance); err != nil {
+	if err := accRepo.UpdateBalanceTx(ctx, tx, toClientID, newToBalance); err != nil {
 		return "", "", "", fmt.Errorf("failed to credit receiver: %w", err)
 	}
 
-	// Создаем транзакцию списания (transfer_out)
+	// Создаём записи транзакций внутри DB-транзакции
 	fromTx := domain.NewTransaction(
-		fromClientID,
-		domain.TransactionTypeTransferOut,
-		amount,
-		fromAccount.Balance,
-		newFromBalance,
-		currency,
+		fromClientID, domain.TransactionTypeTransferOut, amount,
+		fromAccount.Balance, newFromBalance, currency,
 	).WithDescription(fmt.Sprintf("Transfer to %s", toClientID.String()))
 
-	if err := s.transactionRepo.Create(ctx, fromTx); err != nil {
+	if err := txnRepo.CreateTx(ctx, tx, fromTx); err != nil {
 		return "", "", "", fmt.Errorf("failed to create transfer_out transaction: %w", err)
 	}
 
-	// Создаем транзакцию зачисления (transfer_in)
 	toTx := domain.NewTransaction(
-		toClientID,
-		domain.TransactionTypeTransferIn,
-		amount,
-		toAccount.Balance,
-		newToBalance,
-		currency,
+		toClientID, domain.TransactionTypeTransferIn, amount,
+		toAccount.Balance, newToBalance, currency,
 	).WithDescription(fmt.Sprintf("Transfer from %s", fromClientID.String()))
 
-	if err := s.transactionRepo.Create(ctx, toTx); err != nil {
+	if err := txnRepo.CreateTx(ctx, tx, toTx); err != nil {
 		return "", "", "", fmt.Errorf("failed to create transfer_in transaction: %w", err)
 	}
 
-	// Создаем запись о переводе
-	transfer := domain.NewBalanceTransfer(fromClientID, toClientID, amount, currency, fromTx.ID, toTx.ID)
+	// Коммитим всё атомарно
+	if err := tx.Commit(); err != nil {
+		return "", "", "", fmt.Errorf("failed to commit transfer transaction: %w", err)
+	}
 
+	// Создаем запись о переводе (вне транзакции — не критично)
+	transfer := domain.NewBalanceTransfer(fromClientID, toClientID, amount, currency, fromTx.ID, toTx.ID)
 	if s.transferRepo != nil {
 		if err := s.transferRepo.Create(ctx, transfer); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to save balance transfer record")
@@ -595,6 +784,96 @@ func (s *BillingService) TransferBalance(
 		Str("amount", amount).
 		Str("currency", currency).
 		Msg("balance transfer completed")
+
+	return transfer.ID.String(), newFromBalance, newToBalance, nil
+}
+
+// transferBalanceNoTx — fallback для тестов с моками (без DB-транзакции)
+func (s *BillingService) transferBalanceNoTx(
+	ctx context.Context,
+	fromClientID, toClientID uuid.UUID,
+	amount, currency string,
+) (string, string, string, error) {
+	fromAccount, err := s.accountRepo.GetByClientID(ctx, fromClientID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to get sender account: %w", err)
+	}
+	if fromAccount.Currency != currency {
+		return "", "", "", fmt.Errorf("currency mismatch: sender account has %s, but %s provided", fromAccount.Currency, currency)
+	}
+
+	newFromBalance, err := s.subtract(fromAccount.Balance, amount)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to calculate sender balance: %w", err)
+	}
+	if s.isNegative(newFromBalance) {
+		return "", "", "", domain.ErrInsufficientBalance
+	}
+
+	toAccount, err := s.accountRepo.GetByClientID(ctx, toClientID)
+	if err != nil {
+		if err != domain.ErrAccountNotFound {
+			return "", "", "", fmt.Errorf("failed to get receiver account: %w", err)
+		}
+		toAccount = domain.NewAccount(toClientID, currency)
+		if err := s.accountRepo.Create(ctx, toAccount); err != nil {
+			return "", "", "", fmt.Errorf("failed to create receiver account: %w", err)
+		}
+	}
+	if toAccount.Currency != currency {
+		return "", "", "", fmt.Errorf("currency mismatch: receiver account has %s, but %s provided", toAccount.Currency, currency)
+	}
+
+	newToBalance, err := s.add(toAccount.Balance, amount)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to calculate receiver balance: %w", err)
+	}
+
+	if err := s.accountRepo.UpdateBalance(ctx, fromClientID, newFromBalance); err != nil {
+		return "", "", "", fmt.Errorf("failed to debit sender: %w", err)
+	}
+	if err := s.accountRepo.UpdateBalance(ctx, toClientID, newToBalance); err != nil {
+		return "", "", "", fmt.Errorf("failed to credit receiver: %w", err)
+	}
+
+	fromTx := domain.NewTransaction(
+		fromClientID, domain.TransactionTypeTransferOut, amount,
+		fromAccount.Balance, newFromBalance, currency,
+	).WithDescription(fmt.Sprintf("Transfer to %s", toClientID.String()))
+	if err := s.transactionRepo.Create(ctx, fromTx); err != nil {
+		return "", "", "", fmt.Errorf("failed to create transfer_out transaction: %w", err)
+	}
+
+	toTx := domain.NewTransaction(
+		toClientID, domain.TransactionTypeTransferIn, amount,
+		toAccount.Balance, newToBalance, currency,
+	).WithDescription(fmt.Sprintf("Transfer from %s", fromClientID.String()))
+	if err := s.transactionRepo.Create(ctx, toTx); err != nil {
+		return "", "", "", fmt.Errorf("failed to create transfer_in transaction: %w", err)
+	}
+
+	transfer := domain.NewBalanceTransfer(fromClientID, toClientID, amount, currency, fromTx.ID, toTx.ID)
+	if s.transferRepo != nil {
+		if err := s.transferRepo.Create(ctx, transfer); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to save balance transfer record")
+		}
+	}
+
+	if s.eventPublisher != nil {
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, fromClientID.String(), newFromBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish sender balance changed event")
+		}
+		if err := s.eventPublisher.PublishBalanceChanged(ctx, toClientID.String(), newToBalance, currency); err != nil {
+			s.logger.Warn().Err(err).Msg("failed to publish receiver balance changed event")
+		}
+	}
+
+	s.logger.Info().
+		Str("from_client_id", fromClientID.String()).
+		Str("to_client_id", toClientID.String()).
+		Str("amount", amount).
+		Str("currency", currency).
+		Msg("balance transfer completed (no-tx fallback)")
 
 	return transfer.ID.String(), newFromBalance, newToBalance, nil
 }

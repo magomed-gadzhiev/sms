@@ -54,6 +54,9 @@ type Stage struct {
 	// T030: Write-ahead buffer для retry при ошибках БД.
 	failedMu     sync.Mutex
 	failedBuffer []*statusRecord
+
+	// Максимальный размер failedBuffer для предотвращения OOM.
+	maxFailedBufferSize int
 }
 
 // NewStage создает новый Status Writer stage pipeline.
@@ -78,12 +81,13 @@ func NewStage(cfg *config.Config, db *storage.DB, pgxPool *pgxpool.Pool) (*Stage
 	logger := log.With().Str("component", "pipeline_status").Logger()
 
 	return &Stage{
-		consumer:      consumer,
-		asyncProducer: asyncProducer,
-		db:            db,
-		pgxPool:       pgxPool,
-		cfg:           cfg,
-		logger:        logger,
+		consumer:            consumer,
+		asyncProducer:       asyncProducer,
+		db:                  db,
+		pgxPool:             pgxPool,
+		cfg:                 cfg,
+		logger:              logger,
+		maxFailedBufferSize: 100000,
 	}, nil
 }
 
@@ -131,9 +135,24 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 			Msg("ошибка batch upsert статусов, буферизация для retry")
 		monitoring.PipelineMessagesProcessed.WithLabelValues("status", "error").Add(float64(len(records)))
 
-		// T030: буферизация неудачных записей для retry.
+		// T030: буферизация неудачных записей для retry (с ограничением размера).
 		s.failedMu.Lock()
-		s.failedBuffer = append(s.failedBuffer, records...)
+		if len(s.failedBuffer)+len(records) > s.maxFailedBufferSize {
+			dropped := len(s.failedBuffer) + len(records) - s.maxFailedBufferSize
+			s.logger.Error().
+				Int("dropped", dropped).
+				Int("buffer_limit", s.maxFailedBufferSize).
+				Msg("failedBuffer достиг максимума, старые записи отброшены")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("status", "buffer_overflow").Add(float64(dropped))
+			// Отбрасываем самые старые записи из буфера
+			if dropped >= len(s.failedBuffer) {
+				s.failedBuffer = records[len(records)-(s.maxFailedBufferSize):]
+			} else {
+				s.failedBuffer = append(s.failedBuffer[dropped:], records...)
+			}
+		} else {
+			s.failedBuffer = append(s.failedBuffer, records...)
+		}
 		s.failedMu.Unlock()
 
 		// Не возвращаем ошибку — продолжаем потребление из Kafka без блокировки.

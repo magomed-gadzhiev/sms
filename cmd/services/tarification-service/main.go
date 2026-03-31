@@ -13,6 +13,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
+
+	grpcapi "github.com/smpp-server/smpp-server/internal/api/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 
@@ -159,6 +161,7 @@ func main() {
 
 	// Создание gRPC сервера
 	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(grpcapi.TraceUnaryServerInterceptor()),
 		grpc.MaxRecvMsgSize(cfg.API.GRPC.MaxRecv),
 		grpc.MaxSendMsgSize(cfg.API.GRPC.MaxSend),
 	)

@@ -69,8 +69,8 @@ func (r *Router) RouteMessage(ctx context.Context, msg *shared.Message) (*shared
 			return nil, fmt.Errorf("ошибка получения провайдера маршрута: %w", err)
 		}
 		if !provider.Active {
-			// Пробуем failover провайдера
-			if route.FailoverProviderID != nil {
+			// Пробуем failover провайдера (с проверкой что это другой провайдер)
+			if route.FailoverProviderID != nil && *route.FailoverProviderID != route.ProviderID {
 				failoverProvider, err := r.providerRepo.GetByID(ctx, *route.FailoverProviderID)
 				if err != nil {
 					return nil, fmt.Errorf("ошибка получения failover провайдера: %w", err)
@@ -134,7 +134,7 @@ func (r *Router) RouteMessage(ctx context.Context, msg *shared.Message) (*shared
 		}
 	}
 
-	r.logger.Debug().
+	r.logger.Info().
 		Str("message_id", msg.ID.String()).
 		Str("destination", msg.Destination).
 		Str("provider_id", provider.ID.String()).
@@ -211,8 +211,8 @@ func (r *CachedRouter) RouteMessage(ctx context.Context, msg *shared.Message) (*
 			return nil, fmt.Errorf("ошибка получения провайдера маршрута: не найден в кеше")
 		}
 		if !provider.Active {
-			// Пробуем failover провайдера
-			if route.FailoverProviderID != nil {
+			// Пробуем failover провайдера (с проверкой что это другой провайдер)
+			if route.FailoverProviderID != nil && *route.FailoverProviderID != route.ProviderID {
 				failoverProvider, ok := r.cache.GetProvider(*route.FailoverProviderID)
 				if !ok {
 					return nil, fmt.Errorf("ошибка получения failover провайдера: не найден в кеше")
@@ -279,7 +279,7 @@ func (r *CachedRouter) RouteMessage(ctx context.Context, msg *shared.Message) (*
 		}
 	}
 
-	r.logger.Debug().
+	r.logger.Info().
 		Str("message_id", msg.ID.String()).
 		Str("destination", msg.Destination).
 		Str("provider_id", provider.ID.String()).

@@ -54,6 +54,10 @@ func (h *WebhookHandlers) CreateWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if resp.Subscription == nil {
+		respondError(w, shared.ErrInternalServer("пустой ответ от webhook-сервиса"))
+		return
+	}
 	result := map[string]interface{}{
 		"id":          resp.Subscription.Id,
 		"client_id":   resp.Subscription.ClientId,
@@ -61,7 +65,7 @@ func (h *WebhookHandlers) CreateWebhook(w http.ResponseWriter, r *http.Request) 
 		"event_types": resp.Subscription.EventTypes,
 		"active":      resp.Subscription.Active,
 		"secret":      resp.Secret,
-		"created_at":  resp.Subscription.CreatedAt.AsTime(),
+		"created_at":  safeTimestamp(resp.Subscription.CreatedAt),
 	}
 	respondJSON(w, http.StatusCreated, result)
 }
@@ -105,6 +109,10 @@ func (h *WebhookHandlers) GetWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if resp.Subscription == nil {
+		respondError(w, shared.ErrNotFound("webhook подписка не найдена"))
+		return
+	}
 	respondJSON(w, http.StatusOK, adminSubscriptionToMap(resp.Subscription))
 }
 
@@ -141,6 +149,10 @@ func (h *WebhookHandlers) UpdateWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if resp.Subscription == nil {
+		respondError(w, shared.ErrInternalServer("пустой ответ от webhook-сервиса"))
+		return
+	}
 	respondJSON(w, http.StatusOK, adminSubscriptionToMap(resp.Subscription))
 }
 

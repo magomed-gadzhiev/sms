@@ -8,6 +8,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	grpcapi "github.com/smpp-server/smpp-server/internal/api/grpc"
+
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
 )
 
@@ -32,6 +34,7 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 		grpc.WithTimeout(5 * time.Second),
+		grpc.WithUnaryInterceptor(grpcapi.TraceUnaryClientInterceptor()),
 	}
 	
 	// Подключение к Auth Service

@@ -148,8 +148,10 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"message_id":    resp.MessageId,
 		"status":        resp.Status,
-		"created_at":    resp.CreatedAt.AsTime(),
 		"segment_count": resp.SegmentCount,
+	}
+	if resp.CreatedAt != nil {
+		response["created_at"] = resp.CreatedAt.AsTime()
 	}
 	if resp.Error != "" {
 		response["error"] = resp.Error
@@ -257,8 +259,10 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 		r := map[string]interface{}{
 			"message_id":    result.MessageId,
 			"status":        result.Status,
-			"created_at":    result.CreatedAt.AsTime(),
 			"segment_count": result.SegmentCount,
+		}
+		if result.CreatedAt != nil {
+			r["created_at"] = result.CreatedAt.AsTime()
 		}
 		if result.Error != "" {
 			r["error"] = result.Error
@@ -305,10 +309,12 @@ func (h *SMSHandlers) GetStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Формируем ответ
 	response := map[string]interface{}{
-		"message_id":    resp.MessageId,
-		"status":        resp.Status,
+		"message_id":     resp.MessageId,
+		"status":         resp.Status,
 		"status_message": resp.StatusMessage,
-		"created_at":    resp.CreatedAt.AsTime(),
+	}
+	if resp.CreatedAt != nil {
+		response["created_at"] = resp.CreatedAt.AsTime()
 	}
 
 	if resp.SubmittedAt != nil {
@@ -412,7 +418,9 @@ func (h *SMSHandlers) GetHistory(w http.ResponseWriter, r *http.Request) {
 			"text":        msg.Text,
 			"status":      msg.Status,
 			"external_id": msg.ExternalId,
-			"created_at":  msg.CreatedAt.AsTime(),
+		}
+		if msg.CreatedAt != nil {
+			m["created_at"] = msg.CreatedAt.AsTime()
 		}
 
 		if msg.SubmittedAt != nil {

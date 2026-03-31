@@ -131,6 +131,9 @@ func (r *StatsRepository) GetTimeline(ctx context.Context, campaignID uuid.UUID,
 		}
 		points = append(points, domain.TimelinePoint{Timestamp: ts, Value: value})
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return points, nil
 }
 
@@ -163,6 +166,9 @@ func (r *StatsRepository) GetHeatmap(ctx context.Context, campaignID uuid.UUID) 
 			return nil, fmt.Errorf("failed to scan heatmap cell: %w", err)
 		}
 		cells = append(cells, cell)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 	return cells, nil
 }
@@ -209,6 +215,9 @@ func (r *StatsRepository) GetVariantComparison(ctx context.Context, campaignID u
 		}
 		comparisons = append(comparisons, vc)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return comparisons, nil
 }
 
@@ -244,6 +253,9 @@ func (r *StatsRepository) GetOptimalSendTimes(ctx context.Context, clientID uuid
 			return nil, fmt.Errorf("failed to scan time slot: %w", err)
 		}
 		slots = append(slots, slot)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 	return slots, nil
 }

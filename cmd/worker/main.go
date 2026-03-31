@@ -98,7 +98,10 @@ func main() {
 	if billingAddr == "" {
 		billingAddr = "billing-service:9097"
 	}
-	billingConn, err := grpc.NewClient(billingAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	billingConn, err := grpc.NewClient(billingAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(false)),
+	)
 	if err != nil {
 		log.Warn().Err(err).Msg("не удалось подключиться к billing-service, проверка заморозки отключена")
 	}
@@ -114,7 +117,10 @@ func main() {
 	if tarificationAddr == "" {
 		tarificationAddr = "tarification-service:9100"
 	}
-	tarificationConn, err := grpc.NewClient(tarificationAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	tarificationConn, err := grpc.NewClient(tarificationAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(false)),
+	)
 	if err != nil {
 		log.Warn().Err(err).Msg("не удалось подключиться к tarification-service, тарификация отключена")
 	}
@@ -293,11 +299,18 @@ func createOutgoingHandler(
 
 		// 1. Проверяем заморозку аккаунта
 		if billingClient != nil {
-			balanceResp, balanceErr := billingClient.GetBalance(ctx, &billingv1.GetBalanceRequest{
+			grpcCtx, grpcCancel := context.WithTimeout(ctx, 5*time.Second)
+			balanceResp, balanceErr := billingClient.GetBalance(grpcCtx, &billingv1.GetBalanceRequest{
 				ClientId: dbMsg.ClientID.String(),
 			})
+			grpcCancel()
 			if balanceErr != nil {
-				log.Warn().Err(balanceErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка получения баланса (продолжаем)")
+				log.Error().Err(balanceErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка получения баланса — сообщение отклонено")
+				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, fmt.Sprintf("billing unavailable: %s", balanceErr.Error())); err != nil {
+					log.Error().Err(err).Str("message_id", dbMsg.ID.String()).Msg("ошибка пометки сообщения как failed")
+				}
+				monitoring.WorkerMessagesProcessed.WithLabelValues(workerID, "billing_unavailable").Inc()
+				return nil
 			} else if balanceResp != nil && balanceResp.Frozen {
 				log.Warn().
 					Str("message_id", dbMsg.ID.String()).
@@ -312,12 +325,14 @@ func createOutgoingHandler(
 		}
 
 		// 2. Тарификация — ПЕРЕД отправкой
+		var chargedAmount, chargedCurrency string
 		if tarificationClient != nil {
 			segCount := dbMsg.SegmentCount
 			if segCount == 0 {
 				segCount = 1
 			}
-			tarifyResp, tarifyErr := tarificationClient.TarifyMessage(ctx, &tarificationv1.TarifyMessageRequest{
+			tarifyCtx, tarifyCancel := context.WithTimeout(ctx, 5*time.Second)
+			tarifyResp, tarifyErr := tarificationClient.TarifyMessage(tarifyCtx, &tarificationv1.TarifyMessageRequest{
 				ClientId:       dbMsg.ClientID.String(),
 				MessageId:      dbMsg.ID.String(),
 				OperatorId:     defaultOperatorID,
@@ -325,6 +340,7 @@ func createOutgoingHandler(
 				SegmentCount:   int32(segCount),
 				IdempotencyKey: dbMsg.ID.String(),
 			})
+			tarifyCancel()
 			if tarifyErr != nil {
 				log.Error().Err(tarifyErr).Str("message_id", dbMsg.ID.String()).Msg("ошибка тарификации — сообщение отклонено")
 				if err := retryManager.MarkAsFailed(ctx, dbMsg.ID, fmt.Sprintf("tarification error: %s", tarifyErr.Error())); err != nil {
@@ -344,6 +360,10 @@ func createOutgoingHandler(
 				monitoring.WorkerMessagesProcessed.WithLabelValues(workerID, "tarification_rejected").Inc()
 				return nil
 			}
+			if tarifyResp != nil {
+				chargedAmount = tarifyResp.TotalAmount
+				chargedCurrency = tarifyResp.Currency
+			}
 		}
 
 		// === ОТПРАВКА ПОСЛЕ УСПЕШНОЙ ТАРИФИКАЦИИ ===
@@ -356,7 +376,23 @@ func createOutgoingHandler(
 				Str("provider", provider.Name).
 				Msg("ошибка отправки сообщения")
 
-			// TODO: рефанд списанных средств при ошибке отправки
+			// Рефанд при окончательном провале (permanent error или retry исчерпаны)
+			shouldRefund := retryManager.IsPermanentError(err) || !retryManager.ShouldRetry(dbMsg)
+			if shouldRefund && billingClient != nil && chargedAmount != "" {
+				refundCtx, refundCancel := context.WithTimeout(ctx, 5*time.Second)
+				_, refundErr := billingClient.AddCredits(refundCtx, &billingv1.AddCreditsRequest{
+					ClientId:    dbMsg.ClientID.String(),
+					Amount:      chargedAmount,
+					Currency:    chargedCurrency,
+					Description: fmt.Sprintf("refund: send failed, message %s", dbMsg.ID.String()),
+				})
+				refundCancel()
+				if refundErr != nil {
+					log.Error().Err(refundErr).Str("message_id", dbMsg.ID.String()).Str("amount", chargedAmount).Msg("ошибка рефанда")
+				} else {
+					log.Info().Str("message_id", dbMsg.ID.String()).Str("amount", chargedAmount).Msg("рефанд выполнен")
+				}
+			}
 
 			// Проверяем, стоит ли повторять попытку
 			if retryManager.IsPermanentError(err) {

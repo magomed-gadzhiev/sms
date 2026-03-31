@@ -61,7 +61,7 @@ func (h *ProviderHandlers) CreateProvider(w http.ResponseWriter, r *http.Request
 
 	respondJSON(w, http.StatusCreated, CreateProviderResponse{
 		ProviderID: resp.ProviderId,
-		CreatedAt:  resp.CreatedAt.AsTime(),
+		CreatedAt:  safeTimestamp(resp.CreatedAt),
 	})
 }
 

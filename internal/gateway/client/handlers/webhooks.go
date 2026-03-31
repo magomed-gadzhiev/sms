@@ -63,7 +63,9 @@ func (h *WebhookHandlers) CreateWebhook(w http.ResponseWriter, r *http.Request) 
 		"event_types": resp.Subscription.EventTypes,
 		"active":      resp.Subscription.Active,
 		"secret":      resp.Secret,
-		"created_at":  resp.Subscription.CreatedAt.AsTime(),
+	}
+	if resp.Subscription.CreatedAt != nil {
+		result["created_at"] = resp.Subscription.CreatedAt.AsTime()
 	}
 	respondJSON(w, http.StatusCreated, result)
 }

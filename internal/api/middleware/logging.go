@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // LoggingMiddleware создает middleware для логирования запросов
@@ -32,8 +33,9 @@ func LoggingMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
 				Str("user_agent", r.UserAgent()).
 				Logger()
 
-			// Добавляем request ID в контекст
-			ctx := reqLogger.WithContext(r.Context())
+			// Добавляем request ID в контекст (и в zerolog, и в shared для propagation)
+			ctx := shared.WithRequestID(r.Context(), requestID)
+			ctx = reqLogger.WithContext(ctx)
 			r = r.WithContext(ctx)
 
 			// Обертка для ResponseWriter для отслеживания статуса

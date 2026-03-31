@@ -112,7 +112,10 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 	if billingAddr == "" {
 		billingAddr = "billing-service:9097"
 	}
-	billingGRPCConn, err = grpc.NewClient(billingAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	billingGRPCConn, err = grpc.NewClient(billingAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(false)),
+	)
 	if err != nil {
 		logger.Warn().Err(err).Msg("не удалось подключиться к billing-service")
 	} else {
@@ -127,7 +130,10 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 	if tarificationAddr == "" {
 		tarificationAddr = "tarification-service:9100"
 	}
-	tarificationGRPCConn, err = grpc.NewClient(tarificationAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	tarificationGRPCConn, err = grpc.NewClient(tarificationAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(false)),
+	)
 	if err != nil {
 		logger.Warn().Err(err).Msg("не удалось подключиться к tarification-service")
 	} else {
@@ -203,11 +209,16 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 
 	// 2. Проверка заморозки и тарификация — ДО отправки.
 	if s.billingClient != nil && routedMsg.ClientID != nil {
-		balanceResp, balanceErr := s.billingClient.GetBalance(ctx, &billingv1.GetBalanceRequest{
+		grpcCtx, grpcCancel := context.WithTimeout(ctx, 5*time.Second)
+		balanceResp, balanceErr := s.billingClient.GetBalance(grpcCtx, &billingv1.GetBalanceRequest{
 			ClientId: routedMsg.ClientID.String(),
 		})
+		grpcCancel()
 		if balanceErr != nil {
-			s.logger.Warn().Err(balanceErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка получения баланса (продолжаем)")
+			s.logger.Error().Err(balanceErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка получения баланса — сообщение отклонено")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "billing_unavailable").Inc()
+			session.MarkMessage(msg, "")
+			return nil
 		} else if balanceResp != nil && balanceResp.Frozen {
 			s.logger.Warn().
 				Str("message_id", routedMsg.MessageID.String()).
@@ -219,13 +230,15 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		}
 	}
 
+	var chargedAmount, chargedCurrency string
 	if s.tarificationClient != nil && routedMsg.ClientID != nil {
 		segments := shared.SplitMessage(routedMsg.Text)
 		segCount := int32(len(segments))
 		if segCount == 0 {
 			segCount = 1
 		}
-		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(ctx, &tarificationv1.TarifyMessageRequest{
+		tarifyCtx, tarifyCancel := context.WithTimeout(ctx, 5*time.Second)
+		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(tarifyCtx, &tarificationv1.TarifyMessageRequest{
 			ClientId:       routedMsg.ClientID.String(),
 			MessageId:      routedMsg.MessageID.String(),
 			OperatorId:     s.defaultOperatorID,
@@ -233,6 +246,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 			SegmentCount:   segCount,
 			IdempotencyKey: routedMsg.MessageID.String(),
 		})
+		tarifyCancel()
 		if tarifyErr != nil {
 			s.logger.Error().Err(tarifyErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка тарификации — сообщение отклонено")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_error").Inc()
@@ -247,6 +261,10 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_rejected").Inc()
 			session.MarkMessage(msg, "")
 			return nil
+		}
+		if tarifyResp != nil {
+			chargedAmount = tarifyResp.TotalAmount
+			chargedCurrency = tarifyResp.Currency
 		}
 	}
 
@@ -303,7 +321,32 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		}
 	}
 
-	// 6b. Если оба провайдера failed и retry_count < max_retries — публикуем в sms.failed (R-007).
+	// 6b. Рефанд при окончательном провале (все retry исчерпаны).
+	if sendErr != nil && routedMsg.RetryCount >= routedMsg.MaxRetries {
+		if s.billingClient != nil && routedMsg.ClientID != nil && chargedAmount != "" {
+			refundCtx, refundCancel := context.WithTimeout(ctx, 5*time.Second)
+			_, refundErr := s.billingClient.AddCredits(refundCtx, &billingv1.AddCreditsRequest{
+				ClientId:    routedMsg.ClientID.String(),
+				Amount:      chargedAmount,
+				Currency:    chargedCurrency,
+				Description: fmt.Sprintf("refund: send failed after %d retries, message %s", routedMsg.RetryCount, routedMsg.MessageID.String()),
+			})
+			refundCancel()
+			if refundErr != nil {
+				s.logger.Error().Err(refundErr).
+					Str("message_id", routedMsg.MessageID.String()).
+					Str("amount", chargedAmount).
+					Msg("ошибка рефанда после окончательного провала отправки")
+			} else {
+				s.logger.Info().
+					Str("message_id", routedMsg.MessageID.String()).
+					Str("amount", chargedAmount).
+					Msg("рефанд выполнен после окончательного провала отправки")
+			}
+		}
+	}
+
+	// 6c. Если оба провайдера failed и retry_count < max_retries — публикуем в sms.failed (R-007).
 	if sendErr != nil && routedMsg.RetryCount < routedMsg.MaxRetries {
 		failedMsg := &queue.FailedMessage{
 			MessageID:  routedMsg.MessageID,

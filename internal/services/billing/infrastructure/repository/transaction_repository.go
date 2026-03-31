@@ -63,6 +63,45 @@ func (r *TransactionRepository) Create(ctx context.Context, transaction *domain.
 	return err
 }
 
+// CreateTx создает новую транзакцию в рамках DB-транзакции
+func (r *TransactionRepository) CreateTx(ctx context.Context, tx *sqlx.Tx, transaction *domain.Transaction) error {
+	query := `
+		INSERT INTO transactions (
+			id, client_id, type, amount, currency,
+			balance_before, balance_after, description,
+			message_id, payment_method, metadata, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+		)
+	`
+
+	var metadataJSON []byte
+	if transaction.Metadata != nil && len(transaction.Metadata) > 0 {
+		var err error
+		metadataJSON, err = json.Marshal(transaction.Metadata)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := tx.ExecContext(ctx, query,
+		transaction.ID,
+		transaction.ClientID,
+		string(transaction.Type),
+		transaction.Amount,
+		transaction.Currency,
+		transaction.BalanceBefore,
+		transaction.BalanceAfter,
+		transaction.Description,
+		transaction.MessageID,
+		transaction.PaymentMethod,
+		metadataJSON,
+		transaction.CreatedAt,
+	)
+
+	return err
+}
+
 // GetByID получает транзакцию по ID
 func (r *TransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Transaction, error) {
 	var transaction domain.Transaction

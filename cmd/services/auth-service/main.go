@@ -13,6 +13,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	grpcapi "github.com/smpp-server/smpp-server/internal/api/grpc"
+
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -144,6 +146,7 @@ func main() {
 
 	// Создание gRPC сервера
 	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(grpcapi.TraceUnaryServerInterceptor()),
 		grpc.MaxRecvMsgSize(cfg.API.GRPC.MaxRecv),
 		grpc.MaxSendMsgSize(cfg.API.GRPC.MaxSend),
 	)
