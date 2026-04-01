@@ -153,7 +153,59 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 		}
 	}()
 
+	// 5. Получаем данные для графиков (7-дневный timeline)
+	var chartTimeline []map[string]interface{}
+	var statusDistribution []map[string]interface{}
+	var trendDelta int32
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if h.analyticsClient == nil {
+			return
+		}
+		now := time.Now()
+		sevenDaysAgo := now.AddDate(0, 0, -7)
+
+		resp, err := h.analyticsClient.GetStatistics(ctx, &analyticsv1.GetStatisticsRequest{
+			ClientId: clientID.String(),
+			From:     timestamppb.New(sevenDaysAgo),
+			To:       timestamppb.New(now),
+			GroupBy:  "day",
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка получения данных для графиков дашборда")
+			return
+		}
+
+		for _, g := range resp.Groups {
+			entry := map[string]interface{}{"date": g.Key}
+			if g.Stats != nil {
+				entry["sent"] = g.Stats.TotalSent
+				entry["delivered"] = g.Stats.TotalDelivered
+				entry["failed"] = g.Stats.TotalFailed
+			}
+			chartTimeline = append(chartTimeline, entry)
+		}
+
+		if resp.Totals != nil {
+			trendDelta = resp.Totals.SuccessRate
+			statusDistribution = []map[string]interface{}{
+				{"status": "delivered", "count": resp.Totals.TotalDelivered, "label": "Доставлено"},
+				{"status": "failed", "count": resp.Totals.TotalFailed, "label": "Ошибка"},
+				{"status": "pending", "count": resp.Totals.TotalPending, "label": "В обработке"},
+			}
+		}
+	}()
+
 	wg.Wait()
+
+	if chartTimeline == nil {
+		chartTimeline = []map[string]interface{}{}
+	}
+	if statusDistribution == nil {
+		statusDistribution = []map[string]interface{}{}
+	}
 
 	response := map[string]interface{}{
 		"balance":                  balance,
@@ -163,6 +215,11 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 		"delivery_rate_today":      deliveryRateToday,
 		"active_api_keys":          activeAPIKeys,
 		"active_webhooks":          activeWebhooks,
+		"charts": map[string]interface{}{
+			"timeline_7d":         chartTimeline,
+			"status_distribution": statusDistribution,
+			"delivery_rate_trend": trendDelta,
+		},
 	}
 
 	respondJSON(w, http.StatusOK, response)

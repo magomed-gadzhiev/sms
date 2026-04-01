@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { templatesApi, senderNamesApi, ApiError, type TemplateInfo, type SenderNameInfo } from '../../api/client';
+import { useFormValidation } from '../../hooks/useFormValidation';
+import { CharacterCounter } from '../../components/ui/CharacterCounter';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { DataTable, type Column } from '../../components/data/DataTable';
+import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
@@ -45,6 +48,11 @@ export function TemplatesPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const tplValidation = useFormValidation({
+    name: { required: true, minLength: 3, maxLength: 100 },
+    body: { required: true, maxLength: 1600 },
+  });
 
   // Approved sender names for dropdown
   const [approvedSenderNames, setApprovedSenderNames] = useState<SenderNameInfo[]>([]);
@@ -119,6 +127,11 @@ export function TemplatesPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const valid = tplValidation.validateAll({ name: formName, body: formBody });
+    if (!valid) {
+      tplValidation.scrollToFirstError();
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -266,11 +279,17 @@ export function TemplatesPage() {
               label="Название *"
               type="text"
               value={formName}
-              onChange={(e) => setFormName(e.target.value)}
+              onChange={(e) => { setFormName(e.target.value); tplValidation.fieldProps('name').onChange(e); }}
+              onBlur={(e) => tplValidation.fieldProps('name').onBlur(e)}
+              aria-invalid={tplValidation.errors.name ? true : undefined}
+              aria-describedby={tplValidation.errors.name ? 'name-error' : undefined}
               required
               placeholder="Например: Код подтверждения"
-              className="w-full"
+              className={`w-full ${tplValidation.errors.name ? 'border-red-400 focus:border-red-400' : ''}`}
             />
+            {tplValidation.errors.name && (
+              <p id="name-error" className="mt-1 text-xs text-red-600">{tplValidation.errors.name}</p>
+            )}
           </div>
 
           {approvedSenderNames.length > 0 && (
@@ -292,20 +311,30 @@ export function TemplatesPage() {
           )}
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Текст шаблона *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Текст шаблона *
+              </label>
+              <CharacterCounter current={formBody.length} max={160} />
+            </div>
             <textarea
               value={formBody}
-              onChange={(e) => setFormBody(e.target.value)}
+              onChange={(e) => { setFormBody(e.target.value); tplValidation.fieldProps('body').onChange(e); }}
+              onBlur={(e) => tplValidation.fieldProps('body').onBlur(e)}
+              aria-invalid={tplValidation.errors.body ? true : undefined}
+              aria-describedby={tplValidation.errors.body ? 'body-error' : undefined}
               required
               rows={5}
               placeholder="Ваш код: {{code}}. Здравствуйте, {{name}}!"
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className={`w-full rounded border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary ${tplValidation.errors.body ? 'border-red-400' : 'border-gray-300'}`}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Используйте переменные в двойных фигурных скобках: {'{{name}}'}, {'{{code}}'}, {'{{company}}'}
-            </p>
+            {tplValidation.errors.body ? (
+              <p id="body-error" className="mt-1 text-xs text-red-600">{tplValidation.errors.body}</p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">
+                Используйте переменные в двойных фигурных скобках: {'{{name}}'}, {'{{code}}'}, {'{{company}}'}
+              </p>
+            )}
           </div>
 
           <div className="flex gap-2 justify-end">
@@ -400,6 +429,28 @@ export function TemplatesPage() {
         onPageChange={setPage}
         loading={loading}
         keyField="id"
+        bulkActions={[
+          {
+            label: 'На проверку',
+            variant: 'primary',
+            requiresConfirmation: true,
+            confirmMessage: (n) => `Отправить ${n} шаблонов на проверку?`,
+            onAction: async (ids) => {
+              await Promise.all(ids.map((id) => templatesApi.submit(id).catch(() => {})));
+              await fetchTemplates();
+            },
+          } as BulkAction<TemplateInfo>,
+          {
+            label: 'Удалить',
+            variant: 'danger',
+            requiresConfirmation: true,
+            confirmMessage: (n) => `Удалить ${n} шаблонов? Это действие необратимо.`,
+            onAction: async (ids) => {
+              await Promise.all(ids.map((id) => templatesApi.remove(id).catch(() => {})));
+              await fetchTemplates();
+            },
+          } as BulkAction<TemplateInfo>,
+        ]}
         rowActions={(tpl) => (
           <div className="flex gap-1 flex-wrap">
             <Button

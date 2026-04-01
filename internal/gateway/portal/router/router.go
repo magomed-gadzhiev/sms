@@ -52,6 +52,9 @@ func SetupRouter(
 	segmentHandlers *handlers.SegmentHandlers,
 	subAccountRoutingHandlers *handlers.SubAccountRoutingHandlers,
 	senderNameHandlers *handlers.SenderNameHandlers,
+	notificationHandlers *handlers.NotificationHandlers,
+	searchHandlers *handlers.SearchHandlers,
+	exportHandlers *handlers.ExportHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -283,6 +286,21 @@ func SetupRouter(
 
 	// Operator Sender Tariff
 	protected.HandleFunc("/operators/{id}/sender-tariff", senderNameHandlers.GetOperatorSenderTariff).Methods("GET")
+
+	// Notifications endpoints
+	notifications := protected.PathPrefix("/notifications").Subrouter()
+	notifications.HandleFunc("", notificationHandlers.GetNotifications).Methods("GET")
+	notifications.HandleFunc("/read-all", notificationHandlers.MarkAllNotificationsRead).Methods("POST")
+	notifications.HandleFunc("/{id}/read", notificationHandlers.MarkNotificationRead).Methods("POST")
+
+	// Global search
+	protected.HandleFunc("/search", searchHandlers.Search).Methods("GET")
+
+	// CSV Export endpoints
+	export := protected.PathPrefix("/export").Subrouter()
+	export.HandleFunc("/start", exportHandlers.StartExport).Methods("POST")
+	export.HandleFunc("/{job_id}/status", exportHandlers.GetExportStatus).Methods("GET")
+	export.HandleFunc("/{job_id}/download", exportHandlers.DownloadExport).Methods("GET")
 
 	return router
 }

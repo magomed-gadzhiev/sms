@@ -473,3 +473,132 @@ export const lookupApi = {
     return apiFetch<unknown>(`/lookup/stats?${qs}`);
   },
 };
+
+// Dashboard charts types (US1)
+export interface TimelineEntry {
+  date: string;
+  sent: number;
+  delivered: number;
+  failed: number;
+}
+
+export interface StatusDistributionItem {
+  status: string;
+  count: number;
+  label: string;
+}
+
+export interface DashboardChartData {
+  timeline_7d: TimelineEntry[];
+  status_distribution: StatusDistributionItem[];
+  delivery_rate_trend: number;
+}
+
+export interface DashboardData {
+  balance: string;
+  currency: string;
+  messages_today: number;
+  messages_delivered_today: number;
+  delivery_rate_today: number;
+  active_api_keys: number;
+  active_webhooks: number;
+  charts?: DashboardChartData;
+}
+
+// Notifications API (US7)
+export interface NotificationItem {
+  id: string;
+  type: string;
+  body: string;
+  object_type?: string;
+  object_id?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  items: NotificationItem[];
+  unread_count: number;
+}
+
+export const notificationsApi = {
+  list: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<NotificationsResponse>(`/notifications?${qs}`);
+  },
+  markRead: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllRead: () =>
+    apiFetch<{ ok: boolean }>('/notifications/read-all', { method: 'POST' }),
+};
+
+// Search / Command Palette API (US5)
+export interface CommandItem {
+  id: string;
+  type: string;
+  category: string;
+  title: string;
+  subtitle?: string;
+  url: string;
+}
+
+export const searchApi = {
+  search: (q: string) =>
+    apiFetch<{ items: CommandItem[] }>(`/search?q=${encodeURIComponent(q)}`),
+};
+
+// CSV Export API (US4)
+export interface ExportJob {
+  job_id: string;
+  status: 'pending' | 'processing' | 'ready' | 'error';
+  total_rows?: string;
+}
+
+export const exportApi = {
+  start: (filters: Record<string, string> = {}) =>
+    apiFetch<{ job_id: string }>('/export/start', {
+      method: 'POST',
+      body: JSON.stringify(filters),
+    }),
+  getStatus: (jobId: string) =>
+    apiFetch<ExportJob>(`/export/${jobId}/status`),
+  download: (jobId: string) => {
+    const csrfToken = getCookie('csrf_token');
+    return fetch(`${API_BASE}/export/${jobId}/download`, {
+      credentials: 'include',
+      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+    });
+  },
+};
+
+// Analytics extended types (US8)
+export interface AnalyticsParams {
+  period?: string;
+  date_from?: string;
+  date_to?: string;
+  group_by?: string;
+  compare?: boolean;
+  include_cost?: boolean;
+}
+
+export interface CostByDay {
+  date: string;
+  amount: string;
+}
+
+export interface AnalyticsDataExtended {
+  summary: {
+    total_sent: number;
+    total_delivered: number;
+    total_failed: number;
+    total_expired: number;
+    delivery_rate: number;
+    total_cost: string;
+    currency: string;
+  };
+  timeline: Array<{ period: string; sent: number; delivered: number; failed: number; delivery_rate: number }>;
+  previous_timeline?: Array<{ period: string; sent: number; delivered: number }>;
+  by_country: Array<{ country: string; sent: number; delivered: number; failed: number; delivery_rate: number }>;
+  cost_by_day?: CostByDay[];
+  cost_forecast?: string;
+}

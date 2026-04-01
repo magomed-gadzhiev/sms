@@ -171,10 +171,42 @@ func (h *AnalyticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Comparison period (compare=true)
+	var prevTimeline []map[string]interface{}
+	compareParam := query.Get("compare")
+	if compareParam == "true" && h.analyticsClient != nil {
+		prevDuration := dateTo.Sub(dateFrom)
+		prevFrom := dateFrom.Add(-prevDuration)
+		prevTo := dateFrom.Add(-time.Second)
+
+		prevResp, err := h.analyticsClient.GetStatistics(ctx, &analyticsv1.GetStatisticsRequest{
+			ClientId: clientID.String(),
+			From:     timestamppb.New(prevFrom),
+			To:       timestamppb.New(prevTo),
+			GroupBy:  groupBy,
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка получения данных сравнения")
+		} else {
+			for _, g := range prevResp.Groups {
+				entry := map[string]interface{}{"period": g.Key}
+				if g.Stats != nil {
+					entry["sent"] = g.Stats.TotalSent
+					entry["delivered"] = g.Stats.TotalDelivered
+				}
+				prevTimeline = append(prevTimeline, entry)
+			}
+		}
+	}
+	if prevTimeline == nil {
+		prevTimeline = []map[string]interface{}{}
+	}
+
 	response := map[string]interface{}{
-		"summary":    summary,
-		"timeline":   timeline,
-		"by_country": byCountry,
+		"summary":           summary,
+		"timeline":          timeline,
+		"previous_timeline": prevTimeline,
+		"by_country":        byCountry,
 	}
 
 	respondJSON(w, http.StatusOK, response)

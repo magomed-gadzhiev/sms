@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar, type NavItem, type NavGroup } from './Sidebar';
 import { SkipLink } from '../SkipLink';
 import { useAuth } from '../../contexts/AuthContext';
+import { NotificationBell } from '../ui/NotificationBell';
+import { CommandPalette } from '../ui/CommandPalette';
 
 const DASHBOARD_NAV: NavItem[] = [
   { path: '/dashboard', label: 'Дашборд' },
@@ -56,6 +58,18 @@ const NAV_GROUPS: NavGroup[] = [
 export function UserLayout() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <div className="flex min-h-screen">
@@ -73,6 +87,18 @@ export function UserLayout() {
           </svg>
         </button>
         <span className="ml-3 font-semibold text-gray-900">SMS Portal</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setIsPaletteOpen(true)}
+            className="text-gray-400 hover:text-gray-600 p-1"
+            aria-label="Поиск (Ctrl+K)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+          <NotificationBell />
+        </div>
       </div>
 
       <Sidebar
@@ -83,11 +109,23 @@ export function UserLayout() {
         onClose={() => setIsMobileMenuOpen(false)}
         footer={
           <div>
-            <div className="text-sm text-gray-600 truncate mb-2">{user?.email}</div>
-            <button
-              onClick={logout}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-600 truncate">{user?.email}</div>
+              <div className="hidden md:flex items-center gap-1">
+                <button
+                  onClick={() => setIsPaletteOpen(true)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded"
+                  aria-label="Поиск (Ctrl+K)"
+                  title="Ctrl+K"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+                <NotificationBell />
+              </div>
+            </div>
+            <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-700">
               Выйти
             </button>
           </div>
@@ -96,6 +134,8 @@ export function UserLayout() {
       <main id="main-content" className="flex-1 p-4 md:p-6 bg-gray-50/50 overflow-auto pt-18 md:pt-6">
         <Outlet />
       </main>
+
+      <CommandPalette isOpen={isPaletteOpen} onClose={() => setIsPaletteOpen(false)} />
     </div>
   );
 }

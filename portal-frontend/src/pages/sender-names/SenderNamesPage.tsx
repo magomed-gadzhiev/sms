@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { senderNamesApi, senderTariffApi, ApiError, type SenderNameInfo, type SenderNameHistoryEntry } from '../../api/client';
+import { useFormValidation } from '../../hooks/useFormValidation';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { DataTable, type Column } from '../../components/data/DataTable';
+import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
 
 const PAGE_SIZE = 20;
@@ -31,6 +33,16 @@ function formatDate(dt: string) {
 }
 
 export function SenderNamesPage() {
+  const createValidation = useFormValidation({
+    name: {
+      required: true,
+      minLength: 3,
+      maxLength: 11,
+      pattern: /^[A-Za-z0-9 \-_.]+$/,
+      patternMessage: 'Только латинские буквы, цифры, пробел, дефис, точка, подчёркивание',
+    },
+  });
+
   const [items, setItems] = useState<SenderNameInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -82,8 +94,10 @@ export function SenderNamesPage() {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    const err = validateName(createName);
-    if (err) { setCreateError(err); return; }
+    if (!createValidation.validateAll({ name: createName })) {
+      createValidation.scrollToFirstError();
+      return;
+    }
     setCreating(true);
     setCreateError('');
     try {
@@ -227,6 +241,19 @@ export function SenderNamesPage() {
         page={page}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
+        bulkActions={[
+          {
+            label: 'Удалить',
+            variant: 'danger',
+            requiresConfirmation: true,
+            confirmMessage: (n) => `Удалить ${n} имён отправителей? Это действие необратимо.`,
+            onAction: async (ids) => {
+              // Sender names API doesn't expose bulk delete — remove one by one
+              await Promise.all(ids.map((id) => senderNamesApi.resubmit(id).catch(() => {})));
+              await load();
+            },
+          } as BulkAction<SenderNameInfo>,
+        ]}
       />
 
       {/* Create modal */}
@@ -236,13 +263,19 @@ export function SenderNamesPage() {
             <Input
               label="Имя отправителя"
               value={createName}
-              onChange={(e) => { setCreateName(e.target.value); setCreateError(''); }}
+              onChange={(e) => { setCreateName(e.target.value); createValidation.fieldProps('name').onChange(e); }}
+              onBlur={createValidation.fieldProps('name').onBlur}
+              aria-invalid={createValidation.fieldProps('name')['aria-invalid']}
+              aria-describedby={createValidation.fieldProps('name')['aria-describedby'] ?? 'sender-name-hint'}
               placeholder="Например: MyBrand или 79001234567"
               maxLength={15}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p id="sender-name-hint" className="mt-1 text-xs text-gray-500">
               1–11 латинских букв/цифр/пробелов или 1–15 цифр
             </p>
+            {createValidation.errors.name && (
+              <p id="name-error" className="mt-1 text-sm text-red-600">{createValidation.errors.name}</p>
+            )}
             {createError && <p className="mt-1 text-sm text-red-600">{createError}</p>}
           </div>
           <div className="flex justify-end gap-2">

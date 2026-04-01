@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { TemplatePreview } from '../../components/campaigns/TemplatePreview';
 import { TemplatePicker } from '../../components/campaigns/TemplatePicker';
+import { StepIndicator } from '../../components/campaigns/StepIndicator';
 
 type WizardStep = 'basics' | 'message' | 'schedule' | 'retry' | 'confirm';
 
@@ -24,6 +25,8 @@ const STEP_LABELS: Record<WizardStep, string> = {
 export function CampaignWizardPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<WizardStep>('basics');
+  const [maxReachedIndex, setMaxReachedIndex] = useState(0);
+  const [validationErrors, setValidationErrors] = useState<Partial<Record<WizardStep, boolean>>>({});
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,14 +60,27 @@ export function CampaignWizardPage() {
   const currentStepIdx = STEPS.indexOf(step);
 
   function nextStep() {
+    if (!canProceed()) {
+      setValidationErrors((prev) => ({ ...prev, [step]: true }));
+      return;
+    }
+    setValidationErrors((prev) => ({ ...prev, [step]: false }));
     if (currentStepIdx < STEPS.length - 1) {
-      setStep(STEPS[currentStepIdx + 1]);
+      const nextIdx = currentStepIdx + 1;
+      setStep(STEPS[nextIdx]);
+      setMaxReachedIndex((prev) => Math.max(prev, nextIdx));
     }
   }
 
   function prevStep() {
     if (currentStepIdx > 0) {
       setStep(STEPS[currentStepIdx - 1]);
+    }
+  }
+
+  function handleStepClick(idx: number) {
+    if (idx <= maxReachedIndex) {
+      setStep(STEPS[idx]);
     }
   }
 
@@ -136,40 +152,15 @@ export function CampaignWizardPage() {
       />
 
       {/* Step indicator */}
-      <nav aria-label="Шаги создания рассылки" className="mb-6">
-        <ol className="flex items-center gap-2">
-          {STEPS.map((s, idx) => {
-            const isActive = s === step;
-            const isPast = currentStepIdx > idx;
-            const stepStatus = isActive ? 'текущий' : isPast ? 'завершён' : 'ожидает';
-            return (
-              <li key={s} className="flex items-center gap-2">
-                {idx > 0 && (
-                  <div
-                    className={`w-8 h-0.5 ${isPast ? 'bg-blue-500' : 'bg-gray-300'}`}
-                    aria-hidden="true"
-                  />
-                )}
-                <button
-                  onClick={() => isPast && setStep(s)}
-                  disabled={!isPast}
-                  aria-label={`${STEP_LABELS[s]} — ${stepStatus}`}
-                  aria-current={isActive ? 'step' : undefined}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-100 text-blue-700'
-                      : isPast
-                        ? 'bg-green-100 text-green-700 cursor-pointer hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {STEP_LABELS[s]}
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+      <div className="mb-6">
+        <StepIndicator
+          steps={STEPS.map((s) => ({ key: s, label: STEP_LABELS[s] }))}
+          currentIndex={currentStepIdx}
+          maxReachedIndex={maxReachedIndex}
+          validationErrors={validationErrors as Record<string, boolean>}
+          onStepClick={handleStepClick}
+        />
+      </div>
 
       {error && (
         <div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-4 text-sm">
