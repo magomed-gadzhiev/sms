@@ -33,7 +33,7 @@ export function CampaignsPage() {
 
   const perPage = 20;
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -47,11 +47,11 @@ export function CampaignsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page]);
 
   useEffect(() => {
     load();
-  }, [page]);
+  }, [load]);
 
   async function confirmDelete() {
     if (!deleteId) return;

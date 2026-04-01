@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { billingApi } from '../../api/client';
+import { billingApi, ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { DataTable, type Column } from '../../components/data/DataTable';
@@ -145,7 +145,13 @@ export function BillingPage() {
     billingApi
       .getBalance()
       .then((resp) => setBalance(resp as BalanceInfo))
-      .catch(() => setBalanceError('Не удалось загрузить данные биллинга'))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 404) {
+          setBalance({ client_id: '', balance: '0.00', currency: 'RUB' });
+        } else {
+          setBalanceError('Не удалось загрузить данные биллинга');
+        }
+      })
       .finally(() => setBalanceLoading(false));
   }, []);
 
@@ -292,16 +298,24 @@ export function BillingPage() {
 
       {error && <div className="text-red-600 mb-3">Ошибка: {error}</div>}
 
-      <DataTable<TransactionItem>
-        columns={columns}
-        data={data?.transactions ?? []}
-        total={data?.total ?? 0}
-        page={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-        keyField="transaction_id"
-        loading={loading}
-      />
+      {!loading && !error && (data?.transactions?.length ?? 0) === 0 && (
+        <div className="text-center py-8 text-gray-500 text-sm">
+          История транзакций пуста
+        </div>
+      )}
+
+      {(loading || (data?.transactions?.length ?? 0) > 0) && (
+        <DataTable<TransactionItem>
+          columns={columns}
+          data={data?.transactions ?? []}
+          total={data?.total ?? 0}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+          keyField="transaction_id"
+          loading={loading}
+        />
+      )}
     </div>
   );
 }

@@ -240,10 +240,6 @@ export function TemplatesPage() {
 
   const deleteTemplate = templates.find((t) => t.id === deleteId);
 
-  if (loading && templates.length === 0) {
-    return <div role="status">Загрузка шаблонов...</div>;
-  }
-
   return (
     <div className="max-w-[900px]">
       <PageHeader
@@ -381,7 +377,20 @@ export function TemplatesPage() {
         variant="danger"
       />
 
+      {loading && templates.length === 0 && (
+        <div role="status">Загрузка шаблонов...</div>
+      )}
+
+      {!loading && !error && templates.length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          <p className="mb-2">Шаблоны не созданы</p>
+          <p className="text-sm mb-4">Создайте первый шаблон для отправки сообщений</p>
+          <Button onClick={openCreateForm}>Создать шаблон</Button>
+        </div>
+      )}
+
       {/* Templates table */}
+      {(loading || templates.length > 0) && (
       <DataTable<TemplateInfo>
         columns={columns}
         data={templates}
@@ -444,6 +453,7 @@ export function TemplatesPage() {
           </div>
         )}
       />
+      )}
     </div>
   );
 }
