@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/dlr"
 )
 
 // DLRService предоставляет бизнес-логику для обработки DLR receipts
@@ -72,22 +73,22 @@ func (s *DLRService) ProcessDLR(
 	}
 
 	// Создаем DLR receipt
-	dlr := domain.NewDLRReceipt(msg.ID, smppMessageID, stat)
+	receipt := domain.NewDLRReceipt(msg.ID, smppMessageID, stat)
 	if doneDate != nil {
-		dlr.DoneDate = doneDate
+		receipt.DoneDate = doneDate
 	}
 	if errCode != nil {
-		dlr.Err = errCode
+		receipt.Err = errCode
 	}
 	if errText != "" {
-		dlr.Text = errText
+		receipt.Text = errText
 	}
 	if providerID != nil {
-		dlr.ProviderID = providerID
+		receipt.ProviderID = providerID
 	}
 
 	// Сохраняем DLR receipt
-	if err := s.dlrRepo.Create(ctx, dlr); err != nil {
+	if err := s.dlrRepo.Create(ctx, receipt); err != nil {
 		log.Error().Err(err).Msg("ошибка сохранения DLR receipt")
 		return fmt.Errorf("failed to save DLR receipt: %w", err)
 	}
@@ -95,12 +96,12 @@ func (s *DLRService) ProcessDLR(
 	// Обновляем статус сообщения на основе DLR
 	oldStatus := string(msg.Status)
 
-	switch stat {
-	case "DELIVRD":
+	switch dlr.DLRStatus(stat) {
+	case dlr.DLRStatusDelivered:
 		msg.MarkAsDelivered()
-	case "EXPIRED":
+	case dlr.DLRStatusExpired:
 		msg.MarkAsExpired()
-	case "REJECTD", "UNDELIV":
+	case dlr.DLRStatusRejected, dlr.DLRStatusUndeliv:
 		msg.MarkAsFailed(errText)
 	default:
 		// Для других статусов оставляем текущий статус или обрабатываем по коду ошибки
@@ -125,7 +126,7 @@ func (s *DLRService) ProcessDLR(
 	// Публикуем событие изменения статуса, если он изменился
 	if oldStatus != string(msg.Status) {
 		if err := s.eventPublisher.PublishMessageStatusChanged(ctx, msg, oldStatus); err != nil {
-			log.Warn().Err(err).Msg("ошибка публикации события message.status.changed")
+			log.Error().Err(err).Msg("ошибка публикации события message.status.changed")
 		}
 	}
 

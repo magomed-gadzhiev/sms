@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
 import { apiKeysApi, ApiError, type APIKeyInfo, type CreateAPIKeyResponse } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -182,7 +182,10 @@ export function APIKeysPage() {
     }
   }
 
-  const columns: Column<APIKeyInfo>[] = [
+  const handleOpenDetail = useCallback((key: APIKeyInfo) => openDetailModal(key), []);
+  const handleRevokeClick = useCallback((key: APIKeyInfo) => setRevokeId(key.id), []);
+
+  const columns = useMemo<Column<APIKeyInfo>[]>(() => [
     { key: 'name', header: 'Название' },
     {
       key: 'prefix',
@@ -217,7 +220,7 @@ export function APIKeysPage() {
       render: (key) =>
         key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Никогда',
     },
-  ];
+  ], []);
 
   if (loading) return <div role="status">Загрузка API ключей...</div>;
 
@@ -278,10 +281,11 @@ export function APIKeysPage() {
           </div>
 
           <div className="mb-3">
-            <label className="text-sm font-medium text-gray-700">
+            <label htmlFor="api-key-allowed-ips" className="text-sm font-medium text-gray-700">
               Разрешённые IP (через запятую или по одному на строку, поддержка CIDR)
             </label>
             <textarea
+              id="api-key-allowed-ips"
               value={allowedIpsInput}
               onChange={(e) => setAllowedIpsInput(e.target.value)}
               placeholder="Например: 192.168.1.1, 10.0.0.0/8"
@@ -291,19 +295,21 @@ export function APIKeysPage() {
           </div>
 
           <div className="mb-3">
-            <label className="text-sm font-medium text-gray-700">Области доступа</label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {AVAILABLE_SCOPES.map((scope) => (
-                <label key={scope} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={selectedScopes.includes(scope)}
-                    onChange={() => toggleScope(scope)}
-                  />
-                  <span className="text-sm">{scope}</span>
-                </label>
-              ))}
-            </div>
+            <fieldset>
+              <legend className="text-sm font-medium text-gray-700">Области доступа</legend>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {AVAILABLE_SCOPES.map((scope) => (
+                  <label key={scope} className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedScopes.includes(scope)}
+                      onChange={() => toggleScope(scope)}
+                    />
+                    <span className="text-sm">{scope}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <small className="text-gray-500">Оставьте пустым для полного доступа</small>
           </div>
 
@@ -419,26 +425,29 @@ export function APIKeysPage() {
             </div>
 
             <div className="mb-3">
-              <label className="text-sm font-medium text-gray-700">Области доступа</label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {EDIT_SCOPES.map((scope) => (
-                  <label key={scope} className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={editScopes.includes(scope)}
-                      onChange={() => toggleEditScope(scope)}
-                    />
-                    <span className="text-sm">{scope}</span>
-                  </label>
-                ))}
-              </div>
+              <fieldset>
+                <legend className="text-sm font-medium text-gray-700">Области доступа</legend>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {EDIT_SCOPES.map((scope) => (
+                    <label key={scope} className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={editScopes.includes(scope)}
+                        onChange={() => toggleEditScope(scope)}
+                      />
+                      <span className="text-sm">{scope}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             </div>
 
             <div className="mb-3">
-              <label className="text-sm font-medium text-gray-700">
+              <label htmlFor="edit-api-key-allowed-ips" className="text-sm font-medium text-gray-700">
                 Разрешенные IP (по одному на строку или через запятую)
               </label>
               <textarea
+                id="edit-api-key-allowed-ips"
                 value={editAllowedIps}
                 onChange={(e) => setEditAllowedIps(e.target.value)}
                 placeholder="192.168.1.1&#10;10.0.0.0/8"
@@ -480,14 +489,15 @@ export function APIKeysPage() {
         pageSize={keys.length || 1}
         onPageChange={() => {}}
         keyField="id"
-        onRowClick={openDetailModal}
+        tableLabel="Список API ключей"
+        onRowClick={handleOpenDetail}
         rowActions={(key) =>
           key.active ? (
             <Button
               variant="danger"
               size="sm"
-              aria-label={`Revoke ${key.name}`}
-              onClick={() => setRevokeId(key.id)}
+              aria-label={`Отозвать API ключ ${key.name}`}
+              onClick={() => handleRevokeClick(key)}
             >
               Отозвать
             </Button>

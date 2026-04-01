@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -85,4 +86,46 @@ func (r *ProviderRepository) GetHealth(ctx context.Context, id uuid.UUID) (*doma
 	}
 
 	return health, nil
+}
+
+// GetHealthBatch получает информацию о здоровье нескольких провайдеров за один запрос.
+func (r *ProviderRepository) GetHealthBatch(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.ProviderHealth, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID]*domain.ProviderHealth{}, nil
+	}
+
+	// Build IN list for the query.
+	query, args, err := sqlx.In(
+		`SELECT id, active, max_connections FROM providers WHERE id IN (?)`,
+		ids,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetHealthBatch: build query: %w", err)
+	}
+	query = r.db.Rebind(query)
+
+	type row struct {
+		ID             uuid.UUID `db:"id"`
+		Active         bool      `db:"active"`
+		MaxConnections int       `db:"max_connections"`
+	}
+	var rows []row
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, fmt.Errorf("GetHealthBatch: query: %w", err)
+	}
+
+	result := make(map[uuid.UUID]*domain.ProviderHealth, len(rows))
+	for _, r := range rows {
+		health := &domain.ProviderHealth{
+			Status:           "healthy",
+			ActiveConnections: 0,
+			TotalConnections:  r.MaxConnections,
+			SuccessRate:       100,
+		}
+		if !r.Active {
+			health.Status = "unhealthy"
+		}
+		result[r.ID] = health
+	}
+	return result, nil
 }

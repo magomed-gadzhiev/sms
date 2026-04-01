@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -30,16 +29,11 @@ func TestLeastLoadedSelector(t *testing.T) {
 				{ID: providerID2, Name: "LowLoad", Active: true},
 			}
 
-			// Provider 1 has high load (80%)
-			providerRepo.On("GetHealth", mock.Anything, providerID1).Return(&domain.ProviderHealth{
-				ActiveConnections: 80,
-				TotalConnections:  100,
-			}, nil)
-			// Provider 2 has low load (20%)
-			providerRepo.On("GetHealth", mock.Anything, providerID2).Return(&domain.ProviderHealth{
-				ActiveConnections: 20,
-				TotalConnections:  100,
-			}, nil)
+			providerRepo.On("GetHealthBatch", mock.Anything, mock.Anything).Return(
+				map[uuid.UUID]*domain.ProviderHealth{
+					providerID1: {ActiveConnections: 80, TotalConnections: 100},
+					providerID2: {ActiveConnections: 20, TotalConnections: 100},
+				}, nil)
 
 			selected, err := selector.SelectProvider(context.Background(), route, providers)
 
@@ -89,12 +83,10 @@ func TestLeastLoadedSelector(t *testing.T) {
 				{ID: providerID2, Name: "HasHealth", Active: true},
 			}
 
-			providerRepo.On("GetHealth", mock.Anything, providerID1).
-				Return(nil, errors.New("no health data"))
-			providerRepo.On("GetHealth", mock.Anything, providerID2).
-				Return(&domain.ProviderHealth{
-					ActiveConnections: 10,
-					TotalConnections:  100,
+			// providerID1 absent from map simulates health error / not found
+			providerRepo.On("GetHealthBatch", mock.Anything, mock.Anything).Return(
+				map[uuid.UUID]*domain.ProviderHealth{
+					providerID2: {ActiveConnections: 10, TotalConnections: 100},
 				}, nil)
 
 			selected, err := selector.SelectProvider(context.Background(), route, providers)
@@ -114,8 +106,9 @@ func TestLeastLoadedSelector(t *testing.T) {
 				{ID: providerID, Name: "NoHealth", Active: true},
 			}
 
-			providerRepo.On("GetHealth", mock.Anything, providerID).
-				Return(nil, errors.New("no health data"))
+			// Empty map: all providers absent — all skipped
+			providerRepo.On("GetHealthBatch", mock.Anything, mock.Anything).Return(
+				map[uuid.UUID]*domain.ProviderHealth{}, nil)
 
 			selected, err := selector.SelectProvider(context.Background(), route, providers)
 
@@ -137,16 +130,11 @@ func TestLeastLoadedSelector(t *testing.T) {
 				{ID: providerID2, Name: "HighLoad", Active: true},
 			}
 
-			// Provider 1 has zero total connections (load = 0)
-			providerRepo.On("GetHealth", mock.Anything, providerID1).Return(&domain.ProviderHealth{
-				ActiveConnections: 0,
-				TotalConnections:  0,
-			}, nil)
-			// Provider 2 has high load
-			providerRepo.On("GetHealth", mock.Anything, providerID2).Return(&domain.ProviderHealth{
-				ActiveConnections: 90,
-				TotalConnections:  100,
-			}, nil)
+			providerRepo.On("GetHealthBatch", mock.Anything, mock.Anything).Return(
+				map[uuid.UUID]*domain.ProviderHealth{
+					providerID1: {ActiveConnections: 0, TotalConnections: 0},
+					providerID2: {ActiveConnections: 90, TotalConnections: 100},
+				}, nil)
 
 			selected, err := selector.SelectProvider(context.Background(), route, providers)
 

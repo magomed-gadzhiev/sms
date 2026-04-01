@@ -22,6 +22,7 @@ type ProviderRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*ProviderInfo, error)
 	GetAllActive(ctx context.Context) ([]*ProviderInfo, error)
 	GetHealth(ctx context.Context, id uuid.UUID) (*ProviderHealth, error)
+	GetHealthBatch(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ProviderHealth, error)
 }
 
 // ProviderInfo представляет информацию о провайдере

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 
 interface Domain {
   id: string;
@@ -11,6 +13,7 @@ interface Domain {
 export function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [newDomain, setNewDomain] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   const fetchDomains = async () => {
@@ -25,12 +28,24 @@ export function DomainsPage() {
   useEffect(() => { fetchDomains(); }, []);
 
   const addDomain = async () => {
-    if (!newDomain.trim()) return;
+    const domain = newDomain.trim();
+    if (!domain) {
+      setError('Введите домен');
+      return;
+    }
+
+    const domainRegex = /^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$/;
+    if (!domainRegex.test(domain)) {
+      setError('Введите корректный домен, например go.yourbrand.com');
+      return;
+    }
+
+    setError('');
     await fetch('/portal/v1/settings/domains', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ domain: newDomain }),
+      body: JSON.stringify({ domain }),
     });
     setNewDomain('');
     fetchDomains();
@@ -47,25 +62,46 @@ export function DomainsPage() {
     pending_ssl: 'text-blue-600 bg-blue-50',
     failed: 'text-red-600 bg-red-50',
   };
+  const statusLabels: Record<string, string> = {
+    active: 'Активен',
+    pending_dns: 'Ожидает DNS',
+    pending_ssl: 'Ожидает SSL',
+    failed: 'Ошибка',
+  };
 
   return (
     <div>
       <PageHeader title="Кастомные домены" subtitle="Управление доменами для коротких ссылок" />
 
-      <div className="flex gap-2 mb-6">
-        <input
-          value={newDomain}
-          onChange={(e) => setNewDomain(e.target.value)}
-          placeholder="go.yourbrand.com"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
-        />
-        <button onClick={addDomain} className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
-          Добавить
-        </button>
-      </div>
+      <form
+        className="flex flex-col sm:flex-row gap-2 mb-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          addDomain();
+        }}
+      >
+        <div className="flex-1">
+          <Input
+            id="new-domain"
+            label="Новый домен"
+            value={newDomain}
+            onChange={(e) => setNewDomain(e.target.value)}
+            placeholder="go.yourbrand.com"
+            aria-describedby={error ? 'domain-error' : undefined}
+          />
+        </div>
+        <div className="self-end">
+          <Button type="submit">Добавить</Button>
+        </div>
+      </form>
+      {error && (
+        <p id="domain-error" role="alert" className="text-sm text-red-600 -mt-4 mb-4">
+          {error}
+        </p>
+      )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Загрузка...</p>
+        <p className="text-sm text-gray-500" role="status" aria-live="polite">Загрузка...</p>
       ) : domains.length === 0 ? (
         <p className="text-sm text-gray-500">Нет добавленных доменов</p>
       ) : (
@@ -75,7 +111,7 @@ export function DomainsPage() {
               <div>
                 <p className="font-medium text-sm">{d.domain}</p>
                 <span className={`text-xs px-2 py-0.5 rounded ${statusColors[d.status] || 'text-gray-600 bg-gray-50'}`}>
-                  {d.status}
+                  {statusLabels[d.status] || d.status}
                 </span>
                 {d.status === 'pending_dns' && (
                   <p className="text-xs text-gray-500 mt-1">
@@ -83,7 +119,11 @@ export function DomainsPage() {
                   </p>
                 )}
               </div>
-              <button onClick={() => deleteDomain(d.id)} className="text-sm text-red-600 hover:text-red-800">
+              <button
+                onClick={() => deleteDomain(d.id)}
+                className="text-sm text-red-600 hover:text-red-800"
+                aria-label={`Удалить домен ${d.domain}`}
+              >
                 Удалить
               </button>
             </div>

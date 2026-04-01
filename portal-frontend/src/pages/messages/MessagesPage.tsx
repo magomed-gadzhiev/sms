@@ -190,6 +190,7 @@ export function MessagesPage() {
         pageSize={20}
         onPageChange={setPage}
         keyField="message_id"
+        tableLabel="Список SMS сообщений"
         loading={loading}
       />
     </div>

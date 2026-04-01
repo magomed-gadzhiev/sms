@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
 import { webhooksApi, ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -159,7 +159,9 @@ export function WebhooksPage() {
 
   const deleteWebhook = webhooks.find((wh) => wh.id === deleteId);
 
-  const columns: Column<WebhookInfo>[] = [
+  const handleDeleteClick = useCallback((wh: WebhookInfo) => setDeleteId(wh.id), []);
+
+  const columns = useMemo<Column<WebhookInfo>[]>(() => [
     {
       key: 'url',
       header: 'URL',
@@ -186,7 +188,7 @@ export function WebhooksPage() {
       header: 'Создан',
       render: (wh) => (wh.created_at ? new Date(wh.created_at).toLocaleDateString() : '-'),
     },
-  ];
+  ], []);
 
   if (loading) return <div role="status">Загрузка вебхуков...</div>;
 
@@ -265,19 +267,21 @@ export function WebhooksPage() {
             />
           </div>
           <div className="mb-4">
-            <label className="text-sm font-medium text-gray-700">Типы событий *</label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {AVAILABLE_EVENT_TYPES.map((type) => (
-                <label key={type} className="flex items-center gap-1 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={formEventTypes.includes(type)}
-                    onChange={() => setFormEventTypes(toggleEventType(formEventTypes, type))}
-                  />
-                  {type}
-                </label>
-              ))}
-            </div>
+            <fieldset>
+              <legend className="text-sm font-medium text-gray-700">Типы событий *</legend>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {AVAILABLE_EVENT_TYPES.map((type) => (
+                  <label key={type} className="flex items-center gap-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={formEventTypes.includes(type)}
+                      onChange={() => setFormEventTypes(toggleEventType(formEventTypes, type))}
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" type="button" onClick={() => setShowCreateForm(false)}>
@@ -304,19 +308,21 @@ export function WebhooksPage() {
             />
           </div>
           <div className="mb-4">
-            <label className="text-sm font-medium text-gray-700">Типы событий</label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {AVAILABLE_EVENT_TYPES.map((type) => (
-                <label key={type} className="flex items-center gap-1 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={editEventTypes.includes(type)}
-                    onChange={() => setEditEventTypes(toggleEventType(editEventTypes, type))}
-                  />
-                  {type}
-                </label>
-              ))}
-            </div>
+            <fieldset>
+              <legend className="text-sm font-medium text-gray-700">Типы событий</legend>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {AVAILABLE_EVENT_TYPES.map((type) => (
+                  <label key={type} className="flex items-center gap-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editEventTypes.includes(type)}
+                      onChange={() => setEditEventTypes(toggleEventType(editEventTypes, type))}
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" type="button" onClick={() => setEditId(null)}>
@@ -349,6 +355,7 @@ export function WebhooksPage() {
         pageSize={webhooks.length || 10}
         onPageChange={() => {}}
         keyField="id"
+        tableLabel="Список вебхуков"
         rowActions={(wh) => (
           <div className="flex gap-1">
             <Button
@@ -371,7 +378,7 @@ export function WebhooksPage() {
               variant="ghost"
               size="sm"
               aria-label={`Удалить ${wh.url}`}
-              onClick={() => setDeleteId(wh.id)}
+              onClick={() => handleDeleteClick(wh)}
             >
               Удалить
             </Button>

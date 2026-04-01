@@ -30,7 +30,7 @@ function NavLink({ item, isActive, onClose }: { item: NavItem; isActive: boolean
         onClick={onClose}
         className={`flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors
           ${isActive
-            ? 'bg-primary/10 text-primary font-medium'
+            ? 'bg-primary text-white font-semibold'
             : 'text-gray-700 hover:bg-gray-100'
           }`}
       >

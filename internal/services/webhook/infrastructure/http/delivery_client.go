@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/webhook/domain"
 )
 
@@ -69,7 +70,9 @@ func (c *DeliveryClient) Deliver(ctx context.Context, sub *domain.Subscription, 
 		return fmt.Errorf("failed to deliver webhook: %w", err)
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body) // drain body for connection reuse
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		log.Debug().Err(err).Msg("webhook response body drain error")
+	}
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil

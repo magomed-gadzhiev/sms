@@ -36,3 +36,11 @@ func (m *MockProviderRepository) GetHealth(ctx context.Context, id uuid.UUID) (*
 	}
 	return args.Get(0).(*domain.ProviderHealth), args.Error(1)
 }
+
+func (m *MockProviderRepository) GetHealthBatch(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.ProviderHealth, error) {
+	args := m.Called(ctx, ids)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[uuid.UUID]*domain.ProviderHealth), args.Error(1)
+}

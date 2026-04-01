@@ -180,15 +180,6 @@ type ConnectionAdapter struct {
 	pool *smsc.Pool
 }
 
-// SendMessage отправляет сообщение через соединение
-// ВНИМАНИЕ: Этот метод должен использоваться через SenderService, который получает полную информацию о провайдере
-// Прямое использование ConnectionAdapter требует дополнительной информации о провайдере
-func (a *ConnectionAdapter) SendMessage(ctx context.Context, params *application.SendMessageParams) (string, error) {
-	// Этот метод не должен вызываться напрямую
-	// Используйте SenderService.SendMessage, который получает полную информацию о провайдере
-	return "", fmt.Errorf("use SenderService.SendMessage instead of direct connection call")
-}
-
 // IsBound проверяет, привязано ли соединение
 func (a *ConnectionAdapter) IsBound() bool {
 	return a.conn.IsBound()

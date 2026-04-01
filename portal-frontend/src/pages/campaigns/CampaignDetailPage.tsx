@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   campaignsApi,
@@ -164,7 +164,7 @@ export function CampaignDetailPage() {
     label: campaign.status,
   };
 
-  function renderActions() {
+  const renderedActions = useMemo(() => {
     if (!campaign) return null;
     const buttons: React.ReactNode[] = [];
 
@@ -233,7 +233,8 @@ export function CampaignDetailPage() {
     }
 
     return <div className="flex gap-2">{buttons}</div>;
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign, actionLoading]);
 
   return (
     <div>
@@ -243,7 +244,7 @@ export function CampaignDetailPage() {
           { label: 'Рассылки', href: '/campaigns' },
           { label: campaign.name },
         ]}
-        actions={renderActions()}
+        actions={renderedActions}
       />
 
       {/* Status badge */}
@@ -337,6 +338,7 @@ export function CampaignDetailPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <caption className="sr-only">Таблица вариантов A/B теста</caption>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">
@@ -411,6 +413,7 @@ export function CampaignDetailPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <caption className="sr-only">Таблица статистики по вариантам</caption>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">
