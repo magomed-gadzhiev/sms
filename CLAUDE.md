@@ -28,6 +28,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-01
 - PostgreSQL 15+ (pgx), Redis 7+ (017-tech-debt-refactor)
 - TypeScript 5.7 + React 19, Vite 6.0 + React Router 7.1, Tailwind CSS 4.2, Radix UI (018-fix-portal-qa-bugs)
 - N/A (frontend-only changes) (018-fix-portal-qa-bugs)
+- Go 1.24.0 (backend), TypeScript 5.7 + React 19 (frontend) + gorilla/mux, gRPC (analyticsv1, messagingv1, campaignv1), pgx/v5 (portal's own pool), redis/go-redis/v9 (export jobs), Recharts 3.8.1 (charts), Radix UI Dialog/DropdownMenu/Tabs (UI components), Tailwind CSS 4.2 (019-portal-ux-improvements)
+- PostgreSQL 15+ (новая таблица `notifications`), Redis 7+ (export job state, TTL 1h) (019-portal-ux-improvements)
 
 - Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), golang-jwt/jwt/v5 (auth), prometheus/client_golang (metrics), stretchr/testify (testing) (001-sms-gateway-platform)
 
@@ -47,9 +49,9 @@ tests/
 Go 1.24.0: Follow standard conventions
 
 ## Recent Changes
+- 019-portal-ux-improvements: Added Go 1.24.0 (backend), TypeScript 5.7 + React 19 (frontend) + gorilla/mux, gRPC (analyticsv1, messagingv1, campaignv1), pgx/v5 (portal's own pool), redis/go-redis/v9 (export jobs), Recharts 3.8.1 (charts), Radix UI Dialog/DropdownMenu/Tabs (UI components), Tailwind CSS 4.2
 - 018-fix-portal-qa-bugs: Added TypeScript 5.7 + React 19, Vite 6.0 + React Router 7.1, Tailwind CSS 4.2, Radix UI
 - 018-fix-portal-qa-bugs: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-- 017-tech-debt-refactor: Added Go 1.24.0 (бэкенд), TypeScript 5.x + React 19 (фронтенд) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, React 19 + Vite
 
 
 ## Server Management

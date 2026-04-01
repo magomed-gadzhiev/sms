@@ -20,6 +20,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/portal"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/handlers"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/notifications"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
 	portalrouter "github.com/smpp-server/smpp-server/internal/gateway/portal/router"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -196,6 +197,15 @@ func main() {
 		serviceClients.BillingClient,
 	)
 
+	notificationHandlers := handlers.NewNotificationHandlers(dbPool)
+	searchHandlers := handlers.NewSearchHandlers(dbPool)
+	exportHandlers := handlers.NewExportHandlers(redisClient, serviceClients.MessagingClient)
+
+	// Запускаем планировщик уведомлений
+	notifScheduler := notifications.NewScheduler(dbPool, serviceClients.CampaignClient)
+	notifScheduler.Start()
+	defer notifScheduler.Stop()
+
 	// Создание cascade handlers
 	var cascadeChannelHandlers *handlers.CascadeChannelHandlers
 	var cascadeStrategyHandlers *handlers.CascadeStrategyHandlers
@@ -260,6 +270,9 @@ func main() {
 		segmentHandlers,
 		subAccountRoutingHandlers,
 		senderNameHandlers,
+		notificationHandlers,
+		searchHandlers,
+		exportHandlers,
 	)
 
 	// Регистрируем маршруты cascade webhook

@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
-import { messagesApi } from '../../api/client';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { messagesApi, exportApi } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import type { BulkAction } from '../../components/data/BulkActionBar';
 
 interface MessageItem {
   message_id: string;
@@ -75,6 +76,53 @@ export function MessagesPage() {
 
   const [page, setPage] = useState(1);
   const [filterValues, setFilterValues] = useState<Record<string, string>>(INITIAL_FILTERS);
+
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const exportPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleExportCsv = useCallback(async () => {
+    setExportStatus('pending');
+    const filters: Record<string, string> = {};
+    if (filterValues.status) filters.status = filterValues.status;
+    if (filterValues.date_from) filters.date_from = filterValues.date_from;
+    if (filterValues.date_to) filters.date_to = filterValues.date_to;
+    if (filterValues.destination) filters.destination = filterValues.destination;
+    try {
+      const { job_id } = await exportApi.start(filters);
+      setExportJobId(job_id);
+      exportPollRef.current = setInterval(async () => {
+        const job = await exportApi.getStatus(job_id);
+        setExportStatus(job.status);
+        if (job.status === 'ready') {
+          clearInterval(exportPollRef.current!);
+          const res = await exportApi.download(job_id);
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `messages_export_${job_id.slice(0, 8)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          setExportStatus(null);
+          setExportJobId(null);
+        } else if (job.status === 'error') {
+          clearInterval(exportPollRef.current!);
+          setExportStatus(null);
+        }
+      }, 2000);
+    } catch {
+      setExportStatus(null);
+    }
+  }, [filterValues]);
+
+  const messageBulkActions: BulkAction<MessageItem>[] = [
+    {
+      label: 'Экспорт CSV',
+      variant: 'secondary',
+      onAction: () => handleExportCsv(),
+    },
+  ];
 
   const [showSendModal, setShowSendModal] = useState(false);
   const [sendDest, setSendDest] = useState('');
@@ -154,7 +202,21 @@ export function MessagesPage() {
     <div>
       <PageHeader
         title="Сообщения"
-        actions={<Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>}
+        actions={
+          <div className="flex gap-2">
+            {exportStatus && exportStatus !== 'ready' && (
+              <span className="text-sm text-gray-500 self-center">Экспорт: {exportStatus}...</span>
+            )}
+            <Button
+              variant="secondary"
+              onClick={handleExportCsv}
+              disabled={!!exportJobId || (data?.total ?? 0) === 0}
+            >
+              Экспорт CSV
+            </Button>
+            <Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>
+          </div>
+        }
       />
 
       <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="Отправить SMS" description="Отправка тестового SMS сообщения">
@@ -201,6 +263,7 @@ export function MessagesPage() {
           keyField="message_id"
           tableLabel="Список SMS сообщений"
           loading={loading}
+          bulkActions={messageBulkActions}
         />
       )}
     </div>
