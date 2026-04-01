@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardApi, profileApi, ProfileData } from '../../api/client';
+import { dashboardApi, profileApi } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 
@@ -14,27 +15,36 @@ interface DashboardData {
   active_webhooks: number;
 }
 
+const ZERO_DASHBOARD: DashboardData = {
+  balance: '0',
+  currency: 'RUB',
+  messages_today: 0,
+  messages_delivered_today: 0,
+  delivery_rate_today: 0,
+  active_api_keys: 0,
+  active_webhooks: 0,
+};
+
 export function DashboardPage() {
+  const { user: profile, refreshUser } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
-  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sandboxToggling, setSandboxToggling] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      dashboardApi.get().then((resp) => setData(resp as DashboardData)),
-      profileApi.get().then((resp) => setProfile(resp)),
-    ])
-      .catch((err) => setError(err.message || 'Failed to load dashboard'))
+    dashboardApi
+      .get()
+      .then((resp) => setData(resp as DashboardData))
+      .catch(() => setData(ZERO_DASHBOARD))
       .finally(() => setLoading(false));
   }, []);
 
   const handleDisableSandbox = async () => {
     setSandboxToggling(true);
     try {
-      const resp = await profileApi.toggleSandbox(false);
-      setProfile((prev) => prev ? { ...prev, is_sandbox: resp.is_sandbox } : prev);
+      await profileApi.toggleSandbox(false);
+      await refreshUser();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка переключения режима';
       setError(msg);
@@ -44,8 +54,7 @@ export function DashboardPage() {
   };
 
   if (loading) return <div role="status">Загрузка дашборда...</div>;
-  if (error) return <div className="text-red-600">Ошибка: {error}</div>;
-  if (!data) return <div>Нет данных</div>;
+  if (!data) return null;
 
   const formattedBalance = new Intl.NumberFormat('ru-RU', {
     style: 'currency', currency: 'RUB', minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -62,6 +71,7 @@ export function DashboardPage() {
 
   return (
     <div>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
       {profile?.is_sandbox && (
         <div
           role="alert"

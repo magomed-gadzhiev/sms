@@ -182,17 +182,27 @@ export function MessagesPage() {
 
       {error && <div className="text-red-600 mb-3">Ошибка: {error}</div>}
 
-      <DataTable
-        columns={columns}
-        data={data?.messages ?? []}
-        total={data?.total ?? 0}
-        page={page}
-        pageSize={20}
-        onPageChange={setPage}
-        keyField="message_id"
-        tableLabel="Список SMS сообщений"
-        loading={loading}
-      />
+      {!loading && !error && (data?.messages?.length ?? 0) === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          <p className="mb-2">Сообщений пока нет</p>
+          <p className="text-sm mb-4">Отправьте первое SMS-сообщение</p>
+          <Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>
+        </div>
+      )}
+
+      {(loading || (data?.messages?.length ?? 0) > 0) && (
+        <DataTable
+          columns={columns}
+          data={data?.messages ?? []}
+          total={data?.total ?? 0}
+          page={page}
+          pageSize={20}
+          onPageChange={setPage}
+          keyField="message_id"
+          tableLabel="Список SMS сообщений"
+          loading={loading}
+        />
+      )}
     </div>
   );
 }

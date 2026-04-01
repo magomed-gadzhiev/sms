@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { contactListsApi, type ContactList } from '../../api/contacts';
 import { ApiError } from '../../api/client';
@@ -32,7 +32,7 @@ export function ContactListsPage() {
 
   const perPage = 20;
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -44,11 +44,11 @@ export function ContactListsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page]);
 
   useEffect(() => {
     load();
-  }, [page]);
+  }, [load]);
 
   async function handleCreate() {
     if (!createName.trim()) return;
@@ -63,7 +63,7 @@ export function ContactListsPage() {
       setCreateName('');
       setCreateDesc('');
       toast.success('Контактная база создана');
-      load();
+      await load();
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : 'Ошибка при создании');
     } finally {

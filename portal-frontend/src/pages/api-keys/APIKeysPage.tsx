@@ -32,6 +32,7 @@ export function APIKeysPage() {
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
   const [allowedIpsInput, setAllowedIpsInput] = useState('');
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState('');
@@ -73,8 +74,15 @@ export function APIKeysPage() {
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    setCreating(true);
     setError('');
+    setNameError('');
+
+    if (name.length > 100) {
+      setNameError('Имя не должно превышать 100 символов');
+      return;
+    }
+
+    setCreating(true);
     try {
       const allowedIps = allowedIpsInput
         .split(/[,\n]/)
@@ -96,7 +104,11 @@ export function APIKeysPage() {
       setExpiresAt('');
       await loadKeys();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось создать API ключ');
+      if (err instanceof ApiError && err.status === 400) {
+        setNameError(err.message);
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Не удалось создать API ключ');
+      }
     } finally {
       setCreating(false);
     }
@@ -277,6 +289,8 @@ export function APIKeysPage() {
               required
               placeholder="Например: Production Key"
               className="w-full max-w-[300px]"
+              maxLength={100}
+              error={nameError || undefined}
             />
           </div>
 
