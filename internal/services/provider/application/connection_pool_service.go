@@ -23,7 +23,6 @@ type ConnectionPoolService interface {
 
 // Connection представляет интерфейс SMPP соединения
 type Connection interface {
-	SendMessage(ctx context.Context, msg *SendMessageParams) (string, error)
 	IsBound() bool
 	Close() error
 }

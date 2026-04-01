@@ -23,12 +23,13 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void;
   rowActions?: (item: T) => ReactNode;
   keyField?: string;
+  tableLabel?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function DataTable<T extends Record<string, any>>({
   columns, data, total, page, pageSize, onPageChange,
-  sortBy, sortDir, onSort, loading, onRowClick, rowActions, keyField = 'id',
+  sortBy, sortDir, onSort, loading, onRowClick, rowActions, keyField = 'id', tableLabel = 'Таблица данных',
 }: DataTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -44,6 +45,7 @@ export function DataTable<T extends Record<string, any>>({
     <div className="border border-gray-200 rounded-lg overflow-hidden" role="region" aria-label="Таблица данных">
       <div className="overflow-x-auto">
         <table className="w-full text-sm" role="table">
+          <caption className="sr-only">{tableLabel}</caption>
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {columns.map((col) => (
@@ -123,10 +125,24 @@ export function DataTable<T extends Record<string, any>>({
               {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
             </span>
             <div className="flex gap-2">
-              <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={() => onPageChange(page - 1)}
+                aria-label="Предыдущая страница"
+                aria-disabled={page <= 1}
+              >
                 Назад
               </Button>
-              <Button size="sm" variant="secondary" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={page >= totalPages}
+                onClick={() => onPageChange(page + 1)}
+                aria-label="Следующая страница"
+                aria-disabled={page >= totalPages}
+              >
                 Вперёд
               </Button>
             </div>

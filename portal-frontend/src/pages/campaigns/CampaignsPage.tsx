@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { campaignsApi, type Campaign } from '../../api/campaigns';
 import { ApiError } from '../../api/client';
@@ -87,7 +87,10 @@ export function CampaignsPage() {
     );
   }
 
-  const columns: Column<Campaign>[] = [
+  const handleOpen = useCallback((c: Campaign) => navigate(`/campaigns/${c.id}`), [navigate]);
+  const handleDelete = useCallback((c: Campaign) => setDeleteId(c.id), []);
+
+  const columns = useMemo<Column<Campaign>[]>(() => [
     {
       key: 'name',
       header: 'Название',
@@ -138,7 +141,8 @@ export function CampaignsPage() {
         </span>
       ),
     },
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
   return (
     <div>
@@ -176,13 +180,15 @@ export function CampaignsPage() {
           onPageChange={setPage}
           loading={loading}
           keyField="id"
-          onRowClick={(c) => navigate(`/campaigns/${c.id}`)}
+          tableLabel="Список рассылок"
+          onRowClick={handleOpen}
           rowActions={(c) => (
             <div className="flex gap-2">
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate(`/campaigns/${c.id}`)}
+                aria-label={`Открыть рассылку ${c.name}`}
+                onClick={() => handleOpen(c)}
               >
                 Открыть
               </Button>
@@ -190,7 +196,8 @@ export function CampaignsPage() {
                 <Button
                   variant="danger"
                   size="sm"
-                  onClick={() => setDeleteId(c.id)}
+                  aria-label={`Удалить рассылку ${c.name}`}
+                  onClick={() => handleDelete(c)}
                 >
                   Удалить
                 </Button>

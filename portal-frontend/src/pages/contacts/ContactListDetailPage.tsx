@@ -197,7 +197,9 @@ export function ContactListDetailPage() {
 
       {/* Search bar */}
       <form onSubmit={handleSearchSubmit} className="mb-4 flex gap-2">
+        <label htmlFor="contact-search" className="sr-only">Поиск по номеру телефона</label>
         <input
+          id="contact-search"
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -219,6 +221,7 @@ export function ContactListDetailPage() {
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">Таблица контактов списка</caption>
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-gray-700">

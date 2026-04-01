@@ -16,6 +16,7 @@ type RoutingService struct {
 	providerRepo   domain.ProviderRepository
 	eventPublisher domain.EventPublisher
 	selectors      map[domain.LoadBalanceStrategy]ProviderSelector
+	roundRobin     *RoundRobinSelector
 	hlrService     *HLRService
 	smartRouter    *SmartRoutingService
 	logger         zerolog.Logger
@@ -27,10 +28,10 @@ func NewRoutingService(
 	providerRepo domain.ProviderRepository,
 	eventPublisher domain.EventPublisher,
 ) *RoutingService {
+	roundRobin := NewRoundRobinSelector()
 	selectors := make(map[domain.LoadBalanceStrategy]ProviderSelector)
-	
-	// Инициализируем все селекторы
-	selectors[domain.LoadBalanceRoundRobin] = NewRoundRobinSelector()
+
+	selectors[domain.LoadBalanceRoundRobin] = roundRobin
 	selectors[domain.LoadBalanceLeastLoaded] = NewLeastLoadedSelector(providerRepo)
 	selectors[domain.LoadBalanceCheapest] = NewCheapestSelector()
 
@@ -39,6 +40,7 @@ func NewRoutingService(
 		providerRepo:   providerRepo,
 		eventPublisher: eventPublisher,
 		selectors:      selectors,
+		roundRobin:     roundRobin,
 		logger:         log.With().Str("component", "routing-service").Logger(),
 	}
 }
@@ -390,7 +392,15 @@ func (s *RoutingService) ListRoutes(
 	activeOnly bool,
 	limit, offset int,
 ) ([]*domain.Route, int, error) {
-	return s.routeRepo.List(ctx, activeOnly, limit, offset)
+	routes, total, err := s.routeRepo.List(ctx, activeOnly, limit, offset)
+	if err == nil && activeOnly {
+		activeRouteIDs := make([]uuid.UUID, len(routes))
+		for i, r := range routes {
+			activeRouteIDs[i] = r.ID
+		}
+		s.roundRobin.PurgeStaleRoutes(activeRouteIDs)
+	}
+	return routes, total, err
 }
 
 // RouteUpdate представляет обновления для маршрута

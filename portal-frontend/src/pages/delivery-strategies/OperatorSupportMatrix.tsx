@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { cascadeOCSApi, cascadeChannelsApi, type OCSEntry, type DeliveryChannel } from '../../api/cascade';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
@@ -44,13 +44,15 @@ export function OperatorSupportMatrix({ onClose }: Props) {
   }, []);
 
   // Build rows from entries
-  const operatorMap: Record<string, string> = {};
-  for (const e of entries) {
-    operatorMap[e.operator_id] = e.operator_name || e.operator_id.slice(0, 8);
-  }
-  const operatorIds = Object.keys(operatorMap);
+  const { operatorMap, operatorIds } = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of entries) {
+      map[e.operator_id] = e.operator_name || e.operator_id.slice(0, 8);
+    }
+    return { operatorMap: map, operatorIds: Object.keys(map) };
+  }, [entries]);
 
-  const channelTypes = channels.map((ch) => ch.channel_type);
+  const channelTypes = useMemo(() => channels.map((ch) => ch.channel_type), [channels]);
 
   const toggle = (operatorId: string, channelType: string) => {
     setMatrix((prev) => ({
@@ -103,6 +105,7 @@ export function OperatorSupportMatrix({ onClose }: Props) {
           )}
 
           <table className="w-full text-sm">
+            <caption className="sr-only">Матрица поддержки каналов операторами</caption>
             <thead>
               <tr className="border-b">
                 <th className="text-left py-2 pr-4 font-medium text-gray-600">Оператор</th>

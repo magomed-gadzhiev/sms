@@ -72,7 +72,7 @@ const columns: Column<AuditEntry>[] = [
   { key: 'resource_id', header: 'ID ресурса', render: (entry) => <span className="text-xs font-mono">{entry.resource_id ? `${entry.resource_id.substring(0, 8)}...` : '-'}</span> },
   { key: 'user_id', header: 'ID пользователя', render: (entry) => <span className="text-xs font-mono">{entry.user_id ? `${entry.user_id.substring(0, 8)}...` : '-'}</span> },
   { key: 'ip_address', header: 'IP адрес', render: (entry) => <span className="text-xs">{entry.ip_address || '-'}</span> },
-  { key: 'details', header: 'Детали', render: (entry) => <span className="text-xs block max-w-[250px] truncate">{formatDetails(entry.details)}</span> },
+  { key: 'details', header: 'Детали', render: (entry) => <span className="text-xs block max-w-[250px] truncate" title={formatDetails(entry.details)}>{formatDetails(entry.details)}</span> },
 ];
 
 export function AuditLogPage() {
@@ -138,6 +138,7 @@ export function AuditLogPage() {
           pageSize={20}
           onPageChange={setPage}
           keyField="id"
+          tableLabel="Журнал аудита действий"
           loading={loading}
         />
       )}

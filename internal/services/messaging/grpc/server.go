@@ -44,14 +44,9 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 	if req.Text == "" {
 		return nil, status.Error(codes.InvalidArgument, "text is required")
 	}
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	// Парсим client_id
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	// Создаем опции
@@ -112,17 +107,13 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 
 // SendBatch отправляет пакет SMS сообщений
 func (s *Server) SendBatch(ctx context.Context, req *messagingv1.SendBatchRequest) (*messagingv1.SendBatchResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
 	if len(req.Messages) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "messages list is empty")
 	}
 
-	// Парсим client_id
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	// Преобразуем запросы
@@ -272,13 +263,9 @@ func (s *Server) GetMessageStatus(ctx context.Context, req *messagingv1.GetMessa
 
 // GetMessageHistory получает историю сообщений с фильтрацией
 func (s *Server) GetMessageHistory(ctx context.Context, req *messagingv1.GetMessageHistoryRequest) (*messagingv1.GetMessageHistoryResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	filters := &application.MessageHistoryFilters{
@@ -431,17 +418,13 @@ func (s *Server) CancelMessage(ctx context.Context, req *messagingv1.CancelMessa
 	if req.MessageId == "" {
 		return nil, status.Error(codes.InvalidArgument, "message_id is required")
 	}
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
 	messageID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id format")
 	}
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	if err := s.messageService.CancelMessage(ctx, messageID, clientID); err != nil {

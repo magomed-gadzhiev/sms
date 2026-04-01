@@ -24,6 +24,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-01
 - PostgreSQL 15+ (pgx, monthly partitioning для `deliveries`, `delivery_attempts`), Redis 7+ (reachability cache TTL 1h) (012-multichannel-cascade)
 - Go 1.24.0 + gorilla/mux (HTTP), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), prometheus/client_golang (metrics), IBM/sarama v1.43.0 (Kafka), crypto/hmac (webhook signature) (013-max-messenger-channel)
 - PostgreSQL 15+ (существующие таблицы cascade), Redis 7+ (reachability cache) (013-max-messenger-channel)
+- Go 1.24.0 (бэкенд), TypeScript 5.x + React 19 (фронтенд) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, React 19 + Vite (017-tech-debt-refactor)
+- PostgreSQL 15+ (pgx), Redis 7+ (017-tech-debt-refactor)
 
 - Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), golang-jwt/jwt/v5 (auth), prometheus/client_golang (metrics), stretchr/testify (testing) (001-sms-gateway-platform)
 
@@ -43,9 +45,9 @@ tests/
 Go 1.24.0: Follow standard conventions
 
 ## Recent Changes
+- 017-tech-debt-refactor: Added Go 1.24.0 (бэкенд), TypeScript 5.x + React 19 (фронтенд) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, React 19 + Vite
 - 013-max-messenger-channel: Added Go 1.24.0 + gorilla/mux (HTTP), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), prometheus/client_golang (metrics), IBM/sarama v1.43.0 (Kafka), crypto/hmac (webhook signature)
 - 012-multichannel-cascade: Added Go 1.24+ (backend), TypeScript 5.x + React 19 (frontend) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, prometheus/client_golang
-- 011-operator-sender-billing: Added Go 1.24.0 (backend), TypeScript 5.x + React 19 / Vite (frontend) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, prometheus/client_golang
 
 
 ## Server Management

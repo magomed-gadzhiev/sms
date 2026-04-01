@@ -294,6 +294,7 @@ export function ImportWizardPage() {
           {preview.length > 0 && (
             <div className="overflow-x-auto mb-6">
               <table className="w-full text-sm border border-gray-200 rounded">
+                <caption className="sr-only">Предпросмотр и сопоставление колонок импортируемого файла</caption>
                 <thead className="bg-gray-50">
                   <tr>
                     {preview[0].map((header, idx) => (

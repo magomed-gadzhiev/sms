@@ -70,14 +70,9 @@ func (s *Server) CreateClient(ctx context.Context, req *clientv1.CreateClientReq
 
 // UpdateClient обновляет клиента
 func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientRequest) (*clientv1.UpdateClientResponse, error) {
-	// Валидация
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	// Подготавливаем параметры для обновления
@@ -128,13 +123,9 @@ func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientReq
 
 // GetClient получает информацию о клиенте
 func (s *Server) GetClient(ctx context.Context, req *clientv1.GetClientRequest) (*clientv1.GetClientResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	client, err := s.clientService.GetClient(ctx, clientID)
@@ -188,13 +179,9 @@ func (s *Server) ListClients(ctx context.Context, req *clientv1.ListClientsReque
 
 // DeleteClient удаляет клиента
 func (s *Server) DeleteClient(ctx context.Context, req *clientv1.DeleteClientRequest) (*clientv1.DeleteClientResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	err = s.clientService.DeleteClient(ctx, clientID)
@@ -213,13 +200,9 @@ func (s *Server) DeleteClient(ctx context.Context, req *clientv1.DeleteClientReq
 
 // GetClientConfig получает конфигурацию клиента
 func (s *Server) GetClientConfig(ctx context.Context, req *clientv1.GetClientConfigRequest) (*clientv1.GetClientConfigResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	config, err := s.clientService.GetClientConfig(ctx, clientID)
@@ -238,13 +221,9 @@ func (s *Server) GetClientConfig(ctx context.Context, req *clientv1.GetClientCon
 
 // UpdateClientConfig обновляет конфигурацию клиента
 func (s *Server) UpdateClientConfig(ctx context.Context, req *clientv1.UpdateClientConfigRequest) (*clientv1.UpdateClientConfigResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	if req.Config == nil {
@@ -269,13 +248,9 @@ func (s *Server) UpdateClientConfig(ctx context.Context, req *clientv1.UpdateCli
 
 // UpdateClientRateLimits обновляет rate limits клиента
 func (s *Server) UpdateClientRateLimits(ctx context.Context, req *clientv1.UpdateClientRateLimitsRequest) (*clientv1.UpdateClientRateLimitsResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	if req.RateLimits == nil {
@@ -315,9 +290,9 @@ func (s *Server) CreateSubAccount(ctx context.Context, req *clientv1.CreateSubAc
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
 
-	parentClientID, err := uuid.Parse(req.ParentClientId)
+	parentClientID, err := parseClientID(req.ParentClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+		return nil, err
 	}
 
 	subAccount, err := s.subAccountService.CreateSubAccount(
@@ -351,13 +326,9 @@ func (s *Server) CreateSubAccount(ctx context.Context, req *clientv1.CreateSubAc
 
 // ListSubAccounts получает список суб-аккаунтов реселлера
 func (s *Server) ListSubAccounts(ctx context.Context, req *clientv1.ListSubAccountsRequest) (*clientv1.ListSubAccountsResponse, error) {
-	if req.ParentClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "parent_client_id is required")
-	}
-
-	parentClientID, err := uuid.Parse(req.ParentClientId)
+	parentClientID, err := parseClientID(req.ParentClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+		return nil, err
 	}
 
 	subAccounts, err := s.subAccountService.ListSubAccounts(ctx, parentClientID)
@@ -405,9 +376,9 @@ func (s *Server) GetSubAccount(ctx context.Context, req *clientv1.GetSubAccountR
 		return nil, status.Error(codes.InvalidArgument, "invalid sub_account_id format")
 	}
 
-	parentClientID, err := uuid.Parse(req.ParentClientId)
+	parentClientID, err := parseClientID(req.ParentClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+		return nil, err
 	}
 
 	subAccount, err := s.subAccountService.GetSubAccount(ctx, subAccountID, parentClientID)
@@ -438,9 +409,9 @@ func (s *Server) DeleteSubAccount(ctx context.Context, req *clientv1.DeleteSubAc
 		return nil, status.Error(codes.InvalidArgument, "invalid sub_account_id format")
 	}
 
-	parentClientID, err := uuid.Parse(req.ParentClientId)
+	parentClientID, err := parseClientID(req.ParentClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+		return nil, err
 	}
 
 	err = s.subAccountService.DeleteSubAccount(ctx, subAccountID, parentClientID)
@@ -471,9 +442,9 @@ func (s *Server) UpdateSubAccountLimits(ctx context.Context, req *clientv1.Updat
 		return nil, status.Error(codes.InvalidArgument, "invalid sub_account_id format")
 	}
 
-	parentClientID, err := uuid.Parse(req.ParentClientId)
+	parentClientID, err := parseClientID(req.ParentClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid parent_client_id format")
+		return nil, err
 	}
 
 	subAccount, err := s.subAccountService.UpdateSubAccountLimits(
@@ -498,13 +469,9 @@ func (s *Server) UpdateSubAccountLimits(ctx context.Context, req *clientv1.Updat
 
 // ToggleSandbox включает или отключает sandbox-режим для клиента
 func (s *Server) ToggleSandbox(ctx context.Context, req *clientv1.ToggleSandboxRequest) (*clientv1.ToggleSandboxResponse, error) {
-	if req.ClientId == "" {
-		return nil, status.Error(codes.InvalidArgument, "client_id is required")
-	}
-
-	clientID, err := uuid.Parse(req.ClientId)
+	clientID, err := parseClientID(req.ClientId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		return nil, err
 	}
 
 	if err := s.clientService.ToggleSandbox(ctx, clientID, req.Enable); err != nil {

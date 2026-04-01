@@ -95,22 +95,6 @@ func TestDomainToSharedProvider_EmptyFields(t *testing.T) {
 
 // --- ConnectionAdapter tests ---
 
-func TestConnectionAdapter_SendMessage_ReturnsError(t *testing.T) {
-	adapter := &ConnectionAdapter{
-		conn: &smsc.Connection{},
-		pool: nil,
-	}
-
-	result, err := adapter.SendMessage(context.Background(), &application.SendMessageParams{
-		Source:      "sender",
-		Destination: "79001234567",
-		Text:        "test",
-	})
-
-	assert.Error(t, err)
-	assert.Empty(t, result)
-	assert.Contains(t, err.Error(), "SenderService.SendMessage")
-}
 
 func TestConnectionAdapter_IsBound_True(t *testing.T) {
 	conn := &smsc.Connection{

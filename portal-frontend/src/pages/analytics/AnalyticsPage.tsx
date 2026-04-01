@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { analyticsApi, ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { StatCard } from '../../components/data/StatCard';
@@ -71,7 +71,7 @@ export function AnalyticsPage() {
   const [groupBy, setGroupBy] = useState('day');
   const [useCustomDates, setUseCustomDates] = useState(false);
 
-  async function loadAnalytics() {
+  const loadAnalytics = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -89,11 +89,11 @@ export function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [period, dateFrom, dateTo, groupBy, useCustomDates]);
 
   useEffect(() => {
     loadAnalytics();
-  }, [period, dateFrom, dateTo, groupBy, useCustomDates]);
+  }, [loadAnalytics]);
 
   return (
     <div className="max-w-5xl">
@@ -106,6 +106,7 @@ export function AnalyticsPage() {
           {PERIODS.map((p) => (
             <button
               key={p}
+              type="button"
               onClick={() => {
                 setPeriod(p);
                 setUseCustomDates(false);
@@ -120,7 +121,7 @@ export function AnalyticsPage() {
             </button>
           ))}
 
-          <span className="mx-2 text-gray-400">или</span>
+          <span className="mx-2 text-gray-600">или</span>
 
           <label className="flex items-center gap-1">
             С:
@@ -147,7 +148,7 @@ export function AnalyticsPage() {
             />
           </label>
 
-          <span className="mx-2 text-gray-400">|</span>
+          <span className="mx-2 text-gray-600">|</span>
 
           <label className="flex items-center gap-1">
             Группировка:
@@ -190,6 +191,7 @@ export function AnalyticsPage() {
                 pageSize={data.timeline.length}
                 onPageChange={() => {}}
                 keyField="period"
+                tableLabel="Хронология отправок по периодам"
               />
             </div>
           )}
@@ -206,6 +208,7 @@ export function AnalyticsPage() {
                 pageSize={data.by_country.length}
                 onPageChange={() => {}}
                 keyField="country"
+                tableLabel="Разбивка отправок по странам"
               />
             </div>
           )}

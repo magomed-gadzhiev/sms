@@ -9,6 +9,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
 )
 
+
 // ProviderSelector представляет интерфейс для выбора провайдера
 type ProviderSelector interface {
 	SelectProvider(ctx context.Context, route *domain.Route, providerInfos []*domain.ProviderInfo) (*domain.ProviderInfo, error)
@@ -23,6 +24,19 @@ type RoundRobinSelector struct {
 func NewRoundRobinSelector() *RoundRobinSelector {
 	return &RoundRobinSelector{
 		currentIndex: make(map[uuid.UUID]int),
+	}
+}
+
+// PurgeStaleRoutes удаляет из currentIndex записи для маршрутов, не входящих в activeRouteIDs.
+func (s *RoundRobinSelector) PurgeStaleRoutes(activeRouteIDs []uuid.UUID) {
+	active := make(map[uuid.UUID]struct{}, len(activeRouteIDs))
+	for _, id := range activeRouteIDs {
+		active[id] = struct{}{}
+	}
+	for id := range s.currentIndex {
+		if _, ok := active[id]; !ok {
+			delete(s.currentIndex, id)
+		}
 	}
 }
 
@@ -102,27 +116,34 @@ func (s *LeastLoadedSelector) SelectProvider(
 		return nil, domain.ErrNoProviders
 	}
 
+	// Получаем health всех провайдеров одним запросом (batch, без N+1)
+	ids := make([]uuid.UUID, len(activeProviders))
+	for i, p := range activeProviders {
+		ids[i] = p.ID
+	}
+	healthMap, err := s.providerRepo.GetHealthBatch(ctx, ids)
+	if err != nil {
+		log.Warn().Err(err).Msg("не удалось получить health провайдеров пакетом, используем первого")
+		healthMap = map[uuid.UUID]*domain.ProviderHealth{}
+	}
+
 	var bestProvider *domain.ProviderInfo
 	var bestLoad float64 = -1
 
-	// Проверяем каждый провайдер и выбираем с наименьшей загрузкой
 	for _, provider := range activeProviders {
-		health, err := s.providerRepo.GetHealth(ctx, provider.ID)
-		if err != nil {
+		health, ok := healthMap[provider.ID]
+		if !ok {
 			log.Warn().
-				Err(err).
 				Str("provider_id", provider.ID.String()).
-				Msg("не удалось получить health провайдера, пропускаем")
+				Msg("health провайдера отсутствует в ответе, пропускаем")
 			continue
 		}
 
-		// Рассчитываем загрузку (используем процент использования соединений)
 		var load float64
 		if health.TotalConnections > 0 {
 			load = float64(health.ActiveConnections) / float64(health.TotalConnections)
 		}
 
-		// Если это первый провайдер или загрузка меньше
 		if bestProvider == nil || load < bestLoad {
 			bestProvider = provider
 			bestLoad = load
