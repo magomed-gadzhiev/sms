@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   LineChart, Line, XAxis, Tooltip, ResponsiveContainer, Legend,
   YAxis, CartesianGrid,
@@ -13,6 +13,10 @@ type CountryEntry = { country: string; sent: number; delivered: number; failed: 
 type TimelineEntry = { period: string; sent: number; delivered: number; failed: number; delivery_rate: number };
 
 const PERIODS = ['7d', '30d', '90d'] as const;
+const GROUP_BY_OPTIONS = ['day', 'week', 'country'] as const;
+type Period = (typeof PERIODS)[number];
+type GroupBy = (typeof GROUP_BY_OPTIONS)[number];
+const MAX_CUSTOM_RANGE_DAYS = 366;
 
 function formatPeriod(iso: string): string {
   const parts = iso.split('-');
@@ -41,46 +45,97 @@ export function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [period, setPeriod] = useState<string>('7d');
+  const [period, setPeriod] = useState<Period>('7d');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [groupBy, setGroupBy] = useState('day');
+  const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [compare, setCompare] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   const loadAnalytics = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
     setLoading(true);
     setError('');
+
+    const safeGroupBy: GroupBy = GROUP_BY_OPTIONS.includes(groupBy) ? groupBy : 'day';
+    const safePeriod: Period = PERIODS.includes(period) ? period : '7d';
+
+    if (useCustomDates) {
+      if (!dateFrom || !dateTo) {
+        setError('Для пользовательского периода укажите обе даты: «С» и «По».');
+        setLoading(false);
+        return;
+      }
+      if (dateFrom > dateTo) {
+        setError('Дата «По» не может быть раньше даты «С».');
+        setLoading(false);
+        return;
+      }
+      const fromTs = Date.parse(`${dateFrom}T00:00:00Z`);
+      const toTs = Date.parse(`${dateTo}T23:59:59Z`);
+      if (Number.isNaN(fromTs) || Number.isNaN(toTs)) {
+        setError('Неверный формат даты.');
+        setLoading(false);
+        return;
+      }
+      const rangeDays = Math.ceil((toTs - fromTs) / (24 * 60 * 60 * 1000));
+      if (rangeDays > MAX_CUSTOM_RANGE_DAYS) {
+        setError('Максимальный пользовательский диапазон — 366 дней.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const params: Record<string, string> = { group_by: groupBy };
+      const params: Record<string, string> = { group_by: safeGroupBy, include_cost: 'true' };
       if (useCustomDates && dateFrom && dateTo) {
         params.date_from = dateFrom;
         params.date_to = dateTo;
       } else {
-        params.period = period;
+        params.period = safePeriod;
       }
       if (compare) params.compare = 'true';
-      const resp = await analyticsApi.get(params);
+      const resp = await analyticsApi.get(params, { signal: controller.signal });
+      if (currentRequestId !== requestIdRef.current) return;
       setData(resp as AnalyticsDataExtended);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (currentRequestId !== requestIdRef.current) return;
       setError(err instanceof ApiError ? err.message : 'Не удалось загрузить аналитику');
     } finally {
+      if (currentRequestId !== requestIdRef.current) return;
       setLoading(false);
     }
   }, [period, dateFrom, dateTo, groupBy, useCustomDates, compare]);
 
-  useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
+  useEffect(() => {
+    loadAnalytics();
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [loadAnalytics]);
 
   const timeline = (data?.timeline ?? []) as TimelineEntry[];
   const prevTimeline = data?.previous_timeline ?? [];
   const byCountry = (data?.by_country ?? []) as CountryEntry[];
 
-  // Merge current + previous timelines for chart
-  const mergedTimeline = timeline.map((entry, i) => ({
-    ...entry,
-    prev_sent: prevTimeline[i]?.sent,
-    prev_delivered: prevTimeline[i]?.delivered,
-  }));
+  const mergedTimeline = useMemo(() => {
+    const prevByPeriod = new Map(prevTimeline.map((entry) => [entry.period, entry]));
+    return timeline.map((entry) => {
+      const prev = prevByPeriod.get(entry.period);
+      return {
+        ...entry,
+        prev_sent: prev?.sent,
+        prev_delivered: prev?.delivered,
+      };
+    });
+  }, [timeline, prevTimeline]);
 
   return (
     <div className="max-w-5xl">
@@ -118,7 +173,7 @@ export function AnalyticsPage() {
           <span className="mx-2 text-gray-600">|</span>
           <label className="flex items-center gap-1">
             Группировка:
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}
+            <select value={groupBy} onChange={(e) => setGroupBy((e.target.value as GroupBy))}
               className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
               <option value="day">День</option>
               <option value="week">Неделя</option>
@@ -132,8 +187,8 @@ export function AnalyticsPage() {
         </div>
       </fieldset>
 
-      {error && <p className="text-red-600">{error}</p>}
-      {loading && <div role="status">Загрузка аналитики...</div>}
+      {error && <p role="alert" className="text-red-600">{error}</p>}
+      {loading && <div role="status" aria-live="polite">Загрузка аналитики...</div>}
 
       {data && !loading && (
         <>
@@ -166,12 +221,12 @@ export function AnalyticsPage() {
 
             {/* Timeline tab */}
             <Tabs.Content value="timeline">
-              {mergedTimeline.length > 0 && (
+              {mergedTimeline.length > 0 ? (
                 <div className="mb-6">
                   <div className="border border-gray-200 rounded-lg p-4 mb-4">
                     <ResponsiveContainer width="100%" height={220}>
                       <LineChart data={mergedTimeline}>
-                        <XAxis dataKey="period" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+                        <XAxis dataKey="period" tick={{ fontSize: 11 }} tickFormatter={(v: string) => (typeof v === 'string' && v.length > 5 ? v.slice(5) : v)} />
                         <YAxis tick={{ fontSize: 11 }} />
                         <CartesianGrid strokeDasharray="3 3" />
                         <Tooltip />
@@ -197,6 +252,10 @@ export function AnalyticsPage() {
                     keyField="period"
                     tableLabel="Хронология отправок"
                   />
+                </div>
+              ) : (
+                <div className="py-8 text-center text-gray-500 text-sm">
+                  Нет данных за выбранный период
                 </div>
               )}
             </Tabs.Content>

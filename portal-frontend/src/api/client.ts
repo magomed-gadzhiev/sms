@@ -186,9 +186,9 @@ export const webhooksApi = {
 
 // Analytics API
 export const analyticsApi = {
-  get: (params: Record<string, string>) => {
+  get: (params: Record<string, string>, options?: RequestInit) => {
     const qs = new URLSearchParams(params).toString();
-    return apiFetch<unknown>(`/analytics?${qs}`);
+    return apiFetch<unknown>(`/analytics?${qs}`, options);
   },
 };
 

@@ -80,6 +80,23 @@ webhook-service
 campaign-service
 worker
 link-service
+cascade-service
+routing-service
+tarification-service
+billing-service
+audit-service
+auth-service
+client-service
+smpp-gateway
+smpp-server
+webhook-service
+pipeline-worker
+admin-gateway
+client-gateway
+portal-gateway
+messaging-service
+template-service
+campaign-service
 
 # Stray dependency directories
 github.com/
