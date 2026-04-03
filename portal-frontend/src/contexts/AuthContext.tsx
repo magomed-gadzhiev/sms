@@ -30,13 +30,6 @@ interface LoginResult {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-/** Avoid GET /profile when there is no session cookie (reduces 401 noise on /login, /register). */
-function hasPortalSessionCookie(): boolean {
-  if (typeof document === 'undefined') return false;
-  const m = document.cookie.match(/(?:^|; )portal_session=([^;]*)/);
-  return !!m && m[1].length > 0;
-}
-
 async function fetchPermissions(): Promise<Permission[]> {
   try {
     const csrfToken = document.cookie.match(new RegExp('(^| )csrf_token=([^;]+)'))?.[2] ?? null;
@@ -74,12 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hasPortalSessionCookie()) {
-      setUser(null);
-      setPermissions([]);
-      setLoading(false);
-      return;
-    }
     profileApi
       .get()
       .then(async (profile) => {
