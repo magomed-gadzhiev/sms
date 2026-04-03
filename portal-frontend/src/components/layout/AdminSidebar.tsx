@@ -42,6 +42,8 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { path: '/admin/providers', label: '\u041F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u044B', icon: '\u{1F50C}', resource: 'providers' },
       { path: '/admin/routes', label: '\u041C\u0430\u0440\u0448\u0440\u0443\u0442\u044B', icon: '\u{1F500}', resource: 'routes' },
+      { path: '/admin/channels', label: '\u041A\u0430\u043D\u0430\u043B\u044B', icon: '\u{1F4E6}', resource: 'providers' },
+      { path: '/admin/delivery-strategies', label: '\u0421\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u0438 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438', icon: '\u{1F69A}', resource: 'routes' },
       { path: '/admin/hlr', label: 'HLR', icon: '\u{1F4E1}', resource: 'hlr' },
     ],
   },

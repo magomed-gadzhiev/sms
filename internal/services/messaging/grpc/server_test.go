@@ -17,6 +17,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/messaging/application"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // --- Mocks ---
@@ -373,7 +374,7 @@ func TestMessagingServer_GetMessageStatus(t *testing.T) {
 
 		messageID := uuid.New()
 
-		msgRepo.On("GetByID", mock.Anything, messageID).Return(nil, errors.New("not found"))
+		msgRepo.On("GetByID", mock.Anything, messageID).Return(nil, storage.ErrNotFound)
 
 		resp, err := srv.GetMessageStatus(context.Background(), &messagingv1.GetMessageStatusRequest{
 			MessageId: messageID.String(),
@@ -381,13 +382,9 @@ func TestMessagingServer_GetMessageStatus(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		// The server checks err.Error() == "message not found"; the repo error wraps differently,
-		// so it falls through to Internal. This tests the actual behavior.
 		st, ok := status.FromError(err)
 		require.True(t, ok)
-		// The error message from GetMessageStatus is "message not found: not found"
-		// which doesn't exactly match "message not found", so it should return Internal.
-		assert.Equal(t, codes.Internal, st.Code())
+		assert.Equal(t, codes.NotFound, st.Code())
 	})
 
 	t.Run("empty message_id returns InvalidArgument", func(t *testing.T) {

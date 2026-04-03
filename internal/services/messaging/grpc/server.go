@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/application"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // Server реализует gRPC сервис для работы с сообщениями
@@ -222,7 +224,9 @@ func (s *Server) GetMessageStatus(ctx context.Context, req *messagingv1.GetMessa
 	// Получаем сообщение
 	msg, err := s.messageService.GetMessageStatus(ctx, messageID, clientID)
 	if err != nil {
-		if err.Error() == "message not found" {
+		// application.MessageService оборачивает отсутствие записи как
+		// fmt.Errorf("message not found: %w", storage.ErrNotFound)
+		if errors.Is(err, storage.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "message not found")
 		}
 		if err.Error() == "access denied" {

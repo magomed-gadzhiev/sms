@@ -1,8 +1,10 @@
+import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationPanel } from './NotificationPanel';
 
 export function NotificationBell() {
-  const { items, unreadCount, markRead, markAllRead } = useNotifications();
+  const { isAuthenticated } = useAuth();
+  const { items, unreadCount, markRead, markAllRead } = useNotifications(isAuthenticated);
 
   return (
     <NotificationPanel items={items} unreadCount={unreadCount} onMarkRead={markRead} onMarkAllRead={markAllRead}>
