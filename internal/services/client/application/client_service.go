@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ var (
 // PlanRepositoryInterface определяет интерфейс для работы с тарифными планами
 type PlanRepositoryInterface interface {
 	ListActive(ctx context.Context) ([]*domain.Plan, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Plan, error)
 }
 
 // ClientRepositoryInterface определяет интерфейс для работы с клиентами
@@ -32,6 +34,7 @@ type ClientRepositoryInterface interface {
 	Update(ctx context.Context, client *domain.Client) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, activeOnly bool, search string, limit, offset int) ([]*domain.Client, int, error)
+	AssignPlan(ctx context.Context, clientID uuid.UUID, planID uuid.UUID) error
 }
 
 // ConfigRepositoryInterface определяет интерфейс для работы с конфигурациями
@@ -278,6 +281,27 @@ func (s *ClientService) UpdateClientConfig(
 // ListPlans возвращает список активных тарифных планов
 func (s *ClientService) ListPlans(ctx context.Context) ([]*domain.Plan, error) {
 	return s.planRepo.ListActive(ctx)
+}
+
+// AssignPlan назначает тарифный план клиенту
+func (s *ClientService) AssignPlan(ctx context.Context, clientID uuid.UUID, planID uuid.UUID) error {
+	// Проверяем что клиент существует
+	_, err := s.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if err == clientrepo.ErrClientNotFound {
+			return ErrClientNotFound
+		}
+		return err
+	}
+	// Проверяем что план существует и активен
+	plan, err := s.planRepo.GetByID(ctx, planID)
+	if err != nil {
+		return fmt.Errorf("plan not found: %w", err)
+	}
+	if !plan.Active {
+		return fmt.Errorf("plan is not active")
+	}
+	return s.clientRepo.AssignPlan(ctx, clientID, planID)
 }
 
 // UpdateClientRateLimits обновляет rate limits клиента

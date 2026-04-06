@@ -487,6 +487,36 @@ func (s *Server) ToggleSandbox(ctx context.Context, req *clientv1.ToggleSandboxR
 	}, nil
 }
 
+// AssignPlan назначает тарифный план клиенту
+func (s *Server) AssignPlan(ctx context.Context, req *clientv1.AssignPlanRequest) (*clientv1.AssignPlanResponse, error) {
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+	if req.PlanId == "" {
+		return nil, status.Error(codes.InvalidArgument, "plan_id is required")
+	}
+
+	clientID, err := parseClientID(req.ClientId)
+	if err != nil {
+		return nil, err
+	}
+
+	planID, err := uuid.Parse(req.PlanId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid plan_id format")
+	}
+
+	if err := s.clientService.AssignPlan(ctx, clientID, planID); err != nil {
+		if err == application.ErrClientNotFound {
+			return nil, status.Error(codes.NotFound, "client not found")
+		}
+		log.Error().Err(err).Msg("ошибка назначения тарифного плана")
+		return nil, status.Error(codes.Internal, "failed to assign plan")
+	}
+
+	return &clientv1.AssignPlanResponse{Success: true}, nil
+}
+
 // ListPlans возвращает список активных тарифных планов
 func (s *Server) ListPlans(ctx context.Context, req *clientv1.ListPlansRequest) (*clientv1.ListPlansResponse, error) {
 	plans, err := s.clientService.ListPlans(ctx)
