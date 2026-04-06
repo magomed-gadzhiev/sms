@@ -598,18 +598,50 @@ func (s *Server) domainClientToProto(client *domain.Client) *clientv1.ClientInfo
 	}
 
 	info := &clientv1.ClientInfo{
-		ClientId:       client.ID.String(),
-		Name:           client.Name,
-		Email:          client.Email,
-		ContactPerson:  client.ContactPerson,
-		Phone:          client.Phone,
-		Active:         client.Active,
-		Metadata:       client.GetMetadata(),
-		CreatedAt:      timestamppb.New(client.CreatedAt),
-		UpdatedAt:      timestamppb.New(client.UpdatedAt),
-		IsReseller:     client.IsReseller,
-		MaxSubAccounts: int32(client.MaxSubAccounts),
-		IsSandbox:      client.IsSandbox,
+		ClientId:        client.ID.String(),
+		Name:            client.Name,
+		Email:           client.Email,
+		ContactPerson:   client.ContactPerson,
+		Phone:           client.Phone,
+		Active:          client.Active,
+		Metadata:        client.GetMetadata(),
+		CreatedAt:       timestamppb.New(client.CreatedAt),
+		UpdatedAt:       timestamppb.New(client.UpdatedAt),
+		IsReseller:      client.IsReseller,
+		MaxSubAccounts:  int32(client.MaxSubAccounts),
+		IsSandbox:       client.IsSandbox,
+		MonthlySmsCount: int32(client.MonthlySMSCount),
+	}
+
+	if client.PlanID != nil {
+		info.PlanId = client.PlanID.String()
+	}
+
+	if client.Plan != nil {
+		info.Plan = &clientv1.SubscriptionPlan{
+			Id:                 client.Plan.ID.String(),
+			Name:               client.Plan.Name,
+			DisplayName:        client.Plan.DisplayName,
+			MonthlyPriceRub:    client.Plan.MonthlyPriceRub,
+			MaxSmsPerMonth:     int32(client.Plan.MaxSMSPerMonth),
+			MaxSmppConnections: int32(client.Plan.MaxSMPPConnections),
+			MaxUsers:           int32(client.Plan.MaxUsers),
+			RateLimits: &clientv1.RateLimits{
+				MessagesPerSecond: int32(client.Plan.RateLimitPerSecond),
+				MessagesPerMinute: int32(client.Plan.RateLimitPerMinute),
+				MessagesPerHour:   int32(client.Plan.RateLimitPerHour),
+				MessagesPerDay:    int32(client.Plan.RateLimitPerDay),
+			},
+			Features: map[string]bool{
+				"analytics":     client.Plan.Features.Analytics,
+				"webhooks":      client.Plan.Features.Webhooks,
+				"hlr":           client.Plan.Features.HLR,
+				"smart_routing": client.Plan.Features.SmartRouting,
+				"sub_accounts":  client.Plan.Features.SubAccounts,
+				"white_label":   client.Plan.Features.WhiteLabel,
+			},
+			Active: client.Plan.Active,
+		}
 	}
 
 	if client.ParentClientID != nil {

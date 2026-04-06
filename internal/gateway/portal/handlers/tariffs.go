@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/rs/zerolog/log"
 
+	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
 	clientv1 "github.com/smpp-server/smpp-server/api/proto/clientv1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
@@ -16,11 +18,12 @@ import (
 type TariffHandlers struct {
 	clientClient       clientv1.ClientServiceClient
 	tarificationClient tarificationv1.TarificationServiceClient
+	billingClient      billingv1.BillingServiceClient
 }
 
 // NewTariffHandlers создает новый TariffHandlers
-func NewTariffHandlers(clientClient clientv1.ClientServiceClient, tarificationClient tarificationv1.TarificationServiceClient) *TariffHandlers {
-	return &TariffHandlers{clientClient: clientClient, tarificationClient: tarificationClient}
+func NewTariffHandlers(clientClient clientv1.ClientServiceClient, tarificationClient tarificationv1.TarificationServiceClient, billingClient billingv1.BillingServiceClient) *TariffHandlers {
+	return &TariffHandlers{clientClient: clientClient, tarificationClient: tarificationClient, billingClient: billingClient}
 }
 
 // GetCurrentTariff обрабатывает GET /portal/v1/tariffs/current
@@ -138,7 +141,43 @@ func (h *TariffHandlers) ChangePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.clientClient.AssignPlan(r.Context(), &clientv1.AssignPlanRequest{
+	// Получаем информацию о новом плане для списания средств
+	plansResp, err := h.clientClient.ListPlans(r.Context(), &clientv1.ListPlansRequest{})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка планов")
+		respondGRPCError(w, err)
+		return
+	}
+
+	var selectedPlan *clientv1.SubscriptionPlan
+	for _, p := range plansResp.Plans {
+		if p.Id == req.PlanID {
+			selectedPlan = p
+			break
+		}
+	}
+	if selectedPlan == nil {
+		respondError(w, shared.ErrNotFound("Тарифный план не найден"))
+		return
+	}
+
+	// Списываем стоимость тарифного плана (если цена > 0 и billingClient доступен)
+	if h.billingClient != nil && selectedPlan.MonthlyPriceRub > 0 {
+		amount := fmt.Sprintf("%.2f", selectedPlan.MonthlyPriceRub)
+		_, err := h.billingClient.DeductCredits(r.Context(), &billingv1.DeductCreditsRequest{
+			ClientId:    clientID.String(),
+			Amount:      amount,
+			Currency:    "RUB",
+			Description: fmt.Sprintf("Подключение тарифного плана «%s»", selectedPlan.DisplayName),
+		})
+		if err != nil {
+			log.Error().Err(err).Str("plan_id", req.PlanID).Str("amount", amount).Msg("ошибка списания средств за тарифный план")
+			respondGRPCError(w, err)
+			return
+		}
+	}
+
+	_, err = h.clientClient.AssignPlan(r.Context(), &clientv1.AssignPlanRequest{
 		ClientId: clientID.String(),
 		PlanId:   req.PlanID,
 	})

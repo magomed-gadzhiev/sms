@@ -184,7 +184,7 @@ func main() {
 	campaignHandlers := handlers.NewCampaignHandlers(serviceClients.CampaignClient)
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 	billingHandlers := handlers.NewBillingHandlers(serviceClients.BillingClient, payment.NewStubPaymentProvider())
-	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient)
+	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient, serviceClients.BillingClient)
 	domainHandlers := handlers.NewDomainHandlers(serviceClients.LinkDomainClient)
 
 	settingsHandlers := handlers.NewSettingsHandlers(dbPool)

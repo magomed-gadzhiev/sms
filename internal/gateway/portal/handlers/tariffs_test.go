@@ -157,7 +157,7 @@ func (m *mockClientServiceClient) ToggleSandbox(ctx context.Context, in *clientv
 // --- helpers ---
 
 func newTariffHandlersWithMocks(cc *mockClientServiceClient) *TariffHandlers {
-	return NewTariffHandlers(cc, nil)
+	return NewTariffHandlers(cc, nil, nil)
 }
 
 func withClientID(r *http.Request, clientID uuid.UUID) *http.Request {
