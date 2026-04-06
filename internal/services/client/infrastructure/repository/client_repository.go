@@ -60,7 +60,8 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 
 // GetByID получает клиента по ID
 func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error) {
-	query := `SELECT c.id, c.name, c.email, c.contact_person, c.phone, c.active,
+	query := `SELECT c.id, c.name, COALESCE(c.email, '') AS email,
+		COALESCE(c.contact_person, '') AS contact_person, COALESCE(c.phone, '') AS phone, c.active,
 		c.metadata, c.created_at, c.updated_at, c.parent_client_id, c.is_reseller,
 		c.max_sub_accounts, c.plan_id, c.monthly_sms_count, c.monthly_sms_reset_at,
 		c.is_sandbox,
