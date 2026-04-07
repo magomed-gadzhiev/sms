@@ -134,7 +134,6 @@ export function OptOutListPage() {
     }
   }
 
-  const perPage = 20;
   const columns: Column<OptOutEntry>[] = [
     {
       key: 'phone',
