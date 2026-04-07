@@ -85,8 +85,64 @@ func (m mockRouteRepo) ListDefaultByOperator(_ context.Context, oid uuid.UUID) (
 	return m.defaults[oid], nil
 }
 
-type mockClientRepo struct{ parentID *uuid.UUID }
+type mockClientRepo struct {
+	parentID    *uuid.UUID
+	routingMode string
+}
 
 func (m mockClientRepo) GetParentClientID(_ context.Context, _ uuid.UUID) (*uuid.UUID, error) {
 	return m.parentID, nil
+}
+
+func (m mockClientRepo) GetRoutingMode(_ context.Context, _ uuid.UUID) (string, error) {
+	if m.routingMode == "" {
+		return "hybrid", nil
+	}
+	return m.routingMode, nil
+}
+
+func TestUnifiedRouter_LegacyModeUsesOnlyPlatformDefaults(t *testing.T) {
+	clientRoute := makeRoute(&testClientID, testProviderID, 100, false)
+	defaultProviderID := uuid.MustParse("eeeeeeee-0000-0000-0000-000000000001")
+	defaultRoute := makeRoute(nil, defaultProviderID, 50, false)
+
+	r := router.NewUnifiedRouter(mockRouteRepo{
+		byClient: map[uuid.UUID][]*shared.ClientRoute{testClientID: {clientRoute}},
+		defaults: map[uuid.UUID][]*shared.ClientRoute{testOperatorID: {defaultRoute}},
+	}, mockClientRepo{routingMode: "legacy"})
+
+	dec, err := r.Route(context.Background(), testClientID, testOperatorID)
+	require.NoError(t, err)
+	// В legacy режиме должен использоваться платформенный дефолт, а не маршрут клиента
+	assert.Equal(t, defaultProviderID, dec.ProviderID)
+}
+
+func TestUnifiedRouter_NewModeUsesOnlyOwnRoutes(t *testing.T) {
+	rt := makeRoute(&testClientID, testProviderID, 100, false)
+	defaultProviderID := uuid.MustParse("eeeeeeee-0000-0000-0000-000000000001")
+	defaultRoute := makeRoute(nil, defaultProviderID, 50, false)
+
+	r := router.NewUnifiedRouter(mockRouteRepo{
+		byClient: map[uuid.UUID][]*shared.ClientRoute{testClientID: {rt}},
+		defaults: map[uuid.UUID][]*shared.ClientRoute{testOperatorID: {defaultRoute}},
+	}, mockClientRepo{routingMode: "new"})
+
+	dec, err := r.Route(context.Background(), testClientID, testOperatorID)
+	require.NoError(t, err)
+	// В new режиме должен использоваться только маршрут клиента
+	assert.Equal(t, testProviderID, dec.ProviderID)
+}
+
+func TestUnifiedRouter_NewModeNoFallbackToGlobal(t *testing.T) {
+	defaultProviderID := uuid.MustParse("eeeeeeee-0000-0000-0000-000000000001")
+	defaultRoute := makeRoute(nil, defaultProviderID, 50, false)
+
+	// Нет собственных маршрутов у клиента
+	r := router.NewUnifiedRouter(mockRouteRepo{
+		defaults: map[uuid.UUID][]*shared.ClientRoute{testOperatorID: {defaultRoute}},
+	}, mockClientRepo{routingMode: "new"})
+
+	_, err := r.Route(context.Background(), testClientID, testOperatorID)
+	// В new режиме не должно быть fallback на глобальные маршруты
+	assert.ErrorIs(t, err, router.ErrNoRouteFound)
 }

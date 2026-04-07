@@ -61,3 +61,14 @@ func (r *ClientRouteRepository) GetParentClientID(ctx context.Context, clientID 
 	v := parentID.UUID
 	return &v, nil
 }
+
+func (r *ClientRouteRepository) GetRoutingMode(ctx context.Context, clientID uuid.UUID) (string, error) {
+	var mode string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT routing_mode FROM clients WHERE id = $1`, clientID,
+	).Scan(&mode)
+	if err != nil {
+		return "hybrid", err
+	}
+	return mode, nil
+}

@@ -23,9 +23,10 @@ type ClientRouteRepository interface {
 	ListDefaultByOperator(ctx context.Context, operatorID uuid.UUID) ([]*shared.ClientRoute, error)
 }
 
-// ClientParentRepository — получение родителя клиента.
+// ClientParentRepository — получение родителя клиента и режима маршрутизации.
 type ClientParentRepository interface {
 	GetParentClientID(ctx context.Context, clientID uuid.UUID) (*uuid.UUID, error)
+	GetRoutingMode(ctx context.Context, clientID uuid.UUID) (string, error)
 }
 
 // UnifiedRouter маршрутизирует сообщение по трём уровням:
@@ -47,24 +48,50 @@ func NewUnifiedRouter(routeRepo ClientRouteRepository, clientRepo ClientParentRe
 }
 
 // Route возвращает RoutingDecision для пары (clientID, operatorID).
+// Поведение зависит от routing_mode клиента:
+//   - "legacy"  — только платформенные дефолты (уровень 3)
+//   - "new"     — только собственные маршруты клиента (уровень 1); ошибка если нет
+//   - "hybrid"  — 3-уровневый fallback: client → reseller → platform (поведение по умолчанию)
 func (r *UnifiedRouter) Route(ctx context.Context, clientID, operatorID uuid.UUID) (*shared.RoutingDecision, error) {
-	// Уровень 1: собственные маршруты
-	routes, err := r.routeRepo.ListByClientAndOperator(ctx, clientID, operatorID)
+	mode, err := r.clientRepo.GetRoutingMode(ctx, clientID)
 	if err != nil {
-		r.logger.Error().Err(err).Msg("ListByClientAndOperator failed")
+		r.logger.Warn().Err(err).Str("client_id", clientID.String()).Msg("GetRoutingMode failed, falling back to hybrid")
+		mode = "hybrid"
 	}
 
-	// Уровень 2: shared маршруты реселлера
-	if len(routes) == 0 {
-		parentID, _ := r.clientRepo.GetParentClientID(ctx, clientID)
-		if parentID != nil {
-			routes, _ = r.routeRepo.ListSharedByClientAndOperator(ctx, *parentID, operatorID)
-		}
-	}
+	var routes []*shared.ClientRoute
 
-	// Уровень 3: платформенные дефолты
-	if len(routes) == 0 {
+	switch mode {
+	case "legacy":
+		// Только платформенные дефолты
 		routes, _ = r.routeRepo.ListDefaultByOperator(ctx, operatorID)
+
+	case "new":
+		// Только собственные маршруты — без fallback на глобальные
+		routes, err = r.routeRepo.ListByClientAndOperator(ctx, clientID, operatorID)
+		if err != nil {
+			r.logger.Error().Err(err).Msg("ListByClientAndOperator failed")
+		}
+
+	default: // "hybrid" и всё остальное
+		// Уровень 1: собственные маршруты
+		routes, err = r.routeRepo.ListByClientAndOperator(ctx, clientID, operatorID)
+		if err != nil {
+			r.logger.Error().Err(err).Msg("ListByClientAndOperator failed")
+		}
+
+		// Уровень 2: shared маршруты реселлера
+		if len(routes) == 0 {
+			parentID, _ := r.clientRepo.GetParentClientID(ctx, clientID)
+			if parentID != nil {
+				routes, _ = r.routeRepo.ListSharedByClientAndOperator(ctx, *parentID, operatorID)
+			}
+		}
+
+		// Уровень 3: платформенные дефолты
+		if len(routes) == 0 {
+			routes, _ = r.routeRepo.ListDefaultByOperator(ctx, operatorID)
+		}
 	}
 
 	if len(routes) == 0 {
