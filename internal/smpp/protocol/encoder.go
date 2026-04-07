@@ -53,7 +53,7 @@ func (e *Encoder) EncodePDU(pdu *PDU) ([]byte, error) {
 // EncodeBind кодирует bind PDU
 func (e *Encoder) EncodeBind(bind *BindPDU) ([]byte, error) {
 	e.buf.Reset()
-	
+
 	// System ID (C-Octet String, max 16)
 	if err := e.writeCString(bind.SystemID, MaxSystemIDLength); err != nil {
 		return nil, fmt.Errorf("failed to write system_id: %w", err)
@@ -88,8 +88,12 @@ func (e *Encoder) EncodeBind(bind *BindPDU) ([]byte, error) {
 	if err := e.writeCString(bind.AddressRange, 41); err != nil {
 		return nil, fmt.Errorf("failed to write address_range: %w", err)
 	}
-	
-	return e.buf.Bytes(), nil
+
+	// Возвращаем копию (не ссылку на внутренний буфер), чтобы избежать
+	// порчи данных при последующем вызове EncodePDU с тем же энкодером
+	result := make([]byte, e.buf.Len())
+	copy(result, e.buf.Bytes())
+	return result, nil
 }
 
 // EncodeBindResp кодирует bind response PDU
