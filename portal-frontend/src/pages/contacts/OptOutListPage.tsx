@@ -134,6 +134,7 @@ export function OptOutListPage() {
     }
   }
 
+  const perPage = 20;
   const columns: Column<OptOutEntry>[] = [
     {
       key: 'phone',
@@ -179,10 +180,10 @@ export function OptOutListPage() {
     <div className="space-y-6">
       <PageHeader
         title="Список отписок (Opt-Out)"
-        description="Номера телефонов, отказавшихся от рассылок. Они автоматически исключаются при запуске кампаний."
-        action={
+        subtitle="Номера телефонов, отказавшихся от рассылок. Они автоматически исключаются при запуске кампаний."
+        actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowImport(true)}>
+            <Button variant="secondary" onClick={() => setShowImport(true)}>
               Импорт CSV
             </Button>
             <Button onClick={() => setShowAdd(true)}>Добавить номер</Button>
@@ -199,7 +200,7 @@ export function OptOutListPage() {
           onKeyDown={handleSearchKeyDown}
           className="max-w-xs"
         />
-        <Button variant="outline" onClick={handleSearch}>
+        <Button variant="secondary" onClick={handleSearch}>
           Найти
         </Button>
         {search && (
@@ -223,16 +224,14 @@ export function OptOutListPage() {
       )}
 
       <DataTable
-        columns={columns}
+        columns={columns as Column<Record<string, unknown>>[]}
         data={items}
+        total={total}
+        page={page}
+        pageSize={perPage}
+        onPageChange={setPage}
         loading={loading}
-        emptyMessage="Список отписок пуст"
-        pagination={{
-          page,
-          perPage,
-          total,
-          onPageChange: setPage,
-        }}
+        keyField="id"
       />
 
       {/* Add modal */}
@@ -271,7 +270,7 @@ export function OptOutListPage() {
           {addError && <p className="text-sm text-red-600">{addError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setShowAdd(false);
                 setAddPhone('');
@@ -317,7 +316,7 @@ export function OptOutListPage() {
           )}
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setShowImport(false);
                 setImportText('');
