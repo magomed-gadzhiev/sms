@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	cpv1 "github.com/smpp-server/smpp-server/api/proto/clientproviderv1"
@@ -28,9 +29,13 @@ func (h *ProviderHandlers) ListProviders(w http.ResponseWriter, r *http.Request)
 		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
 		return
 	}
-	resp, err := h.providerClient.ListClientProviders(r.Context(), &cpv1.ListClientProvidersRequest{
-		ClientId: clientID.String(),
-	})
+
+	req := &cpv1.ListClientProvidersRequest{}
+	if clientID != uuid.Nil {
+		req.ClientId = clientID.String()
+	}
+
+	resp, err := h.providerClient.ListClientProviders(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

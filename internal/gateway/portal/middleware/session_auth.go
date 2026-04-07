@@ -82,7 +82,7 @@ func SessionAuthMiddleware(redisClient *redis.Client) func(http.Handler) http.Ha
 			clientIDStr := data["client_id"]
 			if clientIDStr != "" {
 				clientID, err := uuid.Parse(clientIDStr)
-				if err == nil && clientID != uuid.Nil {
+				if err == nil {
 					ctx = context.WithValue(ctx, ClientIDKey, clientID)
 				}
 			}

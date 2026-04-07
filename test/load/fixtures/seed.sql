@@ -128,15 +128,15 @@ ON CONFLICT (api_key) DO UPDATE SET
 -- ============================================================
 -- 4. Пользователи и API-ключи для auth (портальные тесты)
 -- ============================================================
-INSERT INTO users (id, username, email, password_hash, role_id, active)
+INSERT INTO users (id, username, email, password_hash, role_id, active, client_id)
 VALUES
     ('d0000000-0000-0000-0000-000000000001', 'loadtest-admin', 'loadtest-admin@test.local',
-     '$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012',
-     '00000000-0000-0000-0000-000000000001', true),
+     '$2b$10$yYg00iyTGSozXL9FwSsecuWdn8CAUKeKfLjn9JcIm5um/eCfeiBCW',  -- Admin123!
+     '00000000-0000-0000-0000-000000000001', true, NULL),
     ('d0000000-0000-0000-0000-000000000002', 'loadtest-client', 'loadtest-client@test.local',
-     '$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012',
-     '00000000-0000-0000-0000-000000000002', true)
-ON CONFLICT (username) DO NOTHING;
+     '$2b$10$yYg00iyTGSozXL9FwSsecuWdn8CAUKeKfLjn9JcIm5um/eCfeiBCW',  -- Admin123!
+     '00000000-0000-0000-0000-000000000002', true, 'c0000000-0000-0000-0000-000000000001')
+ON CONFLICT (username) DO UPDATE SET client_id = EXCLUDED.client_id;
 
 INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, active)
 VALUES
