@@ -200,6 +200,7 @@ message UserInfo {
   Role role = 4;              // Роль пользователя
   bool active = 5;            // Активен ли пользователь
   google.protobuf.Timestamp created_at = 6;  // Время создания
+  string client_id = 7;       // ID компании-клиента (для пользователей с ролью client)
 }
 
 // Role представляет роль пользователя
