@@ -20,8 +20,16 @@ func NewEncoder() *Encoder {
 
 // EncodePDU кодирует базовую PDU структуру
 func (e *Encoder) EncodePDU(pdu *PDU) ([]byte, error) {
+	// Сохраняем копию тела до Reset(), так как pdu.Body может ссылаться
+	// на внутренний буфер этого же энкодера (aliasing bug)
+	var bodyCopy []byte
+	if len(pdu.Body) > 0 {
+		bodyCopy = make([]byte, len(pdu.Body))
+		copy(bodyCopy, pdu.Body)
+	}
+
 	e.buf.Reset()
-	
+
 	// Записываем заголовок
 	if err := binary.Write(e.buf, binary.BigEndian, pdu.CommandLength); err != nil {
 		return nil, fmt.Errorf("failed to write command_length: %w", err)
@@ -35,18 +43,18 @@ func (e *Encoder) EncodePDU(pdu *PDU) ([]byte, error) {
 	if err := binary.Write(e.buf, binary.BigEndian, pdu.SequenceNumber); err != nil {
 		return nil, fmt.Errorf("failed to write sequence_number: %w", err)
 	}
-	
-	// Записываем тело
-	if len(pdu.Body) > 0 {
-		if _, err := e.buf.Write(pdu.Body); err != nil {
+
+	// Записываем тело (из копии, не из потенциально испорченного слайса)
+	if len(bodyCopy) > 0 {
+		if _, err := e.buf.Write(bodyCopy); err != nil {
 			return nil, fmt.Errorf("failed to write body: %w", err)
 		}
 	}
-	
+
 	// Обновляем command_length
 	result := e.buf.Bytes()
 	binary.BigEndian.PutUint32(result[0:4], uint32(len(result)))
-	
+
 	return result, nil
 }
 
