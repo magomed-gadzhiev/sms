@@ -37,6 +37,7 @@ import { SegmentsPage } from './pages/segments/SegmentsPage';
 import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
 import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
 import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDetail';
+import { RoutingPage } from './pages/routing/RoutingPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -101,6 +102,7 @@ export function App() {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProviderWizardPage />} />
+        <Route path="/routing" element={<RoutingPage />} />
         <Route path="/sub-accounts" element={<SubAccountsListPage />} />
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
         <Route path="/templates" element={<TemplatesPage />} />

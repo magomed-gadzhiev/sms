@@ -42,6 +42,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/api-keys', label: 'API Ключи' },
       { path: '/webhooks', label: 'Вебхуки' },
       { path: '/providers', label: 'Провайдеры' },
+      { path: '/routing', label: 'Маршрутизация' },
       { path: '/lookup', label: 'Lookup' },
     ],
   },

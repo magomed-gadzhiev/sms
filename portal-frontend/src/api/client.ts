@@ -294,6 +294,71 @@ export const providersApi = {
     }),
 };
 
+// Routing API
+export interface OperatorInfo {
+  id: string;
+  name: string;
+  code: string;
+  country_id: string;
+  active: boolean;
+}
+
+export interface ClientRoute {
+  id: string;
+  client_id: string;
+  operator_id: string;
+  provider_id: string;
+  priority: number;
+  weight: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutingStrategy {
+  id: string;
+  client_id: string;
+  operator_id: string;
+  strategy: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const routingApi = {
+  getMode: () => apiFetch<{ routing_mode: string }>('/routing/mode'),
+  setMode: (routing_mode: string) =>
+    apiFetch<{ routing_mode: string }>('/routing/mode', {
+      method: 'PUT',
+      body: JSON.stringify({ routing_mode }),
+    }),
+  listOperators: () =>
+    apiFetch<{ operators: OperatorInfo[]; total: number }>('/routing/operators'),
+  listRoutes: (operatorId?: string) => {
+    const qs = operatorId ? `?operator_id=${operatorId}` : '';
+    return apiFetch<{ routes: ClientRoute[] }>(`/routing/routes${qs}`);
+  },
+  createRoute: (data: { operator_id: string; provider_id: string; priority: number; weight: number }) =>
+    apiFetch<ClientRoute>('/routing/routes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateRoute: (id: string, data: { priority?: number; weight?: number; active?: boolean }) =>
+    apiFetch<ClientRoute>(`/routing/routes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteRoute: (id: string) => apiFetch<void>(`/routing/routes/${id}`, { method: 'DELETE' }),
+  getStrategy: (operatorId?: string) => {
+    const qs = operatorId ? `?operator_id=${operatorId}` : '';
+    return apiFetch<RoutingStrategy>(`/routing/strategy${qs}`);
+  },
+  setStrategy: (data: { operator_id?: string; strategy: string }) =>
+    apiFetch<RoutingStrategy>('/routing/strategy', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
 // Templates API
 export interface TemplateInfo {
   id: string;

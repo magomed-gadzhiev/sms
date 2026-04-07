@@ -204,6 +204,7 @@ func main() {
 	settingsHandlers := handlers.NewSettingsHandlers(dbPool)
 	segmentHandlers := handlers.NewSegmentHandlers(dbPool)
 	subAccountRoutingHandlers := handlers.NewSubAccountRoutingHandlers(serviceClients.RoutingClient)
+	clientRoutingHandlers := handlers.NewClientRoutingHandlers(serviceClients.RoutingClient, dbPool)
 	senderNameHandlers := handlers.NewSenderNameHandlers(serviceClients.SenderNameClient)
 	senderNameHandlers.SetBillingClients(
 		serviceClients.RoutingClient,
@@ -284,6 +285,7 @@ func main() {
 		settingsHandlers,
 		segmentHandlers,
 		subAccountRoutingHandlers,
+		clientRoutingHandlers,
 		senderNameHandlers,
 		notificationHandlers,
 		searchHandlers,

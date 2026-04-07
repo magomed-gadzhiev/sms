@@ -51,6 +51,7 @@ func SetupRouter(
 	settingsHandlers *handlers.SettingsHandlers,
 	segmentHandlers *handlers.SegmentHandlers,
 	subAccountRoutingHandlers *handlers.SubAccountRoutingHandlers,
+	clientRoutingHandlers *handlers.ClientRoutingHandlers,
 	senderNameHandlers *handlers.SenderNameHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
@@ -158,6 +159,18 @@ func SetupRouter(
 	subAccounts.HandleFunc("/{id}/providers/{pid}", subAccountRoutingHandlers.RevokeProvider).Methods("DELETE")
 	subAccounts.HandleFunc("/{id}/routes", subAccountRoutingHandlers.CreateRoute).Methods("POST")
 	subAccounts.HandleFunc("/{id}/routes", subAccountRoutingHandlers.ListRoutes).Methods("GET")
+
+	// Client routing (own routing configuration)
+	routing := protected.PathPrefix("/routing").Subrouter()
+	routing.HandleFunc("/mode", clientRoutingHandlers.GetRoutingMode).Methods("GET")
+	routing.HandleFunc("/mode", clientRoutingHandlers.SetRoutingMode).Methods("PUT")
+	routing.HandleFunc("/operators", clientRoutingHandlers.ListOperators).Methods("GET")
+	routing.HandleFunc("/routes", clientRoutingHandlers.CreateRoute).Methods("POST")
+	routing.HandleFunc("/routes", clientRoutingHandlers.ListRoutes).Methods("GET")
+	routing.HandleFunc("/routes/{id}", clientRoutingHandlers.UpdateRoute).Methods("PUT")
+	routing.HandleFunc("/routes/{id}", clientRoutingHandlers.DeleteRoute).Methods("DELETE")
+	routing.HandleFunc("/strategy", clientRoutingHandlers.GetStrategy).Methods("GET")
+	routing.HandleFunc("/strategy", clientRoutingHandlers.SetStrategy).Methods("PUT")
 
 	// Lookup endpoints
 	lookup := protected.PathPrefix("/lookup").Subrouter()
