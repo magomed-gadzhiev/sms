@@ -69,6 +69,34 @@ func NewStage(cfg *config.Config, db *storage.DB, rdb *redis.Client) (*Stage, er
 	}
 
 	pool := smsc.NewPool(&cfg.Worker)
+
+	// Устанавливаем DLR callback для обработки deliver_sm от провайдеров
+	dlrTopic := cfg.Kafka.TopicDLR
+	pool.SetDLRCallback(func(data *smsc.DeliverSMData) {
+		dlrMsg := &queue.DLRMessage{
+			SMPPMessageID:      data.SMPPMessageID,
+			ProviderID:         &data.ProviderID,
+			ReceiptedMessageID: data.SMPPMessageID,
+			Stat:               data.Stat,
+			Source:             data.Source,
+			Destination:        data.Destination,
+			Text:               data.Text,
+			CreatedAt:          time.Now(),
+		}
+		now := time.Now()
+		dlrMsg.DoneDate = &now
+		if dlrData, serErr := dlrMsg.Serialize(); serErr == nil {
+			producer.PublishAsync(dlrTopic, data.SMPPMessageID, dlrData, nil)
+			log.Info().
+				Str("smpp_message_id", data.SMPPMessageID).
+				Str("stat", data.Stat).
+				Str("provider_id", data.ProviderID.String()).
+				Msg("DLR опубликован в Kafka")
+		} else {
+			log.Error().Err(serErr).Msg("ошибка сериализации DLR")
+		}
+	})
+
 	bpManager := backpressure.NewManager()
 	providerRepo := storage.NewProviderRepository(db)
 	clientRepo := storage.NewClientRepository(db)

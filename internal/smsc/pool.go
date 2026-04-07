@@ -21,6 +21,7 @@ type Pool struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	seqNum           uint32
+	dlrCallback      DLRCallbackFunc
 }
 
 // NewPool создает новый пул соединений
@@ -36,6 +37,11 @@ func NewPool(cfg *config.WorkerConfig) *Pool {
 		ctx:              ctx,
 		cancel:           cancel,
 	}
+}
+
+// SetDLRCallback устанавливает функцию обратного вызова для обработки DLR (deliver_sm) от провайдеров
+func (p *Pool) SetDLRCallback(cb DLRCallbackFunc) {
+	p.dlrCallback = cb
 }
 
 // IsSimulator проверяет, является ли провайдер симулятором

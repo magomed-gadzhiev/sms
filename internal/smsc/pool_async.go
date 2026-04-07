@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,6 +25,22 @@ type SubmitSMResponse struct {
 	SequenceNum   uint32
 }
 
+// DeliverSMData содержит распарсированные данные из deliver_sm PDU (DLR)
+type DeliverSMData struct {
+	ProviderID    uuid.UUID
+	SMPPMessageID string // receipted_message_id из тела DLR
+	Source        string
+	Destination   string
+	Stat          string // DELIVRD, UNDELIV, EXPIRED, etc.
+	Err           string
+	Text          string
+	SubmitDate    string
+	DoneDate      string
+}
+
+// DLRCallbackFunc — тип функции обратного вызова для обработки DLR (deliver_sm)
+type DLRCallbackFunc func(data *DeliverSMData)
+
 // AsyncConnection представляет асинхронное SMPP соединение с sliding window
 type AsyncConnection struct {
 	ID               string
@@ -40,6 +57,7 @@ type AsyncConnection struct {
 	logger           zerolog.Logger
 	cancel           context.CancelFunc
 	done             chan struct{}
+	dlrCallback      DLRCallbackFunc
 }
 
 // NextSequence возвращает следующий номер последовательности (atomic, wraps at 0x7FFFFFFF)
@@ -182,6 +200,37 @@ func (ac *AsyncConnection) startReader(ctx context.Context) {
 				ac.logger.Warn().Msg("WriterCh переполнен, enquire_link_resp отброшен")
 			}
 
+		case smppprotocol.DeliverSM: // 0x00000005 — DLR от провайдера
+			ac.logger.Info().
+				Uint32("sequence_num", sequenceNum).
+				Msg("получен deliver_sm (DLR) от провайдера")
+
+			// Отправляем deliver_sm_resp
+			resp := buildDeliverSMResp(sequenceNum)
+			select {
+			case ac.WriterCh <- resp:
+			default:
+				ac.logger.Warn().Msg("WriterCh переполнен, deliver_sm_resp отброшен")
+			}
+
+			// Декодируем и обрабатываем DLR
+			if ac.dlrCallback != nil {
+				decoder := smppprotocol.NewDecoder()
+				deliverPDU, decErr := decoder.DecodeDeliverSM(body)
+				if decErr != nil {
+					ac.logger.Error().Err(decErr).Msg("ошибка декодирования deliver_sm PDU")
+				} else {
+					dlrData := parseDLRFromDeliverSM(deliverPDU, ac.ProviderID)
+					ac.logger.Info().
+						Str("smpp_message_id", dlrData.SMPPMessageID).
+						Str("stat", dlrData.Stat).
+						Str("source", dlrData.Source).
+						Str("destination", dlrData.Destination).
+						Msg("DLR распарсен, вызываем callback")
+					ac.dlrCallback(dlrData)
+				}
+			}
+
 		case smppprotocol.Unbind: // 0x00000006 — сервер инициирует отключение
 			ac.logger.Info().
 				Uint32("sequence_num", sequenceNum).
@@ -250,6 +299,91 @@ func buildUnbindResp(sequenceNum uint32) []byte {
 	pdu[14] = byte(sequenceNum >> 8)
 	pdu[15] = byte(sequenceNum)
 	return pdu
+}
+
+// buildDeliverSMResp строит PDU deliver_sm_resp (command_id=0x80000005, тело = null-terminated message_id)
+func buildDeliverSMResp(sequenceNum uint32) []byte {
+	// Тело: message_id (C-Octet String) — для DLR ответа можно отправить пустой
+	bodyLen := 1 // just null terminator for empty message_id
+	totalLen := 16 + bodyLen
+	pdu := make([]byte, totalLen)
+	binary.BigEndian.PutUint32(pdu[0:4], uint32(totalLen)) // command_length
+	binary.BigEndian.PutUint32(pdu[4:8], 0x80000005)       // command_id = deliver_sm_resp
+	binary.BigEndian.PutUint32(pdu[8:12], 0)               // command_status = ESME_ROK
+	binary.BigEndian.PutUint32(pdu[12:16], sequenceNum)     // sequence_number
+	pdu[16] = 0                                             // message_id = "" (null-terminated)
+	return pdu
+}
+
+// dlrFieldRegex парсит стандартные поля DLR из short_message
+var dlrFieldRegex = regexp.MustCompile(`(?i)id:(\S+)\s+sub:(\S+)\s+dlvrd:(\S+)\s+submit date:(\S+)\s+done date:(\S+)\s+stat:(\S+)\s+err:(\S+)(?:\s+[Tt]ext:(.*))?`)
+
+// parseDLRFromDeliverSM извлекает DLR-данные из deliver_sm PDU
+func parseDLRFromDeliverSM(pdu *smppprotocol.DeliverSMPDU, providerID uuid.UUID) *DeliverSMData {
+	data := &DeliverSMData{
+		ProviderID:  providerID,
+		Source:      pdu.SourceAddr,
+		Destination: pdu.DestinationAddr,
+	}
+
+	// Парсим short_message для стандартного формата DLR
+	msg := string(pdu.ShortMessage)
+	matches := dlrFieldRegex.FindStringSubmatch(msg)
+	if len(matches) >= 7 {
+		data.SMPPMessageID = matches[1]
+		data.SubmitDate = matches[4]
+		data.DoneDate = matches[5]
+		data.Stat = matches[6]
+		data.Err = matches[7]
+		if len(matches) >= 9 {
+			data.Text = matches[8]
+		}
+	} else {
+		// Fallback: пробуем TLV receipted_message_id (tag 0x001E)
+		if receiptedID, ok := pdu.TLV[0x001E]; ok {
+			// Убираем null-terminator если есть
+			id := string(receiptedID)
+			if len(id) > 0 && id[len(id)-1] == 0 {
+				id = id[:len(id)-1]
+			}
+			data.SMPPMessageID = id
+		}
+		// Пробуем TLV message_state (tag 0x0427)
+		if stateBytes, ok := pdu.TLV[0x0427]; ok && len(stateBytes) > 0 {
+			data.Stat = mapMessageState(stateBytes[0])
+		}
+		// Если stat всё ещё пуст, но есть short_message — ставим его как text
+		if data.Stat == "" {
+			data.Stat = "UNKNOWN"
+			data.Text = msg
+		}
+	}
+
+	return data
+}
+
+// mapMessageState маппит числовой message_state из TLV в текстовый статус
+func mapMessageState(state byte) string {
+	switch state {
+	case 1:
+		return "ENROUTE"
+	case 2:
+		return "DELIVRD"
+	case 3:
+		return "EXPIRED"
+	case 4:
+		return "DELETED"
+	case 5:
+		return "UNDELIV"
+	case 6:
+		return "ACCEPTD"
+	case 7:
+		return "UNKNOWN"
+	case 8:
+		return "REJECTD"
+	default:
+		return "UNKNOWN"
+	}
 }
 
 // ConnectAsync создает асинхронное SMPP соединение с sliding window
@@ -340,18 +474,19 @@ func (p *Pool) ConnectAsync(ctx context.Context, provider *shared.Provider, wind
 	}
 
 	ac := &AsyncConnection{
-		ID:         connectionID,
-		ProviderID: provider.ID,
-		Conn:       conn,
-		Bound:      false,
-		WindowSem:  make(chan struct{}, windowSize),
-		WriterCh:   make(chan []byte, 1000),
-		CreatedAt:  time.Now(),
-		LastUsed:   time.Now().UnixNano(),
-		throttler:  NewThrottler(provider.ThroughputPerSec),
-		logger:     log.With().Str("async_connection_id", connectionID).Str("provider", provider.Name).Logger(),
-		cancel:     acCancel,
-		done:       make(chan struct{}),
+		ID:          connectionID,
+		ProviderID:  provider.ID,
+		Conn:        conn,
+		Bound:       false,
+		WindowSem:   make(chan struct{}, windowSize),
+		WriterCh:    make(chan []byte, 1000),
+		CreatedAt:   time.Now(),
+		LastUsed:    time.Now().UnixNano(),
+		throttler:   NewThrottler(provider.ThroughputPerSec),
+		logger:      log.With().Str("async_connection_id", connectionID).Str("provider", provider.Name).Logger(),
+		cancel:      acCancel,
+		done:        make(chan struct{}),
+		dlrCallback: p.dlrCallback,
 	}
 
 	ac.Bound = true
