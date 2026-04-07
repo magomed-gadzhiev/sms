@@ -215,6 +215,16 @@ func main() {
 			return nil
 		}
 
+		// Сообщения с client_id маршрутизирует pipeline-router с учётом routing_mode клиента.
+		// Routing-service обрабатывает только legacy путь (без client_id).
+		if clientID != nil {
+			logger.Debug().
+				Str("message_id", kafkaMsg.MessageID.String()).
+				Str("client_id", clientID.String()).
+				Msg("сообщение с client_id — передаём pipeline-router")
+			return nil
+		}
+
 		// Маршрутизируем сообщение
 		selectedRouteID, selectedProviderID, err := routingService.RouteMessage(
 			ctx,
