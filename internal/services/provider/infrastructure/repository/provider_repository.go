@@ -162,6 +162,11 @@ func sharedToDomain(p *shared.Provider) *domain.Provider {
 	return d
 }
 
+// LinkToClient создаёт связь провайдера с клиентом
+func (a *ProviderRepositoryAdapter) LinkToClient(ctx context.Context, providerID, clientID uuid.UUID, ownership string) error {
+	return a.repo.LinkToClient(ctx, providerID, clientID, ownership)
+}
+
 // ListByClientID возвращает провайдеров клиента
 func (a *ProviderRepositoryAdapter) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.Provider, error) {
 	providers, err := a.repo.ListByClientID(ctx, clientID)

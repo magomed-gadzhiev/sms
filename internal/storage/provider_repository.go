@@ -194,6 +194,14 @@ func (r *ProviderRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// LinkToClient создаёт связь провайдера с клиентом в client_providers
+func (r *ProviderRepository) LinkToClient(ctx context.Context, providerID, clientID uuid.UUID, ownership string) error {
+	query := `INSERT INTO client_providers (id, client_id, provider_id, ownership, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, true, NOW(), NOW())`
+	_, err := r.db.ExecContext(ctx, query, uuid.New(), clientID, providerID, ownership)
+	return err
+}
+
 // ListByClientID возвращает провайдеров, принадлежащих клиенту
 func (r *ProviderRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*shared.Provider, error) {
 	var providers []*shared.Provider

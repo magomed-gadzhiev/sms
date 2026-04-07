@@ -42,6 +42,11 @@ func (s *ClientProviderService) Create(ctx context.Context, clientID uuid.UUID, 
 	if err := s.repo.Create(ctx, p); err != nil {
 		return nil, fmt.Errorf("создание провайдера: %w", err)
 	}
+
+	if err := s.repo.LinkToClient(ctx, p.ID, clientID, "private"); err != nil {
+		return nil, fmt.Errorf("привязка провайдера к клиенту: %w", err)
+	}
+
 	return p, nil
 }
 

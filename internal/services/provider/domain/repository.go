@@ -18,4 +18,5 @@ type ProviderRepository interface {
 	ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*Provider, error)
 	CountByClientID(ctx context.Context, clientID uuid.UUID) (int, error)
 	GetByIDAndClientID(ctx context.Context, id, clientID uuid.UUID) (*Provider, error)
+	LinkToClient(ctx context.Context, providerID, clientID uuid.UUID, ownership string) error
 }
