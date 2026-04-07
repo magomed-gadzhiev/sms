@@ -215,7 +215,7 @@ func (ac *AsyncConnection) startReader(ctx context.Context) {
 
 			// Декодируем и обрабатываем DLR
 			if ac.dlrCallback != nil {
-				decoder := smppprotocol.NewDecoder()
+				decoder := smppprotocol.NewDecoder(body)
 				deliverPDU, decErr := decoder.DecodeDeliverSM(body)
 				if decErr != nil {
 					ac.logger.Error().Err(decErr).Msg("ошибка декодирования deliver_sm PDU")
