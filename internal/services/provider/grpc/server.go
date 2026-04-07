@@ -123,19 +123,34 @@ func (s *Server) UpdateProvider(ctx context.Context, req *providerv1.UpdateProvi
 		Active:           req.Active,
 	}
 
+	// Запоминаем состояние до обновления для определения изменения active
+	existingProvider, err := s.providerService.GetProvider(ctx, providerID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to get provider: %v", err))
+	}
+	wasActive := existingProvider.Active
+
 	if err := s.providerService.UpdateProvider(ctx, providerID, updates); err != nil {
 		log.Error().Err(err).Msg("ошибка обновления провайдера")
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to update provider: %v", err))
 	}
 
 	// Если провайдер стал активным, инициализируем соединения
-	if updates.Active {
+	if updates.Active && !wasActive {
 		provider, err := s.providerService.GetProvider(ctx, providerID)
 		if err == nil && provider.MaxConnections > 0 {
 			if err := s.connectionPoolService.Connect(ctx, provider); err != nil {
 				log.Warn().Err(err).Str("provider_id", providerID.String()).Msg("ошибка подключения к провайдеру при обновлении")
 			}
 		}
+	}
+
+	// Если провайдер деактивирован, закрываем соединения
+	if !updates.Active && wasActive {
+		if err := s.connectionPoolService.Disconnect(providerID); err != nil {
+			log.Warn().Err(err).Str("provider_id", providerID.String()).Msg("ошибка закрытия соединений при деактивации провайдера")
+		}
+		log.Info().Str("provider_id", providerID.String()).Msg("провайдер деактивирован, соединения закрыты, маршруты деактивированы")
 	}
 
 	return &providerv1.UpdateProviderResponse{
