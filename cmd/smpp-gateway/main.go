@@ -82,12 +82,14 @@ func main() {
 	defer db.Close()
 
 	messageRepo := storage.NewMessageRepository(db)
+	optOutRepo := storage.NewOptOutRepository(db)
 
 	// Создание SMPP Gateway сервера
 	smppGateway := smppserver.NewServer(
 		&cfg.SMSP,
 		serviceClients.AuthClient,
 		messageRepo,
+		optOutRepo,
 		producer,
 		logger,
 	)

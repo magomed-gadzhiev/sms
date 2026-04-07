@@ -40,6 +40,17 @@ func (h *BillingHandlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 	if resp.UpdatedAt != nil {
 		result["updated_at"] = resp.UpdatedAt.AsTime()
 	}
+
+	// Получаем порог низкого баланса из списка балансов
+	listResp, err := h.billingClient.ListBalances(r.Context(), &billingv1.ListBalancesRequest{
+		Search: clientID.String(),
+		Limit:  1,
+		Offset: 0,
+	})
+	if err == nil && len(listResp.Balances) > 0 {
+		result["low_balance_threshold"] = listResp.Balances[0].LowBalanceThreshold
+	}
+
 	respondJSON(w, http.StatusOK, result)
 }
 
@@ -163,4 +174,35 @@ func (h *BillingHandlers) TopUpCallback(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{"status": "ok"})
+}
+
+type setLowBalanceThresholdRequest struct {
+	Threshold string `json:"threshold"`
+}
+
+func (h *BillingHandlers) SetLowBalanceThreshold(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	var req setLowBalanceThresholdRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.Threshold == "" {
+		respondError(w, shared.ErrInvalidInput("Поле threshold обязательно"))
+		return
+	}
+	_, err := h.billingClient.SetLowBalanceThreshold(r.Context(), &billingv1.SetLowBalanceThresholdRequest{
+		ClientId:  clientID.String(),
+		Threshold: req.Threshold,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка установки порога низкого баланса")
+		respondGRPCError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"success": true, "threshold": req.Threshold})
 }

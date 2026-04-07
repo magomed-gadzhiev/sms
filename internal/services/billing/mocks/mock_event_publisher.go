@@ -20,3 +20,8 @@ func (m *MockEventPublisher) PublishTransactionCompleted(ctx context.Context, tr
 	args := m.Called(ctx, transactionID, clientID, transactionType, amount, currency)
 	return args.Error(0)
 }
+
+func (m *MockEventPublisher) PublishBalanceLow(ctx context.Context, clientID, balance, threshold, currency string) error {
+	args := m.Called(ctx, clientID, balance, threshold, currency)
+	return args.Error(0)
+}

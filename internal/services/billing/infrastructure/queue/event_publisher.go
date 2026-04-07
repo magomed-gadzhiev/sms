@@ -149,6 +149,57 @@ func (p *EventPublisher) PublishTransactionCompleted(ctx context.Context, transa
 	return nil
 }
 
+// PublishBalanceLow публикует событие низкого баланса
+func (p *EventPublisher) PublishBalanceLow(ctx context.Context, clientID, balance, threshold, currency string) error {
+	event := map[string]interface{}{
+		"client_id": clientID,
+		"balance":   balance,
+		"threshold": threshold,
+		"currency":  currency,
+		"timestamp": time.Now().Unix(),
+		"event_type": "balance.low",
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal balance low event: %w", err)
+	}
+
+	message := &sarama.ProducerMessage{
+		Topic: p.topicBalance,
+		Key:   sarama.StringEncoder(clientID),
+		Value: sarama.ByteEncoder(data),
+		Headers: []sarama.RecordHeader{
+			{
+				Key:   []byte("event_type"),
+				Value: []byte("balance.low"),
+			},
+			{
+				Key:   []byte("client_id"),
+				Value: []byte(clientID),
+			},
+		},
+		Timestamp: time.Now(),
+	}
+
+	_, _, err = p.producer.SendMessage(message)
+	if err != nil {
+		p.logger.Error().
+			Err(err).
+			Str("client_id", clientID).
+			Msg("ошибка публикации события balance.low")
+		return fmt.Errorf("failed to publish balance low event: %w", err)
+	}
+
+	p.logger.Warn().
+		Str("client_id", clientID).
+		Str("balance", balance).
+		Str("threshold", threshold).
+		Msg("баланс клиента упал ниже порогового значения")
+
+	return nil
+}
+
 // Close закрывает producer
 func (p *EventPublisher) Close() error {
 	if err := p.producer.Close(); err != nil {

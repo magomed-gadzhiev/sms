@@ -21,6 +21,7 @@ import { ProviderWizardPage } from './pages/providers/ProviderWizardPage';
 import { ContactListsPage } from './pages/contacts/ContactListsPage';
 import { ContactListDetailPage } from './pages/contacts/ContactListDetailPage';
 import { ImportWizardPage } from './pages/contacts/ImportWizardPage';
+import { OptOutListPage } from './pages/contacts/OptOutListPage';
 import { CampaignsPage } from './pages/campaigns/CampaignsPage';
 import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
@@ -88,6 +89,7 @@ export function App() {
         <Route path="/contact-lists" element={<ContactListsPage />} />
         <Route path="/contact-lists/:id" element={<ContactListDetailPage />} />
         <Route path="/contact-lists/:id/import" element={<ImportWizardPage />} />
+        <Route path="/opt-out" element={<OptOutListPage />} />
         <Route path="/segments" element={<SegmentsPage />} />
         <Route path="/segments/new" element={<SegmentDetailPage />} />
         <Route path="/segments/:id" element={<SegmentDetailPage />} />

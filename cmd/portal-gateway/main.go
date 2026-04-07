@@ -23,6 +23,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/notifications"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
 	portalrouter "github.com/smpp-server/smpp-server/internal/gateway/portal/router"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/sse"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
@@ -164,6 +165,19 @@ func main() {
 		serviceClients.WebhookClient,
 	)
 	messageHandlers := handlers.NewMessageHandlers(serviceClients.MessagingClient)
+
+	// Запускаем SSE hub для real-time стриминга статусов сообщений.
+	kafkaStatusTopic := getEnvOrDefault("KAFKA_TOPIC_STATUS", "sms.status")
+	if dbPool != nil {
+		sseHub := sse.NewHub([]string{kafkaBrokers}, kafkaStatusTopic, dbPool, logger)
+		sseCtx, sseCancel := context.WithCancel(context.Background())
+		go sseHub.Run(sseCtx)
+		defer sseCancel()
+		messageHandlers.SetSSEHub(sseHub)
+		logger.Info().Str("topic", kafkaStatusTopic).Msg("SSE hub запущен")
+	} else {
+		logger.Warn().Msg("SSE hub не запущен: PostgreSQL pool недоступен")
+	}
 	apiKeyHandlers := handlers.NewAPIKeyHandlers(serviceClients.AuthClient, auditPublisher)
 	analyticsHandlers := handlers.NewAnalyticsHandlers(serviceClients.AnalyticsClient, serviceClients.BillingClient)
 	webhookHandlers := handlers.NewWebhookHandlers(serviceClients.WebhookClient, auditPublisher)
@@ -200,6 +214,7 @@ func main() {
 	notificationHandlers := handlers.NewNotificationHandlers(dbPool)
 	searchHandlers := handlers.NewSearchHandlers(dbPool)
 	exportHandlers := handlers.NewExportHandlers(redisClient, serviceClients.MessagingClient)
+	optOutHandlers := handlers.NewOptOutHandlers(dbPool)
 
 	// Запускаем планировщик уведомлений
 	notifScheduler := notifications.NewScheduler(dbPool, serviceClients.CampaignClient)
@@ -273,6 +288,7 @@ func main() {
 		notificationHandlers,
 		searchHandlers,
 		exportHandlers,
+		optOutHandlers,
 	)
 
 	// Регистрируем маршруты cascade webhook

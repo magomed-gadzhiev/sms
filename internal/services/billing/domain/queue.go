@@ -6,6 +6,7 @@ import "context"
 type EventPublisher interface {
 	PublishBalanceChanged(ctx context.Context, clientID string, balance, currency string) error
 	PublishTransactionCompleted(ctx context.Context, transactionID, clientID, transactionType, amount, currency string) error
+	PublishBalanceLow(ctx context.Context, clientID, balance, threshold, currency string) error
 }
 
 // EventConsumer определяет интерфейс для подписки на события

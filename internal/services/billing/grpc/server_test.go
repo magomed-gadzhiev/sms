@@ -145,6 +145,11 @@ func (m *mockBillingEventPublisher) PublishTransactionCompleted(ctx context.Cont
 	return args.Error(0)
 }
 
+func (m *mockBillingEventPublisher) PublishBalanceLow(ctx context.Context, clientID, balance, threshold, currency string) error {
+	args := m.Called(ctx, clientID, balance, threshold, currency)
+	return args.Error(0)
+}
+
 type mockPricingRuleRepo struct {
 	mock.Mock
 }

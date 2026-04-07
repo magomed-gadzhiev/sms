@@ -182,14 +182,21 @@ func materializeCampaign(
 		_ = dbx.QueryRowContext(ctx, `SELECT body FROM templates WHERE id = $1`, *templateID).Scan(&templateBody)
 	}
 
-	// Fetch contacts.
+	// Fetch contacts, excluding those that have opted out.
 	type contactRow struct {
 		ID         string
 		Phone      string
 		Attributes []byte
 	}
-	cRows, err := dbx.QueryContext(ctx,
-		`SELECT id, phone, attributes FROM contacts WHERE contact_list_id = $1 ORDER BY created_at`, contactListID)
+	cRows, err := dbx.QueryContext(ctx, `
+		SELECT c.id, c.phone, c.attributes
+		FROM contacts c
+		WHERE c.contact_list_id = $1
+		  AND NOT EXISTS (
+		      SELECT 1 FROM opt_out_list o
+		      WHERE o.client_id = $2::uuid AND o.phone = c.phone
+		  )
+		ORDER BY c.created_at`, contactListID, clientID)
 	if err != nil {
 		return fmt.Errorf("fetch contacts: %w", err)
 	}

@@ -188,7 +188,7 @@ func newTestHandlerEnv(t *testing.T) *testHandlerEnv {
 	authMock := &mockAuthClient{}
 	authAdapter := NewAuthAdapter(authMock, logger)
 
-	h := NewHandler(sess, authAdapter, nil, nil, logger)
+	h := NewHandler(sess, authAdapter, nil, nil, nil, logger)
 
 	return &testHandlerEnv{
 		handler:    h,
@@ -829,7 +829,7 @@ func TestSendPDU_NilConnection(t *testing.T) {
 	// Close the session so conn becomes nil on GetConn after Close
 	sess.Close()
 
-	h := NewHandler(sess, nil, nil, nil, logger)
+	h := NewHandler(sess, nil, nil, nil, nil, logger)
 
 	pdu := &protocol.PDU{
 		CommandLength:  protocol.PDUHeaderLength,
@@ -854,7 +854,7 @@ func TestAuthenticate_NilAuthAdapter(t *testing.T) {
 	conn := newMockServerConn()
 	sess := smppsession.NewSession(conn, logger)
 
-	h := NewHandler(sess, nil, nil, nil, logger)
+	h := NewHandler(sess, nil, nil, nil, nil, logger)
 
 	_, err := h.authenticate("sys", "pass")
 	require.Error(t, err)
@@ -897,7 +897,7 @@ func TestNewHandler(t *testing.T) {
 	authMock := &mockAuthClient{}
 	authAdapter := NewAuthAdapter(authMock, logger)
 
-	h := NewHandler(sess, authAdapter, nil, nil, logger)
+	h := NewHandler(sess, authAdapter, nil, nil, nil, logger)
 
 	require.NotNil(t, h)
 	assert.Equal(t, sess, h.session)

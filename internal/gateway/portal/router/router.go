@@ -55,6 +55,7 @@ func SetupRouter(
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
+	optOutHandlers *handlers.OptOutHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -115,6 +116,7 @@ func SetupRouter(
 	messages := protected.PathPrefix("/messages").Subrouter()
 	messages.HandleFunc("", messageHandlers.SendMessage).Methods("POST")
 	messages.HandleFunc("", messageHandlers.ListMessages).Methods("GET")
+	messages.HandleFunc("/stream", messageHandlers.StreamMessages).Methods("GET")
 	messages.HandleFunc("/export", messageHandlers.ExportCSV).Methods("GET")
 	messages.HandleFunc("/{id}", messageHandlers.GetMessage).Methods("GET")
 
@@ -180,6 +182,7 @@ func SetupRouter(
 	billing.HandleFunc("/balance", billingHandlers.GetBalance).Methods("GET")
 	billing.HandleFunc("/transactions", billingHandlers.GetTransactions).Methods("GET")
 	billing.HandleFunc("/top-up", billingHandlers.TopUp).Methods("POST")
+	billing.HandleFunc("/low-balance-threshold", billingHandlers.SetLowBalanceThreshold).Methods("PUT")
 
 	// Tariff endpoints
 	tariffs := protected.PathPrefix("/tariffs").Subrouter()
@@ -301,6 +304,13 @@ func SetupRouter(
 	export.HandleFunc("/start", exportHandlers.StartExport).Methods("POST")
 	export.HandleFunc("/{job_id}/status", exportHandlers.GetExportStatus).Methods("GET")
 	export.HandleFunc("/{job_id}/download", exportHandlers.DownloadExport).Methods("GET")
+
+	// Opt-out list endpoints
+	optOut := protected.PathPrefix("/opt-out").Subrouter()
+	optOut.HandleFunc("", optOutHandlers.ListOptOuts).Methods("GET")
+	optOut.HandleFunc("", optOutHandlers.AddOptOut).Methods("POST")
+	optOut.HandleFunc("/import", optOutHandlers.ImportOptOut).Methods("POST")
+	optOut.HandleFunc("/{id}", optOutHandlers.RemoveOptOut).Methods("DELETE")
 
 	return router
 }

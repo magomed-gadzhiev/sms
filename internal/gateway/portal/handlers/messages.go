@@ -13,12 +13,14 @@ import (
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/sse"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // MessageHandlers содержит handlers для работы с сообщениями
 type MessageHandlers struct {
 	messagingClient messagingv1.MessagingServiceClient
+	sseHub          *sse.Hub
 }
 
 // NewMessageHandlers создает новый MessageHandlers
@@ -26,6 +28,11 @@ func NewMessageHandlers(messagingClient messagingv1.MessagingServiceClient) *Mes
 	return &MessageHandlers{
 		messagingClient: messagingClient,
 	}
+}
+
+// SetSSEHub устанавливает SSE hub для стриминга статусов сообщений.
+func (h *MessageHandlers) SetSSEHub(hub *sse.Hub) {
+	h.sseHub = hub
 }
 
 type sendMessageRequest struct {
@@ -254,6 +261,67 @@ func (h *MessageHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, result)
+}
+
+// StreamMessages обрабатывает GET /messages/stream — SSE endpoint для real-time статусов.
+// Отправляет события типа "message.status" при каждом изменении статуса сообщения клиента.
+func (h *MessageHandlers) StreamMessages(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	if h.sseHub == nil {
+		http.Error(w, "SSE недоступен", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Ensure the ResponseWriter supports flushing.
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming не поддерживается", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	clientIDStr := clientID.String()
+	ch := h.sseHub.Subscribe(clientIDStr)
+	defer h.sseHub.Unsubscribe(clientIDStr, ch)
+
+	// Send an initial "connected" event so the client knows the stream is live.
+	fmt.Fprintf(w, "event: connected\ndata: {}\n\n")
+	flusher.Flush()
+
+	// Heartbeat ticker keeps the connection alive through proxies.
+	ticker := time.NewTicker(25 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case event, open := <-ch:
+			if !open {
+				return
+			}
+			data, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "event: message.status\ndata: %s\n\n", data)
+			flusher.Flush()
+
+		case <-ticker.C:
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
+
+		case <-r.Context().Done():
+			return
+		}
+	}
 }
 
 // ExportCSV обрабатывает GET /messages/export

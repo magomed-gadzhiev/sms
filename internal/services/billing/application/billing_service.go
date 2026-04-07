@@ -344,6 +344,7 @@ func (s *BillingService) deductCreditsWithTx(
 		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
 		}
+		s.publishLowBalanceAlertIfNeeded(ctx, clientID.String(), newBalance, account.LowBalanceThreshold, currency)
 	}
 
 	return transaction, nil
@@ -408,6 +409,7 @@ func (s *BillingService) deductCreditsNoTx(
 		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
 		}
+		s.publishLowBalanceAlertIfNeeded(ctx, clientID.String(), newBalance, account.LowBalanceThreshold, currency)
 	}
 
 	return transaction, nil
@@ -530,6 +532,7 @@ func (s *BillingService) chargeMessageWithTx(
 		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
 		}
+		s.publishLowBalanceAlertIfNeeded(ctx, clientID.String(), newBalance, account.LowBalanceThreshold, currency)
 	}
 
 	return transaction, nil
@@ -592,6 +595,7 @@ func (s *BillingService) chargeMessageNoTx(
 		if err := s.eventPublisher.PublishTransactionCompleted(ctx, transaction.ID.String(), clientID.String(), string(transaction.Type), amount, currency); err != nil {
 			s.logger.Warn().Err(err).Msg("failed to publish transaction completed event")
 		}
+		s.publishLowBalanceAlertIfNeeded(ctx, clientID.String(), newBalance, account.LowBalanceThreshold, currency)
 	}
 
 	return transaction, nil
@@ -959,4 +963,35 @@ func (s *BillingService) isNegative(value string) bool {
 		return false
 	}
 	return bigFloat.Sign() < 0
+}
+
+// isBelowThreshold проверяет, упал ли баланс ниже порогового значения
+func (s *BillingService) isBelowThreshold(balance, threshold string) bool {
+	if threshold == "" || threshold == "0" {
+		return false
+	}
+	balanceBig := new(big.Float)
+	thresholdBig := new(big.Float)
+	if _, ok := balanceBig.SetString(balance); !ok {
+		return false
+	}
+	if _, ok := thresholdBig.SetString(threshold); !ok {
+		return false
+	}
+	return balanceBig.Cmp(thresholdBig) < 0
+}
+
+// publishLowBalanceAlertIfNeeded проверяет и публикует уведомление о низком балансе
+func (s *BillingService) publishLowBalanceAlertIfNeeded(ctx context.Context, clientID, newBalance, threshold, currency string) {
+	if s.eventPublisher == nil {
+		return
+	}
+	if !s.isBelowThreshold(newBalance, threshold) {
+		return
+	}
+	if err := s.eventPublisher.PublishBalanceLow(ctx, clientID, newBalance, threshold, currency); err != nil {
+		s.logger.Warn().Err(err).
+			Str("client_id", clientID).
+			Msg("failed to publish balance.low event")
+	}
 }

@@ -15,6 +15,7 @@ interface BalanceInfo {
   balance: string;
   currency: string;
   updated_at?: string;
+  low_balance_threshold?: string;
 }
 
 interface TransactionItem {
@@ -137,6 +138,12 @@ export function BillingPage() {
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [topUpError, setTopUpError] = useState('');
 
+  /* Alert settings state */
+  const [thresholdInput, setThresholdInput] = useState('');
+  const [thresholdSaving, setThresholdSaving] = useState(false);
+  const [thresholdSaved, setThresholdSaved] = useState(false);
+  const [thresholdError, setThresholdError] = useState('');
+
   /* ---------- Fetchers ---------- */
 
   const fetchBalance = useCallback(() => {
@@ -144,7 +151,12 @@ export function BillingPage() {
     setBalanceError(null);
     billingApi
       .getBalance()
-      .then((resp) => setBalance(resp as BalanceInfo))
+      .then((resp) => {
+        setBalance(resp as BalanceInfo);
+        if (resp.low_balance_threshold) {
+          setThresholdInput(resp.low_balance_threshold);
+        }
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) {
           setBalance({ client_id: '', balance: '0.00', currency: 'RUB' });
@@ -216,6 +228,26 @@ export function BillingPage() {
     setShowTopUp(true);
   };
 
+  const handleSaveThreshold = async () => {
+    const value = thresholdInput.trim();
+    if (!value || Number(value) < 0) {
+      setThresholdError('Введите корректное значение порога (≥ 0)');
+      return;
+    }
+    setThresholdSaving(true);
+    setThresholdError('');
+    setThresholdSaved(false);
+    try {
+      await billingApi.setLowBalanceThreshold(value);
+      setThresholdSaved(true);
+      setTimeout(() => setThresholdSaved(false), 3000);
+    } catch (err) {
+      setThresholdError(err instanceof Error ? err.message : 'Ошибка сохранения');
+    } finally {
+      setThresholdSaving(false);
+    }
+  };
+
   /* ---------- Render ---------- */
 
   return (
@@ -251,6 +283,44 @@ export function BillingPage() {
             <Button onClick={openTopUpModal}>Пополнить</Button>
           </div>
         ) : null}
+      </div>
+
+      {/* Alert Settings card */}
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold mb-3">Настройки уведомлений</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Получайте уведомление через webhook, когда баланс опускается ниже порогового значения.
+        </p>
+        <div className="flex items-end gap-3">
+          <div className="flex-1 max-w-xs">
+            <Input
+              label="Порог низкого баланса (₽)"
+              type="number"
+              value={thresholdInput}
+              onChange={(e) => {
+                setThresholdInput(e.target.value);
+                setThresholdError('');
+                setThresholdSaved(false);
+              }}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <Button
+            onClick={handleSaveThreshold}
+            disabled={thresholdSaving}
+            variant="secondary"
+          >
+            {thresholdSaving ? 'Сохранение...' : 'Сохранить'}
+          </Button>
+        </div>
+        {thresholdError && (
+          <p role="alert" className="text-red-600 text-sm mt-2">{thresholdError}</p>
+        )}
+        {thresholdSaved && (
+          <p className="text-green-600 text-sm mt-2">Порог сохранён</p>
+        )}
       </div>
 
       {/* Top-up modal */}

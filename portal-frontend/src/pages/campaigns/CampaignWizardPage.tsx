@@ -11,15 +11,16 @@ import { TemplatePreview } from '../../components/campaigns/TemplatePreview';
 import { TemplatePicker } from '../../components/campaigns/TemplatePicker';
 import { StepIndicator } from '../../components/campaigns/StepIndicator';
 
-type WizardStep = 'basics' | 'message' | 'schedule' | 'retry' | 'confirm';
+type WizardStep = 'basics' | 'message' | 'ab_test' | 'schedule' | 'retry' | 'confirm';
 
-const STEPS: WizardStep[] = ['basics', 'message', 'schedule', 'retry', 'confirm'];
+const STEPS: WizardStep[] = ['basics', 'message', 'ab_test', 'schedule', 'retry', 'confirm'];
 const STEP_LABELS: Record<WizardStep, string> = {
   basics: '1. Основное',
   message: '2. Сообщение',
-  schedule: '3. Расписание',
-  retry: '4. Повторы',
-  confirm: '5. Подтверждение',
+  ab_test: '3. A/B Тест',
+  schedule: '4. Расписание',
+  retry: '5. Повторы',
+  confirm: '6. Подтверждение',
 };
 
 export function CampaignWizardPage() {
@@ -41,11 +42,20 @@ export function CampaignWizardPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateInfo | null>(null);
   const [messageText, setMessageText] = useState('');
 
-  // Step 3: Schedule
+  // Step 3: A/B Test
+  const [abEnabled, setAbEnabled] = useState(false);
+  const [abSplitPercent, setAbSplitPercent] = useState(20);
+  const [abDurationHours, setAbDurationHours] = useState(24);
+  const [abMetric, setAbMetric] = useState<'delivery_rate' | 'click_rate'>('delivery_rate');
+  const [abVariantBTemplateId, setAbVariantBTemplateId] = useState('');
+  const [abVariantBTemplate, setAbVariantBTemplate] = useState<TemplateInfo | null>(null);
+  const [abVariantBText, setAbVariantBText] = useState('');
+
+  // Step 4: Schedule
   const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now');
   const [sendRate, setSendRate] = useState(100);
 
-  // Step 4: Retry
+  // Step 5: Retry
   const [retryEnabled, setRetryEnabled] = useState(false);
   const [retryDelay, setRetryDelay] = useState(1);
   const [maxRetries, setMaxRetries] = useState(2);
@@ -90,6 +100,9 @@ export function CampaignWizardPage() {
         return name.trim().length > 0 && contactListId.length > 0;
       case 'message':
         return templateId.trim().length > 0 || messageText.trim().length > 0;
+      case 'ab_test':
+        if (!abEnabled) return true;
+        return abVariantBTemplateId.trim().length > 0 || abVariantBText.trim().length > 0;
       case 'schedule':
         return true;
       case 'retry':
@@ -112,6 +125,29 @@ export function CampaignWizardPage() {
         source: source.trim() || undefined,
         send_rate: sendRate,
       });
+
+      // Set A/B test config if enabled
+      if (abEnabled) {
+        await campaignsApi.setVariants(campaign.id, [
+          {
+            name: 'Вариант A',
+            template_id: templateId.trim(),
+            percentage: 100 - abSplitPercent,
+            is_control: true,
+          },
+          {
+            name: 'Вариант B',
+            template_id: abVariantBTemplateId.trim(),
+            percentage: abSplitPercent,
+            is_control: false,
+          },
+        ]);
+        await campaignsApi.setABConfig(campaign.id, {
+          metric: abMetric,
+          test_duration_hours: abDurationHours,
+          auto_select_winner: true,
+        });
+      }
 
       // Set retry config if enabled
       if (retryEnabled) {
@@ -248,7 +284,119 @@ export function CampaignWizardPage() {
           </div>
         )}
 
-        {/* Step 3: Schedule */}
+        {/* Step 3: A/B Test */}
+        {step === 'ab_test' && (
+          <div className="space-y-6 max-w-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              A/B Тестирование
+            </h3>
+            <p className="text-sm text-gray-500 -mt-4">
+              Протестируйте два варианта сообщения и автоматически выберите победителя.
+            </p>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={abEnabled}
+                onChange={(e) => setAbEnabled(e.target.checked)}
+                className="rounded w-4 h-4"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Включить A/B тест
+              </span>
+            </label>
+
+            {abEnabled && (
+              <div className="space-y-5 pl-6 border-l-2 border-blue-200">
+                {/* Variant B message */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-800">Вариант B — сообщение</h4>
+                  <p className="text-xs text-gray-500">
+                    Вариант A — это основное сообщение, выбранное на предыдущем шаге.
+                  </p>
+                  <TemplatePicker
+                    value={abVariantBTemplateId}
+                    selectedTemplate={abVariantBTemplate}
+                    onChange={(id, tpl) => {
+                      setAbVariantBTemplateId(id);
+                      setAbVariantBTemplate(tpl);
+                      if (id) setAbVariantBText('');
+                    }}
+                  />
+                  {!abVariantBTemplateId && (
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="ab-variant-b-text" className="text-sm font-medium text-gray-700">
+                        Или текст варианта B
+                      </label>
+                      <textarea
+                        id="ab-variant-b-text"
+                        value={abVariantBText}
+                        onChange={(e) => setAbVariantBText(e.target.value)}
+                        rows={3}
+                        className="rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
+                        placeholder="Альтернативный текст для варианта B..."
+                      />
+                      <p className="text-xs text-gray-500">{abVariantBText.length} / 160 символов</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Split percentage */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Доля аудитории для теста: <span className="text-blue-600 font-semibold">{abSplitPercent}%</span>
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Вариант A: {100 - abSplitPercent}% &nbsp;·&nbsp; Вариант B: {abSplitPercent}%
+                  </p>
+                  <input
+                    type="range"
+                    min={10}
+                    max={50}
+                    step={5}
+                    value={abSplitPercent}
+                    onChange={(e) => setAbSplitPercent(Number(e.target.value))}
+                    className="w-full accent-blue-600"
+                    aria-label="Процент сплита"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>10%</span>
+                    <span>50%</span>
+                  </div>
+                </div>
+
+                {/* Test duration */}
+                <Input
+                  label="Время до выбора победителя (часы)"
+                  type="number"
+                  value={String(abDurationHours)}
+                  onChange={(e) => setAbDurationHours(Number(e.target.value))}
+                  min={1}
+                  max={168}
+                />
+
+                {/* Winning metric */}
+                <Select
+                  label="Метрика победителя"
+                  value={abMetric}
+                  onChange={(v) => setAbMetric(v as 'delivery_rate' | 'click_rate')}
+                  options={[
+                    { value: 'delivery_rate', label: 'Доставляемость (delivery rate)' },
+                    { value: 'click_rate', label: 'Кликабельность (click rate)' },
+                  ]}
+                />
+              </div>
+            )}
+
+            {!abEnabled && (
+              <p className="text-sm text-gray-400 italic">
+                A/B тест отключён — будет использован один вариант сообщения.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Schedule */}
         {step === 'schedule' && (
           <div className="space-y-4 max-w-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -381,6 +529,14 @@ export function CampaignWizardPage() {
                 <dt className="text-gray-500">Скорость:</dt>
                 <dd className="font-medium text-gray-900">
                   {sendRate} SMS/сек
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">A/B Тест:</dt>
+                <dd className="font-medium text-gray-900">
+                  {abEnabled
+                    ? `Вкл. (сплит ${abSplitPercent}%, ${abDurationHours}ч, метрика: ${abMetric === 'delivery_rate' ? 'доставляемость' : 'клики'})`
+                    : 'Нет'}
                 </dd>
               </div>
               <div className="flex justify-between">

@@ -37,7 +37,7 @@ func TestNewServer(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
 
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	require.NotNil(t, s)
 	assert.NotNil(t, s.sessions)
@@ -52,7 +52,7 @@ func TestStartAndStop(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
 
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	cfg.Host = "127.0.0.1"
 	cfg.Port = 0
@@ -78,7 +78,7 @@ func TestStopClosesAllSessions(t *testing.T) {
 	cfg.Port = 0
 	logger := newTestLogger()
 
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 	require.NoError(t, s.Start())
 
 	// Create a mock session and add it
@@ -101,7 +101,7 @@ func TestStopClosesAllSessions(t *testing.T) {
 func TestGetActiveSessionsCount(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	assert.Equal(t, 0, s.GetActiveSessionsCount())
 
@@ -123,7 +123,7 @@ func TestGetActiveSessionsCount(t *testing.T) {
 func TestGetBoundSessionsCount(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	conn1 := newMockServerConn()
 	sess1 := smppsession.NewSession(conn1, logger)
@@ -147,7 +147,7 @@ func TestGetBoundSessionsCount(t *testing.T) {
 func TestReadPDU(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	// Build a valid enquire_link PDU (header only, 16 bytes)
 	header := make([]byte, protocol.PDUHeaderLength)
@@ -176,7 +176,7 @@ func TestReadPDU(t *testing.T) {
 func TestReadPDUWithBody(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	// Build a submit_sm_resp with a body (message_id "abc\0")
 	bodyData := []byte("abc\x00")
@@ -209,7 +209,7 @@ func TestReadPDUWithBody(t *testing.T) {
 func TestReadPDUInvalidCommandLength(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	// command_length < 16
 	header := make([]byte, protocol.PDUHeaderLength)
@@ -234,7 +234,7 @@ func TestReadPDUInvalidCommandLength(t *testing.T) {
 func TestReadPDUTooLargeCommandLength(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	header := make([]byte, protocol.PDUHeaderLength)
 	binary.BigEndian.PutUint32(header[0:4], 100000)  // > 65536
@@ -258,7 +258,7 @@ func TestReadPDUTooLargeCommandLength(t *testing.T) {
 func TestReadPDUClosedConnection(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	server, client := net.Pipe()
 	client.Close()
@@ -320,7 +320,7 @@ func TestHandleConnectionCreatesAndRemovesSession(t *testing.T) {
 	cfg := newTestConfig()
 	cfg.Port = 0
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 	require.NoError(t, s.Start())
 	defer s.Stop()
 
@@ -346,7 +346,7 @@ func TestServerContextCancelStopsAccept(t *testing.T) {
 	cfg := newTestConfig()
 	cfg.Port = 0
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	require.NoError(t, s.Start())
 
@@ -376,7 +376,7 @@ func TestServerContextCancelStopsAccept(t *testing.T) {
 func TestSendEnquireLink(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	// Create a session with a pipe connection to capture written data
 	serverConn, clientConn := net.Pipe()
@@ -419,7 +419,7 @@ func TestSendEnquireLink(t *testing.T) {
 func TestConcurrentSessionMapAccess(t *testing.T) {
 	cfg := newTestConfig()
 	logger := newTestLogger()
-	s := NewServer(cfg, nil, nil, nil, logger)
+	s := NewServer(cfg, nil, nil, nil, nil, logger)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {

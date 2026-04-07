@@ -170,6 +170,23 @@ func (r *ClientRepository) Update(ctx context.Context, client *shared.Client) er
 	return nil
 }
 
+// IncrementMonthlySMSCount увеличивает счётчик SMS за месяц (с авто-сбросом в начале нового месяца)
+func (r *ClientRepository) IncrementMonthlySMSCount(ctx context.Context, clientID uuid.UUID, count int) error {
+	query := `UPDATE clients
+		SET monthly_sms_count = CASE
+			WHEN monthly_sms_reset_at IS NOT NULL AND monthly_sms_reset_at <= NOW() THEN $2
+			ELSE COALESCE(monthly_sms_count, 0) + $2
+		END,
+		monthly_sms_reset_at = CASE
+			WHEN monthly_sms_reset_at IS NOT NULL AND monthly_sms_reset_at <= NOW() THEN date_trunc('month', NOW()) + INTERVAL '1 month'
+			ELSE COALESCE(monthly_sms_reset_at, date_trunc('month', NOW()) + INTERVAL '1 month')
+		END,
+		updated_at = NOW()
+		WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, clientID, count)
+	return err
+}
+
 // Delete удаляет клиента (мягкое удаление через active = false)
 func (r *ClientRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `

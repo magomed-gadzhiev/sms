@@ -55,6 +55,9 @@ service ClientService {
 
   // ToggleSandbox включает или отключает sandbox-режим для клиента
   rpc ToggleSandbox(ToggleSandboxRequest) returns (ToggleSandboxResponse);
+
+  // IncrementMonthlySMSUsage увеличивает счётчик использованных SMS за месяц
+  rpc IncrementMonthlySMSUsage(IncrementMonthlySMSUsageRequest) returns (IncrementMonthlySMSUsageResponse);
 }
 
 // CreateClientRequest представляет запрос на создание клиента
@@ -317,4 +320,15 @@ message ToggleSandboxRequest {
 // ToggleSandboxResponse представляет ответ на изменение sandbox-режима
 message ToggleSandboxResponse {
   bool is_sandbox = 1;              // Текущее состояние sandbox-режима
+}
+
+// IncrementMonthlySMSUsageRequest представляет запрос на инкремент счётчика SMS
+message IncrementMonthlySMSUsageRequest {
+  string client_id = 1;   // ID клиента
+  int32 count = 2;        // Количество SMS для добавления (количество сегментов)
+}
+
+// IncrementMonthlySMSUsageResponse представляет ответ на инкремент счётчика SMS
+message IncrementMonthlySMSUsageResponse {
+  int32 new_count = 1;    // Новое значение счётчика
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ type Handler struct {
 	validator    *protocol.Validator
 	authAdapter  *AuthAdapter
 	messageRepo  *storage.MessageRepository
+	optOutRepo   *storage.OptOutRepository
 	producer     *queue.Producer
 	logger       zerolog.Logger
 }
@@ -32,6 +34,7 @@ func NewHandler(
 	session *smppsession.Session,
 	authAdapter *AuthAdapter,
 	messageRepo *storage.MessageRepository,
+	optOutRepo *storage.OptOutRepository,
 	producer *queue.Producer,
 	logger zerolog.Logger,
 ) *Handler {
@@ -42,6 +45,7 @@ func NewHandler(
 		validator:   protocol.NewValidator(),
 		authAdapter: authAdapter,
 		messageRepo: messageRepo,
+		optOutRepo:  optOutRepo,
 		producer:    producer,
 		logger:      logger,
 	}
@@ -74,6 +78,8 @@ func (h *Handler) HandlePDU(pdu *protocol.PDU) error {
 		return h.handleUnbind(pdu)
 	case protocol.SubmitSM:
 		return h.handleSubmitSM(pdu)
+	case protocol.DeliverSM:
+		return h.handleDeliverSM(pdu)
 	case protocol.EnquireLink:
 		return h.handleEnquireLink(pdu)
 	case protocol.QuerySM:
@@ -485,6 +491,73 @@ func (h *Handler) handleReplaceSM(pdu *protocol.PDU) error {
 
 	h.logger.Info().Str("message_id", replace.MessageID).Msg("текст сообщения заменен через replace_sm")
 	return h.sendReplaceSMResp(pdu.SequenceNumber, protocol.ESME_ROK)
+}
+
+// handleDeliverSM обрабатывает deliver_sm — входящий SMS от оператора.
+// Если текст сообщения является стоп-словом, регистрирует opt-out для отправителя.
+func (h *Handler) handleDeliverSM(pdu *protocol.PDU) error {
+	if !h.session.IsBound() {
+		return h.sendDeliverSMResp(pdu.SequenceNumber, protocol.ESME_RINVBNDSTS)
+	}
+
+	deliver, err := h.decoder.DecodeDeliverSM(pdu.Body)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("ошибка декодирования deliver_sm")
+		return h.sendDeliverSMResp(pdu.SequenceNumber, protocol.ESME_RINVCMDLEN)
+	}
+
+	text := strings.TrimSpace(string(deliver.ShortMessage))
+	keyword := strings.ToUpper(text)
+
+	h.logger.Info().
+		Str("source", deliver.SourceAddr).
+		Str("destination", deliver.DestinationAddr).
+		Str("text", text).
+		Msg("получен deliver_sm")
+
+	// Обрабатываем стоп-команды — регистрируем отписку абонента
+	stopKeywords := map[string]bool{
+		"STOP":         true,
+		"СТОП":         true,
+		"ОТПИСАТЬСЯ":   true,
+		"UNSUBSCRIBE":  true,
+	}
+
+	if stopKeywords[keyword] && h.optOutRepo != nil && h.session.ClientID != nil {
+		ctx := context.Background()
+		if addErr := h.optOutRepo.Add(ctx, *h.session.ClientID, deliver.SourceAddr, keyword); addErr != nil {
+			h.logger.Error().Err(addErr).
+				Str("phone", deliver.SourceAddr).
+				Msg("ошибка записи opt-out")
+		} else {
+			h.logger.Info().
+				Str("phone", deliver.SourceAddr).
+				Str("keyword", keyword).
+				Str("client_id", h.session.ClientID.String()).
+				Msg("абонент отписан (opt-out записан)")
+		}
+	}
+
+	return h.sendDeliverSMResp(pdu.SequenceNumber, protocol.ESME_ROK)
+}
+
+// sendDeliverSMResp отправляет deliver_sm_resp
+func (h *Handler) sendDeliverSMResp(seqNum uint32, status uint32) error {
+	resp := &protocol.DeliverSMRespPDU{}
+	body, err := h.encoder.EncodeDeliverSMResp(resp)
+	if err != nil {
+		return fmt.Errorf("ошибка кодирования deliver_sm_resp: %w", err)
+	}
+
+	pdu := &protocol.PDU{
+		CommandLength:  uint32(protocol.PDUHeaderLength + len(body)),
+		CommandID:      protocol.DeliverSMResp,
+		CommandStatus:  status,
+		SequenceNumber: seqNum,
+		Body:           body,
+	}
+
+	return h.sendPDU(pdu)
 }
 
 // gwMapMessageStatusToSMPP преобразует внутренний статус сообщения в SMPP message state

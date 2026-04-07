@@ -26,6 +26,7 @@ type Server struct {
 	sessionsMu  sync.RWMutex
 	authClient  authv1.AuthServiceClient
 	messageRepo *storage.MessageRepository
+	optOutRepo  *storage.OptOutRepository
 	producer    *queue.Producer
 	logger      zerolog.Logger
 
@@ -49,6 +50,7 @@ func NewServer(
 	cfg *config.SMSPConfig,
 	authClient authv1.AuthServiceClient,
 	messageRepo *storage.MessageRepository,
+	optOutRepo *storage.OptOutRepository,
 	producer *queue.Producer,
 	logger zerolog.Logger,
 ) *Server {
@@ -59,6 +61,7 @@ func NewServer(
 		sessions:    make(map[string]*smppsession.Session),
 		authClient:  authClient,
 		messageRepo: messageRepo,
+		optOutRepo:  optOutRepo,
 		producer:    producer,
 		logger:      logger.With().Str("component", "smpp_gateway").Logger(),
 		ctx:         ctx,
@@ -186,7 +189,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	authAdapter := NewAuthAdapter(s.authClient, s.logger)
 	
 	// Создаем обработчик команд
-	handler := NewHandler(session, authAdapter, s.messageRepo, s.producer, s.logger)
+	handler := NewHandler(session, authAdapter, s.messageRepo, s.optOutRepo, s.producer, s.logger)
 	
 	// Читаем и обрабатываем PDU
 	for {

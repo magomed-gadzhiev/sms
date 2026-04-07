@@ -26,6 +26,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/contact-lists', label: 'Контактные базы' },
       { path: '/segments', label: 'Сегменты' },
+      { path: '/opt-out', label: 'Список отписок' },
     ],
   },
   {

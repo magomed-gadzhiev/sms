@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import type { BulkAction } from '../../components/data/BulkActionBar';
+import { useMessageStream } from '../../hooks/useMessageStream';
 
 interface MessageItem {
   message_id: string;
@@ -52,15 +53,39 @@ const MESSAGE_FILTERS: FilterDef[] = [
   { key: 'destination', label: 'Получатель', type: 'text', placeholder: '+7...' },
 ];
 
-const columns: Column<MessageItem>[] = [
-  { key: 'message_id', header: 'ID', render: (msg) => <span className="font-mono text-xs">{msg.message_id.substring(0, 8)}...</span> },
-  { key: 'source', header: 'Отправитель' },
-  { key: 'destination', header: 'Получатель' },
-  { key: 'text', header: 'Текст', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
-  { key: 'status', header: 'Статус', render: (msg) => <>{STATUS_LABELS[msg.status] || msg.status}</> },
-  { key: 'segment_count', header: 'Сегменты' },
-  { key: 'created_at', header: 'Дата создания', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
-];
+function StatusBadge({ status }: { status: string }) {
+  const label = STATUS_LABELS[status] || status;
+  const colorMap: Record<string, string> = {
+    delivered: 'bg-green-100 text-green-800',
+    sent: 'bg-blue-100 text-blue-800',
+    failed: 'bg-red-100 text-red-800',
+    rejected: 'bg-red-100 text-red-800',
+    expired: 'bg-gray-100 text-gray-600',
+    queued: 'bg-yellow-100 text-yellow-800',
+    pending: 'bg-yellow-100 text-yellow-800',
+  };
+  const cls = colorMap[status] ?? 'bg-gray-100 text-gray-700';
+  return <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+}
+
+function buildColumns(liveUpdates: Record<string, { status: string }>): Column<MessageItem>[] {
+  return [
+    { key: 'message_id', header: 'ID', render: (msg) => <span className="font-mono text-xs">{msg.message_id.substring(0, 8)}...</span> },
+    { key: 'source', header: 'Отправитель' },
+    { key: 'destination', header: 'Получатель' },
+    { key: 'text', header: 'Текст', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
+    {
+      key: 'status',
+      header: 'Статус',
+      render: (msg) => {
+        const live = liveUpdates[msg.message_id];
+        return <StatusBadge status={live ? live.status : msg.status} />;
+      },
+    },
+    { key: 'segment_count', header: 'Сегменты' },
+    { key: 'created_at', header: 'Дата создания', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
+  ];
+}
 
 const INITIAL_FILTERS: Record<string, string> = {
   status: '',
@@ -76,6 +101,9 @@ export function MessagesPage() {
 
   const [page, setPage] = useState(1);
   const [filterValues, setFilterValues] = useState<Record<string, string>>(INITIAL_FILTERS);
+
+  // Real-time SSE stream for live status updates.
+  const { streamStatus, updates: liveUpdates } = useMessageStream();
 
   const [exportJobId, setExportJobId] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -198,12 +226,20 @@ export function MessagesPage() {
     }
   };
 
+  const columns = buildColumns(liveUpdates);
+
   return (
     <div>
       <PageHeader
         title="Сообщения"
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {streamStatus === 'connected' && (
+              <span className="flex items-center gap-1 text-xs text-green-600" title="Статусы обновляются в реальном времени">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Live
+              </span>
+            )}
             {exportStatus && exportStatus !== 'ready' && (
               <span className="text-sm text-gray-500 self-center">Экспорт: {exportStatus}...</span>
             )}

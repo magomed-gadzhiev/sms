@@ -44,6 +44,7 @@ type Stage struct {
 	tarificationConn   *grpc.ClientConn
 	billingConn        *grpc.ClientConn
 	defaultOperatorID  string
+	clientRepo         *storage.ClientRepository
 	cfg                *config.Config
 	logger             zerolog.Logger
 }
@@ -70,6 +71,7 @@ func NewStage(cfg *config.Config, db *storage.DB, rdb *redis.Client) (*Stage, er
 	pool := smsc.NewPool(&cfg.Worker)
 	bpManager := backpressure.NewManager()
 	providerRepo := storage.NewProviderRepository(db)
+	clientRepo := storage.NewClientRepository(db)
 
 	logger := log.With().Str("component", "pipeline_sender").Logger()
 
@@ -212,6 +214,7 @@ func NewStage(cfg *config.Config, db *storage.DB, rdb *redis.Client) (*Stage, er
 		tarificationConn:   tarificationGRPCConn,
 		billingConn:        billingGRPCConn,
 		defaultOperatorID:  defaultOperatorID,
+		clientRepo:         clientRepo,
 		cfg:                cfg,
 		logger:             logger,
 	}, nil
@@ -319,6 +322,16 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		if tarifyResp != nil {
 			chargedAmount = tarifyResp.TotalAmount
 			chargedCurrency = tarifyResp.Currency
+		}
+
+		// Обновляем счётчик monthly_sms_count у клиента (quota subscription)
+		if tarifyResp != nil && tarifyResp.Approved && s.clientRepo != nil && routedMsg.ClientID != nil {
+			if incrErr := s.clientRepo.IncrementMonthlySMSCount(ctx, *routedMsg.ClientID, int(segCount)); incrErr != nil {
+				s.logger.Warn().Err(incrErr).
+					Str("client_id", routedMsg.ClientID.String()).
+					Int32("seg_count", segCount).
+					Msg("не удалось обновить monthly_sms_count")
+			}
 		}
 	}
 

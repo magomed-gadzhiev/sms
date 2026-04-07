@@ -401,7 +401,7 @@ export const senderTariffApi = {
 // Billing API
 export const billingApi = {
   getBalance: () =>
-    apiFetch<{ client_id: string; balance: string; currency: string; updated_at?: string }>('/billing/balance'),
+    apiFetch<{ client_id: string; balance: string; currency: string; updated_at?: string; low_balance_threshold?: string }>('/billing/balance'),
   getTransactions: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<{ transactions: unknown[]; total: number; page: number; per_page: number; total_pages: number }>(
@@ -412,6 +412,11 @@ export const billingApi = {
     apiFetch<{ payment_id: string; payment_url: string; expires_at: string }>('/billing/top-up', {
       method: 'POST',
       body: JSON.stringify({ amount, currency: currency || 'RUB', return_url: returnUrl || window.location.href }),
+    }),
+  setLowBalanceThreshold: (threshold: string) =>
+    apiFetch<{ success: boolean; threshold: string }>('/billing/low-balance-threshold', {
+      method: 'PUT',
+      body: JSON.stringify({ threshold }),
     }),
 };
 

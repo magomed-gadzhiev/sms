@@ -38,6 +38,11 @@ service ContactService {
   // Segmentation
   rpc PreviewSegment(PreviewSegmentRequest) returns (SegmentPreview);
   rpc StreamSegment(StreamSegmentRequest) returns (stream ContactBatch);
+
+  // Opt-out management
+  rpc AddOptOut(AddOptOutRequest) returns (OptOutEntry);
+  rpc ListOptOuts(ListOptOutsRequest) returns (OptOutPage);
+  rpc RemoveOptOut(RemoveOptOutRequest) returns (google.protobuf.Empty);
 }
 
 // === Contact List ===
@@ -280,4 +285,36 @@ message StreamSegmentRequest {
 
 message ContactBatch {
   repeated Contact contacts = 1;
+}
+
+// === Opt-out ===
+message OptOutEntry {
+  string id = 1;
+  string client_id = 2;
+  string phone = 3;
+  string keyword = 4;
+  google.protobuf.Timestamp opted_out_at = 5;
+}
+
+message AddOptOutRequest {
+  string client_id = 1;
+  string phone = 2;
+  string keyword = 3;
+}
+
+message ListOptOutsRequest {
+  string client_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  string search = 4;
+}
+
+message OptOutPage {
+  repeated OptOutEntry items = 1;
+  int32 total = 2;
+}
+
+message RemoveOptOutRequest {
+  string id = 1;
+  string client_id = 2;
 }

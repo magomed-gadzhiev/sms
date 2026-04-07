@@ -10,6 +10,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { ABStatusPanel } from '../../components/campaigns/ABStatusPanel';
 
 const STATUS_CONFIG: Record<
   string,
@@ -53,6 +54,16 @@ export function CampaignDetailPage() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState('');
 
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<'overview' | 'ab_results'>('overview');
+
+  // A/B comparison data
+  const [variantComparison, setVariantComparison] = useState<{
+    rows: { variant_id: string; variant_name: string; sent: number; delivered: number; delivery_rate: number }[];
+    winner_variant_id: string;
+  } | null>(null);
+  const [selectingWinner, setSelectingWinner] = useState('');
+
   // Cancel dialog
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -68,6 +79,9 @@ export function CampaignDetailPage() {
       ]);
       setCampaign(campaignData);
       setStats(statsData);
+      if (campaignData.variants && campaignData.variants.length > 0) {
+        campaignsApi.getVariantComparison(id).then(setVariantComparison).catch(() => {});
+      }
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Не удалось загрузить рассылку',
@@ -121,6 +135,20 @@ export function CampaignDetailPage() {
       alert(err instanceof ApiError ? err.message : 'Ошибка');
     } finally {
       setActionLoading('');
+    }
+  }
+
+  async function handleSelectWinner(variantId: string) {
+    if (!id) return;
+    setSelectingWinner(variantId);
+    try {
+      const result = await campaignsApi.selectWinner(id, variantId);
+      setCampaign(result);
+      campaignsApi.getVariantComparison(id).then(setVariantComparison).catch(() => {});
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Ошибка при выборе победителя');
+    } finally {
+      setSelectingWinner('');
     }
   }
 
@@ -236,6 +264,8 @@ export function CampaignDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign, actionLoading]);
 
+  const hasABTest = !!(campaign.variants && campaign.variants.length > 0);
+
   return (
     <div>
       <PageHeader
@@ -250,6 +280,9 @@ export function CampaignDetailPage() {
       {/* Status badge */}
       <div className="mb-6">
         <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+        {hasABTest && (
+          <span className="ml-2"><Badge variant="info">A/B Тест</Badge></span>
+        )}
         {campaign.started_at && (
           <span className="text-sm text-gray-400 ml-3">
             Начата: {(() => {
@@ -273,182 +306,271 @@ export function CampaignDetailPage() {
         )}
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard
-          label="Получатели"
-          value={stats?.total_recipients ?? campaign.total_recipients}
-        />
-        <StatCard
-          label="Отправлено"
-          value={stats?.sent ?? campaign.sent_count}
-          color="text-blue-600"
-        />
-        <StatCard
-          label="Доставлено"
-          value={stats?.delivered ?? campaign.delivered_count}
-          color="text-green-600"
-        />
-        <StatCard
-          label="Ошибки"
-          value={stats?.failed ?? campaign.failed_count}
-          color="text-red-600"
-        />
-        <StatCard
-          label="Доставляемость"
-          value={
-            stats && isFinite(stats.delivery_rate)
-              ? `${(stats.delivery_rate * 100).toFixed(1)}%`
-              : '0%'
-          }
-          color="text-indigo-600"
-          subtext={
-            stats?.total_cost
-              ? `Стоимость: ${stats.total_cost.toFixed(2)}`
-              : undefined
-          }
-        />
-      </div>
+      {/* Tab navigation (only shown when A/B test is present) */}
+      {hasABTest && (
+        <div className="flex gap-1 border-b border-gray-200 mb-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Обзор
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('ab_results')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'ab_results'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            A/B Результаты
+          </button>
+        </div>
+      )}
 
-      {/* Progress bar for running campaigns */}
-      {(campaign.status === 'running' || campaign.status === 'paused') && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Прогресс отправки</span>
-            <span>
-              {campaign.sent_count ?? 0} / {campaign.total_recipients}
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-blue-600 h-3 rounded-full transition-all duration-500"
-              style={{
-                width: `${campaign.total_recipients > 0 ? (campaign.sent_count / campaign.total_recipients) * 100 : 0}%`,
-              }}
+      {/* ── Overview tab (or default when no A/B test) ── */}
+      {(!hasABTest || activeTab === 'overview') && (
+        <>
+          {/* Stats cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <StatCard
+              label="Получатели"
+              value={stats?.total_recipients ?? campaign.total_recipients}
+            />
+            <StatCard
+              label="Отправлено"
+              value={stats?.sent ?? campaign.sent_count}
+              color="text-blue-600"
+            />
+            <StatCard
+              label="Доставлено"
+              value={stats?.delivered ?? campaign.delivered_count}
+              color="text-green-600"
+            />
+            <StatCard
+              label="Ошибки"
+              value={stats?.failed ?? campaign.failed_count}
+              color="text-red-600"
+            />
+            <StatCard
+              label="Доставляемость"
+              value={
+                stats && isFinite(stats.delivery_rate)
+                  ? `${(stats.delivery_rate * 100).toFixed(1)}%`
+                  : '0%'
+              }
+              color="text-indigo-600"
+              subtext={
+                stats?.total_cost
+                  ? `Стоимость: ${stats.total_cost.toFixed(2)}`
+                  : undefined
+              }
             />
           </div>
-        </div>
+
+          {/* Progress bar for running campaigns */}
+          {(campaign.status === 'running' || campaign.status === 'paused') && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Прогресс отправки</span>
+                <span>
+                  {campaign.sent_count ?? 0} / {campaign.total_recipients}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-blue-600 h-3 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${campaign.total_recipients > 0 ? (campaign.sent_count / campaign.total_recipients) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Per-variant stats from stats endpoint (legacy, no variants array) */}
+          {stats?.per_variant && stats.per_variant.length > 0 && !hasABTest && (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <h3 className="font-medium text-gray-900">
+                  Статистика по вариантам
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">Таблица статистики по вариантам</caption>
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Вариант</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Отправлено</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Доставлено</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Доставляемость</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {stats.per_variant.map((pv) => (
+                      <tr key={pv.variant_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900">{pv.variant_name}</td>
+                        <td className="px-4 py-3 text-gray-800">{(pv.sent ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-green-600">{(pv.delivered ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-800">{((pv.delivery_rate ?? 0) * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Variants table (A/B test) */}
-      {campaign.variants && campaign.variants.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
-          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-            <h3 className="font-medium text-gray-900">Варианты (A/B тест)</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <caption className="sr-only">Таблица вариантов A/B теста</caption>
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Вариант
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Шаблон
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Доля %
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Отправлено
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Доставлено
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Ошибки
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Статус
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {campaign.variants.map((v) => (
-                  <tr key={v.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {v.name}
-                      {v.is_control && (
-                        <Badge variant="default">Контроль</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">
-                      {v.template_id}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {v.percentage}%
-                    </td>
-                    <td className="px-4 py-3 text-gray-800">
-                      {(v.sent_count ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-green-600">
-                      {(v.delivered_count ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-red-600">
-                      {(v.failed_count ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {v.is_winner ? (
-                        <Badge variant="success">Победитель</Badge>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* ── A/B Results tab ── */}
+      {hasABTest && activeTab === 'ab_results' && (
+        <div className="space-y-6">
+          {/* Live A/B status panel */}
+          <ABStatusPanel campaignId={campaign.id} />
 
-      {/* Per-variant stats from stats endpoint */}
-      {stats?.per_variant && stats.per_variant.length > 0 && !campaign.variants?.length && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
-          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-            <h3 className="font-medium text-gray-900">
-              Статистика по вариантам
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <caption className="sr-only">Таблица статистики по вариантам</caption>
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Вариант
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Отправлено
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Доставлено
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">
-                    Доставляемость
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {stats.per_variant.map((pv) => (
-                  <tr key={pv.variant_id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {pv.variant_name}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800">
-                      {(pv.sent ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-green-600">
-                      {(pv.delivered ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800">
-                      {((pv.delivery_rate ?? 0) * 100).toFixed(1)}%
-                    </td>
+          {/* A/B configuration summary */}
+          {campaign.ab_config && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+              <h4 className="font-semibold text-blue-800 mb-2">Конфигурация теста</h4>
+              <div className="flex flex-wrap gap-4 text-blue-700">
+                <span>
+                  Метрика: <strong>
+                    {campaign.ab_config.metric === 'delivery_rate' ? 'Доставляемость' : 'Кликабельность'}
+                  </strong>
+                </span>
+                <span>
+                  Длительность: <strong>{campaign.ab_config.test_duration_hours}ч</strong>
+                </span>
+                <span>
+                  Авто-выбор: <strong>{campaign.ab_config.auto_select_winner ? 'Да' : 'Нет'}</strong>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Variant comparison table */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <h3 className="font-medium text-gray-900">Сравнение вариантов</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">Таблица сравнения вариантов A/B теста</caption>
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Вариант</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Доля</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Отправлено</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Доставлено</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Ошибки</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Доставляемость</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Статус</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {campaign.variants!.map((v) => {
+                    const compRow = variantComparison?.rows.find(
+                      (r) => r.variant_id === v.id,
+                    );
+                    const isWinner =
+                      v.is_winner ||
+                      variantComparison?.winner_variant_id === v.id;
+                    const deliveryRate = compRow?.delivery_rate ?? (
+                      v.sent_count > 0 ? v.delivered_count / v.sent_count : 0
+                    );
+
+                    return (
+                      <tr
+                        key={v.id}
+                        className={`hover:bg-gray-50 ${isWinner ? 'bg-green-50' : ''}`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">{v.name}</span>
+                            {v.is_control && (
+                              <Badge variant="default">Контроль</Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{v.percentage}%</td>
+                        <td className="px-4 py-3 text-gray-800">
+                          {(compRow?.sent ?? v.sent_count ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-green-600">
+                          {(compRow?.delivered ?? v.delivered_count ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-red-600">
+                          {(v.failed_count ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2 min-w-[60px]">
+                              <div
+                                className="bg-blue-500 h-2 rounded-full"
+                                style={{ width: `${Math.min(deliveryRate * 100, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-gray-700 text-xs font-medium w-12 text-right">
+                              {(deliveryRate * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {isWinner ? (
+                            <Badge variant="success">ПОБЕДИТЕЛЬ</Badge>
+                          ) : variantComparison?.winner_variant_id || campaign.status === 'completed' ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleSelectWinner(v.id)}
+                              disabled={!!selectingWinner}
+                            >
+                              {selectingWinner === v.id ? '...' : 'Выбрать'}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Stats summary for A/B tab */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard
+              label="Всего получателей"
+              value={stats?.total_recipients ?? campaign.total_recipients}
+            />
+            <StatCard
+              label="Отправлено"
+              value={stats?.sent ?? campaign.sent_count}
+              color="text-blue-600"
+            />
+            <StatCard
+              label="Доставлено"
+              value={stats?.delivered ?? campaign.delivered_count}
+              color="text-green-600"
+            />
+            <StatCard
+              label="Доставляемость"
+              value={
+                stats && isFinite(stats.delivery_rate)
+                  ? `${(stats.delivery_rate * 100).toFixed(1)}%`
+                  : '0%'
+              }
+              color="text-indigo-600"
+            />
           </div>
         </div>
       )}
