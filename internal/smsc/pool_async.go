@@ -171,6 +171,29 @@ func (ac *AsyncConnection) startReader(ctx context.Context) {
 				Uint32("sequence_num", sequenceNum).
 				Msg("получен enquire_link_resp")
 
+		case smppprotocol.EnquireLink: // 0x00000015 — сервер проверяет соединение, отвечаем enquire_link_resp
+			ac.logger.Debug().
+				Uint32("sequence_num", sequenceNum).
+				Msg("получен enquire_link от сервера, отправляем ответ")
+			resp := buildEnquireLinkResp(sequenceNum)
+			select {
+			case ac.WriterCh <- resp:
+			default:
+				ac.logger.Warn().Msg("WriterCh переполнен, enquire_link_resp отброшен")
+			}
+
+		case smppprotocol.Unbind: // 0x00000006 — сервер инициирует отключение
+			ac.logger.Info().
+				Uint32("sequence_num", sequenceNum).
+				Msg("получен unbind от сервера, отправляем unbind_resp и закрываем соединение")
+			resp := buildUnbindResp(sequenceNum)
+			select {
+			case ac.WriterCh <- resp:
+			default:
+			}
+			ac.Close()
+			return
+
 		default:
 			ac.logger.Debug().
 				Str("command", smppprotocol.GetCommandName(commandID)).
@@ -201,6 +224,32 @@ func (ac *AsyncConnection) Close() error {
 	}()
 
 	return nil
+}
+
+// buildEnquireLinkResp строит PDU enquire_link_resp (command_id=0x80000015, пустое тело)
+func buildEnquireLinkResp(sequenceNum uint32) []byte {
+	pdu := make([]byte, 16)
+	pdu[0], pdu[1], pdu[2], pdu[3] = 0, 0, 0, 16         // command_length = 16
+	pdu[4], pdu[5], pdu[6], pdu[7] = 0x80, 0, 0, 0x15    // command_id = 0x80000015
+	pdu[8], pdu[9], pdu[10], pdu[11] = 0, 0, 0, 0         // command_status = 0
+	pdu[12] = byte(sequenceNum >> 24)
+	pdu[13] = byte(sequenceNum >> 16)
+	pdu[14] = byte(sequenceNum >> 8)
+	pdu[15] = byte(sequenceNum)
+	return pdu
+}
+
+// buildUnbindResp строит PDU unbind_resp (command_id=0x80000006, пустое тело)
+func buildUnbindResp(sequenceNum uint32) []byte {
+	pdu := make([]byte, 16)
+	pdu[0], pdu[1], pdu[2], pdu[3] = 0, 0, 0, 16         // command_length = 16
+	pdu[4], pdu[5], pdu[6], pdu[7] = 0x80, 0, 0, 0x06    // command_id = 0x80000006
+	pdu[8], pdu[9], pdu[10], pdu[11] = 0, 0, 0, 0         // command_status = 0
+	pdu[12] = byte(sequenceNum >> 24)
+	pdu[13] = byte(sequenceNum >> 16)
+	pdu[14] = byte(sequenceNum >> 8)
+	pdu[15] = byte(sequenceNum)
+	return pdu
 }
 
 // ConnectAsync создает асинхронное SMPP соединение с sliding window
