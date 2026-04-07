@@ -791,12 +791,13 @@ func (x *ListAPIKeysResponse) GetKeys() []*APIKeyInfo {
 // UserInfo представляет информацию о пользователе
 type UserInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                // ID пользователя
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`                    // Имя пользователя
-	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`                          // Email
-	Role          *Role                  `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`                            // Роль пользователя
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                       // Активен ли пользователь
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // Время создания
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                      // ID пользователя
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`                          // Имя пользователя
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`                                // Email
+	Role          *Role                  `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`                                  // Роль пользователя
+	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                             // Активен ли пользователь
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`       // Время создания
+	ClientId      string                 `protobuf:"bytes,7,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`          // ID компании-клиента (для пользователей типа client)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -871,6 +872,13 @@ func (x *UserInfo) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *UserInfo) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
 }
 
 // Role представляет роль пользователя

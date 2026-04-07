@@ -158,9 +158,17 @@ func ClientAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 				return
 			}
 
+			// Используем company client_id если доступен, иначе user_id
+			clientIDValue := userID
+			if resp.User.ClientId != "" {
+				if parsed, err := uuid.Parse(resp.User.ClientId); err == nil {
+					clientIDValue = parsed
+				}
+			}
+
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
-			ctx = context.WithValue(ctx, ClientIDKey, userID)
+			ctx = context.WithValue(ctx, ClientIDKey, clientIDValue)
 			ctx = context.WithValue(ctx, UserKey, resp.User)
 			if resp.User.Role != nil {
 				ctx = context.WithValue(ctx, RoleKey, resp.User.Role)

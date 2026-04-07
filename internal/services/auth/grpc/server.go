@@ -1329,6 +1329,11 @@ func (s *Server) domainUserToProto(user *domain.User) *authv1.UserInfo {
 		}
 	}
 
+	clientId := ""
+	if user.ClientID != nil {
+		clientId = user.ClientID.String()
+	}
+
 	return &authv1.UserInfo{
 		Id:        user.ID.String(),
 		Username:  user.Username,
@@ -1336,5 +1341,6 @@ func (s *Server) domainUserToProto(user *domain.User) *authv1.UserInfo {
 		Role:      role,
 		Active:    user.Active,
 		CreatedAt: timestamppb.New(user.CreatedAt),
+		ClientId:  clientId,
 	}
 }
