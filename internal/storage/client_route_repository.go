@@ -17,13 +17,31 @@ func NewClientRouteRepository(db *DB) *ClientRouteRepository {
 	return &ClientRouteRepository{db: sqlx.NewDb(db.DB, "pgx")}
 }
 
+// resolveCompanyClientID resolves the actual company client UUID from either a client UUID or user UUID.
+// This is needed because the client gateway middleware sets the user UUID as client_id in the context,
+// but client_routes uses the company client UUID from the clients table.
+func (r *ClientRouteRepository) resolveCompanyClientID(ctx context.Context, id uuid.UUID) uuid.UUID {
+	// Check if id is already a company client ID
+	var exists bool
+	if err := r.db.QueryRowContext(ctx, `SELECT true FROM clients WHERE id = $1`, id).Scan(&exists); err == nil {
+		return id
+	}
+	// Try resolving via users.client_id
+	var clientID uuid.NullUUID
+	if err := r.db.QueryRowContext(ctx, `SELECT client_id FROM users WHERE id = $1 AND client_id IS NOT NULL`, id).Scan(&clientID); err == nil && clientID.Valid {
+		return clientID.UUID
+	}
+	return id
+}
+
 func (r *ClientRouteRepository) ListByClientAndOperator(ctx context.Context, clientID, operatorID uuid.UUID) ([]*shared.ClientRoute, error) {
+	resolved := r.resolveCompanyClientID(ctx, clientID)
 	var routes []*shared.ClientRoute
 	err := r.db.SelectContext(ctx, &routes, `
 		SELECT id, client_id, operator_id, provider_id, priority, weight, active, shared, created_at, updated_at
 		FROM client_routes
 		WHERE client_id = $1 AND operator_id = $2 AND active = true
-		ORDER BY priority DESC`, clientID, operatorID)
+		ORDER BY priority DESC`, resolved, operatorID)
 	return routes, err
 }
 
@@ -48,9 +66,10 @@ func (r *ClientRouteRepository) ListDefaultByOperator(ctx context.Context, opera
 }
 
 func (r *ClientRouteRepository) GetParentClientID(ctx context.Context, clientID uuid.UUID) (*uuid.UUID, error) {
+	resolved := r.resolveCompanyClientID(ctx, clientID)
 	var parentID uuid.NullUUID
 	err := r.db.QueryRowContext(ctx,
-		`SELECT parent_client_id FROM clients WHERE id = $1`, clientID,
+		`SELECT parent_client_id FROM clients WHERE id = $1`, resolved,
 	).Scan(&parentID)
 	if err != nil {
 		return nil, err
@@ -63,9 +82,10 @@ func (r *ClientRouteRepository) GetParentClientID(ctx context.Context, clientID 
 }
 
 func (r *ClientRouteRepository) GetRoutingMode(ctx context.Context, clientID uuid.UUID) (string, error) {
+	resolved := r.resolveCompanyClientID(ctx, clientID)
 	var mode string
 	err := r.db.QueryRowContext(ctx,
-		`SELECT routing_mode FROM clients WHERE id = $1`, clientID,
+		`SELECT routing_mode FROM clients WHERE id = $1`, resolved,
 	).Scan(&mode)
 	if err != nil {
 		return "hybrid", err
