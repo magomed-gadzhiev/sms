@@ -260,9 +260,10 @@ func (p *Pool) ConnectAsync(ctx context.Context, provider *shared.Provider, wind
 			time.Sleep(time.Duration(attempt) * 2 * time.Second)
 		}
 
-		conn, err = net.DialTimeout("tcp", addr, 30*time.Second)
-		if err != nil {
-			bindErr = fmt.Errorf("ошибка подключения к %s: %w", addr, err)
+		var dialErr error
+		conn, dialErr = net.DialTimeout("tcp", addr, 30*time.Second)
+		if dialErr != nil {
+			bindErr = fmt.Errorf("ошибка подключения к %s: %w", addr, dialErr)
 			continue
 		}
 
