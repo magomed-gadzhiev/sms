@@ -3,6 +3,7 @@ package smsc
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -170,10 +171,10 @@ func (p *Pool) bind(ctx context.Context, conn *Connection, provider *shared.Prov
 		return fmt.Errorf("ошибка отправки bind запроса: %w", err)
 	}
 
-	// Читаем ответ
+	// Читаем ответ (используем io.ReadFull для надёжного чтения ровно 16 байт заголовка)
 	conn.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	header := make([]byte, smppprotocol.PDUHeaderLength)
-	if _, err := conn.Conn.Read(header); err != nil {
+	if _, err := io.ReadFull(conn.Conn, header); err != nil {
 		return fmt.Errorf("ошибка чтения ответа bind: %w", err)
 	}
 
@@ -189,7 +190,7 @@ func (p *Pool) bind(ctx context.Context, conn *Connection, provider *shared.Prov
 	bodyLength := int(respCommandLength) - smppprotocol.PDUHeaderLength
 	bodyData := make([]byte, bodyLength)
 	if bodyLength > 0 {
-		if _, err := conn.Conn.Read(bodyData); err != nil {
+		if _, err := io.ReadFull(conn.Conn, bodyData); err != nil {
 			return fmt.Errorf("ошибка чтения тела ответа bind: %w", err)
 		}
 	}

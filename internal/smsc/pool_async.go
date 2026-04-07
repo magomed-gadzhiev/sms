@@ -247,10 +247,46 @@ func (p *Pool) ConnectAsync(ctx context.Context, provider *shared.Provider, wind
 		Int("window_size", windowSize).
 		Msg("async подключение к SMSC провайдеру")
 
-	conn, err := net.DialTimeout("tcp", addr, 30*time.Second)
-	if err != nil {
+	// Пробуем подключиться с retry для обработки временных отказов сервера
+	const maxBindRetries = 3
+	var conn net.Conn
+	var bindErr error
+	for attempt := 1; attempt <= maxBindRetries; attempt++ {
+		if attempt > 1 {
+			p.logger.Warn().
+				Str("provider_name", provider.Name).
+				Int("attempt", attempt).
+				Msg("повторная попытка bind к провайдеру")
+			time.Sleep(time.Duration(attempt) * 2 * time.Second)
+		}
+
+		conn, err = net.DialTimeout("tcp", addr, 30*time.Second)
+		if err != nil {
+			bindErr = fmt.Errorf("ошибка подключения к %s: %w", addr, err)
+			continue
+		}
+
+		tmpConn := &Connection{
+			ID:          connectionID,
+			ProviderID:  provider.ID,
+			Conn:        conn,
+			Bound:       false,
+			LastUsed:    time.Now(),
+			SequenceNum: 0,
+			CreatedAt:   time.Now(),
+			logger:      log.With().Str("async_connection_id", connectionID).Str("provider", provider.Name).Logger(),
+		}
+
+		if bindErr = p.bind(ctx, tmpConn, provider); bindErr == nil {
+			break
+		}
+		conn.Close()
+		conn = nil
+	}
+
+	if bindErr != nil {
 		acCancel()
-		return nil, fmt.Errorf("ошибка подключения к %s: %w", addr, err)
+		return nil, fmt.Errorf("ошибка bind к провайдеру %s после %d попыток: %w", provider.Name, maxBindRetries, bindErr)
 	}
 
 	ac := &AsyncConnection{
@@ -266,24 +302,6 @@ func (p *Pool) ConnectAsync(ctx context.Context, provider *shared.Provider, wind
 		logger:     log.With().Str("async_connection_id", connectionID).Str("provider", provider.Name).Logger(),
 		cancel:     acCancel,
 		done:       make(chan struct{}),
-	}
-
-	// Выполняем bind (переиспользуем синхронную Connection для bind)
-	tmpConn := &Connection{
-		ID:          connectionID,
-		ProviderID:  provider.ID,
-		Conn:        conn,
-		Bound:       false,
-		LastUsed:    time.Now(),
-		SequenceNum: 0,
-		CreatedAt:   time.Now(),
-		logger:      ac.logger,
-	}
-
-	if err := p.bind(ctx, tmpConn, provider); err != nil {
-		conn.Close()
-		acCancel()
-		return nil, fmt.Errorf("ошибка bind к провайдеру %s: %w", provider.Name, err)
 	}
 
 	ac.Bound = true
