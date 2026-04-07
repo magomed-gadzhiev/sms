@@ -224,8 +224,9 @@ export function OptOutListPage() {
       )}
 
       <DataTable
-        columns={columns as Column<Record<string, unknown>>[]}
-        data={items}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        columns={columns as any}
+        data={items as any}
         total={total}
         page={page}
         pageSize={perPage}
