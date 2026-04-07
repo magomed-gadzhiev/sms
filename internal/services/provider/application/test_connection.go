@@ -84,7 +84,7 @@ func (s *TestConnectionService) Test(ctx context.Context, cfg TestConnectionConf
 		return TestConnectionResult{Success: false, Log: logs, Error: err.Error()}
 	}
 
-	cmdStatus := binary.BigEndian.Uint32(header[4:8])
+	cmdStatus := binary.BigEndian.Uint32(header[8:12])
 	if cmdStatus != 0 {
 		errMsg := fmt.Sprintf("SMPP bind_resp command_status=0x%08X", cmdStatus)
 		if cmdStatus == 0x0000000D {
