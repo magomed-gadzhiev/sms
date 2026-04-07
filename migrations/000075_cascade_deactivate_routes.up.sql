@@ -24,6 +24,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_cascade_deactivate_routes ON providers;
 CREATE TRIGGER trg_cascade_deactivate_routes
     BEFORE UPDATE ON providers
     FOR EACH ROW

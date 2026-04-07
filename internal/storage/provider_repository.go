@@ -38,9 +38,9 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 	`
 
 	tags := pq.Array([]string(provider.Tags))
-	routingRules := provider.RoutingRules
-	if len(routingRules) == 0 {
-		routingRules = []byte("[]")
+	routingRules := string(provider.RoutingRules)
+	if routingRules == "" || routingRules == "null" {
+		routingRules = "[]"
 	}
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -139,9 +139,9 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 	`
 
 	tags := pq.Array([]string(provider.Tags))
-	routingRules := provider.RoutingRules
-	if len(routingRules) == 0 {
-		routingRules = []byte("[]")
+	routingRules := string(provider.RoutingRules)
+	if routingRules == "" || routingRules == "null" {
+		routingRules = "[]"
 	}
 
 	result, err := r.db.ExecContext(ctx, query,
