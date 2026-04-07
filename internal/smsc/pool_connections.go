@@ -166,6 +166,10 @@ func (p *Pool) bind(ctx context.Context, conn *Connection, provider *shared.Prov
 	}
 
 	// Отправляем bind запрос
+	conn.logger.Debug().
+		Str("pdu_hex", fmt.Sprintf("%x", pduBytes)).
+		Int("pdu_len", len(pduBytes)).
+		Msg("отправка bind PDU")
 	conn.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 	if _, err := conn.Conn.Write(pduBytes); err != nil {
 		return fmt.Errorf("ошибка отправки bind запроса: %w", err)
