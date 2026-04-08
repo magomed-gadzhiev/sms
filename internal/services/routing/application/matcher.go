@@ -255,23 +255,29 @@ func matchSchedule(s domain.Schedule) bool {
 	if s.DateFrom != nil && now.Before(*s.DateFrom) {
 		return false
 	}
-	if s.DateTo != nil && now.After(*s.DateTo) {
-		return false
+	if s.DateTo != nil {
+		// DateTo is a DATE column — midnight of that day. Include the entire last day.
+		endOfDay := s.DateTo.Add(24*time.Hour - time.Nanosecond)
+		if now.After(endOfDay) {
+			return false
+		}
 	}
 
 	// Check weekday bitmask: 1=Mon, 2=Tue, 4=Wed, 8=Thu, 16=Fri, 32=Sat, 64=Sun.
 	// time.Weekday: 0=Sun, 1=Mon ... 6=Sat.
-	if s.Weekdays > 0 {
-		wd := now.Weekday()
-		var bit int
-		if wd == time.Sunday {
-			bit = 64
-		} else {
-			bit = 1 << (wd - 1) // Mon=1<<0=1, Tue=1<<1=2, etc.
-		}
-		if s.Weekdays&bit == 0 {
-			return false
-		}
+	// Weekdays == 0 means no days selected — route never active.
+	if s.Weekdays == 0 {
+		return false
+	}
+	wd := now.Weekday()
+	var bit int
+	if wd == time.Sunday {
+		bit = 64
+	} else {
+		bit = 1 << (wd - 1) // Mon=1<<0=1, Tue=1<<1=2, etc.
+	}
+	if s.Weekdays&bit == 0 {
+		return false
 	}
 
 	// Check time range.

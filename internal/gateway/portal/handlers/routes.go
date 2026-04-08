@@ -194,7 +194,7 @@ func (h *RouteHandlers) ListRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"items": items,
+		"routes": items,
 		"total": total,
 	})
 }
