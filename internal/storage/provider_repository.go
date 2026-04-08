@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -37,7 +36,6 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 		)
 	`
 
-	tags := pq.Array([]string(provider.Tags))
 	routingRules := string(provider.RoutingRules)
 	if routingRules == "" || routingRules == "null" {
 		routingRules = "[]"
@@ -50,7 +48,7 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 		provider.AddrTON, provider.AddrNPI, provider.AddressRange,
 		provider.MaxConnections, provider.Active, provider.Priority,
 		provider.ThroughputPerSec, provider.CreatedAt, provider.UpdatedAt,
-		provider.ClientID, provider.Description, tags, provider.TPSLimit, routingRules,
+		provider.ClientID, provider.Description, provider.Tags, provider.TPSLimit, routingRules,
 	)
 
 	return err
@@ -138,7 +136,6 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 		WHERE id = $1
 	`
 
-	tags := pq.Array([]string(provider.Tags))
 	routingRules := string(provider.RoutingRules)
 	if routingRules == "" || routingRules == "null" {
 		routingRules = "[]"
@@ -151,7 +148,7 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 		provider.AddrTON, provider.AddrNPI, provider.AddressRange,
 		provider.MaxConnections, provider.Active, provider.Priority,
 		provider.ThroughputPerSec, provider.UpdatedAt,
-		provider.Description, tags, provider.TPSLimit, routingRules,
+		provider.Description, provider.Tags, provider.TPSLimit, routingRules,
 	)
 
 	if err != nil {
