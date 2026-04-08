@@ -16,6 +16,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
+	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -24,6 +25,7 @@ import (
 // Используется как для SentMessage (sms.sent), так и для DLRMessage (sms.dlr).
 type statusRecord struct {
 	MessageID     uuid.UUID
+	TraceID       string
 	Status        string
 	SMPPMessageID string
 	ProviderID    *uuid.UUID
@@ -160,6 +162,12 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 	}
 
 	// 3. Публикуем StatusUpdate в sms.status для campaign-service.
+	for _, r := range records {
+		trace.Log(s.logger, r.TraceID, r.MessageID.String(), "status", "upserted").
+			Str("status", r.Status).
+			Str("smpp_message_id", r.SMPPMessageID).
+			Msg("status written to DB")
+	}
 	s.publishStatusUpdates(records)
 
 	// 4. Метрики.
@@ -188,6 +196,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		providerID := &sent.ProviderID
 		return &statusRecord{
 			MessageID:     sent.MessageID,
+			TraceID:       sent.TraceID,
 			Status:        status,
 			SMPPMessageID: sent.SMPPMessageID,
 			ProviderID:    providerID,
@@ -208,6 +217,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		}
 		return &statusRecord{
 			MessageID:     dlr.MessageID,
+			TraceID:       dlr.TraceID,
 			Status:        status,
 			SMPPMessageID: dlr.SMPPMessageID,
 			ProviderID:    dlr.ProviderID,
@@ -328,6 +338,7 @@ func (s *Stage) publishStatusUpdates(records []*statusRecord) {
 		update := &pipeline.StatusUpdate{
 			SchemaVersion: 1,
 			MessageID:     r.MessageID,
+			TraceID:       r.TraceID,
 			Status:        r.Status,
 			SMPPMessageID: r.SMPPMessageID,
 			ProviderID:    r.ProviderID,
