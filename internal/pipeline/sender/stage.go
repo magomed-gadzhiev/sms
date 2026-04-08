@@ -22,6 +22,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/pipeline/backpressure"
 	"github.com/smpp-server/smpp-server/internal/pipeline/limits"
+	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/smsc"
@@ -292,6 +293,8 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		return fmt.Errorf("десериализация RoutedMessage: %w", err)
 	}
 
+	traceID := routedMsg.TraceID
+
 	// 2. Проверка заморозки и тарификация — ДО отправки.
 	if s.billingClient != nil && routedMsg.ClientID != nil {
 		grpcCtx, grpcCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -300,15 +303,16 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		})
 		grpcCancel()
 		if balanceErr != nil {
-			s.logger.Error().Err(balanceErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка получения баланса — сообщение отклонено")
+			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.billing", "error").
+				Err(balanceErr).
+				Msg("billing service unavailable, message rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "billing_unavailable").Inc()
 			session.MarkMessage(msg, "")
 			return nil
 		} else if balanceResp != nil && balanceResp.Frozen {
-			s.logger.Warn().
-				Str("message_id", routedMsg.MessageID.String()).
+			trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.billing", "account_frozen").
 				Str("client_id", routedMsg.ClientID.String()).
-				Msg("аккаунт заморожен — сообщение отклонено")
+				Msg("account frozen, message rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "account_frozen").Inc()
 			session.MarkMessage(msg, "")
 			return nil
@@ -333,16 +337,17 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		})
 		tarifyCancel()
 		if tarifyErr != nil {
-			s.logger.Error().Err(tarifyErr).Str("message_id", routedMsg.MessageID.String()).Msg("ошибка тарификации — сообщение отклонено")
+			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "error").
+				Err(tarifyErr).
+				Msg("tarification failed, message rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_error").Inc()
 			session.MarkMessage(msg, "")
 			return nil
 		}
 		if tarifyResp != nil && !tarifyResp.Approved {
-			s.logger.Warn().
-				Str("message_id", routedMsg.MessageID.String()).
+			trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "rejected").
 				Str("reason", tarifyResp.RejectionReason).
-				Msg("тарификация отклонена — сообщение не отправляется")
+				Msg("tarification rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_rejected").Inc()
 			session.MarkMessage(msg, "")
 			return nil
@@ -350,6 +355,11 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		if tarifyResp != nil {
 			chargedAmount = tarifyResp.TotalAmount
 			chargedCurrency = tarifyResp.Currency
+			trace.Debug(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "approved").
+				Str("amount", chargedAmount).
+				Str("currency", chargedCurrency).
+				Int32("segments", segCount).
+				Msg("tarification approved")
 		}
 
 		// Обновляем счётчик monthly_sms_count у клиента (quota subscription)
@@ -370,10 +380,9 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		bpClientID = *routedMsg.ClientID
 	}
 	if !s.bpManager.TryAcquire(bpClientID, routedMsg.ProviderID) {
-		s.logger.Warn().
-			Str("message_id", routedMsg.MessageID.String()).
+		trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.backpressure", "throttled").
 			Str("provider_id", routedMsg.ProviderID.String()).
-			Msg("backpressure: провайдер throttled, сообщение будет повторно доставлено")
+			Msg("provider throttled, message will be redelivered")
 		return fmt.Errorf("backpressure: провайдер %s throttled", routedMsg.ProviderID)
 	}
 
@@ -432,6 +441,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	if sendErr != nil && routedMsg.RetryCount < routedMsg.MaxRetries {
 		failedMsg := &queue.FailedMessage{
 			MessageID:  routedMsg.MessageID,
+			TraceID:    traceID,
 			Error:      sendErr.Error(),
 			ErrorCode:  "send_failed",
 			RetryCount: routedMsg.RetryCount + 1,
@@ -474,6 +484,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	sentMsg := &pipeline.SentMessage{
 		SchemaVersion: 1,
 		MessageID:     routedMsg.MessageID,
+		TraceID:       traceID,
 		ProviderID:    usedProviderID,
 		SentAt:        time.Now(),
 		ConnectionID:  usedConnID,
@@ -508,14 +519,19 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 
 	// DLR для SIMULATOR-провайдеров теперь генерируется StubSender внутренне.
 
-	s.logger.Debug().
-		Str("message_id", routedMsg.MessageID.String()).
+	senderType := "smpp"
+	if smsc.IsSimulator(provider) {
+		senderType = "stub"
+	}
+
+	trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.send", "completed").
 		Str("provider_id", routedMsg.ProviderID.String()).
 		Str("smpp_message_id", sentMsg.SMPPMessageID).
 		Str("status", sentMsg.Status).
 		Str("connection_id", usedConnID).
+		Str("sender_type", senderType).
 		Int("segments", sentMsg.SegmentsCount).
-		Msg("сообщение обработано sender stage")
+		Msg("message processed by sender")
 
 	// 9. Маркируем сообщение как обработанное.
 	session.MarkMessage(msg, "")
