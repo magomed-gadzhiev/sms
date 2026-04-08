@@ -1793,10 +1793,8 @@ func clientProviderToProto(cp *domain.ClientProvider) *routingv1.ClientProviderP
 }
 
 func clientRouteToProto(r *domain.ClientRoute) *routingv1.ClientRouteProto {
-	return &routingv1.ClientRouteProto{
+	proto := &routingv1.ClientRouteProto{
 		Id:         r.ID.String(),
-		ClientId:   r.ClientID.String(),
-		OperatorId: r.OperatorID.String(),
 		ProviderId: r.ProviderID.String(),
 		Priority:   int32(r.Priority),
 		Weight:     int32(r.Weight),
@@ -1804,6 +1802,13 @@ func clientRouteToProto(r *domain.ClientRoute) *routingv1.ClientRouteProto {
 		CreatedAt:  timestamppb.New(r.CreatedAt),
 		UpdatedAt:  timestamppb.New(r.UpdatedAt),
 	}
+	if r.ClientID != nil {
+		proto.ClientId = r.ClientID.String()
+	}
+	if r.OperatorID != nil {
+		proto.OperatorId = r.OperatorID.String()
+	}
+	return proto
 }
 
 func clientStrategyToProto(s *domain.ClientRoutingStrategy) *routingv1.ClientRoutingStrategyProto {
