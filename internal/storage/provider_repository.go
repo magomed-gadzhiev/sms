@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -40,6 +41,7 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 	if routingRules == "" || routingRules == "null" {
 		routingRules = "[]"
 	}
+	tags := tagsArg(provider.Tags)
 
 	_, err := r.db.ExecContext(ctx, query,
 		provider.ID, provider.Name, provider.Host, provider.Port,
@@ -48,7 +50,7 @@ func (r *ProviderRepository) Create(ctx context.Context, provider *shared.Provid
 		provider.AddrTON, provider.AddrNPI, provider.AddressRange,
 		provider.MaxConnections, provider.Active, provider.Priority,
 		provider.ThroughputPerSec, provider.CreatedAt, provider.UpdatedAt,
-		provider.ClientID, provider.Description, provider.Tags, provider.TPSLimit, routingRules,
+		provider.ClientID, provider.Description, tags, provider.TPSLimit, routingRules,
 	)
 
 	return err
@@ -140,6 +142,7 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 	if routingRules == "" || routingRules == "null" {
 		routingRules = "[]"
 	}
+	tags := tagsArg(provider.Tags)
 
 	result, err := r.db.ExecContext(ctx, query,
 		provider.ID, provider.Name, provider.Host, provider.Port,
@@ -148,7 +151,7 @@ func (r *ProviderRepository) Update(ctx context.Context, provider *shared.Provid
 		provider.AddrTON, provider.AddrNPI, provider.AddressRange,
 		provider.MaxConnections, provider.Active, provider.Priority,
 		provider.ThroughputPerSec, provider.UpdatedAt,
-		provider.Description, provider.Tags, provider.TPSLimit, routingRules,
+		provider.Description, tags, provider.TPSLimit, routingRules,
 	)
 
 	if err != nil {
@@ -245,4 +248,13 @@ func (r *ProviderRepository) GetByIDAndClientID(ctx context.Context, id, clientI
 		return nil, err
 	}
 	return &provider, nil
+}
+
+// tagsArg преобразует StringArray в pq.Array с гарантированным непустым значением.
+func tagsArg(tags shared.StringArray) interface{} {
+	s := []string(tags)
+	if s == nil {
+		s = []string{}
+	}
+	return pq.Array(s)
 }
