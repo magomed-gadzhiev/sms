@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -122,6 +123,31 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
+	}
+
+	if req.Name != nil {
+		if err := validateTextField("name", *req.Name, 255); err != nil {
+			respondError(w, err.(*shared.AppError))
+			return
+		}
+	}
+	if req.Email != nil {
+		if err := validateTextField("email", *req.Email, 255); err != nil {
+			respondError(w, err.(*shared.AppError))
+			return
+		}
+	}
+	if req.ContactPerson != nil {
+		if err := validateTextField("contact_person", *req.ContactPerson, 255); err != nil {
+			respondError(w, err.(*shared.AppError))
+			return
+		}
+	}
+	if req.Phone != nil {
+		if err := validateTextField("phone", *req.Phone, 50); err != nil {
+			respondError(w, err.(*shared.AppError))
+			return
+		}
 	}
 
 	var name, email, contactPerson, phone string
@@ -277,8 +303,31 @@ func (r *CreateClientRequest) Validate() error {
 	if r.Name == "" {
 		return shared.ErrInvalidInput("name обязателен")
 	}
+	if err := validateTextField("name", r.Name, 255); err != nil {
+		return err
+	}
 	if r.Email == "" {
 		return shared.ErrInvalidInput("email обязателен")
+	}
+	if err := validateTextField("email", r.Email, 255); err != nil {
+		return err
+	}
+	if err := validateTextField("contact_person", r.ContactPerson, 255); err != nil {
+		return err
+	}
+	if err := validateTextField("phone", r.Phone, 50); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateTextField checks length and rejects HTML tags to prevent stored XSS
+func validateTextField(field, value string, maxLen int) error {
+	if len(value) > maxLen {
+		return shared.ErrInvalidInput(field + " не должен превышать " + strconv.Itoa(maxLen) + " символов")
+	}
+	if strings.ContainsAny(value, "<>") {
+		return shared.ErrInvalidInput(field + " содержит недопустимые символы")
 	}
 	return nil
 }
