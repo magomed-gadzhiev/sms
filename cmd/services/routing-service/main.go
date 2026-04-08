@@ -145,7 +145,6 @@ func main() {
 	// Инициализация HLR репозиториев
 	hlrProviderRepo := routingrepo.NewHLRProviderRepository(dbx)
 	lookupLogRepo := routingrepo.NewLookupLogRepository(dbx)
-	smartRouteWeightRepo := routingrepo.NewSmartRouteWeightRepository(dbx)
 
 	// Инициализация адаптер-фабрики HLR провайдеров
 	adapterFactory := infrastructure.NewHLRProviderAdapterFactory()
@@ -159,9 +158,6 @@ func main() {
 	}
 	hlrService := routingapp.NewHLRService(hlrCache, hlrProviderRepo, lookupLogRepo, adapterFactory, hlrProviderTimeout)
 
-	// Инициализация Smart Routing сервиса
-	smartRoutingService := routingapp.NewSmartRoutingService(smartRouteWeightRepo)
-
 	// Инициализация event publisher
 	eventPublisher := routingqueue.NewEventPublisher(kafkaProducer)
 
@@ -169,9 +165,8 @@ func main() {
 	routingService := routingapp.NewRoutingService(routeRepo, providerRepo, eventPublisher)
 	operatorResolver := routingapp.NewOperatorResolver(operatorPrefixRepo, operatorRepo, countryRepo)
 
-	// Подключаем HLR и Smart Routing к routing service
+	// Подключаем HLR к routing service
 	routingService.SetHLRService(hlrService)
-	routingService.SetSmartRouter(smartRoutingService)
 
 	// Запуск Health Monitor для HLR провайдеров
 	hlrHealthInterval := 30 * time.Second
@@ -282,7 +277,7 @@ func main() {
 
 	// Регистрация gRPC сервиса
 	routingGrpcServer := routinggrpc.NewServer(routingService, countryRepo, operatorRepo, operatorPrefixRepo, operatorResolver)
-	routingGrpcServer.SetHLRDependencies(hlrService, hlrProviderRepo, lookupLogRepo, smartRoutingService)
+	routingGrpcServer.SetHLRDependencies(hlrService, hlrProviderRepo, lookupLogRepo)
 	routingGrpcServer.SetClientRoutingDeps(clientProviderRepo, clientRouteRepo, clientStrategyRepo)
 	routingv1.RegisterRoutingServiceServer(grpcServer, routingGrpcServer)
 
