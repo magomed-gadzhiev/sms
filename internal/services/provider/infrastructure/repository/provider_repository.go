@@ -196,3 +196,12 @@ func (a *ProviderRepositoryAdapter) GetByIDAndClientID(ctx context.Context, id, 
 	}
 	return sharedToDomain(p), nil
 }
+
+// UnlinkFromClient деактивирует связь провайдера с клиентом
+func (a *ProviderRepositoryAdapter) UnlinkFromClient(ctx context.Context, providerID, clientID uuid.UUID) error {
+	err := a.repo.UnlinkFromClient(ctx, providerID, clientID)
+	if err == storage.ErrNotFound {
+		return domain.ErrProviderNotFound
+	}
+	return err
+}
