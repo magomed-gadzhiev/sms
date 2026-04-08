@@ -27,6 +27,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
+	routinginfra "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
 	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
 	cascadepg "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/postgres"
@@ -216,6 +217,8 @@ func main() {
 	searchHandlers := handlers.NewSearchHandlers(dbPool)
 	exportHandlers := handlers.NewExportHandlers(redisClient, serviceClients.MessagingClient)
 	optOutHandlers := handlers.NewOptOutHandlers(dbPool)
+	routeRepo := routinginfra.NewRouteRepo(dbPool)
+	routeHandlers := handlers.NewRouteHandlers(routeRepo)
 
 	// Запускаем планировщик уведомлений
 	notifScheduler := notifications.NewScheduler(dbPool, serviceClients.CampaignClient)
@@ -291,6 +294,7 @@ func main() {
 		searchHandlers,
 		exportHandlers,
 		optOutHandlers,
+		routeHandlers,
 	)
 
 	// Регистрируем маршруты cascade webhook
