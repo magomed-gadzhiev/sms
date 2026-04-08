@@ -13,6 +13,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/api/proto/smsv1"
 	"github.com/smpp-server/smpp-server/internal/api/middleware"
+	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -104,6 +105,8 @@ func (s *Server) SendSMS(ctx context.Context, req *smsv1.SendSMSRequest) (*smsv1
 	// Определяем кодировку
 	msg.Encoding = detectEncoding(msg.Text)
 
+	traceID := uuid.New().String()
+
 	// Сохраняем в БД
 	if err := s.messageRepo.Create(ctx, msg); err != nil {
 		log.Error().Err(err).Msg("ошибка сохранения сообщения")
@@ -112,6 +115,15 @@ func (s *Server) SendSMS(ctx context.Context, req *smsv1.SendSMSRequest) (*smsv1
 
 	// Публикуем в Kafka
 	kafkaMsg := queue.FromMessage(msg)
+	kafkaMsg.TraceID = traceID
+
+	trace.Log(log.Logger, traceID, msg.ID.String(), "api", "receive").
+		Str("client_id", clientID.String()).
+		Str("source", req.Source).
+		Str("destination", req.Destination).
+		Int("text_length", len(req.Text)).
+		Msg("message received via gRPC")
+
 	if err := s.producer.PublishOutgoing(ctx, kafkaMsg); err != nil {
 		log.Error().Err(err).Msg("ошибка публикации сообщения в Kafka")
 		return nil, status.Error(codes.Internal, "ошибка публикации сообщения в очередь")
@@ -199,6 +211,7 @@ func (s *Server) SendBatchSMS(ctx context.Context, req *smsv1.SendBatchRequest) 
 
 		// Публикуем в Kafka
 		kafkaMsg := queue.FromMessage(msg)
+		kafkaMsg.TraceID = uuid.New().String()
 
 		if s.asyncProducer != nil {
 			// Асинхронная пакетная публикация через AsyncProducer (T031)
