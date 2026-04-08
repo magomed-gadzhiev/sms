@@ -57,6 +57,7 @@ func SetupRouter(
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
 	optOutHandlers *handlers.OptOutHandlers,
+	routeHandlers *handlers.RouteHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -324,6 +325,15 @@ func SetupRouter(
 	optOut.HandleFunc("", optOutHandlers.AddOptOut).Methods("POST")
 	optOut.HandleFunc("/import", optOutHandlers.ImportOptOut).Methods("POST")
 	optOut.HandleFunc("/{id}", optOutHandlers.RemoveOptOut).Methods("DELETE")
+
+	// Route management (admin-managed default & client routes)
+	routes := protected.PathPrefix("/routes").Subrouter()
+	routes.HandleFunc("", routeHandlers.CreateRoute).Methods("POST")
+	routes.HandleFunc("", routeHandlers.ListRoutes).Methods("GET")
+	routes.HandleFunc("/references", routeHandlers.GetReferences).Methods("GET")
+	routes.HandleFunc("/{id}", routeHandlers.GetRoute).Methods("GET")
+	routes.HandleFunc("/{id}", routeHandlers.UpdateRoute).Methods("PUT")
+	routes.HandleFunc("/{id}", routeHandlers.DeleteRoute).Methods("DELETE")
 
 	return router
 }
