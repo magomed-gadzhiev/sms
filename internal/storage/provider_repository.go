@@ -202,6 +202,24 @@ func (r *ProviderRepository) LinkToClient(ctx context.Context, providerID, clien
 	return err
 }
 
+// UnlinkFromClient деактивирует связь провайдера с клиентом в client_providers
+func (r *ProviderRepository) UnlinkFromClient(ctx context.Context, providerID, clientID uuid.UUID) error {
+	query := `UPDATE client_providers SET active = false, updated_at = NOW()
+		WHERE provider_id = $1 AND client_id = $2`
+	result, err := r.db.ExecContext(ctx, query, providerID, clientID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ListByClientID возвращает провайдеров, принадлежащих клиенту
 func (r *ProviderRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*shared.Provider, error) {
 	var providers []*shared.Provider

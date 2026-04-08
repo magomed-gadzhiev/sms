@@ -109,11 +109,5 @@ func (s *ClientProviderService) Update(ctx context.Context, id, clientID uuid.UU
 }
 
 func (s *ClientProviderService) Delete(ctx context.Context, id, clientID uuid.UUID) error {
-	existing, err := s.repo.GetByIDAndClientID(ctx, id, clientID)
-	if err != nil {
-		return err
-	}
-	existing.Active = false
-	existing.UpdatedAt = time.Now()
-	return s.repo.Update(ctx, existing)
+	return s.repo.UnlinkFromClient(ctx, id, clientID)
 }
