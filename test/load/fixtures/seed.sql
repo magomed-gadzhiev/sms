@@ -131,12 +131,14 @@ ON CONFLICT (api_key) DO UPDATE SET
 INSERT INTO users (id, username, email, password_hash, role_id, active, client_id)
 VALUES
     ('d0000000-0000-0000-0000-000000000001', 'loadtest-admin', 'loadtest-admin@test.local',
-     '$2b$10$yYg00iyTGSozXL9FwSsecuWdn8CAUKeKfLjn9JcIm5um/eCfeiBCW',  -- Admin123!
+     '$2a$10$Od96EF1oN2Cp7JPpMNyLCuHs.mN3dRB82Ukq8TRhEDgKokaDj2jYO',  -- Admin123!
      '00000000-0000-0000-0000-000000000001', true, NULL),
     ('d0000000-0000-0000-0000-000000000002', 'loadtest-client', 'loadtest-client@test.local',
-     '$2b$10$yYg00iyTGSozXL9FwSsecuWdn8CAUKeKfLjn9JcIm5um/eCfeiBCW',  -- Admin123!
+     '$2a$10$Od96EF1oN2Cp7JPpMNyLCuHs.mN3dRB82Ukq8TRhEDgKokaDj2jYO',  -- Admin123!
      '00000000-0000-0000-0000-000000000002', true, 'c0000000-0000-0000-0000-000000000001')
-ON CONFLICT (username) DO UPDATE SET client_id = EXCLUDED.client_id;
+ON CONFLICT (username) DO UPDATE SET
+    client_id     = EXCLUDED.client_id,
+    password_hash = EXCLUDED.password_hash;
 
 INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, active)
 VALUES
