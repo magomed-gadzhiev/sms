@@ -93,7 +93,7 @@ func (r *RouteRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.ClientRo
 	route := &domain.ClientRoute{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, client_id, operator_id, provider_id, priority, weight, active,
-		 name, comment, status, share, route_type, created_at, updated_at
+		 COALESCE(name, ''), COALESCE(comment, ''), status, share, route_type, created_at, updated_at
 		 FROM client_routes WHERE id = $1`, id,
 	).Scan(
 		&route.ID, &route.ClientID, &route.OperatorID, &route.ProviderID,
@@ -154,7 +154,7 @@ func (r *RouteRepo) List(ctx context.Context, filters RouteFilters) ([]*domain.C
 	}
 
 	query := `SELECT id, client_id, operator_id, provider_id, priority, weight, active,
-		name, comment, status, share, route_type, created_at, updated_at
+		COALESCE(name, ''), COALESCE(comment, ''), status, share, route_type, created_at, updated_at
 		FROM client_routes ` + where + " ORDER BY priority ASC"
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -195,7 +195,7 @@ func (r *RouteRepo) Delete(ctx context.Context, id uuid.UUID) error {
 // LoadAllActive loads all active routes with full children for the RouteMatcher.
 func (r *RouteRepo) LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, error) {
 	query := `SELECT id, client_id, operator_id, provider_id, priority, weight, active,
-		name, comment, status, share, route_type, created_at, updated_at
+		COALESCE(name, ''), COALESCE(comment, ''), status, share, route_type, created_at, updated_at
 		FROM client_routes WHERE status = 'active' ORDER BY priority ASC`
 
 	rows, err := r.pool.Query(ctx, query)
