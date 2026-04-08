@@ -49,7 +49,7 @@ func NewClientRoute(clientID, operatorID, providerID uuid.UUID, priority, weight
 	}
 }
 
-func NewRoute(clientID *uuid.UUID, providerID uuid.UUID, name string, routeType string, priority, share int, status RouteStatus) *ClientRoute {
+func NewManagedRoute(clientID *uuid.UUID, providerID uuid.UUID, name string, routeType string, priority, share int, status RouteStatus) *ClientRoute {
 	now := time.Now()
 	return &ClientRoute{
 		ID:         uuid.New(),
