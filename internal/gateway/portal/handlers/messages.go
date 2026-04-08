@@ -225,6 +225,10 @@ func (h *MessageHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.db == nil {
+		if h.messagingClient == nil {
+			respondError(w, shared.ErrServiceUnavailable("Сервис сообщений недоступен"))
+			return
+		}
 		h.getMessageViaGRPC(w, r, id, clientID.String())
 		return
 	}
@@ -301,8 +305,8 @@ LIMIT 1`
 		if errors.Is(err, pgx.ErrNoRows) {
 			respondError(w, shared.ErrNotFound("Сообщение не найдено"))
 		} else {
-			log.Error().Err(err).Msg("ошибка получения сообщения из БД")
-			respondError(w, shared.ErrInternalServer(err.Error()))
+			log.Error().Err(err).Str("message_id", id).Msg("ошибка запроса сообщения из БД")
+			respondError(w, shared.ErrInternalServer("Ошибка получения сообщения"))
 		}
 		return
 	}
@@ -400,6 +404,7 @@ SELECT segment_count, price_per_segment, total_amount,
        tariff_plan_id::text, created_at
 FROM tarification_log
 WHERE message_id = $1::uuid
+ORDER BY created_at DESC
 LIMIT 1`
 
 	var (
