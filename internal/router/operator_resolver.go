@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -26,6 +27,7 @@ type OperatorResolver struct {
 	mu                sync.RWMutex
 	refreshTTL        time.Duration
 	lastRefresh       time.Time
+	logger            zerolog.Logger
 }
 
 func NewOperatorResolver(repo OperatorPrefixRepository, defaultOperatorID uuid.UUID) *OperatorResolver {
@@ -33,6 +35,7 @@ func NewOperatorResolver(repo OperatorPrefixRepository, defaultOperatorID uuid.U
 		repo:              repo,
 		defaultOperatorID: defaultOperatorID,
 		refreshTTL:        5 * time.Minute,
+		logger:            log.With().Str("component", "operator_resolver").Logger(),
 	}
 }
 
@@ -40,6 +43,10 @@ func NewOperatorResolver(repo OperatorPrefixRepository, defaultOperatorID uuid.U
 func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID {
 	normalized := normalizePhoneNumber(number)
 	if normalized == "" {
+		r.logger.Debug().
+			Str("number", number).
+			Str("operator_id", r.defaultOperatorID.String()).
+			Msg("empty number, using default operator")
 		return r.defaultOperatorID
 	}
 
@@ -56,9 +63,19 @@ func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID
 
 	for _, p := range r.prefixes {
 		if len(normalized) >= len(p.Prefix) && normalized[:len(p.Prefix)] == p.Prefix {
+			r.logger.Debug().
+				Str("number", normalized).
+				Str("prefix", p.Prefix).
+				Str("operator_id", p.OperatorID.String()).
+				Msg("operator resolved by prefix")
 			return p.OperatorID
 		}
 	}
+
+	r.logger.Debug().
+		Str("number", normalized).
+		Str("operator_id", r.defaultOperatorID.String()).
+		Msg("no prefix match, using default operator")
 	return r.defaultOperatorID
 }
 
@@ -69,7 +86,7 @@ func normalizePhoneNumber(number string) string {
 func (r *OperatorResolver) refresh(ctx context.Context) {
 	prefixes, err := r.repo.GetAllActive(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("OperatorResolver: ошибка загрузки префиксов")
+		r.logger.Error().Err(err).Msg("failed to load operator prefixes")
 		return
 	}
 	sort.Slice(prefixes, func(i, j int) bool {
@@ -79,4 +96,5 @@ func (r *OperatorResolver) refresh(ctx context.Context) {
 	r.prefixes = prefixes
 	r.lastRefresh = time.Now()
 	r.mu.Unlock()
+	r.logger.Info().Int("prefix_count", len(prefixes)).Msg("operator prefixes reloaded")
 }
