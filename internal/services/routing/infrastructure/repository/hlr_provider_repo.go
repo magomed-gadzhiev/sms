@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -187,19 +188,19 @@ func rowToHLRProvider(row *hlrProviderRow) *domain.HLRProvider {
 
 	// Parse timestamps
 	if row.CreatedAt > 0 {
-		t := timeFromUnix(row.CreatedAt)
+		t := time.Unix(row.CreatedAt, 0)
 		provider.CreatedAt = t
 	}
 	if row.UpdatedAt > 0 {
-		t := timeFromUnix(row.UpdatedAt)
+		t := time.Unix(row.UpdatedAt, 0)
 		provider.UpdatedAt = t
 	}
 	if row.LastSuccessAt != nil {
-		t := timeFromUnix(*row.LastSuccessAt)
+		t := time.Unix(*row.LastSuccessAt, 0)
 		provider.LastSuccessAt = &t
 	}
 	if row.LastFailureAt != nil {
-		t := timeFromUnix(*row.LastFailureAt)
+		t := time.Unix(*row.LastFailureAt, 0)
 		provider.LastFailureAt = &t
 	}
 
