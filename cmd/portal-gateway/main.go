@@ -166,6 +166,9 @@ func main() {
 		serviceClients.WebhookClient,
 	)
 	messageHandlers := handlers.NewMessageHandlers(serviceClients.MessagingClient)
+	if dbPool != nil {
+		messageHandlers.SetDB(dbPool)
+	}
 
 	// Запускаем SSE hub для real-time стриминга статусов сообщений.
 	kafkaStatusTopic := getEnvOrDefault("KAFKA_TOPIC_STATUS", "sms.status")
