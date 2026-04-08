@@ -85,8 +85,19 @@ export function UsersPage() {
   ];
 
   const columns: Column<UserDetailInfo>[] = [
-    { key: 'username', header: 'Имя пользователя', sortable: true },
-    { key: 'email', header: 'Email' },
+    {
+      key: 'email',
+      header: 'Пользователь',
+      sortable: true,
+      render: (u) => (
+        <div>
+          <div className="font-medium text-sm">{u.email}</div>
+          {u.username && u.username !== u.email && (
+            <div className="text-xs text-gray-400">{u.username}</div>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'role',
       header: 'Роль',

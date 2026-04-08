@@ -5,8 +5,11 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { ChannelFormModal } from './ChannelFormModal';
 
-function formatDate(dt: string) {
-  return new Date(dt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+function formatDate(dt: string | null | undefined) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 const CHANNEL_TYPE_LABELS: Record<string, string> = {

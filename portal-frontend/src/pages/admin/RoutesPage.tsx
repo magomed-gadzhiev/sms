@@ -14,7 +14,7 @@ const PAGE_SIZE = 20;
 
 const columns: Column<RouteInfo>[] = [
   { key: 'name', header: 'Название', sortable: true },
-  { key: 'pattern', header: 'Шаблон' },
+  { key: 'pattern', header: 'Паттерн (regex)' },
   { key: 'priority', header: 'Приоритет', sortable: true },
   { key: 'load_balance_strategy', header: 'Стратегия', render: (r) => ({ round_robin: 'По кругу', weighted: 'Взвешенная', priority: 'Приоритет' }[r.load_balance_strategy] ?? r.load_balance_strategy) },
   { key: 'failover_enabled', header: 'Отказоуст.', render: (r) => r.failover_enabled ? 'Да' : 'Нет' },
@@ -28,6 +28,7 @@ export function RoutesPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editRoute, setEditRoute] = useState<RouteInfo | null>(null);
   const [deleteRoute, setDeleteRoute] = useState<RouteInfo | null>(null);
@@ -66,10 +67,24 @@ export function RoutesPage() {
     finally { setSaving(false); }
   };
 
+  const filtered = search.trim()
+    ? data.filter((r) =>
+        r.name.toLowerCase().includes(search.toLowerCase()) ||
+        r.pattern.toLowerCase().includes(search.toLowerCase())
+      )
+    : data;
+
   return (
     <>
       <PageHeader title="Маршруты" subtitle={`${total} маршрутов`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Маршруты' }]} actions={<Button onClick={openCreate}>Создать маршрут</Button>} />
-      <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="route_id"
+      <div className="mb-4">
+        <Input
+          placeholder="Поиск по названию или паттерну..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <DataTable columns={columns} data={filtered} total={filtered.length} page={1} pageSize={filtered.length || 1} onPageChange={() => {}} loading={loading} keyField="route_id"
         rowActions={(r) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(r)}>Изменить</Button><Button size="sm" variant="ghost" onClick={() => setDeleteRoute(r)}>Удалить</Button></div>)}
       />
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditRoute(null); }} title={editRoute ? 'Редактирование маршрута' : 'Создание маршрута'}>

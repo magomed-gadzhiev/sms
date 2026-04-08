@@ -5,9 +5,16 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Badge } from '../../../components/ui/Badge';
 import { useToast } from '../../../components/ui/Toast';
 import { billingApi, type BalanceInfoItem } from '../../../api/admin';
+
+function formatLimit(value: string | number | null | undefined): string {
+  const n = parseFloat(String(value ?? '0'));
+  if (!n || n <= 0) return 'Без лимита';
+  return n.toFixed(2);
+}
 
 const PAGE_SIZE = 20;
 
@@ -52,6 +59,8 @@ export function BalancesTab() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [freezeTarget, setFreezeTarget] = useState<BalanceInfoItem | null>(null);
+  const [freezeLoading, setFreezeLoading] = useState(false);
 
   // Credit/Debit modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -135,23 +144,23 @@ export function BalancesTab() {
     }
   };
 
-  const handleFreeze = async (clientId: string) => {
+  const handleFreezeConfirm = async () => {
+    if (!freezeTarget) return;
+    setFreezeLoading(true);
     try {
-      await billingApi.freeze(clientId);
-      toast.success('Счёт заморожен');
+      if (freezeTarget.frozen) {
+        await billingApi.unfreeze(freezeTarget.client_id);
+        toast.success('Счёт разморожен');
+      } else {
+        await billingApi.freeze(freezeTarget.client_id);
+        toast.success('Счёт заморожен');
+      }
+      setFreezeTarget(null);
       fetchBalances();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Не удалось заморозить');
-    }
-  };
-
-  const handleUnfreeze = async (clientId: string) => {
-    try {
-      await billingApi.unfreeze(clientId);
-      toast.success('Счёт разморожен');
-      fetchBalances();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Не удалось разморозить');
+      toast.error(e instanceof Error ? e.message : 'Ошибка операции');
+    } finally {
+      setFreezeLoading(false);
     }
   };
 
@@ -176,12 +185,12 @@ export function BalancesTab() {
     {
       key: 'credit_limit',
       header: 'Кредитный лимит',
-      render: (b) => b.credit_limit || '—',
+      render: (b) => formatLimit(b.credit_limit),
     },
     {
       key: 'low_balance_threshold',
       header: 'Порог уведомления',
-      render: (b) => b.low_balance_threshold || '—',
+      render: (b) => formatLimit(b.low_balance_threshold),
     },
   ];
 
@@ -216,15 +225,13 @@ export function BalancesTab() {
             <Button size="sm" variant="secondary" onClick={() => openDebitModal(item.client_id, item.currency)}>
               Списать
             </Button>
-            {item.frozen ? (
-              <Button size="sm" variant="ghost" onClick={() => handleUnfreeze(item.client_id)}>
-                Разморозить
-              </Button>
-            ) : (
-              <Button size="sm" variant="danger" onClick={() => handleFreeze(item.client_id)}>
-                Заморозить
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant={item.frozen ? 'ghost' : 'danger'}
+              onClick={() => setFreezeTarget(item)}
+            >
+              {item.frozen ? 'Разморозить' : 'Заморозить'}
+            </Button>
           </div>
         )}
       />
@@ -271,6 +278,21 @@ export function BalancesTab() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!freezeTarget}
+        onConfirm={handleFreezeConfirm}
+        onCancel={() => setFreezeTarget(null)}
+        title={freezeTarget?.frozen ? 'Разморозить счёт' : 'Заморозить счёт'}
+        description={
+          freezeTarget?.frozen
+            ? `Разморозить счёт клиента "${freezeTarget?.client_name}"? Клиент сможет снова отправлять сообщения.`
+            : `Заморозить счёт клиента "${freezeTarget?.client_name}"? Клиент не сможет отправлять сообщения.`
+        }
+        confirmLabel={freezeTarget?.frozen ? 'Разморозить' : 'Заморозить'}
+        variant="danger"
+        loading={freezeLoading}
+      />
     </>
   );
 }

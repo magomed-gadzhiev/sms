@@ -57,6 +57,11 @@ export function AnalyticsPage() {
         <StatCard title="Доставляемость" value={summary?.delivery_rate != null ? `${summary.delivery_rate}%` : '-'} />
         <StatCard title="Общая стоимость" value={summary?.total_cost != null ? `${summary.total_cost} ₽` : '-'} />
       </div>
+      {!loading && stats && !stats.summary?.total_sent && (
+        <div className="text-center py-12 text-gray-400 bg-white border border-gray-200 rounded-lg mb-6">
+          Нет данных за выбранный период
+        </div>
+      )}
       {!loading && stats?.timeline && stats.timeline.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
           <h3 className="text-sm font-medium text-gray-600 mb-3">Объём сообщений</h3>

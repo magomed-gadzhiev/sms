@@ -25,7 +25,7 @@ const columns: Column<ClientInfo>[] = [
   { key: 'email', header: 'Email' },
   { key: 'contact_person', header: 'Контакт' },
   { key: 'active', header: 'Статус', render: (c) => <StatusBadge status={c.active ? 'active' : 'inactive'} /> },
-  { key: 'rate_limits', header: 'Лимит (сообщ/с)', render: (c) => String(c.rate_limits?.messages_per_second ?? '-') },
+  { key: 'rate_limits', header: 'Лимит (сообщ/с)', render: (c) => { const v = c.rate_limits?.messages_per_second; return (!v || v <= 0) ? 'Без лимита' : String(v); } },
   { key: 'created_at', header: 'Создан', render: (c) => new Date(c.created_at).toLocaleDateString() },
 ];
 
