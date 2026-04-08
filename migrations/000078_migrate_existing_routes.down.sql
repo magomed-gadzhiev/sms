@@ -1,0 +1,3 @@
+-- migrations/000078_migrate_existing_routes.down.sql
+-- Data migration is not easily reversible; this is a no-op
+-- The schema down migration (000077) handles structural rollback
