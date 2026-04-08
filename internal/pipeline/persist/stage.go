@@ -14,6 +14,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
+	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
@@ -21,6 +22,7 @@ import (
 // messageRow holds the data for a single row to be COPYed into the messages table.
 type messageRow struct {
 	id           uuid.UUID
+	traceID      string // not a DB column — used only for trace logging
 	messageID    string
 	source       string
 	destination  string
@@ -128,6 +130,12 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 			return err
 		}
 		monitoring.PipelineMessagesProcessed.WithLabelValues("persist", "success").Add(float64(len(rows)))
+		for _, r := range rows {
+			trace.Debug(s.logger, r.traceID, r.id.String(), "persist", "completed").
+				Str("encoding", r.encoding).
+				Int("segment_count", r.segmentCount).
+				Msg("message persisted to DB")
+		}
 	}
 
 	elapsed := time.Since(start).Seconds()
@@ -235,6 +243,7 @@ func buildCopyRows(msgs []*sarama.ConsumerMessage) ([]messageRow, []error) {
 
 		rows = append(rows, messageRow{
 			id:           id,
+			traceID:      km.TraceID,
 			messageID:    km.ID,
 			source:       km.Source,
 			destination:  km.Destination,
