@@ -27,6 +27,7 @@ message CreateTemplateRequest {
   string name = 2;
   string body = 3;
   optional string sender_name_id = 4;
+  string traffic_type = 5;
 }
 
 message CreateTemplateResponse {
@@ -38,6 +39,7 @@ message UpdateTemplateRequest {
   string client_id = 2;
   optional string name = 3;
   optional string body = 4;
+  optional string traffic_type = 5;
 }
 
 message UpdateTemplateResponse {
@@ -132,6 +134,7 @@ message TemplateInfo {
   google.protobuf.Timestamp reviewed_at = 12;
   string sender_name_id = 13;
   string sender_name = 14;
+  string traffic_type = 15;
 }
 
 message AuditEntry {

@@ -54,7 +54,7 @@ func (s *Server) CreateTemplate(ctx context.Context, req *templatev1.CreateTempl
 		senderNameID = &parsed
 	}
 
-	tmpl, err := s.templateService.CreateTemplate(ctx, clientID, req.Name, req.Body, senderNameID)
+	tmpl, err := s.templateService.CreateTemplate(ctx, clientID, req.Name, req.Body, senderNameID, req.TrafficType)
 	if err != nil {
 		return nil, s.mapError(err)
 	}
@@ -70,7 +70,7 @@ func (s *Server) UpdateTemplate(ctx context.Context, req *templatev1.UpdateTempl
 		return nil, err
 	}
 
-	tmpl, err := s.templateService.UpdateTemplate(ctx, id, clientID, req.Name, req.Body, nil)
+	tmpl, err := s.templateService.UpdateTemplate(ctx, id, clientID, req.Name, req.Body, nil, req.TrafficType)
 	if err != nil {
 		return nil, s.mapError(err)
 	}
@@ -411,6 +411,7 @@ func templateToProto(tmpl *domain.Template) *templatev1.TemplateInfo {
 		info.SenderNameId = tmpl.SenderNameID.String()
 	}
 	info.SenderName = tmpl.SenderName
+	info.TrafficType = tmpl.TrafficType
 	return info
 }
 

@@ -24,6 +24,7 @@ type createTemplateRequest struct {
 	Name         string  `json:"name"`
 	Body         string  `json:"body"`
 	SenderNameID *string `json:"sender_name_id,omitempty"`
+	TrafficType  string  `json:"traffic_type,omitempty"`
 }
 
 func (h *TemplateHandlers) CreateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +51,7 @@ func (h *TemplateHandlers) CreateTemplate(w http.ResponseWriter, r *http.Request
 		Name:         req.Name,
 		Body:         req.Body,
 		SenderNameId: req.SenderNameID,
+		TrafficType:  req.TrafficType,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка создания шаблона")
@@ -118,8 +120,9 @@ func (h *TemplateHandlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateTemplateRequest struct {
-	Name *string `json:"name,omitempty"`
-	Body *string `json:"body,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Body        *string `json:"body,omitempty"`
+	TrafficType *string `json:"traffic_type,omitempty"`
 }
 
 func (h *TemplateHandlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +147,9 @@ func (h *TemplateHandlers) UpdateTemplate(w http.ResponseWriter, r *http.Request
 	}
 	if req.Body != nil {
 		grpcReq.Body = req.Body
+	}
+	if req.TrafficType != nil {
+		grpcReq.TrafficType = req.TrafficType
 	}
 	resp, err := h.templateClient.UpdateTemplate(r.Context(), grpcReq)
 	if err != nil {
@@ -278,7 +284,7 @@ func templateToJSON(t *templatev1.TemplateInfo) map[string]interface{} {
 	}
 	m := map[string]interface{}{
 		"id": t.Id, "client_id": t.ClientId, "name": t.Name, "body": t.Body,
-		"variables": t.Variables, "status": t.Status,
+		"variables": t.Variables, "status": t.Status, "traffic_type": t.TrafficType,
 	}
 	if t.RejectionReason != "" {
 		m["rejection_reason"] = t.RejectionReason

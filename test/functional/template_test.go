@@ -40,7 +40,7 @@ func TestTemplateChain(t *testing.T) {
 	svc := application.NewTemplateService(tplRepo, auditRepo)
 
 	t.Run("CreateTemplate", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Welcome", "Hello {{name}}, welcome to {{company}}!")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Welcome", "Hello {{name}}, welcome to {{company}}!", nil, "")
 		require.NoError(t, err)
 		require.NotNil(t, tmpl)
 
@@ -52,17 +52,17 @@ func TestTemplateChain(t *testing.T) {
 	})
 
 	t.Run("CreateTemplateInvalidNameFails", func(t *testing.T) {
-		_, err := svc.CreateTemplate(ctx, clientID, "", "body")
+		_, err := svc.CreateTemplate(ctx, clientID, "", "body", nil, "")
 		require.Error(t, err)
 	})
 
 	t.Run("CreateTemplateEmptyBodyFails", func(t *testing.T) {
-		_, err := svc.CreateTemplate(ctx, clientID, "NoBody", "")
+		_, err := svc.CreateTemplate(ctx, clientID, "NoBody", "", nil, "")
 		require.Error(t, err)
 	})
 
 	t.Run("GetTemplate", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Getter", "Hello {{user}}")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Getter", "Hello {{user}}", nil, "")
 		require.NoError(t, err)
 
 		fetched, err := svc.GetTemplate(ctx, tmpl.ID, clientID)
@@ -72,7 +72,7 @@ func TestTemplateChain(t *testing.T) {
 	})
 
 	t.Run("GetTemplateNotFoundForOtherClient", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Owned", "Body")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Owned", "Body", nil, "")
 		require.NoError(t, err)
 
 		_, err = svc.GetTemplate(ctx, tmpl.ID, uuid.New())
@@ -80,9 +80,9 @@ func TestTemplateChain(t *testing.T) {
 	})
 
 	t.Run("ListTemplates", func(t *testing.T) {
-		_, err := svc.CreateTemplate(ctx, clientID, "ListA", "Body A")
+		_, err := svc.CreateTemplate(ctx, clientID, "ListA", "Body A", nil, "")
 		require.NoError(t, err)
-		_, err = svc.CreateTemplate(ctx, clientID, "ListB", "Body B")
+		_, err = svc.CreateTemplate(ctx, clientID, "ListB", "Body B", nil, "")
 		require.NoError(t, err)
 
 		templates, total, err := svc.ListTemplates(ctx, clientID, "", 100, 0)
@@ -101,12 +101,12 @@ func TestTemplateChain(t *testing.T) {
 	})
 
 	t.Run("UpdateTemplate", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Original", "Old body")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Original", "Old body", nil, "")
 		require.NoError(t, err)
 
 		newName := "Renamed"
 		newBody := "New body with {{var}}"
-		updated, err := svc.UpdateTemplate(ctx, tmpl.ID, clientID, &newName, &newBody)
+		updated, err := svc.UpdateTemplate(ctx, tmpl.ID, clientID, &newName, &newBody, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Renamed", updated.Name)
 		assert.Equal(t, "New body with {{var}}", updated.Body)
@@ -116,7 +116,7 @@ func TestTemplateChain(t *testing.T) {
 	})
 
 	t.Run("DeleteTemplate", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "To Delete", "Body")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "To Delete", "Body", nil, "")
 		require.NoError(t, err)
 
 		err = svc.DeleteTemplate(ctx, tmpl.ID, clientID)
@@ -154,7 +154,7 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 
 	t.Run("SubmitForReviewApproveAndRender", func(t *testing.T) {
 		// Create template.
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Approval Flow", "Hi {{name}}, code: {{code}}")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Approval Flow", "Hi {{name}}, code: {{code}}", nil, "")
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusDraft, tmpl.Status)
 
@@ -183,7 +183,7 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 	})
 
 	t.Run("RenderUnapprovedTemplateFails", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Draft Only", "Hello {{user}}")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Draft Only", "Hello {{user}}", nil, "")
 		require.NoError(t, err)
 
 		_, _, err = svc.RenderTemplate(ctx, tmpl.ID, clientID, map[string]string{"user": "Bob"})
@@ -191,7 +191,7 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 	})
 
 	t.Run("RenderWithMissingVariablesFails", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Missing Vars", "Hello {{a}} {{b}}")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Missing Vars", "Hello {{a}} {{b}}", nil, "")
 		require.NoError(t, err)
 
 		// Submit and approve.
@@ -207,7 +207,7 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 	})
 
 	t.Run("RejectTemplate", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "To Reject", "Bad content")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "To Reject", "Bad content", nil, "")
 		require.NoError(t, err)
 
 		_, err = svc.SubmitForReview(ctx, tmpl.ID, clientID)
@@ -220,7 +220,7 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 	})
 
 	t.Run("RequestRevisionAndResubmit", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Revise Me", "Draft body")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Revise Me", "Draft body", nil, "")
 		require.NoError(t, err)
 
 		_, err = svc.SubmitForReview(ctx, tmpl.ID, clientID)
@@ -238,7 +238,7 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 	})
 
 	t.Run("ApproveNonPendingFails", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Not Pending", "Body")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Not Pending", "Body", nil, "")
 		require.NoError(t, err)
 
 		// Try to approve a draft template.
@@ -272,12 +272,12 @@ func TestTemplateAuditLog(t *testing.T) {
 	svc := application.NewTemplateService(tplRepo, auditRepo)
 
 	t.Run("AuditLogRecordsActions", func(t *testing.T) {
-		tmpl, err := svc.CreateTemplate(ctx, clientID, "Audited", "Hello {{user}}")
+		tmpl, err := svc.CreateTemplate(ctx, clientID, "Audited", "Hello {{user}}", nil, "")
 		require.NoError(t, err)
 
 		// Update the template body.
 		newBody := "Hi {{user}}, welcome!"
-		_, err = svc.UpdateTemplate(ctx, tmpl.ID, clientID, nil, &newBody)
+		_, err = svc.UpdateTemplate(ctx, tmpl.ID, clientID, nil, &newBody, nil, nil)
 		require.NoError(t, err)
 
 		// Check audit log entries.

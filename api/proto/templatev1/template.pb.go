@@ -30,6 +30,7 @@ type CreateTemplateRequest struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Body          string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	SenderNameId  *string                `protobuf:"bytes,4,opt,name=sender_name_id,json=senderNameId,proto3,oneof" json:"sender_name_id,omitempty"`
+	TrafficType   string                 `protobuf:"bytes,5,opt,name=traffic_type,json=trafficType,proto3" json:"traffic_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -92,6 +93,13 @@ func (x *CreateTemplateRequest) GetSenderNameId() string {
 	return ""
 }
 
+func (x *CreateTemplateRequest) GetTrafficType() string {
+	if x != nil {
+		return x.TrafficType
+	}
+	return ""
+}
+
 type CreateTemplateResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Template      *TemplateInfo          `protobuf:"bytes,1,opt,name=template,proto3" json:"template,omitempty"`
@@ -142,6 +150,7 @@ type UpdateTemplateRequest struct {
 	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Body          *string                `protobuf:"bytes,4,opt,name=body,proto3,oneof" json:"body,omitempty"`
+	TrafficType   *string                `protobuf:"bytes,5,opt,name=traffic_type,json=trafficType,proto3,oneof" json:"traffic_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -200,6 +209,13 @@ func (x *UpdateTemplateRequest) GetName() string {
 func (x *UpdateTemplateRequest) GetBody() string {
 	if x != nil && x.Body != nil {
 		return *x.Body
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetTrafficType() string {
+	if x != nil && x.TrafficType != nil {
+		return *x.TrafficType
 	}
 	return ""
 }
@@ -1016,6 +1032,7 @@ type TemplateInfo struct {
 	ReviewedAt      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=reviewed_at,json=reviewedAt,proto3" json:"reviewed_at,omitempty"`
 	SenderNameId    string                 `protobuf:"bytes,13,opt,name=sender_name_id,json=senderNameId,proto3" json:"sender_name_id,omitempty"`
 	SenderName      string                 `protobuf:"bytes,14,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
+	TrafficType     string                 `protobuf:"bytes,15,opt,name=traffic_type,json=trafficType,proto3" json:"traffic_type,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1144,6 +1161,13 @@ func (x *TemplateInfo) GetSenderNameId() string {
 func (x *TemplateInfo) GetSenderName() string {
 	if x != nil {
 		return x.SenderName
+	}
+	return ""
+}
+
+func (x *TemplateInfo) GetTrafficType() string {
+	if x != nil {
+		return x.TrafficType
 	}
 	return ""
 }

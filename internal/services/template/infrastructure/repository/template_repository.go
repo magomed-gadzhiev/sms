@@ -41,6 +41,7 @@ type templateRow struct {
 	UpdatedAt       sql.NullTime   `db:"updated_at"`
 	SenderNameID    *uuid.UUID     `db:"sender_name_id"`
 	SenderName      sql.NullString `db:"sender_name"`
+	TrafficType     string         `db:"traffic_type"`
 }
 
 func (r *templateRow) toDomain() *domain.Template {
@@ -73,17 +74,18 @@ func (r *templateRow) toDomain() *domain.Template {
 	if r.SenderName.Valid {
 		t.SenderName = r.SenderName.String
 	}
+	t.TrafficType = r.TrafficType
 	return t
 }
 
 func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*domain.Template, error) {
-	query := `INSERT INTO templates (id, client_id, name, body, variables, status, sender_name_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name`
+	query := `INSERT INTO templates (id, client_id, name, body, variables, status, sender_name_id, traffic_type)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name, traffic_type`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
-		t.ID, t.ClientID, t.Name, t.Body, normalizeVariables(t.Variables), t.Status, t.SenderNameID,
+		t.ID, t.ClientID, t.Name, t.Body, normalizeVariables(t.Variables), t.Status, t.SenderNameID, t.TrafficType,
 	).StructScan(&row)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -95,7 +97,7 @@ func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*d
 }
 
 func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID) (*domain.Template, error) {
-	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
+	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name, t.traffic_type
 		FROM templates t
 		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id
 		WHERE t.id = $1 AND t.client_id = $2`
@@ -113,7 +115,7 @@ func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID
 
 // GetByIDAdmin retrieves a template without client_id check (for admin operations)
 func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*domain.Template, error) {
-	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
+	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name, t.traffic_type
 		FROM templates t
 		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id
 		WHERE t.id = $1`
@@ -131,7 +133,7 @@ func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*d
 
 func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Template, int, error) {
 	countQuery := `SELECT COUNT(*) FROM templates t`
-	listQuery := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name
+	listQuery := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name, t.traffic_type
 		FROM templates t
 		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id`
 	args := []interface{}{}
@@ -183,9 +185,9 @@ func (r *TemplateRepository) ListByClientID(ctx context.Context, clientID uuid.U
 }
 
 func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*domain.Template, error) {
-	query := `UPDATE templates SET name = $1, body = $2, variables = $3, status = $4, rejection_reason = $5, sender_name_id = $6
-		WHERE id = $7 AND client_id = $8
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name`
+	query := `UPDATE templates SET name = $1, body = $2, variables = $3, status = $4, rejection_reason = $5, sender_name_id = $6, traffic_type = $7
+		WHERE id = $8 AND client_id = $9
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name, traffic_type`
 
 	var rejReason sql.NullString
 	if t.RejectionReason != "" {
@@ -194,7 +196,7 @@ func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*d
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query,
-		t.Name, t.Body, normalizeVariables(t.Variables), t.Status, rejReason, t.SenderNameID, t.ID, t.ClientID,
+		t.Name, t.Body, normalizeVariables(t.Variables), t.Status, rejReason, t.SenderNameID, t.TrafficType, t.ID, t.ClientID,
 	).StructScan(&row)
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrTemplateNotFound
@@ -217,7 +219,7 @@ func (r *TemplateRepository) UpdateStatus(ctx context.Context, id uuid.UUID, sta
 
 	query := `UPDATE templates SET status = $1, rejection_reason = $2
 		WHERE id = $3
-		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name`
+		RETURNING id, client_id, name, body, variables, status, rejection_reason, reviewer_id, review_comment, reviewed_at, created_at, updated_at, sender_name_id, NULL AS sender_name, traffic_type`
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, status, rejReason, id).StructScan(&row)

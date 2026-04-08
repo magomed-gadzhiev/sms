@@ -52,6 +52,7 @@ type Template struct {
 	UpdatedAt       time.Time
 	SenderNameID    *uuid.UUID
 	SenderName      string // denormalized for display
+	TrafficType     string // authorization, transactional (default), service
 }
 
 // AuditEntry represents a template audit log entry

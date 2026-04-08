@@ -42,7 +42,7 @@ func TestCreateTemplate_Success(t *testing.T) {
 	tmplRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Template")).Return(created, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 
-	result, err := svc.CreateTemplate(context.Background(), clientID, name, body)
+	result, err := svc.CreateTemplate(context.Background(), clientID, name, body, nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, created, result)
 	tmplRepo.AssertExpectations(t)
@@ -52,7 +52,7 @@ func TestCreateTemplate_Success(t *testing.T) {
 func TestCreateTemplate_EmptyName(t *testing.T) {
 	svc := newService(new(mocks.MockTemplateRepository), new(mocks.MockAuditRepository))
 
-	_, err := svc.CreateTemplate(context.Background(), uuid.New(), "", "body text")
+	_, err := svc.CreateTemplate(context.Background(), uuid.New(), "", "body text", nil, "")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, domain.ErrInvalidTemplateName))
 }
@@ -60,7 +60,7 @@ func TestCreateTemplate_EmptyName(t *testing.T) {
 func TestCreateTemplate_EmptyBody(t *testing.T) {
 	svc := newService(new(mocks.MockTemplateRepository), new(mocks.MockAuditRepository))
 
-	_, err := svc.CreateTemplate(context.Background(), uuid.New(), "name", "")
+	_, err := svc.CreateTemplate(context.Background(), uuid.New(), "name", "", nil, "")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, domain.ErrInvalidTemplateBody))
 }
@@ -69,7 +69,7 @@ func TestCreateTemplate_BodyTooLong(t *testing.T) {
 	svc := newService(new(mocks.MockTemplateRepository), new(mocks.MockAuditRepository))
 
 	body := strings.Repeat("a", domain.MaxBodyLength+1)
-	_, err := svc.CreateTemplate(context.Background(), uuid.New(), "name", body)
+	_, err := svc.CreateTemplate(context.Background(), uuid.New(), "name", body, nil, "")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, domain.ErrInvalidTemplateBody))
 }
@@ -291,7 +291,7 @@ func TestUpdateTemplate_Success(t *testing.T) {
 	tmplRepo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Template")).Return(updated, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 
-	result, err := svc.UpdateTemplate(context.Background(), tmplID, clientID, &newName, nil)
+	result, err := svc.UpdateTemplate(context.Background(), tmplID, clientID, &newName, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, newName, result.Name)
 	// Status should remain unchanged when only name changes
@@ -320,7 +320,7 @@ func TestUpdateTemplate_BodyChangeResetsToDraft(t *testing.T) {
 	}, nil)
 	auditRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditEntry")).Return(nil)
 
-	result, err := svc.UpdateTemplate(context.Background(), tmplID, clientID, nil, &newBody)
+	result, err := svc.UpdateTemplate(context.Background(), tmplID, clientID, nil, &newBody, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, domain.StatusDraft, result.Status)
 	tmplRepo.AssertExpectations(t)

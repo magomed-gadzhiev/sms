@@ -31,7 +31,7 @@ func (s *TemplateService) WithSenderNameRepo(repo SenderNameRepository) {
 	s.senderNameRepo = repo
 }
 
-func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID, name, body string, senderNameID *uuid.UUID) (*domain.Template, error) {
+func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID, name, body string, senderNameID *uuid.UUID, trafficType string) (*domain.Template, error) {
 	if err := validateName(name); err != nil {
 		return nil, err
 	}
@@ -46,6 +46,10 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID
 
 	variables := domain.ExtractVariables(body)
 
+	if trafficType == "" {
+		trafficType = "transactional"
+	}
+
 	tmpl := &domain.Template{
 		ID:           uuid.New(),
 		ClientID:     clientID,
@@ -54,6 +58,7 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID
 		Variables:    variables,
 		Status:       domain.StatusDraft,
 		SenderNameID: senderNameID,
+		TrafficType:  trafficType,
 	}
 
 	created, err := s.templateRepo.Create(ctx, tmpl)
@@ -93,7 +98,7 @@ func (s *TemplateService) ListTemplates(ctx context.Context, clientID uuid.UUID,
 	return s.templateRepo.ListByClientID(ctx, clientID, status, limit, offset)
 }
 
-func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.UUID, name, body *string, senderNameID *uuid.UUID) (*domain.Template, error) {
+func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.UUID, name, body *string, senderNameID *uuid.UUID, trafficType *string) (*domain.Template, error) {
 	existing, err := s.templateRepo.GetByID(ctx, id, clientID)
 	if err != nil {
 		return nil, err
@@ -125,6 +130,10 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.
 			return nil, err
 		}
 		existing.SenderNameID = senderNameID
+	}
+
+	if trafficType != nil && *trafficType != "" {
+		existing.TrafficType = *trafficType
 	}
 
 	updated, err := s.templateRepo.Update(ctx, existing)
