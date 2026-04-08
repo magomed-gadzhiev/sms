@@ -13,6 +13,7 @@ import (
 type RoutedMessage struct {
 	SchemaVersion      int                    `json:"schema_version"`
 	MessageID          uuid.UUID              `json:"message_id"`
+	TraceID            string                 `json:"trace_id,omitempty"`
 	Source             string                 `json:"source"`
 	Destination        string                 `json:"destination"`
 	Text               string                 `json:"text"`
@@ -43,6 +44,7 @@ func DeserializeRoutedMessage(data []byte) (*RoutedMessage, error) {
 type SentMessage struct {
 	SchemaVersion int       `json:"schema_version"`
 	MessageID     uuid.UUID `json:"message_id"`
+	TraceID       string    `json:"trace_id,omitempty"`
 	ProviderID    uuid.UUID `json:"provider_id"`
 	SMPPMessageID string    `json:"smpp_message_id"`
 	Status        string    `json:"status"` // sent, failed, retry
@@ -68,6 +70,7 @@ func DeserializeSentMessage(data []byte) (*SentMessage, error) {
 type StatusUpdate struct {
 	SchemaVersion int        `json:"schema_version"`
 	MessageID     uuid.UUID  `json:"message_id"`
+	TraceID       string     `json:"trace_id,omitempty"`
 	Status        string     `json:"status"`
 	SMPPMessageID string     `json:"smpp_message_id,omitempty"`
 	ProviderID    *uuid.UUID `json:"provider_id,omitempty"`

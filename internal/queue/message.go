@@ -12,6 +12,7 @@ import (
 type KafkaMessage struct {
 	ID          string                 `json:"id"`
 	MessageID   uuid.UUID             `json:"message_id"`
+	TraceID     string                 `json:"trace_id,omitempty"`
 	Source      string                 `json:"source"`
 	Destination string                 `json:"destination"`
 	Text        string                 `json:"text"`
@@ -86,6 +87,7 @@ func Deserialize(data []byte) (*KafkaMessage, error) {
 // DLRMessage представляет delivery receipt сообщение для Kafka
 type DLRMessage struct {
 	MessageID          uuid.UUID  `json:"message_id"`
+	TraceID            string     `json:"trace_id,omitempty"`
 	SMPPMessageID      string     `json:"smpp_message_id"`
 	ProviderID         *uuid.UUID `json:"provider_id,omitempty"`
 	ClientID           *uuid.UUID `json:"client_id,omitempty"`
@@ -117,6 +119,7 @@ func DeserializeDLR(data []byte) (*DLRMessage, error) {
 // FailedMessage представляет сообщение об ошибке для Kafka
 type FailedMessage struct {
 	MessageID    uuid.UUID              `json:"message_id"`
+	TraceID      string                 `json:"trace_id,omitempty"`
 	KafkaMessage *KafkaMessage          `json:"kafka_message,omitempty"`
 	Error        string                 `json:"error"`
 	ErrorCode    string                 `json:"error_code,omitempty"`
