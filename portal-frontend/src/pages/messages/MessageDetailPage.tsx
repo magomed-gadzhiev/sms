@@ -5,19 +5,48 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 
+interface DlrInfo {
+  stat: string;
+  err: number;
+  text: string;
+  submit_date?: string;
+  done_date?: string;
+  receipted_message_id?: string;
+}
+
+interface BillingInfo {
+  segment_count: number;
+  price_per_segment: string;
+  total_amount: string;
+  tariff_plan_id: string;
+  billed_at: string;
+}
+
 interface MessageDetail {
   message_id: string;
   source: string;
   destination: string;
   text: string;
+  encoding?: string;
   status: string;
+  status_message?: string;
+  external_id?: string;
   segment_count: number;
+  retry_count?: number;
+  max_retries?: number;
+  provider_id?: string;
+  provider_name?: string;
+  route_id?: string;
+  route_name?: string;
+  smpp_message_id?: string;
   created_at?: string;
   submitted_at?: string;
   delivered_at?: string;
   failed_at?: string;
-  error_code?: string;
-  error_message?: string;
+  scheduled_at?: string;
+  expired_at?: string;
+  dlr?: DlrInfo;
+  billing?: BillingInfo;
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' | 'danger'> = {
@@ -40,6 +69,26 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Ошибка',
   expired: 'Истекло',
   rejected: 'Отклонено',
+};
+
+const DLR_STAT_LABEL: Record<string, string> = {
+  DELIVRD: 'Доставлено',
+  UNDELIV: 'Не доставлено',
+  EXPIRED: 'Истекло',
+  REJECTD: 'Отклонено',
+  ACCEPTD: 'Принято',
+  DELETED: 'Удалено',
+  UNKNOWN: 'Неизвестно',
+};
+
+const DLR_STAT_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'default'> = {
+  DELIVRD: 'success',
+  UNDELIV: 'danger',
+  EXPIRED: 'danger',
+  REJECTD: 'danger',
+  ACCEPTD: 'warning',
+  DELETED: 'warning',
+  UNKNOWN: 'default',
 };
 
 interface TimelineStep {
@@ -173,6 +222,56 @@ export function MessageDetailPage() {
             <span className="text-sm text-gray-500">Создано</span>
             <p className="text-sm mt-0.5">{formatTimestamp(message.created_at)}</p>
           </div>
+          {message.encoding && (
+            <div>
+              <span className="text-sm text-gray-500">Кодировка</span>
+              <p className="text-sm mt-0.5 font-mono">{message.encoding}</p>
+            </div>
+          )}
+          {message.external_id && (
+            <div>
+              <span className="text-sm text-gray-500">Внешний ID</span>
+              <p className="text-sm mt-0.5 font-mono break-all">{message.external_id}</p>
+            </div>
+          )}
+          {message.provider_name && (
+            <div>
+              <span className="text-sm text-gray-500">Провайдер</span>
+              <p className="text-sm mt-0.5">{message.provider_name}</p>
+            </div>
+          )}
+          {message.route_name && (
+            <div>
+              <span className="text-sm text-gray-500">Маршрут</span>
+              <p className="text-sm mt-0.5">{message.route_name}</p>
+            </div>
+          )}
+          {message.smpp_message_id && (
+            <div>
+              <span className="text-sm text-gray-500">SMPP ID</span>
+              <p className="text-sm mt-0.5 font-mono break-all">{message.smpp_message_id}</p>
+            </div>
+          )}
+          {(message.retry_count !== undefined && message.retry_count > 0) && (
+            <div>
+              <span className="text-sm text-gray-500">Попытки</span>
+              <p className="text-sm mt-0.5">
+                {message.retry_count} / {message.max_retries ?? '—'}
+              </p>
+            </div>
+          )}
+          {message.scheduled_at && (
+            <div>
+              <span className="text-sm text-gray-500">Запланировано</span>
+              <p className="text-sm mt-0.5">{formatTimestamp(message.scheduled_at)}</p>
+            </div>
+          )}
+          {message.expired_at && (
+            <div>
+              <span className="text-sm text-gray-500">Истекает</span>
+              <p className="text-sm mt-0.5">{formatTimestamp(message.expired_at)}</p>
+            </div>
+          )}
         </div>
         {message.text && (
           <div className="mt-4 pt-4 border-t border-gray-100">
@@ -180,13 +279,10 @@ export function MessageDetailPage() {
             <p className="text-sm mt-1 whitespace-pre-wrap bg-gray-50 rounded p-3">{message.text}</p>
           </div>
         )}
-        {message.error_message && (
+        {message.status_message && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <span className="text-sm text-red-500">Ошибка</span>
-            <p className="text-sm mt-1 text-red-700">
-              {message.error_code && <span className="font-mono mr-2">[{message.error_code}]</span>}
-              {message.error_message}
-            </p>
+            <p className="text-sm mt-1 text-red-700">{message.status_message}</p>
           </div>
         )}
       </div>
@@ -237,6 +333,77 @@ export function MessageDetailPage() {
           ))}
         </div>
       </div>
+
+      {/* DLR receipt from operator */}
+      {message.dlr && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mt-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Ответ оператора (DLR)</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span className="text-sm text-gray-500">Статус оператора</span>
+              <div className="mt-0.5">
+                <Badge variant={DLR_STAT_VARIANT[message.dlr.stat] ?? 'default'}>
+                  {DLR_STAT_LABEL[message.dlr.stat] ?? message.dlr.stat}
+                </Badge>
+              </div>
+            </div>
+            {message.dlr.err !== 0 && (
+              <div>
+                <span className="text-sm text-gray-500">Код ошибки</span>
+                <p className="text-sm mt-0.5 font-mono text-red-700">{message.dlr.err}</p>
+              </div>
+            )}
+            {message.dlr.submit_date && (
+              <div>
+                <span className="text-sm text-gray-500">Принято оператором</span>
+                <p className="text-sm mt-0.5">{formatTimestamp(message.dlr.submit_date)}</p>
+              </div>
+            )}
+            {message.dlr.done_date && (
+              <div>
+                <span className="text-sm text-gray-500">Статус от оператора</span>
+                <p className="text-sm mt-0.5">{formatTimestamp(message.dlr.done_date)}</p>
+              </div>
+            )}
+            {message.dlr.receipted_message_id && (
+              <div className="sm:col-span-2">
+                <span className="text-sm text-gray-500">ID оператора</span>
+                <p className="text-sm mt-0.5 font-mono break-all">{message.dlr.receipted_message_id}</p>
+              </div>
+            )}
+          </div>
+          {message.dlr.text && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <span className="text-sm text-gray-500">Текст от оператора</span>
+              <p className="text-sm mt-1 whitespace-pre-wrap bg-gray-50 rounded p-3 font-mono">{message.dlr.text}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Billing information */}
+      {message.billing && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mt-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Биллинг</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <span className="text-sm text-gray-500">Сегментов</span>
+              <p className="text-sm mt-0.5 font-semibold">{message.billing.segment_count}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Цена за сегмент</span>
+              <p className="text-sm mt-0.5 font-semibold">{message.billing.price_per_segment} ₽</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Итого</span>
+              <p className="text-sm mt-0.5 font-semibold text-blue-700">{message.billing.total_amount} ₽</p>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-gray-400">
+            Списание: {formatTimestamp(message.billing.billed_at)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
