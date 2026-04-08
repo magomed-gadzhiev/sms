@@ -122,6 +122,52 @@ func (m *RouteMatcher) Match(ctx MatchContext) []*domain.ClientRoute {
 	return matched
 }
 
+// MatchResult holds the outcome of route matching with diagnostic details.
+type MatchResult struct {
+	Matched       []*domain.ClientRoute
+	ClientRoutes  int  // number of client-specific routes evaluated
+	DefaultRoutes int  // number of default routes evaluated
+	UsedDefault   bool // true if fell back to default routes
+}
+
+// MatchWithDetails returns matched routes plus diagnostic info for trace logging.
+func (m *RouteMatcher) MatchWithDetails(ctx MatchContext) MatchResult {
+	m.mu.RLock()
+	routes := m.routes
+	regexCache := m.regexCache
+	m.mu.RUnlock()
+
+	var clientRoutes, defaultRoutes []*domain.ClientRoute
+	for _, r := range routes {
+		if r.RouteType != ctx.RouteType {
+			continue
+		}
+		if r.ClientID != nil && *r.ClientID == ctx.ClientID {
+			clientRoutes = append(clientRoutes, r)
+		} else if r.ClientID == nil {
+			defaultRoutes = append(defaultRoutes, r)
+		}
+	}
+
+	matched := m.filterMatching(clientRoutes, ctx, regexCache)
+	usedDefault := false
+	if len(matched) == 0 {
+		matched = m.filterMatching(defaultRoutes, ctx, regexCache)
+		usedDefault = true
+	}
+
+	sort.Slice(matched, func(i, j int) bool {
+		return matched[i].Priority < matched[j].Priority
+	})
+
+	return MatchResult{
+		Matched:       matched,
+		ClientRoutes:  len(clientRoutes),
+		DefaultRoutes: len(defaultRoutes),
+		UsedDefault:   usedDefault,
+	}
+}
+
 // filterMatching returns routes whose conditions and schedules pass.
 func (m *RouteMatcher) filterMatching(routes []*domain.ClientRoute, ctx MatchContext, regexCache map[string]*regexp.Regexp) []*domain.ClientRoute {
 	var result []*domain.ClientRoute
