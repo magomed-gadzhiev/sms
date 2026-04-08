@@ -3,11 +3,14 @@ package handlers
 import (
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -21,6 +24,12 @@ import (
 type MessageHandlers struct {
 	messagingClient messagingv1.MessagingServiceClient
 	sseHub          *sse.Hub
+	db              *pgxpool.Pool
+}
+
+// SetDB sets the database pool for direct SQL queries in GetMessage.
+func (h *MessageHandlers) SetDB(db *pgxpool.Pool) {
+	h.db = db
 }
 
 // NewMessageHandlers создает новый MessageHandlers
@@ -215,9 +224,216 @@ func (h *MessageHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.db == nil {
+		h.getMessageViaGRPC(w, r, id, clientID.String())
+		return
+	}
+
+	ctx := r.Context()
+
+	// Query 1 — message with provider/route names
+	const msgQuery = `
+SELECT
+    m.id::text,
+    COALESCE(m.source, '')        AS source,
+    COALESCE(m.destination, '')   AS destination,
+    COALESCE(m.text, '')          AS text,
+    COALESCE(m.encoding, 'GSM7')  AS encoding,
+    m.status::text,
+    COALESCE(m.status_message, '') AS status_message,
+    COALESCE(m.external_id, '')    AS external_id,
+    COALESCE(m.segment_count, 0)   AS segment_count,
+    COALESCE(m.retry_count, 0)     AS retry_count,
+    COALESCE(m.max_retries, 0)     AS max_retries,
+    COALESCE(m.provider_id::text, '') AS provider_id,
+    COALESCE(m.route_id::text, '')    AS route_id,
+    COALESCE(m.smpp_message_id, '')   AS smpp_message_id,
+    m.created_at,
+    m.submitted_at,
+    m.delivered_at,
+    m.failed_at,
+    m.scheduled_at,
+    m.expired_at,
+    COALESCE(p.name, '') AS provider_name,
+    COALESCE(r.name, '') AS route_name
+FROM messages m
+LEFT JOIN providers p ON p.id = m.provider_id
+LEFT JOIN client_routes r ON r.id = m.route_id
+WHERE m.id = $1::uuid AND m.client_id = $2::uuid
+ORDER BY m.created_at DESC
+LIMIT 1`
+
+	var (
+		msgID         string
+		source        string
+		destination   string
+		text          string
+		encoding      string
+		status        string
+		statusMessage string
+		externalID    string
+		segmentCount  int32
+		retryCount    int32
+		maxRetries    int32
+		providerID    string
+		routeID       string
+		smppMessageID string
+		createdAt     *time.Time
+		submittedAt   *time.Time
+		deliveredAt   *time.Time
+		failedAt      *time.Time
+		scheduledAt   *time.Time
+		expiredAt     *time.Time
+		providerName  string
+		routeName     string
+	)
+
+	row := h.db.QueryRow(ctx, msgQuery, id, clientID.String())
+	err := row.Scan(
+		&msgID, &source, &destination, &text, &encoding,
+		&status, &statusMessage, &externalID,
+		&segmentCount, &retryCount, &maxRetries,
+		&providerID, &routeID, &smppMessageID,
+		&createdAt, &submittedAt, &deliveredAt, &failedAt, &scheduledAt, &expiredAt,
+		&providerName, &routeName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("Сообщение не найдено"))
+		} else {
+			log.Error().Err(err).Msg("ошибка получения сообщения из БД")
+			respondError(w, shared.ErrInternalServer(err.Error()))
+		}
+		return
+	}
+
+	result := map[string]interface{}{
+		"message_id":    msgID,
+		"source":        source,
+		"destination":   destination,
+		"text":          text,
+		"encoding":      encoding,
+		"status":        status,
+		"segment_count": segmentCount,
+		"retry_count":   retryCount,
+		"max_retries":   maxRetries,
+	}
+	if createdAt != nil {
+		result["created_at"] = *createdAt
+	}
+	if statusMessage != "" {
+		result["status_message"] = statusMessage
+	}
+	if externalID != "" {
+		result["external_id"] = externalID
+	}
+	if smppMessageID != "" {
+		result["smpp_message_id"] = smppMessageID
+	}
+	if providerID != "" {
+		result["provider_id"] = providerID
+		result["provider_name"] = providerName
+	}
+	if routeID != "" {
+		result["route_id"] = routeID
+		result["route_name"] = routeName
+	}
+	if submittedAt != nil {
+		result["submitted_at"] = *submittedAt
+	}
+	if deliveredAt != nil {
+		result["delivered_at"] = *deliveredAt
+	}
+	if failedAt != nil {
+		result["failed_at"] = *failedAt
+	}
+	if scheduledAt != nil {
+		result["scheduled_at"] = *scheduledAt
+	}
+	if expiredAt != nil {
+		result["expired_at"] = *expiredAt
+	}
+
+	// Query 2 — DLR receipt (most recent)
+	const dlrQuery = `
+SELECT stat, COALESCE(err, 0), COALESCE(text, ''),
+       submit_date, done_date,
+       COALESCE(receipted_message_id, '')
+FROM dlr_receipts
+WHERE message_id = $1::uuid
+ORDER BY created_at DESC
+LIMIT 1`
+
+	var (
+		dlrStat               string
+		dlrErr                int32
+		dlrText               string
+		dlrSubmitDate         *time.Time
+		dlrDoneDate           *time.Time
+		dlrReceiptedMessageID string
+	)
+	dlrRow := h.db.QueryRow(ctx, dlrQuery, id)
+	dlrScanErr := dlrRow.Scan(&dlrStat, &dlrErr, &dlrText, &dlrSubmitDate, &dlrDoneDate, &dlrReceiptedMessageID)
+	if dlrScanErr == nil {
+		dlr := map[string]interface{}{
+			"stat": dlrStat,
+			"err":  dlrErr,
+			"text": dlrText,
+		}
+		if dlrSubmitDate != nil {
+			dlr["submit_date"] = *dlrSubmitDate
+		}
+		if dlrDoneDate != nil {
+			dlr["done_date"] = *dlrDoneDate
+		}
+		if dlrReceiptedMessageID != "" {
+			dlr["receipted_message_id"] = dlrReceiptedMessageID
+		}
+		result["dlr"] = dlr
+	} else if !errors.Is(dlrScanErr, pgx.ErrNoRows) {
+		log.Warn().Err(dlrScanErr).Msg("ошибка получения DLR receipt")
+	}
+
+	// Query 3 — tarification log
+	const billingQuery = `
+SELECT segment_count, price_per_segment, total_amount,
+       tariff_plan_id::text, created_at
+FROM tarification_log
+WHERE message_id = $1::uuid
+LIMIT 1`
+
+	var (
+		billSegmentCount     int32
+		billPricePerSegment  float64
+		billTotalAmount      float64
+		billTariffPlanID     string
+		billCreatedAt        *time.Time
+	)
+	billRow := h.db.QueryRow(ctx, billingQuery, id)
+	billScanErr := billRow.Scan(&billSegmentCount, &billPricePerSegment, &billTotalAmount, &billTariffPlanID, &billCreatedAt)
+	if billScanErr == nil {
+		billing := map[string]interface{}{
+			"segment_count":     billSegmentCount,
+			"price_per_segment": billPricePerSegment,
+			"total_amount":      billTotalAmount,
+			"tariff_plan_id":    billTariffPlanID,
+		}
+		if billCreatedAt != nil {
+			billing["billed_at"] = *billCreatedAt
+		}
+		result["billing"] = billing
+	} else if !errors.Is(billScanErr, pgx.ErrNoRows) {
+		log.Warn().Err(billScanErr).Msg("ошибка получения данных тарификации")
+	}
+
+	respondJSON(w, http.StatusOK, result)
+}
+
+// getMessageViaGRPC is the fallback implementation used when db is nil.
+func (h *MessageHandlers) getMessageViaGRPC(w http.ResponseWriter, r *http.Request, id, clientIDStr string) {
 	resp, err := h.messagingClient.GetMessageStatus(r.Context(), &messagingv1.GetMessageStatusRequest{
 		MessageId: id,
-		ClientId:  clientID.String(),
+		ClientId:  clientIDStr,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
