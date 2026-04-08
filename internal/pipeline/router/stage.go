@@ -15,6 +15,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
+	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	msgunifiedrouter "github.com/smpp-server/smpp-server/internal/router"
 	routingapp "github.com/smpp-server/smpp-server/internal/services/routing/application"
@@ -158,6 +159,11 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		operatorID = s.defaultOperatorID
 	}
 
+	trace.Debug(s.logger, kafkaMsg.TraceID, kafkaMsg.MessageID.String(), "router", "operator_resolved").
+		Str("operator_id", operatorID.String()).
+		Str("destination", kafkaMsg.Destination).
+		Msg("operator resolved")
+
 	var providerID uuid.UUID
 	var routeID *uuid.UUID
 
@@ -177,16 +183,32 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 			SenderName:  kafkaMsg.Source,
 		}
 
-		matched := s.matcher.Match(matchCtx)
-		if len(matched) == 0 {
+		result := s.matcher.MatchWithDetails(matchCtx)
+		if len(result.Matched) == 0 {
+			trace.Warn(s.logger, kafkaMsg.TraceID, kafkaMsg.MessageID.String(), "router", "no_route").
+				Str("operator_id", operatorID.String()).
+				Str("traffic_type", string(trafficType)).
+				Str("sender_name", kafkaMsg.Source).
+				Int("client_routes_checked", result.ClientRoutes).
+				Int("default_routes_checked", result.DefaultRoutes).
+				Msg("no matching route found")
 			return fmt.Errorf("маршрут не найден для message_id=%s client=%s operator=%s traffic=%s",
 				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType)
 		}
 
 		// Take the highest-priority route (lowest Priority value).
-		route := matched[0]
+		route := result.Matched[0]
 		providerID = route.ProviderID
 		routeID = &route.ID
+
+		trace.Log(s.logger, kafkaMsg.TraceID, kafkaMsg.MessageID.String(), "router", "route_matched").
+			Str("route_id", route.ID.String()).
+			Str("route_name", route.Name).
+			Str("provider_id", providerID.String()).
+			Int("priority", route.Priority).
+			Bool("used_default", result.UsedDefault).
+			Int("total_matched", len(result.Matched)).
+			Msg("route selected")
 	} else {
 		// Нет ClientID — используем provider_id если указан.
 		if kafkaMsg.ProviderID == nil {
@@ -198,6 +220,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 	routed := &pipeline.RoutedMessage{
 		SchemaVersion: 1,
 		MessageID:     kafkaMsg.MessageID,
+		TraceID:       kafkaMsg.TraceID,
 		Source:        kafkaMsg.Source,
 		Destination:   kafkaMsg.Destination,
 		Text:          kafkaMsg.Text,
@@ -227,12 +250,6 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		},
 	)
 
-	s.logger.Debug().
-		Str("message_id", kafkaMsg.MessageID.String()).
-		Str("provider_id", providerID.String()).
-		Str("topic", s.cfg.Kafka.TopicRouted).
-		Msg("сообщение маршрутизировано")
-
 	return nil
 }
 
@@ -258,6 +275,14 @@ func (s *Stage) deserializeByTopic(msg *sarama.ConsumerMessage) (*queue.KafkaMes
 
 		// Обновляем retry count в KafkaMessage для дальнейшей обработки.
 		failed.KafkaMessage.RetryCount = failed.RetryCount
+
+		s.logger.Info().
+			Str("trace_id", failed.KafkaMessage.TraceID).
+			Str("message_id", failed.MessageID.String()).
+			Int("retry_count", failed.RetryCount).
+			Int("max_retries", failed.KafkaMessage.MaxRetries).
+			Msg("processing retry message")
+
 		return failed.KafkaMessage, nil
 	}
 
