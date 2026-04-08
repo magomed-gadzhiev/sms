@@ -6,6 +6,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
@@ -63,6 +64,7 @@ export function TemplatesPage() {
   const [formName, setFormName] = useState('');
   const [formBody, setFormBody] = useState('');
   const [formSenderNameId, setFormSenderNameId] = useState('');
+  const [formTrafficType, setFormTrafficType] = useState('transactional');
   const [saving, setSaving] = useState(false);
 
   // Preview modal
@@ -106,6 +108,7 @@ export function TemplatesPage() {
     setFormName('');
     setFormBody('');
     setFormSenderNameId('');
+    setFormTrafficType('transactional');
     setShowForm(true);
   }
 
@@ -114,6 +117,7 @@ export function TemplatesPage() {
     setFormName(tpl.name);
     setFormBody(tpl.body);
     setFormSenderNameId(tpl.sender_name_id || '');
+    setFormTrafficType(tpl.traffic_type || 'transactional');
     setShowForm(true);
   }
 
@@ -123,6 +127,7 @@ export function TemplatesPage() {
     setFormName('');
     setFormBody('');
     setFormSenderNameId('');
+    setFormTrafficType('transactional');
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -140,12 +145,14 @@ export function TemplatesPage() {
           name: formName,
           body: formBody,
           sender_name_id: formSenderNameId || undefined,
+          traffic_type: formTrafficType || undefined,
         });
       } else {
         await templatesApi.create({
           name: formName,
           body: formBody,
           sender_name_id: formSenderNameId || undefined,
+          traffic_type: formTrafficType || undefined,
         });
       }
       closeForm();
@@ -236,6 +243,19 @@ export function TemplatesPage() {
         ),
     },
     {
+      key: 'traffic_type',
+      header: 'Тип трафика',
+      render: (tpl) => {
+        const labels: Record<string, string> = {
+          transactional: 'Transactional',
+          authorization: 'Authorization',
+          service: 'Service',
+        };
+        const val = tpl.traffic_type || 'transactional';
+        return <span className="text-sm text-gray-700">{labels[val] ?? val}</span>;
+      },
+    },
+    {
       key: 'body',
       header: 'Текст',
       render: (tpl) => (
@@ -309,6 +329,19 @@ export function TemplatesPage() {
               </select>
             </div>
           )}
+
+          <div className="mb-4">
+            <Select
+              label="Тип трафика"
+              value={formTrafficType}
+              onChange={setFormTrafficType}
+              options={[
+                { value: 'transactional', label: 'Transactional' },
+                { value: 'authorization', label: 'Authorization' },
+                { value: 'service', label: 'Service' },
+              ]}
+            />
+          </div>
 
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1">

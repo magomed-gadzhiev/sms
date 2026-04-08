@@ -387,6 +387,7 @@ export interface TemplateInfo {
   rejection_reason?: string;
   sender_name_id?: string;
   sender_name?: string;
+  traffic_type?: string;
   created_at: string;
   updated_at: string;
 }
@@ -397,9 +398,9 @@ export const templatesApi = {
     return apiFetch<{ templates: TemplateInfo[]; total: number; page: number; per_page: number; total_pages: number }>(`/templates?${qs}`);
   },
   get: (id: string) => apiFetch<TemplateInfo>(`/templates/${id}`),
-  create: (data: { name: string; body: string; sender_name_id?: string }) =>
+  create: (data: { name: string; body: string; sender_name_id?: string; traffic_type?: string }) =>
     apiFetch<TemplateInfo>('/templates', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { name?: string; body?: string; sender_name_id?: string }) =>
+  update: (id: string, data: { name?: string; body?: string; sender_name_id?: string; traffic_type?: string }) =>
     apiFetch<TemplateInfo>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id: string) => apiFetch<void>(`/templates/${id}`, { method: 'DELETE' }),
   render: (id: string, variables: Record<string, string>) =>
