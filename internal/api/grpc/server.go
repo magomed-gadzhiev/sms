@@ -261,6 +261,13 @@ func (s *Server) SendBatchSMS(ctx context.Context, req *smsv1.SendBatchRequest) 
 		successCount++
 	}
 
+	log.Info().
+		Str("client_id", clientID.String()).
+		Int32("success_count", successCount).
+		Int32("failed_count", failedCount).
+		Int("total", len(req.Messages)).
+		Msg("batch SMS received via gRPC")
+
 	return &smsv1.SendBatchResponse{
 		Results:     results,
 		SuccessCount: successCount,

@@ -317,6 +317,10 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 			session.MarkMessage(msg, "")
 			return nil
 		}
+
+		trace.Debug(s.logger, traceID, routedMsg.MessageID.String(), "sender.billing", "ok").
+			Str("client_id", routedMsg.ClientID.String()).
+			Msg("billing check passed")
 	}
 
 	var chargedAmount, chargedCurrency string
@@ -449,6 +453,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 			KafkaMessage: &queue.KafkaMessage{
 				ID:          routedMsg.MessageID.String(),
 				MessageID:   routedMsg.MessageID,
+				TraceID:     traceID,
 				Source:      routedMsg.Source,
 				Destination: routedMsg.Destination,
 				Text:        routedMsg.Text,
