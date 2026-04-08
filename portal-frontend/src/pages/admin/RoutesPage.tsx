@@ -26,7 +26,7 @@ export function RoutesPage() {
   const toast = useToast();
   const [data, setData] = useState<RouteInfo[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
