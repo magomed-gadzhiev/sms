@@ -359,6 +359,23 @@ export const routingApi = {
     }),
 };
 
+// Route management API (admin default routes)
+import type { RouteListItem, RouteDetail, RouteFormData, RouteReferences } from '../pages/routing/types';
+
+export const routesApi = {
+  list: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ routes: RouteListItem[]; total: number }>(`/routes?${qs}`);
+  },
+  get: (id: string) => apiFetch<RouteDetail>(`/routes/${id}`),
+  create: (data: RouteFormData) =>
+    apiFetch<RouteDetail>('/routes', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: RouteFormData) =>
+    apiFetch<RouteDetail>(`/routes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => apiFetch<void>(`/routes/${id}`, { method: 'DELETE' }),
+  references: () => apiFetch<RouteReferences>('/routes/references'),
+};
+
 // Templates API
 export interface TemplateInfo {
   id: string;
