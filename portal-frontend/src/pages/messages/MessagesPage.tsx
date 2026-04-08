@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { messagesApi, exportApi } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
@@ -226,6 +227,7 @@ export function MessagesPage() {
     }
   };
 
+  const navigate = useNavigate();
   const columns = buildColumns(liveUpdates);
 
   return (
@@ -300,6 +302,7 @@ export function MessagesPage() {
           tableLabel="Список SMS сообщений"
           loading={loading}
           bulkActions={messageBulkActions}
+          onRowClick={(msg) => navigate(`/messages/${msg.message_id}`)}
         />
       )}
     </div>
