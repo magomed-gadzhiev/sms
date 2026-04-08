@@ -27,8 +27,7 @@ type Server struct {
 	operatorRepo     domain.OperatorRepository
 	prefixRepo       domain.OperatorPrefixRepository
 	operatorResolver *application.OperatorResolver
-	hlrService       *application.HLRService
-	smartRouter      *application.SmartRoutingService
+	hlrService         *application.HLRService
 	hlrProviderRepo    domain.HLRProviderRepository
 	lookupLogRepo      domain.LookupLogRepository
 	clientProviderRepo domain.ClientProviderRepository
@@ -56,11 +55,6 @@ func NewServer(
 // SetHLRService устанавливает HLR-сервис
 func (s *Server) SetHLRService(hlr *application.HLRService) {
 	s.hlrService = hlr
-}
-
-// SetSmartRouter устанавливает сервис smart routing
-func (s *Server) SetSmartRouter(sr *application.SmartRoutingService) {
-	s.smartRouter = sr
 }
 
 // SetHLRProviderRepo устанавливает репозиторий HLR-провайдеров
@@ -91,12 +85,10 @@ func (s *Server) SetHLRDependencies(
 	hlrService *application.HLRService,
 	hlrProviderRepo domain.HLRProviderRepository,
 	lookupLogRepo domain.LookupLogRepository,
-	smartRouter *application.SmartRoutingService,
 ) {
 	s.hlrService = hlrService
 	s.hlrProviderRepo = hlrProviderRepo
 	s.lookupLogRepo = lookupLogRepo
-	s.smartRouter = smartRouter
 }
 
 // GetRoute получает маршрут для сообщения
@@ -1004,106 +996,6 @@ func (s *Server) ListHLRProviders(ctx context.Context, req *routingv1.ListHLRPro
 	}, nil
 }
 
-// ==================== Smart Route Weights ====================
-
-// SetSmartRouteWeights создает или обновляет веса умной маршрутизации
-func (s *Server) SetSmartRouteWeights(ctx context.Context, req *routingv1.SetSmartRouteWeightsRequest) (*routingv1.SmartRouteWeightProto, error) {
-	if s.smartRouter == nil {
-		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
-	}
-	if req.OperatorCode == "" {
-		return nil, status.Error(codes.InvalidArgument, "operator_code is required")
-	}
-	if req.CountryCode == "" {
-		return nil, status.Error(codes.InvalidArgument, "country_code is required")
-	}
-
-	costWeight, err := strconv.ParseFloat(req.CostWeight, 64)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid cost_weight format")
-	}
-
-	qualityWeight, err := strconv.ParseFloat(req.QualityWeight, 64)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid quality_weight format")
-	}
-
-	weight, err := s.smartRouter.SetWeights(ctx, req.OperatorCode, req.CountryCode, costWeight, qualityWeight)
-	if err != nil {
-		log.Error().Err(err).Msg("ошибка установки весов smart routing")
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	return smartRouteWeightToProto(weight), nil
-}
-
-// GetSmartRouteWeights получает веса умной маршрутизации
-func (s *Server) GetSmartRouteWeights(ctx context.Context, req *routingv1.GetSmartRouteWeightsRequest) (*routingv1.SmartRouteWeightProto, error) {
-	if s.smartRouter == nil {
-		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
-	}
-	if req.OperatorCode == "" {
-		return nil, status.Error(codes.InvalidArgument, "operator_code is required")
-	}
-	if req.CountryCode == "" {
-		return nil, status.Error(codes.InvalidArgument, "country_code is required")
-	}
-
-	weight, err := s.smartRouter.GetWeights(ctx, req.OperatorCode, req.CountryCode)
-	if err != nil {
-		log.Error().Err(err).Msg("ошибка получения весов smart routing")
-		return nil, status.Error(codes.NotFound, "smart route weights not found")
-	}
-
-	return smartRouteWeightToProto(weight), nil
-}
-
-// ListSmartRouteWeights получает список весов умной маршрутизации
-func (s *Server) ListSmartRouteWeights(ctx context.Context, req *routingv1.ListSmartRouteWeightsRequest) (*routingv1.ListSmartRouteWeightsResponse, error) {
-	if s.smartRouter == nil {
-		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
-	}
-
-	weights, err := s.smartRouter.ListWeights(ctx, req.CountryCode)
-	if err != nil {
-		log.Error().Err(err).Msg("ошибка получения списка весов smart routing")
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	protoWeights := make([]*routingv1.SmartRouteWeightProto, len(weights))
-	for i, weight := range weights {
-		protoWeights[i] = smartRouteWeightToProto(weight)
-	}
-
-	return &routingv1.ListSmartRouteWeightsResponse{
-		Weights: protoWeights,
-	}, nil
-}
-
-// DeleteSmartRouteWeights удаляет веса умной маршрутизации
-func (s *Server) DeleteSmartRouteWeights(ctx context.Context, req *routingv1.DeleteSmartRouteWeightsRequest) (*routingv1.DeleteRouteResponse, error) {
-	if s.smartRouter == nil {
-		return nil, status.Error(codes.Unavailable, "smart routing сервис не сконфигурирован")
-	}
-	if req.Id == "" {
-		return nil, status.Error(codes.InvalidArgument, "id is required")
-	}
-
-	id, err := uuid.Parse(req.Id)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid id format")
-	}
-
-	if err := s.smartRouter.DeleteWeights(ctx, id); err != nil {
-		log.Error().Err(err).Msg("ошибка удаления весов smart routing")
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	return &routingv1.DeleteRouteResponse{
-		Success: true,
-	}, nil
-}
-
 // ==================== История lookup-запросов ====================
 
 // GetLookupHistory получает историю lookup-запросов клиента
@@ -1379,20 +1271,6 @@ func hlrProviderToProto(provider *domain.HLRProvider) *routingv1.HLRProviderProt
 	}
 
 	return proto
-}
-
-// smartRouteWeightToProto преобразует domain.SmartRouteWeight в proto.SmartRouteWeightProto
-func smartRouteWeightToProto(weight *domain.SmartRouteWeight) *routingv1.SmartRouteWeightProto {
-	return &routingv1.SmartRouteWeightProto{
-		Id:            weight.ID.String(),
-		OperatorCode:  weight.OperatorCode,
-		CountryCode:   weight.CountryCode,
-		CostWeight:    fmt.Sprintf("%.4f", weight.CostWeight),
-		QualityWeight: fmt.Sprintf("%.4f", weight.QualityWeight),
-		Active:        weight.Active,
-		CreatedAt:     timestamppb.New(weight.CreatedAt),
-		UpdatedAt:     timestamppb.New(weight.UpdatedAt),
-	}
 }
 
 // lookupLogEntryToProto преобразует domain.LookupLogEntry в proto.LookupLogEntry

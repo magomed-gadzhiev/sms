@@ -204,14 +204,6 @@ export interface HLRProvider {
   updated_at: string;
 }
 
-export interface SmartRouteWeight {
-  weight_id: string;
-  country_code: string;
-  provider_id: string;
-  weight: number;
-  created_at: string;
-}
-
 export interface AuditEntry {
   id: string;
   user_id: string;
@@ -409,11 +401,6 @@ export const hlrApi = {
     adminFetch<void>(`/hlr/providers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteProvider: (id: string) => adminFetch<void>(`/hlr/providers/${id}`, { method: 'DELETE' }),
   providerHealth: (id: string) => adminFetch<ProviderHealth>(`/hlr/providers/${id}/health`),
-  listWeights: (params?: { country_code?: string }) =>
-    adminFetch<{ weights: SmartRouteWeight[] }>(`/routing/weights${qs(params || {})}`),
-  setWeights: (data: { country_code: string; provider_id: string; weight: number }) =>
-    adminFetch<void>('/routing/weights', { method: 'POST', body: JSON.stringify(data) }),
-  deleteWeight: (id: string) => adminFetch<void>(`/routing/weights/${id}`, { method: 'DELETE' }),
 };
 
 export const auditAdminApi = {

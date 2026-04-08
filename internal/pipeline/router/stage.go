@@ -8,6 +8,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -16,21 +17,24 @@ import (
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	msgunifiedrouter "github.com/smpp-server/smpp-server/internal/router"
+	routingapp "github.com/smpp-server/smpp-server/internal/services/routing/application"
+	routingdomain "github.com/smpp-server/smpp-server/internal/services/routing/domain"
+	routinginfra "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // Stage — pipeline stage для маршрутизации сообщений.
-// Потребляет из sms.outgoing и sms.failed, вызывает UnifiedRouter
-// для определения провайдера по 3-уровневой схеме, публикует RoutedMessage
-// в sms.routed.
+// Потребляет из sms.outgoing и sms.failed, вызывает RouteMatcher
+// для определения провайдера по условиям (operator, traffic_type, etc.),
+// публикует RoutedMessage в sms.routed.
 type Stage struct {
-	consumer         *queue.BatchConsumer
-	producer         *queue.AsyncProducer
-	unifiedRouter    *msgunifiedrouter.CachedUnifiedRouter
-	operatorResolver *msgunifiedrouter.OperatorResolver
+	consumer          *queue.BatchConsumer
+	producer          *queue.AsyncProducer
+	matcher           *routingapp.RouteMatcher
+	operatorResolver  *msgunifiedrouter.OperatorResolver
 	defaultOperatorID uuid.UUID
-	cfg              *config.Config
-	logger           zerolog.Logger
+	cfg               *config.Config
+	logger            zerolog.Logger
 }
 
 // NewStage создает новый Router stage pipeline.
@@ -52,31 +56,60 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 		return nil, fmt.Errorf("ошибка создания async producer: %w", err)
 	}
 
-	// UnifiedRouter: 3-уровневая маршрутизация (client → reseller → platform)
-	clientRouteRepo := storage.NewClientRouteRepository(db)
-	unifiedRouterInner := msgunifiedrouter.NewUnifiedRouter(clientRouteRepo, clientRouteRepo)
-	unifiedRouter := msgunifiedrouter.NewCachedUnifiedRouter(unifiedRouterInner)
+	// Create pgxpool for RouteMatcher (uses pgx/v5 natively).
+	pool, err := pgxpool.New(context.Background(), cfg.Database.GetDSN())
+	if err != nil {
+		consumer.Close()
+		producer.Close()
+		return nil, fmt.Errorf("ошибка создания pgxpool для RouteMatcher: %w", err)
+	}
+
+	routeRepo := routinginfra.NewRouteRepo(pool)
+	matcher := routingapp.NewRouteMatcher(routeRepo)
+	if err := matcher.Load(context.Background()); err != nil {
+		log.Warn().Err(err).Msg("не удалось загрузить маршруты в RouteMatcher при старте")
+	}
 
 	// OperatorResolver: определение оператора по номеру телефона
+	opPrefixRepo := storage.NewOperatorPrefixRepository(db)
 	defaultOpIDStr := os.Getenv("TARIFICATION_DEFAULT_OPERATOR_ID")
 	defaultOpID, _ := uuid.Parse(defaultOpIDStr)
 	if defaultOpID == uuid.Nil {
 		defaultOpID, _ = uuid.Parse("d0000000-0000-0000-0000-000000000001")
 	}
-	opPrefixRepo := storage.NewOperatorPrefixRepository(db)
 	operatorResolver := msgunifiedrouter.NewOperatorResolver(opPrefixRepo, defaultOpID)
 
 	logger := log.With().Str("component", "pipeline_router").Logger()
 
-	return &Stage{
+	stage := &Stage{
 		consumer:          consumer,
 		producer:          producer,
-		unifiedRouter:     unifiedRouter,
+		matcher:           matcher,
 		operatorResolver:  operatorResolver,
 		defaultOperatorID: defaultOpID,
 		cfg:               cfg,
 		logger:            logger,
-	}, nil
+	}
+
+	// Периодически перезагружаем маршруты для подхватывания изменений.
+	go stage.reloadLoop(context.Background(), pool)
+
+	return stage, nil
+}
+
+// reloadLoop перезагружает маршруты каждые 60 секунд.
+func (s *Stage) reloadLoop(ctx context.Context, pool *pgxpool.Pool) {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.matcher.Invalidate(ctx)
+			s.logger.Debug().Msg("маршруты перезагружены")
+		}
+	}
 }
 
 // Run запускает цикл потребления и маршрутизации. Блокирует до отмены ctx.
@@ -125,19 +158,37 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		operatorID = s.defaultOperatorID
 	}
 
-	// Маршрутизация через UnifiedRouter (3 уровня: client → reseller → platform)
 	var providerID uuid.UUID
 	var routeID *uuid.UUID
 
 	if kafkaMsg.ClientID != nil {
-		decision, routeErr := s.unifiedRouter.Route(ctx, *kafkaMsg.ClientID, operatorID)
-		if routeErr != nil {
-			return fmt.Errorf("маршрутизация message_id=%s: %w", kafkaMsg.MessageID, routeErr)
+		// Build match context with all available fields.
+		trafficType := routingdomain.TrafficType(kafkaMsg.TrafficType)
+		if trafficType == "" {
+			trafficType = routingdomain.TrafficTypeTransactional
 		}
-		providerID = decision.ProviderID
-		routeID = &decision.RouteID
+
+		matchCtx := routingapp.MatchContext{
+			RouteType:   "sms",
+			ClientID:    *kafkaMsg.ClientID,
+			OperatorID:  &operatorID,
+			TrafficType: trafficType,
+			MessageBody: kafkaMsg.Text,
+			SenderName:  kafkaMsg.Source,
+		}
+
+		matched := s.matcher.Match(matchCtx)
+		if len(matched) == 0 {
+			return fmt.Errorf("маршрут не найден для message_id=%s client=%s operator=%s traffic=%s",
+				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType)
+		}
+
+		// Take the highest-priority route (lowest Priority value).
+		route := matched[0]
+		providerID = route.ProviderID
+		routeID = &route.ID
 	} else {
-		// Нет ClientID — используем старый path (RoutedMessage с ProviderID)
+		// Нет ClientID — используем provider_id если указан.
 		if kafkaMsg.ProviderID == nil {
 			return fmt.Errorf("message_id=%s: нет client_id и provider_id", kafkaMsg.MessageID)
 		}

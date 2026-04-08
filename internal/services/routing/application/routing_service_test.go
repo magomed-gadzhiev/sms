@@ -492,22 +492,6 @@ func TestRoutingService(t *testing.T) {
 		})
 	})
 
-	t.Run("SetSmartRouter", func(t *testing.T) {
-		t.Run("sets_smart_router", func(t *testing.T) {
-			routeRepo := new(mocks.MockRouteRepository)
-			providerRepo := new(mocks.MockProviderRepository)
-			eventPub := new(mocks.MockEventPublisher)
-
-			svc := NewRoutingService(routeRepo, providerRepo, eventPub)
-
-			weightRepo := new(mocks.MockSmartRouteWeightRepository)
-			sr := NewSmartRoutingService(weightRepo)
-			svc.SetSmartRouter(sr)
-
-			assert.Equal(t, sr, svc.smartRouter)
-		})
-	})
-
 	t.Run("CreateRoute", func(t *testing.T) {
 
 		t.Run("success", func(t *testing.T) {

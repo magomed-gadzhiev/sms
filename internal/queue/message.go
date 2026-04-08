@@ -21,6 +21,7 @@ type KafkaMessage struct {
 	Priority    int                    `json:"priority"`
 	RetryCount  int                    `json:"retry_count"`
 	MaxRetries  int                    `json:"max_retries"`
+	TrafficType string                 `json:"traffic_type,omitempty"`
 	CreatedAt   time.Time              `json:"created_at"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }

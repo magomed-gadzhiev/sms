@@ -17,9 +17,8 @@ type RoutingService struct {
 	eventPublisher domain.EventPublisher
 	selectors      map[domain.LoadBalanceStrategy]ProviderSelector
 	roundRobin     *RoundRobinSelector
-	hlrService     *HLRService
-	smartRouter    *SmartRoutingService
-	logger         zerolog.Logger
+	hlrService *HLRService
+	logger     zerolog.Logger
 }
 
 // NewRoutingService создает новый сервис маршрутизации
@@ -205,11 +204,6 @@ func (s *RoutingService) RouteMessage(
 // SetHLRService устанавливает HLR сервис для маршрутизации
 func (s *RoutingService) SetHLRService(hlr *HLRService) {
 	s.hlrService = hlr
-}
-
-// SetSmartRouter устанавливает сервис smart routing
-func (s *RoutingService) SetSmartRouter(sr *SmartRoutingService) {
-	s.smartRouter = sr
 }
 
 // RouteMessageResult представляет результат маршрутизации с HLR данными

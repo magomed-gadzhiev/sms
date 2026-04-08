@@ -172,12 +172,6 @@ func SetupRouter(
 	hlrProviders.HandleFunc("/{id}", hlrHandlers.DeleteProvider).Methods("DELETE")
 	hlrProviders.HandleFunc("/{id}/health", hlrHandlers.GetProviderHealth).Methods("GET")
 
-	// Smart Route Weight endpoints
-	weights := adminV1.PathPrefix("/routing/weights").Subrouter()
-	weights.HandleFunc("", hlrHandlers.SetWeights).Methods("POST")
-	weights.HandleFunc("", hlrHandlers.ListWeights).Methods("GET")
-	weights.HandleFunc("/{id}", hlrHandlers.DeleteWeights).Methods("DELETE")
-
 	// Users endpoints
 	users := adminV1.PathPrefix("/users").Subrouter()
 	users.HandleFunc("", userHandlers.ListUsers).Methods("GET")

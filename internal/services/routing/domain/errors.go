@@ -23,7 +23,5 @@ var (
 	ErrHLRLookupTimeout       = errors.New("HLR lookup превысил таймаут")
 	ErrInvalidMSISDN          = errors.New("некорректный формат номера")
 	ErrBulkLookupTooLarge     = errors.New("слишком много номеров в bulk запросе (макс. 1000)")
-	ErrSmartRouteWeightNotFound = errors.New("веса smart route не найдены")
-	ErrInvalidWeights           = errors.New("сумма весов должна быть равна 1.00")
-	ErrNumberInvalid            = errors.New("номер определён как invalid, отправка заблокирована")
+	ErrNumberInvalid = errors.New("номер определён как invalid, отправка заблокирована")
 )

@@ -136,32 +136,18 @@ func (m *mockRoutingClientForHLR) ListHLRProviders(ctx context.Context, in *rout
 	return args.Get(0).(*routingv1.ListHLRProvidersResponse), args.Error(1)
 }
 
+// Smart route weight stubs (interface compliance; feature removed)
 func (m *mockRoutingClientForHLR) SetSmartRouteWeights(ctx context.Context, in *routingv1.SetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
-	args := m.Called(ctx, in)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*routingv1.SmartRouteWeightProto), args.Error(1)
+	return nil, nil
 }
-
 func (m *mockRoutingClientForHLR) GetSmartRouteWeights(ctx context.Context, in *routingv1.GetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
 	return nil, nil
 }
-
 func (m *mockRoutingClientForHLR) ListSmartRouteWeights(ctx context.Context, in *routingv1.ListSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.ListSmartRouteWeightsResponse, error) {
-	args := m.Called(ctx, in)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*routingv1.ListSmartRouteWeightsResponse), args.Error(1)
+	return nil, nil
 }
-
 func (m *mockRoutingClientForHLR) DeleteSmartRouteWeights(ctx context.Context, in *routingv1.DeleteSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.DeleteRouteResponse, error) {
-	args := m.Called(ctx, in)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*routingv1.DeleteRouteResponse), args.Error(1)
+	return nil, nil
 }
 
 // Client-provider assignment stubs
@@ -398,120 +384,4 @@ func TestHLRHandlers(t *testing.T) {
 		})
 	})
 
-	t.Run("SetWeights", func(t *testing.T) {
-		t.Run("success", func(t *testing.T) {
-			client := new(mockRoutingClientForHLR)
-			handler := NewHLRHandlers(client)
-
-			client.On("SetSmartRouteWeights", mock.Anything, mock.MatchedBy(func(req *routingv1.SetSmartRouteWeightsRequest) bool {
-				return req.OperatorCode == "MTS" && req.CountryCode == "RU"
-			})).Return(&routingv1.SmartRouteWeightProto{
-				Id:            "weight-1",
-				OperatorCode:  "MTS",
-				CountryCode:   "RU",
-				CostWeight:    "0.7",
-				QualityWeight: "0.3",
-				Active:        true,
-				CreatedAt:     timestamppb.Now(),
-			}, nil)
-
-			body, _ := json.Marshal(SetWeightsRequest{
-				OperatorCode:  "MTS",
-				CountryCode:   "RU",
-				CostWeight:    "0.7",
-				QualityWeight: "0.3",
-			})
-
-			req := httptest.NewRequest(http.MethodPost, "/admin/v1/routing/weights", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-
-			rr := httptest.NewRecorder()
-			handler.SetWeights(rr, req)
-
-			assert.Equal(t, http.StatusOK, rr.Code)
-
-			var resp map[string]interface{}
-			err := json.Unmarshal(rr.Body.Bytes(), &resp)
-			require.NoError(t, err)
-			assert.Equal(t, "weight-1", resp["id"])
-			assert.Equal(t, "MTS", resp["operator_code"])
-
-			client.AssertExpectations(t)
-		})
-
-		t.Run("returns 400 when operator_code is empty", func(t *testing.T) {
-			client := new(mockRoutingClientForHLR)
-			handler := NewHLRHandlers(client)
-
-			body, _ := json.Marshal(SetWeightsRequest{
-				OperatorCode: "",
-				CountryCode:  "RU",
-			})
-
-			req := httptest.NewRequest(http.MethodPost, "/admin/v1/routing/weights", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-
-			rr := httptest.NewRecorder()
-			handler.SetWeights(rr, req)
-
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
-		})
-
-		t.Run("returns 400 when country_code is empty", func(t *testing.T) {
-			client := new(mockRoutingClientForHLR)
-			handler := NewHLRHandlers(client)
-
-			body, _ := json.Marshal(SetWeightsRequest{
-				OperatorCode: "MTS",
-				CountryCode:  "",
-			})
-
-			req := httptest.NewRequest(http.MethodPost, "/admin/v1/routing/weights", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-
-			rr := httptest.NewRecorder()
-			handler.SetWeights(rr, req)
-
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
-		})
-	})
-
-	t.Run("ListWeights", func(t *testing.T) {
-		t.Run("success", func(t *testing.T) {
-			client := new(mockRoutingClientForHLR)
-			handler := NewHLRHandlers(client)
-
-			client.On("ListSmartRouteWeights", mock.Anything, mock.MatchedBy(func(req *routingv1.ListSmartRouteWeightsRequest) bool {
-				return req.CountryCode == "RU"
-			})).Return(&routingv1.ListSmartRouteWeightsResponse{
-				Weights: []*routingv1.SmartRouteWeightProto{
-					{
-						Id:            "w-1",
-						OperatorCode:  "MTS",
-						CountryCode:   "RU",
-						CostWeight:    "0.7",
-						QualityWeight: "0.3",
-						Active:        true,
-						CreatedAt:     timestamppb.Now(),
-					},
-				},
-			}, nil)
-
-			req := httptest.NewRequest(http.MethodGet, "/admin/v1/routing/weights?country_code=RU", nil)
-
-			rr := httptest.NewRecorder()
-			handler.ListWeights(rr, req)
-
-			assert.Equal(t, http.StatusOK, rr.Code)
-
-			var resp map[string]interface{}
-			err := json.Unmarshal(rr.Body.Bytes(), &resp)
-			require.NoError(t, err)
-			weights := resp["weights"].([]interface{})
-			assert.Len(t, weights, 1)
-			assert.Equal(t, float64(1), resp["total"])
-
-			client.AssertExpectations(t)
-		})
-	})
 }

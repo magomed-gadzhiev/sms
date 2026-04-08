@@ -27,6 +27,7 @@ type kafkaOutgoingMsg struct {
 	Priority    int        `json:"priority"`
 	RetryCount  int        `json:"retry_count"`
 	MaxRetries  int        `json:"max_retries"`
+	TrafficType string     `json:"traffic_type,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 }
 
@@ -176,10 +177,13 @@ func materializeCampaign(
 		return fmt.Errorf("invalid campaign_id: %w", err)
 	}
 
-	// Get template body (best-effort).
-	var templateBody string
+	// Get template body and traffic_type (best-effort).
+	var templateBody, templateTrafficType string
 	if templateID != nil && *templateID != "" {
-		_ = dbx.QueryRowContext(ctx, `SELECT body FROM templates WHERE id = $1`, *templateID).Scan(&templateBody)
+		_ = dbx.QueryRowContext(ctx, `SELECT body, COALESCE(traffic_type, 'transactional') FROM templates WHERE id = $1`, *templateID).Scan(&templateBody, &templateTrafficType)
+	}
+	if templateTrafficType == "" {
+		templateTrafficType = "transactional"
 	}
 
 	// Fetch contacts, excluding those that have opted out.
@@ -259,6 +263,7 @@ func materializeCampaign(
 				ID: msgID.String(), MessageID: msgID,
 				Source: source, Destination: contact.Phone, Text: text,
 				ClientID: &clientUUID, MaxRetries: 5, CreatedAt: now,
+				TrafficType: templateTrafficType,
 			}
 			data, _ := json.Marshal(km)
 			if _, _, kafkaErr := producer.SendMessage(&sarama.ProducerMessage{
@@ -348,10 +353,10 @@ func processUnsentRecipients(
 		msgID := uuid.New()
 		now := time.Now()
 
-		// Get template body
-		var text string
+		// Get template body and traffic_type
+		var text, trafficType string
 		if r.TemplateID != nil && *r.TemplateID != "" {
-			_ = dbx.QueryRowContext(ctx, `SELECT body FROM templates WHERE id = $1`, *r.TemplateID).Scan(&text)
+			_ = dbx.QueryRowContext(ctx, `SELECT body, COALESCE(traffic_type, 'transactional') FROM templates WHERE id = $1`, *r.TemplateID).Scan(&text, &trafficType)
 
 			// Try to render with contact attributes
 			var attrs []byte
@@ -383,11 +388,16 @@ func processUnsentRecipients(
 			continue
 		}
 
+		if trafficType == "" {
+			trafficType = "transactional"
+		}
+
 		// Publish to Kafka
 		km := kafkaOutgoingMsg{
 			ID: msgID.String(), MessageID: msgID,
 			Source: r.Source, Destination: r.Phone, Text: text,
 			ClientID: &clientUUID, MaxRetries: 5, CreatedAt: now,
+			TrafficType: trafficType,
 		}
 		data, _ := json.Marshal(km)
 		if _, _, kafkaErr := producer.SendMessage(&sarama.ProducerMessage{

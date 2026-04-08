@@ -94,14 +94,6 @@ type LookupLogRepository interface {
 	CountByClient(ctx context.Context, clientID uuid.UUID) (int64, error)
 }
 
-// SmartRouteWeightRepository определяет интерфейс репозитория весов smart route
-type SmartRouteWeightRepository interface {
-	Upsert(ctx context.Context, weight *SmartRouteWeight) error
-	GetByOperatorAndCountry(ctx context.Context, operatorCode, countryCode string) (*SmartRouteWeight, error)
-	List(ctx context.Context, countryCode string) ([]*SmartRouteWeight, error)
-	Delete(ctx context.Context, id uuid.UUID) error
-}
-
 // HLRProviderAdapter определяет интерфейс адаптера HLR-провайдера
 type HLRProviderAdapter interface {
 	Lookup(ctx context.Context, msisdn string) (*LookupResult, error)

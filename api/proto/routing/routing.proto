@@ -58,12 +58,6 @@ service RoutingService {
   rpc GetHLRProvider(GetHLRProviderRequest) returns (HLRProviderProto);
   rpc ListHLRProviders(ListHLRProvidersRequest) returns (ListHLRProvidersResponse);
 
-  // Управление весами умной маршрутизации
-  rpc SetSmartRouteWeights(SetSmartRouteWeightsRequest) returns (SmartRouteWeightProto);
-  rpc GetSmartRouteWeights(GetSmartRouteWeightsRequest) returns (SmartRouteWeightProto);
-  rpc ListSmartRouteWeights(ListSmartRouteWeightsRequest) returns (ListSmartRouteWeightsResponse);
-  rpc DeleteSmartRouteWeights(DeleteSmartRouteWeightsRequest) returns (DeleteRouteResponse);
-
   // История lookup-запросов
   rpc GetLookupHistory(GetLookupHistoryRequest) returns (GetLookupHistoryResponse);
 
@@ -459,49 +453,6 @@ message ListHLRProvidersRequest {
 // ListHLRProvidersResponse представляет ответ со списком HLR-провайдеров
 message ListHLRProvidersResponse {
   repeated HLRProviderProto providers = 1;     // Список провайдеров
-}
-
-// ==================== Умная маршрутизация (Smart Route Weights) ====================
-
-// SmartRouteWeightProto представляет веса умной маршрутизации
-message SmartRouteWeightProto {
-  string id = 1;                               // ID записи
-  string operator_code = 2;                    // Код оператора
-  string country_code = 3;                     // Код страны
-  string cost_weight = 4;                      // Вес стоимости
-  string quality_weight = 5;                   // Вес качества
-  bool active = 6;                             // Активна ли запись
-  google.protobuf.Timestamp created_at = 7;    // Время создания
-  google.protobuf.Timestamp updated_at = 8;    // Время обновления
-}
-
-// SetSmartRouteWeightsRequest представляет запрос на установку весов маршрутизации
-message SetSmartRouteWeightsRequest {
-  string operator_code = 1;                    // Код оператора
-  string country_code = 2;                     // Код страны
-  string cost_weight = 3;                      // Вес стоимости
-  string quality_weight = 4;                   // Вес качества
-}
-
-// GetSmartRouteWeightsRequest представляет запрос на получение весов маршрутизации
-message GetSmartRouteWeightsRequest {
-  string operator_code = 1;                    // Код оператора
-  string country_code = 2;                     // Код страны
-}
-
-// ListSmartRouteWeightsRequest представляет запрос на получение списка весов маршрутизации
-message ListSmartRouteWeightsRequest {
-  string country_code = 1;                     // Код страны (фильтр, опционально)
-}
-
-// ListSmartRouteWeightsResponse представляет ответ со списком весов маршрутизации
-message ListSmartRouteWeightsResponse {
-  repeated SmartRouteWeightProto weights = 1;  // Список весов
-}
-
-// DeleteSmartRouteWeightsRequest представляет запрос на удаление весов маршрутизации
-message DeleteSmartRouteWeightsRequest {
-  string id = 1;                               // ID записи
 }
 
 // ==================== История lookup-запросов ====================

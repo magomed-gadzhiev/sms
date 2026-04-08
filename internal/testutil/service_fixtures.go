@@ -162,21 +162,6 @@ func NewTestOperator(countryID uuid.UUID) *routingdomain.Operator {
 	}
 }
 
-// NewTestSmartRouteWeight returns a valid SmartRouteWeight with predictable defaults.
-func NewTestSmartRouteWeight() *routingdomain.SmartRouteWeight {
-	now := time.Now()
-	return &routingdomain.SmartRouteWeight{
-		ID:            uuid.New(),
-		OperatorCode:  "mts-ru",
-		CountryCode:   "RU",
-		CostWeight:    routingdomain.DefaultCostWeight,
-		QualityWeight: routingdomain.DefaultQualityWeight,
-		Active:        true,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}
-}
-
 // NewTestMetric returns a valid Metric with predictable defaults.
 func NewTestMetric() *analyticsdomain.Metric {
 	clientID := uuid.New()
