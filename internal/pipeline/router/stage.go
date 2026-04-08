@@ -217,6 +217,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		providerID = *kafkaMsg.ProviderID
 	}
 
+	resolvedOperatorID := operatorID
 	routed := &pipeline.RoutedMessage{
 		SchemaVersion: 1,
 		MessageID:     kafkaMsg.MessageID,
@@ -225,6 +226,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		Destination:   kafkaMsg.Destination,
 		Text:          kafkaMsg.Text,
 		ClientID:      kafkaMsg.ClientID,
+		OperatorID:    &resolvedOperatorID,
 		ProviderID:    providerID,
 		RouteID:       routeID,
 		Priority:      kafkaMsg.Priority,

@@ -330,11 +330,15 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		if segCount == 0 {
 			segCount = 1
 		}
+		operatorID := s.defaultOperatorID
+		if routedMsg.OperatorID != nil {
+			operatorID = routedMsg.OperatorID.String()
+		}
 		tarifyCtx, tarifyCancel := context.WithTimeout(ctx, 5*time.Second)
 		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(tarifyCtx, &tarificationv1.TarifyMessageRequest{
 			ClientId:       routedMsg.ClientID.String(),
 			MessageId:      routedMsg.MessageID.String(),
-			OperatorId:     s.defaultOperatorID,
+			OperatorId:     operatorID,
 			SenderName:     routedMsg.Source,
 			SegmentCount:   segCount,
 			IdempotencyKey: routedMsg.MessageID.String(),

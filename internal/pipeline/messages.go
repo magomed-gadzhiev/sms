@@ -18,6 +18,7 @@ type RoutedMessage struct {
 	Destination        string                 `json:"destination"`
 	Text               string                 `json:"text"`
 	ClientID           *uuid.UUID             `json:"client_id,omitempty"`
+	OperatorID         *uuid.UUID             `json:"operator_id,omitempty"`
 	ProviderID         uuid.UUID              `json:"provider_id"`
 	FallbackProviderID *uuid.UUID             `json:"fallback_provider_id,omitempty"`
 	RouteID            *uuid.UUID             `json:"route_id,omitempty"`
