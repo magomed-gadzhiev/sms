@@ -15,6 +15,7 @@ interface SearchableSelectProps {
   error?: string;
   required?: boolean;
   disabled?: boolean;
+  className?: string;
 }
 
 export function SearchableSelect({
@@ -27,6 +28,7 @@ export function SearchableSelect({
   error,
   required,
   disabled,
+  className,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -52,7 +54,7 @@ export function SearchableSelect({
   const selectId = label?.toLowerCase().replace(/\s+/g, '-');
 
   return (
-    <div className="flex flex-col gap-1" ref={ref}>
+    <div className={`flex flex-col gap-1${className ? ` ${className}` : ''}`} ref={ref}>
       {label && (
         <label htmlFor={selectId} className="text-sm font-medium text-gray-700">
           {label}{required && ' *'}
