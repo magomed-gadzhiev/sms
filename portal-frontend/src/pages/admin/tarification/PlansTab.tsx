@@ -1,19 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DataTable, type Column } from '../../../components/data/DataTable';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { Badge } from '../../../components/ui/Badge';
+import { Select } from '../../../components/ui/Select';
 import { useToast } from '../../../components/ui/Toast';
-import { tarificationApi, type TariffPlan } from '../../../api/admin';
+import { tarificationApi, operatorsApi, type TariffPlan, type OperatorInfo } from '../../../api/admin';
+
+const SENDER_CATEGORY_OPTIONS = [
+  { value: 'shared', label: 'Общий (shared)' },
+  { value: 'paid_registered', label: 'Платная регистрация (paid_registered)' },
+  { value: 'free_registered', label: 'Бесплатная регистрация (free_registered)' },
+];
+
+const STRATEGY_OPTIONS = [
+  { value: 'fixed', label: 'Фиксированная (fixed)' },
+  { value: 'threshold', label: 'Пороговая (threshold)' },
+  { value: 'threshold_recalc', label: 'Пороговая с пересчётом (threshold_recalc)' },
+  { value: 'prepaid_threshold', label: 'Предоплата с порогом (prepaid_threshold)' },
+];
 
 export function PlansTab() {
   const toast = useToast();
   const [plans, setPlans] = useState<TariffPlan[]>([]);
+  const [operators, setOperators] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '' });
+  const [form, setForm] = useState({
+    operator_id: '',
+    sender_category: '',
+    strategy: '',
+  });
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
@@ -25,27 +43,41 @@ export function PlansTab() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchOperators = useCallback(async () => {
+    try {
+      const res = await operatorsApi.list({ limit: 200 });
+      const ops = (res.operators || []).map((o: OperatorInfo) => ({
+        value: o.operator_id || o.id || '',
+        label: o.name,
+      }));
+      setOperators(ops);
+    } catch {
+      // operators not critical
+    }
+  }, []);
 
   useEffect(() => {
     fetchPlans();
-  }, [fetchPlans]);
+    fetchOperators();
+  }, [fetchPlans, fetchOperators]);
 
   const handleCreate = async () => {
-    if (!form.name.trim()) {
-      toast.error('Название обязательно');
+    if (!form.operator_id || !form.sender_category || !form.strategy) {
+      toast.error('Заполните все поля');
       return;
     }
     setSaving(true);
     try {
       await tarificationApi.createTariffPlan({
-        name: form.name,
-        description: form.description,
-        active: true,
+        operator_id: form.operator_id,
+        sender_category: form.sender_category,
+        strategy: form.strategy,
       });
       toast.success('Тарифный план создан');
       setShowCreate(false);
-      setForm({ name: '', description: '' });
+      setForm({ operator_id: '', sender_category: '', strategy: '' });
       fetchPlans();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка создания');
@@ -72,12 +104,20 @@ export function PlansTab() {
       header: 'ID',
       render: (p) => p.tariff_plan_id.slice(0, 8) + '...',
     },
-    { key: 'name', header: 'Название', sortable: true },
     {
-      key: 'description',
-      header: 'Описание',
+      key: 'name',
+      header: 'Категория / Стратегия',
+      sortable: true,
+      render: (p) => p.name,
+    },
+    {
+      key: 'operator_id',
+      header: 'Оператор',
       responsive: true,
-      render: (p) => p.description || '—',
+      render: (p) => {
+        const op = operators.find((o) => o.value === p.operator_id);
+        return op ? op.label : (p.operator_id ? p.operator_id.slice(0, 8) + '...' : '—');
+      },
     },
     {
       key: 'active',
@@ -93,7 +133,8 @@ export function PlansTab() {
       key: 'created_at',
       header: 'Создан',
       responsive: true,
-      render: (p) => new Date(p.created_at).toLocaleDateString('ru-RU'),
+      render: (p) =>
+        p.created_at ? new Date(p.created_at).toLocaleDateString('ru-RU') : '—',
     },
   ];
 
@@ -104,7 +145,7 @@ export function PlansTab() {
         <Button
           size="sm"
           onClick={() => {
-            setForm({ name: '', description: '' });
+            setForm({ operator_id: '', sender_category: '', strategy: '' });
             setShowCreate(true);
           }}
         >
@@ -138,18 +179,26 @@ export function PlansTab() {
         title="Создать тарифный план"
       >
         <div className="space-y-4">
-          <Input
-            label="Название"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-            placeholder="Базовый тариф"
+          <Select
+            label="Оператор"
+            options={operators}
+            value={form.operator_id}
+            onChange={(v) => setForm({ ...form, operator_id: v })}
+            placeholder="Выберите оператора"
           />
-          <Input
-            label="Описание"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Описание тарифного плана"
+          <Select
+            label="Категория отправителя"
+            options={SENDER_CATEGORY_OPTIONS}
+            value={form.sender_category}
+            onChange={(v) => setForm({ ...form, sender_category: v })}
+            placeholder="Выберите категорию"
+          />
+          <Select
+            label="Стратегия тарификации"
+            options={STRATEGY_OPTIONS}
+            value={form.strategy}
+            onChange={(v) => setForm({ ...form, strategy: v })}
+            placeholder="Выберите стратегию"
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>
@@ -157,7 +206,12 @@ export function PlansTab() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={saving || !form.name.trim()}
+              disabled={
+                saving ||
+                !form.operator_id ||
+                !form.sender_category ||
+                !form.strategy
+              }
             >
               {saving ? 'Создание...' : 'Создать'}
             </Button>

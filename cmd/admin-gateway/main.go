@@ -101,7 +101,7 @@ func main() {
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
 	countryHandlers := handlers.NewCountryHandler(serviceClients.RoutingClient)
 	operatorHandlers := handlers.NewOperatorHandler(serviceClients.RoutingClient)
-	tarificationHandlers := handlers.NewTarificationHandler(serviceClients.TarificationClient)
+	tarificationHandlers := handlers.NewTarificationHandler(serviceClients.TarificationClient, adminDB)
 	hlrHandlers := handlers.NewHLRHandlers(serviceClients.RoutingClient)
 	clientRoutingHandlers := handlers.NewClientRoutingHandlers(serviceClients.RoutingClient, serviceClients.TarificationClient)
 

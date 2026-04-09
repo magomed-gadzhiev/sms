@@ -46,7 +46,7 @@ export function TiersTab() {
     } catch {
       toast.error('Не удалось загрузить планы');
     }
-  }, [toast]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchPeriods = useCallback(async () => {
     try {
@@ -57,7 +57,7 @@ export function TiersTab() {
     } catch {
       toast.error('Не удалось загрузить периоды');
     }
-  }, [filter.tariff_plan_id, toast]);
+  }, [filter.tariff_plan_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTiers = useCallback(async () => {
     setLoading(true);
@@ -72,7 +72,7 @@ export function TiersTab() {
     } finally {
       setLoading(false);
     }
-  }, [filter.tariff_period_id, toast]);
+  }, [filter.tariff_period_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchPlans();

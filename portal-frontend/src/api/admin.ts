@@ -191,6 +191,9 @@ export interface TariffPlan {
   tariff_plan_id: string;
   name: string;
   description: string;
+  operator_id: string;
+  sender_category: string;
+  strategy: string;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -368,7 +371,7 @@ export const operatorsApi = {
 export const tarificationApi = {
   listTariffPlans: () =>
     adminFetch<{ tariff_plans: TariffPlan[] }>('/tarification/tariff-plans'),
-  createTariffPlan: (data: Partial<TariffPlan>) =>
+  createTariffPlan: (data: { operator_id: string; sender_category: string; strategy: string }) =>
     adminFetch<void>('/tarification/tariff-plans', { method: 'POST', body: JSON.stringify(data) }),
   updateTariffPlan: (id: string, data: Partial<TariffPlan>) =>
     adminFetch<void>(`/tarification/tariff-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

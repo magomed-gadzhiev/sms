@@ -151,7 +151,7 @@ func TestTarificationHandler(t *testing.T) {
 	t.Run("CreateTariffPlan", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			client.On("CreateTariffPlan", mock.Anything, mock.MatchedBy(func(req *tarificationv1.CreateTariffPlanRequest) bool {
 				return req.OperatorId == "op-1" &&
@@ -189,7 +189,7 @@ func TestTarificationHandler(t *testing.T) {
 
 		t.Run("returns 400 for invalid JSON", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/admin/v1/tarification/tariff-plans", bytes.NewReader([]byte("bad")))
 			req.Header.Set("Content-Type", "application/json")
@@ -202,7 +202,7 @@ func TestTarificationHandler(t *testing.T) {
 
 		t.Run("returns error when gRPC fails", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			client.On("CreateTariffPlan", mock.Anything, mock.Anything).
 				Return(nil, status.Error(codes.Internal, "internal error"))
@@ -226,7 +226,7 @@ func TestTarificationHandler(t *testing.T) {
 	t.Run("ListTariffPlans", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			client.On("ListTariffPlans", mock.Anything, mock.MatchedBy(func(req *tarificationv1.ListTariffPlansRequest) bool {
 				return req.OperatorId == "op-1" && req.ActiveOnly == true
@@ -261,7 +261,7 @@ func TestTarificationHandler(t *testing.T) {
 
 		t.Run("returns error when service fails", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			client.On("ListTariffPlans", mock.Anything, mock.Anything).
 				Return(nil, status.Error(codes.Unavailable, "service unavailable"))
@@ -278,7 +278,7 @@ func TestTarificationHandler(t *testing.T) {
 	t.Run("UpdateTariffPlan", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			client.On("UpdateTariffPlan", mock.Anything, mock.MatchedBy(func(req *tarificationv1.UpdateTariffPlanRequest) bool {
 				return req.Id == "plan-1" && req.Active == false
@@ -307,7 +307,7 @@ func TestTarificationHandler(t *testing.T) {
 	t.Run("ListUsageCounters", func(t *testing.T) {
 		t.Run("returns 400 when client_id is missing", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/admin/v1/tarification/usage", nil)
 
@@ -319,7 +319,7 @@ func TestTarificationHandler(t *testing.T) {
 
 		t.Run("success", func(t *testing.T) {
 			client := new(mockTarificationClient)
-			handler := NewTarificationHandler(client)
+			handler := NewTarificationHandler(client, nil)
 
 			client.On("ListUsageCounters", mock.Anything, mock.MatchedBy(func(req *tarificationv1.ListUsageCountersRequest) bool {
 				return req.ClientId == "client-1"

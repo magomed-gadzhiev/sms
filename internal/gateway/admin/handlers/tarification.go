@@ -3,23 +3,27 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // TarificationHandler обрабатывает HTTP запросы для тарификации
 type TarificationHandler struct {
 	tarificationClient tarificationv1.TarificationServiceClient
+	db                 *storage.DB
 }
 
 // NewTarificationHandler создает новый экземпляр TarificationHandler
-func NewTarificationHandler(tarificationClient tarificationv1.TarificationServiceClient) *TarificationHandler {
+func NewTarificationHandler(tarificationClient tarificationv1.TarificationServiceClient, db *storage.DB) *TarificationHandler {
 	return &TarificationHandler{
 		tarificationClient: tarificationClient,
+		db:                 db,
 	}
 }
 
@@ -103,6 +107,10 @@ func (h *TarificationHandler) CreateTariffPlan(w http.ResponseWriter, r *http.Re
 		respondError(w, shared.ErrInvalidInput("неверный формат запроса"))
 		return
 	}
+	if req.OperatorID == "" || req.SenderCategory == "" || req.Strategy == "" {
+		respondError(w, shared.ErrInvalidInput("operator_id, sender_category и strategy обязательны"))
+		return
+	}
 
 	resp, err := h.tarificationClient.CreateTariffPlan(r.Context(), &tarificationv1.CreateTariffPlanRequest{
 		OperatorId:     req.OperatorID,
@@ -115,7 +123,28 @@ func (h *TarificationHandler) CreateTariffPlan(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, resp)
+	name := resp.GetSenderCategory() + " / " + resp.GetStrategy()
+	respondJSON(w, http.StatusCreated, tariffPlanDTO{
+		TariffPlanID:   resp.GetId(),
+		Name:           name,
+		OperatorID:     resp.GetOperatorId(),
+		SenderCategory: resp.GetSenderCategory(),
+		Strategy:       resp.GetStrategy(),
+		Active:         resp.GetActive(),
+	})
+}
+
+// tariffPlanDTO — формат тарифного плана для фронтенда
+type tariffPlanDTO struct {
+	TariffPlanID   string `json:"tariff_plan_id"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	OperatorID     string `json:"operator_id"`
+	SenderCategory string `json:"sender_category"`
+	Strategy       string `json:"strategy"`
+	Active         bool   `json:"active"`
+	CreatedAt      string `json:"created_at,omitempty"`
+	UpdatedAt      string `json:"updated_at,omitempty"`
 }
 
 // ListTariffPlans обрабатывает GET /admin/v1/tarification/tariff-plans
@@ -131,7 +160,33 @@ func (h *TarificationHandler) ListTariffPlans(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	respondJSON(w, http.StatusOK, resp)
+	plans := make([]tariffPlanDTO, 0, len(resp.GetPlans()))
+	for _, p := range resp.GetPlans() {
+		name := p.GetSenderCategory() + " / " + p.GetStrategy()
+		var createdAt, updatedAt string
+		if ts := p.GetCreatedAt(); ts != nil {
+			createdAt = ts.AsTime().Format(time.RFC3339)
+		}
+		if ts := p.GetUpdatedAt(); ts != nil {
+			updatedAt = ts.AsTime().Format(time.RFC3339)
+		}
+		plans = append(plans, tariffPlanDTO{
+			TariffPlanID:   p.GetId(),
+			Name:           name,
+			Description:    "",
+			OperatorID:     p.GetOperatorId(),
+			SenderCategory: p.GetSenderCategory(),
+			Strategy:       p.GetStrategy(),
+			Active:         p.GetActive(),
+			CreatedAt:      createdAt,
+			UpdatedAt:      updatedAt,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"tariff_plans": plans,
+		"total":        resp.GetTotal(),
+	})
 }
 
 // UpdateTariffPlan обрабатывает PUT /admin/v1/tarification/tariff-plans/{id}
@@ -155,6 +210,97 @@ func (h *TarificationHandler) UpdateTariffPlan(w http.ResponseWriter, r *http.Re
 	}
 
 	respondJSON(w, http.StatusOK, resp)
+}
+
+// ListTariffPeriods обрабатывает GET /admin/v1/tarification/tariff-periods
+func (h *TarificationHandler) ListTariffPeriods(w http.ResponseWriter, r *http.Request) {
+	tariffPlanID := r.URL.Query().Get("tariff_plan_id")
+
+	type periodRow struct {
+		ID           string `json:"id"`
+		TariffPlanID string `json:"tariff_plan_id"`
+		StartDate    string `json:"start_date"`
+		EndDate      string `json:"end_date"`
+		CreatedAt    string `json:"created_at"`
+	}
+
+	var query string
+	var args []interface{}
+	if tariffPlanID != "" {
+		query = `SELECT id::text, tariff_plan_id::text, start_date::text, end_date::text, created_at FROM tariff_periods WHERE tariff_plan_id = $1 ORDER BY start_date DESC`
+		args = []interface{}{tariffPlanID}
+	} else {
+		query = `SELECT id::text, tariff_plan_id::text, start_date::text, end_date::text, created_at FROM tariff_periods ORDER BY start_date DESC`
+	}
+
+	rows, err := h.db.QueryContext(r.Context(), query, args...)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения тарифных периодов")
+		respondError(w, shared.ErrInternalServer("ошибка получения данных"))
+		return
+	}
+	defer rows.Close()
+
+	periods := make([]periodRow, 0)
+	for rows.Next() {
+		var p periodRow
+		var createdAt time.Time
+		if err := rows.Scan(&p.ID, &p.TariffPlanID, &p.StartDate, &p.EndDate, &createdAt); err != nil {
+			log.Error().Err(err).Msg("ошибка чтения тарифного периода")
+			continue
+		}
+		p.CreatedAt = createdAt.Format(time.RFC3339)
+		periods = append(periods, p)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"periods": periods,
+		"total":   len(periods),
+	})
+}
+
+// ListTariffTiers обрабатывает GET /admin/v1/tarification/tariff-tiers
+func (h *TarificationHandler) ListTariffTiers(w http.ResponseWriter, r *http.Request) {
+	tariffPeriodID := r.URL.Query().Get("tariff_period_id")
+
+	type tierRow struct {
+		ID             string `json:"id"`
+		TariffPeriodID string `json:"tariff_period_id"`
+		FromCount      int    `json:"from_count"`
+		PricePerSegment string `json:"price_per_segment"`
+	}
+
+	var query string
+	var args []interface{}
+	if tariffPeriodID != "" {
+		query = `SELECT id::text, tariff_period_id::text, from_count, price_per_segment::text FROM tariff_tiers WHERE tariff_period_id = $1 ORDER BY from_count ASC`
+		args = []interface{}{tariffPeriodID}
+	} else {
+		query = `SELECT id::text, tariff_period_id::text, from_count, price_per_segment::text FROM tariff_tiers ORDER BY from_count ASC`
+	}
+
+	rows, err := h.db.QueryContext(r.Context(), query, args...)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения тарифных тиров")
+		respondError(w, shared.ErrInternalServer("ошибка получения данных"))
+		return
+	}
+	defer rows.Close()
+
+	tiers := make([]tierRow, 0)
+	for rows.Next() {
+		var t tierRow
+		if err := rows.Scan(&t.ID, &t.TariffPeriodID, &t.FromCount, &t.PricePerSegment); err != nil {
+			log.Error().Err(err).Msg("ошибка чтения тарифного тира")
+			continue
+		}
+		tiers = append(tiers, t)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"tiers": tiers,
+		"total": len(tiers),
+	})
 }
 
 // CreateTariffPeriod обрабатывает POST /admin/v1/tarification/tariff-periods

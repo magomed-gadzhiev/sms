@@ -46,7 +46,7 @@ export function PeriodsTab() {
     } catch {
       toast.error('Не удалось загрузить планы');
     }
-  }, [toast]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchPeriods = useCallback(async () => {
     setLoading(true);
@@ -60,7 +60,7 @@ export function PeriodsTab() {
     } finally {
       setLoading(false);
     }
-  }, [filter, toast]);
+  }, [filter.tariff_plan_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchPlans();
