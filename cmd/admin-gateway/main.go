@@ -91,6 +91,19 @@ func main() {
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("admin-gateway", cfg.Service.Version)
 
+	// DB connection for handlers that require direct DB access
+	adminDB, dbErr := storage.NewDBWithConfig(
+		cfg.Database.GetDSN(),
+		cfg.Database.MaxOpenConns,
+		cfg.Database.MaxIdleConns,
+		cfg.Database.ConnMaxLifetime,
+		cfg.Database.ConnMaxIdleTime,
+	)
+	if dbErr != nil {
+		logger.Fatal().Err(dbErr).Msg("ошибка подключения к БД для admin handlers")
+	}
+	defer adminDB.Close()
+
 	// Создание handlers
 	clientHandlers := handlers.NewClientHandlers(serviceClients.ClientClient)
 	providerHandlers := handlers.NewProviderHandlers(serviceClients.ProviderClient)
@@ -104,19 +117,6 @@ func main() {
 	tarificationHandlers := handlers.NewTarificationHandler(serviceClients.TarificationClient, adminDB)
 	hlrHandlers := handlers.NewHLRHandlers(serviceClients.RoutingClient)
 	clientRoutingHandlers := handlers.NewClientRoutingHandlers(serviceClients.RoutingClient, serviceClients.TarificationClient)
-
-	// DB connection for system_defaults and stub_config handlers
-	adminDB, dbErr := storage.NewDBWithConfig(
-		cfg.Database.GetDSN(),
-		cfg.Database.MaxOpenConns,
-		cfg.Database.MaxIdleConns,
-		cfg.Database.ConnMaxLifetime,
-		cfg.Database.ConnMaxIdleTime,
-	)
-	if dbErr != nil {
-		logger.Fatal().Err(dbErr).Msg("ошибка подключения к БД для admin handlers")
-	}
-	defer adminDB.Close()
 
 	systemDefaultsRepo := storage.NewSystemDefaultsRepository(adminDB)
 	systemDefaultsHandlers := handlers.NewSystemDefaultsHandlers(systemDefaultsRepo)
