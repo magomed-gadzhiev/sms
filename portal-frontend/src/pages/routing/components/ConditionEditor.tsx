@@ -1,16 +1,25 @@
 import { Select } from '../../../components/ui/Select';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { ConditionGroupJSON, ConditionJSON } from '../types';
 import { LOGIC_OP_LABELS, CONDITION_TYPE_LABELS } from '../types';
+import type { OperatorInfo } from '../../../api/client';
+
+const TRAFFIC_TYPES = [
+  { value: 'authorization', label: 'Авторизация' },
+  { value: 'transactional', label: 'Транзакционный' },
+  { value: 'service', label: 'Сервисный' },
+];
 
 interface ConditionEditorProps {
   groups: ConditionGroupJSON[];
   onChange: (groups: ConditionGroupJSON[]) => void;
+  operators?: OperatorInfo[];
 }
 
 const LOGIC_OPS: ConditionGroupJSON['logic_op'][] = ['IF', 'AND', 'AND_NOT', 'OR', 'OR_NOT'];
 const CONDITION_TYPES: ConditionJSON['type'][] = ['operator', 'country', 'traffic_type', 'paid_name', 'regex'];
 
-export function ConditionEditor({ groups, onChange }: ConditionEditorProps) {
+export function ConditionEditor({ groups, onChange, operators = [] }: ConditionEditorProps) {
   function updateGroup(index: number, updated: ConditionGroupJSON) {
     const next = [...groups];
     next[index] = updated;
@@ -86,16 +95,34 @@ export function ConditionEditor({ groups, onChange }: ConditionEditorProps) {
               <div key={ci} className="flex items-center gap-2">
                 <Select
                   value={cond.type}
-                  onChange={(val) => updateCondition(gi, ci, { ...cond, type: val as ConditionJSON['type'] })}
+                  onChange={(val) => updateCondition(gi, ci, { type: val as ConditionJSON['type'], value: '' })}
                   options={CONDITION_TYPES.map((t) => ({ value: t, label: CONDITION_TYPE_LABELS[t] }))}
                 />
-                <input
-                  type="text"
-                  value={cond.value}
-                  onChange={(e) => updateCondition(gi, ci, { ...cond, value: e.target.value })}
-                  placeholder="Значение"
-                  className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                />
+                {cond.type === 'operator' ? (
+                  <SearchableSelect
+                    className="flex-1"
+                    value={cond.value}
+                    onChange={(val) => updateCondition(gi, ci, { ...cond, value: val })}
+                    placeholder="Выберите оператора"
+                    options={operators.map((o) => ({ value: o.id, label: o.name }))}
+                  />
+                ) : cond.type === 'traffic_type' ? (
+                  <Select
+                    className="flex-1"
+                    value={cond.value}
+                    onChange={(val) => updateCondition(gi, ci, { ...cond, value: val })}
+                    placeholder="Выберите тип трафика"
+                    options={TRAFFIC_TYPES}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={cond.value}
+                    onChange={(e) => updateCondition(gi, ci, { ...cond, value: e.target.value })}
+                    placeholder="Значение"
+                    className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => removeCondition(gi, ci)}

@@ -330,6 +330,7 @@ func SetupRouter(
 	routes := protected.PathPrefix("/routes").Subrouter()
 	routes.HandleFunc("", routeHandlers.CreateRoute).Methods("POST")
 	routes.HandleFunc("", routeHandlers.ListRoutes).Methods("GET")
+	routes.HandleFunc("/providers", routeHandlers.ListRouteProviders).Methods("GET")
 	routes.HandleFunc("/references", routeHandlers.GetReferences).Methods("GET")
 	routes.HandleFunc("/{id}", routeHandlers.GetRoute).Methods("GET")
 	routes.HandleFunc("/{id}", routeHandlers.UpdateRoute).Methods("PUT")

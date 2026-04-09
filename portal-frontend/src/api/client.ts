@@ -374,6 +374,7 @@ export const routesApi = {
     apiFetch<RouteDetail>(`/routes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id: string) => apiFetch<void>(`/routes/${id}`, { method: 'DELETE' }),
   references: () => apiFetch<RouteReferences>('/routes/references'),
+  listProviders: () => apiFetch<{ providers: { id: string; name: string }[] }>('/routes/providers'),
 };
 
 // Templates API

@@ -321,6 +321,30 @@ func (h *RouteHandlers) DeleteRoute(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ListRouteProviders GET /portal/v1/routes/providers
+func (h *RouteHandlers) ListRouteProviders(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.pool.Query(r.Context(), `SELECT id, name FROM providers WHERE active = true ORDER BY name ASC`)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to list route providers")
+		respondError(w, shared.ErrInternalServer("Ошибка получения провайдеров"))
+		return
+	}
+	defer rows.Close()
+
+	type providerItem struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	providers := []providerItem{}
+	for rows.Next() {
+		var p providerItem
+		if err := rows.Scan(&p.ID, &p.Name); err == nil {
+			providers = append(providers, p)
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"providers": providers})
+}
+
 // GetReferences GET /portal/v1/routes/references
 func (h *RouteHandlers) GetReferences(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]interface{}{

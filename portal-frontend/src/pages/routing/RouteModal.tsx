@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { Select } from '../../components/ui/Select';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import {
   routesApi,
-  providersApi,
   routingApi,
   ApiError,
-  type Provider,
   type OperatorInfo,
 } from '../../api/client';
 import type { RouteFormData, ScheduleJSON } from './types';
@@ -42,8 +40,8 @@ const ROUTE_TYPES = [
 
 export function RouteModal({ open, onClose, onSaved, routeId }: RouteModalProps) {
   const [form, setForm] = useState<RouteFormData>({ ...EMPTY_FORM });
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [, setOperators] = useState<OperatorInfo[]>([]);
+  const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
+  const [operators, setOperators] = useState<OperatorInfo[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,7 +53,7 @@ export function RouteModal({ open, onClose, onSaved, routeId }: RouteModalProps)
     setError('');
     try {
       const [provsResp, opsResp] = await Promise.all([
-        providersApi.list(),
+        routesApi.listProviders(),
         routingApi.listOperators(),
       ]);
       setProviders(provsResp.providers ?? []);
@@ -126,7 +124,6 @@ export function RouteModal({ open, onClose, onSaved, routeId }: RouteModalProps)
     }
   }
 
-  const activeProviders = providers.filter((p) => p.active);
   const providerName = providers.find((p) => p.id === form.provider_id)?.name || '';
 
   const scheduleValue: ScheduleJSON | null = form.schedules.length > 0 ? form.schedules[0] : null;
@@ -226,18 +223,19 @@ export function RouteModal({ open, onClose, onSaved, routeId }: RouteModalProps)
               <ConditionEditor
                 groups={form.condition_groups}
                 onChange={(groups) => updateForm({ condition_groups: groups })}
+                operators={operators}
               />
             </section>
 
             {/* Section: Канал доставки */}
             <section>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Канал доставки</h3>
-              <Select
+              <SearchableSelect
                 label="Провайдер"
                 value={form.provider_id}
                 onChange={(val) => updateForm({ provider_id: val })}
                 placeholder="Выберите провайдера"
-                options={activeProviders.map((p) => ({ value: p.id, label: p.name }))}
+                options={providers.map((p) => ({ value: p.id, label: p.name }))}
               />
             </section>
 
