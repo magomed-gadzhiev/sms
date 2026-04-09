@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
@@ -20,11 +22,12 @@ import (
 // RouteHandlers provides HTTP handlers for admin route CRUD.
 type RouteHandlers struct {
 	repo *infrastructure.RouteRepo
+	pool *pgxpool.Pool
 }
 
 // NewRouteHandlers creates a new RouteHandlers instance.
-func NewRouteHandlers(repo *infrastructure.RouteRepo) *RouteHandlers {
-	return &RouteHandlers{repo: repo}
+func NewRouteHandlers(repo *infrastructure.RouteRepo, pool *pgxpool.Pool) *RouteHandlers {
+	return &RouteHandlers{repo: repo, pool: pool}
 }
 
 // ---- JSON request / response types ----
@@ -106,6 +109,7 @@ type routeListItem struct {
 	Status          string     `json:"status"`
 	RouteType       string     `json:"route_type"`
 	ProviderID      uuid.UUID  `json:"provider_id"`
+	ProviderName    string     `json:"provider_name"`
 	Priority        int        `json:"priority"`
 	Share           int        `json:"share"`
 	ConditionTags   []string   `json:"condition_tags"`
@@ -181,21 +185,51 @@ func (h *RouteHandlers) ListRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load children for each route to build condition_tags and schedule_summary
-	items := make([]routeListItem, 0, len(routes))
+	fullRoutes := make([]*domain.ClientRoute, 0, len(routes))
 	for _, route := range routes {
 		full, err := h.repo.GetByID(r.Context(), route.ID)
 		if err != nil {
 			log.Error().Err(err).Str("route_id", route.ID.String()).Msg("failed to load route children")
-			// Fall back to route without children
-			items = append(items, routeToListItem(route))
+			fullRoutes = append(fullRoutes, route)
 			continue
 		}
-		items = append(items, routeToListItem(full))
+		fullRoutes = append(fullRoutes, full)
+	}
+
+	// Collect unique provider IDs and operator condition IDs for batch name lookup
+	providerIDSet := map[uuid.UUID]struct{}{}
+	operatorIDSet := map[uuid.UUID]struct{}{}
+	for _, route := range fullRoutes {
+		providerIDSet[route.ProviderID] = struct{}{}
+		for _, g := range route.Groups {
+			for _, c := range g.Conditions {
+				if c.Type == domain.ConditionOperator {
+					if id, err := uuid.Parse(c.Value); err == nil {
+						operatorIDSet[id] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	providerIDs := make([]uuid.UUID, 0, len(providerIDSet))
+	for id := range providerIDSet {
+		providerIDs = append(providerIDs, id)
+	}
+	operatorIDs := make([]uuid.UUID, 0, len(operatorIDSet))
+	for id := range operatorIDSet {
+		operatorIDs = append(operatorIDs, id)
+	}
+	providerNames := h.fetchProviderNames(r.Context(), providerIDs)
+	operatorNames := h.fetchOperatorNames(r.Context(), operatorIDs)
+
+	items := make([]routeListItem, 0, len(fullRoutes))
+	for _, route := range fullRoutes {
+		items = append(items, routeToListItem(route, providerNames, operatorNames))
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"routes": items,
-		"total": total,
+		"total":  total,
 	})
 }
 
@@ -480,26 +514,36 @@ func routeToResponse(route *domain.ClientRoute) routeResponse {
 	return resp
 }
 
-func routeToListItem(route *domain.ClientRoute) routeListItem {
+func routeToListItem(route *domain.ClientRoute, providerNames, operatorNames map[uuid.UUID]string) routeListItem {
 	item := routeListItem{
-		ID:         route.ID,
-		ClientID:   route.ClientID,
-		Name:       route.Name,
-		Comment:    route.Comment,
-		Status:     string(route.Status),
-		RouteType:  route.RouteType,
-		ProviderID: route.ProviderID,
-		Priority:   route.Priority,
-		Share:      route.Share,
-		CreatedAt:  route.CreatedAt,
-		UpdatedAt:  route.UpdatedAt,
+		ID:           route.ID,
+		ClientID:     route.ClientID,
+		Name:         route.Name,
+		Comment:      route.Comment,
+		Status:       string(route.Status),
+		RouteType:    route.RouteType,
+		ProviderID:   route.ProviderID,
+		ProviderName: providerNames[route.ProviderID],
+		Priority:     route.Priority,
+		Share:        route.Share,
+		CreatedAt:    route.CreatedAt,
+		UpdatedAt:    route.UpdatedAt,
 	}
 
-	// Build condition_tags from groups
+	// Build condition_tags from groups, resolving operator UUIDs to names
 	tags := make([]string, 0)
 	for _, g := range route.Groups {
 		for _, c := range g.Conditions {
-			tags = append(tags, fmt.Sprintf("%s: %s", c.Type, c.Value))
+			label := conditionTypeLabel(c.Type)
+			value := c.Value
+			if c.Type == domain.ConditionOperator {
+				if id, err := uuid.Parse(c.Value); err == nil {
+					if name, ok := operatorNames[id]; ok {
+						value = name
+					}
+				}
+			}
+			tags = append(tags, fmt.Sprintf("%s: %s", label, value))
 		}
 	}
 	item.ConditionTags = tags
@@ -510,6 +554,65 @@ func routeToListItem(route *domain.ClientRoute) routeListItem {
 	}
 
 	return item
+}
+
+func conditionTypeLabel(t domain.ConditionType) string {
+	switch t {
+	case domain.ConditionOperator:
+		return "Оператор"
+	case domain.ConditionCountry:
+		return "Страна"
+	case domain.ConditionTrafficType:
+		return "Тип трафика"
+	case domain.ConditionPaidName:
+		return "Платное имя"
+	case domain.ConditionRegex:
+		return "Regex"
+	default:
+		return string(t)
+	}
+}
+
+func (h *RouteHandlers) fetchProviderNames(ctx context.Context, ids []uuid.UUID) map[uuid.UUID]string {
+	result := map[uuid.UUID]string{}
+	if len(ids) == 0 {
+		return result
+	}
+	rows, err := h.pool.Query(ctx, `SELECT id, name FROM providers WHERE id = ANY($1)`, ids)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch provider names")
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err == nil {
+			result[id] = name
+		}
+	}
+	return result
+}
+
+func (h *RouteHandlers) fetchOperatorNames(ctx context.Context, ids []uuid.UUID) map[uuid.UUID]string {
+	result := map[uuid.UUID]string{}
+	if len(ids) == 0 {
+		return result
+	}
+	rows, err := h.pool.Query(ctx, `SELECT id, name FROM operators WHERE id = ANY($1)`, ids)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch operator names")
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err == nil {
+			result[id] = name
+		}
+	}
+	return result
 }
 
 // weekdayNames maps bit positions to short Russian weekday names.

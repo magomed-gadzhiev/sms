@@ -63,7 +63,7 @@ export function RouteTable({ routes, providers, loading, onEdit, onDelete }: Rou
                   )}
                 </td>
                 <td className="px-4 py-3 text-gray-700">
-                  {provider ? provider.name : route.provider_id.slice(0, 8)}
+                  {route.provider_name || provider?.name || route.provider_id.slice(0, 8)}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className="font-bold text-gray-900">{route.priority}</span>

@@ -221,7 +221,7 @@ func main() {
 	exportHandlers := handlers.NewExportHandlers(redisClient, serviceClients.MessagingClient)
 	optOutHandlers := handlers.NewOptOutHandlers(dbPool)
 	routeRepo := routinginfra.NewRouteRepo(dbPool)
-	routeHandlers := handlers.NewRouteHandlers(routeRepo)
+	routeHandlers := handlers.NewRouteHandlers(routeRepo, dbPool)
 
 	// Запускаем планировщик уведомлений
 	notifScheduler := notifications.NewScheduler(dbPool, serviceClients.CampaignClient)

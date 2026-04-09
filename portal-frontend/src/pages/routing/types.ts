@@ -55,6 +55,7 @@ export interface RouteListItem {
   status: string;
   route_type: string;
   provider_id: string;
+  provider_name: string;
   priority: number;
   share: number;
   comment: string;
