@@ -131,11 +131,14 @@ export function PeriodsTab() {
   const [modalOperators, setModalOperators] = useState<OperatorInfo[]>([]);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const [editingPeriod, setEditingPeriod] = useState<HierarchicalPeriod | null>(null);
   const [editForm, setEditForm] = useState({ strategy: '', end_date: '' });
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Load reference data once
   useEffect(() => {
@@ -151,7 +154,7 @@ export function PeriodsTab() {
       .list({ limit: 1000 })
       .then((r) => setClients(r.clients || []))
       .catch(() => toast.error('Не удалось загрузить клиентов'));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // When form country_id changes, load operators for that country
   useEffect(() => {
@@ -165,7 +168,7 @@ export function PeriodsTab() {
     if (form.operator_id && !filtered.find((o) => o.operator_id === form.operator_id)) {
       setForm((f) => ({ ...f, operator_id: '' }));
     }
-  }, [form.country_id, operators]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [form.country_id, operators]);
 
   const fetchPeriods = useCallback(async () => {
     setLoading(true);
@@ -184,7 +187,7 @@ export function PeriodsTab() {
     } finally {
       setLoading(false);
     }
-  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filter, toast]);
 
   useEffect(() => {
     fetchPeriods();
@@ -276,7 +279,7 @@ export function PeriodsTab() {
       toast.error('Заполните обязательные поля: стратегия и дата начала');
       return;
     }
-    setSaving(true);
+    setCreating(true);
     try {
       const res = await tarificationApi.createPeriod({
         country_id: form.country_id || null,
@@ -299,13 +302,13 @@ export function PeriodsTab() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка создания периода');
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   };
 
   const handleUpdate = async () => {
     if (!editingPeriod) return;
-    setSaving(true);
+    setUpdating(true);
     try {
       await tarificationApi.updatePeriod(editingPeriod.id, {
         strategy: editForm.strategy || undefined,
@@ -317,12 +320,11 @@ export function PeriodsTab() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка обновления');
     } finally {
-      setSaving(false);
+      setUpdating(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Удалить период?')) return;
+  const handleDelete = useCallback(async (id: string) => {
     try {
       await tarificationApi.deletePeriod(id);
       toast.success('Период удалён');
@@ -330,14 +332,14 @@ export function PeriodsTab() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
     }
-  };
+  }, [fetchPeriods, toast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortedPeriods = useMemo(
     () => [...periods].sort((a, b) => a.scope_priority - b.scope_priority),
     [periods],
   );
 
-  const columns: Column<HierarchicalPeriod>[] = [
+  const columns: Column<HierarchicalPeriod>[] = useMemo(() => [
     {
       key: 'scope_key',
       header: 'Область действия',
@@ -394,14 +396,14 @@ export function PeriodsTab() {
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => handleDelete(p.id)}
+            onClick={() => setDeletingId(p.id)}
           >
             Удалить
           </Button>
         </div>
       ),
     },
-  ];
+  ], [countryMap, operatorMap, clientMap]);
 
   return (
     <>
@@ -506,9 +508,9 @@ export function PeriodsTab() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={saving || !form.strategy || !form.start_date}
+              disabled={creating || !form.strategy || !form.start_date}
             >
-              {saving ? 'Создание...' : 'Создать'}
+              {creating ? 'Создание...' : 'Создать'}
             </Button>
           </div>
         </div>
@@ -537,8 +539,33 @@ export function PeriodsTab() {
             <Button variant="secondary" onClick={() => setEditingPeriod(null)}>
               Отмена
             </Button>
-            <Button onClick={handleUpdate} disabled={saving}>
-              {saving ? 'Сохранение...' : 'Сохранить'}
+            <Button onClick={handleUpdate} disabled={updating}>
+              {updating ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={deletingId !== null}
+        onClose={() => setDeletingId(null)}
+        title="Подтверждение удаления"
+      >
+        <div className="space-y-4">
+          <p>Вы уверены, что хотите удалить этот период?</p>
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setDeletingId(null)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!deletingId) return;
+                const id = deletingId;
+                setDeletingId(null);
+                await handleDelete(id);
+              }}
+            >
+              Удалить
             </Button>
           </div>
         </div>
