@@ -392,6 +392,14 @@ export const tarificationApi = {
     adminFetch<void>('/tarification/sender-registrations', { method: 'POST', body: JSON.stringify(data) }),
   updateSenderRegistration: (id: string, data: { status: string; type: string }) =>
     adminFetch<void>(`/tarification/sender-registrations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  listPeriods: (params?: { country_id?: string; operator_id?: string; sender_category?: string; traffic_type?: string; client_id?: string }) =>
+    adminFetch<{ periods: HierarchicalPeriod[]; total: number }>(`/tarification/periods${qs(params || {})}`),
+  createPeriod: (data: CreateHierarchicalPeriodRequest) =>
+    adminFetch<{ period: HierarchicalPeriod; auto_close_warning?: AutoCloseWarning }>('/tarification/periods', { method: 'POST', body: JSON.stringify(data) }),
+  updatePeriod: (id: string, data: UpdateHierarchicalPeriodRequest) =>
+    adminFetch<{ period: HierarchicalPeriod }>(`/tarification/periods/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePeriod: (id: string) =>
+    adminFetch<void>(`/tarification/periods/${id}`, { method: 'DELETE' }),
 };
 
 export const hlrApi = {
@@ -461,6 +469,43 @@ export interface TariffPeriod {
   start_date: string;
   end_date: string;
   created_at: string;
+}
+
+export interface HierarchicalPeriod {
+  id: string;
+  country_id: string | null;
+  operator_id: string | null;
+  sender_category: string | null;
+  traffic_type: string | null;
+  client_id: string | null;
+  scope_key: string;
+  scope_priority: number;
+  strategy: string;
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+}
+
+export interface AutoCloseWarning {
+  closed_period_id: string;
+  old_end_date: string;
+  message: string;
+}
+
+export interface CreateHierarchicalPeriodRequest {
+  country_id?: string | null;
+  operator_id?: string | null;
+  sender_category?: string | null;
+  traffic_type?: string | null;
+  client_id?: string | null;
+  strategy: string;
+  start_date: string;
+  end_date?: string | null;
+}
+
+export interface UpdateHierarchicalPeriodRequest {
+  strategy?: string;
+  end_date?: string | null;
 }
 
 export interface TariffTier {

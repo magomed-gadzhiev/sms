@@ -9,120 +9,318 @@ import { Badge } from '../../../components/ui/Badge';
 import { useToast } from '../../../components/ui/Toast';
 import {
   tarificationApi,
-  type TariffPlan,
-  type TariffPeriod,
+  countriesApi,
+  operatorsApi,
+  clientsApi,
+  type HierarchicalPeriod,
+  type CountryInfo,
+  type OperatorInfo,
+  type ClientInfo,
 } from '../../../api/admin';
 
-function computeStatus(period: TariffPeriod): {
+const SENDER_CATEGORY_OPTIONS = [
+  { value: 'paid_registered', label: 'paid_registered' },
+  { value: 'free_registered', label: 'free_registered' },
+  { value: 'shared', label: 'shared' },
+];
+
+const TRAFFIC_TYPE_OPTIONS = [
+  { value: 'authorization', label: 'authorization' },
+  { value: 'transactional', label: 'transactional' },
+  { value: 'service', label: 'service' },
+  { value: 'extensible', label: 'extensible' },
+];
+
+const STRATEGY_OPTIONS = [
+  { value: 'fixed', label: 'fixed' },
+  { value: 'threshold', label: 'threshold' },
+  { value: 'threshold_recalc', label: 'threshold_recalc' },
+  { value: 'prepaid_threshold', label: 'prepaid_threshold' },
+];
+
+function computeStatus(period: HierarchicalPeriod): {
   label: string;
   variant: 'success' | 'warning' | 'default';
 } {
-  const now = new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const start = new Date(period.start_date);
-  const end = new Date(period.end_date);
-  if (end < now) return { label: 'Истёк', variant: 'default' };
-  if (start > now) return { label: 'Запланирован', variant: 'warning' };
+  start.setHours(0, 0, 0, 0);
+
+  if (period.end_date === null && start <= today) {
+    return { label: 'Активен', variant: 'success' };
+  }
+  if (start > today) {
+    return { label: 'Запланирован', variant: 'warning' };
+  }
+  if (period.end_date !== null) {
+    const end = new Date(period.end_date);
+    end.setHours(0, 0, 0, 0);
+    if (end < today) return { label: 'Истёк', variant: 'default' };
+    return { label: 'Активен', variant: 'success' };
+  }
   return { label: 'Активен', variant: 'success' };
 }
 
+function buildScopeLabel(
+  period: HierarchicalPeriod,
+  countryMap: Record<string, string>,
+  operatorMap: Record<string, string>,
+  clientMap: Record<string, string>,
+): string {
+  const base = period.scope_priority % 100;
+  let parts: string[] = [];
+
+  if (base === 0) {
+    parts.push('Глобальный');
+  } else if (base >= 10 && period.country_id) {
+    parts.push(countryMap[period.country_id] || period.country_id.slice(0, 8));
+  }
+  if (base >= 20 && period.operator_id) {
+    parts.push(operatorMap[period.operator_id] || period.operator_id.slice(0, 8));
+  }
+  if (base >= 30 && period.sender_category) {
+    parts.push(period.sender_category);
+  }
+  if (base >= 40 && period.traffic_type) {
+    parts.push(period.traffic_type);
+  }
+
+  let label = parts.join(' / ');
+  if (period.client_id) {
+    label += ` [Клиент: ${clientMap[period.client_id] || period.client_id.slice(0, 8)}]`;
+  }
+  return label || 'Глобальный';
+}
+
+interface FormState {
+  country_id: string;
+  operator_id: string;
+  sender_category: string;
+  traffic_type: string;
+  client_id: string;
+  strategy: string;
+  start_date: string;
+  end_date: string;
+}
+
+const EMPTY_FORM: FormState = {
+  country_id: '',
+  operator_id: '',
+  sender_category: '',
+  traffic_type: '',
+  client_id: '',
+  strategy: '',
+  start_date: '',
+  end_date: '',
+};
+
 export function PeriodsTab() {
   const toast = useToast();
-  const [periods, setPeriods] = useState<TariffPeriod[]>([]);
-  const [plans, setPlans] = useState<TariffPlan[]>([]);
+
+  const [periods, setPeriods] = useState<HierarchicalPeriod[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Record<string, string>>({});
+
+  const [countries, setCountries] = useState<CountryInfo[]>([]);
+  const [operators, setOperators] = useState<OperatorInfo[]>([]);
+  const [clients, setClients] = useState<ClientInfo[]>([]);
+
+  // Operators filtered for the create modal (cascade from country selection)
+  const [modalOperators, setModalOperators] = useState<OperatorInfo[]>([]);
+
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    tariff_plan_id: '',
-    start_date: '',
-    end_date: '',
-  });
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const fetchPlans = useCallback(async () => {
-    try {
-      const res = await tarificationApi.listTariffPlans();
-      setPlans(res.tariff_plans || []);
-    } catch {
-      toast.error('Не удалось загрузить планы');
-    }
+  // Load reference data once
+  useEffect(() => {
+    countriesApi
+      .list({ limit: 500 })
+      .then((r) => setCountries(r.countries || []))
+      .catch(() => toast.error('Не удалось загрузить страны'));
+    operatorsApi
+      .list({ limit: 1000 })
+      .then((r) => setOperators(r.operators || []))
+      .catch(() => toast.error('Не удалось загрузить операторов'));
+    clientsApi
+      .list({ limit: 1000 })
+      .then((r) => setClients(r.clients || []))
+      .catch(() => toast.error('Не удалось загрузить клиентов'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When form country_id changes, load operators for that country
+  useEffect(() => {
+    if (!form.country_id) {
+      setModalOperators(operators);
+      return;
+    }
+    const filtered = operators.filter((o) => o.country_id === form.country_id);
+    setModalOperators(filtered);
+    // Reset operator if not in filtered list
+    if (form.operator_id && !filtered.find((o) => o.operator_id === form.operator_id)) {
+      setForm((f) => ({ ...f, operator_id: '' }));
+    }
+  }, [form.country_id, operators]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchPeriods = useCallback(async () => {
     setLoading(true);
     try {
-      const params: { tariff_plan_id?: string } = {};
-      if (filter.tariff_plan_id) params.tariff_plan_id = filter.tariff_plan_id;
-      const res = await tarificationApi.listTariffPeriods(params);
+      const params: Record<string, string> = {};
+      if (filter.country_id) params.country_id = filter.country_id;
+      if (filter.operator_id) params.operator_id = filter.operator_id;
+      if (filter.sender_category) params.sender_category = filter.sender_category;
+      if (filter.traffic_type) params.traffic_type = filter.traffic_type;
+      if (filter.client_id) params.client_id = filter.client_id;
+      const res = await tarificationApi.listPeriods(params);
       setPeriods(res.periods || []);
+      setTotal(res.total || 0);
     } catch {
       toast.error('Не удалось загрузить периоды');
     } finally {
       setLoading(false);
     }
-  }, [filter.tariff_plan_id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
+  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchPeriods();
   }, [fetchPeriods]);
 
-  const planOptions = useMemo(
-    () => plans.map((p) => ({ value: p.tariff_plan_id, label: p.name })),
-    [plans],
+  // Lookup maps
+  const countryMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of countries) m[c.country_id] = c.name;
+    return m;
+  }, [countries]);
+
+  const operatorMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const o of operators) m[o.operator_id] = o.name;
+    return m;
+  }, [operators]);
+
+  const clientMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of clients) m[c.client_id] = c.name;
+    return m;
+  }, [clients]);
+
+  // Filter options
+  const countryOptions = useMemo(
+    () => countries.map((c) => ({ value: c.country_id, label: c.name })),
+    [countries],
+  );
+
+  const operatorOptions = useMemo(
+    () => operators.map((o) => ({ value: o.operator_id, label: o.name })),
+    [operators],
+  );
+
+  const clientOptions = useMemo(
+    () => clients.map((c) => ({ value: c.client_id, label: c.name })),
+    [clients],
+  );
+
+  const modalOperatorOptions = useMemo(
+    () => modalOperators.map((o) => ({ value: o.operator_id, label: o.name })),
+    [modalOperators],
   );
 
   const filters: FilterDef[] = useMemo(
     () => [
       {
-        key: 'tariff_plan_id',
-        label: 'Тарифный план',
+        key: 'country_id',
+        label: 'Страна',
         type: 'select' as const,
-        options: planOptions,
-        placeholder: 'Все планы',
+        options: countryOptions,
+        placeholder: 'Все страны',
+      },
+      {
+        key: 'operator_id',
+        label: 'Оператор',
+        type: 'select' as const,
+        options: operatorOptions,
+        placeholder: 'Все операторы',
+      },
+      {
+        key: 'sender_category',
+        label: 'Категория отправителя',
+        type: 'select' as const,
+        options: SENDER_CATEGORY_OPTIONS,
+        placeholder: 'Все категории',
+      },
+      {
+        key: 'traffic_type',
+        label: 'Тип трафика',
+        type: 'select' as const,
+        options: TRAFFIC_TYPE_OPTIONS,
+        placeholder: 'Все типы',
+      },
+      {
+        key: 'client_id',
+        label: 'Клиент',
+        type: 'select' as const,
+        options: clientOptions,
+        placeholder: 'Все клиенты',
       },
     ],
-    [planOptions],
+    [countryOptions, operatorOptions, clientOptions],
   );
 
   const handleCreate = async () => {
-    if (!form.tariff_plan_id || !form.start_date || !form.end_date) {
-      toast.error('Заполните все поля');
+    if (!form.strategy || !form.start_date) {
+      toast.error('Заполните обязательные поля: стратегия и дата начала');
       return;
     }
     setSaving(true);
     try {
-      await tarificationApi.createTariffPeriod({
-        tariff_plan_id: form.tariff_plan_id,
+      const res = await tarificationApi.createPeriod({
+        country_id: form.country_id || null,
+        operator_id: form.operator_id || null,
+        sender_category: form.sender_category || null,
+        traffic_type: form.traffic_type || null,
+        client_id: form.client_id || null,
+        strategy: form.strategy,
         start_date: form.start_date,
-        end_date: form.end_date,
+        end_date: form.end_date || null,
       });
-      toast.success('Период создан');
+      if (res.auto_close_warning) {
+        toast.success(`Период создан. ${res.auto_close_warning.message}`);
+      } else {
+        toast.success('Период создан');
+      }
       setShowCreate(false);
-      setForm({ tariff_plan_id: '', start_date: '', end_date: '' });
+      setForm(EMPTY_FORM);
       fetchPeriods();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка создания');
+      toast.error(e instanceof Error ? e.message : 'Ошибка создания периода');
     } finally {
       setSaving(false);
     }
   };
 
-  const planNameMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const p of plans) map[p.tariff_plan_id] = p.name;
-    return map;
-  }, [plans]);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Удалить период?')) return;
+    try {
+      await tarificationApi.deletePeriod(id);
+      toast.success('Период удалён');
+      fetchPeriods();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
+    }
+  };
 
-  const columns: Column<TariffPeriod>[] = [
+  const columns: Column<HierarchicalPeriod>[] = [
     {
-      key: 'tariff_plan_id',
-      header: 'План',
-      render: (p) =>
-        planNameMap[p.tariff_plan_id] || p.tariff_plan_id.slice(0, 8) + '...',
+      key: 'scope_key',
+      header: 'Область действия',
+      render: (p) => buildScopeLabel(p, countryMap, operatorMap, clientMap),
+    },
+    {
+      key: 'strategy',
+      header: 'Стратегия',
+      render: (p) => p.strategy,
     },
     {
       key: 'start_date',
@@ -133,26 +331,40 @@ export function PeriodsTab() {
     {
       key: 'end_date',
       header: 'Дата окончания',
-      render: (p) => new Date(p.end_date).toLocaleDateString('ru-RU'),
+      render: (p) =>
+        p.end_date ? new Date(p.end_date).toLocaleDateString('ru-RU') : '—',
     },
     {
-      key: 'status',
+      key: 'scope_priority',
       header: 'Статус',
       render: (p) => {
         const s = computeStatus(p);
         return <Badge variant={s.variant}>{s.label}</Badge>;
       },
     },
+    {
+      key: 'id',
+      header: '',
+      render: (p) => (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => handleDelete(p.id)}
+        >
+          Удалить
+        </Button>
+      ),
+    },
   ];
 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Периоды тарификации</h2>
+        <h2 className="text-lg font-semibold">Иерархические периоды тарификации</h2>
         <Button
           size="sm"
           onClick={() => {
-            setForm({ tariff_plan_id: '', start_date: '', end_date: '' });
+            setForm(EMPTY_FORM);
             setShowCreate(true);
           }}
         >
@@ -170,7 +382,7 @@ export function PeriodsTab() {
       <DataTable
         columns={columns}
         data={periods}
-        total={periods.length}
+        total={total}
         page={1}
         pageSize={100}
         onPageChange={() => {}}
@@ -181,29 +393,63 @@ export function PeriodsTab() {
       <Modal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        title="Создать период"
+        title="Создать период тарификации"
       >
         <div className="space-y-4">
           <Select
-            label="Тарифный план"
-            options={planOptions}
-            value={form.tariff_plan_id}
-            onChange={(v) => setForm({ ...form, tariff_plan_id: v })}
-            placeholder="Выберите план"
+            label="Страна"
+            options={countryOptions}
+            value={form.country_id}
+            onChange={(v) => setForm({ ...form, country_id: v, operator_id: '' })}
+            placeholder="Не задано (глобальный)"
+          />
+          <Select
+            label="Оператор"
+            options={modalOperatorOptions}
+            value={form.operator_id}
+            onChange={(v) => setForm({ ...form, operator_id: v })}
+            placeholder="Не задано"
+          />
+          <Select
+            label="Категория отправителя"
+            options={SENDER_CATEGORY_OPTIONS}
+            value={form.sender_category}
+            onChange={(v) => setForm({ ...form, sender_category: v })}
+            placeholder="Не задано"
+          />
+          <Select
+            label="Тип трафика"
+            options={TRAFFIC_TYPE_OPTIONS}
+            value={form.traffic_type}
+            onChange={(v) => setForm({ ...form, traffic_type: v })}
+            placeholder="Не задано"
+          />
+          <Select
+            label="Клиент"
+            options={clientOptions}
+            value={form.client_id}
+            onChange={(v) => setForm({ ...form, client_id: v })}
+            placeholder="Не задано"
+          />
+          <Select
+            label="Стратегия *"
+            options={STRATEGY_OPTIONS}
+            value={form.strategy}
+            onChange={(v) => setForm({ ...form, strategy: v })}
+            placeholder="Выберите стратегию"
           />
           <Input
-            label="Дата начала"
+            label="Дата начала *"
             type="date"
             value={form.start_date}
             onChange={(e) => setForm({ ...form, start_date: e.target.value })}
             required
           />
           <Input
-            label="Дата окончания"
+            label="Дата окончания (необязательно)"
             type="date"
             value={form.end_date}
             onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-            required
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>
@@ -211,12 +457,7 @@ export function PeriodsTab() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={
-                saving ||
-                !form.tariff_plan_id ||
-                !form.start_date ||
-                !form.end_date
-              }
+              disabled={saving || !form.strategy || !form.start_date}
             >
               {saving ? 'Создание...' : 'Создать'}
             </Button>
