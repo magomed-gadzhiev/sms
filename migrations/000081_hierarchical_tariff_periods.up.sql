@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS tariff_tiers_new (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tariff_period_id  UUID NOT NULL REFERENCES tariff_periods_new(id) ON DELETE CASCADE,
   from_count        INT NOT NULL CHECK (from_count >= 0),
-  price_per_segment NUMERIC(20,6) NOT NULL,
+  price_per_segment NUMERIC(20,6) NOT NULL CHECK (price_per_segment >= 0),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tariff_period_id, from_count)
 );
@@ -81,10 +81,13 @@ CREATE INDEX idx_provider_cost_periods_lookup ON provider_cost_periods (
   provider_id, country_id, operator_id, traffic_type, start_date, end_date
 );
 
+CREATE INDEX idx_provider_cost_periods_scope ON provider_cost_periods (scope_priority, scope_key);
+
 CREATE TABLE IF NOT EXISTS provider_cost_tiers (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cost_period_id   UUID NOT NULL REFERENCES provider_cost_periods(id) ON DELETE CASCADE,
   from_count       INT NOT NULL CHECK (from_count >= 0),
-  cost_per_segment NUMERIC(20,6) NOT NULL,
+  cost_per_segment NUMERIC(20,6) NOT NULL CHECK (cost_per_segment >= 0),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (cost_period_id, from_count)
 );
