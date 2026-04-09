@@ -27,6 +27,7 @@ func SetupRouter(
 	userHandlers *handlers.UserHandlers,
 	roleHandlers *handlers.RoleHandlers,
 	senderNameHandlers *handlers.AdminSenderNameHandlers,
+	hierarchicalPeriodsHandler *handlers.HierarchicalPeriodsHandler,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -164,6 +165,12 @@ func SetupRouter(
 	tarification.HandleFunc("/pricing-periods", tarificationHandlers.CreatePricingPeriod).Methods("POST")
 	tarification.HandleFunc("/prepaid-fees", tarificationHandlers.CreatePrepaidFee).Methods("POST")
 	tarification.HandleFunc("/usage", tarificationHandlers.ListUsageCounters).Methods("GET")
+
+	// Hierarchical periods endpoints (new dimension-based system)
+	tarification.HandleFunc("/periods", hierarchicalPeriodsHandler.ListPeriods).Methods("GET")
+	tarification.HandleFunc("/periods", hierarchicalPeriodsHandler.CreatePeriod).Methods("POST")
+	tarification.HandleFunc("/periods/{id}", hierarchicalPeriodsHandler.UpdatePeriod).Methods("PUT")
+	tarification.HandleFunc("/periods/{id}", hierarchicalPeriodsHandler.DeletePeriod).Methods("DELETE")
 
 	// HLR Provider endpoints
 	hlrProviders := adminV1.PathPrefix("/hlr/providers").Subrouter()

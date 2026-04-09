@@ -126,6 +126,7 @@ func main() {
 	userHandlers := handlers.NewUserHandlers(serviceClients.AuthClient)
 	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
 	senderNameHandlers := handlers.NewAdminSenderNameHandlers(serviceClients.SenderNameClient)
+	hierarchicalPeriodsHandler := handlers.NewHierarchicalPeriodsHandler(adminDB)
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
@@ -152,6 +153,7 @@ func main() {
 		userHandlers,
 		roleHandlers,
 		senderNameHandlers,
+		hierarchicalPeriodsHandler,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,

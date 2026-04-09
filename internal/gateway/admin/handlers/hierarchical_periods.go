@@ -302,7 +302,7 @@ func respondPeriodError(w http.ResponseWriter, err error) {
 		errors.Is(err, services.ErrChildPeriodsBlock),
 		errors.Is(err, services.ErrHasChildPeriods),
 		errors.Is(err, services.ErrPeriodOverlap):
-		respondError(w, shared.ErrInvalidInput(err.Error()))
+		respondError(w, shared.ErrConflict(err.Error()))
 	default:
 		respondError(w, shared.ErrInternalServer(err.Error()))
 	}
