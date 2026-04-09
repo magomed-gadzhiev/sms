@@ -324,7 +324,7 @@ func (r *RouteRepo) loadConditions(ctx context.Context, groupID int64) ([]domain
 
 func (r *RouteRepo) loadSchedules(ctx context.Context, routeID uuid.UUID) ([]domain.Schedule, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, date_from, date_to, time_from, time_to, weekdays, timezone
+		`SELECT id, date_from, date_to, time_from::text, time_to::text, weekdays, timezone
 		FROM route_schedules WHERE route_id = $1`, routeID)
 	if err != nil {
 		return nil, fmt.Errorf("load schedules: %w", err)
