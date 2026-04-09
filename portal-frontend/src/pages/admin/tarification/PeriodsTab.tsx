@@ -134,6 +134,9 @@ export function PeriodsTab() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
+  const [editingPeriod, setEditingPeriod] = useState<HierarchicalPeriod | null>(null);
+  const [editForm, setEditForm] = useState({ strategy: '', end_date: '' });
+
   // Load reference data once
   useEffect(() => {
     countriesApi
@@ -300,6 +303,24 @@ export function PeriodsTab() {
     }
   };
 
+  const handleUpdate = async () => {
+    if (!editingPeriod) return;
+    setSaving(true);
+    try {
+      await tarificationApi.updatePeriod(editingPeriod.id, {
+        strategy: editForm.strategy || undefined,
+        end_date: editForm.end_date || null,
+      });
+      toast.success('Период обновлён');
+      setEditingPeriod(null);
+      fetchPeriods();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка обновления');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!window.confirm('Удалить период?')) return;
     try {
@@ -311,11 +332,24 @@ export function PeriodsTab() {
     }
   };
 
+  const sortedPeriods = useMemo(
+    () => [...periods].sort((a, b) => a.scope_priority - b.scope_priority),
+    [periods],
+  );
+
   const columns: Column<HierarchicalPeriod>[] = [
     {
       key: 'scope_key',
       header: 'Область действия',
-      render: (p) => buildScopeLabel(p, countryMap, operatorMap, clientMap),
+      render: (p) => {
+        const base = p.scope_priority % 100;
+        const indent = Math.floor(base / 10);
+        return (
+          <div style={{ paddingLeft: `${indent * 12}px` }}>
+            {buildScopeLabel(p, countryMap, operatorMap, clientMap)}
+          </div>
+        );
+      },
     },
     {
       key: 'strategy',
@@ -346,13 +380,25 @@ export function PeriodsTab() {
       key: 'id',
       header: '',
       render: (p) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => handleDelete(p.id)}
-        >
-          Удалить
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setEditingPeriod(p);
+              setEditForm({ strategy: p.strategy, end_date: p.end_date || '' });
+            }}
+          >
+            Изменить
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => handleDelete(p.id)}
+          >
+            Удалить
+          </Button>
+        </div>
       ),
     },
   ];
@@ -381,7 +427,7 @@ export function PeriodsTab() {
 
       <DataTable
         columns={columns}
-        data={periods}
+        data={sortedPeriods}
         total={total}
         page={1}
         pageSize={100}
@@ -431,6 +477,9 @@ export function PeriodsTab() {
             onChange={(v) => setForm({ ...form, client_id: v })}
             placeholder="Не задано"
           />
+          {form.client_id && (
+            <Badge variant="warning">Индивидуальный (приоритет +100)</Badge>
+          )}
           <Select
             label="Стратегия *"
             options={STRATEGY_OPTIONS}
@@ -460,6 +509,36 @@ export function PeriodsTab() {
               disabled={saving || !form.strategy || !form.start_date}
             >
               {saving ? 'Создание...' : 'Создать'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={editingPeriod !== null}
+        onClose={() => setEditingPeriod(null)}
+        title="Изменить период"
+      >
+        <div className="space-y-4">
+          <Select
+            label="Стратегия"
+            options={STRATEGY_OPTIONS}
+            value={editForm.strategy}
+            onChange={(v) => setEditForm({ ...editForm, strategy: v })}
+            placeholder="Выберите стратегию"
+          />
+          <Input
+            label="Дата окончания (необязательно)"
+            type="date"
+            value={editForm.end_date}
+            onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })}
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setEditingPeriod(null)}>
+              Отмена
+            </Button>
+            <Button onClick={handleUpdate} disabled={saving}>
+              {saving ? 'Сохранение...' : 'Сохранить'}
             </Button>
           </div>
         </div>
