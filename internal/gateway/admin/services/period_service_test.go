@@ -76,6 +76,66 @@ func TestComputeScopeKey(t *testing.T) {
 	}
 }
 
+func TestParentScopeKey(t *testing.T) {
+	kz := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	bee := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	cat := ptr("paid_registered")
+	tt := ptr("transactional")
+	acme := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+
+	cases := []struct {
+		name      string
+		dims      services.PeriodDimensions
+		wantKey   string
+		wantFound bool
+	}{
+		{
+			name:      "global has no parent",
+			dims:      services.PeriodDimensions{},
+			wantKey:   "",
+			wantFound: false,
+		},
+		{
+			name:      "country -> global",
+			dims:      services.PeriodDimensions{CountryID: &kz},
+			wantKey:   "global",
+			wantFound: true,
+		},
+		{
+			name:      "operator -> country",
+			dims:      services.PeriodDimensions{CountryID: &kz, OperatorID: &bee},
+			wantKey:   "country:" + kz.String(),
+			wantFound: true,
+		},
+		{
+			name:      "sender_category -> operator",
+			dims:      services.PeriodDimensions{CountryID: &kz, OperatorID: &bee, SenderCategory: cat},
+			wantKey:   "country:" + kz.String() + "|operator:" + bee.String(),
+			wantFound: true,
+		},
+		{
+			name:      "traffic_type -> sender_category",
+			dims:      services.PeriodDimensions{CountryID: &kz, OperatorID: &bee, SenderCategory: cat, TrafficType: tt},
+			wantKey:   "country:" + kz.String() + "|operator:" + bee.String() + "|sender_category:paid_registered",
+			wantFound: true,
+		},
+		{
+			name:      "client overlay -> same scope without client",
+			dims:      services.PeriodDimensions{CountryID: &kz, ClientID: &acme},
+			wantKey:   "country:" + kz.String(),
+			wantFound: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			key, found := services.ParentScopeKey(tc.dims)
+			assert.Equal(t, tc.wantFound, found)
+			assert.Equal(t, tc.wantKey, key)
+		})
+	}
+}
+
 func TestValidateDimensionHierarchy(t *testing.T) {
 	id := uuid.New()
 

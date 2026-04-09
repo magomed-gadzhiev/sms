@@ -144,9 +144,9 @@ func ValidateDimensionHierarchy(d PeriodDimensions) error {
 	return nil
 }
 
-// parentScopeKey computes the parent's scope key by removing the most specific dimension.
+// ParentScopeKey computes the parent's scope key by removing the most specific dimension.
 // Returns ("", false) for global scope (no parent).
-func parentScopeKey(d PeriodDimensions) (string, bool) {
+func ParentScopeKey(d PeriodDimensions) (string, bool) {
 	if d.ClientID != nil {
 		noClient := d
 		noClient.ClientID = nil
@@ -290,7 +290,7 @@ func (s *PeriodService) CreatePeriod(ctx context.Context, in CreatePeriodInput) 
 
 	// Containment check (skip for global scope)
 	if scopePriority > 0 {
-		parentKey, hasParent := parentScopeKey(in.PeriodDimensions)
+		parentKey, hasParent := ParentScopeKey(in.PeriodDimensions)
 		if hasParent {
 			parent, err := findActivePeriodInScope(ctx, tx, parentKey, in.StartDate)
 			if err != nil {
@@ -321,7 +321,7 @@ func (s *PeriodService) CreatePeriod(ctx context.Context, in CreatePeriodInput) 
 		if prev.EndDate != nil {
 			return nil, nil, fmt.Errorf("%w with period %s–%s", ErrPeriodOverlap, prev.StartDate.Format("2006-01-02"), prev.EndDate.Format("2006-01-02"))
 		}
-		if err := assertNoActiveChildren(ctx, tx, prev.ID, in.StartDate); err != nil {
+		if err := assertNoActiveChildren(ctx, tx, prev.ID, in.StartDate.AddDate(0, 0, -1)); err != nil {
 			return nil, nil, err
 		}
 		newEnd := in.StartDate.AddDate(0, 0, -1)
@@ -375,6 +375,7 @@ func (s *PeriodService) CreatePeriod(ctx context.Context, in CreatePeriodInput) 
 
 // UpdatePeriod allows editing end_date and strategy only.
 func (s *PeriodService) UpdatePeriod(ctx context.Context, id uuid.UUID, in UpdatePeriodInput) (*HierarchicalPeriod, error) {
+	// First, get the period (can be outside tx since we re-read inside)
 	period, err := s.GetPeriod(ctx, id)
 	if err != nil {
 		return nil, err
@@ -387,22 +388,34 @@ func (s *PeriodService) UpdatePeriod(ctx context.Context, id uuid.UUID, in Updat
 		period.Strategy = *in.Strategy
 	}
 
-	if in.EndDate != period.EndDate {
+	endDateChanged := (in.EndDate == nil) != (period.EndDate == nil) ||
+		(in.EndDate != nil && period.EndDate != nil && !in.EndDate.Equal(*period.EndDate))
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	if endDateChanged {
 		if in.EndDate != nil {
-			if err := assertNoChildExceedsDate(ctx, s.db, period.ScopeKey, *in.EndDate); err != nil {
+			if err := assertNoChildExceedsDateTx(ctx, tx, period.ScopeKey, *in.EndDate); err != nil {
 				return nil, err
 			}
 		}
 		period.EndDate = in.EndDate
 	}
 
-	_, err = s.db.ExecContext(ctx,
+	_, err = tx.ExecContext(ctx,
 		`UPDATE tariff_periods_new SET strategy = $1, end_date = $2 WHERE id = $3`,
 		period.Strategy, period.EndDate, id)
 	if err != nil {
 		return nil, fmt.Errorf("update period: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
 	return period, nil
 }
 
@@ -413,7 +426,18 @@ func (s *PeriodService) DeletePeriod(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	count, err := countChildPeriods(ctx, s.db, period.ScopeKey, period.ScopePriority)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	var count int
+	err = tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM tariff_periods_new
+		WHERE scope_priority > $1
+		  AND scope_key LIKE $2 || '%'
+		  AND scope_key != $2`, period.ScopePriority, period.ScopeKey).Scan(&count)
 	if err != nil {
 		return fmt.Errorf("check child periods: %w", err)
 	}
@@ -421,8 +445,12 @@ func (s *PeriodService) DeletePeriod(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("%w (%d)", ErrHasChildPeriods, count)
 	}
 
-	_, err = s.db.ExecContext(ctx, `DELETE FROM tariff_periods_new WHERE id = $1`, id)
-	return err
+	_, err = tx.ExecContext(ctx, `DELETE FROM tariff_periods_new WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // --- helpers ---
@@ -541,12 +569,18 @@ func assertNoChildExceedsDate(ctx context.Context, db *storage.DB, scopeKey stri
 	return nil
 }
 
-func countChildPeriods(ctx context.Context, db *storage.DB, scopeKey string, scopePriority int) (int, error) {
+func assertNoChildExceedsDateTx(ctx context.Context, tx *sql.Tx, scopeKey string, newEnd time.Time) error {
 	var count int
-	err := db.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM tariff_periods_new
-		WHERE scope_priority > $1
-		  AND scope_key LIKE $2 || '%'
-		  AND scope_key != $2`, scopePriority, scopeKey).Scan(&count)
-	return count, err
+		WHERE scope_key LIKE $1 || '%'
+		  AND scope_key != $1
+		  AND (end_date IS NULL OR end_date > $2)`, scopeKey, newEnd).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("check child end dates: %w", err)
+	}
+	if count > 0 {
+		return fmt.Errorf("%w: %d child periods extend beyond new end_date", ErrChildPeriodExceedsParent, count)
+	}
+	return nil
 }
