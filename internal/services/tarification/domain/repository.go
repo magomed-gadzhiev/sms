@@ -78,3 +78,20 @@ type SenderBillingRepository interface {
 	// ListByClient возвращает все записи по клиенту за период
 	ListByClient(ctx context.Context, clientID uuid.UUID, from, to time.Time, limit, offset int) ([]*SenderNameBillingRecord, int, error)
 }
+
+// HierarchicalTierItem is a single tier from the hierarchical tariff lookup.
+type HierarchicalTierItem struct {
+	FromCount       int
+	PricePerSegment string
+}
+
+// HierarchicalPeriodLookup provides hierarchical tariff lookup for TarifyMessage.
+// It is satisfied by infrastructure/repository.HierarchicalPeriodRepository.
+type HierarchicalPeriodLookup interface {
+	FindTiersWithFallback(
+		ctx context.Context,
+		countryID, operatorID, clientID *uuid.UUID,
+		senderCategory, trafficType *string,
+		date time.Time,
+	) (tiers []HierarchicalTierItem, strategy string, err error)
+}

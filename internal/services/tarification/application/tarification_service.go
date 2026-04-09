@@ -14,16 +14,17 @@ import (
 
 // TarificationService основной сервис тарификации
 type TarificationService struct {
-	senderRepo      domain.SenderRegistrationRepository
-	planRepo        domain.TariffPlanRepository
-	periodRepo      domain.TariffPeriodRepository
-	tierRepo        domain.TariffTierRepository
-	usageRepo       domain.UsageCounterRepository
-	logRepo         domain.TarificationLogRepository
-	prepaidRepo     domain.PrepaidFeeRepository
-	saga            *SagaOrchestrator
-	eventPublisher  domain.EventPublisher
-	strategies      map[domain.TarificationStrategy]BillingStrategy
+	senderRepo         domain.SenderRegistrationRepository
+	planRepo           domain.TariffPlanRepository
+	periodRepo         domain.TariffPeriodRepository
+	tierRepo           domain.TariffTierRepository
+	usageRepo          domain.UsageCounterRepository
+	logRepo            domain.TarificationLogRepository
+	prepaidRepo        domain.PrepaidFeeRepository
+	saga               *SagaOrchestrator
+	eventPublisher     domain.EventPublisher
+	strategies         map[domain.TarificationStrategy]BillingStrategy
+	hierarchicalLookup domain.HierarchicalPeriodLookup // nil until migration completes
 }
 
 // NewTarificationService создает новый сервис тарификации
@@ -55,6 +56,12 @@ func NewTarificationService(
 			domain.StrategyPrepaidThreshold: NewPrepaidThresholdStrategy(),
 		},
 	}
+}
+
+// SetHierarchicalLookup wires the new hierarchical period lookup.
+// Call this after migration 000082 completes and the new table is populated.
+func (s *TarificationService) SetHierarchicalLookup(lookup domain.HierarchicalPeriodLookup) {
+	s.hierarchicalLookup = lookup
 }
 
 // TarifyMessageRequest запрос на тарификацию сообщения
