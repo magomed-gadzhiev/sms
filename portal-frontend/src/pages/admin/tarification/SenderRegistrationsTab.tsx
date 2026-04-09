@@ -3,10 +3,11 @@ import { DataTable, type Column } from '../../../components/data/DataTable';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { Modal } from '../../../components/ui/Modal';
 import { StatusBadge } from '../../../components/ui/Badge';
 import { useToast } from '../../../components/ui/Toast';
-import { tarificationApi, type SenderRegistration } from '../../../api/admin';
+import { tarificationApi, clientsApi, operatorsApi, type SenderRegistration, type ClientInfo, type OperatorInfo } from '../../../api/admin';
 
 const PAGE_SIZE = 20;
 
@@ -39,6 +40,23 @@ export function SenderRegistrationsTab() {
     type: 'alphanumeric',
   });
   const [statusForm, setStatusForm] = useState({ id: '', status: '', type: '' });
+  const [clients, setClients] = useState<ClientInfo[]>([]);
+  const [operators, setOperators] = useState<OperatorInfo[]>([]);
+  const [refLoading, setRefLoading] = useState(false);
+
+  const clientOptions = clients.map((c) => ({ value: c.client_id, label: c.name }));
+  const operatorOptions = operators.map((o) => ({ value: o.operator_id, label: `${o.name} (${o.mcc}/${o.mnc})` }));
+
+  useEffect(() => {
+    setRefLoading(true);
+    Promise.all([
+      clientsApi.list({ limit: 500 }),
+      operatorsApi.list({ limit: 500 }),
+    ]).then(([c, o]) => {
+      setClients(c.clients || []);
+      setOperators(o.operators || []);
+    }).catch(() => {}).finally(() => setRefLoading(false));
+  }, []);
 
   const fetchRegistrations = useCallback(async () => {
     setLoading(true);
@@ -192,19 +210,23 @@ export function SenderRegistrationsTab() {
         title="Регистрация отправителя"
       >
         <div className="space-y-4">
-          <Input
-            label="ID клиента"
+          <SearchableSelect
+            label="Клиент"
+            options={clientOptions}
             value={form.client_id}
-            onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+            onChange={(v) => setForm({ ...form, client_id: v })}
+            placeholder="Выберите клиента..."
+            loading={refLoading}
             required
-            placeholder="UUID клиента"
           />
-          <Input
-            label="ID оператора"
+          <SearchableSelect
+            label="Оператор"
+            options={operatorOptions}
             value={form.operator_id}
-            onChange={(e) => setForm({ ...form, operator_id: e.target.value })}
+            onChange={(v) => setForm({ ...form, operator_id: v })}
+            placeholder="Выберите оператора..."
+            loading={refLoading}
             required
-            placeholder="UUID оператора"
           />
           <Input
             label="Имя отправителя"

@@ -4,11 +4,12 @@ import { DataTable, type Column } from '../../components/data/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { MultiSelect } from '../../components/ui/MultiSelect';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
-import { routesApi, type RouteInfo } from '../../api/admin';
+import { routesApi, providersApi, type RouteInfo, type ProviderInfo } from '../../api/admin';
 
 const PAGE_SIZE = 20;
 
@@ -33,7 +34,11 @@ export function RoutesPage() {
   const [editRoute, setEditRoute] = useState<RouteInfo | null>(null);
   const [deleteRoute, setDeleteRoute] = useState<RouteInfo | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', pattern: '', priority: 0, provider_ids: '', load_balance_strategy: 'round_robin', failover_enabled: true });
+  const [form, setForm] = useState({ name: '', pattern: '', priority: 0, provider_ids: [] as string[], load_balance_strategy: 'round_robin', failover_enabled: true });
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+
+  const providerOptions = providers.map((p) => ({ value: p.provider_id, label: p.name }));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -43,15 +48,23 @@ export function RoutesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchProviders = useCallback(async () => {
+    setProvidersLoading(true);
+    try { const res = await providersApi.list({ limit: 500 }); setProviders(res.providers || []); }
+    catch { /* non-critical */ }
+    finally { setProvidersLoading(false); }
+  }, []);
 
-  const openCreate = () => { setForm({ name: '', pattern: '', priority: 0, provider_ids: '', load_balance_strategy: 'round_robin', failover_enabled: true }); setShowForm(true); };
-  const openEdit = (route: RouteInfo) => { setForm({ name: route.name, pattern: route.pattern, priority: route.priority, provider_ids: (route.provider_ids || []).join(', '), load_balance_strategy: route.load_balance_strategy, failover_enabled: route.failover_enabled }); setEditRoute(route); setShowForm(true); };
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchProviders(); }, [fetchProviders]);
+
+  const openCreate = () => { setForm({ name: '', pattern: '', priority: 0, provider_ids: [], load_balance_strategy: 'round_robin', failover_enabled: true }); setShowForm(true); };
+  const openEdit = (route: RouteInfo) => { setForm({ name: route.name, pattern: route.pattern, priority: route.priority, provider_ids: route.provider_ids || [], load_balance_strategy: route.load_balance_strategy, failover_enabled: route.failover_enabled }); setEditRoute(route); setShowForm(true); };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = { ...form, priority: Number(form.priority), provider_ids: form.provider_ids.split(',').map((s) => s.trim()).filter(Boolean) };
+      const payload = { ...form, priority: Number(form.priority) };
       if (editRoute) { await routesApi.update(editRoute.route_id, payload); toast.success('Маршрут обновлён'); }
       else { await routesApi.create(payload); toast.success('Маршрут создан'); }
       setShowForm(false); setEditRoute(null); fetchData();
@@ -92,7 +105,15 @@ export function RoutesPage() {
           <Input label="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label="Шаблон (regex)" value={form.pattern} onChange={(e) => setForm({ ...form, pattern: e.target.value })} required />
           <Input label="Приоритет" type="number" value={String(form.priority)} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })} />
-          <Input label="ID провайдеров (через запятую)" value={form.provider_ids} onChange={(e) => setForm({ ...form, provider_ids: e.target.value })} required />
+          <MultiSelect
+            label="Провайдеры"
+            options={providerOptions}
+            values={form.provider_ids}
+            onChange={(ids) => setForm({ ...form, provider_ids: ids })}
+            placeholder="Выберите провайдеров..."
+            loading={providersLoading}
+            required
+          />
           <Select label="Стратегия" options={[{ value: 'round_robin', label: 'По кругу' }, { value: 'weighted', label: 'Взвешенная' }, { value: 'priority', label: 'Приоритет' }]} value={form.load_balance_strategy} onChange={(v) => setForm({ ...form, load_balance_strategy: v })} />
           <Select label="Отказоустойчивость" options={[{ value: 'true', label: 'Включена' }, { value: 'false', label: 'Выключена' }]} value={String(form.failover_enabled)} onChange={(v) => setForm({ ...form, failover_enabled: v === 'true' })} />
           <div className="flex justify-end gap-3 pt-2">

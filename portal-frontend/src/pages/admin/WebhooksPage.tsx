@@ -4,13 +4,12 @@ import { DataTable, type Column } from '../../components/data/DataTable';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
-import { webhooksAdminApi, type WebhookInfo } from '../../api/admin';
-
-const filters: FilterDef[] = [{ key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'UUID...' }];
+import { webhooksAdminApi, clientsApi, type WebhookInfo, type ClientInfo } from '../../api/admin';
 
 const columns: Column<WebhookInfo>[] = [
   { key: 'url', header: 'URL' },
@@ -29,6 +28,20 @@ export function WebhooksPage() {
   const [deleteWebhook, setDeleteWebhook] = useState<WebhookInfo | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ client_id: '', url: '', events: '' });
+  const [clients, setClients] = useState<ClientInfo[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+
+  const clientOptions = clients.map((c) => ({ value: c.client_id, label: c.name }));
+
+  const filters: FilterDef[] = [
+    {
+      key: 'client_id',
+      label: 'Клиент',
+      type: 'select',
+      options: clientOptions,
+      placeholder: 'Все клиенты',
+    },
+  ];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -37,7 +50,15 @@ export function WebhooksPage() {
     finally { setLoading(false); }
   }, [filterValues, toast]);
 
+  const fetchClients = useCallback(async () => {
+    setClientsLoading(true);
+    try { const res = await clientsApi.list({ limit: 500 }); setClients(res.clients || []); }
+    catch { /* non-critical */ }
+    finally { setClientsLoading(false); }
+  }, []);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchClients(); }, [fetchClients]);
 
   const handleCreate = async () => {
     setSaving(true);
@@ -63,7 +84,15 @@ export function WebhooksPage() {
       />
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Создание вебхука">
         <div className="space-y-4">
-          <Input label="ID клиента" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} required placeholder="UUID" />
+          <SearchableSelect
+            label="Клиент"
+            options={clientOptions}
+            value={form.client_id}
+            onChange={(v) => setForm({ ...form, client_id: v })}
+            placeholder="Выберите клиента..."
+            loading={clientsLoading}
+            required
+          />
           <Input label="URL" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required placeholder="https://..." />
           <Input label="События (через запятую)" value={form.events} onChange={(e) => setForm({ ...form, events: e.target.value })} placeholder="message.delivered, message.failed" />
           <div className="flex justify-end gap-3 pt-2">

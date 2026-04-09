@@ -4,7 +4,7 @@ import { DataTable, type Column } from '../../../components/data/DataTable';
 import { FilterBar, type FilterDef } from '../../../components/data/FilterBar';
 import { StatusBadge } from '../../../components/ui/Badge';
 import { useToast } from '../../../components/ui/Toast';
-import { templatesApi, type TemplateInfo } from '../../../api/admin';
+import { templatesApi, clientsApi, type TemplateInfo, type ClientInfo } from '../../../api/admin';
 import { TemplateReviewModal } from './TemplateReviewModal';
 
 const PAGE_SIZE = 20;
@@ -17,22 +17,6 @@ const statusLabelMap: Record<string, string> = {
   approved: 'Одобрен',
   rejected: 'Отклонён',
 };
-
-const filters: FilterDef[] = [
-  { key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'UUID...' },
-  {
-    key: 'status',
-    label: 'Статус',
-    type: 'select',
-    options: [
-      { value: 'pending', label: 'Ожидание' },
-      { value: 'review', label: 'На ревью' },
-      { value: 'revision_requested', label: 'Доработка' },
-      { value: 'approved', label: 'Одобрен' },
-      { value: 'rejected', label: 'Отклонён' },
-    ],
-  },
-];
 
 const columns: Column<TemplateInfo>[] = [
   { key: 'name', header: 'Название', sortable: true },
@@ -75,6 +59,33 @@ export function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateInfo | null>(null);
+  const [clients, setClients] = useState<ClientInfo[]>([]);
+
+  const filters: FilterDef[] = [
+    {
+      key: 'client_id',
+      label: 'Клиент',
+      type: 'select',
+      options: clients.map((c) => ({ value: c.client_id, label: c.name })),
+      placeholder: 'Все клиенты',
+    },
+    {
+      key: 'status',
+      label: 'Статус',
+      type: 'select',
+      options: [
+        { value: 'pending', label: 'Ожидание' },
+        { value: 'review', label: 'На ревью' },
+        { value: 'revision_requested', label: 'Доработка' },
+        { value: 'approved', label: 'Одобрен' },
+        { value: 'rejected', label: 'Отклонён' },
+      ],
+    },
+  ];
+
+  useEffect(() => {
+    clientsApi.list({ limit: 500 }).then((res) => setClients(res.clients || [])).catch(() => {});
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
