@@ -298,6 +298,82 @@ export const routesApi = {
   delete: (id: string) => adminFetch<void>(`/routes/${id}`, { method: 'DELETE' }),
 };
 
+export interface PlatformRoute {
+  id: string;
+  operator_id: string | null;       // null = All Networks
+  operator_name: string;            // "All Networks" when operator_id is null
+  channel_type: string;             // 'sms' | 'flash' | 'viber' | etc.
+  provider_id: string;
+  provider_name: string;
+  legal_entity_id?: string;
+  legal_entity_name?: string;
+  legal_entity_inn?: string;
+  priority: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConnectionInfo {
+  provider_id: string;
+  name: string;
+  host: string;
+  port: number;
+  system_id: string;
+  bind_type: number;
+  max_connections: number;
+  status: string;                   // 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
+  active_connections: number;
+  success_rate: number;
+  messages_sent_24h: number;
+  messages_failed_24h: number;
+  last_success?: string;
+  last_failure?: string;
+  last_error?: string;
+  active: boolean;
+  updated_at: string;
+}
+
+export const platformRoutesApi = {
+  list: (params?: { limit?: number; offset?: number }) =>
+    adminFetch<{ routes: PlatformRoute[]; total: number }>(`/platform-routes${qs(params || {})}`),
+  create: (data: {
+    operator_id?: string;
+    channel_type: string;
+    provider_id: string;
+    legal_entity_id?: string;
+    priority?: number;
+  }) =>
+    adminFetch<{ id: string; created_at: string }>('/platform-routes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: Partial<{
+    operator_id: string;
+    channel_type: string;
+    provider_id: string;
+    legal_entity_id: string;
+    priority: number;
+    active: boolean;
+  }>) =>
+    adminFetch<void>(`/platform-routes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => adminFetch<void>(`/platform-routes/${id}`, { method: 'DELETE' }),
+  reorder: (items: Array<{ id: string; priority: number }>) =>
+    adminFetch<{ updated: number }>('/platform-routes/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    }),
+};
+
+export const connectionsApi = {
+  list: () => adminFetch<{ connections: ConnectionInfo[]; total: number }>('/connections'),
+  get: (id: string) => adminFetch<ConnectionInfo>(`/connections/${id}`),
+  reconnect: (id: string) =>
+    adminFetch<{ queued: boolean }>(`/connections/${id}/reconnect`, { method: 'POST' }),
+  stop: (id: string) =>
+    adminFetch<{ queued: boolean }>(`/connections/${id}/stop`, { method: 'POST' }),
+};
+
 export const billingApi = {
   getBalance: (clientId: string) => adminFetch<BalanceResponse>(`/billing/clients/${clientId}/balance`),
   addCredits: (clientId: string, data: { amount: string; currency?: string; description?: string }) =>
@@ -667,4 +743,205 @@ export const adminSenderNamesApi = {
     }),
   operatorRegistrations: (id: string) =>
     adminFetch<{ registrations: SenderNameOperatorRegistration[] }>(`/sender-names/${id}/operator-registrations`),
+};
+
+// ── Sender Names lightweight type (for selectors) ──
+
+export interface SenderNameInfo {
+  sender_name_id: string;
+  name: string;
+  status: string;
+}
+
+export const senderNamesApi = {
+  list: (params?: { client_id?: string; status?: string; limit?: number }) =>
+    adminFetch<{ sender_names: SenderNameInfo[]; total: number }>(
+      `/sender-names${qs(params || {})}`,
+    ),
+};
+
+// ── Admin Messages API (Детализация) ──
+
+export interface AdminMessage {
+  id: string;
+  source: string;
+  destination: string;
+  text_preview: string;
+  status: string;
+  segment_count: number;
+  created_at: string;
+  delivered_at?: string;
+  failed_at?: string;
+  provider_name: string;
+  client_name: string;
+}
+
+export interface AdminMessageDetail {
+  id: string;
+  source: string;
+  destination: string;
+  text: string;
+  encoding?: string;
+  status: string;
+  status_message?: string;
+  external_id?: string;
+  segment_count: number;
+  retry_count?: number;
+  max_retries?: number;
+  provider_id?: string;
+  provider_name?: string;
+  route_id?: string;
+  route_name?: string;
+  smpp_message_id?: string;
+  client_id: string;
+  client_name: string;
+  created_at?: string;
+  submitted_at?: string;
+  delivered_at?: string;
+  failed_at?: string;
+  scheduled_at?: string;
+  expired_at?: string;
+  dlr?: {
+    stat: string;
+    err: number;
+    text: string;
+    submit_date?: string;
+    done_date?: string;
+    receipted_message_id?: string;
+  };
+  billing?: {
+    segment_count: number;
+    price_per_segment: string;
+    total_amount: string;
+    tariff_plan_id: string;
+    billed_at: string;
+  };
+}
+
+export const messagesApi = {
+  list: (params?: {
+    client_id?: string;
+    status?: string;
+    source?: string;
+    destination?: string;
+    provider_id?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+    offset?: number;
+  }) =>
+    adminFetch<{ messages: AdminMessage[]; total: number; limit: number; offset: number }>(
+      `/messages${qs(params || {})}`,
+    ),
+  get: (id: string) => adminFetch<AdminMessageDetail>(`/messages/${id}`),
+};
+
+// ── Legal Entities API ──
+
+export interface LegalEntity {
+  id: string;
+  inn: string;
+  name: string;
+  full_name?: string;
+  address?: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const legalEntitiesApi = {
+  list: (params?: { limit?: number; offset?: number }) =>
+    adminFetch<{ legal_entities: LegalEntity[]; total: number }>(
+      `/legal-entities${qs(params || {})}`,
+    ),
+  get: (id: string) => adminFetch<LegalEntity>(`/legal-entities/${id}`),
+  create: (data: { inn: string; name: string; full_name?: string; address?: string }) =>
+    adminFetch<LegalEntity>('/legal-entities', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { inn?: string; name?: string; full_name?: string; address?: string; active?: boolean }) =>
+    adminFetch<LegalEntity>(`/legal-entities/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => adminFetch<void>(`/legal-entities/${id}`, { method: 'DELETE' }),
+};
+
+// ── Contracts API ──
+
+export interface Contract {
+  id: string;
+  contract_number: string;
+  client_id: string;
+  client_name: string;
+  legal_entity_id?: string;
+  legal_entity_inn?: string;
+  legal_entity_name?: string;
+  status: string;
+  start_date: string;
+  end_date?: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const contractsApi = {
+  list: (params?: { client_id?: string; status?: string; limit?: number; offset?: number }) =>
+    adminFetch<{ contracts: Contract[]; total: number }>(
+      `/contracts${qs(params || {})}`,
+    ),
+  get: (id: string) => adminFetch<Contract>(`/contracts/${id}`),
+  create: (data: {
+    contract_number: string;
+    client_id: string;
+    legal_entity_id?: string;
+    status?: string;
+    start_date: string;
+    end_date?: string;
+    description?: string;
+  }) => adminFetch<Contract>('/contracts', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: {
+    contract_number?: string;
+    legal_entity_id?: string;
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+    description?: string;
+  }) => adminFetch<Contract>(`/contracts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => adminFetch<void>(`/contracts/${id}`, { method: 'DELETE' }),
+};
+
+// ── Operator Templates API ──
+
+export interface OperatorTemplate {
+  id: string;
+  name: string;
+  operator_id: string;
+  operator_name: string;
+  sender_name_id?: string;
+  sender_name?: string;
+  body: string;
+  variables: string[];
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const operatorTemplatesApi = {
+  list: (params?: { operator_id?: string; sender_name_id?: string; status?: string; limit?: number; offset?: number }) =>
+    adminFetch<{ operator_templates: OperatorTemplate[]; total: number; limit: number; offset: number }>(
+      `/operator-templates${qs(params || {})}`,
+    ),
+  get: (id: string) => adminFetch<OperatorTemplate>(`/operator-templates/${id}`),
+  create: (data: {
+    name: string;
+    operator_id: string;
+    sender_name_id?: string;
+    body: string;
+    variables?: string[];
+    status?: string;
+  }) => adminFetch<OperatorTemplate>('/operator-templates', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: {
+    name?: string;
+    sender_name_id?: string;
+    body?: string;
+    variables?: string[];
+    status?: string;
+  }) => adminFetch<OperatorTemplate>(`/operator-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => adminFetch<void>(`/operator-templates/${id}`, { method: 'DELETE' }),
 };
