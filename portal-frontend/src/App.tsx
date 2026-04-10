@@ -49,6 +49,7 @@ const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage').then
 const AdminTemplatesPage = lazy(() => import('./pages/admin/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));
 const AdminSenderNamesPage = lazy(() => import('./pages/admin/SenderNamesAdminPage').then((m) => ({ default: m.SenderNamesAdminPage })));
 const AdminSenderNameDetailPage = lazy(() => import('./pages/admin/sender-names/SenderNameDetailPage').then((m) => ({ default: m.SenderNameDetailPage })));
+const AdminDetalizationPage = lazy(() => import('./pages/admin/detalization/DetalizationPage').then((m) => ({ default: m.DetalizationPage })));
 const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((m) => ({ default: m.WebhooksPage })));
 const AdminHLRPage = lazy(() => import('./pages/admin/HLRPage').then((m) => ({ default: m.HLRPage })));
 const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then((m) => ({ default: m.CountriesPage })));
@@ -148,6 +149,7 @@ export function App() {
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />
         <Route path="tarification" element={<Suspense fallback={null}><AdminTarificationPage /></Suspense>} />
         <Route path="audit" element={<Suspense fallback={null}><AdminAuditLogPage /></Suspense>} />
+        <Route path="detalization" element={<Suspense fallback={null}><AdminDetalizationPage /></Suspense>} />
         <Route path="users" element={<Suspense fallback={null}><AdminUsersPage /></Suspense>} />
         <Route path="users/roles" element={<Suspense fallback={null}><AdminRolesPage /></Suspense>} />
         <Route path="channels" element={<Suspense fallback={null}><AdminChannelsPage /></Suspense>} />
