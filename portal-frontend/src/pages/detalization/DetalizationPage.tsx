@@ -290,11 +290,12 @@ export function DetalizationPage() {
   const columnsWithDetails: Column<DetalizationMessage>[] = [
     ...COLUMNS,
     {
-      key: 'id',
-      header: 'Детали',
+      key: '_actions',
+      header: '',
       render: (msg) => (
         <Button
           variant="secondary"
+          aria-label={`Детали сообщения ${msg.id.substring(0, 8)}`}
           onClick={(e) => {
             e.stopPropagation();
             setSelectedMessageId(msg.id);
