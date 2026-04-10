@@ -55,14 +55,14 @@ export const StatusTimeline: React.FC<StatusTimelineProps> = ({ statuses }) => {
         const isLast = idx === statuses.length - 1;
 
         return (
-          <div key={idx} className="flex gap-3">
+          <div key={`${event.status}-${event.timestamp}-${idx}`} className="flex gap-3">
             {/* Dot + line */}
             <div className="flex flex-col items-center">
               <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 ${dot}`} />
-              {!isLast && <div className="w-px flex-1 bg-gray-200 mt-1" />}
+              {!isLast && <div className="w-px flex-1 min-h-8 bg-gray-200 mt-1" />}
             </div>
             {/* Content */}
-            <div className={`pb-4 ${isLast ? '' : ''}`}>
+            <div className="pb-4">
               <p className="text-sm font-medium text-gray-800">{label}</p>
               <p className="text-xs text-gray-500">{formatTime(event.timestamp)}</p>
               {event.details && (
