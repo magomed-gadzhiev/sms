@@ -625,6 +625,15 @@ export const systemDefaultsApi = {
 
 // ── Sender Names Admin API ──
 
+export interface SenderNameOperatorRegistration {
+  operator_id: string;
+  operator_name: string;
+  mcc: string;
+  mnc: string;
+  status: 'not_registered' | 'pending' | 'registered' | 'rejected';
+  registered_at?: string;
+}
+
 export interface AdminSenderNameInfo {
   id: string;
   client_id: string;
@@ -642,6 +651,8 @@ export const adminSenderNamesApi = {
     adminFetch<{ sender_names: AdminSenderNameInfo[]; total: number; limit: number; offset: number }>(
       `/sender-names${qs(params || {})}`,
     ),
+  get: (id: string) =>
+    adminFetch<{ sender_name: AdminSenderNameInfo }>(`/sender-names/${id}`),
   approve: (id: string) =>
     adminFetch<AdminSenderNameInfo>(`/sender-names/${id}/approve`, { method: 'POST' }),
   reject: (id: string, reason: string) =>
@@ -654,4 +665,6 @@ export const adminSenderNamesApi = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+  operatorRegistrations: (id: string) =>
+    adminFetch<{ registrations: SenderNameOperatorRegistration[] }>(`/sender-names/${id}/operator-registrations`),
 };
