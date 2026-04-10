@@ -296,7 +296,7 @@ export function ConnectionsPage() {
 
             <div className="mt-4">
               <p className="text-sm font-semibold text-gray-700 mb-2">Лог подключения</p>
-              <ConnectionLog connectionId={selectedDetail.provider_id} />
+              <ConnectionLog connectionId={selectedConnectionId!} />
             </div>
           </div>
         ) : null}
