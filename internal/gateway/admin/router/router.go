@@ -28,6 +28,12 @@ func SetupRouter(
 	roleHandlers *handlers.RoleHandlers,
 	senderNameHandlers *handlers.AdminSenderNameHandlers,
 	hierarchicalPeriodsHandler *handlers.HierarchicalPeriodsHandler,
+	detalizationHandlers *handlers.DetalizationHandlers,
+	legalEntityHandlers *handlers.LegalEntityHandlers,
+	contractHandlers *handlers.ContractHandlers,
+	operatorTemplateHandlers *handlers.OperatorTemplateHandlers,
+	platformRoutesHandlers *handlers.PlatformRoutesHandlers,
+	connectionsHandlers *handlers.ConnectionsHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -208,6 +214,50 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}/approve", senderNameHandlers.ApproveSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/reject", senderNameHandlers.RejectSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/deactivate", senderNameHandlers.DeactivateSenderName).Methods("POST")
+
+	// Detalization endpoints (admin message log)
+	messages := adminV1.PathPrefix("/messages").Subrouter()
+	messages.HandleFunc("", detalizationHandlers.ListMessages).Methods("GET")
+	messages.HandleFunc("/{id}", detalizationHandlers.GetMessage).Methods("GET")
+
+	// Legal Entities endpoints
+	legalEntities := adminV1.PathPrefix("/legal-entities").Subrouter()
+	legalEntities.HandleFunc("", legalEntityHandlers.ListLegalEntities).Methods("GET")
+	legalEntities.HandleFunc("", legalEntityHandlers.CreateLegalEntity).Methods("POST")
+	legalEntities.HandleFunc("/{id}", legalEntityHandlers.GetLegalEntity).Methods("GET")
+	legalEntities.HandleFunc("/{id}", legalEntityHandlers.UpdateLegalEntity).Methods("PUT")
+	legalEntities.HandleFunc("/{id}", legalEntityHandlers.DeleteLegalEntity).Methods("DELETE")
+
+	// Contracts endpoints
+	contracts := adminV1.PathPrefix("/contracts").Subrouter()
+	contracts.HandleFunc("", contractHandlers.ListContracts).Methods("GET")
+	contracts.HandleFunc("", contractHandlers.CreateContract).Methods("POST")
+	contracts.HandleFunc("/{id}", contractHandlers.GetContract).Methods("GET")
+	contracts.HandleFunc("/{id}", contractHandlers.UpdateContract).Methods("PUT")
+	contracts.HandleFunc("/{id}", contractHandlers.DeleteContract).Methods("DELETE")
+
+	// Operator Templates endpoints
+	operatorTemplates := adminV1.PathPrefix("/operator-templates").Subrouter()
+	operatorTemplates.HandleFunc("", operatorTemplateHandlers.ListOperatorTemplates).Methods("GET")
+	operatorTemplates.HandleFunc("", operatorTemplateHandlers.CreateOperatorTemplate).Methods("POST")
+	operatorTemplates.HandleFunc("/{id}", operatorTemplateHandlers.GetOperatorTemplate).Methods("GET")
+	operatorTemplates.HandleFunc("/{id}", operatorTemplateHandlers.UpdateOperatorTemplate).Methods("PUT")
+	operatorTemplates.HandleFunc("/{id}", operatorTemplateHandlers.DeleteOperatorTemplate).Methods("DELETE")
+
+	// Platform Routes endpoints (operator-based routing model)
+	platformRoutes := adminV1.PathPrefix("/platform-routes").Subrouter()
+	platformRoutes.HandleFunc("/reorder", platformRoutesHandlers.ReorderPlatformRoutes).Methods("PUT")
+	platformRoutes.HandleFunc("", platformRoutesHandlers.ListPlatformRoutes).Methods("GET")
+	platformRoutes.HandleFunc("", platformRoutesHandlers.CreatePlatformRoute).Methods("POST")
+	platformRoutes.HandleFunc("/{id}", platformRoutesHandlers.UpdatePlatformRoute).Methods("PUT")
+	platformRoutes.HandleFunc("/{id}", platformRoutesHandlers.DeletePlatformRoute).Methods("DELETE")
+
+	// Connections endpoints (SMPP runtime connection management)
+	connections := adminV1.PathPrefix("/connections").Subrouter()
+	connections.HandleFunc("", connectionsHandlers.ListConnections).Methods("GET")
+	connections.HandleFunc("/{id}", connectionsHandlers.GetConnection).Methods("GET")
+	connections.HandleFunc("/{id}/reconnect", connectionsHandlers.ReconnectConnection).Methods("POST")
+	connections.HandleFunc("/{id}/stop", connectionsHandlers.StopConnection).Methods("POST")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

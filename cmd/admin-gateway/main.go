@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/redis/go-redis/v9"
 	sharedmw "github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin"
@@ -127,6 +128,20 @@ func main() {
 	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
 	senderNameHandlers := handlers.NewAdminSenderNameHandlers(serviceClients.SenderNameClient)
 	hierarchicalPeriodsHandler := handlers.NewHierarchicalPeriodsHandler(adminDB)
+	detalizationHandlers := handlers.NewDetalizationHandlers(adminDB)
+	legalEntityHandlers := handlers.NewLegalEntityHandlers(adminDB)
+	contractHandlers := handlers.NewContractHandlers(adminDB)
+	operatorTemplateHandlers := handlers.NewOperatorTemplateHandlers(adminDB)
+
+	// Redis client для ConnectionsHandlers
+	redisDSN := getEnvOrDefault("REDIS_ADDR", "localhost:6379")
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisDSN,
+	})
+	defer redisClient.Close()
+
+	platformRoutesHandlers := handlers.NewPlatformRoutesHandlers(adminDB)
+	connectionsHandlers := handlers.NewConnectionsHandlers(adminDB, serviceClients.ProviderClient, redisClient)
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
@@ -154,6 +169,12 @@ func main() {
 		roleHandlers,
 		senderNameHandlers,
 		hierarchicalPeriodsHandler,
+		detalizationHandlers,
+		legalEntityHandlers,
+		contractHandlers,
+		operatorTemplateHandlers,
+		platformRoutesHandlers,
+		connectionsHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,
