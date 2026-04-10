@@ -764,3 +764,20 @@ export const detalizationApi = {
   },
   get: (id: string) => apiFetch<DetalizationMessageDetail>(`/detalization/${id}`),
 };
+
+// --- Notification Settings API ---
+export interface NotifSetting {
+  event_type: string;
+  in_app: boolean;
+  email: boolean;
+}
+
+export const notificationSettingsApi = {
+  get: () =>
+    apiFetch<{ settings: NotifSetting[]; extra_emails: string[] }>('/settings/notifications'),
+  update: (data: { settings: NotifSetting[]; extra_emails: string[] }) =>
+    apiFetch<{ ok: boolean }>('/settings/notifications', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
