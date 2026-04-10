@@ -691,3 +691,76 @@ export interface AnalyticsDataExtended {
   cost_by_day?: CostByDay[];
   cost_forecast?: string;
 }
+
+// --- Detalization API ---
+export interface DetalizationMessage {
+  id: string;
+  source: string;
+  destination: string;
+  text_preview: string;
+  status: string;
+  segment_count: number;
+  created_at: string;
+  delivered_at?: string;
+  failed_at?: string;
+  provider_name: string;
+}
+
+export interface DetalizationMessageDetail {
+  id: string;
+  source: string;
+  destination: string;
+  text: string;
+  encoding?: string;
+  status: string;
+  status_message?: string;
+  external_id?: string;
+  segment_count: number;
+  provider_name?: string;
+  route_name?: string;
+  created_at?: string;
+  submitted_at?: string;
+  delivered_at?: string;
+  failed_at?: string;
+  scheduled_at?: string;
+  expired_at?: string;
+  dlr?: {
+    stat: string;
+    err: number;
+    text: string;
+    submit_date?: string;
+    done_date?: string;
+    receipted_message_id?: string;
+  };
+  billing?: {
+    segment_count: number;
+    price_per_segment: string;
+    total_amount: string;
+    tariff_plan_id: string;
+    billed_at: string;
+  };
+}
+
+export const detalizationApi = {
+  list: (params?: {
+    status?: string;
+    source?: string;
+    destination?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const filtered: Record<string, string> = {};
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null && v !== '') filtered[k] = String(v);
+      }
+    }
+    const qs = new URLSearchParams(filtered).toString();
+    return apiFetch<{ messages: DetalizationMessage[]; total: number; limit: number; offset: number }>(
+      `/detalization${qs ? `?${qs}` : ''}`,
+    );
+  },
+  get: (id: string) => apiFetch<DetalizationMessageDetail>(`/detalization/${id}`),
+};
