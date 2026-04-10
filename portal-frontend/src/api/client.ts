@@ -781,3 +781,40 @@ export const notificationSettingsApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// --- Campaign Schedules API ---
+export interface CampaignSchedule {
+  id: string;
+  name: string;
+  template_campaign_id: string;
+  frequency: string;
+  cron_expression?: string;
+  next_run_at?: string;
+  last_run_at?: string;
+  is_active: boolean;
+  run_count: number;
+  max_runs?: number;
+  created_at: string;
+}
+
+export const campaignSchedulesApi = {
+  list: () => apiFetch<{ schedules: CampaignSchedule[] }>('/campaign-schedules'),
+  create: (data: {
+    name: string;
+    template_campaign_id: string;
+    frequency: string;
+    cron_expression?: string;
+    max_runs?: number;
+  }) =>
+    apiFetch<{ id: string }>('/campaign-schedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  toggle: (id: string, is_active: boolean) =>
+    apiFetch<{ ok: boolean }>(`/campaign-schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active }),
+    }),
+  remove: (id: string) =>
+    apiFetch<void>(`/campaign-schedules/${id}`, { method: 'DELETE' }),
+};
