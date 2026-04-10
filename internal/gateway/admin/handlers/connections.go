@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -130,11 +131,17 @@ func (h *ConnectionsHandlers) ListConnections(w http.ResponseWriter, r *http.Req
 		providers = append(providers, p)
 	}
 
-	connections := make([]connectionInfo, 0, len(providers))
-	for _, p := range providers {
-		health := h.fetchHealth(r.Context(), p.ID)
-		connections = append(connections, buildConnectionInfo(p, health))
+	connections := make([]connectionInfo, len(providers))
+	var wg sync.WaitGroup
+	for i, p := range providers {
+		wg.Add(1)
+		go func(i int, p providerRow) {
+			defer wg.Done()
+			health := h.fetchHealth(r.Context(), p.ID)
+			connections[i] = buildConnectionInfo(p, health)
+		}(i, p)
 	}
+	wg.Wait()
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"connections": connections,
@@ -169,16 +176,16 @@ func (h *ConnectionsHandlers) GetConnection(w http.ResponseWriter, r *http.Reque
 // ReconnectConnection handles POST /admin/v1/connections/{id}/reconnect
 func (h *ConnectionsHandlers) ReconnectConnection(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	h.publishCommand(w, r, id, "reconnect")
+	h.publishCommand(w, id, "reconnect")
 }
 
 // StopConnection handles POST /admin/v1/connections/{id}/stop
 func (h *ConnectionsHandlers) StopConnection(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	h.publishCommand(w, r, id, "stop")
+	h.publishCommand(w, id, "stop")
 }
 
-func (h *ConnectionsHandlers) publishCommand(w http.ResponseWriter, r *http.Request, providerID, command string) {
+func (h *ConnectionsHandlers) publishCommand(w http.ResponseWriter, providerID, command string) {
 	payload, err := json.Marshal(map[string]string{
 		"provider_id": providerID,
 		"command":     command,
@@ -189,7 +196,11 @@ func (h *ConnectionsHandlers) publishCommand(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.redis.Publish(r.Context(), "smpp:admin:commands", string(payload)).Err(); err != nil {
+	// Use a detached context so client disconnect does not cancel the Redis publish.
+	publishCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := h.redis.Publish(publishCtx, "smpp:admin:commands", string(payload)).Err(); err != nil {
 		log.Error().Err(err).Str("provider_id", providerID).Str("command", command).Msg("connections: error publishing command")
 		respondError(w, shared.ErrInternal("Ошибка отправки команды"))
 		return
