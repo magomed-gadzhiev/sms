@@ -5,7 +5,7 @@ import { StatCard } from '../../components/data/StatCard';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
-import { analyticsAdminApi, type GroupedStatRow, type GroupedStatsResponse } from '../../api/admin';
+import { analyticsAdminApi, type GroupedStatsResponse } from '../../api/admin';
 
 type GroupBy = 'day' | 'operator' | 'country';
 
@@ -70,6 +70,7 @@ export function AnalyticsPage() {
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
+    setGrouped(null);
     try {
       const { from, to } = periodToRange(filterValues.period || '7d');
       const clientId = filterValues.client_id || undefined;
@@ -89,19 +90,7 @@ export function AnalyticsPage() {
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
-  const handleGroupChange = useCallback(async (g: GroupBy) => {
-    setGroupBy(g);
-    const { from, to } = periodToRange(filterValues.period || '7d');
-    const clientId = filterValues.client_id || undefined;
-    try {
-      const res = await analyticsAdminApi.getGroupedStats({ from, to, group_by: g, client_id: clientId });
-      setGrouped(res);
-    } catch {
-      toast.error('Ошибка загрузки данных');
-    }
-  }, [filterValues, toast]);
-
-  const summary = stats?.summary;
+const summary = stats?.summary;
   const rows = grouped?.rows ?? [];
   const totals = grouped?.totals;
 
@@ -130,7 +119,7 @@ export function AnalyticsPage() {
           {GROUP_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => handleGroupChange(tab.value)}
+              onClick={() => setGroupBy(tab.value)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 groupBy === tab.value
                   ? 'border-primary text-primary'
@@ -166,8 +155,8 @@ export function AnalyticsPage() {
                     <td colSpan={6} className="text-center py-12 text-gray-400">Нет данных за выбранный период</td>
                   </tr>
                 )}
-                {!loading && rows.map((row: GroupedStatRow, i: number) => (
-                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                {!loading && rows.map((row) => (
+                  <tr key={row.label} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-2 text-gray-900">{row.label}</td>
                     <td className="px-4 py-2 text-right text-gray-700">{fmtNum(row.sent)}</td>
                     <td className="px-4 py-2 text-right text-green-700">{fmtNum(row.delivered)}</td>
