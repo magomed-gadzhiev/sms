@@ -182,12 +182,12 @@ func (h *PlatformRoutesHandlers) CreatePlatformRoute(w http.ResponseWriter, r *h
 func (h *PlatformRoutesHandlers) UpdatePlatformRoute(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var req struct {
-		OperatorID    string `json:"operator_id"`
-		ChannelType   string `json:"channel_type"`
-		ProviderID    string `json:"provider_id"`
-		LegalEntityID string `json:"legal_entity_id"`
-		Priority      *int   `json:"priority"`
-		Active        *bool  `json:"active"`
+		OperatorID    *string `json:"operator_id"`
+		ChannelType   string  `json:"channel_type"`
+		ProviderID    string  `json:"provider_id"`
+		LegalEntityID *string `json:"legal_entity_id"`
+		Priority      *int    `json:"priority"`
+		Active        *bool   `json:"active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
@@ -196,15 +196,15 @@ func (h *PlatformRoutesHandlers) UpdatePlatformRoute(w http.ResponseWriter, r *h
 
 	res, err := h.db.ExecContext(r.Context(), `
 		UPDATE platform_routes
-		SET operator_id     = CASE WHEN $2::text = '' THEN operator_id ELSE $2::uuid END,
+		SET operator_id     = CASE WHEN $2 IS NULL THEN operator_id ELSE $2::uuid END,
 		    channel_type    = COALESCE(NULLIF($3,''), channel_type),
-		    provider_id     = CASE WHEN $4::text = '' THEN provider_id ELSE $4::uuid END,
-		    legal_entity_id = CASE WHEN $5::text = '' THEN legal_entity_id ELSE $5::uuid END,
+		    provider_id     = COALESCE(NULLIF($4, '')::uuid, provider_id),
+		    legal_entity_id = CASE WHEN $5 IS NULL THEN legal_entity_id ELSE $5::uuid END,
 		    priority        = COALESCE($6, priority),
 		    active          = COALESCE($7, active),
 		    updated_at      = now()
 		WHERE id = $1::uuid
-	`, id, req.OperatorID, req.ChannelType, req.ProviderID, req.LegalEntityID, req.Priority, req.Active)
+	`, id, nullableString(req.OperatorID), req.ChannelType, req.ProviderID, nullableString(req.LegalEntityID), req.Priority, req.Active)
 	if err != nil {
 		log.Error().Err(err).Msg("platform_routes: ошибка обновления")
 		respondError(w, shared.ErrInternal("Ошибка обновления маршрута"))
