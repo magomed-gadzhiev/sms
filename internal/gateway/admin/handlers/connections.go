@@ -117,7 +117,7 @@ func (h *ConnectionsHandlers) ListConnections(w http.ResponseWriter, r *http.Req
 	`)
 	if err != nil {
 		log.Error().Err(err).Msg("connections: error listing providers")
-		respondError(w, shared.ErrInternal("Ошибка получения провайдеров"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения провайдеров"))
 		return
 	}
 	defer rows.Close()
@@ -165,7 +165,7 @@ func (h *ConnectionsHandlers) GetConnection(w http.ResponseWriter, r *http.Reque
 	}
 	if err != nil {
 		log.Error().Err(err).Str("provider_id", id).Msg("connections: error getting provider")
-		respondError(w, shared.ErrInternal("Ошибка получения провайдера"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения провайдера"))
 		return
 	}
 
@@ -192,7 +192,7 @@ func (h *ConnectionsHandlers) publishCommand(w http.ResponseWriter, providerID, 
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("connections: error marshaling command")
-		respondError(w, shared.ErrInternal("Ошибка формирования команды"))
+		respondError(w, shared.ErrInternalServer("Ошибка формирования команды"))
 		return
 	}
 
@@ -202,7 +202,7 @@ func (h *ConnectionsHandlers) publishCommand(w http.ResponseWriter, providerID, 
 
 	if err := h.redis.Publish(publishCtx, "smpp:admin:commands", string(payload)).Err(); err != nil {
 		log.Error().Err(err).Str("provider_id", providerID).Str("command", command).Msg("connections: error publishing command")
-		respondError(w, shared.ErrInternal("Ошибка отправки команды"))
+		respondError(w, shared.ErrInternalServer("Ошибка отправки команды"))
 		return
 	}
 

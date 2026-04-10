@@ -129,7 +129,7 @@ func (h *OperatorTemplateHandlers) ListOperatorTemplates(w http.ResponseWriter, 
 	rows, err := h.db.QueryContext(r.Context(), listQuery, listArgs...)
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка списка")
-		respondError(w, shared.ErrInternal("Ошибка получения шаблонов операторов"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения шаблонов операторов"))
 		return
 	}
 	defer rows.Close()
@@ -167,7 +167,7 @@ func (h *OperatorTemplateHandlers) GetOperatorTemplate(w http.ResponseWriter, r 
 	}
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка get")
-		respondError(w, shared.ErrInternal("Ошибка получения"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения"))
 		return
 	}
 	respondJSON(w, http.StatusOK, row.toJSON())
@@ -207,14 +207,14 @@ func (h *OperatorTemplateHandlers) CreateOperatorTemplate(w http.ResponseWriter,
 	`, req.Name, req.OperatorID, req.SenderNameID, req.Body, string(varsJSON), status).Scan(&newID)
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка создания")
-		respondError(w, shared.ErrInternal("Ошибка создания шаблона"))
+		respondError(w, shared.ErrInternalServer("Ошибка создания шаблона"))
 		return
 	}
 
 	row, err := scanOperatorTemplate(h.db.QueryRowContext(r.Context(),
 		operatorTemplateSelectQuery+` WHERE ot.id = $1::uuid`, newID))
 	if err != nil {
-		respondError(w, shared.ErrInternal("Ошибка получения созданного шаблона"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения созданного шаблона"))
 		return
 	}
 	respondJSON(w, http.StatusCreated, row.toJSON())
@@ -242,7 +242,7 @@ func (h *OperatorTemplateHandlers) UpdateOperatorTemplate(w http.ResponseWriter,
 	`, id, req.Name, req.SenderNameID, req.Body, string(varsJSON), req.Status)
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка обновления")
-		respondError(w, shared.ErrInternal("Ошибка обновления"))
+		respondError(w, shared.ErrInternalServer("Ошибка обновления"))
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -254,7 +254,7 @@ func (h *OperatorTemplateHandlers) UpdateOperatorTemplate(w http.ResponseWriter,
 	row, err := scanOperatorTemplate(h.db.QueryRowContext(r.Context(),
 		operatorTemplateSelectQuery+` WHERE ot.id = $1::uuid`, id))
 	if err != nil {
-		respondError(w, shared.ErrInternal("Ошибка получения обновлённого шаблона"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения обновлённого шаблона"))
 		return
 	}
 	respondJSON(w, http.StatusOK, row.toJSON())
@@ -267,7 +267,7 @@ func (h *OperatorTemplateHandlers) DeleteOperatorTemplate(w http.ResponseWriter,
 		`DELETE FROM operator_templates WHERE id = $1::uuid`, id)
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка удаления")
-		respondError(w, shared.ErrInternal("Ошибка удаления"))
+		respondError(w, shared.ErrInternalServer("Ошибка удаления"))
 		return
 	}
 	n, _ := res.RowsAffected()

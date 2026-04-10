@@ -64,7 +64,7 @@ func (h *LegalEntityHandlers) ListLegalEntities(w http.ResponseWriter, r *http.R
 	`, limit, offset)
 	if err != nil {
 		log.Error().Err(err).Msg("legal_entities: ошибка списка")
-		respondError(w, shared.ErrInternal("Ошибка получения юридических лиц"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения юридических лиц"))
 		return
 	}
 	defer rows.Close()
@@ -107,7 +107,7 @@ func (h *LegalEntityHandlers) GetLegalEntity(w http.ResponseWriter, r *http.Requ
 	}
 	if err != nil {
 		log.Error().Err(err).Msg("legal_entities: ошибка get")
-		respondError(w, shared.ErrInternal("Ошибка получения"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения"))
 		return
 	}
 	respondJSON(w, http.StatusOK, row.toJSON())
@@ -143,7 +143,7 @@ func (h *LegalEntityHandlers) CreateLegalEntity(w http.ResponseWriter, r *http.R
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("legal_entities: ошибка создания")
-		respondError(w, shared.ErrInternal("Ошибка создания"))
+		respondError(w, shared.ErrInternalServer("Ошибка создания"))
 		return
 	}
 	respondJSON(w, http.StatusCreated, row.toJSON())
@@ -185,7 +185,7 @@ func (h *LegalEntityHandlers) UpdateLegalEntity(w http.ResponseWriter, r *http.R
 	}
 	if err != nil {
 		log.Error().Err(err).Msg("legal_entities: ошибка обновления")
-		respondError(w, shared.ErrInternal("Ошибка обновления"))
+		respondError(w, shared.ErrInternalServer("Ошибка обновления"))
 		return
 	}
 	respondJSON(w, http.StatusOK, row.toJSON())
@@ -198,7 +198,7 @@ func (h *LegalEntityHandlers) DeleteLegalEntity(w http.ResponseWriter, r *http.R
 		`DELETE FROM legal_entities WHERE id = $1::uuid`, id)
 	if err != nil {
 		log.Error().Err(err).Msg("legal_entities: ошибка удаления")
-		respondError(w, shared.ErrInternal("Ошибка удаления"))
+		respondError(w, shared.ErrInternalServer("Ошибка удаления"))
 		return
 	}
 	n, _ := res.RowsAffected()

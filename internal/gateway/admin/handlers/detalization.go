@@ -106,7 +106,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	rows, err := h.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		log.Error().Err(err).Msg("detalization: ошибка запроса сообщений")
-		respondError(w, shared.ErrInternal("Ошибка получения сообщений"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения сообщений"))
 		return
 	}
 	defer rows.Close()
@@ -225,7 +225,7 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 			return
 		}
 		log.Error().Err(err).Str("id", id).Msg("detalization: ошибка запроса сообщения")
-		respondError(w, shared.ErrInternal("Ошибка получения сообщения"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения сообщения"))
 		return
 	}
 

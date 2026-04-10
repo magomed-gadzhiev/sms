@@ -133,7 +133,7 @@ func (h *ContractHandlers) ListContracts(w http.ResponseWriter, r *http.Request)
 	rows, err := h.db.QueryContext(r.Context(), listQuery, listArgs...)
 	if err != nil {
 		log.Error().Err(err).Msg("contracts: ошибка списка")
-		respondError(w, shared.ErrInternal("Ошибка получения договоров"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения договоров"))
 		return
 	}
 	defer rows.Close()
@@ -169,7 +169,7 @@ func (h *ContractHandlers) GetContract(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		log.Error().Err(err).Msg("contracts: ошибка get")
-		respondError(w, shared.ErrInternal("Ошибка получения"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения"))
 		return
 	}
 	respondJSON(w, http.StatusOK, row.toJSON())
@@ -209,14 +209,14 @@ func (h *ContractHandlers) CreateContract(w http.ResponseWriter, r *http.Request
 	`, req.ContractNumber, req.ClientID, req.LegalEntityID, status, req.StartDate, req.EndDate, req.Description).Scan(&newID)
 	if err != nil {
 		log.Error().Err(err).Msg("contracts: ошибка создания")
-		respondError(w, shared.ErrInternal("Ошибка создания договора"))
+		respondError(w, shared.ErrInternalServer("Ошибка создания договора"))
 		return
 	}
 
 	row, err := scanContract(h.db.QueryRowContext(r.Context(),
 		contractSelectQuery+` WHERE ct.id = $1::uuid`, newID))
 	if err != nil {
-		respondError(w, shared.ErrInternal("Ошибка получения созданного договора"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения созданного договора"))
 		return
 	}
 	respondJSON(w, http.StatusCreated, row.toJSON())
@@ -244,7 +244,7 @@ func (h *ContractHandlers) UpdateContract(w http.ResponseWriter, r *http.Request
 	`, id, req.ContractNumber, req.LegalEntityID, req.Status, req.StartDate, req.EndDate, req.Description)
 	if err != nil {
 		log.Error().Err(err).Msg("contracts: ошибка обновления")
-		respondError(w, shared.ErrInternal("Ошибка обновления"))
+		respondError(w, shared.ErrInternalServer("Ошибка обновления"))
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -256,7 +256,7 @@ func (h *ContractHandlers) UpdateContract(w http.ResponseWriter, r *http.Request
 	row, err := scanContract(h.db.QueryRowContext(r.Context(),
 		contractSelectQuery+` WHERE ct.id = $1::uuid`, id))
 	if err != nil {
-		respondError(w, shared.ErrInternal("Ошибка получения обновлённого договора"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения обновлённого договора"))
 		return
 	}
 	respondJSON(w, http.StatusOK, row.toJSON())
@@ -268,7 +268,7 @@ func (h *ContractHandlers) DeleteContract(w http.ResponseWriter, r *http.Request
 	res, err := h.db.ExecContext(r.Context(), `DELETE FROM contracts WHERE id = $1::uuid`, id)
 	if err != nil {
 		log.Error().Err(err).Msg("contracts: ошибка удаления")
-		respondError(w, shared.ErrInternal("Ошибка удаления"))
+		respondError(w, shared.ErrInternalServer("Ошибка удаления"))
 		return
 	}
 	n, _ := res.RowsAffected()

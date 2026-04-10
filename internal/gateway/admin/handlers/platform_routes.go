@@ -97,7 +97,7 @@ func (h *PlatformRoutesHandlers) ListPlatformRoutes(w http.ResponseWriter, r *ht
 	`, limit, offset)
 	if err != nil {
 		log.Error().Err(err).Msg("platform_routes: ошибка списка")
-		respondError(w, shared.ErrInternal("Ошибка получения маршрутов"))
+		respondError(w, shared.ErrInternalServer("Ошибка получения маршрутов"))
 		return
 	}
 	defer rows.Close()
@@ -165,7 +165,7 @@ func (h *PlatformRoutesHandlers) CreatePlatformRoute(w http.ResponseWriter, r *h
 			return
 		}
 		log.Error().Err(err).Msg("platform_routes: ошибка создания")
-		respondError(w, shared.ErrInternal("Ошибка создания маршрута"))
+		respondError(w, shared.ErrInternalServer("Ошибка создания маршрута"))
 		return
 	}
 
@@ -208,7 +208,7 @@ func (h *PlatformRoutesHandlers) UpdatePlatformRoute(w http.ResponseWriter, r *h
 			return
 		}
 		log.Error().Err(err).Msg("platform_routes: ошибка обновления")
-		respondError(w, shared.ErrInternal("Ошибка обновления маршрута"))
+		respondError(w, shared.ErrInternalServer("Ошибка обновления маршрута"))
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -228,7 +228,7 @@ func (h *PlatformRoutesHandlers) DeletePlatformRoute(w http.ResponseWriter, r *h
 	res, err := h.db.ExecContext(r.Context(), `DELETE FROM platform_routes WHERE id = $1::uuid`, id)
 	if err != nil {
 		log.Error().Err(err).Msg("platform_routes: ошибка удаления")
-		respondError(w, shared.ErrInternal("Ошибка удаления маршрута"))
+		respondError(w, shared.ErrInternalServer("Ошибка удаления маршрута"))
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -261,7 +261,7 @@ func (h *PlatformRoutesHandlers) ReorderPlatformRoutes(w http.ResponseWriter, r 
 	tx, err := h.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		log.Error().Err(err).Msg("platform_routes: ошибка начала транзакции")
-		respondError(w, shared.ErrInternal("Ошибка переупорядочивания маршрутов"))
+		respondError(w, shared.ErrInternalServer("Ошибка переупорядочивания маршрутов"))
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -273,7 +273,7 @@ func (h *PlatformRoutesHandlers) ReorderPlatformRoutes(w http.ResponseWriter, r 
 		`, item.ID, item.Priority)
 		if err != nil {
 			log.Error().Err(err).Str("route_id", item.ID).Msg("platform_routes: ошибка reorder")
-			respondError(w, shared.ErrInternal("Ошибка переупорядочивания маршрутов"))
+			respondError(w, shared.ErrInternalServer("Ошибка переупорядочивания маршрутов"))
 			return
 		}
 		n, _ := res.RowsAffected()
@@ -282,7 +282,7 @@ func (h *PlatformRoutesHandlers) ReorderPlatformRoutes(w http.ResponseWriter, r 
 
 	if err := tx.Commit(); err != nil {
 		log.Error().Err(err).Msg("platform_routes: ошибка commit")
-		respondError(w, shared.ErrInternal("Ошибка сохранения порядка маршрутов"))
+		respondError(w, shared.ErrInternalServer("Ошибка сохранения порядка маршрутов"))
 		return
 	}
 
