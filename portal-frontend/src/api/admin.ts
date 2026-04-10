@@ -238,6 +238,26 @@ export interface RealTimeMetrics {
   queue_depth: number;
 }
 
+export interface GroupedStatRow {
+  label: string;
+  sent: number;
+  delivered: number;
+  failed: number;
+  delivery_rate: number;
+  cost: number;
+}
+
+export interface GroupedStatsResponse {
+  rows: GroupedStatRow[];
+  totals: {
+    sent: number;
+    delivered: number;
+    failed: number;
+    delivery_rate: number;
+    cost: number;
+  };
+}
+
 // ── API ──
 
 export const clientsApi = {
@@ -310,6 +330,8 @@ export const analyticsAdminApi = {
   getRealTimeMetrics: () => adminFetch<RealTimeMetrics>('/analytics/metrics/realtime'),
   getProviderPerformance: (id: string, params?: { from?: string; to?: string }) =>
     adminFetch<unknown>(`/analytics/providers/${id}/performance${qs(params || {})}`),
+  getGroupedStats: (params: { from: string; to: string; group_by: 'day' | 'operator' | 'country'; client_id?: string }) =>
+    adminFetch<GroupedStatsResponse>(`/analytics/stats${qs(params)}`),
 };
 
 export const webhooksAdminApi = {
@@ -561,6 +583,44 @@ export const rolesApi = {
 
 export const permissionsApi = {
   list: () => adminFetch<{ permissions: PermissionInfo[] }>('/permissions'),
+};
+
+// ── Client Routes API ──
+
+export interface ClientRoute {
+  id: string;
+  client_id: string;
+  operator_id: string;
+  provider_id: string;
+  priority: number;
+  weight: number;
+  active: boolean;
+  shared: boolean;
+}
+
+export const clientRoutesApi = {
+  list: (clientId: string, params?: { operator_id?: string }) =>
+    adminFetch<{ routes: ClientRoute[] }>(`/clients/${clientId}/routes${qs(params || {})}`),
+  create: (clientId: string, data: { operator_id: string; provider_id: string; priority: number; weight: number }) =>
+    adminFetch<ClientRoute>(`/clients/${clientId}/routes`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (clientId: string, routeId: string, data: { priority: number; weight: number; active: boolean }) =>
+    adminFetch<ClientRoute>(`/clients/${clientId}/routes/${routeId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (clientId: string, routeId: string) =>
+    adminFetch<void>(`/clients/${clientId}/routes/${routeId}`, { method: 'DELETE' }),
+};
+
+// ── System Defaults API ──
+
+export interface SystemDefault {
+  key: string;
+  value: number;
+  description?: string;
+}
+
+export const systemDefaultsApi = {
+  getAll: () => adminFetch<Record<string, number>>('/system/defaults'),
+  set: (key: string, value: number) =>
+    adminFetch<void>(`/system/defaults/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
 };
 
 // ── Sender Names Admin API ──

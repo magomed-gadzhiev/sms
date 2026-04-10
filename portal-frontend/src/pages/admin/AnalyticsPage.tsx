@@ -5,51 +5,118 @@ import { StatCard } from '../../components/data/StatCard';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
-import { analyticsAdminApi } from '../../api/admin';
+import { analyticsAdminApi, type GroupedStatRow, type GroupedStatsResponse } from '../../api/admin';
+
+type GroupBy = 'day' | 'operator' | 'country';
+
+const GROUP_TABS: { value: GroupBy; label: string }[] = [
+  { value: 'day', label: 'По дням' },
+  { value: 'operator', label: 'По операторам' },
+  { value: 'country', label: 'По странам' },
+];
 
 const filters: FilterDef[] = [
-  { key: 'period', label: 'Период', type: 'select', options: [{ value: '7d', label: 'Последние 7 дней' }, { value: '30d', label: 'Последние 30 дней' }, { value: '90d', label: 'Последние 90 дней' }] },
+  {
+    key: 'period',
+    label: 'Период',
+    type: 'select',
+    options: [
+      { value: '7d', label: 'Последние 7 дней' },
+      { value: '30d', label: 'Последние 30 дней' },
+      { value: '90d', label: 'Последние 90 дней' },
+    ],
+  },
   { key: 'client_id', label: 'ID клиента', type: 'text', placeholder: 'Все клиенты' },
-  { key: 'group_by', label: 'Группировка', type: 'select', options: [{ value: 'day', label: 'По дням' }, { value: 'week', label: 'По неделям' }, { value: 'country', label: 'По странам' }] },
 ];
 
 function periodToRange(period: string): { from: string; to: string } {
-  const to = new Date(); const from = new Date();
+  const to = new Date();
+  const from = new Date();
   from.setDate(from.getDate() - (period === '90d' ? 90 : period === '30d' ? 30 : 7));
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 
+function fmtNum(n: number) {
+  return n.toLocaleString('ru-RU');
+}
+
+function fmtRate(n: number) {
+  return `${n.toFixed(1)}%`;
+}
+
+function fmtCost(n: number) {
+  return `${n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`;
+}
+
 interface StatsResponse {
-  summary?: { total_sent?: number; total_delivered?: number; total_failed?: number; delivery_rate?: number; total_cost?: number };
+  summary?: {
+    total_sent?: number;
+    total_delivered?: number;
+    total_failed?: number;
+    delivery_rate?: number;
+    total_cost?: number;
+  };
   timeline?: { date: string; sent: number; delivered: number; failed: number }[];
   by_provider?: { provider: string; sent: number; delivered: number; success_rate: number }[];
 }
 
 export function AnalyticsPage() {
   const toast = useToast();
-  const [filterValues, setFilterValues] = useState<Record<string, string>>({ period: '7d', group_by: 'day' });
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({ period: '7d' });
+  const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [grouped, setGrouped] = useState<GroupedStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
       const { from, to } = periodToRange(filterValues.period || '7d');
-      const res = await analyticsAdminApi.getStats({ from, to, client_id: filterValues.client_id || undefined, group_by: filterValues.group_by || 'day' });
+      const clientId = filterValues.client_id || undefined;
+
+      const [res, groupedRes] = await Promise.all([
+        analyticsAdminApi.getStats({ from, to, client_id: clientId, group_by: 'day' }),
+        analyticsAdminApi.getGroupedStats({ from, to, group_by: groupBy, client_id: clientId }),
+      ]);
       setStats(res as StatsResponse);
-    } catch { toast.error('Failed to load analytics'); }
-    finally { setLoading(false); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterValues]);
+      setGrouped(groupedRes);
+    } catch {
+      toast.error('Ошибка загрузки аналитики');
+    } finally {
+      setLoading(false);
+    }
+  }, [filterValues, groupBy, toast]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
+  const handleGroupChange = useCallback(async (g: GroupBy) => {
+    setGroupBy(g);
+    const { from, to } = periodToRange(filterValues.period || '7d');
+    const clientId = filterValues.client_id || undefined;
+    try {
+      const res = await analyticsAdminApi.getGroupedStats({ from, to, group_by: g, client_id: clientId });
+      setGrouped(res);
+    } catch {
+      toast.error('Ошибка загрузки данных');
+    }
+  }, [filterValues, toast]);
+
   const summary = stats?.summary;
+  const rows = grouped?.rows ?? [];
+  const totals = grouped?.totals;
+
+  const labelHeader = groupBy === 'day' ? 'Дата' : groupBy === 'operator' ? 'Оператор' : 'Страна';
 
   return (
     <>
-      <PageHeader title="Аналитика" breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Аналитика' }]} actions={<Button variant="secondary" onClick={fetchStats}>Обновить</Button>} />
-      <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} />
+      <PageHeader
+        title="Статистика"
+        breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Статистика' }]}
+        actions={<Button variant="secondary" onClick={fetchStats}>Обновить</Button>}
+      />
+
+      <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} onReset={() => setFilterValues({ period: '7d' })} />
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard title="Всего отправлено" value={summary?.total_sent?.toLocaleString() ?? '-'} />
         <StatCard title="Доставлено" value={summary?.total_delivered?.toLocaleString() ?? '-'} />
@@ -57,11 +124,81 @@ export function AnalyticsPage() {
         <StatCard title="Доставляемость" value={summary?.delivery_rate != null ? `${summary.delivery_rate}%` : '-'} />
         <StatCard title="Общая стоимость" value={summary?.total_cost != null ? `${summary.total_cost} ₽` : '-'} />
       </div>
-      {!loading && stats && !stats.summary?.total_sent && (
-        <div className="text-center py-12 text-gray-400 bg-white border border-gray-200 rounded-lg mb-6">
-          Нет данных за выбранный период
+
+      <div className="bg-white border border-gray-200 rounded-lg mb-6">
+        <div className="flex items-center gap-1 px-4 pt-4 pb-0 border-b border-gray-200">
+          {GROUP_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => handleGroupChange(tab.value)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                groupBy === tab.value
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      )}
+
+        <div className="relative">
+          <div className="h-[520px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50 z-10">
+                <tr className="border-b border-gray-200">
+                  <th className="text-left px-4 py-2 font-medium text-gray-600">{labelHeader}</th>
+                  <th className="text-right px-4 py-2 font-medium text-gray-600">Отправлено</th>
+                  <th className="text-right px-4 py-2 font-medium text-gray-600">Доставлено</th>
+                  <th className="text-right px-4 py-2 font-medium text-gray-600">Ошибки</th>
+                  <th className="text-right px-4 py-2 font-medium text-gray-600">Доставляемость</th>
+                  <th className="text-right px-4 py-2 font-medium text-gray-600">Стоимость</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-12 text-gray-400">Загрузка...</td>
+                  </tr>
+                )}
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-12 text-gray-400">Нет данных за выбранный период</td>
+                  </tr>
+                )}
+                {!loading && rows.map((row: GroupedStatRow, i: number) => (
+                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-900">{row.label}</td>
+                    <td className="px-4 py-2 text-right text-gray-700">{fmtNum(row.sent)}</td>
+                    <td className="px-4 py-2 text-right text-green-700">{fmtNum(row.delivered)}</td>
+                    <td className="px-4 py-2 text-right text-red-600">{fmtNum(row.failed)}</td>
+                    <td className="px-4 py-2 text-right text-gray-700">{fmtRate(row.delivery_rate)}</td>
+                    <td className="px-4 py-2 text-right text-gray-700">{fmtCost(row.cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {!loading && totals && rows.length > 0 && (
+            <div className="border-t-2 border-gray-300 bg-gray-50">
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="font-semibold text-gray-900">
+                    <td className="px-4 py-2 w-[30%]">Итого</td>
+                    <td className="px-4 py-2 text-right">{fmtNum(totals.sent)}</td>
+                    <td className="px-4 py-2 text-right text-green-700">{fmtNum(totals.delivered)}</td>
+                    <td className="px-4 py-2 text-right text-red-600">{fmtNum(totals.failed)}</td>
+                    <td className="px-4 py-2 text-right">{fmtRate(totals.delivery_rate)}</td>
+                    <td className="px-4 py-2 text-right">{fmtCost(totals.cost)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
       {!loading && stats?.timeline && stats.timeline.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
           <h3 className="text-sm font-medium text-gray-600 mb-3">Объём сообщений</h3>
