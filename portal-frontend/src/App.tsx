@@ -30,6 +30,7 @@ import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
 import { SenderNameBillingHistory } from './pages/sender-names/SenderNameBillingHistory';
 import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
+import { DetalizationPage } from './pages/detalization/DetalizationPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
 import { LookupPage } from './pages/lookup/LookupPage';
 import { DomainsPage } from './pages/settings/DomainsPage';
@@ -96,6 +97,7 @@ export function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/:id" element={<MessageDetailPage />} />
+        <Route path="/detalization" element={<DetalizationPage />} />
         <Route path="/contact-lists" element={<ContactListsPage />} />
         <Route path="/contact-lists/:id" element={<ContactListDetailPage />} />
         <Route path="/contact-lists/:id/import" element={<ImportWizardPage />} />

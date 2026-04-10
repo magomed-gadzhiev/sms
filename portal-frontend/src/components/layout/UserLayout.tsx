@@ -16,6 +16,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Рассылки',
     items: [
       { path: '/messages', label: 'Сообщения' },
+      { path: '/detalization', label: 'Детализация' },
       { path: '/campaigns', label: 'Рассылки' },
       { path: '/templates', label: 'Шаблоны' },
       { path: '/sender-names', label: 'Имена отправителей' },
