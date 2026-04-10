@@ -318,6 +318,10 @@ func main() {
 	detalizationHandlers := handlers.NewDetalizationHandlers(dbPool)
 	portalrouter.RegisterDetalizationRoutes(router, sessionAuthMw, csrfMw, detalizationHandlers)
 
+	// Регистрируем маршруты настроек уведомлений
+	notifSettingsHandlers := handlers.NewNotificationSettingsHandlers(dbPool)
+	portalrouter.RegisterNotificationSettingsRoutes(router, sessionAuthMw, csrfMw, notifSettingsHandlers)
+
 	// Регистрируем маршрут оценки стоимости кампании
 	costEstimateHandlers := handlers.NewCostEstimateHandlers(serviceClients.BillingClient, serviceClients.ContactClient)
 	portalrouter.RegisterCostEstimateRoutes(router, sessionAuthMw, csrfMw, costEstimateHandlers)

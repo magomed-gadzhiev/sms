@@ -363,6 +363,20 @@ func RegisterDetalizationRoutes(
 	detalization.HandleFunc("/{id}", h.GetMessage).Methods("GET")
 }
 
+// RegisterNotificationSettingsRoutes добавляет маршруты настроек уведомлений для клиентского портала
+func RegisterNotificationSettingsRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.NotificationSettingsHandlers,
+) {
+	notifSettings := router.PathPrefix("/portal/v1/settings/notifications").Subrouter()
+	notifSettings.Use(sessionAuthMiddleware)
+	notifSettings.Use(csrfMiddleware)
+	notifSettings.HandleFunc("", h.GetSettings).Methods("GET")
+	notifSettings.HandleFunc("", h.PutSettings).Methods("PUT")
+}
+
 // RegisterCostEstimateRoutes добавляет маршрут оценки стоимости кампании
 func RegisterCostEstimateRoutes(
 	router *mux.Router,
