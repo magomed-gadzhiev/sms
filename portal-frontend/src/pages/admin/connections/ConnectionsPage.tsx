@@ -6,6 +6,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../components/ui/Toast';
 import { usePolling } from '../../../hooks/usePolling';
 import { connectionsApi, type ConnectionInfo } from '../../../api/admin';
+import { ConnectionLog } from './ConnectionLog';
 
 const REFRESH_INTERVAL = 10_000;
 
@@ -291,6 +292,11 @@ export function ConnectionsPage() {
               >
                 {actioning === selectedDetail.provider_id + ':stop' ? 'Стоп...' : 'Остановить'}
               </Button>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Лог подключения</p>
+              <ConnectionLog connectionId={selectedDetail.provider_id} />
             </div>
           </div>
         ) : null}
