@@ -111,3 +111,6 @@ portal-frontend/dist/
 portal-frontend/.vite/
 .claude/worktrees/
 .superpowers/
+
+# Git worktrees
+.worktrees/
