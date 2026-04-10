@@ -48,6 +48,7 @@ const AdminMonitoringPage = lazy(() => import('./pages/admin/MonitoringPage').th
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 const AdminTemplatesPage = lazy(() => import('./pages/admin/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));
 const AdminSenderNamesPage = lazy(() => import('./pages/admin/SenderNamesAdminPage').then((m) => ({ default: m.SenderNamesAdminPage })));
+const AdminSenderNameDetailPage = lazy(() => import('./pages/admin/sender-names/SenderNameDetailPage').then((m) => ({ default: m.SenderNameDetailPage })));
 const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((m) => ({ default: m.WebhooksPage })));
 const AdminHLRPage = lazy(() => import('./pages/admin/HLRPage').then((m) => ({ default: m.HLRPage })));
 const AdminCountriesPage = lazy(() => import('./pages/admin/CountriesPage').then((m) => ({ default: m.CountriesPage })));
@@ -58,6 +59,9 @@ const AdminUsersPage = lazy(() => import('./pages/admin/users/UsersPage').then((
 const AdminRolesPage = lazy(() => import('./pages/admin/users/RolesPage').then((m) => ({ default: m.RolesPage })));
 const AdminChannelsPage = lazy(() => import('./pages/channels/ChannelsPage').then((m) => ({ default: m.ChannelsPage })));
 const AdminDeliveryStrategiesPage = lazy(() => import('./pages/delivery-strategies/DeliveryStrategiesPage').then((m) => ({ default: m.DeliveryStrategiesPage })));
+const AdminClientRoutesPage = lazy(() => import('./pages/admin/client-routes/ClientRoutesPage').then((m) => ({ default: m.ClientRoutesPage })));
+const AdminIndividualTariffsPage = lazy(() => import('./pages/admin/tarification/IndividualTariffsPage').then((m) => ({ default: m.IndividualTariffsPage })));
+const AdminSettingsPage = lazy(() => import('./pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -138,6 +142,7 @@ export function App() {
         <Route path="analytics" element={<Suspense fallback={null}><AdminAnalyticsPage /></Suspense>} />
         <Route path="templates" element={<Suspense fallback={null}><AdminTemplatesPage /></Suspense>} />
         <Route path="sender-names" element={<Suspense fallback={null}><AdminSenderNamesPage /></Suspense>} />
+        <Route path="sender-names/:id" element={<Suspense fallback={null}><AdminSenderNameDetailPage /></Suspense>} />
         <Route path="webhooks" element={<Suspense fallback={null}><AdminWebhooksPage /></Suspense>} />
         <Route path="hlr" element={<Suspense fallback={null}><AdminHLRPage /></Suspense>} />
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />
@@ -147,6 +152,9 @@ export function App() {
         <Route path="users/roles" element={<Suspense fallback={null}><AdminRolesPage /></Suspense>} />
         <Route path="channels" element={<Suspense fallback={null}><AdminChannelsPage /></Suspense>} />
         <Route path="delivery-strategies" element={<Suspense fallback={null}><AdminDeliveryStrategiesPage /></Suspense>} />
+        <Route path="individual-routes" element={<Suspense fallback={null}><AdminClientRoutesPage /></Suspense>} />
+        <Route path="individual-tariffs" element={<Suspense fallback={null}><AdminIndividualTariffsPage /></Suspense>} />
+        <Route path="settings" element={<Suspense fallback={null}><AdminSettingsPage /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

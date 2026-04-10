@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminSenderNamesApi, AdminApiError, type AdminSenderNameInfo } from '../../api/admin';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -28,6 +29,7 @@ function formatDate(dt: string) {
 }
 
 export function SenderNamesAdminPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<AdminSenderNameInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -172,6 +174,7 @@ export function SenderNamesAdminPage() {
         page={page}
         pageSize={PAGE_SIZE}
         onPageChange={(p) => setOffset((p - 1) * PAGE_SIZE)}
+        onRowClick={(sn) => navigate(`/admin/sender-names/${sn.id}`)}
       />
 
       {/* Reject modal */}
