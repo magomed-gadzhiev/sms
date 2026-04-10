@@ -81,7 +81,9 @@ func SetupRouter(
 	templates.HandleFunc("/{id}/audit", templateHandlers.GetTemplateAudit).Methods("GET")
 
 	// API документация (без аутентификации)
-	router.HandleFunc("/docs", docs.SwaggerUIHandler()).Methods("GET")
+	router.HandleFunc("/docs", docs.RedocHandler()).Methods("GET")
+	router.HandleFunc("/docs/swagger", docs.SwaggerUIHandler()).Methods("GET")
+	router.HandleFunc("/docs/grpc", docs.GRPCDocsHandler()).Methods("GET")
 	router.HandleFunc("/docs/openapi.yaml", docs.OpenAPISpecHandler()).Methods("GET")
 
 	return router
