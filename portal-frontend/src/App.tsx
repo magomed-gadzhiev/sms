@@ -25,14 +25,19 @@ import { OptOutListPage } from './pages/contacts/OptOutListPage';
 import { CampaignsPage } from './pages/campaigns/CampaignsPage';
 import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
+import { CampaignSchedulesPage } from './pages/campaigns/CampaignSchedulesPage';
 import { TemplatesPage } from './pages/templates/TemplatesPage';
 import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
 import { SenderNameBillingHistory } from './pages/sender-names/SenderNameBillingHistory';
 import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
+import { DetalizationPage } from './pages/detalization/DetalizationPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
 import { LookupPage } from './pages/lookup/LookupPage';
 import { DomainsPage } from './pages/settings/DomainsPage';
+import { NotificationSettingsPage } from './pages/settings/NotificationSettingsPage';
+import { SmppSettingsPage } from './pages/settings/SmppSettingsPage';
+import { DefaultSendersPage } from './pages/settings/DefaultSendersPage';
 import { SegmentsPage } from './pages/segments/SegmentsPage';
 import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
 import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
@@ -96,6 +101,7 @@ export function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/:id" element={<MessageDetailPage />} />
+        <Route path="/detalization" element={<DetalizationPage />} />
         <Route path="/contact-lists" element={<ContactListsPage />} />
         <Route path="/contact-lists/:id" element={<ContactListDetailPage />} />
         <Route path="/contact-lists/:id/import" element={<ImportWizardPage />} />
@@ -106,6 +112,7 @@ export function App() {
         <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/campaigns/new" element={<CampaignWizardPage />} />
         <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
+        <Route path="/campaign-schedules" element={<CampaignSchedulesPage />} />
         <Route path="/api-keys" element={<APIKeysPage />} />
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
@@ -123,6 +130,9 @@ export function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/settings/domains" element={<DomainsPage />} />
+        <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        <Route path="/settings/smpp" element={<SmppSettingsPage />} />
+        <Route path="/settings/default-senders" element={<DefaultSendersPage />} />
         <Route path="/cascade/history" element={<CascadeHistoryPage />} />
         <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />
       </Route>

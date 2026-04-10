@@ -16,6 +16,39 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
+type profileCompletion struct {
+	Percentage int              `json:"percentage"`
+	Steps      []completionStep `json:"steps"`
+}
+
+type completionStep struct {
+	Key       string `json:"key"`
+	Label     string `json:"label"`
+	Completed bool   `json:"completed"`
+}
+
+func calcProfileCompletion(hasEmail, hasCompany, hasContact, hasPhone, has2FA, hasSender bool) profileCompletion {
+	steps := []completionStep{
+		{Key: "email", Label: "Email подтверждён", Completed: hasEmail},
+		{Key: "company", Label: "Название компании", Completed: hasCompany},
+		{Key: "contact", Label: "Контактное лицо", Completed: hasContact},
+		{Key: "phone", Label: "Телефон", Completed: hasPhone},
+		{Key: "2fa", Label: "Двухфакторная аутентификация", Completed: has2FA},
+		{Key: "sender", Label: "Имя отправителя", Completed: hasSender},
+	}
+	count := 0
+	for _, s := range steps {
+		if s.Completed {
+			count++
+		}
+	}
+	pct := 0
+	if len(steps) > 0 {
+		pct = count * 100 / len(steps)
+	}
+	return profileCompletion{Percentage: pct, Steps: steps}
+}
+
 // DashboardHandlers содержит handlers для дашборда
 type DashboardHandlers struct {
 	billingClient   billingv1.BillingServiceClient
@@ -64,6 +97,9 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 
 		activeAPIKeys  int
 		activeWebhooks int
+
+		hasEmail bool
+		has2FA   bool
 	)
 
 	// 1. Получаем баланс
@@ -153,7 +189,27 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 		}
 	}()
 
-	// 5. Получаем данные для графиков (7-дневный timeline)
+	// 5. Получаем данные пользователя для расчёта заполненности профиля
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if h.authClient == nil {
+			return
+		}
+		resp, err := h.authClient.GetUser(ctx, &authv1.GetUserRequest{
+			UserId: userID.String(),
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка получения пользователя для профиля дашборда")
+			return
+		}
+		if resp.User != nil {
+			hasEmail = resp.User.Email != ""
+			has2FA = resp.User.TotpEnabled
+		}
+	}()
+
+	// 6. Получаем данные для графиков (7-дневный timeline)
 	var chartTimeline []map[string]interface{}
 	var statusDistribution []map[string]interface{}
 	var trendDelta int32
@@ -207,6 +263,8 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 		statusDistribution = []map[string]interface{}{}
 	}
 
+	completion := calcProfileCompletion(hasEmail, false, false, false, has2FA, false)
+
 	response := map[string]interface{}{
 		"balance":                  balance,
 		"currency":                 currency,
@@ -215,6 +273,7 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 		"delivery_rate_today":      deliveryRateToday,
 		"active_api_keys":          activeAPIKeys,
 		"active_webhooks":          activeWebhooks,
+		"profile_completion":       completion,
 		"charts": map[string]interface{}{
 			"timeline_7d":         chartTimeline,
 			"status_distribution": statusDistribution,

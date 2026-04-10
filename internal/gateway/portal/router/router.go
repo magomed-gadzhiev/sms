@@ -286,6 +286,8 @@ func SetupRouter(
 	settings.HandleFunc("/frequency-caps", settingsHandlers.UpsertFrequencyCap).Methods("PUT")
 	settings.HandleFunc("/quiet-hours", settingsHandlers.GetQuietHours).Methods("GET")
 	settings.HandleFunc("/quiet-hours", settingsHandlers.UpsertQuietHours).Methods("PUT")
+	settings.HandleFunc("/default-senders", settingsHandlers.GetDefaultSenders).Methods("GET")
+	settings.HandleFunc("/default-senders", settingsHandlers.SetDefaultSenders).Methods("PUT")
 
 	// Sender Names endpoints
 	senderNames := protected.PathPrefix("/sender-names").Subrouter()
@@ -347,6 +349,63 @@ func RegisterCascadeWebhookRoutes(router *mux.Router, h *handlers.CascadeWebhook
 // RegisterMaxMessengerWebhookRoute добавляет маршрут webhook для Max Messenger
 func RegisterMaxMessengerWebhookRoute(router *mux.Router, handler http.HandlerFunc) {
 	router.HandleFunc("/webhooks/cascade/max_messenger", handler).Methods("POST")
+}
+
+// RegisterDetalizationRoutes добавляет маршруты детализации сообщений для клиентского портала
+func RegisterDetalizationRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.DetalizationHandlers,
+) {
+	detalization := router.PathPrefix("/portal/v1/detalization").Subrouter()
+	detalization.Use(sessionAuthMiddleware)
+	detalization.Use(csrfMiddleware)
+	detalization.HandleFunc("", h.ListMessages).Methods("GET")
+	detalization.HandleFunc("/{id}", h.GetMessage).Methods("GET")
+}
+
+// RegisterNotificationSettingsRoutes добавляет маршруты настроек уведомлений для клиентского портала
+func RegisterNotificationSettingsRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.NotificationSettingsHandlers,
+) {
+	notifSettings := router.PathPrefix("/portal/v1/settings/notifications").Subrouter()
+	notifSettings.Use(sessionAuthMiddleware)
+	notifSettings.Use(csrfMiddleware)
+	notifSettings.HandleFunc("", h.GetSettings).Methods("GET")
+	notifSettings.HandleFunc("", h.PutSettings).Methods("PUT")
+}
+
+// RegisterCampaignScheduleRoutes добавляет маршруты для повторяющихся кампаний
+func RegisterCampaignScheduleRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.CampaignScheduleHandlers,
+) {
+	schedules := router.PathPrefix("/portal/v1/campaign-schedules").Subrouter()
+	schedules.Use(sessionAuthMiddleware)
+	schedules.Use(csrfMiddleware)
+	schedules.HandleFunc("", h.List).Methods("GET")
+	schedules.HandleFunc("", h.Create).Methods("POST")
+	schedules.HandleFunc("/{id}", h.Toggle).Methods("PUT")
+	schedules.HandleFunc("/{id}", h.Delete).Methods("DELETE")
+}
+
+// RegisterCostEstimateRoutes добавляет маршрут оценки стоимости кампании
+func RegisterCostEstimateRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.CostEstimateHandlers,
+) {
+	campaigns := router.PathPrefix("/portal/v1/campaigns").Subrouter()
+	campaigns.Use(sessionAuthMiddleware)
+	campaigns.Use(csrfMiddleware)
+	campaigns.HandleFunc("/estimate-cost", h.Estimate).Methods("POST")
 }
 
 // RegisterCascadeDeliveryRoutes добавляет маршруты для истории каскадных доставок (клиентский портал)

@@ -143,3 +143,62 @@ func (h *SettingsHandlers) UpsertQuietHours(w http.ResponseWriter, r *http.Reque
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
+
+// --- Default Sender Names ---
+
+// GetDefaultSenders handles GET /portal/v1/settings/default-senders
+func (h *SettingsHandlers) GetDefaultSenders(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT channel, sender_name_id::text FROM default_sender_names WHERE client_id = $1`,
+		clientID.String(),
+	)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("Ошибка получения настроек"))
+		return
+	}
+	defer rows.Close()
+	result := map[string]string{}
+	for rows.Next() {
+		var channel, senderNameID string
+		if err := rows.Scan(&channel, &senderNameID); err == nil {
+			result[channel] = senderNameID
+		}
+	}
+	respondJSON(w, http.StatusOK, result)
+}
+
+// SetDefaultSenders handles PUT /portal/v1/settings/default-senders
+func (h *SettingsHandlers) SetDefaultSenders(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	var req map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Некорректное тело запроса"))
+		return
+	}
+	ctx := r.Context()
+	for channel, senderNameID := range req {
+		if channel == "" || senderNameID == "" {
+			continue
+		}
+		_, err := h.pool.Exec(ctx, `
+			INSERT INTO default_sender_names (client_id, channel, sender_name_id)
+			VALUES ($1, $2, $3::uuid)
+			ON CONFLICT (client_id, channel)
+			DO UPDATE SET sender_name_id = $3::uuid
+		`, clientID.String(), channel, senderNameID)
+		if err != nil {
+			respondError(w, shared.ErrInternalServer("Ошибка сохранения"))
+			return
+		}
+	}
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}

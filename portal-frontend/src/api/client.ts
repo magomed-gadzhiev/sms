@@ -583,6 +583,17 @@ export interface DashboardChartData {
   delivery_rate_trend: number;
 }
 
+export interface ProfileCompletionStep {
+  key: string;
+  label: string;
+  completed: boolean;
+}
+
+export interface ProfileCompletion {
+  percentage: number;
+  steps: ProfileCompletionStep[];
+}
+
 export interface DashboardData {
   balance: string;
   currency: string;
@@ -592,6 +603,7 @@ export interface DashboardData {
   active_api_keys: number;
   active_webhooks: number;
   charts?: DashboardChartData;
+  profile_completion?: ProfileCompletion;
 }
 
 // Notifications API (US7)
@@ -691,3 +703,141 @@ export interface AnalyticsDataExtended {
   cost_by_day?: CostByDay[];
   cost_forecast?: string;
 }
+
+// --- Detalization API ---
+export interface DetalizationMessage {
+  id: string;
+  source: string;
+  destination: string;
+  text_preview: string;
+  status: string;
+  segment_count: number;
+  created_at: string;
+  delivered_at?: string;
+  failed_at?: string;
+  provider_name: string;
+}
+
+export interface DetalizationMessageDetail {
+  id: string;
+  source: string;
+  destination: string;
+  text: string;
+  encoding?: string;
+  status: string;
+  status_message?: string;
+  external_id?: string;
+  segment_count: number;
+  provider_name?: string;
+  route_name?: string;
+  created_at?: string;
+  submitted_at?: string;
+  delivered_at?: string;
+  failed_at?: string;
+  scheduled_at?: string;
+  expired_at?: string;
+  dlr?: {
+    stat: string;
+    err: number;
+    text: string;
+    submit_date?: string;
+    done_date?: string;
+    receipted_message_id?: string;
+  };
+  billing?: {
+    segment_count: number;
+    price_per_segment: string;
+    total_amount: string;
+    tariff_plan_id: string;
+    billed_at: string;
+  };
+}
+
+export const detalizationApi = {
+  list: (params?: {
+    status?: string;
+    source?: string;
+    destination?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const filtered: Record<string, string> = {};
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null && v !== '') filtered[k] = String(v);
+      }
+    }
+    const qs = new URLSearchParams(filtered).toString();
+    return apiFetch<{ messages: DetalizationMessage[]; total: number; limit: number; offset: number }>(
+      `/detalization${qs ? `?${qs}` : ''}`,
+    );
+  },
+  get: (id: string) => apiFetch<DetalizationMessageDetail>(`/detalization/${id}`),
+};
+
+// --- Notification Settings API ---
+export interface NotifSetting {
+  event_type: string;
+  in_app: boolean;
+  email: boolean;
+}
+
+export const notificationSettingsApi = {
+  get: () =>
+    apiFetch<{ settings: NotifSetting[]; extra_emails: string[] }>('/settings/notifications'),
+  update: (data: { settings: NotifSetting[]; extra_emails: string[] }) =>
+    apiFetch<{ ok: boolean }>('/settings/notifications', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
+// --- Campaign Schedules API ---
+export interface CampaignSchedule {
+  id: string;
+  name: string;
+  template_campaign_id: string;
+  frequency: string;
+  cron_expression?: string;
+  next_run_at?: string;
+  last_run_at?: string;
+  is_active: boolean;
+  run_count: number;
+  max_runs?: number;
+  created_at: string;
+}
+
+export const campaignSchedulesApi = {
+  list: () => apiFetch<{ schedules: CampaignSchedule[] }>('/campaign-schedules'),
+  create: (data: {
+    name: string;
+    template_campaign_id: string;
+    frequency: string;
+    cron_expression?: string;
+    max_runs?: number;
+  }) =>
+    apiFetch<{ id: string }>('/campaign-schedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  toggle: (id: string, is_active: boolean) =>
+    apiFetch<{ ok: boolean }>(`/campaign-schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active }),
+    }),
+  remove: (id: string) =>
+    apiFetch<void>(`/campaign-schedules/${id}`, { method: 'DELETE' }),
+};
+
+// --- Default Sender Names API ---
+// Returns map of channel -> sender_name_id
+export const defaultSendersApi = {
+  get: () => apiFetch<Record<string, string>>('/settings/default-senders'),
+  set: (data: Record<string, string>) =>
+    apiFetch<{ ok: boolean }>('/settings/default-senders', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
