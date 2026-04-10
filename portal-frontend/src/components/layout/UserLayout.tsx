@@ -55,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/sub-accounts', label: 'Суб-аккаунты' },
       { path: '/settings/domains', label: 'Домены' },
       { path: '/settings/notifications', label: 'Уведомления' },
+      { path: '/settings/smpp', label: 'SMPP' },
       { path: '/audit-log', label: 'Журнал аудита' },
     ],
   },

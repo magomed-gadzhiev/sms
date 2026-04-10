@@ -36,6 +36,7 @@ import { TariffsPage } from './pages/tariffs/TariffsPage';
 import { LookupPage } from './pages/lookup/LookupPage';
 import { DomainsPage } from './pages/settings/DomainsPage';
 import { NotificationSettingsPage } from './pages/settings/NotificationSettingsPage';
+import { SmppSettingsPage } from './pages/settings/SmppSettingsPage';
 import { SegmentsPage } from './pages/segments/SegmentsPage';
 import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
 import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
@@ -129,6 +130,7 @@ export function App() {
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/settings/domains" element={<DomainsPage />} />
         <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        <Route path="/settings/smpp" element={<SmppSettingsPage />} />
         <Route path="/cascade/history" element={<CascadeHistoryPage />} />
         <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />
       </Route>
