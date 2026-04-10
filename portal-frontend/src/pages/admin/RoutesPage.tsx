@@ -52,6 +52,7 @@ export function RoutesPage() {
   const [deleteRoute, setDeleteRoute] = useState<PlatformRoute | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<RouteForm>(DEFAULT_FORM);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof RouteForm, string>>>({});
 
   const dragItemRef = useRef<number | null>(null);
   const dragOverItemRef = useRef<number | null>(null);
@@ -78,6 +79,7 @@ export function RoutesPage() {
 
   const openCreate = () => {
     setForm(DEFAULT_FORM);
+    setFormErrors({});
     setEditRoute(null);
     setShowForm(true);
   };
@@ -89,17 +91,22 @@ export function RoutesPage() {
       provider_id: route.provider_id,
       legal_entity_id: route.legal_entity_id ?? '',
     });
+    setFormErrors({});
     setEditRoute(route);
     setShowForm(true);
   };
 
   const handleSave = async () => {
+    const errors: Partial<Record<keyof RouteForm, string>> = {};
     if (!form.provider_id) {
       toast.error('Выберите провайдера');
       return;
     }
-    if (form.operator_id === '' && !form.legal_entity_id) {
-      toast.error('Для "All Networks" юр. лицо обязательно');
+    if (isAllNetworks && !form.legal_entity_id) {
+      errors.legal_entity_id = 'Обязательное поле';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
     setSaving(true);
@@ -167,6 +174,7 @@ export function RoutesPage() {
 
     try {
       await platformRoutesApi.reorder(updated.map((r) => ({ id: r.id, priority: r.priority })));
+      toast.success('Маршрут перемещён');
     } catch {
       toast.error('Не удалось сохранить порядок');
       fetchRoutes();
@@ -222,8 +230,12 @@ export function RoutesPage() {
             )}
             {!loading && routes.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  Нет маршрутов
+                <td colSpan={7} className="px-4 py-12">
+                  <div className="text-center text-gray-500">
+                    <p className="text-lg font-medium">Нет маршрутов</p>
+                    <p className="text-sm mt-1">Создайте первый маршрут для начала маршрутизации</p>
+                    <Button onClick={openCreate} className="mt-4" size="sm">Создать маршрут</Button>
+                  </div>
                 </td>
               </tr>
             )}
@@ -235,9 +247,9 @@ export function RoutesPage() {
                 onDragEnter={() => { dragOverItemRef.current = index; }}
                 onDragEnd={handleDragEnd}
                 onDragOver={(e) => e.preventDefault()}
-                className="cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors"
+                className="hover:bg-gray-50 transition-colors"
               >
-                <td className="px-3 py-3 text-gray-400 select-none text-center">⠿</td>
+                <td className="px-3 py-3 text-gray-400 select-none text-center cursor-grab active:cursor-grabbing">⠿</td>
                 <td className="px-4 py-3">
                   {route.operator_id === null ? (
                     <span className="font-bold text-blue-600">All Networks</span>
@@ -283,16 +295,27 @@ export function RoutesPage() {
             label="Оператор"
             options={operatorOptions}
             value={form.operator_id}
-            onChange={(v) => setForm({ ...form, operator_id: v })}
+            onChange={(v) => {
+              setForm({ ...form, operator_id: v, legal_entity_id: '' });
+              setFormErrors((e) => ({ ...e, legal_entity_id: undefined }));
+            }}
           />
           {isAllNetworks && (
-            <Select
-              label="Юр. лицо (обязательно для All Networks)"
-              options={legalEntityOptions}
-              value={form.legal_entity_id}
-              onChange={(v) => setForm({ ...form, legal_entity_id: v })}
-              required
-            />
+            <div>
+              <Select
+                label="Юр. лицо *"
+                options={legalEntityOptions}
+                value={form.legal_entity_id}
+                onChange={(v) => {
+                  setForm({ ...form, legal_entity_id: v });
+                  setFormErrors((e) => ({ ...e, legal_entity_id: undefined }));
+                }}
+                required
+              />
+              {formErrors.legal_entity_id && (
+                <p className="text-xs text-red-500 mt-1">{formErrors.legal_entity_id}</p>
+              )}
+            </div>
           )}
           <Select
             label="Тип канала"
