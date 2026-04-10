@@ -583,6 +583,17 @@ export interface DashboardChartData {
   delivery_rate_trend: number;
 }
 
+export interface ProfileCompletionStep {
+  key: string;
+  label: string;
+  completed: boolean;
+}
+
+export interface ProfileCompletion {
+  percentage: number;
+  steps: ProfileCompletionStep[];
+}
+
 export interface DashboardData {
   balance: string;
   currency: string;
@@ -592,6 +603,7 @@ export interface DashboardData {
   active_api_keys: number;
   active_webhooks: number;
   charts?: DashboardChartData;
+  profile_completion?: ProfileCompletion;
 }
 
 // Notifications API (US7)

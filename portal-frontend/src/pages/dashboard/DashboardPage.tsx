@@ -4,7 +4,7 @@ import {
   LineChart, Line, XAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { dashboardApi, profileApi, type DashboardData } from '../../api/client';
+import { dashboardApi, profileApi, type DashboardData, type ProfileCompletionStep } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -103,6 +103,33 @@ export function DashboardPage() {
         </div>
       )}
       <PageHeader title="Дашборд" />
+
+      {data.profile_completion && data.profile_completion.percentage < 100 && (
+        <div className="bg-white rounded-lg border p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium">Заполните профиль</h3>
+            <span className="text-sm font-semibold">{data.profile_completion.percentage}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+            <div
+              className="bg-primary h-2 rounded-full transition-all"
+              style={{ width: `${data.profile_completion.percentage}%` }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {data.profile_completion.steps.map((step: ProfileCompletionStep) => (
+              <div key={step.key} className="flex items-center gap-1.5 text-sm">
+                {step.completed ? (
+                  <span className="text-green-500">✓</span>
+                ) : (
+                  <span className="text-gray-300">○</span>
+                )}
+                <span className={step.completed ? 'text-gray-500 line-through' : 'text-gray-700'}>{step.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data.messages_today === 0 && (data.active_api_keys === 0 || data.active_webhooks === 0) && (
         <div className="border border-primary/30 bg-primary/5 rounded-lg p-5 mb-6">
