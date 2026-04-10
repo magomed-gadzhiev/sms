@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '../../../components/ui/Button';
 import { StatusBadge } from '../../../components/ui/Badge';
+import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../components/ui/Toast';
+import { usePolling } from '../../../hooks/usePolling';
 import { connectionsApi, type ConnectionInfo } from '../../../api/admin';
 
 const REFRESH_INTERVAL = 10_000;
@@ -32,30 +34,45 @@ export function ConnectionsPage() {
   const [connections, setConnections] = useState<ConnectionInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const firstLoadDoneRef = useRef(false);
   const [actioning, setActioning] = useState<string | null>(null);
 
-  const fetchConnections = useCallback(async (isAuto = false) => {
+  // Detail modal state
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<ConnectionInfo | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const fetchConnections = useCallback(async () => {
     try {
       const res = await connectionsApi.list();
       setConnections(res.connections ?? []);
       setTotal(res.total ?? 0);
       setLoading(false);
-      firstLoadDoneRef.current = true;
     } catch {
-      if (!isAuto && !firstLoadDoneRef.current) {
-        toast.error('Не удалось загрузить список подключений');
-        setLoading(false);
-      }
+      // suppress auto-refresh errors after initial load
     }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchConnections(false);
-    const interval = setInterval(() => fetchConnections(true), REFRESH_INTERVAL);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const { pause, resume, isPaused } = usePolling(fetchConnections, REFRESH_INTERVAL);
+
+  const handleRowClick = async (conn: ConnectionInfo) => {
+    setSelectedConnectionId(conn.provider_id);
+    setLoadingDetail(true);
+    setSelectedDetail(null);
+    try {
+      const detail = await connectionsApi.get(conn.provider_id);
+      setSelectedDetail(detail);
+    } catch {
+      toast.error(`Не удалось загрузить детали подключения «${conn.name}»`);
+      setSelectedConnectionId(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedConnectionId(null);
+    setSelectedDetail(null);
+  };
 
   const handleReconnect = async (conn: ConnectionInfo) => {
     setActioning(conn.provider_id + ':reconnect');
@@ -92,6 +109,24 @@ export function ConnectionsPage() {
         ]}
       />
 
+      {/* Refresh controls */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => (isPaused ? resume() : pause())}
+        >
+          {isPaused ? 'Автообновление: пауза' : 'Автообновление: 10с'}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => fetchConnections()}
+        >
+          Обновить
+        </Button>
+      </div>
+
       {loading ? (
         <div className="text-sm text-gray-500 py-8 text-center">Загрузка...</div>
       ) : connections.length === 0 ? (
@@ -114,7 +149,11 @@ export function ConnectionsPage() {
             </thead>
             <tbody>
               {connections.map((conn) => (
-                <tr key={conn.provider_id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr
+                  key={conn.provider_id}
+                  className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleRowClick(conn)}
+                >
                   <td className="px-4 py-3 font-semibold text-gray-900">{conn.name}</td>
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs text-gray-600">{conn.host}:{conn.port}</span>
@@ -143,7 +182,7 @@ export function ConnectionsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -168,6 +207,94 @@ export function ConnectionsPage() {
           </table>
         </div>
       )}
+
+      {/* Detail modal */}
+      <Modal
+        open={selectedConnectionId !== null}
+        onClose={handleCloseDetail}
+        title="Детали подключения"
+        wide
+      >
+        {loadingDetail ? (
+          <div className="text-sm text-gray-500 py-8 text-center">Загрузка...</div>
+        ) : selectedDetail ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div>
+                <span className="text-gray-500">Провайдер</span>
+                <div className="font-semibold text-gray-900 mt-0.5">{selectedDetail.name}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">Host:Port</span>
+                <div className="font-mono text-xs text-gray-700 mt-0.5">
+                  {selectedDetail.host}:{selectedDetail.port}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-500">System ID</span>
+                <div className="font-mono text-xs text-gray-700 mt-0.5">{selectedDetail.system_id}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">Bind Type</span>
+                <div className="mt-0.5 text-gray-700">{bindTypeLabel(selectedDetail.bind_type)}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">Статус</span>
+                <div className="mt-0.5">{statusBadge(selectedDetail.status)}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">Сессий</span>
+                <div className="mt-0.5 text-gray-700">
+                  {selectedDetail.active_connections}/{selectedDetail.max_connections}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-500">Успех %</span>
+                <div className={`mt-0.5 font-medium ${successRateColor(selectedDetail.success_rate)}`}>
+                  {selectedDetail.success_rate}%
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-500">Отправлено 24ч</span>
+                <div className="mt-0.5 text-green-600 font-medium">
+                  {selectedDetail.messages_sent_24h.toLocaleString()}
+                  {selectedDetail.messages_failed_24h > 0 && (
+                    <span className="ml-2 text-red-600 text-xs font-normal">
+                      / {selectedDetail.messages_failed_24h.toLocaleString()} ош.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {selectedDetail.last_error && (
+              <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                <span className="font-medium">Последняя ошибка: </span>
+                {selectedDetail.last_error}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleReconnect(selectedDetail)}
+                disabled={actioning !== null}
+              >
+                {actioning === selectedDetail.provider_id + ':reconnect' ? 'Реконнект...' : 'Переподключить'}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleStop(selectedDetail)}
+                disabled={!selectedDetail.active || actioning !== null}
+              >
+                {actioning === selectedDetail.provider_id + ':stop' ? 'Стоп...' : 'Остановить'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </>
   );
 }
