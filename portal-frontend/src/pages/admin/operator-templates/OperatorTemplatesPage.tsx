@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { DataTable, type Column } from '../../../components/data/DataTable';
 import { Button } from '../../../components/ui/Button';
@@ -57,6 +58,7 @@ const EMPTY_FORM: FormState = {
 
 export function OperatorTemplatesPage() {
   const toast = useToast();
+  const [searchParams] = useSearchParams();
   const [items, setItems] = useState<OperatorTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [operators, setOperators] = useState<OperatorInfo[]>([]);
@@ -68,6 +70,15 @@ export function OperatorTemplatesPage() {
   const [deleteItem, setDeleteItem] = useState<OperatorTemplate | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const senderNameId = searchParams.get('sender_name_id');
+    if (senderNameId) {
+      setForm(f => ({ ...f, sender_name_id: senderNameId }));
+      setShowForm(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -332,6 +343,40 @@ export function OperatorTemplatesPage() {
               onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
               placeholder="Ваш код: {code}. Не сообщайте его никому."
             />
+            {form.body && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg border text-sm">
+                <p className="text-xs text-gray-500 mb-1 font-medium">Предпросмотр с выделенными переменными:</p>
+                <p className="leading-relaxed break-words">
+                  {form.body.split(/(\{[^}]+\})/g).map((part, i) =>
+                    /^\{[^}]+\}$/.test(part) ? (
+                      <span key={i} className="text-indigo-600 bg-indigo-50 px-1 rounded font-medium">{part}</span>
+                    ) : (
+                      <span key={i}>{part}</span>
+                    )
+                  )}
+                </p>
+              </div>
+            )}
+            {form.body && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-500 mb-1 font-medium">Предпросмотр с примером значений:</p>
+                <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm max-w-xs">
+                  <p className="text-xs text-gray-400 font-medium mb-1">
+                    {senderNames.find(sn => sn.sender_name_id === form.sender_name_id)?.name || 'SENDER'}
+                  </p>
+                  <p className="text-sm text-gray-800 leading-relaxed">
+                    {form.body
+                      .replace(/\{code\}/g, '1234')
+                      .replace(/\{name\}/g, 'Иван')
+                      .replace(/\{date\}/g, '11.04.2026')
+                      .replace(/\{sum\}/g, '1 500 ₽')
+                      .replace(/\{amount\}/g, '1 500 ₽')
+                      .replace(/\{link\}/g, 'https://example.com/abc')
+                      .replace(/\{order_id\}/g, 'ORD-9821')}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <Input
             label="Переменные (через запятую)"
