@@ -81,6 +81,12 @@ export function WebhooksPage() {
       <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} onReset={() => setFilterValues({})} />
       <DataTable columns={columns} data={data} total={data.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="webhook_id"
         rowActions={(w) => <Button size="sm" variant="ghost" onClick={() => setDeleteWebhook(w)}>Удалить</Button>}
+        emptyMessage={
+          <div className="text-center py-12 text-gray-500">
+            <p className="text-lg font-medium">Нет данных</p>
+            <p className="text-sm mt-1">Нажмите «Создать вебхук», чтобы добавить первый вебхук</p>
+          </div>
+        }
       />
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Создание вебхука">
         <div className="space-y-4">

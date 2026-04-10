@@ -56,7 +56,14 @@ export function AuditLogPage() {
     <>
       <PageHeader title="Audit Log" subtitle={`${total} entries`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Аудит' }]} />
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
-      <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="id" />
+      <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="id"
+        emptyMessage={
+          <div className="text-center py-12 text-gray-500">
+            <p className="text-lg font-medium">Нет записей</p>
+            <p className="text-sm mt-1">Попробуйте изменить фильтры или выбрать другой период</p>
+          </div>
+        }
+      />
     </>
   );
 }

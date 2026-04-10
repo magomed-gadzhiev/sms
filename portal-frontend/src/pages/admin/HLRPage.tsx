@@ -41,7 +41,14 @@ export function HLRPage() {
       <PageHeader title="HLR Providers" breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'HLR' }]} />
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">HLR Providers</h2><Button size="sm" onClick={() => { setProviderForm({ name: '', active: true }); setShowCreateProvider(true); }}>Add Provider</Button></div>
-        <DataTable columns={providerColumns} data={providers} total={providers.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="provider_id" rowActions={(p) => <Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Delete</Button>} />
+        <DataTable columns={providerColumns} data={providers} total={providers.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="provider_id" rowActions={(p) => <Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Delete</Button>}
+          emptyMessage={
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-lg font-medium">Нет данных</p>
+              <p className="text-sm mt-1">Нажмите «Add Provider», чтобы добавить первого провайдера HLR</p>
+            </div>
+          }
+        />
       </div>
       <Modal open={showCreateProvider} onClose={() => setShowCreateProvider(false)} title="Add HLR Provider">
         <div className="space-y-4">

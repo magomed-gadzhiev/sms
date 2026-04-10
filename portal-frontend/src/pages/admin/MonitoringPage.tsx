@@ -59,7 +59,14 @@ export function MonitoringPage() {
         <StatCard title="Очередь" value={metrics?.queue_depth?.toLocaleString() ?? '-'} />
       </div>
       <h2 className="text-lg font-semibold mb-3">Статус провайдеров</h2>
-      <DataTable columns={providerColumns} data={providers} total={providers.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="provider_id" />
+      <DataTable columns={providerColumns} data={providers} total={providers.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="provider_id"
+        emptyMessage={
+          <div className="text-center py-12 text-gray-500">
+            <p className="text-lg font-medium">Нет активных провайдеров</p>
+            <p className="text-sm mt-1">Активируйте провайдеров на странице «Провайдеры»</p>
+          </div>
+        }
+      />
     </>
   );
 }

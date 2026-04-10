@@ -87,6 +87,12 @@ export function ProvidersPage() {
       <FilterBar filters={filters} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(1); }} onReset={() => { setFilterValues({}); setPage(1); }} />
       <DataTable columns={columns} data={data} total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} loading={loading} keyField="provider_id"
         rowActions={(p) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(p)}>Изменить</Button><Button size="sm" variant="ghost" onClick={() => setDeleteProvider(p)}>Удалить</Button></div>)}
+        emptyMessage={
+          <div className="text-center py-12 text-gray-500">
+            <p className="text-lg font-medium">Нет данных</p>
+            <p className="text-sm mt-1">Нажмите «Добавить провайдера», чтобы добавить первого провайдера</p>
+          </div>
+        }
       />
       <Modal open={showCreate || !!editProvider} onClose={() => { setShowCreate(false); setEditProvider(null); }} title={editProvider ? 'Редактирование провайдера' : 'Добавление провайдера'} wide>
         <div className="grid grid-cols-2 gap-4">

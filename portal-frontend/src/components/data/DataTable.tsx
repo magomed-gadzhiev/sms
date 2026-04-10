@@ -26,13 +26,14 @@ interface DataTableProps<T> {
   keyField?: string;
   tableLabel?: string;
   bulkActions?: BulkAction<T>[];
+  emptyMessage?: ReactNode;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function DataTable<T extends Record<string, any>>({
   columns, data, total, page, pageSize, onPageChange,
   sortBy, sortDir, onSort, loading, onRowClick, rowActions,
-  keyField = 'id', tableLabel = 'Таблица данных', bulkActions,
+  keyField = 'id', tableLabel = 'Таблица данных', bulkActions, emptyMessage,
 }: DataTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -131,7 +132,7 @@ export function DataTable<T extends Record<string, any>>({
               {data.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length + (rowActions ? 1 : 0) + (hasBulk ? 1 : 0)} className="px-4 py-8 text-center text-gray-500">
-                    Данные не найдены
+                    {emptyMessage ?? 'Данные не найдены'}
                   </td>
                 </tr>
               ) : (
