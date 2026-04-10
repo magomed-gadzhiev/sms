@@ -53,6 +53,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/profile', label: 'Профиль' },
       { path: '/sub-accounts', label: 'Суб-аккаунты' },
       { path: '/settings/domains', label: 'Домены' },
+      { path: '/settings/notifications', label: 'Уведомления' },
       { path: '/audit-log', label: 'Журнал аудита' },
     ],
   },
