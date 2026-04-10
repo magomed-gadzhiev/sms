@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '../../../components/ui/Button';
 import { StatusBadge } from '../../../components/ui/Badge';
@@ -32,7 +32,7 @@ export function ConnectionsPage() {
   const [connections, setConnections] = useState<ConnectionInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  const firstLoadDoneRef = useRef(false);
   const [actioning, setActioning] = useState<string | null>(null);
 
   const fetchConnections = useCallback(async (isAuto = false) => {
@@ -41,14 +41,14 @@ export function ConnectionsPage() {
       setConnections(res.connections ?? []);
       setTotal(res.total ?? 0);
       setLoading(false);
-      setFirstLoadDone(true);
+      firstLoadDoneRef.current = true;
     } catch {
-      if (!isAuto && !firstLoadDone) {
+      if (!isAuto && !firstLoadDoneRef.current) {
         toast.error('Не удалось загрузить список подключений');
         setLoading(false);
       }
     }
-  }, [firstLoadDone, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchConnections(false);

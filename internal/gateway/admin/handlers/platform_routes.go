@@ -3,12 +3,11 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -161,8 +160,7 @@ func (h *PlatformRoutesHandlers) CreatePlatformRoute(w http.ResponseWriter, r *h
 		RETURNING id::text, created_at
 	`, req.OperatorID, req.ChannelType, req.ProviderID, req.LegalEntityID, req.Priority).Scan(&newID, &createdAt)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+		if strings.Contains(err.Error(), "23514") || strings.Contains(err.Error(), "chk_all_networks_requires_legal_entity") {
 			respondError(w, shared.ErrInvalidInput("При All Networks необходимо указать legal_entity_id"))
 			return
 		}
@@ -205,8 +203,7 @@ func (h *PlatformRoutesHandlers) UpdatePlatformRoute(w http.ResponseWriter, r *h
 		WHERE id = $1::uuid
 	`, id, nullableString(req.OperatorID), req.ChannelType, req.ProviderID, nullableString(req.LegalEntityID), req.Priority, req.Active)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+		if strings.Contains(err.Error(), "23514") || strings.Contains(err.Error(), "chk_all_networks_requires_legal_entity") {
 			respondError(w, shared.ErrInvalidInput("При All Networks необходимо указать legal_entity_id"))
 			return
 		}
@@ -239,7 +236,7 @@ func (h *PlatformRoutesHandlers) DeletePlatformRoute(w http.ResponseWriter, r *h
 		respondError(w, shared.ErrNotFound("Маршрут не найден"))
 		return
 	}
-	respondJSON(w, http.StatusNoContent, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type reorderItem struct {
