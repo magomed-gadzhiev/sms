@@ -165,7 +165,9 @@ export function SenderNameDetailPage() {
             {senderName.status === 'approved' && (
               <Button variant="ghost" onClick={() => { setDeactivateReason(''); setShowDeactivate(true); }}>Деактивировать</Button>
             )}
-            <Button variant="ghost" onClick={() => setShowDelete(true)}>Удалить</Button>
+            {senderName.status !== 'deactivated' && (
+              <Button variant="ghost" onClick={() => setShowDelete(true)}>Удалить</Button>
+            )}
           </div>
         }
       />
