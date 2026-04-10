@@ -830,3 +830,14 @@ export const campaignSchedulesApi = {
   remove: (id: string) =>
     apiFetch<void>(`/campaign-schedules/${id}`, { method: 'DELETE' }),
 };
+
+// --- Default Sender Names API ---
+// Returns map of channel -> sender_name_id
+export const defaultSendersApi = {
+  get: () => apiFetch<Record<string, string>>('/settings/default-senders'),
+  set: (data: Record<string, string>) =>
+    apiFetch<{ ok: boolean }>('/settings/default-senders', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
