@@ -123,6 +123,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 
 	var total int64
 	if err := h.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		log.Error().Err(err).Msg("detalization: ошибка подсчёта сообщений")
 		respondError(w, shared.ErrInternalServer("ошибка подсчёта сообщений"))
 		return
 	}
