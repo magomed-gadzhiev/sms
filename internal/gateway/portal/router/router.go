@@ -377,6 +377,22 @@ func RegisterNotificationSettingsRoutes(
 	notifSettings.HandleFunc("", h.PutSettings).Methods("PUT")
 }
 
+// RegisterCampaignScheduleRoutes добавляет маршруты для повторяющихся кампаний
+func RegisterCampaignScheduleRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.CampaignScheduleHandlers,
+) {
+	schedules := router.PathPrefix("/portal/v1/campaign-schedules").Subrouter()
+	schedules.Use(sessionAuthMiddleware)
+	schedules.Use(csrfMiddleware)
+	schedules.HandleFunc("", h.List).Methods("GET")
+	schedules.HandleFunc("", h.Create).Methods("POST")
+	schedules.HandleFunc("/{id}", h.Toggle).Methods("PUT")
+	schedules.HandleFunc("/{id}", h.Delete).Methods("DELETE")
+}
+
 // RegisterCostEstimateRoutes добавляет маршрут оценки стоимости кампании
 func RegisterCostEstimateRoutes(
 	router *mux.Router,

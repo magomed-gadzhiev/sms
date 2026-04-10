@@ -322,6 +322,10 @@ func main() {
 	notifSettingsHandlers := handlers.NewNotificationSettingsHandlers(dbPool)
 	portalrouter.RegisterNotificationSettingsRoutes(router, sessionAuthMw, csrfMw, notifSettingsHandlers)
 
+	// Регистрируем маршруты повторяющихся кампаний
+	campaignScheduleHandlers := handlers.NewCampaignScheduleHandlers(dbPool)
+	portalrouter.RegisterCampaignScheduleRoutes(router, sessionAuthMw, csrfMw, campaignScheduleHandlers)
+
 	// Регистрируем маршрут оценки стоимости кампании
 	costEstimateHandlers := handlers.NewCostEstimateHandlers(serviceClients.BillingClient, serviceClients.ContactClient)
 	portalrouter.RegisterCostEstimateRoutes(router, sessionAuthMw, csrfMw, costEstimateHandlers)
