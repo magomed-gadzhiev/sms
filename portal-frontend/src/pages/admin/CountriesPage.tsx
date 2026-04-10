@@ -37,7 +37,8 @@ export function CountriesPage() {
   const [selectedOperator, setSelectedOperator] = useState<OperatorInfo | null>(null);
   const [prefixes, setPrefixes] = useState<OperatorPrefix[]>([]);
   const [prefixInput, setPrefixInput] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [savingCountry, setSavingCountry] = useState(false);
+  const [savingOperator, setSavingOperator] = useState(false);
 
   // Flat view
   const [allOperators, setAllOperators] = useState<(OperatorInfo & { country_name?: string })[]>([]);
@@ -124,7 +125,7 @@ export function CountriesPage() {
   };
 
   const handleCreateCountry = async () => {
-    setSaving(true);
+    setSavingCountry(true);
     try {
       await countriesApi.create(countryForm);
       toast.success('Страна создана');
@@ -134,13 +135,13 @@ export function CountriesPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
-      setSaving(false);
+      setSavingCountry(false);
     }
   };
 
   const handleWizardFinish = async () => {
     if (!selectedCountry) return;
-    setSaving(true);
+    setSavingOperator(true);
     try {
       const data: Partial<OperatorInfo> = {
         name: wizardStep1.name,
@@ -162,13 +163,13 @@ export function CountriesPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
-      setSaving(false);
+      setSavingOperator(false);
     }
   };
 
   const handleSaveOperatorSettings = async () => {
     if (!selectedOperator) return;
-    setSaving(true);
+    setSavingOperator(true);
     try {
       await operatorsApi.update(selectedOperator.operator_id, {
         supports_paid_sender: selectedOperator.supports_paid_sender,
@@ -176,16 +177,17 @@ export function CountriesPage() {
         monthly_tariff_amount: selectedOperator.monthly_tariff_amount,
       });
       toast.success('Настройки сохранены');
+      if (selectedCountry) fetchOperators(selectedCountry.country_id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
-      setSaving(false);
+      setSavingOperator(false);
     }
   };
 
   const handleAddPrefix = async () => {
     if (!selectedOperator || !prefixInput) return;
-    setSaving(true);
+    setSavingOperator(true);
     try {
       await operatorsApi.createPrefix(selectedOperator.operator_id, { prefix: prefixInput });
       toast.success('Префикс добавлен');
@@ -194,7 +196,7 @@ export function CountriesPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
     } finally {
-      setSaving(false);
+      setSavingOperator(false);
     }
   };
 
@@ -296,7 +298,7 @@ export function CountriesPage() {
           <DataTable
             columns={flatColumns as unknown as Column<OperatorInfo>[]}
             data={filteredOperators as OperatorInfo[]}
-            total={allOperatorsTotal}
+            total={mccFilter || mncFilter || countryFilter ? filteredOperators.length : allOperatorsTotal}
             page={allOperatorsPage}
             pageSize={PAGE_SIZE}
             onPageChange={setAllOperatorsPage}
@@ -418,7 +420,7 @@ export function CountriesPage() {
                     )}
                   </div>
                   <div className="mt-3">
-                    <Button size="sm" onClick={handleSaveOperatorSettings} disabled={saving}>
+                    <Button size="sm" onClick={handleSaveOperatorSettings} disabled={savingOperator}>
                       Сохранить
                     </Button>
                   </div>
@@ -428,7 +430,7 @@ export function CountriesPage() {
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Префиксы</h3>
                   <div className="flex gap-2 mb-3">
                     <Input value={prefixInput} onChange={(e) => setPrefixInput(e.target.value)} placeholder="+7921" />
-                    <Button size="sm" onClick={handleAddPrefix} disabled={saving || !prefixInput}>
+                    <Button size="sm" onClick={handleAddPrefix} disabled={savingOperator || !prefixInput}>
                       Добавить
                     </Button>
                   </div>
@@ -463,7 +465,7 @@ export function CountriesPage() {
           <Input label="Телефонный код" value={countryForm.phone_code} onChange={(e) => setCountryForm({ ...countryForm, phone_code: e.target.value })} required placeholder="+7" />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreateCountry(false)}>Отмена</Button>
-            <Button onClick={handleCreateCountry} disabled={saving}>{saving ? 'Создание...' : 'Создать'}</Button>
+            <Button onClick={handleCreateCountry} disabled={savingCountry}>{savingCountry ? 'Создание...' : 'Создать'}</Button>
           </div>
         </div>
       </Modal>
@@ -531,7 +533,7 @@ export function CountriesPage() {
               <Button variant="secondary" onClick={() => setWizardStep(0)}>← Назад</Button>
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setShowWizard(false)}>Отмена</Button>
-                <Button onClick={handleWizardFinish} disabled={saving}>{saving ? 'Создание...' : 'Создать'}</Button>
+                <Button onClick={handleWizardFinish} disabled={savingOperator}>{savingOperator ? 'Создание...' : 'Создать'}</Button>
               </div>
             </div>
           </div>
