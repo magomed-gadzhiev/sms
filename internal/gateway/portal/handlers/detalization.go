@@ -16,6 +16,28 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
+// ClientMessage is a single row returned by ListMessages.
+type ClientMessage struct {
+	ID           string     `json:"id"`
+	Source       string     `json:"source"`
+	Destination  string     `json:"destination"`
+	TextPreview  string     `json:"text_preview"`
+	Status       string     `json:"status"`
+	SegmentCount int        `json:"segment_count"`
+	CreatedAt    time.Time  `json:"created_at"`
+	ProviderName string     `json:"provider_name"`
+	DeliveredAt  *time.Time `json:"delivered_at,omitempty"`
+	FailedAt     *time.Time `json:"failed_at,omitempty"`
+}
+
+// listMessagesResponse is the typed response for ListMessages.
+type listMessagesResponse struct {
+	Messages []ClientMessage `json:"messages"`
+	Total    int64           `json:"total"`
+	Limit    int             `json:"limit"`
+	Offset   int             `json:"offset"`
+}
+
 // DetalizationHandlers handles client-scoped message detalization (log) requests.
 type DetalizationHandlers struct {
 	db *pgxpool.Pool
@@ -100,7 +122,10 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	ctx := r.Context()
 
 	var total int64
-	_ = h.db.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err := h.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка подсчёта сообщений"))
+		return
+	}
 
 	rows, err := h.db.Query(ctx, listQuery, args...)
 	if err != nil {
@@ -110,7 +135,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	}
 	defer rows.Close()
 
-	items := []map[string]interface{}{}
+	messages := []ClientMessage{}
 	for rows.Next() {
 		var (
 			id, src, dst, textPreview, st, providerName string
@@ -126,30 +151,31 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 			log.Error().Err(err).Msg("detalization: ошибка сканирования строки")
 			continue
 		}
-		item := map[string]interface{}{
-			"id":            id,
-			"source":        src,
-			"destination":   dst,
-			"text_preview":  textPreview,
-			"status":        st,
-			"segment_count": segmentCount,
-			"created_at":    createdAt,
-			"provider_name": providerName,
+		msg := ClientMessage{
+			ID:           id,
+			Source:       src,
+			Destination:  dst,
+			TextPreview:  textPreview,
+			Status:       st,
+			SegmentCount: segmentCount,
+			CreatedAt:    createdAt,
+			ProviderName: providerName,
+			DeliveredAt:  deliveredAt,
+			FailedAt:     failedAt,
 		}
-		if deliveredAt != nil {
-			item["delivered_at"] = *deliveredAt
-		}
-		if failedAt != nil {
-			item["failed_at"] = *failedAt
-		}
-		items = append(items, item)
+		messages = append(messages, msg)
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"messages": items,
-		"total":    total,
-		"limit":    limit,
-		"offset":   offset,
+	if err := rows.Err(); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка итерации строк"))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, listMessagesResponse{
+		Messages: messages,
+		Total:    total,
+		Limit:    limit,
+		Offset:   offset,
 	})
 }
 
@@ -289,6 +315,9 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 	if expiredAt != nil {
 		result["expired_at"] = *expiredAt
 	}
+
+	// DLR and billing queries use message_id only; client ownership already
+	// verified above by AND m.client_id = $2::uuid.
 
 	// DLR receipt (most recent)
 	const dlrQuery = `
