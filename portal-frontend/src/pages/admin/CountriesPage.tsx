@@ -211,6 +211,32 @@ export function CountriesPage() {
     }
   };
 
+  // Interdependent flat-view filters: MCC match → auto-fill country
+  useEffect(() => {
+    if (mccFilter) {
+      const matched = allOperators.find((op) => op.mcc === mccFilter);
+      if (matched?.country_name) {
+        setCountryFilter(matched.country_name);
+      }
+    }
+  }, [mccFilter, allOperators]);
+
+  // Interdependent flat-view filters: country clear → clear MCC/MNC only when no longer valid
+  useEffect(() => {
+    if (!countryFilter) return;
+    // If current mccFilter no longer matches any operator in this country, reset it
+    const stillValid = allOperators.some(
+      (op) =>
+        op.country_name?.toLowerCase().includes(countryFilter.toLowerCase()) &&
+        (mccFilter ? op.mcc.includes(mccFilter) : true) &&
+        (mncFilter ? op.mnc.includes(mncFilter) : true),
+    );
+    if (!stillValid && (mccFilter || mncFilter)) {
+      setMccFilter('');
+      setMncFilter('');
+    }
+  }, [countryFilter, allOperators]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const filteredOperators = allOperators.filter((op) => {
     if (mccFilter && !op.mcc.includes(mccFilter)) return false;
     if (mncFilter && !op.mnc.includes(mncFilter)) return false;
@@ -448,6 +474,13 @@ export function CountriesPage() {
                     ))}
                     {prefixes.length === 0 && <li className="text-sm text-gray-400">Нет префиксов</li>}
                   </ul>
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Юр. лица</h3>
+                  <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center text-sm text-gray-400">
+                    Управление юр. лицами оператора — ожидает backend API
+                  </div>
                 </div>
               </>
             ) : (
