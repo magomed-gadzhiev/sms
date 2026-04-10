@@ -318,6 +318,10 @@ func main() {
 	detalizationHandlers := handlers.NewDetalizationHandlers(dbPool)
 	portalrouter.RegisterDetalizationRoutes(router, sessionAuthMw, csrfMw, detalizationHandlers)
 
+	// Регистрируем маршрут оценки стоимости кампании
+	costEstimateHandlers := handlers.NewCostEstimateHandlers(serviceClients.BillingClient, serviceClients.ContactClient)
+	portalrouter.RegisterCostEstimateRoutes(router, sessionAuthMw, csrfMw, costEstimateHandlers)
+
 	// Добавляем Prometheus metrics endpoint
 	if cfg.Monitoring.Prometheus.Enabled {
 		router.Handle(cfg.Monitoring.Prometheus.Path, promhttp.Handler()).Methods("GET")

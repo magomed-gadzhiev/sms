@@ -363,6 +363,19 @@ func RegisterDetalizationRoutes(
 	detalization.HandleFunc("/{id}", h.GetMessage).Methods("GET")
 }
 
+// RegisterCostEstimateRoutes добавляет маршрут оценки стоимости кампании
+func RegisterCostEstimateRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.CostEstimateHandlers,
+) {
+	campaigns := router.PathPrefix("/portal/v1/campaigns").Subrouter()
+	campaigns.Use(sessionAuthMiddleware)
+	campaigns.Use(csrfMiddleware)
+	campaigns.HandleFunc("/estimate-cost", h.Estimate).Methods("POST")
+}
+
 // RegisterCascadeDeliveryRoutes добавляет маршруты для истории каскадных доставок (клиентский портал)
 func RegisterCascadeDeliveryRoutes(
 	router *mux.Router,
