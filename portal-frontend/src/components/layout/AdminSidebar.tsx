@@ -25,7 +25,8 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     title: '\u041E\u0441\u043D\u043E\u0432\u043D\u043E\u0435',
     items: [
       { path: '/admin/clients', label: '\u041A\u043B\u0438\u0435\u043D\u0442\u044B', icon: '\u{1F465}', resource: 'clients' },
-      { path: '/admin/templates', label: '\u0428\u0430\u0431\u043B\u043E\u043D\u044B', icon: '\u{1F4DD}', resource: 'templates' },
+      { path: '/admin/operator-templates', label: '\u0428\u0430\u0431\u043B\u043E\u043D\u044B \u043E\u043F\u0435\u0440\u0430\u0442\u043E\u0440\u043E\u0432', icon: '\u{1F4DD}', resource: 'templates' },
+      { path: '/admin/templates', label: '\u041C\u043E\u0434\u0435\u0440\u0430\u0446\u0438\u044F \u0448\u0430\u0431\u043B\u043E\u043D\u043E\u0432', icon: '\u2705', resource: 'templates' },
       { path: '/admin/sender-names', label: '\u0418\u043C\u0435\u043D\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u0435\u0439', icon: '\u{1F4F1}', resource: 'templates' },
       { path: '/admin/users', label: '\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0438', icon: '\u{1F511}', resource: 'users' },
     ],
@@ -36,6 +37,8 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
       { path: '/admin/billing', label: '\u0411\u0438\u043B\u043B\u0438\u043D\u0433', icon: '\u{1F4B0}', resource: 'billing' },
       { path: '/admin/tarification', label: '\u0422\u0430\u0440\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u044F', icon: '\u{1F4CB}', resource: 'tarification' },
       { path: '/admin/individual-tariffs', label: '\u0418\u043D\u0434. \u0442\u0430\u0440\u0438\u0444\u044B', icon: '\u{1F4B1}', resource: 'tarification' },
+      { path: '/admin/legal-entities', label: '\u042E\u0440. \u043B\u0438\u0446\u0430', icon: '\u{1F3E2}', resource: 'billing' },
+      { path: '/admin/contracts', label: '\u0414\u043E\u0433\u043E\u0432\u043E\u0440\u044B', icon: '\u{1F4C4}', resource: 'billing' },
     ],
   },
   {
@@ -43,6 +46,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { path: '/admin/providers', label: '\u041F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u044B', icon: '\u{1F50C}', resource: 'providers' },
       { path: '/admin/routes', label: '\u041C\u0430\u0440\u0448\u0440\u0443\u0442\u044B', icon: '\u{1F500}', resource: 'routes' },
+      { path: '/admin/connections', label: '\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F', icon: '\u{1F517}', resource: 'providers' },
       { path: '/admin/individual-routes', label: '\u0418\u043D\u0434. \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B', icon: '\u{1F9ED}', resource: 'routes' },
       { path: '/admin/channels', label: '\u041A\u0430\u043D\u0430\u043B\u044B', icon: '\u{1F4E6}', resource: 'providers' },
       { path: '/admin/delivery-strategies', label: '\u0421\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u0438 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438', icon: '\u{1F69A}', resource: 'routes' },

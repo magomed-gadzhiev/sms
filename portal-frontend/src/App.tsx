@@ -63,6 +63,10 @@ const AdminDeliveryStrategiesPage = lazy(() => import('./pages/delivery-strategi
 const AdminClientRoutesPage = lazy(() => import('./pages/admin/client-routes/ClientRoutesPage').then((m) => ({ default: m.ClientRoutesPage })));
 const AdminIndividualTariffsPage = lazy(() => import('./pages/admin/tarification/IndividualTariffsPage').then((m) => ({ default: m.IndividualTariffsPage })));
 const AdminSettingsPage = lazy(() => import('./pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const AdminLegalEntitiesPage = lazy(() => import('./pages/admin/legal-entities/LegalEntitiesPage').then((m) => ({ default: m.LegalEntitiesPage })));
+const AdminContractsPage = lazy(() => import('./pages/admin/contracts/ContractsPage').then((m) => ({ default: m.ContractsPage })));
+const AdminOperatorTemplatesPage = lazy(() => import('./pages/admin/operator-templates/OperatorTemplatesPage').then((m) => ({ default: m.OperatorTemplatesPage })));
+const AdminConnectionsPage = lazy(() => import('./pages/admin/connections/ConnectionsPage').then((m) => ({ default: m.ConnectionsPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -138,6 +142,7 @@ export function App() {
         <Route path="clients" element={<Suspense fallback={null}><AdminClientsPage /></Suspense>} />
         <Route path="providers" element={<Suspense fallback={null}><AdminProvidersPage /></Suspense>} />
         <Route path="routes" element={<Suspense fallback={null}><AdminRoutesPage /></Suspense>} />
+        <Route path="connections" element={<Suspense fallback={null}><AdminConnectionsPage /></Suspense>} />
         <Route path="billing" element={<Suspense fallback={null}><AdminBillingPage /></Suspense>} />
         <Route path="monitoring" element={<Suspense fallback={null}><AdminMonitoringPage /></Suspense>} />
         <Route path="analytics" element={<Suspense fallback={null}><AdminAnalyticsPage /></Suspense>} />
@@ -157,6 +162,9 @@ export function App() {
         <Route path="individual-routes" element={<Suspense fallback={null}><AdminClientRoutesPage /></Suspense>} />
         <Route path="individual-tariffs" element={<Suspense fallback={null}><AdminIndividualTariffsPage /></Suspense>} />
         <Route path="settings" element={<Suspense fallback={null}><AdminSettingsPage /></Suspense>} />
+        <Route path="legal-entities" element={<Suspense fallback={null}><AdminLegalEntitiesPage /></Suspense>} />
+        <Route path="contracts" element={<Suspense fallback={null}><AdminContractsPage /></Suspense>} />
+        <Route path="operator-templates" element={<Suspense fallback={null}><AdminOperatorTemplatesPage /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
