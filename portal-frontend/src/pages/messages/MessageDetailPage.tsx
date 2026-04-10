@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { messagesApi, ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { useMessageStream } from '../../hooks/useMessageStream';
 
 interface DlrInfo {
   stat: string;
@@ -91,6 +92,8 @@ const DLR_STAT_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'defau
   UNKNOWN: 'default',
 };
 
+const TERMINAL_STATUSES = new Set(['delivered', 'failed', 'expired', 'rejected']);
+
 interface TimelineStep {
   key: string;
   label: string;
@@ -157,6 +160,27 @@ export function MessageDetailPage() {
     loadMessage();
   }, [loadMessage]);
 
+  // SSE: subscribe while message is in a non-terminal state.
+  const streamEnabled = !!message && !TERMINAL_STATUSES.has(message.status);
+  const { streamStatus, updates, close } = useMessageStream(streamEnabled);
+
+  // Track the last status we acted on to avoid double-fetching.
+  const lastHandledStatusRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!id) return;
+    const update = updates[id];
+    if (!update) return;
+    if (update.status === lastHandledStatusRef.current) return;
+
+    lastHandledStatusRef.current = update.status;
+    loadMessage();
+
+    if (TERMINAL_STATUSES.has(update.status)) {
+      close();
+    }
+  }, [updates, id, loadMessage, close]);
+
   if (loading) {
     return <div className="animate-pulse p-8 text-center text-gray-500">Загрузка...</div>;
   }
@@ -187,9 +211,17 @@ export function MessageDetailPage() {
           { label: `Сообщение #${message.message_id.substring(0, 8)}` },
         ]}
         actions={
-          <Link to="/messages">
-            <Button variant="secondary">Назад</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {streamEnabled && streamStatus === 'connected' && (
+              <span className="flex items-center gap-1 text-xs text-green-600" title="Статус обновляется в реальном времени">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Live
+              </span>
+            )}
+            <Link to="/messages">
+              <Button variant="secondary">Назад</Button>
+            </Link>
+          </div>
         }
       />
 
