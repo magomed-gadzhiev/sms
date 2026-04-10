@@ -1,128 +1,341 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { DataTable, type Column } from '../../components/data/DataTable';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { MultiSelect } from '../../components/ui/MultiSelect';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
-import { routesApi, providersApi, type RouteInfo, type ProviderInfo } from '../../api/admin';
+import {
+  platformRoutesApi,
+  providersApi,
+  operatorsApi,
+  legalEntitiesApi,
+  type PlatformRoute,
+  type ProviderInfo,
+  type OperatorInfo,
+  type LegalEntity,
+} from '../../api/admin';
 
-const PAGE_SIZE = 20;
-
-const columns: Column<RouteInfo>[] = [
-  { key: 'name', header: 'Название', sortable: true },
-  { key: 'pattern', header: 'Паттерн (regex)' },
-  { key: 'priority', header: 'Приоритет', sortable: true },
-  { key: 'load_balance_strategy', header: 'Стратегия', render: (r) => ({ round_robin: 'По кругу', weighted: 'Взвешенная', priority: 'Приоритет' }[r.load_balance_strategy] ?? r.load_balance_strategy) },
-  { key: 'failover_enabled', header: 'Отказоуст.', render: (r) => r.failover_enabled ? 'Да' : 'Нет' },
-  { key: 'provider_ids', header: 'Провайдеры', render: (r) => String(r.provider_ids?.length ?? 0) },
-  { key: 'active', header: 'Статус', render: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> },
+const CHANNEL_OPTIONS = [
+  { value: 'sms', label: 'SMS' },
+  { value: 'flash', label: 'Flash' },
+  { value: 'viber', label: 'Viber' },
+  { value: 'whatsapp', label: 'WhatsApp' },
 ];
+
+interface RouteForm {
+  operator_id: string;
+  channel_type: string;
+  provider_id: string;
+  legal_entity_id: string;
+}
+
+const DEFAULT_FORM: RouteForm = {
+  operator_id: '',
+  channel_type: 'sms',
+  provider_id: '',
+  legal_entity_id: '',
+};
 
 export function RoutesPage() {
   const toast = useToast();
-  const [data, setData] = useState<RouteInfo[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editRoute, setEditRoute] = useState<RouteInfo | null>(null);
-  const [deleteRoute, setDeleteRoute] = useState<RouteInfo | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', pattern: '', priority: 0, provider_ids: [] as string[], load_balance_strategy: 'round_robin', failover_enabled: true });
+
+  const [routes, setRoutes] = useState<PlatformRoute[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [providersLoading, setProvidersLoading] = useState(false);
+  const [operators, setOperators] = useState<OperatorInfo[]>([]);
+  const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const providerOptions = providers.map((p) => ({ value: p.provider_id, label: p.name }));
+  const [showForm, setShowForm] = useState(false);
+  const [editRoute, setEditRoute] = useState<PlatformRoute | null>(null);
+  const [deleteRoute, setDeleteRoute] = useState<PlatformRoute | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<RouteForm>(DEFAULT_FORM);
 
-  const fetchData = useCallback(async () => {
+  const dragItemRef = useRef<number | null>(null);
+  const dragOverItemRef = useRef<number | null>(null);
+
+  const fetchRoutes = useCallback(async () => {
     setLoading(true);
-    try { const res = await routesApi.list({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }); setData(res.routes || []); setTotal(res.total); }
-    catch { toast.error('Не удалось загрузить маршруты'); }
-    finally { setLoading(false); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
-
-  const fetchProviders = useCallback(async () => {
-    setProvidersLoading(true);
-    try { const res = await providersApi.list({ limit: 500 }); setProviders(res.providers || []); }
-    catch { /* non-critical */ }
-    finally { setProvidersLoading(false); }
+    try {
+      const res = await platformRoutesApi.list({ limit: 500 });
+      setRoutes(res.routes || []);
+    } catch {
+      toast.error('Не удалось загрузить маршруты');
+    } finally {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { fetchProviders(); }, [fetchProviders]);
+  useEffect(() => {
+    fetchRoutes();
+    providersApi.list({ limit: 500 }).then((res) => setProviders(res.providers || [])).catch(() => {});
+    operatorsApi.list({ limit: 500 }).then((res) => setOperators(res.operators || [])).catch(() => {});
+    legalEntitiesApi.list({ limit: 500 }).then((res) => setLegalEntities(res.legal_entities || [])).catch(() => {});
+  }, [fetchRoutes]);
 
-  const openCreate = () => { setForm({ name: '', pattern: '', priority: 0, provider_ids: [], load_balance_strategy: 'round_robin', failover_enabled: true }); setShowForm(true); };
-  const openEdit = (route: RouteInfo) => { setForm({ name: route.name, pattern: route.pattern, priority: route.priority, provider_ids: route.provider_ids || [], load_balance_strategy: route.load_balance_strategy, failover_enabled: route.failover_enabled }); setEditRoute(route); setShowForm(true); };
+  const openCreate = () => {
+    setForm(DEFAULT_FORM);
+    setEditRoute(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (route: PlatformRoute) => {
+    setForm({
+      operator_id: route.operator_id ?? '',
+      channel_type: route.channel_type,
+      provider_id: route.provider_id,
+      legal_entity_id: route.legal_entity_id ?? '',
+    });
+    setEditRoute(route);
+    setShowForm(true);
+  };
 
   const handleSave = async () => {
+    if (!form.provider_id) {
+      toast.error('Выберите провайдера');
+      return;
+    }
+    if (form.operator_id === '' && !form.legal_entity_id) {
+      toast.error('Для "All Networks" юр. лицо обязательно');
+      return;
+    }
     setSaving(true);
     try {
-      const payload = { ...form, priority: Number(form.priority) };
-      if (editRoute) { await routesApi.update(editRoute.route_id, payload); toast.success('Маршрут обновлён'); }
-      else { await routesApi.create(payload); toast.success('Маршрут создан'); }
-      setShowForm(false); setEditRoute(null); fetchData();
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка сохранения'); }
-    finally { setSaving(false); }
+      if (editRoute) {
+        await platformRoutesApi.update(editRoute.id, {
+          operator_id: form.operator_id || undefined,
+          channel_type: form.channel_type,
+          provider_id: form.provider_id,
+          legal_entity_id: form.legal_entity_id || undefined,
+        });
+        toast.success('Маршрут обновлён');
+      } else {
+        await platformRoutesApi.create({
+          operator_id: form.operator_id || undefined,
+          channel_type: form.channel_type,
+          provider_id: form.provider_id,
+          legal_entity_id: form.legal_entity_id || undefined,
+          priority: routes.length,
+        });
+        toast.success('Маршрут создан');
+      }
+      setShowForm(false);
+      setEditRoute(null);
+      fetchRoutes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка сохранения');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
     if (!deleteRoute) return;
     setSaving(true);
-    try { await routesApi.delete(deleteRoute.route_id); toast.success('Маршрут удалён'); setDeleteRoute(null); fetchData(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка удаления'); }
-    finally { setSaving(false); }
+    try {
+      await platformRoutesApi.delete(deleteRoute.id);
+      toast.success('Маршрут удалён');
+      setDeleteRoute(null);
+      fetchRoutes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const filtered = search.trim()
-    ? data.filter((r) =>
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.pattern.toLowerCase().includes(search.toLowerCase())
-      )
-    : data;
+  const handleDragEnd = async () => {
+    const dragIdx = dragItemRef.current;
+    const overIdx = dragOverItemRef.current;
+    if (dragIdx === null || overIdx === null || dragIdx === overIdx) {
+      dragItemRef.current = null;
+      dragOverItemRef.current = null;
+      return;
+    }
+
+    const newRoutes = [...routes];
+    const [dragged] = newRoutes.splice(dragIdx, 1);
+    newRoutes.splice(overIdx, 0, dragged);
+    const updated = newRoutes.map((r, i) => ({ ...r, priority: i }));
+    setRoutes(updated);
+
+    dragItemRef.current = null;
+    dragOverItemRef.current = null;
+
+    try {
+      await platformRoutesApi.reorder(updated.map((r) => ({ id: r.id, priority: r.priority })));
+    } catch {
+      toast.error('Не удалось сохранить порядок');
+      fetchRoutes();
+    }
+  };
+
+  const operatorOptions = [
+    { value: '', label: '— All Networks —' },
+    ...operators.map((o) => ({
+      value: o.operator_id,
+      label: `${o.name} (MCC${o.mcc}/MNC${o.mnc})`,
+    })),
+  ];
+
+  const providerOptions = providers.map((p) => ({ value: p.provider_id, label: p.name }));
+
+  const legalEntityOptions = legalEntities.map((le) => ({
+    value: le.id,
+    label: `${le.inn} — ${le.name}`,
+  }));
+
+  const isAllNetworks = form.operator_id === '';
 
   return (
     <>
-      <PageHeader title="Маршруты" subtitle={`${total} маршрутов`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Маршруты' }]} actions={<Button onClick={openCreate}>Создать маршрут</Button>} />
-      <div className="mb-4">
-        <Input
-          placeholder="Поиск по названию или паттерну..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      <DataTable columns={columns} data={filtered} total={filtered.length} page={1} pageSize={filtered.length || 1} onPageChange={() => {}} loading={loading} keyField="route_id"
-        rowActions={(r) => (<div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => openEdit(r)}>Изменить</Button><Button size="sm" variant="ghost" onClick={() => setDeleteRoute(r)}>Удалить</Button></div>)}
+      <PageHeader
+        title="Маршруты"
+        subtitle={`${routes.length} маршрутов`}
+        breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Маршруты' }]}
+        actions={<Button onClick={openCreate}>Создать маршрут</Button>}
       />
-      <Modal open={showForm} onClose={() => { setShowForm(false); setEditRoute(null); }} title={editRoute ? 'Редактирование маршрута' : 'Создание маршрута'}>
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="w-8 px-3 py-3" />
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Оператор</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Канал</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Провайдер</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Юр. лицо</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Статус</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-600">Действия</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  Загрузка...
+                </td>
+              </tr>
+            )}
+            {!loading && routes.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  Нет маршрутов
+                </td>
+              </tr>
+            )}
+            {routes.map((route, index) => (
+              <tr
+                key={route.id}
+                draggable
+                onDragStart={() => { dragItemRef.current = index; }}
+                onDragEnter={() => { dragOverItemRef.current = index; }}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => e.preventDefault()}
+                className="cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors"
+              >
+                <td className="px-3 py-3 text-gray-400 select-none text-center">⠿</td>
+                <td className="px-4 py-3">
+                  {route.operator_id === null ? (
+                    <span className="font-bold text-blue-600">All Networks</span>
+                  ) : (
+                    <span>{route.operator_name}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 uppercase text-xs font-medium text-gray-700">
+                  {route.channel_type}
+                </td>
+                <td className="px-4 py-3">{route.provider_name}</td>
+                <td className="px-4 py-3 text-gray-600">
+                  {route.legal_entity_id
+                    ? `${route.legal_entity_inn} — ${route.legal_entity_name}`
+                    : '—'}
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={route.active ? 'active' : 'inactive'} />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(route)}>
+                      Изменить
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setDeleteRoute(route)}>
+                      Удалить
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Modal
+        open={showForm}
+        onClose={() => { setShowForm(false); setEditRoute(null); }}
+        title={editRoute ? 'Редактирование маршрута' : 'Создание маршрута'}
+      >
         <div className="space-y-4">
-          <Input label="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label="Шаблон (regex)" value={form.pattern} onChange={(e) => setForm({ ...form, pattern: e.target.value })} required />
-          <Input label="Приоритет" type="number" value={String(form.priority)} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })} />
-          <MultiSelect
-            label="Провайдеры"
+          <Select
+            label="Оператор"
+            options={operatorOptions}
+            value={form.operator_id}
+            onChange={(v) => setForm({ ...form, operator_id: v })}
+          />
+          {isAllNetworks && (
+            <Select
+              label="Юр. лицо (обязательно для All Networks)"
+              options={legalEntityOptions}
+              value={form.legal_entity_id}
+              onChange={(v) => setForm({ ...form, legal_entity_id: v })}
+              required
+            />
+          )}
+          <Select
+            label="Тип канала"
+            options={CHANNEL_OPTIONS}
+            value={form.channel_type}
+            onChange={(v) => setForm({ ...form, channel_type: v })}
+          />
+          <Select
+            label="Провайдер"
             options={providerOptions}
-            values={form.provider_ids}
-            onChange={(ids) => setForm({ ...form, provider_ids: ids })}
-            placeholder="Выберите провайдеров..."
-            loading={providersLoading}
+            value={form.provider_id}
+            onChange={(v) => setForm({ ...form, provider_id: v })}
             required
           />
-          <Select label="Стратегия" options={[{ value: 'round_robin', label: 'По кругу' }, { value: 'weighted', label: 'Взвешенная' }, { value: 'priority', label: 'Приоритет' }]} value={form.load_balance_strategy} onChange={(v) => setForm({ ...form, load_balance_strategy: v })} />
-          <Select label="Отказоустойчивость" options={[{ value: 'true', label: 'Включена' }, { value: 'false', label: 'Выключена' }]} value={String(form.failover_enabled)} onChange={(v) => setForm({ ...form, failover_enabled: v === 'true' })} />
+          {!isAllNetworks && (
+            <Select
+              label="Юр. лицо"
+              options={[{ value: '', label: '— не указано —' }, ...legalEntityOptions]}
+              value={form.legal_entity_id}
+              onChange={(v) => setForm({ ...form, legal_entity_id: v })}
+            />
+          )}
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => { setShowForm(false); setEditRoute(null); }}>Отмена</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.pattern}>{saving ? 'Сохранение...' : 'Сохранить'}</Button>
+            <Button variant="secondary" onClick={() => { setShowForm(false); setEditRoute(null); }}>
+              Отмена
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !form.provider_id}>
+              {saving ? 'Сохранение...' : 'Сохранить'}
+            </Button>
           </div>
         </div>
       </Modal>
-      <ConfirmDialog open={!!deleteRoute} onConfirm={handleDelete} onCancel={() => setDeleteRoute(null)} title="Удаление маршрута" description={`Удалить "${deleteRoute?.name}"? Это действие необратимо.`} confirmLabel="Удалить" variant="danger" loading={saving} />
+
+      <ConfirmDialog
+        open={!!deleteRoute}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteRoute(null)}
+        title="Удаление маршрута"
+        description={`Удалить маршрут "${deleteRoute?.operator_name ?? ''} / ${deleteRoute?.channel_type ?? ''}"? Это действие необратимо.`}
+        confirmLabel="Удалить"
+        variant="danger"
+        loading={saving}
+      />
     </>
   );
 }
