@@ -15,6 +15,9 @@ import {
   type ClientInfo,
   type ProviderInfo,
 } from '../../../api/admin';
+import { exportToCsv } from '../../../utils/csvExport';
+import { StatusTimeline } from './StatusTimeline';
+import { SmsPreview } from './SmsPreview';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Ожидает',
@@ -107,6 +110,7 @@ export function DetalizationPage() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [detail, setDetail] = useState<AdminMessageDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [showAllFilters, setShowAllFilters] = useState(false);
 
   useEffect(() => {
     clientsApi.list({ limit: 500 }).then((r) => setClients(r.clients || [])).catch(() => {});
@@ -121,6 +125,21 @@ export function DetalizationPage() {
     { value: '', label: 'Все провайдеры' },
     ...providers.map((p) => ({ value: p.provider_id, label: p.name })),
   ];
+
+  const handleExport = useCallback(() => {
+    const headers = ['ID', 'Клиент', 'Отправитель', 'Получатель', 'Статус', 'Провайдер', 'Дата', 'Стоимость'];
+    const rows = messages.map((m) => [
+      m.id,
+      m.client_name || '',
+      m.source || '',
+      m.destination || '',
+      STATUS_LABEL[m.status] ?? m.status,
+      m.provider_name || '',
+      formatDate(m.created_at),
+      '',
+    ]);
+    exportToCsv('detalization.csv', headers, rows);
+  }, [messages]);
 
   const fetchMessages = useCallback(async (f: Filters, p: number) => {
     setLoading(true);
@@ -219,40 +238,22 @@ export function DetalizationPage() {
       <PageHeader
         title="Детализация"
         breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Детализация' }]}
+        actions={
+          <Button variant="secondary" size="sm" onClick={handleExport}>
+            Экспорт CSV
+          </Button>
+        }
       />
 
       {/* Фильтры */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <Select
-            label="Клиент"
-            value={filters.client_id}
-            onChange={(v) => setFilters((f) => ({ ...f, client_id: v }))}
-            options={clientOptions}
-          />
+          {/* Primary filters — always visible */}
           <Select
             label="Статус"
             value={filters.status}
             onChange={(v) => setFilters((f) => ({ ...f, status: v }))}
             options={STATUS_OPTIONS}
-          />
-          <Select
-            label="Провайдер"
-            value={filters.provider_id}
-            onChange={(v) => setFilters((f) => ({ ...f, provider_id: v }))}
-            options={providerOptions}
-          />
-          <Input
-            label="Отправитель"
-            value={filters.source}
-            onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))}
-            placeholder="Имя или номер"
-          />
-          <Input
-            label="Получатель"
-            value={filters.destination}
-            onChange={(e) => setFilters((f) => ({ ...f, destination: e.target.value }))}
-            placeholder="Номер телефона"
           />
           <Input
             label="Дата с"
@@ -266,10 +267,43 @@ export function DetalizationPage() {
             value={filters.date_to}
             onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))}
           />
+
+          {/* Secondary filters — shown when expanded */}
+          {showAllFilters && (
+            <>
+              <Select
+                label="Клиент"
+                value={filters.client_id}
+                onChange={(v) => setFilters((f) => ({ ...f, client_id: v }))}
+                options={clientOptions}
+              />
+              <Select
+                label="Провайдер"
+                value={filters.provider_id}
+                onChange={(v) => setFilters((f) => ({ ...f, provider_id: v }))}
+                options={providerOptions}
+              />
+              <Input
+                label="Отправитель"
+                value={filters.source}
+                onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))}
+                placeholder="Имя или номер"
+              />
+              <Input
+                label="Получатель"
+                value={filters.destination}
+                onChange={(e) => setFilters((f) => ({ ...f, destination: e.target.value }))}
+                placeholder="Номер телефона"
+              />
+            </>
+          )}
         </div>
         <div className="flex gap-2">
           <Button onClick={applyFilters}>Применить</Button>
           <Button variant="ghost" onClick={resetFilters}>Сбросить</Button>
+          <Button variant="ghost" onClick={() => setShowAllFilters((v) => !v)}>
+            {showAllFilters ? 'Скрыть фильтры' : 'Все фильтры'}
+          </Button>
         </div>
       </div>
 
@@ -394,6 +428,22 @@ export function DetalizationPage() {
                 </p>
               </section>
             )}
+
+            {/* Status timeline */}
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">История статусов</h4>
+              <StatusTimeline statuses={[{ status: detail.status ?? 'pending', timestamp: detail.created_at ?? '' }]} />
+            </div>
+
+            {/* SMS preview */}
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Предпросмотр сообщения</h4>
+              <SmsPreview
+                sender={detail.source ?? ''}
+                body={detail.text ?? ''}
+                timestamp={detail.created_at ?? ''}
+              />
+            </div>
 
             <div className="flex justify-end pt-2">
               <Button variant="ghost" onClick={() => setDetail(null)}>Закрыть</Button>
