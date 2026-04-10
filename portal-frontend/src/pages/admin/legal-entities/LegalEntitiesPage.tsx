@@ -18,6 +18,21 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { inn: '', name: '', full_name: '', address: '' };
 
+// ── INN Validation ──
+
+function validateINN(inn: string): boolean {
+  if (!/^\d{10}$|^\d{12}$/.test(inn)) return false;
+  const d = inn.split('').map(Number);
+  if (d.length === 10) {
+    const check = ([2, 4, 10, 3, 5, 9, 4, 6, 8].reduce((s, w, i) => s + w * d[i], 0) % 11) % 10;
+    return check === d[9];
+  }
+  // 12-digit
+  const check1 = ([7, 2, 4, 10, 3, 5, 9, 4, 6, 8].reduce((s, w, i) => s + w * d[i], 0) % 11) % 10;
+  const check2 = ([3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8].reduce((s, w, i) => s + w * d[i], 0) % 11) % 10;
+  return check1 === d[10] && check2 === d[11];
+}
+
 export function LegalEntitiesPage() {
   const toast = useToast();
   const [items, setItems] = useState<LegalEntity[]>([]);
@@ -27,6 +42,7 @@ export function LegalEntitiesPage() {
   const [deleteItem, setDeleteItem] = useState<LegalEntity | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [innError, setInnError] = useState('');
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -45,6 +61,7 @@ export function LegalEntitiesPage() {
   function openCreate() {
     setEditItem(null);
     setForm(EMPTY_FORM);
+    setInnError('');
     setShowForm(true);
   }
 
@@ -56,12 +73,17 @@ export function LegalEntitiesPage() {
       full_name: item.full_name || '',
       address: item.address || '',
     });
+    setInnError('');
     setShowForm(true);
   }
 
   async function handleSave() {
     if (!form.inn.trim() || !form.name.trim()) {
       toast.error('ИНН и название обязательны');
+      return;
+    }
+    if (form.inn && !validateINN(form.inn)) {
+      setInnError('Некорректный ИНН');
       return;
     }
     setSaving(true);
@@ -112,6 +134,14 @@ export function LegalEntitiesPage() {
       render: (row) => <span className="text-sm text-gray-600">{row.address || '—'}</span>,
     },
     {
+      key: 'operators',
+      header: 'Операторы',
+      render: (row) => {
+        const operators = (row as any).operators;
+        return <span className="text-sm text-gray-600">{operators?.join(', ') ?? '—'}</span>;
+      },
+    },
+    {
       key: 'active',
       header: 'Статус',
       render: (row) => (
@@ -157,10 +187,18 @@ export function LegalEntitiesPage() {
           <Input
             label="ИНН *"
             value={form.inn}
-            onChange={(e) => setForm((f) => ({ ...f, inn: e.target.value }))}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, inn: e.target.value }));
+              if (e.target.value && !validateINN(e.target.value)) {
+                setInnError('Некорректный ИНН');
+              } else {
+                setInnError('');
+              }
+            }}
             placeholder="1234567890"
             maxLength={12}
           />
+          {innError && <p className="text-xs text-red-500 mt-1">{innError}</p>}
           <Input
             label="Краткое название *"
             value={form.name}

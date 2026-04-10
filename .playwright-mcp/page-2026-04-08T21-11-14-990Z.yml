@@ -1,0 +1,261 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: SMS Admin
+      - navigation [ref=e26]:
+        - link "📊 Дашборд" [ref=e118] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+          - generic [ref=e119]: Дашборд
+        - generic [ref=e30]:
+          - generic [ref=e120]: Основное
+          - link "👥 Клиенты" [ref=e121] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+            - generic [ref=e122]: Клиенты
+          - link "📝 Шаблоны" [ref=e123] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+            - generic [ref=e124]: Шаблоны
+          - link "📱 Имена отправителей" [ref=e125] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+            - generic [ref=e126]: Имена отправителей
+          - link "🔑 Пользователи" [ref=e127] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+            - generic [ref=e128]: Пользователи
+        - generic [ref=e39]:
+          - generic [ref=e129]: Финансы
+          - link "💰 Биллинг" [ref=e130] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+            - generic [ref=e131]: Биллинг
+        - generic [ref=e42]:
+          - generic [ref=e132]: Инфраструктура
+          - link "🔌 Провайдеры" [active] [ref=e133] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e44]: 🔌
+            - generic [ref=e134]: Провайдеры
+          - link "🔀 Маршруты" [ref=e135] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e46]: 🔀
+            - generic [ref=e136]: Маршруты
+          - link "📦 Каналы" [ref=e137] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e48]: 📦
+            - generic [ref=e138]: Каналы
+          - link "🚚 Стратегии доставки" [ref=e139] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e50]: 🚚
+            - generic [ref=e140]: Стратегии доставки
+        - generic [ref=e51]:
+          - generic [ref=e141]: Наблюдение
+          - link "📈 Аналитика" [ref=e142] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e53]: 📈
+            - generic [ref=e143]: Аналитика
+          - link "⚡ Мониторинг" [ref=e144] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e55]: ⚡
+            - generic [ref=e145]: Мониторинг
+      - generic [ref=e146]:
+        - generic [ref=e147]: loadtest-admin@test.local
+        - button "Выход" [ref=e148]
+    - main [ref=e58]:
+      - generic [ref=e439]:
+        - navigation "Breadcrumb" [ref=e440]:
+          - list [ref=e441]:
+            - listitem [ref=e442]:
+              - link "Админ" [ref=e443] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e444]:
+              - generic [ref=e445]: /
+              - generic [ref=e446]: Провайдеры
+        - generic [ref=e447]:
+          - generic [ref=e448]:
+            - heading "Провайдеры" [level=1] [ref=e449]
+            - paragraph [ref=e450]: 11 провайдеров
+          - button "Добавить провайдера" [ref=e452]
+      - generic [ref=e455]:
+        - generic [ref=e456]: Статус
+        - combobox "Статус" [ref=e457]:
+          - option "Все" [selected]
+          - option "Только активные"
+      - region "Таблица данных" [ref=e459]:
+        - table "Таблица данных" [ref=e461]:
+          - caption [ref=e462]: Таблица данных
+          - rowgroup [ref=e463]:
+            - row "Название Хост System ID Макс. подкл. Статус Здоровье Успех %" [ref=e464]:
+              - button "Название" [ref=e465] [cursor=pointer]:
+                - generic [ref=e466]: Название
+              - columnheader "Хост" [ref=e467]:
+                - generic [ref=e468]: Хост
+              - columnheader "System ID" [ref=e469]:
+                - generic [ref=e470]: System ID
+              - columnheader "Макс. подкл." [ref=e471]:
+                - generic [ref=e472]: Макс. подкл.
+              - columnheader "Статус" [ref=e473]:
+                - generic [ref=e474]: Статус
+              - columnheader "Здоровье" [ref=e475]:
+                - generic [ref=e476]: Здоровье
+              - columnheader "Успех %" [ref=e477]:
+                - generic [ref=e478]: Успех %
+              - columnheader [ref=e479]
+          - rowgroup [ref=e480]:
+            - row "Provider-International smsc-intl.local:2775 intl_sys 5 Активен Работает 100% Изменить Удалить" [ref=e481]:
+              - cell "Provider-International" [ref=e482]
+              - cell "smsc-intl.local:2775" [ref=e483]
+              - cell "intl_sys" [ref=e484]
+              - cell "5" [ref=e485]
+              - cell "Активен" [ref=e486]:
+                - generic [ref=e487]: Активен
+              - cell "Работает" [ref=e488]:
+                - generic [ref=e489]: Работает
+              - cell "100%" [ref=e490]
+              - cell "Изменить Удалить" [ref=e491]:
+                - generic [ref=e492]:
+                  - button "Изменить" [ref=e493]
+                  - button "Удалить" [ref=e494]
+            - row "Provider-Tinkoff-RU smsc-tink.local:2775 tink_sys 10 Активен Работает 100% Изменить Удалить" [ref=e495]:
+              - cell "Provider-Tinkoff-RU" [ref=e496]
+              - cell "smsc-tink.local:2775" [ref=e497]
+              - cell "tink_sys" [ref=e498]
+              - cell "10" [ref=e499]
+              - cell "Активен" [ref=e500]:
+                - generic [ref=e501]: Активен
+              - cell "Работает" [ref=e502]:
+                - generic [ref=e503]: Работает
+              - cell "100%" [ref=e504]
+              - cell "Изменить Удалить" [ref=e505]:
+                - generic [ref=e506]:
+                  - button "Изменить" [ref=e507]
+                  - button "Удалить" [ref=e508]
+            - row "Provider-Tele2-RU smsc-tele2.local:2775 tele2_sys 10 Активен Работает 100% Изменить Удалить" [ref=e509]:
+              - cell "Provider-Tele2-RU" [ref=e510]
+              - cell "smsc-tele2.local:2775" [ref=e511]
+              - cell "tele2_sys" [ref=e512]
+              - cell "10" [ref=e513]
+              - cell "Активен" [ref=e514]:
+                - generic [ref=e515]: Активен
+              - cell "Работает" [ref=e516]:
+                - generic [ref=e517]: Работает
+              - cell "100%" [ref=e518]
+              - cell "Изменить Удалить" [ref=e519]:
+                - generic [ref=e520]:
+                  - button "Изменить" [ref=e521]
+                  - button "Удалить" [ref=e522]
+            - row "Provider-Megafon-RU smsc-mega.local:2775 mega_sys 15 Активен Работает 100% Изменить Удалить" [ref=e523]:
+              - cell "Provider-Megafon-RU" [ref=e524]
+              - cell "smsc-mega.local:2775" [ref=e525]
+              - cell "mega_sys" [ref=e526]
+              - cell "15" [ref=e527]
+              - cell "Активен" [ref=e528]:
+                - generic [ref=e529]: Активен
+              - cell "Работает" [ref=e530]:
+                - generic [ref=e531]: Работает
+              - cell "100%" [ref=e532]
+              - cell "Изменить Удалить" [ref=e533]:
+                - generic [ref=e534]:
+                  - button "Изменить" [ref=e535]
+                  - button "Удалить" [ref=e536]
+            - row "Provider-Beeline-RU smsc-bee.local:2775 bee_sys 15 Активен Работает 100% Изменить Удалить" [ref=e537]:
+              - cell "Provider-Beeline-RU" [ref=e538]
+              - cell "smsc-bee.local:2775" [ref=e539]
+              - cell "bee_sys" [ref=e540]
+              - cell "15" [ref=e541]
+              - cell "Активен" [ref=e542]:
+                - generic [ref=e543]: Активен
+              - cell "Работает" [ref=e544]:
+                - generic [ref=e545]: Работает
+              - cell "100%" [ref=e546]
+              - cell "Изменить Удалить" [ref=e547]:
+                - generic [ref=e548]:
+                  - button "Изменить" [ref=e549]
+                  - button "Удалить" [ref=e550]
+            - row "Provider-MTS-RU smsc-mts.local:2775 mts_sys 20 Активен Работает 100% Изменить Удалить" [ref=e551]:
+              - cell "Provider-MTS-RU" [ref=e552]
+              - cell "smsc-mts.local:2775" [ref=e553]
+              - cell "mts_sys" [ref=e554]
+              - cell "20" [ref=e555]
+              - cell "Активен" [ref=e556]:
+                - generic [ref=e557]: Активен
+              - cell "Работает" [ref=e558]:
+                - generic [ref=e559]: Работает
+              - cell "100%" [ref=e560]
+              - cell "Изменить Удалить" [ref=e561]:
+                - generic [ref=e562]:
+                  - button "Изменить" [ref=e563]
+                  - button "Удалить" [ref=e564]
+            - row "I-Digital smpp.i-dgtl.ru:2775 ip_sharip_smpp 1 Неактивен Не работает 100% Изменить Удалить" [ref=e565]:
+              - cell "I-Digital" [ref=e566]
+              - cell "smpp.i-dgtl.ru:2775" [ref=e567]
+              - cell "ip_sharip_smpp" [ref=e568]
+              - cell "1" [ref=e569]
+              - cell "Неактивен" [ref=e570]:
+                - generic [ref=e571]: Неактивен
+              - cell "Не работает" [ref=e572]:
+                - generic [ref=e573]: Не работает
+              - cell "100%" [ref=e574]
+              - cell "Изменить Удалить" [ref=e575]:
+                - generic [ref=e576]:
+                  - button "Изменить" [ref=e577]
+                  - button "Удалить" [ref=e578]
+            - row "I-Digital-LTC smpp.i-dgtl.ru:2775 ip_sharip_smpp 1 Неактивен Не работает 100% Изменить Удалить" [ref=e579]:
+              - cell "I-Digital-LTC" [ref=e580]
+              - cell "smpp.i-dgtl.ru:2775" [ref=e581]
+              - cell "ip_sharip_smpp" [ref=e582]
+              - cell "1" [ref=e583]
+              - cell "Неактивен" [ref=e584]:
+                - generic [ref=e585]: Неактивен
+              - cell "Не работает" [ref=e586]:
+                - generic [ref=e587]: Не работает
+              - cell "100%" [ref=e588]
+              - cell "Изменить Удалить" [ref=e589]:
+                - generic [ref=e590]:
+                  - button "Изменить" [ref=e591]
+                  - button "Удалить" [ref=e592]
+            - row "Provider-Backup smsc-backup.local:2775 backup_sys 5 Неактивен Не работает 100% Изменить Удалить" [ref=e593]:
+              - cell "Provider-Backup" [ref=e594]
+              - cell "smsc-backup.local:2775" [ref=e595]
+              - cell "backup_sys" [ref=e596]
+              - cell "5" [ref=e597]
+              - cell "Неактивен" [ref=e598]:
+                - generic [ref=e599]: Неактивен
+              - cell "Не работает" [ref=e600]:
+                - generic [ref=e601]: Не работает
+              - cell "100%" [ref=e602]
+              - cell "Изменить Удалить" [ref=e603]:
+                - generic [ref=e604]:
+                  - button "Изменить" [ref=e605]
+                  - button "Удалить" [ref=e606]
+            - row "Provider-I-Digital smpp.i-dgtl.ru:2775 ip_sharip_smpp 5 Неактивен Не работает 100% Изменить Удалить" [ref=e607]:
+              - cell "Provider-I-Digital" [ref=e608]
+              - cell "smpp.i-dgtl.ru:2775" [ref=e609]
+              - cell "ip_sharip_smpp" [ref=e610]
+              - cell "5" [ref=e611]
+              - cell "Неактивен" [ref=e612]:
+                - generic [ref=e613]: Неактивен
+              - cell "Не работает" [ref=e614]:
+                - generic [ref=e615]: Не работает
+              - cell "100%" [ref=e616]
+              - cell "Изменить Удалить" [ref=e617]:
+                - generic [ref=e618]:
+                  - button "Изменить" [ref=e619]
+                  - button "Удалить" [ref=e620]
+            - row "i-dgtl smpp.i-dgtl.ru:2775 ip_sharip_smpp 1 Неактивен Не работает 100% Изменить Удалить" [ref=e621]:
+              - cell "i-dgtl" [ref=e622]
+              - cell "smpp.i-dgtl.ru:2775" [ref=e623]
+              - cell "ip_sharip_smpp" [ref=e624]
+              - cell "1" [ref=e625]
+              - cell "Неактивен" [ref=e626]:
+                - generic [ref=e627]: Неактивен
+              - cell "Не работает" [ref=e628]:
+                - generic [ref=e629]: Не работает
+              - cell "100%" [ref=e630]
+              - cell "Изменить Удалить" [ref=e631]:
+                - generic [ref=e632]:
+                  - button "Изменить" [ref=e633]
+                  - button "Удалить" [ref=e634]
+  - region "Notifications (F8)":
+    - list

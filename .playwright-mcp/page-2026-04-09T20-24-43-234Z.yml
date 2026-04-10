@@ -1,0 +1,204 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e7]: S
+      - navigation [ref=e8]:
+        - link "📊" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e11]: 📊
+        - generic [ref=e12]:
+          - link "👥" [ref=e13] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e14]: 👥
+          - link "📝" [ref=e15] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e16]: 📝
+          - link "📱" [ref=e17] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e18]: 📱
+          - link "🔑" [ref=e19] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e20]: 🔑
+        - generic [ref=e21]:
+          - link "💰" [ref=e22] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e23]: 💰
+          - link "📋" [ref=e24] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e25]: 📋
+        - generic [ref=e26]:
+          - link "🔌" [ref=e27] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e28]: 🔌
+          - link "🔀" [ref=e29] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e30]: 🔀
+          - link "📦" [ref=e31] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e32]: 📦
+          - link "🚚" [ref=e33] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e34]: 🚚
+          - link "📡" [ref=e35] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e36]: 📡
+        - generic [ref=e37]:
+          - link "🌍" [ref=e38] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e39]: 🌍
+          - link "🔗" [ref=e40] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e41]: 🔗
+        - generic [ref=e42]:
+          - link "📈" [ref=e43] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e44]: 📈
+          - link "⚡" [ref=e45] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e46]: ⚡
+          - link "📜" [ref=e47] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e48]: 📜
+      - button "↵" [ref=e50]
+    - main [ref=e51]:
+      - generic [ref=e52]:
+        - navigation "Breadcrumb" [ref=e53]:
+          - list [ref=e54]:
+            - listitem [ref=e55]:
+              - link "Админ" [ref=e56] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e57]:
+              - generic [ref=e58]: /
+              - generic [ref=e59]: Тарификация
+        - heading "Тарификация" [level=1] [ref=e62]
+      - generic [ref=e63]:
+        - tablist [ref=e64]:
+          - tab "Тарифные планы" [ref=e65]
+          - tab "Периоды" [ref=e66]
+          - tab "Тиры" [ref=e67]
+          - tab "Регистрация отправителей" [active] [selected] [ref=e68]
+        - tabpanel "Регистрация отправителей" [ref=e289]:
+          - generic [ref=e290]:
+            - heading "Регистрация отправителей" [level=2] [ref=e291]
+            - button "Создать регистрацию" [ref=e292]
+          - region "Таблица данных" [ref=e294]:
+            - table "Таблица данных" [ref=e296]:
+              - caption [ref=e297]: Таблица данных
+              - rowgroup [ref=e298]:
+                - row "Имя отправителя Оператор Клиент Тип Статус Создано" [ref=e299]:
+                  - button "Имя отправителя" [ref=e300] [cursor=pointer]:
+                    - generic [ref=e301]: Имя отправителя
+                  - columnheader "Оператор" [ref=e302]:
+                    - generic [ref=e303]: Оператор
+                  - columnheader "Клиент" [ref=e304]:
+                    - generic [ref=e305]: Клиент
+                  - columnheader "Тип" [ref=e306]:
+                    - generic [ref=e307]: Тип
+                  - columnheader "Статус" [ref=e308]:
+                    - generic [ref=e309]: Статус
+                  - columnheader "Создано" [ref=e310]:
+                    - generic [ref=e311]: Создано
+                  - columnheader [ref=e312]
+              - rowgroup [ref=e313]:
+                - row "TestCorp 10000000... 8b78fdc5... paid Активен 08.04.2026 Изменить статус" [ref=e314]:
+                  - cell "TestCorp" [ref=e315]
+                  - cell "10000000..." [ref=e316]
+                  - cell "8b78fdc5..." [ref=e317]
+                  - cell "paid" [ref=e318]
+                  - cell "Активен" [ref=e319]:
+                    - generic [ref=e320]: Активен
+                  - cell "08.04.2026" [ref=e321]
+                  - cell "Изменить статус" [ref=e322]:
+                    - button "Изменить статус" [ref=e323]
+                - row "TestCorp 10000000... 8b78fdc5... paid Активен 08.04.2026 Изменить статус" [ref=e324]:
+                  - cell "TestCorp" [ref=e325]
+                  - cell "10000000..." [ref=e326]
+                  - cell "8b78fdc5..." [ref=e327]
+                  - cell "paid" [ref=e328]
+                  - cell "Активен" [ref=e329]:
+                    - generic [ref=e330]: Активен
+                  - cell "08.04.2026" [ref=e331]
+                  - cell "Изменить статус" [ref=e332]:
+                    - button "Изменить статус" [ref=e333]
+                - row "TestCorp 10000000... 8b78fdc5... paid Активен 08.04.2026 Изменить статус" [ref=e334]:
+                  - cell "TestCorp" [ref=e335]
+                  - cell "10000000..." [ref=e336]
+                  - cell "8b78fdc5..." [ref=e337]
+                  - cell "paid" [ref=e338]
+                  - cell "Активен" [ref=e339]:
+                    - generic [ref=e340]: Активен
+                  - cell "08.04.2026" [ref=e341]
+                  - cell "Изменить статус" [ref=e342]:
+                    - button "Изменить статус" [ref=e343]
+                - row "TestCorp 10000000... 8b78fdc5... paid Активен 08.04.2026 Изменить статус" [ref=e344]:
+                  - cell "TestCorp" [ref=e345]
+                  - cell "10000000..." [ref=e346]
+                  - cell "8b78fdc5..." [ref=e347]
+                  - cell "paid" [ref=e348]
+                  - cell "Активен" [ref=e349]:
+                    - generic [ref=e350]: Активен
+                  - cell "08.04.2026" [ref=e351]
+                  - cell "Изменить статус" [ref=e352]:
+                    - button "Изменить статус" [ref=e353]
+                - row "E2E234411 d0000000... 9a27aa08... paid Ожидание 31.03.2026 Изменить статус" [ref=e354]:
+                  - cell "E2E234411" [ref=e355]
+                  - cell "d0000000..." [ref=e356]
+                  - cell "9a27aa08..." [ref=e357]
+                  - cell "paid" [ref=e358]
+                  - cell "Ожидание" [ref=e359]:
+                    - generic [ref=e360]: Ожидание
+                  - cell "31.03.2026" [ref=e361]
+                  - cell "Изменить статус" [ref=e362]:
+                    - button "Изменить статус" [ref=e363]
+                - row "E2E234106 d0000000... 9a27aa08... paid Ожидание 31.03.2026 Изменить статус" [ref=e364]:
+                  - cell "E2E234106" [ref=e365]
+                  - cell "d0000000..." [ref=e366]
+                  - cell "9a27aa08..." [ref=e367]
+                  - cell "paid" [ref=e368]
+                  - cell "Ожидание" [ref=e369]:
+                    - generic [ref=e370]: Ожидание
+                  - cell "31.03.2026" [ref=e371]
+                  - cell "Изменить статус" [ref=e372]:
+                    - button "Изменить статус" [ref=e373]
+                - row "E2E233947 d0000000... 9a27aa08... paid Ожидание 31.03.2026 Изменить статус" [ref=e374]:
+                  - cell "E2E233947" [ref=e375]
+                  - cell "d0000000..." [ref=e376]
+                  - cell "9a27aa08..." [ref=e377]
+                  - cell "paid" [ref=e378]
+                  - cell "Ожидание" [ref=e379]:
+                    - generic [ref=e380]: Ожидание
+                  - cell "31.03.2026" [ref=e381]
+                  - cell "Изменить статус" [ref=e382]:
+                    - button "Изменить статус" [ref=e383]
+                - row "E2EPAID31 d0000000... 9a27aa08... paid Активен 31.03.2026 Изменить статус" [ref=e384]:
+                  - cell "E2EPAID31" [ref=e385]
+                  - cell "d0000000..." [ref=e386]
+                  - cell "9a27aa08..." [ref=e387]
+                  - cell "paid" [ref=e388]
+                  - cell "Активен" [ref=e389]:
+                    - generic [ref=e390]: Активен
+                  - cell "31.03.2026" [ref=e391]
+                  - cell "Изменить статус" [ref=e392]:
+                    - button "Изменить статус" [ref=e393]
+                - row "TestBilling d0000000... e7a8c648... paid Ожидание 31.03.2026 Изменить статус" [ref=e394]:
+                  - cell "TestBilling" [ref=e395]
+                  - cell "d0000000..." [ref=e396]
+                  - cell "e7a8c648..." [ref=e397]
+                  - cell "paid" [ref=e398]
+                  - cell "Ожидание" [ref=e399]:
+                    - generic [ref=e400]: Ожидание
+                  - cell "31.03.2026" [ref=e401]
+                  - cell "Изменить статус" [ref=e402]:
+                    - button "Изменить статус" [ref=e403]
+                - row "TestBilling d0000000... c0000000... paid Активен 31.03.2026 Изменить статус" [ref=e404]:
+                  - cell "TestBilling" [ref=e405]
+                  - cell "d0000000..." [ref=e406]
+                  - cell "c0000000..." [ref=e407]
+                  - cell "paid" [ref=e408]
+                  - cell "Активен" [ref=e409]:
+                    - generic [ref=e410]: Активен
+                  - cell "31.03.2026" [ref=e411]
+                  - cell "Изменить статус" [ref=e412]:
+                    - button "Изменить статус" [ref=e413]
+  - region "Notifications (F8)":
+    - list

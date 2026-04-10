@@ -1,0 +1,169 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: SMS Admin
+      - navigation [ref=e26]:
+        - link "📊 Дашборд" [ref=e118] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+          - generic [ref=e119]: Дашборд
+        - generic [ref=e30]:
+          - generic [ref=e120]: Основное
+          - link "👥 Клиенты" [ref=e121] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+            - generic [ref=e122]: Клиенты
+          - link "📝 Шаблоны" [ref=e123] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+            - generic [ref=e124]: Шаблоны
+          - link "📱 Имена отправителей" [ref=e125] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+            - generic [ref=e126]: Имена отправителей
+          - link "🔑 Пользователи" [ref=e127] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+            - generic [ref=e128]: Пользователи
+        - generic [ref=e39]:
+          - generic [ref=e129]: Финансы
+          - link "💰 Биллинг" [ref=e130] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+            - generic [ref=e131]: Биллинг
+        - generic [ref=e42]:
+          - generic [ref=e132]: Инфраструктура
+          - link "🔌 Провайдеры" [ref=e133] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e44]: 🔌
+            - generic [ref=e134]: Провайдеры
+          - link "🔀 Маршруты" [ref=e135] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e46]: 🔀
+            - generic [ref=e136]: Маршруты
+          - link "📦 Каналы" [ref=e137] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e48]: 📦
+            - generic [ref=e138]: Каналы
+          - link "🚚 Стратегии доставки" [ref=e139] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e50]: 🚚
+            - generic [ref=e140]: Стратегии доставки
+        - generic [ref=e51]:
+          - generic [ref=e141]: Наблюдение
+          - link "📈 Аналитика" [ref=e142] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e53]: 📈
+            - generic [ref=e143]: Аналитика
+          - link "⚡ Мониторинг" [active] [ref=e144] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e55]: ⚡
+            - generic [ref=e145]: Мониторинг
+      - generic [ref=e146]:
+        - generic [ref=e147]: loadtest-admin@test.local
+        - button "Выход" [ref=e148]
+    - main [ref=e58]:
+      - generic [ref=e1150]:
+        - navigation "Breadcrumb" [ref=e1151]:
+          - list [ref=e1152]:
+            - listitem [ref=e1153]:
+              - link "Админ" [ref=e1154] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e1155]:
+              - generic [ref=e1156]: /
+              - generic [ref=e1157]: Мониторинг
+        - generic [ref=e1158]:
+          - generic [ref=e1159]:
+            - heading "Мониторинг" [level=1] [ref=e1160]
+            - paragraph [ref=e1161]: Обновлено 0с назад
+          - button "Пауза" [ref=e1163]
+      - generic [ref=e1164]:
+        - generic [ref=e1165]:
+          - generic [ref=e1166]: Сообщений/сек
+          - generic [ref=e1167]: "0"
+        - generic [ref=e1168]:
+          - generic [ref=e1169]: Доставлено
+          - generic [ref=e1170]: "-"
+        - generic [ref=e1171]:
+          - generic [ref=e1172]: Ошибки
+          - generic [ref=e1173]: "-"
+        - generic [ref=e1174]:
+          - generic [ref=e1175]: Очередь
+          - generic [ref=e1176]: "-"
+      - heading "Статус провайдеров" [level=2] [ref=e1177]
+      - region "Таблица данных" [ref=e1179]:
+        - table "Таблица данных" [ref=e1181]:
+          - caption [ref=e1182]: Таблица данных
+          - rowgroup [ref=e1183]:
+            - row "Провайдер Статус Подключения Успех % Отправлено (24ч) Ошибки (24ч) Последняя ошибка" [ref=e1184]:
+              - columnheader "Провайдер" [ref=e1185]:
+                - generic [ref=e1186]: Провайдер
+              - columnheader "Статус" [ref=e1187]:
+                - generic [ref=e1188]: Статус
+              - columnheader "Подключения" [ref=e1189]:
+                - generic [ref=e1190]: Подключения
+              - columnheader "Успех %" [ref=e1191]:
+                - generic [ref=e1192]: Успех %
+              - columnheader "Отправлено (24ч)" [ref=e1193]:
+                - generic [ref=e1194]: Отправлено (24ч)
+              - columnheader "Ошибки (24ч)" [ref=e1195]:
+                - generic [ref=e1196]: Ошибки (24ч)
+              - columnheader "Последняя ошибка" [ref=e1197]:
+                - generic [ref=e1198]: Последняя ошибка
+          - rowgroup [ref=e1199]:
+            - row "Provider-International Работает 5/5 100% 0 0 -" [ref=e1200]:
+              - cell "Provider-International" [ref=e1201]
+              - cell "Работает" [ref=e1202]:
+                - generic [ref=e1203]: Работает
+              - cell "5/5" [ref=e1204]
+              - cell "100%" [ref=e1205]
+              - cell "0" [ref=e1206]
+              - cell "0" [ref=e1207]
+              - cell "-" [ref=e1208]
+            - row "Provider-Tinkoff-RU Работает 10/10 100% 0 0 -" [ref=e1209]:
+              - cell "Provider-Tinkoff-RU" [ref=e1210]
+              - cell "Работает" [ref=e1211]:
+                - generic [ref=e1212]: Работает
+              - cell "10/10" [ref=e1213]
+              - cell "100%" [ref=e1214]
+              - cell "0" [ref=e1215]
+              - cell "0" [ref=e1216]
+              - cell "-" [ref=e1217]
+            - row "Provider-Tele2-RU Работает 10/10 100% 0 0 -" [ref=e1218]:
+              - cell "Provider-Tele2-RU" [ref=e1219]
+              - cell "Работает" [ref=e1220]:
+                - generic [ref=e1221]: Работает
+              - cell "10/10" [ref=e1222]
+              - cell "100%" [ref=e1223]
+              - cell "0" [ref=e1224]
+              - cell "0" [ref=e1225]
+              - cell "-" [ref=e1226]
+            - row "Provider-Megafon-RU Работает 15/15 100% 0 0 -" [ref=e1227]:
+              - cell "Provider-Megafon-RU" [ref=e1228]
+              - cell "Работает" [ref=e1229]:
+                - generic [ref=e1230]: Работает
+              - cell "15/15" [ref=e1231]
+              - cell "100%" [ref=e1232]
+              - cell "0" [ref=e1233]
+              - cell "0" [ref=e1234]
+              - cell "-" [ref=e1235]
+            - row "Provider-Beeline-RU Работает 15/15 100% 0 0 -" [ref=e1236]:
+              - cell "Provider-Beeline-RU" [ref=e1237]
+              - cell "Работает" [ref=e1238]:
+                - generic [ref=e1239]: Работает
+              - cell "15/15" [ref=e1240]
+              - cell "100%" [ref=e1241]
+              - cell "0" [ref=e1242]
+              - cell "0" [ref=e1243]
+              - cell "-" [ref=e1244]
+            - row "Provider-MTS-RU Работает 20/20 100% 0 0 -" [ref=e1245]:
+              - cell "Provider-MTS-RU" [ref=e1246]
+              - cell "Работает" [ref=e1247]:
+                - generic [ref=e1248]: Работает
+              - cell "20/20" [ref=e1249]
+              - cell "100%" [ref=e1250]
+              - cell "0" [ref=e1251]
+              - cell "0" [ref=e1252]
+              - cell "-" [ref=e1253]
+  - region "Notifications (F8)":
+    - list

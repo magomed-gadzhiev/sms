@@ -1,0 +1,273 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: SMS Admin
+      - navigation [ref=e26]:
+        - link "📊 Дашборд" [ref=e118] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+          - generic [ref=e119]: Дашборд
+        - generic [ref=e30]:
+          - generic [ref=e120]: Основное
+          - link "👥 Клиенты" [ref=e121] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+            - generic [ref=e122]: Клиенты
+          - link "📝 Шаблоны" [active] [ref=e123] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+            - generic [ref=e124]: Шаблоны
+          - link "📱 Имена отправителей" [ref=e125] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+            - generic [ref=e126]: Имена отправителей
+          - link "🔑 Пользователи" [ref=e127] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+            - generic [ref=e128]: Пользователи
+        - generic [ref=e39]:
+          - generic [ref=e129]: Финансы
+          - link "💰 Биллинг" [ref=e130] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+            - generic [ref=e131]: Биллинг
+        - generic [ref=e42]:
+          - generic [ref=e132]: Инфраструктура
+          - link "🔌 Провайдеры" [ref=e133] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e44]: 🔌
+            - generic [ref=e134]: Провайдеры
+          - link "🔀 Маршруты" [ref=e135] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e46]: 🔀
+            - generic [ref=e136]: Маршруты
+          - link "📦 Каналы" [ref=e137] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e48]: 📦
+            - generic [ref=e138]: Каналы
+          - link "🚚 Стратегии доставки" [ref=e139] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e50]: 🚚
+            - generic [ref=e140]: Стратегии доставки
+        - generic [ref=e51]:
+          - generic [ref=e141]: Наблюдение
+          - link "📈 Аналитика" [ref=e142] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e53]: 📈
+            - generic [ref=e143]: Аналитика
+          - link "⚡ Мониторинг" [ref=e144] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e55]: ⚡
+            - generic [ref=e145]: Мониторинг
+      - generic [ref=e146]:
+        - generic [ref=e147]: loadtest-admin@test.local
+        - button "Выход" [ref=e148]
+    - main [ref=e58]:
+      - generic [ref=e1296]:
+        - navigation "Breadcrumb" [ref=e1297]:
+          - list [ref=e1298]:
+            - listitem [ref=e1299]:
+              - link "Админ" [ref=e1300] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e1301]:
+              - generic [ref=e1302]: /
+              - generic [ref=e1303]: Шаблоны
+        - generic [ref=e1305]:
+          - heading "Шаблоны" [level=1] [ref=e1306]
+          - paragraph [ref=e1307]: 16 шаблонов
+      - generic [ref=e1308]:
+        - generic [ref=e1310]:
+          - generic [ref=e1311]: ID клиента
+          - textbox "ID клиента" [ref=e1312]:
+            - /placeholder: UUID...
+        - generic [ref=e1314]:
+          - generic [ref=e1315]: Статус
+          - combobox "Статус" [ref=e1316]:
+            - option "Все" [selected]
+            - option "Ожидание"
+            - option "На ревью"
+            - option "Доработка"
+            - option "Одобрен"
+            - option "Отклонён"
+      - region "Таблица данных" [ref=e1318]:
+        - table "Таблица данных" [ref=e1320]:
+          - caption [ref=e1321]: Таблица данных
+          - rowgroup [ref=e1322]:
+            - row "Название Клиент Текст Статус Ревьюер Дата ревью Создан" [ref=e1323]:
+              - button "Название" [ref=e1324] [cursor=pointer]:
+                - generic [ref=e1325]: Название
+              - columnheader "Клиент" [ref=e1326]:
+                - generic [ref=e1327]: Клиент
+              - columnheader "Текст" [ref=e1328]:
+                - generic [ref=e1329]: Текст
+              - columnheader "Статус" [ref=e1330]:
+                - generic [ref=e1331]: Статус
+              - columnheader "Ревьюер" [ref=e1332]:
+                - generic [ref=e1333]: Ревьюер
+              - columnheader "Дата ревью" [ref=e1334]:
+                - generic [ref=e1335]: Дата ревью
+              - columnheader "Создан" [ref=e1336]:
+                - generic [ref=e1337]: Создан
+          - rowgroup [ref=e1338]:
+            - row "Info Notification 8b78fdc5... Уважаемый клиент! Ваш заказ обрабатывается. Ожидаемый срок доставки - 3-5 рабочих дней. Спасибо за покупку! Одобрен — — 08.04.2026" [ref=e1339] [cursor=pointer]:
+              - cell "Info Notification" [ref=e1340]
+              - cell "8b78fdc5..." [ref=e1341]
+              - cell "Уважаемый клиент! Ваш заказ обрабатывается. Ожидаемый срок доставки - 3-5 рабочих дней. Спасибо за покупку!" [ref=e1342]:
+                - generic [ref=e1343]: Уважаемый клиент! Ваш заказ обрабатывается. Ожидаемый срок доставки - 3-5 рабочих дней. Спасибо за покупку!
+              - cell "Одобрен" [ref=e1344]:
+                - generic [ref=e1345]: Одобрен
+              - cell "—" [ref=e1346]
+              - cell "—" [ref=e1347]
+              - cell "08.04.2026" [ref=e1348]
+            - 'row "VIP Exclusive 8b78fdc5... Дорогой {{first_name}} {{last_name}}, как наш VIP-клиент, вы получаете эксклюзивный доступ к новой коллекции. Используйте код VIP2026. Одобрен — — 08.04.2026" [ref=e1349] [cursor=pointer]':
+              - cell "VIP Exclusive" [ref=e1350]
+              - cell "8b78fdc5..." [ref=e1351]
+              - 'cell "Дорогой {{first_name}} {{last_name}}, как наш VIP-клиент, вы получаете эксклюзивный доступ к новой коллекции. Используйте код VIP2026." [ref=e1352]':
+                - generic [ref=e1353]: "Дорогой {{first_name}} {{last_name}}, как наш VIP-клиент, вы получаете эксклюзивный доступ к новой коллекции. Используйте код VIP2026."
+              - cell "Одобрен" [ref=e1354]:
+                - generic [ref=e1355]: Одобрен
+              - cell "—" [ref=e1356]
+              - cell "—" [ref=e1357]
+              - cell "08.04.2026" [ref=e1358]
+            - 'row "Promo April 8b78fdc5... Привет, {{first_name}}! Специальное предложение для жителей {{city}}: скидка 30% до конца апреля. Код: APRIL30. Подробнее на сайте. Одобрен — — 08.04.2026" [ref=e1359] [cursor=pointer]':
+              - cell "Promo April" [ref=e1360]
+              - cell "8b78fdc5..." [ref=e1361]
+              - 'cell "Привет, {{first_name}}! Специальное предложение для жителей {{city}}: скидка 30% до конца апреля. Код: APRIL30. Подробнее на сайте." [ref=e1362]':
+                - generic [ref=e1363]: "Привет, {{first_name}}! Специальное предложение для жителей {{city}}: скидка 30% до конца апреля. Код: APRIL30. Подробнее на сайте."
+              - cell "Одобрен" [ref=e1364]:
+                - generic [ref=e1365]: Одобрен
+              - cell "—" [ref=e1366]
+              - cell "—" [ref=e1367]
+              - cell "08.04.2026" [ref=e1368]
+            - 'row "Привет f1000000... Ваш код {{code}} Одобрен — — 07.04.2026" [ref=e1369] [cursor=pointer]':
+              - cell "Привет" [ref=e1370]
+              - cell "f1000000..." [ref=e1371]
+              - 'cell "Ваш код {{code}}" [ref=e1372]':
+                - generic [ref=e1373]: "Ваш код {{code}}"
+              - cell "Одобрен" [ref=e1374]:
+                - generic [ref=e1375]: Одобрен
+              - cell "—" [ref=e1376]
+              - cell "—" [ref=e1377]
+              - cell "07.04.2026" [ref=e1378]
+            - row "camp-tpl-234602 9a27aa08... Campaign text 234602 Одобрен 00000000... 05.04.2026 31.03.2026" [ref=e1379] [cursor=pointer]:
+              - cell "camp-tpl-234602" [ref=e1380]
+              - cell "9a27aa08..." [ref=e1381]
+              - cell "Campaign text 234602" [ref=e1382]:
+                - generic [ref=e1383]: Campaign text 234602
+              - cell "Одобрен" [ref=e1384]:
+                - generic [ref=e1385]: Одобрен
+              - cell "00000000..." [ref=e1386]
+              - cell "05.04.2026" [ref=e1387]
+              - cell "31.03.2026" [ref=e1388]
+            - row "e2e-tpl-234411 9a27aa08... Static body 234411 Черновик — — 31.03.2026" [ref=e1389] [cursor=pointer]:
+              - cell "e2e-tpl-234411" [ref=e1390]
+              - cell "9a27aa08..." [ref=e1391]
+              - cell "Static body 234411" [ref=e1392]:
+                - generic [ref=e1393]: Static body 234411
+              - cell "Черновик" [ref=e1394]:
+                - generic [ref=e1395]: Черновик
+              - cell "—" [ref=e1396]
+              - cell "—" [ref=e1397]
+              - cell "31.03.2026" [ref=e1398]
+            - row "e2e-tpl-234106 9a27aa08... Static body 234106 Черновик — — 31.03.2026" [ref=e1399] [cursor=pointer]:
+              - cell "e2e-tpl-234106" [ref=e1400]
+              - cell "9a27aa08..." [ref=e1401]
+              - cell "Static body 234106" [ref=e1402]:
+                - generic [ref=e1403]: Static body 234106
+              - cell "Черновик" [ref=e1404]:
+                - generic [ref=e1405]: Черновик
+              - cell "—" [ref=e1406]
+              - cell "—" [ref=e1407]
+              - cell "31.03.2026" [ref=e1408]
+            - row "E2E Paid Sender Template 9a27aa08... Server paid sender test Одобрен — — 31.03.2026" [ref=e1409] [cursor=pointer]:
+              - cell "E2E Paid Sender Template" [ref=e1410]
+              - cell "9a27aa08..." [ref=e1411]
+              - cell "Server paid sender test" [ref=e1412]:
+                - generic [ref=e1413]: Server paid sender test
+              - cell "Одобрен" [ref=e1414]:
+                - generic [ref=e1415]: Одобрен
+              - cell "—" [ref=e1416]
+              - cell "—" [ref=e1417]
+              - cell "31.03.2026" [ref=e1418]
+            - 'row "QA Тестовый шаблон 882d8dcd... Здравствуйте, {{name}}! Это тестовая рассылка от {{company}}. Ваш промокод: {{code}} Черновик — — 30.03.2026" [ref=e1419] [cursor=pointer]':
+              - cell "QA Тестовый шаблон" [ref=e1420]
+              - cell "882d8dcd..." [ref=e1421]
+              - 'cell "Здравствуйте, {{name}}! Это тестовая рассылка от {{company}}. Ваш промокод: {{code}}" [ref=e1422]':
+                - generic [ref=e1423]: "Здравствуйте, {{name}}! Это тестовая рассылка от {{company}}. Ваш промокод: {{code}}"
+              - cell "Черновик" [ref=e1424]:
+                - generic [ref=e1425]: Черновик
+              - cell "—" [ref=e1426]
+              - cell "—" [ref=e1427]
+              - cell "30.03.2026" [ref=e1428]
+            - 'row "Test New Template ABC 9a27aa08... Hello {{name}}, your balance is {{company}}. Your code is {{code}}. Have a nice day! Ожидание — — 30.03.2026" [ref=e1429] [cursor=pointer]':
+              - cell "Test New Template ABC" [ref=e1430]
+              - cell "9a27aa08..." [ref=e1431]
+              - 'cell "Hello {{name}}, your balance is {{company}}. Your code is {{code}}. Have a nice day!" [ref=e1432]':
+                - generic [ref=e1433]: "Hello {{name}}, your balance is {{company}}. Your code is {{code}}. Have a nice day!"
+              - cell "Ожидание" [ref=e1434]:
+                - generic [ref=e1435]: Ожидание
+              - cell "—" [ref=e1436]
+              - cell "—" [ref=e1437]
+              - cell "30.03.2026" [ref=e1438]
+            - 'row "Приветственная рассылка 882d8dcd... Здравствуйте, {{name}}! Спасибо за регистрацию в {{company}}. Ваш промокод: {{code}} Черновик — — 30.03.2026" [ref=e1439] [cursor=pointer]':
+              - cell "Приветственная рассылка" [ref=e1440]
+              - cell "882d8dcd..." [ref=e1441]
+              - 'cell "Здравствуйте, {{name}}! Спасибо за регистрацию в {{company}}. Ваш промокод: {{code}}" [ref=e1442]':
+                - generic [ref=e1443]: "Здравствуйте, {{name}}! Спасибо за регистрацию в {{company}}. Ваш промокод: {{code}}"
+              - cell "Черновик" [ref=e1444]:
+                - generic [ref=e1445]: Черновик
+              - cell "—" [ref=e1446]
+              - cell "—" [ref=e1447]
+              - cell "30.03.2026" [ref=e1448]
+            - 'row "Test Template 9a27aa08... Hi {{name}}, your balance is {{company}}. Code: {{code}} Ожидание — — 30.03.2026" [ref=e1449] [cursor=pointer]':
+              - cell "Test Template" [ref=e1450]
+              - cell "9a27aa08..." [ref=e1451]
+              - 'cell "Hi {{name}}, your balance is {{company}}. Code: {{code}}" [ref=e1452]':
+                - generic [ref=e1453]: "Hi {{name}}, your balance is {{company}}. Code: {{code}}"
+              - cell "Ожидание" [ref=e1454]:
+                - generic [ref=e1455]: Ожидание
+              - cell "—" [ref=e1456]
+              - cell "—" [ref=e1457]
+              - cell "30.03.2026" [ref=e1458]
+            - 'row "Welcome 9a27aa08... Hello {{name}}, your code is {{code}} Одобрен — — 28.03.2026" [ref=e1459] [cursor=pointer]':
+              - cell "Welcome" [ref=e1460]
+              - cell "9a27aa08..." [ref=e1461]
+              - 'cell "Hello {{name}}, your code is {{code}}" [ref=e1462]':
+                - generic [ref=e1463]: "Hello {{name}}, your code is {{code}}"
+              - cell "Одобрен" [ref=e1464]:
+                - generic [ref=e1465]: Одобрен
+              - cell "—" [ref=e1466]
+              - cell "—" [ref=e1467]
+              - cell "28.03.2026" [ref=e1468]
+            - 'row "delivery-notify c0000000... Ваш заказ №{{order_id}} доставлен. Курьер: {{courier}}. Одобрен — — 26.03.2026" [ref=e1469] [cursor=pointer]':
+              - cell "delivery-notify" [ref=e1470]
+              - cell "c0000000..." [ref=e1471]
+              - 'cell "Ваш заказ №{{order_id}} доставлен. Курьер: {{courier}}." [ref=e1472]':
+                - generic [ref=e1473]: "Ваш заказ №{{order_id}} доставлен. Курьер: {{courier}}."
+              - cell "Одобрен" [ref=e1474]:
+                - generic [ref=e1475]: Одобрен
+              - cell "—" [ref=e1476]
+              - cell "—" [ref=e1477]
+              - cell "26.03.2026" [ref=e1478]
+            - 'row "promo-offer c0000000... Скидка {{discount}}% на {{product}}! Код: {{promo_code}}. Одобрен — — 26.03.2026" [ref=e1479] [cursor=pointer]':
+              - cell "promo-offer" [ref=e1480]
+              - cell "c0000000..." [ref=e1481]
+              - 'cell "Скидка {{discount}}% на {{product}}! Код: {{promo_code}}." [ref=e1482]':
+                - generic [ref=e1483]: "Скидка {{discount}}% на {{product}}! Код: {{promo_code}}."
+              - cell "Одобрен" [ref=e1484]:
+                - generic [ref=e1485]: Одобрен
+              - cell "—" [ref=e1486]
+              - cell "—" [ref=e1487]
+              - cell "26.03.2026" [ref=e1488]
+            - 'row "otp-code c0000000... Ваш код подтверждения: {{code}}. Действует 5 минут. Одобрен — — 26.03.2026" [ref=e1489] [cursor=pointer]':
+              - cell "otp-code" [ref=e1490]
+              - cell "c0000000..." [ref=e1491]
+              - 'cell "Ваш код подтверждения: {{code}}. Действует 5 минут." [ref=e1492]':
+                - generic [ref=e1493]: "Ваш код подтверждения: {{code}}. Действует 5 минут."
+              - cell "Одобрен" [ref=e1494]:
+                - generic [ref=e1495]: Одобрен
+              - cell "—" [ref=e1496]
+              - cell "—" [ref=e1497]
+              - cell "26.03.2026" [ref=e1498]
+  - region "Notifications (F8)":
+    - list

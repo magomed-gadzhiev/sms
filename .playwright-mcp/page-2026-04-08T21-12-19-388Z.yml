@@ -1,0 +1,107 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: SMS Admin
+      - navigation [ref=e26]:
+        - link "📊 Дашборд" [ref=e118] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+          - generic [ref=e119]: Дашборд
+        - generic [ref=e30]:
+          - generic [ref=e120]: Основное
+          - link "👥 Клиенты" [ref=e121] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+            - generic [ref=e122]: Клиенты
+          - link "📝 Шаблоны" [ref=e123] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+            - generic [ref=e124]: Шаблоны
+          - link "📱 Имена отправителей" [ref=e125] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+            - generic [ref=e126]: Имена отправителей
+          - link "🔑 Пользователи" [ref=e127] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+            - generic [ref=e128]: Пользователи
+        - generic [ref=e39]:
+          - generic [ref=e129]: Финансы
+          - link "💰 Биллинг" [ref=e130] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+            - generic [ref=e131]: Биллинг
+        - generic [ref=e42]:
+          - generic [ref=e132]: Инфраструктура
+          - link "🔌 Провайдеры" [ref=e133] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e44]: 🔌
+            - generic [ref=e134]: Провайдеры
+          - link "🔀 Маршруты" [ref=e135] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e46]: 🔀
+            - generic [ref=e136]: Маршруты
+          - link "📦 Каналы" [active] [ref=e137] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e48]: 📦
+            - generic [ref=e138]: Каналы
+          - link "🚚 Стратегии доставки" [ref=e139] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e50]: 🚚
+            - generic [ref=e140]: Стратегии доставки
+        - generic [ref=e51]:
+          - generic [ref=e141]: Наблюдение
+          - link "📈 Аналитика" [ref=e142] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e53]: 📈
+            - generic [ref=e143]: Аналитика
+          - link "⚡ Мониторинг" [ref=e144] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e55]: ⚡
+            - generic [ref=e145]: Мониторинг
+      - generic [ref=e146]:
+        - generic [ref=e147]: loadtest-admin@test.local
+        - button "Выход" [ref=e148]
+    - main [ref=e58]:
+      - generic [ref=e1499]:
+        - generic [ref=e1500]:
+          - heading "Каналы доставки" [level=1] [ref=e1501]
+          - button "Добавить канал" [ref=e1502]
+        - region "Таблица данных" [ref=e1504]:
+          - table "Таблица данных" [ref=e1506]:
+            - caption [ref=e1507]: Таблица данных
+            - rowgroup [ref=e1508]:
+              - row "Тип Название Статус Создан Действия" [ref=e1509]:
+                - columnheader "Тип" [ref=e1510]:
+                  - generic [ref=e1511]: Тип
+                - columnheader "Название" [ref=e1512]:
+                  - generic [ref=e1513]: Название
+                - columnheader "Статус" [ref=e1514]:
+                  - generic [ref=e1515]: Статус
+                - columnheader "Создан" [ref=e1516]:
+                  - generic [ref=e1517]: Создан
+                - columnheader "Действия" [ref=e1518]:
+                  - generic [ref=e1519]: Действия
+            - rowgroup [ref=e1520]:
+              - row "SMS SMS Активен Invalid Date Редактировать Отключить" [ref=e1521]:
+                - cell "SMS" [ref=e1522]
+                - cell "SMS" [ref=e1523]
+                - cell "Активен" [ref=e1524]:
+                  - generic [ref=e1525]: Активен
+                - cell "Invalid Date" [ref=e1526]
+                - cell "Редактировать Отключить" [ref=e1527]:
+                  - generic [ref=e1528]:
+                    - button "Редактировать" [ref=e1529]
+                    - button "Отключить" [ref=e1530]
+              - row "max_messenger Max Messenger Активен Invalid Date Редактировать Отключить" [ref=e1531]:
+                - cell "max_messenger" [ref=e1532]
+                - cell "Max Messenger" [ref=e1533]
+                - cell "Активен" [ref=e1534]:
+                  - generic [ref=e1535]: Активен
+                - cell "Invalid Date" [ref=e1536]
+                - cell "Редактировать Отключить" [ref=e1537]:
+                  - generic [ref=e1538]:
+                    - button "Редактировать" [ref=e1539]
+                    - button "Отключить" [ref=e1540]
+  - region "Notifications (F8)":
+    - list

@@ -1,0 +1,105 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e129]:
+      - link "Перейти к основному содержимому" [ref=e130] [cursor=pointer]:
+        - /url: "#main-content"
+      - complementary "Боковая навигация" [ref=e131]:
+        - heading "SMS Portal" [level=2] [ref=e133]
+        - navigation "Главное меню" [ref=e134]:
+          - list [ref=e135]:
+            - listitem [ref=e136]:
+              - link "Дашборд" [ref=e137] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e138]:
+              - link "Аналитика" [ref=e139] [cursor=pointer]:
+                - /url: /analytics
+            - listitem [ref=e140]:
+              - button "Рассылки" [ref=e141]:
+                - generic [ref=e142]: Рассылки
+                - img [ref=e143]
+            - listitem [ref=e145]:
+              - button "Контакты" [ref=e146]:
+                - generic [ref=e147]: Контакты
+                - img [ref=e148]
+            - listitem [ref=e150]:
+              - button "Финансы" [ref=e151]:
+                - generic [ref=e152]: Финансы
+                - img [ref=e153]
+            - listitem [ref=e155]:
+              - button "Интеграции" [ref=e156]:
+                - generic [ref=e157]: Интеграции
+                - img [ref=e158]
+            - listitem [ref=e160]:
+              - button "Настройки" [ref=e161]:
+                - generic [ref=e162]: Настройки
+                - img [ref=e163]
+        - generic [ref=e166]:
+          - generic [ref=e167]:
+            - generic [ref=e168]: campaign-test@example.com
+            - generic [ref=e169]:
+              - button "Поиск (Ctrl+K)" [ref=e170]:
+                - img [ref=e171]
+              - button "Уведомления" [ref=e173]:
+                - img [ref=e174]
+          - button "Выйти" [ref=e176]
+      - main [ref=e177]:
+        - generic [ref=e178]:
+          - heading "Дашборд" [level=1] [ref=e182]
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - generic [ref=e185]: Баланс
+              - generic [ref=e186]: 6 635,10 ₽
+            - 'link "Сообщений сегодня: 1081" [ref=e187] [cursor=pointer]':
+              - /url: /messages
+              - generic [ref=e188]: Сообщений сегодня
+              - generic [ref=e189]:
+                - text: "1081"
+                - generic [ref=e190]: ↑99%
+              - generic [ref=e191]: Подробнее →
+            - 'link "Доставлено сегодня: 1072" [ref=e192] [cursor=pointer]':
+              - /url: /messages
+              - generic [ref=e193]: Доставлено сегодня
+              - generic [ref=e194]: "1072"
+              - generic [ref=e195]: Подробнее →
+            - generic [ref=e196]:
+              - generic [ref=e197]: Доставляемость
+              - generic [ref=e198]: 99%
+            - 'link "Активных API ключей: 1" [ref=e199] [cursor=pointer]':
+              - /url: /api-keys
+              - generic [ref=e200]: Активных API ключей
+              - generic [ref=e201]: "1"
+              - generic [ref=e202]: Подробнее →
+            - 'link "Активных вебхуков: 0" [ref=e203] [cursor=pointer]':
+              - /url: /webhooks
+              - generic [ref=e204]: Активных вебхуков
+              - generic [ref=e205]: "0"
+              - generic [ref=e206]: Подробнее →
+          - generic [ref=e207]:
+            - generic [ref=e208]:
+              - heading "Активность за 7 дней" [level=3] [ref=e209]
+              - generic [ref=e211]:
+                - generic:
+                  - status:
+                    - paragraph: 2026-04-09
+                    - list:
+                      - listitem: "Доставлено : 1072"
+                      - listitem: "Отправлено : 1081"
+                - application [ref=e212]:
+                  - generic [ref=e230]: 04-09
+            - generic [ref=e231]:
+              - heading "Распределение статусов" [level=3] [ref=e232]
+              - generic [ref=e234]:
+                - list [ref=e236]:
+                  - listitem [ref=e237]:
+                    - img "В обработке legend icon" [ref=e238]
+                    - text: В обработке
+                  - listitem [ref=e240]:
+                    - img "Доставлено legend icon" [ref=e241]
+                    - text: Доставлено
+                  - listitem [ref=e243]:
+                    - img "Ошибка legend icon" [ref=e244]
+                    - text: Ошибка
+                - application [ref=e246]
+    - region "Notifications (F8)":
+      - list
+  - generic [ref=e253]: 04-08

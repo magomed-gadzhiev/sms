@@ -1,0 +1,120 @@
+- generic [ref=e2]:
+  - generic [ref=e19]:
+    - complementary [ref=e20]:
+      - generic [ref=e22]: S
+      - navigation [ref=e23]:
+        - link "📊" [ref=e25] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e26]: 📊
+        - generic [ref=e27]:
+          - link "👥" [ref=e28] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e29]: 👥
+          - link "📝" [ref=e30] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e31]: 📝
+          - link "📱" [ref=e32] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e33]: 📱
+          - link "🔑" [ref=e34] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e35]: 🔑
+        - generic [ref=e36]:
+          - link "💰" [ref=e37] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e38]: 💰
+          - link "📋" [ref=e39] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e40]: 📋
+        - generic [ref=e41]:
+          - link "🔌" [ref=e42] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e43]: 🔌
+          - link "🔀" [ref=e44] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e45]: 🔀
+          - link "📦" [ref=e46] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e47]: 📦
+          - link "🚚" [ref=e48] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e49]: 🚚
+          - link "📡" [ref=e50] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e51]: 📡
+        - generic [ref=e52]:
+          - link "🌍" [ref=e53] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e54]: 🌍
+          - link "🔗" [ref=e55] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e56]: 🔗
+        - generic [ref=e57]:
+          - link "📈" [ref=e58] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e59]: 📈
+          - link "⚡" [ref=e60] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e61]: ⚡
+          - link "📜" [ref=e62] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e63]: 📜
+      - button "↵" [ref=e65]
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - navigation "Breadcrumb" [ref=e69]:
+            - list [ref=e70]:
+              - listitem [ref=e71]:
+                - generic [ref=e72]: Админ
+              - listitem [ref=e73]:
+                - generic [ref=e74]: /
+                - generic [ref=e75]: Панель управления
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - heading "Панель управления" [level=1] [ref=e78]
+              - paragraph [ref=e79]: "Обновлено: 19:01"
+            - button "Пауза" [ref=e81]
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]: Сообщений/сек
+              - generic [ref=e86]: "0"
+            - generic [ref=e87]:
+              - generic [ref=e88]: Доставлено сегодня
+              - generic [ref=e89]: "-"
+            - generic [ref=e90]:
+              - generic [ref=e91]: Ошибки
+              - generic [ref=e92]: "-"
+            - generic [ref=e93]:
+              - generic [ref=e94]: Очередь
+              - generic [ref=e95]: "-"
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - generic [ref=e98]: Активные клиенты
+              - generic [ref=e99]: "40"
+            - generic [ref=e100]:
+              - generic [ref=e101]: Выручка сегодня
+              - generic [ref=e102]: 0 ₽
+            - generic [ref=e103]:
+              - generic [ref=e104]: Провайдеры
+              - generic [ref=e105]: 6/6 исправны
+            - generic [ref=e106]:
+              - generic [ref=e107]: Шаблоны на проверке
+              - generic [ref=e108]: "2"
+        - generic [ref=e109]:
+          - heading "Трафик сообщений (последний час)" [level=3] [ref=e110]
+          - generic [ref=e112]:
+            - list [ref=e114]:
+              - listitem [ref=e115]:
+                - img "Доставлено legend icon" [ref=e116]
+                - text: Доставлено
+              - listitem [ref=e118]:
+                - img "Ошибки legend icon" [ref=e119]
+                - text: Ошибки
+            - application [ref=e121]
+        - generic [ref=e123]:
+          - heading "Оповещения" [level=3] [ref=e124]
+          - paragraph [ref=e125]: Нет активных оповещений
+  - region "Notifications (F8)":
+    - list

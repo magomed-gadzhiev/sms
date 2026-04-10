@@ -1,0 +1,170 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic: S
+        - navigation:
+          - generic:
+            - link:
+              - /url: /admin
+              - generic: 📊
+          - generic:
+            - link:
+              - /url: /admin/clients
+              - generic: 👥
+            - link:
+              - /url: /admin/templates
+              - generic: 📝
+            - link:
+              - /url: /admin/sender-names
+              - generic: 📱
+            - link:
+              - /url: /admin/users
+              - generic: 🔑
+          - generic:
+            - link:
+              - /url: /admin/billing
+              - generic: 💰
+            - link:
+              - /url: /admin/tarification
+              - generic: 📋
+          - generic:
+            - link:
+              - /url: /admin/providers
+              - generic: 🔌
+            - link:
+              - /url: /admin/routes
+              - generic: 🔀
+            - link:
+              - /url: /admin/channels
+              - generic: 📦
+            - link:
+              - /url: /admin/delivery-strategies
+              - generic: 🚚
+            - link:
+              - /url: /admin/hlr
+              - generic: 📡
+          - generic:
+            - link:
+              - /url: /admin/countries
+              - generic: 🌍
+            - link:
+              - /url: /admin/webhooks
+              - generic: 🔗
+          - generic:
+            - link:
+              - /url: /admin/analytics
+              - generic: 📈
+            - link:
+              - /url: /admin/monitoring
+              - generic: ⚡
+            - link:
+              - /url: /admin/audit
+              - generic: 📜
+        - generic:
+          - button: ↵
+      - main:
+        - generic:
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /admin/dashboard
+                  - text: Админ
+              - listitem:
+                - generic: /
+                - generic: Тарификация
+          - generic:
+            - generic:
+              - heading [level=1]: Тарификация
+        - generic:
+          - tablist:
+            - tab [selected]: Тарифные планы
+            - tab: Периоды
+            - tab: Тиры
+            - tab: Регистрация отправителей
+          - tabpanel:
+            - generic:
+              - heading [level=2]: Тарифные планы
+              - button: Создать план
+            - generic:
+              - region:
+                - generic:
+                  - table:
+                    - caption: Таблица данных
+                    - rowgroup:
+                      - row:
+                        - columnheader:
+                          - generic: ID
+                        - button:
+                          - generic: Название
+                        - columnheader:
+                          - generic: Описание
+                        - columnheader:
+                          - generic: Активен
+                        - columnheader:
+                          - generic: Создан
+                        - columnheader
+                    - rowgroup:
+                      - row:
+                        - cell: 663ef7d6...
+                        - cell: paid_registered / prepaid_threshold
+                        - cell: —
+                        - cell:
+                          - generic: Да
+                        - cell: 08.04.2026
+                        - cell:
+                          - button: Деактивировать
+                      - row:
+                        - cell: eb71666a...
+                        - cell: paid_registered / fixed
+                        - cell: —
+                        - cell:
+                          - generic: Да
+                        - cell: 08.04.2026
+                        - cell:
+                          - button: Деактивировать
+                      - row:
+                        - cell: c969fe28...
+                        - cell: paid_registered / threshold_recalc
+                        - cell: —
+                        - cell:
+                          - generic: Да
+                        - cell: 08.04.2026
+                        - cell:
+                          - button: Деактивировать
+                      - row:
+                        - cell: 85cc7f13...
+                        - cell: paid_registered / threshold
+                        - cell: —
+                        - cell:
+                          - generic: Да
+                        - cell: 08.04.2026
+                        - cell:
+                          - button: Деактивировать
+                      - row:
+                        - cell: f0000000...
+                        - cell: shared / fixed
+                        - cell: —
+                        - cell:
+                          - generic: Да
+                        - cell: 30.03.2026
+                        - cell:
+                          - button: Деактивировать
+  - dialog "Создать тарифный план" [ref=e138]:
+    - heading "Создать тарифный план" [level=2] [ref=e139]
+    - paragraph [ref=e140]: Создать тарифный план
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]: Название
+        - textbox "Название" [active] [ref=e144]:
+          - /placeholder: Базовый тариф
+      - generic [ref=e145]:
+        - generic [ref=e146]: Описание
+        - textbox "Описание" [ref=e147]:
+          - /placeholder: Описание тарифного плана
+      - generic [ref=e148]:
+        - button "Отмена" [ref=e149]
+        - button "Создать" [disabled] [ref=e150]
+    - button "Закрыть" [ref=e151]: ✕

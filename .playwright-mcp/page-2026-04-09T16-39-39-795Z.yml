@@ -1,0 +1,147 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e7]: S
+      - navigation [ref=e8]:
+        - link "📊" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e11]: 📊
+        - generic [ref=e12]:
+          - link "👥" [ref=e13] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e14]: 👥
+          - link "📝" [ref=e15] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e16]: 📝
+          - link "📱" [ref=e17] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e18]: 📱
+          - link "🔑" [ref=e19] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e20]: 🔑
+        - generic [ref=e21]:
+          - link "💰" [ref=e22] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e23]: 💰
+          - link "📋" [ref=e24] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e25]: 📋
+        - generic [ref=e26]:
+          - link "🔌" [ref=e27] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e28]: 🔌
+          - link "🔀" [ref=e29] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e30]: 🔀
+          - link "📦" [ref=e31] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e32]: 📦
+          - link "🚚" [ref=e33] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e34]: 🚚
+          - link "📡" [ref=e35] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e36]: 📡
+        - generic [ref=e37]:
+          - link "🌍" [ref=e38] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e39]: 🌍
+          - link "🔗" [ref=e40] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e41]: 🔗
+        - generic [ref=e42]:
+          - link "📈" [ref=e43] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e44]: 📈
+          - link "⚡" [ref=e45] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e46]: ⚡
+          - link "📜" [ref=e47] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e48]: 📜
+      - button "↵" [ref=e50]
+    - main [ref=e51]:
+      - generic [ref=e52]:
+        - navigation "Breadcrumb" [ref=e53]:
+          - list [ref=e54]:
+            - listitem [ref=e55]:
+              - link "Админ" [ref=e56] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e57]:
+              - generic [ref=e58]: /
+              - generic [ref=e59]: Тарификация
+        - heading "Тарификация" [level=1] [ref=e62]
+      - generic [ref=e63]:
+        - tablist [ref=e64]:
+          - tab "Тарифные планы" [active] [selected] [ref=e65]
+          - tab "Периоды" [ref=e66]
+          - tab "Тиры" [ref=e67]
+          - tab "Регистрация отправителей" [ref=e68]
+        - tabpanel "Тарифные планы" [ref=e69]:
+          - generic [ref=e344]:
+            - heading "Тарифные планы" [level=2] [ref=e345]
+            - button "Создать план" [ref=e346]
+          - region "Таблица данных" [ref=e348]:
+            - table "Таблица данных" [ref=e350]:
+              - caption [ref=e351]: Таблица данных
+              - rowgroup [ref=e352]:
+                - row "ID Название Описание Активен Создан" [ref=e353]:
+                  - columnheader "ID" [ref=e354]:
+                    - generic [ref=e355]: ID
+                  - button "Название" [ref=e356] [cursor=pointer]:
+                    - generic [ref=e357]: Название
+                  - columnheader "Описание" [ref=e358]:
+                    - generic [ref=e359]: Описание
+                  - columnheader "Активен" [ref=e360]:
+                    - generic [ref=e361]: Активен
+                  - columnheader "Создан" [ref=e362]:
+                    - generic [ref=e363]: Создан
+                  - columnheader [ref=e364]
+              - rowgroup [ref=e365]:
+                - row "663ef7d6... paid_registered / prepaid_threshold — Да 08.04.2026 Деактивировать" [ref=e366]:
+                  - cell "663ef7d6..." [ref=e367]
+                  - cell "paid_registered / prepaid_threshold" [ref=e368]
+                  - cell "—" [ref=e369]
+                  - cell "Да" [ref=e370]:
+                    - generic [ref=e371]: Да
+                  - cell "08.04.2026" [ref=e372]
+                  - cell "Деактивировать" [ref=e373]:
+                    - button "Деактивировать" [ref=e374]
+                - row "eb71666a... paid_registered / fixed — Да 08.04.2026 Деактивировать" [ref=e375]:
+                  - cell "eb71666a..." [ref=e376]
+                  - cell "paid_registered / fixed" [ref=e377]
+                  - cell "—" [ref=e378]
+                  - cell "Да" [ref=e379]:
+                    - generic [ref=e380]: Да
+                  - cell "08.04.2026" [ref=e381]
+                  - cell "Деактивировать" [ref=e382]:
+                    - button "Деактивировать" [ref=e383]
+                - row "c969fe28... paid_registered / threshold_recalc — Да 08.04.2026 Деактивировать" [ref=e384]:
+                  - cell "c969fe28..." [ref=e385]
+                  - cell "paid_registered / threshold_recalc" [ref=e386]
+                  - cell "—" [ref=e387]
+                  - cell "Да" [ref=e388]:
+                    - generic [ref=e389]: Да
+                  - cell "08.04.2026" [ref=e390]
+                  - cell "Деактивировать" [ref=e391]:
+                    - button "Деактивировать" [ref=e392]
+                - row "85cc7f13... paid_registered / threshold — Да 08.04.2026 Деактивировать" [ref=e393]:
+                  - cell "85cc7f13..." [ref=e394]
+                  - cell "paid_registered / threshold" [ref=e395]
+                  - cell "—" [ref=e396]
+                  - cell "Да" [ref=e397]:
+                    - generic [ref=e398]: Да
+                  - cell "08.04.2026" [ref=e399]
+                  - cell "Деактивировать" [ref=e400]:
+                    - button "Деактивировать" [ref=e401]
+                - row "f0000000... shared / fixed — Да 30.03.2026 Деактивировать" [ref=e402]:
+                  - cell "f0000000..." [ref=e403]
+                  - cell "shared / fixed" [ref=e404]
+                  - cell "—" [ref=e405]
+                  - cell "Да" [ref=e406]:
+                    - generic [ref=e407]: Да
+                  - cell "30.03.2026" [ref=e408]
+                  - cell "Деактивировать" [ref=e409]:
+                    - button "Деактивировать" [ref=e410]
+  - region "Notifications (F8)":
+    - list

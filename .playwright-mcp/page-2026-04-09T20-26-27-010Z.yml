@@ -1,0 +1,22 @@
+- generic [ref=e2]:
+  - generic [ref=e114]:
+    - heading "Вход" [level=2] [ref=e115]
+    - generic [ref=e116]:
+      - generic [ref=e117]:
+        - generic [ref=e118]: Электронная почта
+        - textbox "Электронная почта" [active] [ref=e119]:
+          - /placeholder: name@example.com
+      - generic [ref=e120]:
+        - generic [ref=e121]: Пароль
+        - textbox "Пароль" [ref=e122]:
+          - /placeholder: Ваш пароль
+      - button "Войти" [ref=e123]
+    - paragraph [ref=e124]:
+      - link "Забыли пароль?" [ref=e125] [cursor=pointer]:
+        - /url: /reset-password-request
+    - paragraph [ref=e126]:
+      - text: Нет аккаунта?
+      - link "Зарегистрироваться" [ref=e127] [cursor=pointer]:
+        - /url: /register
+  - region "Notifications (F8)":
+    - list

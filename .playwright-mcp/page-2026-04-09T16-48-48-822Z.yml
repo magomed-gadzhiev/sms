@@ -1,0 +1,138 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e6]: S
+      - navigation [ref=e7]:
+        - link "📊" [ref=e9] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e10]: 📊
+        - generic [ref=e11]:
+          - link "👥" [ref=e12] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e13]: 👥
+          - link "📝" [ref=e14] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e15]: 📝
+          - link "📱" [ref=e16] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e17]: 📱
+          - link "🔑" [ref=e18] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e19]: 🔑
+        - generic [ref=e20]:
+          - link "💰" [ref=e21] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e22]: 💰
+          - link "📋" [ref=e23] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e24]: 📋
+        - generic [ref=e25]:
+          - link "🔌" [ref=e26] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e27]: 🔌
+          - link "🔀" [ref=e28] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e29]: 🔀
+          - link "📦" [ref=e30] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e31]: 📦
+          - link "🚚" [ref=e32] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e33]: 🚚
+          - link "📡" [ref=e34] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e35]: 📡
+        - generic [ref=e36]:
+          - link "🌍" [ref=e37] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e38]: 🌍
+          - link "🔗" [ref=e39] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e40]: 🔗
+        - generic [ref=e41]:
+          - link "📈" [ref=e42] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e43]: 📈
+          - link "⚡" [ref=e44] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e45]: ⚡
+          - link "📜" [ref=e46] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e47]: 📜
+      - button "↵" [ref=e49]
+    - main [ref=e50]:
+      - generic [ref=e51]:
+        - navigation "Breadcrumb" [ref=e52]:
+          - list [ref=e53]:
+            - listitem [ref=e54]:
+              - link "Админ" [ref=e55] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e56]:
+              - generic [ref=e57]: /
+              - generic [ref=e58]: Тарификация
+        - heading "Тарификация" [level=1] [ref=e61]
+      - generic [ref=e62]:
+        - tablist [ref=e63]:
+          - tab "Тарифные планы" [ref=e64]
+          - tab "Периоды" [active] [selected] [ref=e65]
+          - tab "Тиры" [ref=e66]
+          - tab "Регистрация отправителей" [ref=e67]
+        - tabpanel "Периоды" [ref=e136]:
+          - generic [ref=e137]:
+            - heading "Периоды тарификации" [level=2] [ref=e138]
+            - button "Создать период" [ref=e139]
+          - generic [ref=e142]:
+            - generic [ref=e143]: Тарифный план
+            - combobox "Тарифный план" [ref=e144]:
+              - option "Все планы" [selected]
+              - option "paid_registered / prepaid_threshold"
+              - option "paid_registered / fixed"
+              - option "paid_registered / threshold_recalc"
+              - option "paid_registered / threshold"
+              - option "shared / fixed"
+          - region "Таблица данных" [ref=e146]:
+            - table "Таблица данных" [ref=e148]:
+              - caption [ref=e149]: Таблица данных
+              - rowgroup [ref=e150]:
+                - row "План Дата начала Дата окончания Статус" [ref=e151]:
+                  - columnheader "План" [ref=e152]:
+                    - generic [ref=e153]: План
+                  - button "Дата начала" [ref=e154] [cursor=pointer]:
+                    - generic [ref=e155]: Дата начала
+                  - columnheader "Дата окончания" [ref=e156]:
+                    - generic [ref=e157]: Дата окончания
+                  - columnheader "Статус" [ref=e158]:
+                    - generic [ref=e159]: Статус
+              - rowgroup [ref=e160]:
+                - row "paid_registered / threshold 01.04.2026 30.04.2026 Активен" [ref=e161]:
+                  - cell "paid_registered / threshold" [ref=e162]
+                  - cell "01.04.2026" [ref=e163]
+                  - cell "30.04.2026" [ref=e164]
+                  - cell "Активен" [ref=e165]:
+                    - generic [ref=e166]: Активен
+                - row "paid_registered / threshold_recalc 01.04.2026 30.04.2026 Активен" [ref=e167]:
+                  - cell "paid_registered / threshold_recalc" [ref=e168]
+                  - cell "01.04.2026" [ref=e169]
+                  - cell "30.04.2026" [ref=e170]
+                  - cell "Активен" [ref=e171]:
+                    - generic [ref=e172]: Активен
+                - row "paid_registered / fixed 01.04.2026 30.04.2026 Активен" [ref=e173]:
+                  - cell "paid_registered / fixed" [ref=e174]
+                  - cell "01.04.2026" [ref=e175]
+                  - cell "30.04.2026" [ref=e176]
+                  - cell "Активен" [ref=e177]:
+                    - generic [ref=e178]: Активен
+                - row "paid_registered / prepaid_threshold 01.04.2026 30.04.2026 Активен" [ref=e179]:
+                  - cell "paid_registered / prepaid_threshold" [ref=e180]
+                  - cell "01.04.2026" [ref=e181]
+                  - cell "30.04.2026" [ref=e182]
+                  - cell "Активен" [ref=e183]:
+                    - generic [ref=e184]: Активен
+                - row "shared / fixed 01.01.2026 31.12.2026 Активен" [ref=e185]:
+                  - cell "shared / fixed" [ref=e186]
+                  - cell "01.01.2026" [ref=e187]
+                  - cell "31.12.2026" [ref=e188]
+                  - cell "Активен" [ref=e189]:
+                    - generic [ref=e190]: Активен
+  - region "Notifications (F8)":
+    - list

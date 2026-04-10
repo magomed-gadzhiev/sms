@@ -1,0 +1,158 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: S
+      - navigation [ref=e26]:
+        - link "📊" [ref=e28] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+        - generic [ref=e30]:
+          - link "👥" [ref=e31] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+          - link "📝" [ref=e33] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+          - link "📱" [ref=e35] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+          - link "🔑" [ref=e37] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+        - generic [ref=e39]:
+          - link "💰" [ref=e40] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+          - link "📋" [ref=e42] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e43]: 📋
+        - generic [ref=e44]:
+          - link "🔌" [ref=e45] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e46]: 🔌
+          - link "🔀" [ref=e47] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e48]: 🔀
+          - link "📦" [ref=e49] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e50]: 📦
+          - link "🚚" [ref=e51] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e52]: 🚚
+          - link "📡" [ref=e53] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e54]: 📡
+        - generic [ref=e55]:
+          - link "🌍" [ref=e56] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e57]: 🌍
+          - link "🔗" [ref=e58] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e59]: 🔗
+        - generic [ref=e60]:
+          - link "📈" [ref=e61] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e62]: 📈
+          - link "⚡" [ref=e63] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e64]: ⚡
+          - link "📜" [ref=e65] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e66]: 📜
+      - button "↵" [ref=e68]
+    - main [ref=e69]:
+      - generic [ref=e70]:
+        - navigation "Breadcrumb" [ref=e71]:
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Админ" [ref=e74] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e75]:
+              - generic [ref=e76]: /
+              - generic [ref=e77]: Тарификация
+        - heading "Тарификация" [level=1] [ref=e80]
+      - generic [ref=e81]:
+        - tablist [ref=e82]:
+          - tab "Тарифные планы" [selected] [ref=e83]
+          - tab "Периоды" [ref=e84]
+          - tab "Тиры" [ref=e85]
+          - tab "Регистрация отправителей" [ref=e86]
+        - tabpanel "Тарифные планы" [ref=e87]:
+          - generic [ref=e88]:
+            - heading "Тарифные планы" [level=2] [ref=e89]
+            - button "Создать план" [ref=e90]
+          - region "Таблица данных" [ref=e245]:
+            - table "Таблица данных" [ref=e247]:
+              - caption [ref=e248]: Таблица данных
+              - rowgroup [ref=e249]:
+                - row "ID Категория / Стратегия Оператор Активен Создан" [ref=e250]:
+                  - columnheader "ID" [ref=e251]:
+                    - generic [ref=e252]: ID
+                  - button "Категория / Стратегия" [ref=e253] [cursor=pointer]:
+                    - generic [ref=e254]: Категория / Стратегия
+                  - columnheader "Оператор" [ref=e255]:
+                    - generic [ref=e256]: Оператор
+                  - columnheader "Активен" [ref=e257]:
+                    - generic [ref=e258]: Активен
+                  - columnheader "Создан" [ref=e259]:
+                    - generic [ref=e260]: Создан
+                  - columnheader [ref=e261]
+              - rowgroup [ref=e262]:
+                - row "5a10c648... free_registered / fixed Ростелеком Да 09.04.2026 Деактивировать" [ref=e263]:
+                  - cell "5a10c648..." [ref=e264]
+                  - cell "free_registered / fixed" [ref=e265]
+                  - cell "Ростелеком" [ref=e266]
+                  - cell "Да" [ref=e267]:
+                    - generic [ref=e268]: Да
+                  - cell "09.04.2026" [ref=e269]
+                  - cell "Деактивировать" [ref=e270]:
+                    - button "Деактивировать" [ref=e271]
+                - row "663ef7d6... paid_registered / prepaid_threshold Теле2 Да 08.04.2026 Деактивировать" [ref=e272]:
+                  - cell "663ef7d6..." [ref=e273]
+                  - cell "paid_registered / prepaid_threshold" [ref=e274]
+                  - cell "Теле2" [ref=e275]
+                  - cell "Да" [ref=e276]:
+                    - generic [ref=e277]: Да
+                  - cell "08.04.2026" [ref=e278]
+                  - cell "Деактивировать" [ref=e279]:
+                    - button "Деактивировать" [ref=e280]
+                - row "eb71666a... paid_registered / fixed МегаФон Да 08.04.2026 Деактивировать" [ref=e281]:
+                  - cell "eb71666a..." [ref=e282]
+                  - cell "paid_registered / fixed" [ref=e283]
+                  - cell "МегаФон" [ref=e284]
+                  - cell "Да" [ref=e285]:
+                    - generic [ref=e286]: Да
+                  - cell "08.04.2026" [ref=e287]
+                  - cell "Деактивировать" [ref=e288]:
+                    - button "Деактивировать" [ref=e289]
+                - row "c969fe28... paid_registered / threshold_recalc Билайн Да 08.04.2026 Деактивировать" [ref=e290]:
+                  - cell "c969fe28..." [ref=e291]
+                  - cell "paid_registered / threshold_recalc" [ref=e292]
+                  - cell "Билайн" [ref=e293]
+                  - cell "Да" [ref=e294]:
+                    - generic [ref=e295]: Да
+                  - cell "08.04.2026" [ref=e296]
+                  - cell "Деактивировать" [ref=e297]:
+                    - button "Деактивировать" [ref=e298]
+                - row "85cc7f13... paid_registered / threshold МТС Да 08.04.2026 Деактивировать" [ref=e299]:
+                  - cell "85cc7f13..." [ref=e300]
+                  - cell "paid_registered / threshold" [ref=e301]
+                  - cell "МТС" [ref=e302]
+                  - cell "Да" [ref=e303]:
+                    - generic [ref=e304]: Да
+                  - cell "08.04.2026" [ref=e305]
+                  - cell "Деактивировать" [ref=e306]:
+                    - button "Деактивировать" [ref=e307]
+                - row "f0000000... shared / fixed Default-RU Да 30.03.2026 Деактивировать" [ref=e308]:
+                  - cell "f0000000..." [ref=e309]
+                  - cell "shared / fixed" [ref=e310]
+                  - cell "Default-RU" [ref=e311]
+                  - cell "Да" [ref=e312]:
+                    - generic [ref=e313]: Да
+                  - cell "30.03.2026" [ref=e314]
+                  - cell "Деактивировать" [ref=e315]:
+                    - button "Деактивировать" [ref=e316]
+  - region "Notifications (F8)":
+    - list [ref=e165]:
+      - listitem [ref=e318]:
+        - generic [ref=e319]: План активирован

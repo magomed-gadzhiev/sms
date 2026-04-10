@@ -1,0 +1,173 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: S
+      - navigation [ref=e26]:
+        - link "📊" [ref=e28] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+        - generic [ref=e30]:
+          - link "👥" [ref=e31] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+          - link "📝" [ref=e33] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+          - link "📱" [ref=e35] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+          - link "🔑" [ref=e37] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+        - generic [ref=e39]:
+          - link "💰" [ref=e40] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+          - link "📋" [ref=e42] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e43]: 📋
+        - generic [ref=e44]:
+          - link "🔌" [ref=e45] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e46]: 🔌
+          - link "🔀" [ref=e47] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e48]: 🔀
+          - link "📦" [ref=e49] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e50]: 📦
+          - link "🚚" [ref=e51] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e52]: 🚚
+          - link "📡" [ref=e53] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e54]: 📡
+        - generic [ref=e55]:
+          - link "🌍" [ref=e56] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e57]: 🌍
+          - link "🔗" [ref=e58] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e59]: 🔗
+        - generic [ref=e60]:
+          - link "📈" [ref=e61] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e62]: 📈
+          - link "⚡" [ref=e63] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e64]: ⚡
+          - link "📜" [ref=e65] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e66]: 📜
+      - button "↵" [ref=e68]
+    - main [ref=e69]:
+      - generic [ref=e70]:
+        - navigation "Breadcrumb" [ref=e71]:
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Админ" [ref=e74] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e75]:
+              - generic [ref=e76]: /
+              - generic [ref=e77]: Тарификация
+        - heading "Тарификация" [level=1] [ref=e80]
+      - generic [ref=e81]:
+        - tablist [ref=e82]:
+          - tab "Тарифные планы" [ref=e83]
+          - tab "Периоды" [ref=e84]
+          - tab "Тиры" [selected] [ref=e85]
+          - tab "Регистрация отправителей" [ref=e86]
+        - tabpanel "Тиры" [ref=e449]:
+          - generic [ref=e450]:
+            - heading "Тиры тарификации" [level=2] [ref=e451]
+            - button "Создать тир" [ref=e452]
+          - generic [ref=e453]:
+            - generic [ref=e455]:
+              - generic [ref=e456]: Тарифный план
+              - combobox "Тарифный план" [ref=e457]:
+                - option "Все планы" [selected]
+                - option "free_registered / fixed"
+                - option "paid_registered / prepaid_threshold"
+                - option "paid_registered / fixed"
+                - option "paid_registered / threshold_recalc"
+                - option "paid_registered / threshold"
+                - option "shared / fixed"
+            - generic [ref=e459]:
+              - generic [ref=e460]: Период
+              - combobox "Период" [ref=e461]:
+                - option "Все периоды" [selected]
+                - option "01.05.2026 - 31.05.2026"
+                - option "01.04.2026 - 30.04.2026"
+                - option "01.04.2026 - 30.04.2026"
+                - option "01.04.2026 - 30.04.2026"
+                - option "01.04.2026 - 30.04.2026"
+                - option "01.01.2026 - 31.12.2026"
+          - region "Таблица данных" [ref=e463]:
+            - table "Таблица данных" [ref=e465]:
+              - caption [ref=e466]: Таблица данных
+              - rowgroup [ref=e467]:
+                - row "Период От (кол-во) Цена за сегмент" [ref=e468]:
+                  - columnheader "Период" [ref=e469]:
+                    - generic [ref=e470]: Период
+                  - button "От (кол-во)" [ref=e471] [cursor=pointer]:
+                    - generic [ref=e472]: От (кол-во)
+                  - columnheader "Цена за сегмент" [ref=e473]:
+                    - generic [ref=e474]: Цена за сегмент
+                  - columnheader [ref=e475]
+              - rowgroup [ref=e476]:
+                - row "01.04.2026 - 30.04.2026 0 3.000000 Изменить" [ref=e477]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e478]
+                  - cell "0" [ref=e479]
+                  - cell "3.000000" [ref=e480]
+                  - cell "Изменить" [ref=e481]:
+                    - button "Изменить" [ref=e482]
+                - row "01.04.2026 - 30.04.2026 0 2.500000 Изменить" [ref=e483]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e484]
+                  - cell "0" [ref=e485]
+                  - cell "2.500000" [ref=e486]
+                  - cell "Изменить" [ref=e487]:
+                    - button "Изменить" [ref=e488]
+                - row "01.04.2026 - 30.04.2026 0 2.800000 Изменить" [ref=e489]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e490]
+                  - cell "0" [ref=e491]
+                  - cell "2.800000" [ref=e492]
+                  - cell "Изменить" [ref=e493]:
+                    - button "Изменить" [ref=e494]
+                - row "01.04.2026 - 30.04.2026 0 2.300000 Изменить" [ref=e495]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e496]
+                  - cell "0" [ref=e497]
+                  - cell "2.300000" [ref=e498]
+                  - cell "Изменить" [ref=e499]:
+                    - button "Изменить" [ref=e500]
+                - row "01.01.2026 - 31.12.2026 0 1.500000 Изменить" [ref=e501]:
+                  - cell "01.01.2026 - 31.12.2026" [ref=e502]
+                  - cell "0" [ref=e503]
+                  - cell "1.500000" [ref=e504]
+                  - cell "Изменить" [ref=e505]:
+                    - button "Изменить" [ref=e506]
+                - row "01.04.2026 - 30.04.2026 500 2.500000 Изменить" [ref=e507]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e508]
+                  - cell "500" [ref=e509]
+                  - cell "2.500000" [ref=e510]
+                  - cell "Изменить" [ref=e511]:
+                    - button "Изменить" [ref=e512]
+                - row "01.04.2026 - 30.04.2026 1 000 2.200000 Изменить" [ref=e513]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e514]
+                  - cell "1 000" [ref=e515]
+                  - cell "2.200000" [ref=e516]
+                  - cell "Изменить" [ref=e517]:
+                    - button "Изменить" [ref=e518]
+                - row "01.04.2026 - 30.04.2026 2 500 2.200000 Изменить" [ref=e519]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e520]
+                  - cell "2 500" [ref=e521]
+                  - cell "2.200000" [ref=e522]
+                  - cell "Изменить" [ref=e523]:
+                    - button "Изменить" [ref=e524]
+                - row "01.04.2026 - 30.04.2026 5 000 1.900000 Изменить" [ref=e525]:
+                  - cell "01.04.2026 - 30.04.2026" [ref=e526]
+                  - cell "5 000" [ref=e527]
+                  - cell "1.900000" [ref=e528]
+                  - cell "Изменить" [ref=e529]:
+                    - button "Изменить" [ref=e530]
+  - region "Notifications (F8)":
+    - list

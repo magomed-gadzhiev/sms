@@ -1,0 +1,363 @@
+- generic [ref=e2]:
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e25]: SMS Admin
+      - navigation [ref=e26]:
+        - link "📊 Дашборд" [ref=e118] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e29]: 📊
+          - generic [ref=e119]: Дашборд
+        - generic [ref=e30]:
+          - generic [ref=e120]: Основное
+          - link "👥 Клиенты" [ref=e121] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e32]: 👥
+            - generic [ref=e122]: Клиенты
+          - link "📝 Шаблоны" [ref=e123] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e34]: 📝
+            - generic [ref=e124]: Шаблоны
+          - link "📱 Имена отправителей" [ref=e125] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e36]: 📱
+            - generic [ref=e126]: Имена отправителей
+          - link "🔑 Пользователи" [ref=e127] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e38]: 🔑
+            - generic [ref=e128]: Пользователи
+        - generic [ref=e39]:
+          - generic [ref=e129]: Финансы
+          - link "💰 Биллинг" [active] [ref=e130] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e41]: 💰
+            - generic [ref=e131]: Биллинг
+        - generic [ref=e42]:
+          - generic [ref=e132]: Инфраструктура
+          - link "🔌 Провайдеры" [ref=e133] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e44]: 🔌
+            - generic [ref=e134]: Провайдеры
+          - link "🔀 Маршруты" [ref=e135] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e46]: 🔀
+            - generic [ref=e136]: Маршруты
+          - link "📦 Каналы" [ref=e137] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e48]: 📦
+            - generic [ref=e138]: Каналы
+          - link "🚚 Стратегии доставки" [ref=e139] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e50]: 🚚
+            - generic [ref=e140]: Стратегии доставки
+        - generic [ref=e51]:
+          - generic [ref=e141]: Наблюдение
+          - link "📈 Аналитика" [ref=e142] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e53]: 📈
+            - generic [ref=e143]: Аналитика
+          - link "⚡ Мониторинг" [ref=e144] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e55]: ⚡
+            - generic [ref=e145]: Мониторинг
+      - generic [ref=e146]:
+        - generic [ref=e147]: loadtest-admin@test.local
+        - button "Выход" [ref=e148]
+    - main [ref=e58]:
+      - generic [ref=e854]:
+        - navigation "Breadcrumb" [ref=e855]:
+          - list [ref=e856]:
+            - listitem [ref=e857]:
+              - link "Админ" [ref=e858] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e859]:
+              - generic [ref=e860]: /
+              - generic [ref=e861]: Биллинг
+        - heading "Биллинг" [level=1] [ref=e864]
+      - generic [ref=e865]:
+        - tablist [ref=e866]:
+          - tab "Балансы" [selected] [ref=e867]
+          - tab "Транзакции" [ref=e868]
+          - tab "Кредитные лимиты" [ref=e869]
+          - tab "Правила цен" [ref=e870]
+        - tabpanel "Балансы" [ref=e871]:
+          - generic [ref=e872]:
+            - generic [ref=e874]:
+              - generic [ref=e875]: Поиск
+              - textbox "Поиск" [ref=e876]:
+                - /placeholder: Имя клиента...
+            - generic [ref=e878]:
+              - generic [ref=e879]: Статус
+              - combobox "Статус" [ref=e880]:
+                - option "Все" [selected]
+                - option "Активен"
+                - option "Заморожен"
+            - generic [ref=e882]:
+              - generic [ref=e883]: Ниже порога
+              - combobox "Ниже порога" [ref=e884]:
+                - option "Все" [selected]
+                - option "Да"
+          - region "Таблица данных" [ref=e886]:
+            - table "Таблица данных" [ref=e888]:
+              - caption [ref=e889]: Таблица данных
+              - rowgroup [ref=e890]:
+                - row "Клиент Баланс Статус Кредитный лимит Порог уведомления" [ref=e891]:
+                  - columnheader "Клиент" [ref=e892]:
+                    - generic [ref=e893]: Клиент
+                  - button "Баланс" [ref=e894] [cursor=pointer]:
+                    - generic [ref=e895]: Баланс
+                  - columnheader "Статус" [ref=e896]:
+                    - generic [ref=e897]: Статус
+                  - columnheader "Кредитный лимит" [ref=e898]:
+                    - generic [ref=e899]: Кредитный лимит
+                  - columnheader "Порог уведомления" [ref=e900]:
+                    - generic [ref=e901]: Порог уведомления
+                  - columnheader [ref=e902]
+              - rowgroup [ref=e903]:
+                - row "Campaign Test Corp 9281.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e904]:
+                  - cell "Campaign Test Corp" [ref=e905]
+                  - cell "9281.00 RUB" [ref=e906]
+                  - cell "Активен" [ref=e907]:
+                    - generic [ref=e908]: Активен
+                  - cell "0.00" [ref=e909]
+                  - cell "0.00" [ref=e910]
+                  - cell "Начислить Списать Заморозить" [ref=e911]:
+                    - generic [ref=e912]:
+                      - button "Начислить" [ref=e913]
+                      - button "Списать" [ref=e914]
+                      - button "Заморозить" [ref=e915]
+                - row "LoadTest-HighVolume 980.50 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e916]:
+                  - cell "LoadTest-HighVolume" [ref=e917]
+                  - cell "980.50 RUB" [ref=e918]
+                  - cell "Активен" [ref=e919]:
+                    - generic [ref=e920]: Активен
+                  - cell "0.00" [ref=e921]
+                  - cell "0.00" [ref=e922]
+                  - cell "Начислить Списать Заморозить" [ref=e923]:
+                    - generic [ref=e924]:
+                      - button "Начислить" [ref=e925]
+                      - button "Списать" [ref=e926]
+                      - button "Заморозить" [ref=e927]
+                - row "LoadTest-Client 9962.50 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e928]:
+                  - cell "LoadTest-Client" [ref=e929]
+                  - cell "9962.50 RUB" [ref=e930]
+                  - cell "Активен" [ref=e931]:
+                    - generic [ref=e932]: Активен
+                  - cell "0.00" [ref=e933]
+                  - cell "0.00" [ref=e934]
+                  - cell "Начислить Списать Заморозить" [ref=e935]:
+                    - generic [ref=e936]:
+                      - button "Начислить" [ref=e937]
+                      - button "Списать" [ref=e938]
+                      - button "Заморозить" [ref=e939]
+                - row "Test Company 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e940]:
+                  - cell "Test Company" [ref=e941]
+                  - cell "0.00 RUB" [ref=e942]
+                  - cell "Активен" [ref=e943]:
+                    - generic [ref=e944]: Активен
+                  - cell "0.00" [ref=e945]
+                  - cell "0.00" [ref=e946]
+                  - cell "Начислить Списать Заморозить" [ref=e947]:
+                    - generic [ref=e948]:
+                      - button "Начислить" [ref=e949]
+                      - button "Списать" [ref=e950]
+                      - button "Заморозить" [ref=e951]
+                - row "Test Company 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e952]:
+                  - cell "Test Company" [ref=e953]
+                  - cell "0.00 RUB" [ref=e954]
+                  - cell "Активен" [ref=e955]:
+                    - generic [ref=e956]: Активен
+                  - cell "0.00" [ref=e957]
+                  - cell "0.00" [ref=e958]
+                  - cell "Начислить Списать Заморозить" [ref=e959]:
+                    - generic [ref=e960]:
+                      - button "Начислить" [ref=e961]
+                      - button "Списать" [ref=e962]
+                      - button "Заморозить" [ref=e963]
+                - row "Test Client 1000000.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e964]:
+                  - cell "Test Client" [ref=e965]
+                  - cell "1000000.00 RUB" [ref=e966]
+                  - cell "Активен" [ref=e967]:
+                    - generic [ref=e968]: Активен
+                  - cell "0.00" [ref=e969]
+                  - cell "0.00" [ref=e970]
+                  - cell "Начислить Списать Заморозить" [ref=e971]:
+                    - generic [ref=e972]:
+                      - button "Начислить" [ref=e973]
+                      - button "Списать" [ref=e974]
+                      - button "Заморозить" [ref=e975]
+                - row "Spam 3 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e976]:
+                  - cell "Spam 3" [ref=e977]
+                  - cell "0.00 RUB" [ref=e978]
+                  - cell "Активен" [ref=e979]:
+                    - generic [ref=e980]: Активен
+                  - cell "0.00" [ref=e981]
+                  - cell "0.00" [ref=e982]
+                  - cell "Начислить Списать Заморозить" [ref=e983]:
+                    - generic [ref=e984]:
+                      - button "Начислить" [ref=e985]
+                      - button "Списать" [ref=e986]
+                      - button "Заморозить" [ref=e987]
+                - row "Spam 2 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e988]:
+                  - cell "Spam 2" [ref=e989]
+                  - cell "0.00 RUB" [ref=e990]
+                  - cell "Активен" [ref=e991]:
+                    - generic [ref=e992]: Активен
+                  - cell "0.00" [ref=e993]
+                  - cell "0.00" [ref=e994]
+                  - cell "Начислить Списать Заморозить" [ref=e995]:
+                    - generic [ref=e996]:
+                      - button "Начислить" [ref=e997]
+                      - button "Списать" [ref=e998]
+                      - button "Заморозить" [ref=e999]
+                - row "Spam 1 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1000]:
+                  - cell "Spam 1" [ref=e1001]
+                  - cell "0.00 RUB" [ref=e1002]
+                  - cell "Активен" [ref=e1003]:
+                    - generic [ref=e1004]: Активен
+                  - cell "0.00" [ref=e1005]
+                  - cell "0.00" [ref=e1006]
+                  - cell "Начислить Списать Заморозить" [ref=e1007]:
+                    - generic [ref=e1008]:
+                      - button "Начислить" [ref=e1009]
+                      - button "Списать" [ref=e1010]
+                      - button "Заморозить" [ref=e1011]
+                - row "Evil Corp 10000.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1012]:
+                  - cell "Evil Corp" [ref=e1013]
+                  - cell "10000.00 RUB" [ref=e1014]
+                  - cell "Активен" [ref=e1015]:
+                    - generic [ref=e1016]: Активен
+                  - cell "0.00" [ref=e1017]
+                  - cell "0.00" [ref=e1018]
+                  - cell "Начислить Списать Заморозить" [ref=e1019]:
+                    - generic [ref=e1020]:
+                      - button "Начислить" [ref=e1021]
+                      - button "Списать" [ref=e1022]
+                      - button "Заморозить" [ref=e1023]
+                - row "QA Test Co 1000.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1024]:
+                  - cell "QA Test Co" [ref=e1025]
+                  - cell "1000.00 RUB" [ref=e1026]
+                  - cell "Активен" [ref=e1027]:
+                    - generic [ref=e1028]: Активен
+                  - cell "0.00" [ref=e1029]
+                  - cell "0.00" [ref=e1030]
+                  - cell "Начислить Списать Заморозить" [ref=e1031]:
+                    - generic [ref=e1032]:
+                      - button "Начислить" [ref=e1033]
+                      - button "Списать" [ref=e1034]
+                      - button "Заморозить" [ref=e1035]
+                - row "QA Corp 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1036]:
+                  - cell "QA Corp" [ref=e1037]
+                  - cell "0.00 RUB" [ref=e1038]
+                  - cell "Активен" [ref=e1039]:
+                    - generic [ref=e1040]: Активен
+                  - cell "0.00" [ref=e1041]
+                  - cell "0.00" [ref=e1042]
+                  - cell "Начислить Списать Заморозить" [ref=e1043]:
+                    - generic [ref=e1044]:
+                      - button "Начислить" [ref=e1045]
+                      - button "Списать" [ref=e1046]
+                      - button "Заморозить" [ref=e1047]
+                - row "QA Corp 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1048]:
+                  - cell "QA Corp" [ref=e1049]
+                  - cell "0.00 RUB" [ref=e1050]
+                  - cell "Активен" [ref=e1051]:
+                    - generic [ref=e1052]: Активен
+                  - cell "0.00" [ref=e1053]
+                  - cell "0.00" [ref=e1054]
+                  - cell "Начислить Списать Заморозить" [ref=e1055]:
+                    - generic [ref=e1056]:
+                      - button "Начислить" [ref=e1057]
+                      - button "Списать" [ref=e1058]
+                      - button "Заморозить" [ref=e1059]
+                - row "QA Corp 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1060]:
+                  - cell "QA Corp" [ref=e1061]
+                  - cell "0.00 RUB" [ref=e1062]
+                  - cell "Активен" [ref=e1063]:
+                    - generic [ref=e1064]: Активен
+                  - cell "0.00" [ref=e1065]
+                  - cell "0.00" [ref=e1066]
+                  - cell "Начислить Списать Заморозить" [ref=e1067]:
+                    - generic [ref=e1068]:
+                      - button "Начислить" [ref=e1069]
+                      - button "Списать" [ref=e1070]
+                      - button "Заморозить" [ref=e1071]
+                - row "QA Corp 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1072]:
+                  - cell "QA Corp" [ref=e1073]
+                  - cell "0.00 RUB" [ref=e1074]
+                  - cell "Активен" [ref=e1075]:
+                    - generic [ref=e1076]: Активен
+                  - cell "0.00" [ref=e1077]
+                  - cell "0.00" [ref=e1078]
+                  - cell "Начислить Списать Заморозить" [ref=e1079]:
+                    - generic [ref=e1080]:
+                      - button "Начислить" [ref=e1081]
+                      - button "Списать" [ref=e1082]
+                      - button "Заморозить" [ref=e1083]
+                - row "QA Auto Co 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1084]:
+                  - cell "QA Auto Co" [ref=e1085]
+                  - cell "0.00 RUB" [ref=e1086]
+                  - cell "Активен" [ref=e1087]:
+                    - generic [ref=e1088]: Активен
+                  - cell "0.00" [ref=e1089]
+                  - cell "0.00" [ref=e1090]
+                  - cell "Начислить Списать Заморозить" [ref=e1091]:
+                    - generic [ref=e1092]:
+                      - button "Начислить" [ref=e1093]
+                      - button "Списать" [ref=e1094]
+                      - button "Заморозить" [ref=e1095]
+                - row "QA Empty States Corp 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1096]:
+                  - cell "QA Empty States Corp" [ref=e1097]
+                  - cell "0.00 RUB" [ref=e1098]
+                  - cell "Активен" [ref=e1099]:
+                    - generic [ref=e1100]: Активен
+                  - cell "0.00" [ref=e1101]
+                  - cell "0.00" [ref=e1102]
+                  - cell "Начислить Списать Заморозить" [ref=e1103]:
+                    - generic [ref=e1104]:
+                      - button "Начислить" [ref=e1105]
+                      - button "Списать" [ref=e1106]
+                      - button "Заморозить" [ref=e1107]
+                - row "QA Automation Corp 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1108]:
+                  - cell "QA Automation Corp" [ref=e1109]
+                  - cell "0.00 RUB" [ref=e1110]
+                  - cell "Активен" [ref=e1111]:
+                    - generic [ref=e1112]: Активен
+                  - cell "0.00" [ref=e1113]
+                  - cell "0.00" [ref=e1114]
+                  - cell "Начислить Списать Заморозить" [ref=e1115]:
+                    - generic [ref=e1116]:
+                      - button "Начислить" [ref=e1117]
+                      - button "Списать" [ref=e1118]
+                      - button "Заморозить" [ref=e1119]
+                - row "QA Registration Co 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1120]:
+                  - cell "QA Registration Co" [ref=e1121]
+                  - cell "0.00 RUB" [ref=e1122]
+                  - cell "Активен" [ref=e1123]:
+                    - generic [ref=e1124]: Активен
+                  - cell "0.00" [ref=e1125]
+                  - cell "0.00" [ref=e1126]
+                  - cell "Начислить Списать Заморозить" [ref=e1127]:
+                    - generic [ref=e1128]:
+                      - button "Начислить" [ref=e1129]
+                      - button "Списать" [ref=e1130]
+                      - button "Заморозить" [ref=e1131]
+                - row "QA Registration Co 0.00 RUB Активен 0.00 0.00 Начислить Списать Заморозить" [ref=e1132]:
+                  - cell "QA Registration Co" [ref=e1133]
+                  - cell "0.00 RUB" [ref=e1134]
+                  - cell "Активен" [ref=e1135]:
+                    - generic [ref=e1136]: Активен
+                  - cell "0.00" [ref=e1137]
+                  - cell "0.00" [ref=e1138]
+                  - cell "Начислить Списать Заморозить" [ref=e1139]:
+                    - generic [ref=e1140]:
+                      - button "Начислить" [ref=e1141]
+                      - button "Списать" [ref=e1142]
+                      - button "Заморозить" [ref=e1143]
+            - navigation "Постраничная навигация" [ref=e1144]:
+              - generic [ref=e1145]:
+                - generic [ref=e1146]: 1–20 из 40
+                - generic [ref=e1147]:
+                  - button "Предыдущая страница" [disabled] [ref=e1148]: Назад
+                  - button "Следующая страница" [ref=e1149]: Вперёд
+  - region "Notifications (F8)":
+    - list

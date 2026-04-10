@@ -1,0 +1,159 @@
+=====================================================
+SMS SENDING & DLR TEST LOG
+Provider: I-Digital (smpp.i-dgtl.ru:2775)
+System ID: ip_sharip_smpp
+Bind Type: Transceiver
+Date: 2026-04-08
+Client: loadtest-client@test.local
+=====================================================
+
+=== SMPP CONNECTION ===
+Connection established at: 2026-04-07T23:08:40Z
+Connection type: Transceiver (bind_transceiver)
+Connection ID: 8610128e-9342-470a-a5a9-3513cf660f37
+Connection stable: Yes (enquire_link exchange active every 60s)
+Server-side enquire_link received and responded: Yes
+Connection uptime at test time: ~6.5 hours
+
+=== TEST MESSAGE #1 — submit_sm PDU fields ===
+Sent at (UTC):        2026-04-08T05:47:01Z
+Our Message ID:       26d09715-a273-4833-8f17-b26d4c8c0d0e
+SMPP Message ID:      69d5ebd50ff246db
+
+submit_sm PDU:
+  command_id:           0x00000004 (submit_sm)
+  service_type:         "" (empty)
+  source_addr_ton:      0x00
+  source_addr_npi:      0x00
+  source_addr:          "Test"
+  dest_addr_ton:        0x00
+  dest_addr_npi:        0x00
+  destination_addr:     "+79001234567"
+  esm_class:            0x00
+  protocol_id:          0x00
+  priority_flag:        0x00
+  schedule_delivery_time: "" (empty)
+  validity_period:      "" (empty)
+  registered_delivery:  0x01  ← DLR REQUESTED (SMSC delivery receipt for final outcome)
+  replace_if_present:   0x00
+  data_coding:          0x00 (GSM7)
+  sm_default_msg_id:    0x00
+  sm_length:            24
+  short_message:        "Test SMS lifecycle check"
+  TLV:                  (none)
+
+submit_sm_resp:
+  command_status:       0x00000000 (ESME_ROK — success)
+  message_id:           "69d5ebd50ff246db"
+
+DLR (deliver_sm):       NOT RECEIVED (waited >10 minutes)
+
+=== TEST MESSAGE #2 — submit_sm PDU fields ===
+Sent at (UTC):        2026-04-08T05:56:32Z
+Our Message ID:       ae8d1c23-369b-4999-99f4-e4f5b884b8d3
+SMPP Message ID:      69d5ee100ff25d41
+
+submit_sm PDU:
+  command_id:           0x00000004 (submit_sm)
+  service_type:         "" (empty)
+  source_addr_ton:      0x00
+  source_addr_npi:      0x00
+  source_addr:          "Test"
+  dest_addr_ton:        0x00
+  dest_addr_npi:        0x00
+  destination_addr:     "+79001234567"
+  esm_class:            0x00
+  protocol_id:          0x00
+  priority_flag:        0x00
+  schedule_delivery_time: "" (empty)
+  validity_period:      "" (empty)
+  registered_delivery:  0x01  ← DLR REQUESTED (SMSC delivery receipt for final outcome)
+  replace_if_present:   0x00
+  data_coding:          0x00 (GSM7)
+  sm_default_msg_id:    0x00
+  sm_length:            38
+  short_message:        "DLR test 2 - lifecycle check 08-04-2026"
+  TLV:                  (none)
+
+submit_sm_resp:
+  command_status:       0x00000000 (ESME_ROK — success)
+  message_id:           "69d5ee100ff25d41"
+
+DLR (deliver_sm):       NOT RECEIVED
+
+=== BILLING ===
+Pricing rule:         +7% = 1.50 RUB per segment
+Balance before:       10000.00 RUB
+Balance after:        9997.00 RUB (2 messages x 1.50 RUB)
+Billing status:       OK
+
+=== ROUTING ===
+Routing mode:         new (client_routes + client_providers)
+Strategy:             priority
+Provider resolved:    I-Digital (cfc1ae4e-ee97-4c11-b4db-d37569cbb246)
+Routes active:        6 (МТС, Билайн, МегаФон, Теле2, Ростелеком, Default-RU)
+Routing status:       OK
+
+=== DLR RECEPTION CAPABILITY ===
+Our system handles deliver_sm (command_id 0x00000005):
+- Responds with deliver_sm_resp (command_id 0x80000005)
+- Parses DLR fields: receipted_message_id, stat, submit_date, done_date, err, text
+- Connection is transceiver — can receive deliver_sm on same session
+
+Total deliver_sm PDUs received from provider: 0
+Total DLR records in database: 0
+
+=== SMPP CONNECTION LOG (relevant entries) ===
+
+-- Connection establishment --
+2026-04-07T23:08:40Z INF async подключение к SMSC провайдеру  address=smpp.i-dgtl.ru:2775 provider_name=I-Digital
+2026-04-07T23:08:40Z INF async соединение установлено и привязано  connection_id=8610128e-9342-470a-a5a9-3513cf660f37
+
+-- Enquire link exchange (sample, every 60s) --
+2026-04-07T23:09:40Z DBG получен enquire_link от сервера, отправляем ответ  sequence_num=1
+2026-04-08T05:46:51Z DBG получен enquire_link от сервера, отправляем ответ  sequence_num=402
+(enquire_link exchange continuous, ~403 exchanges over 6.5 hours)
+
+-- Message #1 submission --
+2026-04-08T05:47:01Z DBG async: PDU отправлен в writer channel, ожидание ответа  message_id=26d09715-a273-4833-8f17-b26d4c8c0d0e provider=I-Digital sequence_num=1
+2026-04-08T05:47:01Z DBG async: ответ получен успешно  message_id=26d09715-a273-4833-8f17-b26d4c8c0d0e provider=I-Digital smpp_message_id=69d5ebd50ff246db
+2026-04-08T05:47:01Z DBG сообщение обработано sender stage  connection_id=8610128e provider_id=cfc1ae4e segments=1 smpp_message_id=69d5ebd50ff246db status=sent
+
+-- Message #2 submission --
+2026-04-08T05:56:32Z DBG async: PDU отправлен в writer channel, ожидание ответа  message_id=ae8d1c23-369b-4999-99f4-e4f5b884b8d3 provider=I-Digital sequence_num=2
+2026-04-08T05:56:32Z DBG async: ответ получен успешно  message_id=ae8d1c23-369b-4999-99f4-e4f5b884b8d3 provider=I-Digital smpp_message_id=69d5ee100ff25d41
+2026-04-08T05:56:32Z DBG сообщение обработано sender stage  connection_id=8610128e provider_id=cfc1ae4e segments=1 smpp_message_id=69d5ee100ff25d41 status=sent
+
+-- deliver_sm (DLR) from provider --
+(NONE — zero deliver_sm PDUs received)
+
+=== PROVIDER DLR DOCUMENTATION ===
+Ref: https://smsc.i-dgtl.ru/poluchenie-statusov-dostavki-soobshenii
+
+Согласно документации провайдера, DLR получается двумя способами:
+1. Пассивный: registered_delivery=0x01 в submit_sm → провайдер отправляет deliver_sm
+2. Активный: опрос через query_sm
+
+HTTP callback URL НЕ используется — DLR доставляется только через SMPP deliver_sm.
+
+Мы используем пассивный метод:
+- registered_delivery=0x01 установлен во всех submit_sm PDU (см. выше)
+- Соединение: bind_transceiver — deliver_sm может приходить на том же соединении
+- Наша система обрабатывает deliver_sm (command_id 0x00000005):
+  → отправляет deliver_sm_resp (command_id 0x80000005)
+  → парсит поля: receipted_message_id, stat, submit_date, done_date, err, text
+
+=== CONCLUSION ===
+The SMPP connection is stable (transceiver bind, 6.5+ hours uptime).
+submit_sm PDUs are accepted by the provider (submit_sm_resp with message_id returned).
+registered_delivery=0x01 is set in all submit_sm PDUs (per provider docs).
+However, NO deliver_sm PDUs have been received from the provider.
+Zero deliver_sm received since system start — not a single DLR for any message ever.
+
+Questions for provider:
+1. Включена ли отправка deliver_sm (DLR) для аккаунта system_id: ip_sharip_smpp?
+2. deliver_sm отправляется на том же transceiver-соединении или нужен отдельный receiver bind?
+3. Видны ли наши сообщения в вашей системе по message_id: 69d5ebd50ff246db, 69d5ee100ff25d41?
+4. Каково ожидаемое время доставки deliver_sm после submit_sm_resp?
+5. Есть ли ограничения на отправку DLR для тестовых номеров (+79001234567)?
+=====================================================

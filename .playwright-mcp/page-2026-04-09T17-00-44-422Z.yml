@@ -1,0 +1,182 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic: S
+        - navigation:
+          - generic:
+            - link:
+              - /url: /admin
+              - generic: 📊
+          - generic:
+            - link:
+              - /url: /admin/clients
+              - generic: 👥
+            - link:
+              - /url: /admin/templates
+              - generic: 📝
+            - link:
+              - /url: /admin/sender-names
+              - generic: 📱
+            - link:
+              - /url: /admin/users
+              - generic: 🔑
+          - generic:
+            - link:
+              - /url: /admin/billing
+              - generic: 💰
+            - link:
+              - /url: /admin/tarification
+              - generic: 📋
+          - generic:
+            - link:
+              - /url: /admin/providers
+              - generic: 🔌
+            - link:
+              - /url: /admin/routes
+              - generic: 🔀
+            - link:
+              - /url: /admin/channels
+              - generic: 📦
+            - link:
+              - /url: /admin/delivery-strategies
+              - generic: 🚚
+            - link:
+              - /url: /admin/hlr
+              - generic: 📡
+          - generic:
+            - link:
+              - /url: /admin/countries
+              - generic: 🌍
+            - link:
+              - /url: /admin/webhooks
+              - generic: 🔗
+          - generic:
+            - link:
+              - /url: /admin/analytics
+              - generic: 📈
+            - link:
+              - /url: /admin/monitoring
+              - generic: ⚡
+            - link:
+              - /url: /admin/audit
+              - generic: 📜
+        - generic:
+          - button: ↵
+      - main:
+        - generic:
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /admin/dashboard
+                  - text: Админ
+              - listitem:
+                - generic: /
+                - generic: Тарификация
+          - generic:
+            - generic:
+              - heading [level=1]: Тарификация
+        - generic:
+          - tablist:
+            - tab: Тарифные планы
+            - tab: Периоды
+            - tab [selected]: Тиры
+            - tab: Регистрация отправителей
+          - tabpanel:
+            - generic:
+              - heading [level=2]: Тиры тарификации
+              - button: Создать тир
+            - generic:
+              - generic:
+                - generic:
+                  - generic: Тарифный план
+                  - combobox
+              - generic:
+                - generic:
+                  - generic: Период
+                  - combobox
+            - generic:
+              - region:
+                - generic:
+                  - table:
+                    - caption: Таблица данных
+                    - rowgroup:
+                      - row:
+                        - columnheader:
+                          - generic: Период
+                        - button:
+                          - generic: От (кол-во)
+                        - columnheader:
+                          - generic: Цена за сегмент
+                        - columnheader
+                    - rowgroup:
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: "0"
+                        - cell: "3.000000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: "0"
+                        - cell: "2.500000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: "0"
+                        - cell: "2.800000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: "0"
+                        - cell: "2.300000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.01.2026 - 31.12.2026
+                        - cell: "0"
+                        - cell: "1.500000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: "500"
+                        - cell: "2.500000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: 1 000
+                        - cell: "2.200000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: 2 500
+                        - cell: "2.200000"
+                        - cell:
+                          - button: Изменить
+                      - row:
+                        - cell: 01.04.2026 - 30.04.2026
+                        - cell: 5 000
+                        - cell: "1.900000"
+                        - cell:
+                          - button: Изменить
+  - dialog "Редактировать тир" [ref=e532]:
+    - heading "Редактировать тир" [level=2] [ref=e533]
+    - paragraph [ref=e534]: Редактировать тир
+    - generic [ref=e535]:
+      - generic [ref=e536]:
+        - generic [ref=e537]: От (кол-во сегментов)
+        - spinbutton "От (кол-во сегментов)" [active] [ref=e538]: "0"
+      - generic [ref=e539]:
+        - generic [ref=e540]: Цена за сегмент
+        - spinbutton "Цена за сегмент" [ref=e541]: "3.000000"
+      - generic [ref=e542]:
+        - button "Отмена" [ref=e543]
+        - button "Сохранить" [ref=e544]
+    - button "Закрыть" [ref=e545]: ✕
