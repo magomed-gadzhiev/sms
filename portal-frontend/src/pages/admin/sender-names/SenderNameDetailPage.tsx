@@ -156,6 +156,13 @@ export function SenderNameDetailPage() {
         ]}
         actions={
           <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(`/admin/operator-templates?sender_name_id=${senderName.id}&sender_name=${encodeURIComponent(senderName.name)}`)}
+            >
+              Добавить шаблон оператора
+            </Button>
             {senderName.status === 'pending' && (
               <>
                 <Button variant="secondary" onClick={handleApprove} disabled={submitting}>Одобрить</Button>
