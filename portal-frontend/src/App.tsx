@@ -25,6 +25,7 @@ import { OptOutListPage } from './pages/contacts/OptOutListPage';
 import { CampaignsPage } from './pages/campaigns/CampaignsPage';
 import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
+import { CampaignSchedulesPage } from './pages/campaigns/CampaignSchedulesPage';
 import { TemplatesPage } from './pages/templates/TemplatesPage';
 import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
 import { SenderNameBillingHistory } from './pages/sender-names/SenderNameBillingHistory';
@@ -109,6 +110,7 @@ export function App() {
         <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/campaigns/new" element={<CampaignWizardPage />} />
         <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
+        <Route path="/campaign-schedules" element={<CampaignSchedulesPage />} />
         <Route path="/api-keys" element={<APIKeysPage />} />
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
