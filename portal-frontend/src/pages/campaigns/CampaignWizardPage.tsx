@@ -60,12 +60,38 @@ export function CampaignWizardPage() {
   const [retryDelay, setRetryDelay] = useState(1);
   const [maxRetries, setMaxRetries] = useState(2);
 
+  // Cost estimation
+  const [costEstimate, setCostEstimate] = useState<{
+    recipients: number;
+    segments_per_msg: number;
+    total_segments: number;
+    price_per_segment: string;
+    estimated_cost: string;
+    current_balance: string;
+    balance_sufficient: boolean;
+  } | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
+
   useEffect(() => {
     contactListsApi
       .list(1, 100)
       .then((resp) => setContactLists(resp.items ?? []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (step !== 'confirm') return;
+    setCostLoading(true);
+    campaignsApi
+      .estimateCost({
+        contact_list_id: contactListId,
+        text: messageText || (selectedTemplate?.body ?? ''),
+        source: source,
+      })
+      .then(setCostEstimate)
+      .catch(() => setCostEstimate(null))
+      .finally(() => setCostLoading(false));
+  }, [step, contactListId, messageText, selectedTemplate, source]);
 
   const currentStepIdx = STEPS.indexOf(step);
 
@@ -548,6 +574,34 @@ export function CampaignWizardPage() {
                 </dd>
               </div>
             </dl>
+          </div>
+        )}
+
+        {/* Cost Estimation */}
+        {step === 'confirm' && (
+          <div className="bg-gray-50 rounded-lg p-4 border mb-4 max-w-lg">
+            <h3 className="font-medium mb-3">Предварительный расчёт стоимости</h3>
+            {costLoading ? (
+              <p className="text-sm text-gray-500">Расчёт...</p>
+            ) : costEstimate ? (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>Получателей: <span className="font-medium">{costEstimate.recipients}</span></div>
+                <div>Сегментов/сообщение: <span className="font-medium">{costEstimate.segments_per_msg}</span></div>
+                <div>Всего сегментов: <span className="font-medium">{costEstimate.total_segments}</span></div>
+                <div>Цена/сегмент: <span className="font-medium">{costEstimate.price_per_segment} ₽</span></div>
+                <div className="col-span-2 border-t pt-2 mt-1">
+                  Итого: <span className="font-bold text-lg">{costEstimate.estimated_cost} ₽</span>
+                </div>
+                <div className="col-span-2">
+                  Баланс: {costEstimate.current_balance} ₽
+                  {!costEstimate.balance_sufficient && (
+                    <span className="ml-2 text-red-600 text-sm">⚠ Недостаточно средств</span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">Стоимость будет рассчитана автоматически</p>
+            )}
           </div>
         )}
 
