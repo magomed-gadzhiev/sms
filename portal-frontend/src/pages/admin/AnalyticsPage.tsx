@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { StatCard } from '../../components/data/StatCard';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
 import { analyticsAdminApi, type GroupedStatsResponse } from '../../api/admin';
 
@@ -63,6 +64,8 @@ interface StatsResponse {
 export function AnalyticsPage() {
   const toast = useToast();
   const [filterValues, setFilterValues] = useState<Record<string, string>>({ period: '7d' });
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [grouped, setGrouped] = useState<GroupedStatsResponse | null>(null);
@@ -72,7 +75,9 @@ export function AnalyticsPage() {
     setLoading(true);
     setGrouped(null);
     try {
-      const { from, to } = periodToRange(filterValues.period || '7d');
+      const { from: periodFrom, to: periodTo } = periodToRange(filterValues.period || '7d');
+      const from = dateFrom || periodFrom;
+      const to = dateTo || periodTo;
       const clientId = filterValues.client_id || undefined;
 
       const [res, groupedRes] = await Promise.all([
@@ -86,11 +91,11 @@ export function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterValues, groupBy, toast]);
+  }, [filterValues, dateFrom, dateTo, groupBy, toast]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
-const summary = stats?.summary;
+  const summary = stats?.summary;
   const rows = grouped?.rows ?? [];
   const totals = grouped?.totals;
 
@@ -105,6 +110,26 @@ const summary = stats?.summary;
       />
 
       <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} onReset={() => setFilterValues({ period: '7d' })} />
+
+      <div className="flex items-end gap-3 mb-4">
+        <Input
+          type="date"
+          label="С"
+          value={dateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+        />
+        <Input
+          type="date"
+          label="По"
+          value={dateTo}
+          onChange={e => setDateTo(e.target.value)}
+        />
+        {(dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+            Сбросить даты
+          </Button>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard title="Всего отправлено" value={summary?.total_sent?.toLocaleString() ?? '-'} />
@@ -131,60 +156,53 @@ const summary = stats?.summary;
           ))}
         </div>
 
-        <div className="relative">
-          <div className="h-[520px] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 z-10">
-                <tr className="border-b border-gray-200">
-                  <th className="text-left px-4 py-2 font-medium text-gray-600">{labelHeader}</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Отправлено</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Доставлено</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Ошибки</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Доставляемость</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Стоимость</th>
+        <div className="h-[520px] overflow-y-auto relative border-t border-gray-200">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-4 py-2 font-medium text-gray-600">{labelHeader}</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600">Отправлено</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600">Доставлено</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600">Ошибки</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600">Доставляемость</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600">Стоимость</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-400">Загрузка...</td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-12 text-gray-400">Загрузка...</td>
-                  </tr>
-                )}
-                {!loading && rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-12 text-gray-400">Нет данных за выбранный период</td>
-                  </tr>
-                )}
-                {!loading && rows.map((row) => (
-                  <tr key={row.label} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-2 text-gray-900">{row.label}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{fmtNum(row.sent)}</td>
-                    <td className="px-4 py-2 text-right text-green-700">{fmtNum(row.delivered)}</td>
-                    <td className="px-4 py-2 text-right text-red-600">{fmtNum(row.failed)}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{fmtRate(row.delivery_rate)}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{fmtCost(row.cost)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {!loading && totals && rows.length > 0 && (
-            <div className="border-t-2 border-gray-300 bg-gray-50">
-              <table className="w-full text-sm">
-                <tbody>
-                  <tr className="font-semibold text-gray-900">
-                    <td className="px-4 py-2 w-[30%]">Итого</td>
-                    <td className="px-4 py-2 text-right">{fmtNum(totals.sent)}</td>
-                    <td className="px-4 py-2 text-right text-green-700">{fmtNum(totals.delivered)}</td>
-                    <td className="px-4 py-2 text-right text-red-600">{fmtNum(totals.failed)}</td>
-                    <td className="px-4 py-2 text-right">{fmtRate(totals.delivery_rate)}</td>
-                    <td className="px-4 py-2 text-right">{fmtCost(totals.cost)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
+              )}
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-400">Нет данных за выбранный период</td>
+                </tr>
+              )}
+              {!loading && rows.map((row) => (
+                <tr key={row.label} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-2 text-gray-900">{row.label}</td>
+                  <td className="px-4 py-2 text-right text-gray-700">{fmtNum(row.sent)}</td>
+                  <td className="px-4 py-2 text-right text-green-700">{fmtNum(row.delivered)}</td>
+                  <td className="px-4 py-2 text-right text-red-600">{fmtNum(row.failed)}</td>
+                  <td className="px-4 py-2 text-right text-gray-700">{fmtRate(row.delivery_rate)}</td>
+                  <td className="px-4 py-2 text-right text-gray-700">{fmtCost(row.cost)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {!loading && totals && rows.length > 0 && (
+              <tfoot className="sticky bottom-0 bg-gray-50 font-semibold border-t-2 border-gray-200">
+                <tr className="text-gray-900">
+                  <td className="px-4 py-2">Итого</td>
+                  <td className="px-4 py-2 text-right">{fmtNum(totals.sent)}</td>
+                  <td className="px-4 py-2 text-right text-green-700">{fmtNum(totals.delivered)}</td>
+                  <td className="px-4 py-2 text-right text-red-600">{fmtNum(totals.failed)}</td>
+                  <td className="px-4 py-2 text-right">{fmtRate(totals.delivery_rate)}</td>
+                  <td className="px-4 py-2 text-right">{fmtCost(totals.cost)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
       </div>
 
