@@ -99,6 +99,29 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE = 50;
 
+// Build a chronological timeline from AdminMessageDetail timestamp fields
+function buildTimeline(msg: AdminMessageDetail): Array<{ status: string; timestamp: string; details?: string }> {
+  const events: Array<{ status: string; timestamp: string; details?: string }> = [];
+
+  if (msg.created_at) events.push({ status: 'pending', timestamp: msg.created_at });
+  if (msg.scheduled_at) events.push({ status: 'queued', timestamp: msg.scheduled_at });
+  if (msg.submitted_at) events.push({ status: 'submitted', timestamp: msg.submitted_at });
+  if (msg.delivered_at) events.push({ status: 'delivered', timestamp: msg.delivered_at });
+  if (msg.failed_at) events.push({ status: 'failed', timestamp: msg.failed_at });
+  if (msg.expired_at) events.push({ status: 'expired', timestamp: msg.expired_at });
+
+  // If final status hasn't been captured by a specific timestamp field, append it
+  const coveredStatuses = new Set(events.map((e) => e.status));
+  if (msg.status && !coveredStatuses.has(msg.status) && msg.status !== 'pending') {
+    const fallbackTs = msg.delivered_at ?? msg.failed_at ?? msg.expired_at ?? msg.submitted_at ?? msg.created_at ?? '';
+    if (fallbackTs) events.push({ status: msg.status, timestamp: fallbackTs });
+  }
+
+  return events.length > 0
+    ? events
+    : [{ status: msg.status ?? 'pending', timestamp: msg.created_at ?? '' }];
+}
+
 export function DetalizationPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [activeFilters, setActiveFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -432,7 +455,7 @@ export function DetalizationPage() {
             {/* Status timeline */}
             <div className="mt-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">История статусов</h4>
-              <StatusTimeline statuses={[{ status: detail.status ?? 'pending', timestamp: detail.created_at ?? '' }]} />
+              <StatusTimeline statuses={buildTimeline(detail)} />
             </div>
 
             {/* SMS preview */}

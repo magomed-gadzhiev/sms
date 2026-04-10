@@ -137,7 +137,7 @@ export function LegalEntitiesPage() {
       key: 'operators',
       header: 'Операторы',
       render: (row) => {
-        const operators = (row as any).operators;
+        const operators = (row as typeof row & { operators?: string[] }).operators;
         return <span className="text-sm text-gray-600">{operators?.join(', ') ?? '—'}</span>;
       },
     },

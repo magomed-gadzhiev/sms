@@ -117,7 +117,7 @@ export function ConnectionsPage() {
           size="sm"
           onClick={() => (isPaused ? resume() : pause())}
         >
-          {isPaused ? 'Автообновление: пауза' : 'Автообновление: 10с'}
+          {isPaused ? 'Автообновление: возобновить' : 'Пауза автообновления'}
         </Button>
         <Button
           variant="secondary"
