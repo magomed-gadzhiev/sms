@@ -9,6 +9,15 @@ import { DataTable, type Column } from '../../components/data/DataTable';
 
 const PAGE_SIZE = 20;
 
+const SENDER_NAME_REGEX = /^[A-Za-z0-9._-]{1,11}$/;
+
+function validateSenderName(value: string): string {
+  if (!value) return 'Поле обязательно';
+  if (/\s/.test(value)) return 'Пробелы запрещены';
+  if (!SENDER_NAME_REGEX.test(value)) return 'Латиница, не более 11 символов. Можно использовать цифры и знаки . _ —';
+  return '';
+}
+
 const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
   pending: { variant: 'warning', label: 'На модерации' },
   approved: { variant: 'success', label: 'Одобрено' },
@@ -48,6 +57,11 @@ export function SenderNamesAdminPage() {
   const [deactivateTarget, setDeactivateTarget] = useState<AdminSenderNameInfo | null>(null);
   const [deactivateReason, setDeactivateReason] = useState('');
   const [deactivateError, setDeactivateError] = useState('');
+
+  // Add modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '' });
+  const [nameError, setNameError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,6 +126,25 @@ export function SenderNamesAdminPage() {
     }
   };
 
+  const handleAddSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const error = validateSenderName(addForm.name ?? '');
+    if (error) { setNameError(error); return; }
+    setSubmitting(true);
+    try {
+      // TODO: Call adminSenderNamesApi.create when endpoint is available
+      // await adminSenderNamesApi.create(addForm.name.trim());
+      setShowAddModal(false);
+      setAddForm({ name: '' });
+      setNameError('');
+      load();
+    } catch (e) {
+      setNameError(e instanceof AdminApiError ? e.message : 'Ошибка создания');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const page = Math.floor(offset / PAGE_SIZE) + 1;
 
   const columns: Column<AdminSenderNameInfo>[] = [
@@ -148,6 +181,10 @@ export function SenderNamesAdminPage() {
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
 
       <div className="flex gap-3 mb-4">
+        <Button onClick={() => { setShowAddModal(true); setAddForm({ name: '' }); setNameError(''); }}>Добавить имя</Button>
+      </div>
+
+      <div className="flex gap-3 mb-4">
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
@@ -176,6 +213,31 @@ export function SenderNamesAdminPage() {
         onPageChange={(p) => setOffset((p - 1) * PAGE_SIZE)}
         onRowClick={(sn) => navigate(`/admin/sender-names/${sn.id}`)}
       />
+
+      {/* Add modal */}
+      <Modal open={showAddModal} onClose={() => { setShowAddModal(false); setNameError(''); }} title="Добавить имя отправителя">
+        <form onSubmit={handleAddSubmit} className="space-y-4">
+          <Input
+            label="Имя"
+            value={addForm.name}
+            onChange={(e) => {
+              setAddForm(f => ({ ...f, name: e.target.value }));
+              setNameError(validateSenderName(e.target.value));
+            }}
+            placeholder="Укажите имя..."
+          />
+          <div className="mt-1 space-y-0.5">
+            <p className="text-xs text-gray-500">Имя должно совпадать с названием организации, ИП, товарным знаком или доменом</p>
+            <p className="text-xs text-gray-500">Латиница, не более 11 символов. Можно использовать цифры и знаки . _ —</p>
+            <p className="text-xs text-gray-500">Пробелы запрещены</p>
+            {nameError && <p className="text-xs text-red-500">{nameError}</p>}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => { setShowAddModal(false); setNameError(''); }}>Отмена</Button>
+            <Button type="submit" disabled={submitting || !!nameError}>Добавить</Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Reject modal */}
       <Modal open={!!rejectTarget} onClose={() => setRejectTarget(null)} title="Отклонить имя отправителя">
