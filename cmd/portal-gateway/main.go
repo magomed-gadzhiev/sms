@@ -314,6 +314,10 @@ func main() {
 		portalrouter.RegisterCascadeDeliveryRoutes(router, sessionAuthMw, cascadeDeliveryHandlers)
 	}
 
+	// Регистрируем маршруты детализации сообщений
+	detalizationHandlers := handlers.NewDetalizationHandlers(dbPool)
+	portalrouter.RegisterDetalizationRoutes(router, sessionAuthMw, csrfMw, detalizationHandlers)
+
 	// Добавляем Prometheus metrics endpoint
 	if cfg.Monitoring.Prometheus.Enabled {
 		router.Handle(cfg.Monitoring.Prometheus.Path, promhttp.Handler()).Methods("GET")

@@ -349,6 +349,20 @@ func RegisterMaxMessengerWebhookRoute(router *mux.Router, handler http.HandlerFu
 	router.HandleFunc("/webhooks/cascade/max_messenger", handler).Methods("POST")
 }
 
+// RegisterDetalizationRoutes добавляет маршруты детализации сообщений для клиентского портала
+func RegisterDetalizationRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.DetalizationHandlers,
+) {
+	detalization := router.PathPrefix("/portal/v1/detalization").Subrouter()
+	detalization.Use(sessionAuthMiddleware)
+	detalization.Use(csrfMiddleware)
+	detalization.HandleFunc("", h.ListMessages).Methods("GET")
+	detalization.HandleFunc("/{id}", h.GetMessage).Methods("GET")
+}
+
 // RegisterCascadeDeliveryRoutes добавляет маршруты для истории каскадных доставок (клиентский портал)
 func RegisterCascadeDeliveryRoutes(
 	router *mux.Router,
