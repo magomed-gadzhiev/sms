@@ -286,6 +286,8 @@ func SetupRouter(
 	settings.HandleFunc("/frequency-caps", settingsHandlers.UpsertFrequencyCap).Methods("PUT")
 	settings.HandleFunc("/quiet-hours", settingsHandlers.GetQuietHours).Methods("GET")
 	settings.HandleFunc("/quiet-hours", settingsHandlers.UpsertQuietHours).Methods("PUT")
+	settings.HandleFunc("/default-senders", settingsHandlers.GetDefaultSenders).Methods("GET")
+	settings.HandleFunc("/default-senders", settingsHandlers.SetDefaultSenders).Methods("PUT")
 
 	// Sender Names endpoints
 	senderNames := protected.PathPrefix("/sender-names").Subrouter()
