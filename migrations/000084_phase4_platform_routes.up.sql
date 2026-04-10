@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS platform_routes (
   -- NULL operator_id means "All Networks"
   channel_type    VARCHAR(50) NOT NULL DEFAULT 'sms',
   -- channel_type: 'sms', 'flash', 'viber', 'whatsapp', etc.
-  provider_id     UUID        NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+  provider_id     UUID        NOT NULL REFERENCES providers(id) ON DELETE RESTRICT,
   legal_entity_id UUID        REFERENCES legal_entities(id) ON DELETE SET NULL,
   priority        INT         NOT NULL DEFAULT 0,
   active          BOOLEAN     NOT NULL DEFAULT true,
@@ -22,3 +22,8 @@ CREATE INDEX IF NOT EXISTS idx_platform_routes_provider   ON platform_routes(pro
 CREATE INDEX IF NOT EXISTS idx_platform_routes_priority   ON platform_routes(priority);
 CREATE INDEX IF NOT EXISTS idx_platform_routes_active     ON platform_routes(active);
 CREATE INDEX IF NOT EXISTS idx_platform_routes_legal      ON platform_routes(legal_entity_id);
+
+-- Composite partial index for routing hot path
+CREATE INDEX IF NOT EXISTS idx_platform_routes_lookup
+  ON platform_routes(operator_id, channel_type, priority DESC)
+  WHERE active = true;
