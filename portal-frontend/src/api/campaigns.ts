@@ -175,4 +175,18 @@ export const campaignsApi = {
         delivery_rate: number;
       }[];
     }>(`/campaigns/${id}/heatmap`),
+
+  estimateCost: (data: { contact_list_id: string; text: string; source: string }) =>
+    apiFetch<{
+      recipients: number;
+      segments_per_msg: number;
+      total_segments: number;
+      price_per_segment: string;
+      estimated_cost: string;
+      current_balance: string;
+      balance_sufficient: boolean;
+    }>('/campaigns/estimate-cost', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
