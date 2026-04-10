@@ -2,6 +2,23 @@ openapi: 3.0.3
 info:
   title: SMS Gateway API
   description: |
+    ## Getting Started
+
+    1. Получите API-ключ в [личном кабинете](http://72.56.232.202:8083)
+    2. Добавьте заголовок: `X-API-Key: <your-api-key>`
+    3. Базовый URL: `http://72.56.232.202:8080/api/v1`
+
+    ### Первый запрос
+
+    ```bash
+    curl -X POST http://72.56.232.202:8080/api/v1/sms/send \
+      -H "X-API-Key: YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"phone": "+79001234567", "text": "Hello!"}'
+    ```
+
+    ---
+
     API для отправки SMS сообщений через SMS Gateway платформу.
 
     Поддерживает отправку одиночных и пакетных SMS, получение статуса сообщений,
