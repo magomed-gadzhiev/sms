@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { DataTable, type Column } from '../../../components/data/DataTable';
 import { Button } from '../../../components/ui/Button';
@@ -16,6 +16,19 @@ import {
   type ClientInfo,
   type LegalEntity,
 } from '../../../api/admin';
+
+// Expiry computation helpers
+type ExpiryStatus = 'active' | 'expiring' | 'expired';
+
+function getExpiryStatus(endDate: string | null | undefined): ExpiryStatus {
+  if (!endDate) return 'active';
+  const end = new Date(endDate);
+  const now = new Date();
+  const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= 30) return 'expiring';
+  return 'active';
+}
 
 const STATUS_LABEL: Record<string, string> = {
   active: 'Активный',
@@ -55,6 +68,8 @@ const EMPTY_FORM: FormState = {
   description: '',
 };
 
+type StatusFilterValue = 'all' | 'active' | 'expiring' | 'expired' | 'terminated';
+
 export function ContractsPage() {
   const toast = useToast();
   const [items, setItems] = useState<Contract[]>([]);
@@ -66,6 +81,15 @@ export function ContractsPage() {
   const [deleteItem, setDeleteItem] = useState<Contract | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
+
+  const filteredContracts = useMemo(() => {
+    if (statusFilter === 'all') return items;
+    if (statusFilter === 'expiring') return items.filter(c => getExpiryStatus(c.end_date) === 'expiring');
+    if (statusFilter === 'expired') return items.filter(c => getExpiryStatus(c.end_date) === 'expired');
+    if (statusFilter === 'terminated') return items.filter(c => c.status === 'terminated');
+    return items.filter(c => c.status === statusFilter);
+  }, [items, statusFilter]);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -177,11 +201,18 @@ export function ContractsPage() {
     {
       key: 'status',
       header: 'Статус',
-      render: (row) => (
-        <Badge variant={STATUS_VARIANT[row.status] ?? 'default'}>
-          {STATUS_LABEL[row.status] ?? row.status}
-        </Badge>
-      ),
+      render: (row) => {
+        const expiry = getExpiryStatus(row.end_date);
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant={STATUS_VARIANT[row.status] ?? 'default'}>
+              {STATUS_LABEL[row.status] ?? row.status}
+            </Badge>
+            {expiry === 'expiring' && <Badge variant="warning">Истекает</Badge>}
+            {expiry === 'expired' && row.status === 'active' && <Badge variant="danger">Срок истёк</Badge>}
+          </div>
+        );
+      },
     },
     {
       key: 'start_date',
@@ -204,12 +235,26 @@ export function ContractsPage() {
       />
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
+          <Select
+            label="Статус"
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as StatusFilterValue)}
+            options={[
+              { value: 'all', label: 'Все' },
+              { value: 'active', label: 'Активные' },
+              { value: 'expiring', label: 'Истекающие (≤30 дней)' },
+              { value: 'expired', label: 'Истёкшие' },
+              { value: 'terminated', label: 'Расторгнутые' },
+            ]}
+          />
+        </div>
         <DataTable
           columns={columns}
-          data={items}
-          total={items.length}
+          data={filteredContracts}
+          total={filteredContracts.length}
           page={1}
-          pageSize={items.length || 1}
+          pageSize={filteredContracts.length || 1}
           onPageChange={() => {}}
           loading={loading}
           rowActions={(row) => (
