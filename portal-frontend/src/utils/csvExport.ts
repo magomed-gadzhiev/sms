@@ -1,5 +1,8 @@
-export function exportToCsv(filename: string, headers: string[], rows: string[][]): void {
-  const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+export function exportToCsv(filename: string, headers: string[], rows: (string | number | null | undefined)[][]): void {
+  const escape = (cell: string | number | null | undefined) => {
+    const str = cell == null ? '' : String(cell);
+    return `"${str.replace(/"/g, '""')}"`;
+  };
   const csv = [
     headers.map(escape).join(','),
     ...rows.map(r => r.map(escape).join(','))
@@ -9,8 +12,13 @@ export function exportToCsv(filename: string, headers: string[], rows: string[][
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  try {
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('CSV export failed:', error);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
