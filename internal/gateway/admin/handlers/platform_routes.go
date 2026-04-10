@@ -3,10 +3,12 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -65,14 +67,6 @@ func (row platformRouteRow) toJSON() map[string]interface{} {
 		m["legal_entity_inn"] = nullableString(&row.LegalEntityINN.String)
 	}
 	return m
-}
-
-// nullableString returns nil for nil pointer or empty string, else the value.
-func nullableString(s *string) interface{} {
-	if s == nil || *s == "" {
-		return nil
-	}
-	return *s
 }
 
 // ListPlatformRoutes обрабатывает GET /admin/v1/platform-routes
@@ -167,6 +161,11 @@ func (h *PlatformRoutesHandlers) CreatePlatformRoute(w http.ResponseWriter, r *h
 		RETURNING id::text, created_at
 	`, req.OperatorID, req.ChannelType, req.ProviderID, req.LegalEntityID, req.Priority).Scan(&newID, &createdAt)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+			respondError(w, shared.ErrInvalidInput("При All Networks необходимо указать legal_entity_id"))
+			return
+		}
 		log.Error().Err(err).Msg("platform_routes: ошибка создания")
 		respondError(w, shared.ErrInternal("Ошибка создания маршрута"))
 		return
@@ -196,16 +195,21 @@ func (h *PlatformRoutesHandlers) UpdatePlatformRoute(w http.ResponseWriter, r *h
 
 	res, err := h.db.ExecContext(r.Context(), `
 		UPDATE platform_routes
-		SET operator_id     = CASE WHEN $2 IS NULL THEN operator_id ELSE $2::uuid END,
+		SET operator_id     = CASE WHEN $2 IS NULL THEN operator_id ELSE NULLIF($2, '')::uuid END,
 		    channel_type    = COALESCE(NULLIF($3,''), channel_type),
 		    provider_id     = COALESCE(NULLIF($4, '')::uuid, provider_id),
-		    legal_entity_id = CASE WHEN $5 IS NULL THEN legal_entity_id ELSE $5::uuid END,
+		    legal_entity_id = CASE WHEN $5 IS NULL THEN legal_entity_id ELSE NULLIF($5, '')::uuid END,
 		    priority        = COALESCE($6, priority),
 		    active          = COALESCE($7, active),
 		    updated_at      = now()
 		WHERE id = $1::uuid
 	`, id, nullableString(req.OperatorID), req.ChannelType, req.ProviderID, nullableString(req.LegalEntityID), req.Priority, req.Active)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+			respondError(w, shared.ErrInvalidInput("При All Networks необходимо указать legal_entity_id"))
+			return
+		}
 		log.Error().Err(err).Msg("platform_routes: ошибка обновления")
 		respondError(w, shared.ErrInternal("Ошибка обновления маршрута"))
 		return

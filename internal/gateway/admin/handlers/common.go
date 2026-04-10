@@ -27,6 +27,15 @@ func safeTimestamp(ts *timestamppb.Timestamp) time.Time {
 	return ts.AsTime()
 }
 
+// nullableString converts *string to interface{} for SQL parameters.
+// nil pointer or empty string → nil (SQL NULL); otherwise the value.
+func nullableString(s *string) interface{} {
+	if s == nil || *s == "" {
+		return nil
+	}
+	return *s
+}
+
 // parseIntParam извлекает целочисленный query-параметр с дефолтным значением
 func parseIntParam(r *http.Request, name string, defaultVal int32) int32 {
 	val := r.URL.Query().Get(name)
