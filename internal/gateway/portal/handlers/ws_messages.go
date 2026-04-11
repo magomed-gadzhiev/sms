@@ -59,6 +59,8 @@ func (h *WsMessagesHandlers) StreamMessages(w http.ResponseWriter, r *http.Reque
 	}
 	defer conn.Close()
 
+	ctx := r.Context()
+
 	// Subscribe to SSE hub for status updates
 	var statusCh chan sse.Event
 	if h.hub != nil {
@@ -121,7 +123,7 @@ func (h *WsMessagesHandlers) StreamMessages(w http.ResponseWriter, r *http.Reque
 			since := lastPoll
 			lastPoll = time.Now()
 
-			rows, err := h.dbPool.Query(r.Context(),
+			rows, err := h.dbPool.Query(ctx,
 				`SELECT m.id, m.created_at, m.status, m.destination,
 				        COALESCE(m.text, ''), COALESCE(m.source, '')
 				 FROM messages m
@@ -145,6 +147,7 @@ func (h *WsMessagesHandlers) StreamMessages(w http.ResponseWriter, r *http.Reque
 					if err := rows.Scan(&id, &createdAt, &status, &destination, &text, &source); err != nil {
 						continue
 					}
+					// TODO: add JOINs to operators/providers tables to populate Operator and Provider fields
 					wsEvt := wsMessageEvent{
 						MessageID:    id,
 						Timestamp:    createdAt.Format(time.RFC3339),
