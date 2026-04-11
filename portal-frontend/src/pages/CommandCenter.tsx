@@ -192,7 +192,7 @@ function SmartAlerts({ alerts }: { alerts: AlertItem[] }) {
         {alerts.length === 0 && (
           <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs">✓ Нет активных оповещений</p>
         )}
-        {alerts.map((a) => (
+        {alerts.slice(0, 5).map((a) => (
           <div
             key={a.id}
             className="flex gap-2 rounded-lg p-2"
