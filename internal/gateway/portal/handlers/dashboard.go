@@ -49,6 +49,33 @@ func calcProfileCompletion(hasEmail, hasCompany, hasContact, hasPhone, has2FA, h
 	return profileCompletion{Percentage: pct, Steps: steps}
 }
 
+// sparkline1HBuckets returns 24 per-hour message-sent counts for the last 24 hours.
+// Returns a slice of 24 zeros if the analytics client is unavailable.
+// Note: "minute" groupBy is not supported by the analytics service; hourly buckets are used instead.
+func sparkline1HBuckets(groups []*analyticsv1.StatisticGroup, now time.Time) []int64 {
+	buckets := make(map[string]int64)
+	for _, g := range groups {
+		if g.Stats != nil {
+			buckets[g.Key] = g.Stats.TotalSent
+		}
+	}
+	result := make([]int64, 24)
+	for i := 0; i < 24; i++ {
+		t := now.Add(-time.Duration(24-i) * time.Hour)
+		key := t.Format("2006-01-02T15")
+		result[i] = buckets[key]
+	}
+	return result
+}
+
+// msgPerSec estimates current messages/sec from the last-hour bucket.
+func msgPerSec(sparkline []int64) float64 {
+	if len(sparkline) == 0 {
+		return 0
+	}
+	return float64(sparkline[len(sparkline)-1]) / 3600.0
+}
+
 // DashboardHandlers содержит handlers для дашборда
 type DashboardHandlers struct {
 	billingClient   billingv1.BillingServiceClient
@@ -100,6 +127,12 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 
 		hasEmail bool
 		has2FA   bool
+	)
+
+	var (
+		sparkline         []int64
+		deliveryRate24h   int32
+		deliveryRateTrend int32
 	)
 
 	// 1. Получаем баланс
@@ -254,6 +287,65 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 		}
 	}()
 
+	// 7. Получаем sparkline (почасовые данные за последние 24 часа)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if h.analyticsClient == nil {
+			return
+		}
+		now := time.Now()
+		oneDayAgo := now.Add(-24 * time.Hour)
+		resp, err := h.analyticsClient.GetStatistics(ctx, &analyticsv1.GetStatisticsRequest{
+			ClientId: clientID.String(),
+			From:     timestamppb.New(oneDayAgo),
+			To:       timestamppb.New(now),
+			GroupBy:  "hour",
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка получения спарклайна дашборда")
+			return
+		}
+		sparkline = sparkline1HBuckets(resp.Groups, now)
+	}()
+
+	// 8. Получаем delivery rate за 24h + тренд за неделю
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if h.analyticsClient == nil {
+			return
+		}
+		now := time.Now()
+
+		// 24h delivery rate
+		resp, err := h.analyticsClient.GetStatistics(ctx, &analyticsv1.GetStatisticsRequest{
+			ClientId: clientID.String(),
+			From:     timestamppb.New(now.Add(-24 * time.Hour)),
+			To:       timestamppb.New(now),
+			GroupBy:  "day",
+		})
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка получения delivery rate 24h")
+			return
+		}
+		if resp.Totals != nil {
+			deliveryRate24h = resp.Totals.SuccessRate
+		}
+
+		// Trend vs same 24h last week
+		weekAgo := now.AddDate(0, 0, -7)
+		resp2, err2 := h.analyticsClient.GetStatistics(ctx, &analyticsv1.GetStatisticsRequest{
+			ClientId: clientID.String(),
+			From:     timestamppb.New(weekAgo),
+			To:       timestamppb.New(weekAgo.Add(24 * time.Hour)),
+			GroupBy:  "day",
+		})
+		if err2 == nil && resp2.Totals != nil {
+			deliveryRateTrend = deliveryRate24h - resp2.Totals.SuccessRate
+		}
+	}()
+
 	wg.Wait()
 
 	if chartTimeline == nil {
@@ -261,6 +353,9 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	if statusDistribution == nil {
 		statusDistribution = []map[string]interface{}{}
+	}
+	if sparkline == nil {
+		sparkline = make([]int64, 24)
 	}
 
 	completion := calcProfileCompletion(hasEmail, false, false, false, has2FA, false)
@@ -279,6 +374,14 @@ func (h *DashboardHandlers) GetDashboard(w http.ResponseWriter, r *http.Request)
 			"status_distribution": statusDistribution,
 			"delivery_rate_trend": trendDelta,
 		},
+		"msg_per_sec":             msgPerSec(sparkline),
+		"msg_per_sec_trend_pct":   int32(0), // TODO: compare vs yesterday
+		"delivery_rate_24h":       deliveryRate24h,
+		"delivery_rate_trend_pct": deliveryRateTrend,
+		"burn_rate_per_hour":      "0.00", // TODO: compute from billing transactions
+		"forecast_hours":          0,      // TODO: compute from balance / burn_rate
+		"sparkline_1h":            sparkline,
+		"active_campaigns":        []interface{}{}, // TODO: wire to campaign service
 	}
 
 	respondJSON(w, http.StatusOK, response)
