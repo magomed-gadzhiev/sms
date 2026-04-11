@@ -16,6 +16,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/config"
+	grpcapi "github.com/smpp-server/smpp-server/internal/api/grpc"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/application"
@@ -175,6 +176,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(cfg.API.GRPC.MaxRecv),
 		grpc.MaxSendMsgSize(cfg.API.GRPC.MaxSend),
+		grpc.UnaryInterceptor(grpcapi.TraceUnaryServerInterceptor()),
 	)
 
 	// Регистрация gRPC сервиса
