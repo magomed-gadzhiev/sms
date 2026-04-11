@@ -109,6 +109,7 @@ func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {
 
 	// Публикуем в Kafka
 	kafkaMsg := queue.FromMessage(msg)
+	kafkaMsg.TraceID = shared.GetRequestID(r.Context())
 	if err := h.producer.PublishOutgoing(r.Context(), kafkaMsg); err != nil {
 		log.Error().Err(err).Msg("ошибка публикации сообщения в Kafka")
 		respondError(w, shared.ErrKafkaProducer(err))
@@ -207,6 +208,7 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 
 		// Публикуем в Kafka
 		kafkaMsg := queue.FromMessage(msg)
+		kafkaMsg.TraceID = shared.GetRequestID(r.Context())
 
 		if h.asyncProducer != nil {
 			// Асинхронная пакетная публикация через AsyncProducer (T032)
