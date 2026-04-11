@@ -13,6 +13,10 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      window.location.href = '/login';
+      throw new ApiError(401, 'Unauthorized');
+    }
     const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
     let msg = err.error?.message || res.statusText;
     if (typeof msg === 'string') {

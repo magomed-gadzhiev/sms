@@ -406,8 +406,14 @@ export function CommandCenter() {
     ? '● Все системы в норме'
     : `⚠ ${degradedCount} провайдер${degradedCount === 1 ? '' : 'а'} деградирует`;
 
-  const balanceForecast = metrics
-    ? `₽${metrics.burn_rate_per_hour}/ч · хватит на ${metrics.forecast_hours}ч`
+  const balanceFormatted = metrics
+    ? `${parseFloat(metrics.balance).toFixed(2)} ${metrics.currency}`
+    : '—';
+
+  const balanceForecast = metrics && parseFloat(metrics.burn_rate_per_hour) > 0
+    ? `₽${parseFloat(metrics.burn_rate_per_hour).toFixed(2)}/ч · хватит на ${metrics.forecast_hours}ч`
+    : metrics
+    ? 'Расходов нет'
     : '—';
 
   return (
@@ -437,7 +443,7 @@ export function CommandCenter() {
               style={{ color: 'var(--cc-text)', background: 'var(--cc-surface)', border: '1px solid var(--cc-border)' }}
               className="text-sm px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
             >
-              {metrics.balance} {metrics.currency}
+              {balanceFormatted}
             </Link>
           )}
           <Link
@@ -495,7 +501,7 @@ export function CommandCenter() {
 
         <KpiCard
           title="Баланс"
-          value={metrics ? `${metrics.balance} ${metrics.currency}` : '—'}
+          value={balanceFormatted}
           subtitle={balanceForecast}
         >
           {metrics && (
