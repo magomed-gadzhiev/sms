@@ -49,6 +49,7 @@ services:
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
       - CASCADE_SERVICE_ADDR=cascade-service:9110
       - CLIENT_SERVICE_ADDR=client-service:9095
+      - LOAD_TEST_MODE=${LOAD_TEST_MODE:-false}
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -112,6 +113,7 @@ services:
       - TARIFICATION_SERVICE_ADDR=tarification-service:9100
       - CASCADE_SERVICE_ADDR=cascade-service:9110
       - CLIENT_SERVICE_ADDR=client-service:9095
+      - LOAD_TEST_MODE=${LOAD_TEST_MODE:-false}
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
