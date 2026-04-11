@@ -33,6 +33,7 @@ type statusRecord struct {
 	SubmittedAt   *time.Time
 	UpdatedAt     time.Time
 	SegmentCount  int
+	SentAt        time.Time
 }
 
 // asyncPublisher — минимальный интерфейс для публикации статусов.
@@ -167,6 +168,7 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 		trace.Log(s.logger, r.TraceID, r.MessageID.String(), "status", "upserted").
 			Str("status", r.Status).
 			Str("smpp_message_id", r.SMPPMessageID).
+			Int64("kafka_wait_ms", time.Since(r.SentAt).Milliseconds()).
 			Msg("status written to DB")
 	}
 	s.publishStatusUpdates(records)
@@ -205,6 +207,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 			SubmittedAt:   &sent.SentAt,
 			UpdatedAt:     time.Now(),
 			SegmentCount:  sent.SegmentsCount,
+			SentAt:        sent.SentAt,
 		}, nil
 
 	case s.cfg.Kafka.TopicDLR:
