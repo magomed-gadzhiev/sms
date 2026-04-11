@@ -64,7 +64,7 @@ if curl -sf --max-time 3 "${PROM_HOST}/-/ready" >/dev/null 2>&1; then
     echo "Prometheus reachable — metrics will stream to Grafana"
     PROM_FLAGS=("--out" "experimental-prometheus-rw")
     export K6_PROMETHEUS_RW_SERVER_URL="${PROM_URL}"
-    export K6_PROMETHEUS_RW_TREND_STATS="p50,p95,p99"
+    export K6_PROMETHEUS_RW_TREND_STATS="p(50),p(95),p(99)"
     export K6_PROMETHEUS_RW_PUSH_INTERVAL="5s"
 else
     echo "WARNING: Prometheus not reachable at ${PROM_HOST}"
