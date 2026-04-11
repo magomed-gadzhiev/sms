@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,17 +24,18 @@ func NewCampaignScheduleHandlers(db *pgxpool.Pool) *CampaignScheduleHandlers {
 }
 
 type CampaignSchedule struct {
-	ID                 string  `json:"id"`
-	Name               string  `json:"name"`
-	TemplateCampaignID string  `json:"template_campaign_id"`
-	Frequency          string  `json:"frequency"`
-	CronExpression     *string `json:"cron_expression,omitempty"`
-	NextRunAt          *string `json:"next_run_at,omitempty"`
-	LastRunAt          *string `json:"last_run_at,omitempty"`
-	IsActive           bool    `json:"is_active"`
-	RunCount           int     `json:"run_count"`
-	MaxRuns            *int    `json:"max_runs,omitempty"`
-	CreatedAt          string  `json:"created_at"`
+	ID                   string  `json:"id"`
+	Name                 string  `json:"name"`
+	TemplateCampaignID   string  `json:"template_campaign_id"`
+	TemplateCampaignName string  `json:"template_campaign_name"`
+	Frequency            string  `json:"frequency"`
+	CronExpression       *string `json:"cron_expression,omitempty"`
+	NextRunAt            *string `json:"next_run_at,omitempty"`
+	LastRunAt            *string `json:"last_run_at,omitempty"`
+	IsActive             bool    `json:"is_active"`
+	RunCount             int     `json:"run_count"`
+	MaxRuns              *int    `json:"max_runs,omitempty"`
+	CreatedAt            string  `json:"created_at"`
 }
 
 func (h *CampaignScheduleHandlers) List(w http.ResponseWriter, r *http.Request) {
@@ -43,12 +45,14 @@ func (h *CampaignScheduleHandlers) List(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	rows, err := h.db.Query(r.Context(), `
-		SELECT id::text, name, template_campaign_id::text, frequency,
-			cron_expression, next_run_at::text, last_run_at::text,
-			is_active, run_count, max_runs, created_at::text
-		FROM campaign_schedules
-		WHERE client_id = $1
-		ORDER BY created_at DESC
+		SELECT cs.id::text, cs.name, cs.template_campaign_id::text,
+			COALESCE(c.name, ''), cs.frequency,
+			cs.cron_expression, cs.next_run_at::text, cs.last_run_at::text,
+			cs.is_active, cs.run_count, cs.max_runs, cs.created_at::text
+		FROM campaign_schedules cs
+		LEFT JOIN campaigns c ON c.id = cs.template_campaign_id
+		WHERE cs.client_id = $1
+		ORDER BY cs.created_at DESC
 	`, clientID.String())
 	if err != nil {
 		respondError(w, shared.ErrInternalServer("Ошибка получения расписаний"))
@@ -59,8 +63,8 @@ func (h *CampaignScheduleHandlers) List(w http.ResponseWriter, r *http.Request) 
 	for rows.Next() {
 		var s CampaignSchedule
 		if err := rows.Scan(
-			&s.ID, &s.Name, &s.TemplateCampaignID, &s.Frequency,
-			&s.CronExpression, &s.NextRunAt, &s.LastRunAt,
+			&s.ID, &s.Name, &s.TemplateCampaignID, &s.TemplateCampaignName,
+			&s.Frequency, &s.CronExpression, &s.NextRunAt, &s.LastRunAt,
 			&s.IsActive, &s.RunCount, &s.MaxRuns, &s.CreatedAt,
 		); err != nil {
 			continue
@@ -97,6 +101,8 @@ func (h *CampaignScheduleHandlers) Create(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInvalidInput("Некорректное тело запроса"))
 		return
 	}
+
+	req.Name = strings.TrimSpace(req.Name)
 
 	// Required field validation
 	if req.Name == "" || req.TemplateCampaignID == "" || req.Frequency == "" {

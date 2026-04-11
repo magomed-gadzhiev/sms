@@ -51,6 +51,7 @@ export function CampaignSchedulesPage() {
   // Campaigns for template picker
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [campaignsError, setCampaignsError] = useState(false);
 
   // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -76,6 +77,7 @@ export function CampaignSchedulesPage() {
   async function openCreateModal() {
     setForm(EMPTY_FORM);
     setCreateError('');
+    setCampaignsError(false);
     setShowCreate(true);
     // Load campaigns for the template picker
     setCampaignsLoading(true);
@@ -84,6 +86,7 @@ export function CampaignSchedulesPage() {
       setCampaigns(resp.campaigns ?? []);
     } catch {
       setCampaigns([]);
+      setCampaignsError(true);
     } finally {
       setCampaignsLoading(false);
     }
@@ -165,9 +168,25 @@ export function CampaignSchedulesPage() {
       render: (s) => <span className="font-medium text-gray-900">{s.name}</span>,
     },
     {
+      key: 'template_campaign_name',
+      header: 'Кампания-шаблон',
+      responsive: true,
+      render: (s) => (
+        <span className="text-gray-600 text-sm">
+          {s.template_campaign_name || <span className="text-gray-400 italic">удалена</span>}
+        </span>
+      ),
+    },
+    {
       key: 'frequency',
       header: 'Частота',
       render: (s) => <span>{FREQUENCY_LABELS[s.frequency] ?? s.frequency}</span>,
+    },
+    {
+      key: 'last_run_at',
+      header: 'Последний запуск',
+      responsive: true,
+      render: (s) => <span className="text-gray-500 text-sm">{formatDate(s.last_run_at)}</span>,
     },
     {
       key: 'next_run_at',
@@ -279,7 +298,16 @@ export function CampaignSchedulesPage() {
               Кампания-шаблон
             </label>
             {campaignsLoading ? (
-              <p className="text-sm text-gray-400">Загрузка кампаний...</p>
+              <select disabled className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 text-gray-400">
+                <option>Загрузка кампаний...</option>
+              </select>
+            ) : campaignsError ? (
+              <p className="text-sm text-red-600">
+                Не удалось загрузить кампании.{' '}
+                <button type="button" className="underline" onClick={openCreateModal}>
+                  Повторить
+                </button>
+              </p>
             ) : campaigns.length === 0 ? (
               <p className="text-sm text-amber-600">
                 Нет доступных кампаний. Создайте кампанию, чтобы использовать её как шаблон.

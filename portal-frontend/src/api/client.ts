@@ -797,6 +797,7 @@ export interface CampaignSchedule {
   id: string;
   name: string;
   template_campaign_id: string;
+  template_campaign_name: string;
   frequency: string;
   cron_expression?: string;
   next_run_at?: string;
