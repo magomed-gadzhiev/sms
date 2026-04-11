@@ -1,0 +1,164 @@
+{
+  "title": "Pipeline Bottleneck",
+  "uid": "pipeline-bottleneck",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "trace_id",
+        "type": "textbox",
+        "label": "Trace ID",
+        "current": { "value": "" },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Log Explorer (filter by Trace ID)",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "{service=~\"pipeline-.*\"} | json | trace_id=~\"${trace_id:pipe}\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": false,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Kafka Wait by Stage (avg ms, 1m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "avg_over_time({service=\"pipeline-router\"} | json | kafka_wait_ms != \"\" | unwrap kafka_wait_ms [1m])",
+          "refId": "A",
+          "legendFormat": "router"
+        },
+        {
+          "expr": "avg_over_time({service=\"pipeline-sender\"} | json | kafka_wait_ms != \"\" | unwrap kafka_wait_ms [1m])",
+          "refId": "B",
+          "legendFormat": "sender"
+        },
+        {
+          "expr": "avg_over_time({service=\"pipeline-status\"} | json | kafka_wait_ms != \"\" | unwrap kafka_wait_ms [1m])",
+          "refId": "C",
+          "legendFormat": "status"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Sender: Wait vs Processing Time (avg ms, 1m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "avg_over_time({service=\"pipeline-sender\"} | json | kafka_wait_ms != \"\" | unwrap kafka_wait_ms [1m])",
+          "refId": "A",
+          "legendFormat": "kafka_wait (queue backlog)"
+        },
+        {
+          "expr": "avg_over_time({service=\"pipeline-sender\"} | json | processing_ms != \"\" | unwrap processing_ms [1m])",
+          "refId": "B",
+          "legendFormat": "processing (SMPP call)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Stage Throughput (completed events/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate({service=~\"pipeline-.*\"} | json | event=\"route_matched\" [1m]))",
+          "refId": "A",
+          "legendFormat": "router ({{service}})"
+        },
+        {
+          "expr": "sum by (service) (rate({service=~\"pipeline-sender.*\"} | json | event=\"completed\" [1m]))",
+          "refId": "B",
+          "legendFormat": "sender ({{service}})"
+        },
+        {
+          "expr": "sum by (service) (rate({service=~\"pipeline-status.*\"} | json | event=\"upserted\" [1m]))",
+          "refId": "C",
+          "legendFormat": "status ({{service}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Errors by Stage (5m window)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum by (component) (count_over_time({service=~\"pipeline-.*\"} | json | level=\"error\" [5m]))",
+          "refId": "A",
+          "legendFormat": "{{component}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "red" } }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Slow Messages — sender kafka_wait > 5s",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "{service=\"pipeline-sender\"} | json | kafka_wait_ms > 5000 | line_format \"trace={{.trace_id}} wait={{.kafka_wait_ms}}ms proc={{.processing_ms}}ms msg={{.message_id}}\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      }
+    }
+  ]
+}
