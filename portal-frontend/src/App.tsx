@@ -8,8 +8,8 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
 import { PasswordResetPage } from './pages/auth/PasswordResetPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
-import { CommandCenter } from './pages/CommandCenter';
-import { NotificationsPage } from './pages/notifications/NotificationsPage';
+const CommandCenter = lazy(() => import('./pages/CommandCenter').then((m) => ({ default: m.CommandCenter })));
+const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 import { MessagesPage } from './pages/messages/MessagesPage';
 import { APIKeysPage } from './pages/api-keys/APIKeysPage';
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage';
@@ -100,8 +100,8 @@ export function App() {
 
       <Route element={<RequireAuth />}>
         <Route path="/dashboard" element={<Navigate to="/command-center" replace />} />
-        <Route path="/command-center" element={<CommandCenter />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/command-center" element={<Suspense fallback={null}><CommandCenter /></Suspense>} />
+        <Route path="/notifications" element={<Suspense fallback={null}><NotificationsPage /></Suspense>} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/:id" element={<MessageDetailPage />} />
         <Route path="/detalization" element={<DetalizationPage />} />
