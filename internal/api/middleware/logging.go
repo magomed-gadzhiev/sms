@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"time"
 
@@ -74,4 +76,9 @@ func (lw *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := lw.ResponseWriter.Write(b)
 	lw.size += size
 	return size, err
+}
+
+// Hijack implements http.Hijacker to support WebSocket upgrades.
+func (lw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return lw.ResponseWriter.(http.Hijacker).Hijack()
 }
