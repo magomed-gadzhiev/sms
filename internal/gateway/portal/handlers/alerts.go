@@ -115,34 +115,36 @@ func (h *AlertsHandlers) GetAlerts(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Warn().Err(err).Msg("alerts: не удалось получить уведомления")
 			} else {
-				defer rows.Close()
-				for rows.Next() {
-					var id, typ, body string
-					var createdAt interface{}
-					if err := rows.Scan(&id, &typ, &body, &createdAt); err != nil {
-						continue
+				func() {
+					defer rows.Close()
+					for rows.Next() {
+						var id, typ, body string
+						var createdAt interface{}
+						if err := rows.Scan(&id, &typ, &body, &createdAt); err != nil {
+							continue
+						}
+						ts := now
+						if t, ok2 := createdAt.(interface{ Format(string) string }); ok2 {
+							ts = t.Format(time.RFC3339)
+						}
+						aType := "info"
+						switch typ {
+						case "warning", "low_balance":
+							aType = "warning"
+						case "critical", "provider_degraded":
+							aType = "critical"
+						case "campaign_completed", "template_approved":
+							aType = "success"
+						}
+						alerts = append(alerts, alertItem{
+							ID:          "notif-" + id,
+							Type:        aType,
+							Title:       typ,
+							Description: body,
+							CreatedAt:   ts,
+						})
 					}
-					ts := now
-					if t, ok2 := createdAt.(interface{ Format(string) string }); ok2 {
-						ts = t.Format(time.RFC3339)
-					}
-					aType := "info"
-					switch typ {
-					case "warning", "low_balance":
-						aType = "warning"
-					case "critical", "provider_degraded":
-						aType = "critical"
-					case "campaign_completed", "template_approved":
-						aType = "success"
-					}
-					alerts = append(alerts, alertItem{
-						ID:          "notif-" + id,
-						Type:        aType,
-						Title:       typ,
-						Description: body,
-						CreatedAt:   ts,
-					})
-				}
+				}()
 			}
 		}
 	}

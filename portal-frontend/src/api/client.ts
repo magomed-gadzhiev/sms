@@ -853,7 +853,7 @@ export interface DashboardMetrics {
   delivery_rate_trend_pct: number;
   burn_rate_per_hour: string;
   forecast_hours: number;
-  sparkline_1h: number[];
+  sparkline_1h: number[];              // last 24 data points (1 per hour; backend groups by hour)
   messages_today: number;
   active_campaigns: ActiveCampaign[];
 }
