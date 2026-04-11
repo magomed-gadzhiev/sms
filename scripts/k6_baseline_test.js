@@ -3,6 +3,10 @@ import { check, sleep } from 'k6';
 import { Rate, Counter, Trend } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 
+// 404 on PollStatus means "message still being processed by pipeline" — not a failure.
+// This tells k6 not to count 404 as http_req_failed for PollStatus requests.
+const pollStatusExpected = http.expectedStatuses({ min: 200, max: 299 }, 404);
+
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
 const destinations = new SharedArray('destinations', function () {
@@ -80,9 +84,10 @@ const pipelineOptions = {
         },
     },
     thresholds: {
-        'http_req_duration{name:SendSMS}': ['p(95)<500', 'p(99)<1000'],
-        'http_req_failed':                 ['rate<0.01'],
-        'sms_pipeline_errors':             ['rate<0.02'],
+        'http_req_duration{name:SendSMS}':  ['p(95)<500', 'p(99)<1000'],
+        'http_req_failed{name:SendSMS}':    ['rate<0.01'],
+        'http_req_failed{name:SendBatch}':  ['rate<0.01'],
+        'sms_pipeline_errors':              ['rate<0.02'],
     },
     tags: commonTags,
 };
@@ -99,7 +104,8 @@ const soakOptions = {
     },
     thresholds: {
         'http_req_duration{name:SendSMS}': ['p(95)<500'],
-        'http_req_failed':                 ['rate<0.01'],
+        'http_req_failed{name:SendSMS}':   ['rate<0.01'],
+        'http_req_failed{name:SendBatch}': ['rate<0.01'],
         'sms_pipeline_errors':             ['rate<0.02'],
     },
     tags: commonTags,
@@ -246,11 +252,18 @@ function pollStatus() {
     const res = http.get(`${BASE_URL}/api/v1/sms/status/${msg.id}`, {
         headers: { 'X-API-Key': API_KEY },
         tags: { name: 'PollStatus' },
+        responseCallback: pollStatusExpected,
     });
 
+    // 404 = message still being processed by pipeline (Kafka lag) — keep in queue
+    if (res.status === 404) {
+        return true;
+    }
+
     if (!check(res, { 'PollStatus status 200': r => r.status === 200 })) {
+        // 5xx or network error — real failure
         pipelineErrors.add(1);
-        q.shift(); // don't retry a message that got an HTTP error
+        q.shift();
         return false;
     }
 
