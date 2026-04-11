@@ -129,7 +129,7 @@ export function NotificationSettingsPage() {
               onKeyDown={(e) => e.key === 'Enter' && addEmail()}
               className="flex-1"
             />
-            <Button variant="outline" onClick={addEmail}>Добавить</Button>
+            <Button variant="secondary" onClick={addEmail}>Добавить</Button>
           </div>
           {extraEmails.length > 0 ? (
             <ul className="space-y-2">
