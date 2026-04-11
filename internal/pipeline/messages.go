@@ -43,17 +43,18 @@ func DeserializeRoutedMessage(data []byte) (*RoutedMessage, error) {
 // Фиксирует результат SMPP-отправки.
 // Topic: sms.sent, partition key: provider_id.
 type SentMessage struct {
-	SchemaVersion int       `json:"schema_version"`
-	MessageID     uuid.UUID `json:"message_id"`
-	TraceID       string    `json:"trace_id,omitempty"`
-	ProviderID    uuid.UUID `json:"provider_id"`
-	SMPPMessageID string    `json:"smpp_message_id"`
-	Status        string    `json:"status"` // sent, failed, retry
-	ErrorCode     *int      `json:"error_code,omitempty"`
-	ErrorMessage  *string   `json:"error_message,omitempty"`
-	SentAt        time.Time `json:"sent_at"`
-	SegmentsCount int       `json:"segments_count"`
-	ConnectionID  string    `json:"connection_id"`
+	SchemaVersion int        `json:"schema_version"`
+	MessageID     uuid.UUID  `json:"message_id"`
+	TraceID       string     `json:"trace_id,omitempty"`
+	ProviderID    uuid.UUID  `json:"provider_id"`
+	RouteID       *uuid.UUID `json:"route_id,omitempty"`
+	SMPPMessageID string     `json:"smpp_message_id"`
+	Status        string     `json:"status"` // sent, failed, retry
+	ErrorCode     *int       `json:"error_code,omitempty"`
+	ErrorMessage  *string    `json:"error_message,omitempty"`
+	SentAt        time.Time  `json:"sent_at"`
+	SegmentsCount int        `json:"segments_count"`
+	ConnectionID  string     `json:"connection_id"`
 }
 
 func (m *SentMessage) Serialize() ([]byte, error) { return json.Marshal(m) }
