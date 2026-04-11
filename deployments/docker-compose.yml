@@ -60,6 +60,7 @@ services:
       - REDIS_PORT=6379
       - SMPP_DATABASE_MAX_OPEN_CONNS=100
       - SMPP_DATABASE_MAX_IDLE_CONNS=20
+      - SMPP_SERVICE_ENV=production
     networks:
       - smpp-network
     depends_on:
@@ -124,6 +125,7 @@ services:
       - REDIS_PORT=6379
       - SMPP_DATABASE_MAX_OPEN_CONNS=100
       - SMPP_DATABASE_MAX_IDLE_CONNS=20
+      - SMPP_SERVICE_ENV=production
     networks:
       - smpp-network
     depends_on:
@@ -360,6 +362,7 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - SMPP_SERVICE_ENV=production
     networks:
       - smpp-network
     depends_on:
@@ -393,6 +396,7 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - SMPP_SERVICE_ENV=production
     networks:
       - smpp-network
     depends_on:
@@ -424,6 +428,7 @@ services:
       - POSTGRES_DB=smpp_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - SMPP_SERVICE_ENV=production
     networks:
       - smpp-network
     depends_on:
