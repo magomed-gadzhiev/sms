@@ -249,9 +249,11 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Create temp table (idempotent for PgBouncer transaction pooling)
+	// 1. Create temp table. Drop-and-recreate ensures schema is always current
+	// (PgBouncer may hand us a reused backend connection with an old schema).
 	_, err = tx.Exec(ctx, `
-		CREATE TEMP TABLE IF NOT EXISTS status_batch (
+		DROP TABLE IF EXISTS status_batch;
+		CREATE TEMP TABLE status_batch (
 			id UUID,
 			status TEXT,
 			smpp_message_id TEXT,
