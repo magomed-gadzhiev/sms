@@ -73,7 +73,7 @@ configs/*.yaml
 # Compiled Go binaries (root level)
 admin-gateway
 client-gateway
-portal-gateway
+/portal-gateway
 messaging-service
 template-service
 webhook-service
@@ -93,7 +93,7 @@ webhook-service
 pipeline-worker
 admin-gateway
 client-gateway
-portal-gateway
+/portal-gateway
 messaging-service
 template-service
 campaign-service

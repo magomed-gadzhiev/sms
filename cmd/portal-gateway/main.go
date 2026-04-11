@@ -31,6 +31,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
 	cascadepg "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/postgres"
+	portalschedules "github.com/smpp-server/smpp-server/internal/gateway/portal/schedules"
 )
 
 func main() {
@@ -228,6 +229,11 @@ func main() {
 	notifScheduler := notifications.NewScheduler(dbPool, serviceClients.CampaignClient)
 	notifScheduler.Start()
 	defer notifScheduler.Stop()
+
+	// Запускаем планировщик повторяющихся рассылок
+	campaignScheduler := portalschedules.NewScheduler(dbPool, serviceClients.CampaignClient)
+	campaignScheduler.Start()
+	defer campaignScheduler.Stop()
 
 	// Создание cascade handlers
 	var cascadeChannelHandlers *handlers.CascadeChannelHandlers

@@ -3,12 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/schedules"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -53,7 +55,7 @@ func (h *CampaignScheduleHandlers) List(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer rows.Close()
-	schedules := make([]CampaignSchedule, 0)
+	scheduleList := make([]CampaignSchedule, 0)
 	for rows.Next() {
 		var s CampaignSchedule
 		if err := rows.Scan(
@@ -63,13 +65,13 @@ func (h *CampaignScheduleHandlers) List(w http.ResponseWriter, r *http.Request) 
 		); err != nil {
 			continue
 		}
-		schedules = append(schedules, s)
+		scheduleList = append(scheduleList, s)
 	}
 	if err := rows.Err(); err != nil {
 		respondError(w, shared.ErrInternalServer("Ошибка итерации строк"))
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]any{"schedules": schedules})
+	respondJSON(w, http.StatusOK, map[string]any{"schedules": scheduleList})
 }
 
 type createScheduleRequest struct {
@@ -78,6 +80,10 @@ type createScheduleRequest struct {
 	Frequency          string  `json:"frequency"`
 	CronExpression     *string `json:"cron_expression,omitempty"`
 	MaxRuns            *int    `json:"max_runs,omitempty"`
+}
+
+var validFrequencies = map[string]bool{
+	"daily": true, "weekly": true, "monthly": true, "custom": true,
 }
 
 func (h *CampaignScheduleHandlers) Create(w http.ResponseWriter, r *http.Request) {
@@ -91,15 +97,70 @@ func (h *CampaignScheduleHandlers) Create(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInvalidInput("Некорректное тело запроса"))
 		return
 	}
+
+	// Required field validation
 	if req.Name == "" || req.TemplateCampaignID == "" || req.Frequency == "" {
 		respondError(w, shared.ErrInvalidInput("name, template_campaign_id и frequency обязательны"))
 		return
 	}
+
+	// Frequency must be one of the allowed values
+	if !validFrequencies[req.Frequency] {
+		respondError(w, shared.ErrInvalidInput("frequency: допустимые значения: daily, weekly, monthly, custom"))
+		return
+	}
+
+	// Cron expression is required for custom frequency and must be valid
+	if req.Frequency == "custom" {
+		if req.CronExpression == nil || *req.CronExpression == "" {
+			respondError(w, shared.ErrInvalidInput("cron_expression обязателен для частоты 'custom'"))
+			return
+		}
+		if err := schedules.ValidateCronExpression(*req.CronExpression); err != nil {
+			respondError(w, shared.ErrInvalidInput("Некорректное cron-выражение: "+err.Error()))
+			return
+		}
+	}
+
+	// template_campaign_id must be a valid UUID
+	if _, err := uuid.Parse(req.TemplateCampaignID); err != nil {
+		respondError(w, shared.ErrInvalidInput("template_campaign_id: некорректный UUID"))
+		return
+	}
+
+	// template_campaign_id must exist and belong to this client
+	var exists bool
+	if err := h.db.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM campaigns WHERE id = $1::uuid AND client_id = $2)`,
+		req.TemplateCampaignID, clientID.String(),
+	).Scan(&exists); err != nil {
+		respondError(w, shared.ErrInternalServer("Ошибка проверки кампании-шаблона"))
+		return
+	}
+	if !exists {
+		respondError(w, shared.ErrNotFound("Кампания-шаблон не найдена или не принадлежит вашему аккаунту"))
+		return
+	}
+
+	// max_runs must be positive if provided
+	if req.MaxRuns != nil && *req.MaxRuns <= 0 {
+		respondError(w, shared.ErrInvalidInput("max_runs должно быть положительным числом"))
+		return
+	}
+
+	// Compute first next_run_at
+	cronExpr := ""
+	if req.CronExpression != nil {
+		cronExpr = *req.CronExpression
+	}
+	nextRunAt := schedules.NextRunTime(req.Frequency, cronExpr, time.Now().UTC())
+
 	id := uuid.New()
 	_, err := h.db.Exec(r.Context(), `
-		INSERT INTO campaign_schedules (id, client_id, name, template_campaign_id, frequency, cron_expression, max_runs, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, true)
-	`, id, clientID.String(), req.Name, req.TemplateCampaignID, req.Frequency, req.CronExpression, req.MaxRuns)
+		INSERT INTO campaign_schedules
+			(id, client_id, name, template_campaign_id, frequency, cron_expression, max_runs, next_run_at, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+	`, id, clientID.String(), req.Name, req.TemplateCampaignID, req.Frequency, req.CronExpression, req.MaxRuns, nextRunAt)
 	if err != nil {
 		respondError(w, shared.ErrInternalServer("Ошибка создания расписания"))
 		return

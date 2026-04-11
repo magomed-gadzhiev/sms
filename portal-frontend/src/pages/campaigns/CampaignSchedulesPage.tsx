@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { campaignSchedulesApi, type CampaignSchedule, ApiError } from '../../api/client';
+import { campaignsApi, type Campaign } from '../../api/campaigns';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -47,6 +48,10 @@ export function CampaignSchedulesPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
+  // Campaigns for template picker
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+
   // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -68,6 +73,22 @@ export function CampaignSchedulesPage() {
     load();
   }, [load]);
 
+  async function openCreateModal() {
+    setForm(EMPTY_FORM);
+    setCreateError('');
+    setShowCreate(true);
+    // Load campaigns for the template picker
+    setCampaignsLoading(true);
+    try {
+      const resp = await campaignsApi.list(1, 200);
+      setCampaigns(resp.campaigns ?? []);
+    } catch {
+      setCampaigns([]);
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }
+
   async function handleToggle(s: CampaignSchedule) {
     const newActive = !s.is_active;
     // Optimistic update
@@ -86,15 +107,27 @@ export function CampaignSchedulesPage() {
 
   async function handleCreate() {
     setCreateError('');
-    if (!form.name.trim() || !form.template_campaign_id.trim() || !form.frequency) {
-      setCreateError('Название, ID кампании-шаблона и частота обязательны');
+    if (!form.name.trim()) {
+      setCreateError('Укажите название расписания');
+      return;
+    }
+    if (!form.template_campaign_id) {
+      setCreateError('Выберите кампанию-шаблон');
+      return;
+    }
+    if (!form.frequency) {
+      setCreateError('Выберите частоту');
+      return;
+    }
+    if (form.frequency === 'custom' && !form.cron_expression.trim()) {
+      setCreateError('Укажите cron-выражение для частоты "По расписанию"');
       return;
     }
     setCreating(true);
     try {
       await campaignSchedulesApi.create({
         name: form.name.trim(),
-        template_campaign_id: form.template_campaign_id.trim(),
+        template_campaign_id: form.template_campaign_id,
         frequency: form.frequency,
         cron_expression: form.frequency === 'custom' && form.cron_expression.trim()
           ? form.cron_expression.trim()
@@ -169,7 +202,7 @@ export function CampaignSchedulesPage() {
         title="Повторяющиеся рассылки"
         subtitle="Автоматические рассылки по расписанию"
         actions={
-          <Button onClick={() => { setForm(EMPTY_FORM); setCreateError(''); setShowCreate(true); }}>
+          <Button onClick={openCreateModal}>
             + Новое расписание
           </Button>
         }
@@ -181,7 +214,7 @@ export function CampaignSchedulesPage() {
         <div className="text-center py-12 text-gray-500">
           <p className="mb-2">Расписания не созданы</p>
           <p className="text-sm mb-4">Создайте первое расписание для автоматических рассылок</p>
-          <Button variant="ghost" onClick={() => { setForm(EMPTY_FORM); setCreateError(''); setShowCreate(true); }}>
+          <Button variant="ghost" onClick={openCreateModal}>
             Создать расписание
           </Button>
         </div>
@@ -243,15 +276,31 @@ export function CampaignSchedulesPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              ID кампании-шаблона
+              Кампания-шаблон
             </label>
-            <input
-              type="text"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={form.template_campaign_id}
-              onChange={(e) => setForm((f) => ({ ...f, template_campaign_id: e.target.value }))}
-              placeholder="UUID кампании"
-            />
+            {campaignsLoading ? (
+              <p className="text-sm text-gray-400">Загрузка кампаний...</p>
+            ) : campaigns.length === 0 ? (
+              <p className="text-sm text-amber-600">
+                Нет доступных кампаний. Создайте кампанию, чтобы использовать её как шаблон.
+              </p>
+            ) : (
+              <select
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={form.template_campaign_id}
+                onChange={(e) => setForm((f) => ({ ...f, template_campaign_id: e.target.value }))}
+              >
+                <option value="">— выберите кампанию —</option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              Настройки (список контактов, шаблон сообщения) будут скопированы из выбранной кампании.
+            </p>
           </div>
 
           <div>
@@ -280,6 +329,9 @@ export function CampaignSchedulesPage() {
                 onChange={(e) => setForm((f) => ({ ...f, cron_expression: e.target.value }))}
                 placeholder="0 9 * * 1"
               />
+              <p className="text-xs text-gray-400 mt-1">
+                Формат: минута час день-месяца месяц день-недели. Пример: <code>0 9 * * 1</code> — каждый понедельник в 9:00.
+              </p>
             </div>
           )}
 
@@ -301,7 +353,7 @@ export function CampaignSchedulesPage() {
             <Button variant="secondary" onClick={() => setShowCreate(false)} disabled={creating}>
               Отмена
             </Button>
-            <Button onClick={handleCreate} disabled={creating}>
+            <Button onClick={handleCreate} disabled={creating || campaignsLoading}>
               {creating ? 'Создание...' : 'Создать'}
             </Button>
           </div>
