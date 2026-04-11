@@ -117,7 +117,9 @@ const headers = { 'Content-Type': 'application/json', 'X-API-Key': API_KEY };
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function destination() {
-    if (Math.random() < 0.7) return pick(destinations);
+    if (Math.random() < 0.7) return pick(destinations); // pre-vetted test numbers from fixtures
+    // Synthetic numbers: NOT guaranteed to be invalid MSISDNs.
+    // Only use this script against test/mock providers, never real SMPP providers.
     const prefixes = ['7910', '7903', '7920', '7900', '7999', '7985', '7925'];
     return pick(prefixes) + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
 }
@@ -138,10 +140,15 @@ function messageText() {
         .replace('{tx_id}',      Math.floor(10000000 + Math.random() * 90000000));
 }
 
-// VU-local queue of sent messages for e2e tracking
-// Each VU has its own copy; no shared mutable state between VUs.
-const pendingMessages = []; // { id: string, sentAt: number }
+// Per-VU pending message queues, keyed by __VU (k6 virtual user ID).
+// Module-scope objects are shared across VUs, so we key by __VU to get VU isolation.
+const _vuQueues = {}; // { [vuId]: Array<{ id: string, sentAt: number }> }
 const E2E_TIMEOUT_MS = 30000;
+
+function getQueue() {
+    if (!_vuQueues[__VU]) _vuQueues[__VU] = [];
+    return _vuQueues[__VU];
+}
 
 // ─── Request functions ─────────────────────────────────────────────────────
 
@@ -162,22 +169,18 @@ function sendSMS() {
     sendLatency.add(res.timings.duration);
     sentTotal.add(1);
 
+    let body = null;
+    try { body = JSON.parse(res.body); } catch { /* ignore */ }
+
     const ok = check(res, {
         'SendSMS status 200': r => r.status === 200,
-        'SendSMS has message_id': r => {
-            try { return !!JSON.parse(r.body).message_id; } catch { return false; }
-        },
+        'SendSMS has message_id': () => !!body?.message_id,
     });
 
-    if (ok) {
-        try {
-            const body = JSON.parse(res.body);
-            if (body.message_id) {
-                pendingMessages.push({ id: body.message_id, sentAt: Date.now() });
-                // Cap queue at 20 to prevent unbounded growth per VU
-                if (pendingMessages.length > 20) pendingMessages.shift();
-            }
-        } catch { /* ignore parse errors */ }
+    if (ok && body?.message_id) {
+        const q = getQueue();
+        q.push({ id: body.message_id, sentAt: Date.now() });
+        if (q.length > 20) q.shift();
     }
 
     return ok;
@@ -199,27 +202,44 @@ function sendBatch() {
 
     batchTotal.add(batchSize);
 
-    return check(res, {
+    const ok = check(res, {
         'SendBatch status 200': r => r.status === 200,
         'SendBatch has results': r => {
             try { return Array.isArray(JSON.parse(r.body).results); } catch { return false; }
         },
     });
+
+    // Track batch message IDs for e2e latency
+    try {
+        const body = JSON.parse(res.body);
+        if (Array.isArray(body.results)) {
+            const q = getQueue();
+            const sentAt = Date.now();
+            for (const r of body.results) {
+                if (r.message_id) {
+                    q.push({ id: r.message_id, sentAt });
+                    if (q.length > 20) q.shift();
+                }
+            }
+        }
+    } catch { /* ignore */ }
+
+    return ok;
 }
 
 function pollStatus() {
-    // If no pending messages, fall back to sendSMS
-    if (pendingMessages.length === 0) return sendSMS();
+    const q = getQueue();
 
-    const msg = pendingMessages[0];
-    const elapsed = Date.now() - msg.sentAt;
-
-    // Timeout — message never reached delivered
-    if (elapsed > E2E_TIMEOUT_MS) {
-        pendingMessages.shift();
+    // Drain expired messages from the front first
+    while (q.length > 0 && Date.now() - q[0].sentAt > E2E_TIMEOUT_MS) {
+        q.shift();
         pipelineErrors.add(1);
-        return false;
     }
+
+    // If no pending messages, fall back to sendSMS
+    if (q.length === 0) return sendSMS();
+
+    const msg = q[0];
 
     const res = http.get(`${BASE_URL}/api/v1/sms/status/${msg.id}`, {
         headers: { 'X-API-Key': API_KEY },
@@ -227,6 +247,8 @@ function pollStatus() {
     });
 
     if (!check(res, { 'PollStatus status 200': r => r.status === 200 })) {
+        pipelineErrors.add(1);
+        q.shift(); // don't retry a message that got an HTTP error
         return false;
     }
 
@@ -234,10 +256,10 @@ function pollStatus() {
         const status = JSON.parse(res.body).status;
         if (status === 'delivered' || status === 'sent') {
             e2eLatency.add(Date.now() - msg.sentAt);
-            pendingMessages.shift();
+            q.shift();
         } else if (status === 'failed' || status === 'rejected') {
             pipelineErrors.add(1);
-            pendingMessages.shift();
+            q.shift();
         }
         // 'pending', 'queued' etc → stay in queue, poll again next iteration
     } catch { /* ignore */ }
