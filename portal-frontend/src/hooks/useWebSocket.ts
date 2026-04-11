@@ -41,13 +41,6 @@ export function useWebSocket<T>({
   const onMessageRef  = useRef(onMessage);
   onMessageRef.current = onMessage;
 
-  const clearTimer = () => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
   const connect = useCallback(() => {
     if (closedByUs.current) return;
     setStatus('connecting');
@@ -93,7 +86,10 @@ export function useWebSocket<T>({
     connect();
     return () => {
       closedByUs.current = true;
-      clearTimer();
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       wsRef.current?.close();
     };
   }, [enabled, connect]);

@@ -871,7 +871,7 @@ export interface ActiveCampaign {
 export interface ProviderHealth {
   id: string;
   name: string;
-  connection_type: string;
+  connection_type: 'SMPP' | 'HTTP';
   connections_active: number;
   connections_total: number;
   success_rate: number;
