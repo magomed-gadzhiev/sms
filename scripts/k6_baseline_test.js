@@ -209,20 +209,22 @@ function sendBatch() {
         },
     });
 
-    // Track batch message IDs for e2e latency
-    try {
-        const body = JSON.parse(res.body);
-        if (Array.isArray(body.results)) {
-            const q = getQueue();
-            const sentAt = Date.now();
-            for (const r of body.results) {
-                if (r.message_id) {
-                    q.push({ id: r.message_id, sentAt });
-                    if (q.length > 20) q.shift();
+    // Track batch message IDs for e2e latency — only on success
+    if (ok) {
+        try {
+            const body = JSON.parse(res.body);
+            if (Array.isArray(body.results)) {
+                const q = getQueue();
+                const sentAt = Date.now();
+                for (const r of body.results) {
+                    if (r.message_id) {
+                        q.push({ id: r.message_id, sentAt });
+                        if (q.length > 20) q.shift();
+                    }
                 }
             }
-        }
-    } catch { /* ignore */ }
+        } catch { /* ignore */ }
+    }
 
     return ok;
 }

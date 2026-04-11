@@ -46,13 +46,23 @@ fi
 echo "k6 $(k6 version | head -1)"
 echo ""
 
+# ─── Gateway health check ──────────────────────────────────────────────────
+echo "Checking gateway at ${BASE_URL}/health ..."
+if ! curl -sf --max-time 5 "${BASE_URL}/health" >/dev/null 2>&1; then
+    echo "ERROR: Gateway not reachable at ${BASE_URL}/health"
+    echo "       Check that the SMS gateway is running."
+    exit 1
+fi
+echo "Gateway healthy."
+echo ""
+
 # ─── Prometheus remote write setup ─────────────────────────────────────────
-PROM_FLAGS=""
+PROM_FLAGS=()
 PROM_HOST="${PROM_URL%/api/v1/write}"
 
 if curl -sf --max-time 3 "${PROM_HOST}/-/ready" >/dev/null 2>&1; then
     echo "Prometheus reachable — metrics will stream to Grafana"
-    PROM_FLAGS="--out experimental-prometheus-rw"
+    PROM_FLAGS=("--out" "experimental-prometheus-rw")
     export K6_PROMETHEUS_RW_SERVER_URL="${PROM_URL}"
     export K6_PROMETHEUS_RW_TREND_STATS="p50,p95,p99"
     export K6_PROMETHEUS_RW_PUSH_INTERVAL="5s"
@@ -68,7 +78,7 @@ run_k6() {
     local scenario="$1"
     echo "─── Scenario: ${scenario} ──────────────────────────────────────"
     k6 run \
-        ${PROM_FLAGS} \
+        "${PROM_FLAGS[@]}" \
         --env SCENARIO="${scenario}" \
         --env BASE_URL="${BASE_URL}" \
         --env API_KEY="${API_KEY}" \
@@ -107,7 +117,7 @@ fi
 # ─── Done ──────────────────────────────────────────────────────────────────
 echo "================================================================"
 echo "  Done. run_id=${RUN_ID}"
-if [[ -n "${PROM_FLAGS}" ]]; then
+if [[ ${#PROM_FLAGS[@]} -gt 0 ]]; then
     echo ""
     echo "  Grafana: http://72.56.232.202:3001"
     echo "  Dashboard: Load Test Baseline"

@@ -291,17 +291,17 @@
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
       "targets": [
         {
-          "expr": "k6_http_req_failed_ratio{run_id=\"$run_id\"}",
+          "expr": "k6_http_req_failed_rate{run_id=\"$run_id\"}",
           "legendFormat": "HTTP errors — current",
           "refId": "A"
         },
         {
-          "expr": "k6_sms_pipeline_errors_ratio{run_id=\"$run_id\"}",
+          "expr": "k6_sms_pipeline_errors_rate{run_id=\"$run_id\"}",
           "legendFormat": "Pipeline errors — current",
           "refId": "B"
         },
         {
-          "expr": "k6_http_req_failed_ratio{run_id=\"$baseline_run_id\"}",
+          "expr": "k6_http_req_failed_rate{run_id=\"$baseline_run_id\"}",
           "legendFormat": "HTTP errors — baseline",
           "refId": "C"
         }
@@ -481,7 +481,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 18, "y": 22},
       "targets": [
         {
-          "expr": "k6_http_req_failed_ratio{run_id=\"$run_id\"}",
+          "expr": "k6_http_req_failed_rate{run_id=\"$run_id\"}",
           "legendFormat": "Error Rate",
           "refId": "A"
         }
