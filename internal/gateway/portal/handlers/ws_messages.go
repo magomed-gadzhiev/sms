@@ -59,9 +59,14 @@ func (h *WsMessagesHandlers) StreamMessages(w http.ResponseWriter, r *http.Reque
 	}
 	defer conn.Close()
 
+	// Clear HTTP server write deadline — WebSocket connections are long-lived
+	// and the net/http WriteTimeout would otherwise kill them.
+	conn.SetWriteDeadline(time.Time{}) //nolint:errcheck
+
 	ctx := r.Context()
 
 	// Subscribe to SSE hub for status updates
+	// statusCh is nil when hub is unavailable; nil channel in select is a no-op.
 	var statusCh chan sse.Event
 	if h.hub != nil {
 		statusCh = h.hub.Subscribe(clientID.String())

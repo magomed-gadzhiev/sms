@@ -44,6 +44,7 @@ func (h *HealthHandlers) GetProviderHealth(w http.ResponseWriter, r *http.Reques
 	type providerHealth struct {
 		ID             string  `json:"id"`
 		Name           string  `json:"name"`
+		ConnectionType string  `json:"connection_type"`
 		MaxConnections int32   `json:"max_connections"`
 		TpsLimit       int32   `json:"tps_limit"`
 		Active         bool    `json:"active"`
@@ -57,6 +58,7 @@ func (h *HealthHandlers) GetProviderHealth(w http.ResponseWriter, r *http.Reques
 		ph := providerHealth{
 			ID:             p.Id,
 			Name:           p.Name,
+			ConnectionType: "SMPP", // all client providers use SMPP
 			MaxConnections: p.MaxConnections,
 			TpsLimit:       p.TpsLimit,
 			Active:         p.Active,
