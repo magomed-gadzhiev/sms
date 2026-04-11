@@ -293,6 +293,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		return fmt.Errorf("десериализация RoutedMessage: %w", err)
 	}
 
+	pickupAt := time.Now()
 	traceID := routedMsg.TraceID
 
 	// 2. Проверка заморозки и тарификация — ДО отправки.
@@ -541,6 +542,8 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		Str("connection_id", usedConnID).
 		Str("sender_type", senderType).
 		Int("segments", sentMsg.SegmentsCount).
+		Int64("kafka_wait_ms", pickupAt.Sub(routedMsg.RoutedAt).Milliseconds()).
+		Int64("processing_ms", time.Since(pickupAt).Milliseconds()).
 		Msg("message processed by sender")
 
 	// 9. Маркируем сообщение как обработанное.
