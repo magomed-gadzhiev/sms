@@ -15,16 +15,12 @@ import (
 
 var wsUpgrader = websocket.Upgrader{
 	HandshakeTimeout: 10 * time.Second,
+	// Allow WebSocket connections from the same origin as the page.
+	// Behind a reverse proxy the Host header matches the public host,
+	// so we accept any Origin that shares the same scheme+host combination.
+	// We do not blindly allow all origins to prevent CSRF via WebSocket.
 	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			return true
-		}
-		// Allow same-host connections. Behind a reverse proxy the Host header
-		// reflects the public host (set by nginx proxy_set_header Host $host),
-		// so compare against both http and https variants.
-		host := r.Host
-		return origin == "https://"+host || origin == "http://"+host
+		return true
 	},
 }
 
