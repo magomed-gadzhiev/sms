@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // EventPublisher реализует domain.EventPublisher
@@ -26,7 +27,8 @@ func (p *EventPublisher) PublishMessageCreated(ctx context.Context, msg *domain.
 	// В будущем можно добавить отдельный топик для message.created
 	sharedMsg := msg.ToShared()
 	kafkaMsg := queue.FromMessage(sharedMsg)
-	
+	kafkaMsg.TraceID = shared.GetRequestID(ctx)
+
 	// Публикуем в очередь для отправки
 	if err := p.producer.PublishOutgoing(ctx, kafkaMsg); err != nil {
 		log.Error().Err(err).Msg("ошибка публикации события message.created")
@@ -45,7 +47,8 @@ func (p *EventPublisher) PublishMessageQueued(ctx context.Context, msg *domain.M
 	// Используем существующий механизм публикации в sms.outgoing
 	sharedMsg := msg.ToShared()
 	kafkaMsg := queue.FromMessage(sharedMsg)
-	
+	kafkaMsg.TraceID = shared.GetRequestID(ctx)
+
 	// Публикуем в очередь для отправки
 	if err := p.producer.PublishOutgoing(ctx, kafkaMsg); err != nil {
 		log.Error().Err(err).Msg("ошибка публикации события message.queued")

@@ -28,8 +28,12 @@ import (
 )
 
 func main() {
-	// Инициализация логгера
-	shared.InitLogger("development")
+	// Инициализация логгера (production = JSON format для Promtail/Loki)
+	serviceEnv := os.Getenv("SMPP_SERVICE_ENV")
+	if serviceEnv == "" {
+		serviceEnv = "development"
+	}
+	shared.InitLogger(serviceEnv)
 	logger := shared.WithService("client-gateway")
 
 	// Загрузка конфигурации
