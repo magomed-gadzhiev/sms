@@ -8,7 +8,8 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
 import { PasswordResetPage } from './pages/auth/PasswordResetPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
-import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { CommandCenter } from './pages/CommandCenter';
+import { NotificationsPage } from './pages/notifications/NotificationsPage';
 import { MessagesPage } from './pages/messages/MessagesPage';
 import { APIKeysPage } from './pages/api-keys/APIKeysPage';
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage';
@@ -98,7 +99,9 @@ export function App() {
       <Route path="/reset-password" element={<PasswordResetPage />} />
 
       <Route element={<RequireAuth />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<Navigate to="/command-center" replace />} />
+        <Route path="/command-center" element={<CommandCenter />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/:id" element={<MessageDetailPage />} />
         <Route path="/detalization" element={<DetalizationPage />} />
@@ -177,7 +180,7 @@ export function App() {
         <Route path="operator-templates" element={<Suspense fallback={null}><AdminOperatorTemplatesPage /></Suspense>} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/command-center" replace />} />
     </Routes>
   );
 }
