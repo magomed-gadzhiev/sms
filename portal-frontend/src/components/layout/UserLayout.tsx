@@ -6,21 +6,33 @@ import { useAuth } from '../../contexts/AuthContext';
 import { NotificationBell } from '../ui/NotificationBell';
 import { CommandPalette } from '../ui/CommandPalette';
 
-const DASHBOARD_NAV: NavItem[] = [
-  { path: '/dashboard', label: 'Дашборд' },
-  { path: '/analytics', label: 'Аналитика' },
+const NAV_ITEMS: NavItem[] = [
+  { path: '/command-center', label: 'Командный центр' },
 ];
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Рассылки',
+    label: 'Отправить',
+    items: [
+      { path: '/campaigns/new', label: 'Быстрая отправка' },
+      { path: '/campaigns', label: 'Кампании' },
+      { path: '/campaign-schedules', label: 'Расписания' },
+      { path: '/templates', label: 'Шаблоны' },
+      { path: '/sender-names', label: 'Имена отправителей' },
+    ],
+  },
+  {
+    label: 'Отследить',
     items: [
       { path: '/messages', label: 'Сообщения' },
       { path: '/detalization', label: 'Детализация' },
-      { path: '/campaigns', label: 'Рассылки' },
-      { path: '/campaign-schedules', label: 'Повторяющиеся' },
-      { path: '/templates', label: 'Шаблоны' },
-      { path: '/sender-names', label: 'Имена отправителей' },
+      { path: '/cascade/history', label: 'История каскадов' },
+    ],
+  },
+  {
+    label: 'Аналитика',
+    items: [
+      { path: '/analytics', label: 'Статистика' },
     ],
   },
   {
@@ -46,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/providers', label: 'Провайдеры' },
       { path: '/routing', label: 'Маршрутизация' },
       { path: '/lookup', label: 'Lookup' },
+      { path: '/settings/smpp', label: 'SMPP' },
     ],
   },
   {
@@ -55,7 +68,6 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/sub-accounts', label: 'Суб-аккаунты' },
       { path: '/settings/domains', label: 'Домены' },
       { path: '/settings/notifications', label: 'Уведомления' },
-      { path: '/settings/smpp', label: 'SMPP' },
       { path: '/settings/default-senders', label: 'Имена по умолчанию' },
       { path: '/audit-log', label: 'Журнал аудита' },
     ],
@@ -110,7 +122,7 @@ export function UserLayout() {
 
       <Sidebar
         title="SMS Portal"
-        items={DASHBOARD_NAV}
+        items={NAV_ITEMS}
         groups={NAV_GROUPS}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
