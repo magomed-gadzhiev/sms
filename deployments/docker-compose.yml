@@ -1219,6 +1219,32 @@ services:
       - smpp-network
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./configs/loki/loki.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - smpp-network
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./configs/promtail/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - smpp-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
   # Grafana
   grafana:
     image: grafana/grafana:latest
@@ -1242,6 +1268,7 @@ services:
     depends_on:
       - prometheus
       - postgres
+      - loki
     restart: unless-stopped
 
   # Directus Admin Panel
@@ -1320,6 +1347,7 @@ volumes:
   zookeeper-logs:
   prometheus-data:
   grafana-data:
+  loki_data:
   contact-uploads:
   directus-uploads:
   directus-extensions:
