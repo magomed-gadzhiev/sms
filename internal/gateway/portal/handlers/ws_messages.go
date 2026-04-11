@@ -17,8 +17,14 @@ var wsUpgrader = websocket.Upgrader{
 	HandshakeTimeout: 10 * time.Second,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		// Allow same-host connections. Behind a reverse proxy the Host header
+		// reflects the public host (set by nginx proxy_set_header Host $host),
+		// so compare against both http and https variants.
 		host := r.Host
-		return origin == "" || origin == "https://"+host || origin == "http://"+host
+		return origin == "https://"+host || origin == "http://"+host
 	},
 }
 
