@@ -841,3 +841,78 @@ export const defaultSendersApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// ── Command Center Types ─────────────────────────────────────────────
+
+export interface DashboardMetrics {
+  balance: string;
+  currency: string;
+  msg_per_sec: number;
+  msg_per_sec_trend_pct: number;
+  delivery_rate_24h: number;
+  delivery_rate_trend_pct: number;
+  burn_rate_per_hour: string;
+  forecast_hours: number;
+  sparkline_1h: number[];
+  messages_today: number;
+  active_campaigns: ActiveCampaign[];
+}
+
+export interface ActiveCampaign {
+  id: string;
+  name: string;
+  started_at: string;
+  total: number;
+  sent: number;
+  delivery_rate: number;
+  eta_minutes: number;
+}
+
+export interface ProviderHealth {
+  id: string;
+  name: string;
+  connection_type: string;
+  connections_active: number;
+  connections_total: number;
+  success_rate: number;
+  msg_per_sec: number;
+  is_degraded: boolean;
+}
+
+export interface AlertItem {
+  id: string;
+  type: 'critical' | 'warning' | 'success' | 'info';
+  title: string;
+  description: string;
+  created_at: string;
+}
+
+export interface LiveMessageEvent {
+  message_id: string;
+  timestamp: string;
+  status: 'delivered' | 'sent' | 'failed' | 'pending' | 'expired';
+  phone_masked: string;
+  operator: string;
+  provider: string;
+  sender: string;
+  text_fragment: string;
+}
+
+// ── Command Center API functions ──────────────────────────────────────
+
+export const commandCenterApi = {
+  getMetrics: () =>
+    apiFetch<DashboardMetrics>('/dashboard/metrics'),
+
+  getProviderHealth: () =>
+    apiFetch<{ providers: ProviderHealth[] }>('/providers/health'),
+
+  getAlerts: () =>
+    apiFetch<{ items: AlertItem[] }>('/alerts'),
+
+  /** Returns the WebSocket URL (ws:// or wss://) for the live message stream. */
+  getLiveFeedUrl: (): string => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${location.host}/portal/v1/ws/messages`;
+  },
+};
