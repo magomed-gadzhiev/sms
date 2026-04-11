@@ -58,6 +58,9 @@ func SetupRouter(
 	exportHandlers *handlers.ExportHandlers,
 	optOutHandlers *handlers.OptOutHandlers,
 	routeHandlers *handlers.RouteHandlers,
+	healthHandlers *handlers.HealthHandlers,
+	alertsHandlers *handlers.AlertsHandlers,
+	wsMessagesHandlers *handlers.WsMessagesHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -113,6 +116,15 @@ func SetupRouter(
 
 	// Dashboard endpoints
 	protected.HandleFunc("/dashboard", dashboardHandlers.GetDashboard).Methods("GET")
+
+	// Dashboard metrics alias for Command Center
+	protected.HandleFunc("/dashboard/metrics", dashboardHandlers.GetDashboard).Methods("GET")
+
+	// Provider health for Command Center health map
+	protected.HandleFunc("/providers/health", healthHandlers.GetProviderHealth).Methods("GET")
+
+	// Smart alerts for Command Center
+	protected.HandleFunc("/alerts", alertsHandlers.GetAlerts).Methods("GET")
 
 	// Messages endpoints
 	messages := protected.PathPrefix("/messages").Subrouter()
@@ -337,6 +349,12 @@ func SetupRouter(
 	routes.HandleFunc("/{id}", routeHandlers.GetRoute).Methods("GET")
 	routes.HandleFunc("/{id}", routeHandlers.UpdateRoute).Methods("PUT")
 	routes.HandleFunc("/{id}", routeHandlers.DeleteRoute).Methods("DELETE")
+
+	// WebSocket: live message stream (bypasses CSRF — session auth only)
+	wsProtected := portalV1.PathPrefix("").Subrouter()
+	wsProtected.Use(sessionAuthMiddleware)
+	wsProtected.Use(tenantLoggerMiddleware)
+	wsProtected.HandleFunc("/ws/messages", wsMessagesHandlers.StreamMessages).Methods("GET")
 
 	return router
 }

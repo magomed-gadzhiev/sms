@@ -172,8 +172,9 @@ func main() {
 
 	// Запускаем SSE hub для real-time стриминга статусов сообщений.
 	kafkaStatusTopic := getEnvOrDefault("KAFKA_TOPIC_STATUS", "sms.status")
+	var sseHub *sse.Hub
 	if dbPool != nil {
-		sseHub := sse.NewHub([]string{kafkaBrokers}, kafkaStatusTopic, dbPool, logger)
+		sseHub = sse.NewHub([]string{kafkaBrokers}, kafkaStatusTopic, dbPool, logger)
 		sseCtx, sseCancel := context.WithCancel(context.Background())
 		go sseHub.Run(sseCtx)
 		defer sseCancel()
@@ -261,6 +262,11 @@ func main() {
 		}
 	}
 
+	// Создание handlers для Command Center
+	healthHandlers := handlers.NewHealthHandlers(serviceClients.ProviderClient)
+	alertsHandlers := handlers.NewAlertsHandlers(serviceClients.BillingClient, serviceClients.ProviderClient, dbPool)
+	wsMessagesHandlers := handlers.NewWsMessagesHandlers(sseHub, dbPool)
+
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
 		healthChecker,
@@ -298,6 +304,9 @@ func main() {
 		exportHandlers,
 		optOutHandlers,
 		routeHandlers,
+		healthHandlers,
+		alertsHandlers,
+		wsMessagesHandlers,
 	)
 
 	// Регистрируем маршруты cascade webhook
