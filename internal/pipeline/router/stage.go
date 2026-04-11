@@ -191,6 +191,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 				Str("sender_name", kafkaMsg.Source).
 				Int("client_routes_checked", result.ClientRoutes).
 				Int("default_routes_checked", result.DefaultRoutes).
+				Int64("kafka_wait_ms", time.Since(kafkaMsg.CreatedAt).Milliseconds()).
 				Msg("no matching route found")
 			return fmt.Errorf("маршрут не найден для message_id=%s client=%s operator=%s traffic=%s",
 				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType)
@@ -208,6 +209,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 			Int("priority", route.Priority).
 			Bool("used_default", result.UsedDefault).
 			Int("total_matched", len(result.Matched)).
+			Int64("kafka_wait_ms", time.Since(kafkaMsg.CreatedAt).Milliseconds()).
 			Msg("route selected")
 	} else {
 		// Нет ClientID — используем provider_id если указан.
