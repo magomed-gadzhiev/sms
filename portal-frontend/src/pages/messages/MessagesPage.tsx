@@ -159,6 +159,7 @@ export function MessagesPage() {
   const [sendSource, setSendSource] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   const fetchMessages = useCallback(() => {
     setLoading(true);
@@ -196,8 +197,9 @@ export function MessagesPage() {
 
   const handleSendSMS = async () => {
     setSendError('');
+    const normalizedDest = sendDest.replace(/\s/g, '');
     const phoneRegex = /^\+?[0-9]{10,15}$/;
-    if (!phoneRegex.test(sendDest.replace(/\s/g, ''))) {
+    if (!phoneRegex.test(normalizedDest)) {
       setSendError('Введите корректный номер телефона (например, +79001234567)');
       return;
     }
@@ -207,12 +209,16 @@ export function MessagesPage() {
     }
     setSending(true);
     try {
-      await messagesApi.send({ destination: sendDest, text: sendText, source: sendSource || undefined });
-      setShowSendModal(false);
-      setSendDest('');
-      setSendText('');
-      setSendSource('');
-      fetchMessages();
+      await messagesApi.send({ destination: normalizedDest, text: sendText, source: sendSource });
+      setSendSuccess(true);
+      setTimeout(() => {
+        setShowSendModal(false);
+        setSendDest('');
+        setSendText('');
+        setSendSource('');
+        setSendSuccess(false);
+        fetchMessages();
+      }, 1200);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('source is required')) {
@@ -257,18 +263,24 @@ export function MessagesPage() {
         }
       />
 
-      <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="Отправить SMS" description="Отправка тестового SMS сообщения">
+      <Modal open={showSendModal} onClose={() => { setShowSendModal(false); setSendDest(''); setSendText(''); setSendSource(''); setSendError(''); setSendSuccess(false); }} title="Отправить SMS" description="Отправка тестового SMS сообщения">
         <div className="space-y-3">
+          {sendSuccess && <p role="status" className="text-green-700 text-sm bg-green-50 border border-green-200 rounded px-3 py-2">SMS успешно отправлено</p>}
           {sendError && <p role="alert" className="text-red-600 text-sm">{sendError}</p>}
-          <Input label="Номер получателя *" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required />
-          <Input label="Sender ID *" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" required />
+          <Input label="Номер получателя *" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required disabled={sendSuccess} />
+          <Input label="Sender ID *" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" required disabled={sendSuccess} />
           <div>
-            <label htmlFor="sms-text" className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения *</label>
-            <textarea id="sms-text" className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required />
+            <label htmlFor="sms-text" className="block text-sm font-medium text-gray-700 mb-1">
+              Текст сообщения *
+              <span className="ml-2 font-normal text-gray-400 text-xs">
+                {sendText.length} симв. · {Math.ceil(sendText.length / 160) || 1} сег.
+              </span>
+            </label>
+            <textarea id="sms-text" className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required disabled={sendSuccess} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setShowSendModal(false)}>Отмена</Button>
-            <Button onClick={handleSendSMS} disabled={sending || !sendDest || !sendText}>{sending ? 'Отправка...' : 'Отправить'}</Button>
+            <Button variant="secondary" onClick={() => { setShowSendModal(false); setSendDest(''); setSendText(''); setSendSource(''); setSendError(''); setSendSuccess(false); }}>Отмена</Button>
+            <Button onClick={handleSendSMS} disabled={sending || sendSuccess || !sendDest || !sendText || !sendSource}>{sending ? 'Отправка...' : 'Отправить'}</Button>
           </div>
         </div>
       </Modal>

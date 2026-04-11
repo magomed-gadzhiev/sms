@@ -71,6 +71,10 @@ func (h *MessageHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 		respondError(w, shared.ErrInvalidInput("Поле text обязательно"))
 		return
 	}
+	if req.Source == "" {
+		respondError(w, shared.ErrInvalidInput("source is required"))
+		return
+	}
 
 	if h.messagingClient == nil {
 		respondError(w, shared.ErrServiceUnavailable("Сервис отправки сообщений недоступен"))

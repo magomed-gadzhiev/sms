@@ -126,20 +126,12 @@ export const messagesApi = {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<unknown>(`/messages?${qs}`);
   },
-  send: (data: { destination: string; text: string; source?: string }) =>
+  send: (data: { destination: string; text: string; source: string }) =>
     apiFetch<{ message_id: string; status: string }>('/messages', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
   get: (id: string) => apiFetch<unknown>(`/messages/${id}`),
-  exportCsv: (params: Record<string, string> = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    const csrfToken = getCookie('csrf_token');
-    return fetch(`${API_BASE}/messages/export?${qs}`, {
-      credentials: 'include',
-      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
-    });
-  },
 };
 
 // API Keys API
