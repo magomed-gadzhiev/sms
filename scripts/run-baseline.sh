@@ -46,6 +46,18 @@ fi
 echo "k6 $(k6 version | head -1)"
 echo ""
 
+# ─── LOAD_TEST_MODE check ──────────────────────────────────────────────────
+# Client-gateway requires LOAD_TEST_MODE=true to bypass JWT auth for load tests.
+# Ensure this is set in deployments/.env (persists across docker compose restarts).
+COMPOSE_ENV="${SCRIPT_DIR}/../deployments/.env"
+if ! grep -q "LOAD_TEST_MODE=true" "${COMPOSE_ENV}" 2>/dev/null; then
+    echo "WARNING: LOAD_TEST_MODE=true not found in deployments/.env"
+    echo "         Client-gateway may reject requests with 401."
+    echo "         Fix: echo 'LOAD_TEST_MODE=true' >> ${COMPOSE_ENV}"
+    echo "         Then: docker compose -f deployments/docker-compose.yml up -d client-gateway-1 client-gateway-2"
+    echo ""
+fi
+
 # ─── Gateway health check ──────────────────────────────────────────────────
 echo "Checking gateway at ${BASE_URL}/health ..."
 if ! curl -sf --max-time 5 "${BASE_URL}/health" >/dev/null 2>&1; then
@@ -53,7 +65,20 @@ if ! curl -sf --max-time 5 "${BASE_URL}/health" >/dev/null 2>&1; then
     echo "       Check that the SMS gateway is running."
     exit 1
 fi
-echo "Gateway healthy."
+
+# Quick auth check — catch LOAD_TEST_MODE=false before running full test
+AUTH_STATUS=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+    -X POST "${BASE_URL}/api/v1/sms/send" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: load-test-probe" \
+    -d '{"source":"Probe","destination":"79000000000","text":"probe"}' 2>/dev/null || echo "000")
+if [[ "${AUTH_STATUS}" == "401" ]]; then
+    echo "ERROR: Gateway returned 401 — LOAD_TEST_MODE is likely false."
+    echo "       Fix: echo 'LOAD_TEST_MODE=true' >> deployments/.env"
+    echo "       Then: docker compose -f deployments/docker-compose.yml up -d client-gateway-1 client-gateway-2"
+    exit 1
+fi
+echo "Gateway healthy (auth probe: HTTP ${AUTH_STATUS})."
 echo ""
 
 # ─── Prometheus remote write setup ─────────────────────────────────────────
