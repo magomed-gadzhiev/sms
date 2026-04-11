@@ -201,6 +201,9 @@ function SmartAlerts({ alerts }: { alerts: AlertItem[] }) {
             <div className="flex-1 min-w-0">
               <div style={{ color: 'var(--cc-text)' }} className="text-xs font-medium truncate">{a.title}</div>
               <div style={{ color: 'var(--cc-text-muted)' }} className="text-[10px] truncate">{a.description}</div>
+              <div style={{ color: 'var(--cc-text-muted)' }} className="text-[10px] mt-0.5 tabular-nums">
+                {new Date(a.created_at).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           </div>
         ))}
@@ -280,15 +283,26 @@ function LiveFeed({
 }) {
   const [count5min, setCount5min] = useState(0);
   const countRef = useRef(0);
+  const prevFirstIdRef = useRef<string | undefined>(undefined);
 
+  // Stable 5-minute reset interval
   useEffect(() => {
-    countRef.current += messages.length;
     const interval = setInterval(() => {
       setCount5min(countRef.current);
       countRef.current = 0;
     }, 300_000);
     return () => clearInterval(interval);
-  }, [messages.length]);
+  }, []);
+
+  // Count newly prepended messages
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const firstId = messages[0].message_id;
+    if (firstId === prevFirstIdRef.current) return;
+    const newCount = messages.findIndex(m => m.message_id === prevFirstIdRef.current);
+    countRef.current += newCount === -1 ? messages.length : newCount;
+    prevFirstIdRef.current = firstId;
+  }, [messages]);
 
   return (
     <div
@@ -329,7 +343,7 @@ function LiveFeed({
               <tr
                 key={m.message_id + m.timestamp}
                 style={{ borderBottom: '1px solid var(--cc-border)' }}
-                className="hover:opacity-80 cursor-pointer"
+                className="hover:opacity-80"
               >
                 <td className="py-1 pr-2 tabular-nums" style={{ color: 'var(--cc-text-muted)', whiteSpace: 'nowrap' }}>
                   {new Date(m.timestamp).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
