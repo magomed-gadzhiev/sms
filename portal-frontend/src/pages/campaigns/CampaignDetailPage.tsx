@@ -166,32 +166,6 @@ export function CampaignDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="animate-pulse p-8 text-center text-gray-500">
-        Загрузка...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <p className="text-red-600 mb-4">{error}</p>
-        <Button variant="secondary" onClick={() => navigate('/campaigns')}>
-          Назад к рассылкам
-        </Button>
-      </div>
-    );
-  }
-
-  if (!campaign) return null;
-
-  const statusCfg = STATUS_CONFIG[campaign.status] ?? {
-    variant: 'default' as const,
-    label: campaign.status,
-  };
-
   const renderedActions = useMemo(() => {
     if (!campaign) return null;
     const buttons: React.ReactNode[] = [];
@@ -263,6 +237,32 @@ export function CampaignDetailPage() {
     return <div className="flex gap-2">{buttons}</div>;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign, actionLoading]);
+
+  if (loading) {
+    return (
+      <div className="animate-pulse p-8 text-center text-gray-500">
+        Загрузка...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <p className="text-red-600 mb-4">{error}</p>
+        <Button variant="secondary" onClick={() => navigate('/campaigns')}>
+          Назад к рассылкам
+        </Button>
+      </div>
+    );
+  }
+
+  if (!campaign) return null;
+
+  const statusCfg = STATUS_CONFIG[campaign.status] ?? {
+    variant: 'default' as const,
+    label: campaign.status,
+  };
 
   const hasABTest = !!(campaign.variants && campaign.variants.length > 0);
 

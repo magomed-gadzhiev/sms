@@ -340,10 +340,8 @@ func (h *CampaignHandlers) SetRetryConfig(w http.ResponseWriter, r *http.Request
 
 	id := mux.Vars(r)["id"]
 
-	var req struct {
-		Config *campaignv1.RetryConfig `json:"config"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var config campaignv1.RetryConfig
+	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
@@ -351,7 +349,7 @@ func (h *CampaignHandlers) SetRetryConfig(w http.ResponseWriter, r *http.Request
 	resp, err := h.campaignClient.SetRetryConfig(r.Context(), &campaignv1.SetRetryConfigRequest{
 		CampaignId: id,
 		ClientId:   clientID.String(),
-		Config:     req.Config,
+		Config:     &config,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

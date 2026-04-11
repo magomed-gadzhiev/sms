@@ -28,6 +28,9 @@ export function CampaignsPage() {
   const [error, setError] = useState('');
 
   // Delete state
+  const [statusFilter, setStatusFilter] = useState('');
+
+  // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -37,7 +40,7 @@ export function CampaignsPage() {
     setLoading(true);
     setError('');
     try {
-      const resp = await campaignsApi.list(page, perPage);
+      const resp = await campaignsApi.list(page, perPage, statusFilter);
       setCampaigns(resp.campaigns ?? []);
       setTotal(resp.total ?? 0);
     } catch (err) {
@@ -47,7 +50,11 @@ export function CampaignsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, statusFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   useEffect(() => {
     load();
@@ -155,6 +162,25 @@ export function CampaignsPage() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex items-center gap-3">
+        <label htmlFor="campaign-status-filter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+          Статус:
+        </label>
+        <select
+          id="campaign-status-filter"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Все</option>
+          <option value="draft">Черновик</option>
+          <option value="running">Запущена</option>
+          <option value="paused">На паузе</option>
+          <option value="completed">Завершена</option>
+          <option value="cancelled">Отменена</option>
+        </select>
+      </div>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
 

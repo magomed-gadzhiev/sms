@@ -49,7 +49,6 @@ export function CampaignWizardPage() {
   const [abMetric, setAbMetric] = useState<'delivery_rate' | 'click_rate'>('delivery_rate');
   const [abVariantBTemplateId, setAbVariantBTemplateId] = useState('');
   const [abVariantBTemplate, setAbVariantBTemplate] = useState<TemplateInfo | null>(null);
-  const [abVariantBText, setAbVariantBText] = useState('');
 
   // Step 4: Schedule
   const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now');
@@ -128,7 +127,7 @@ export function CampaignWizardPage() {
         return templateId.trim().length > 0 || messageText.trim().length > 0;
       case 'ab_test':
         if (!abEnabled) return true;
-        return abVariantBTemplateId.trim().length > 0 || abVariantBText.trim().length > 0;
+        return abVariantBTemplateId.trim().length > 0;
       case 'schedule':
         return true;
       case 'retry':
@@ -346,24 +345,12 @@ export function CampaignWizardPage() {
                     onChange={(id, tpl) => {
                       setAbVariantBTemplateId(id);
                       setAbVariantBTemplate(tpl);
-                      if (id) setAbVariantBText('');
                     }}
                   />
                   {!abVariantBTemplateId && (
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="ab-variant-b-text" className="text-sm font-medium text-gray-700">
-                        Или текст варианта B
-                      </label>
-                      <textarea
-                        id="ab-variant-b-text"
-                        value={abVariantBText}
-                        onChange={(e) => setAbVariantBText(e.target.value)}
-                        rows={3}
-                        className="rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
-                        placeholder="Альтернативный текст для варианта B..."
-                      />
-                      <p className="text-xs text-gray-500">{abVariantBText.length} / 160 символов</p>
-                    </div>
+                    <p className="text-xs text-amber-600">
+                      Для варианта B необходимо выбрать шаблон из библиотеки.
+                    </p>
                   )}
                 </div>
 
@@ -471,7 +458,7 @@ export function CampaignWizardPage() {
           </div>
         )}
 
-        {/* Step 4: Retry */}
+        {/* Step 5: Retry */}
         {step === 'retry' && (
           <div className="space-y-4 max-w-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
