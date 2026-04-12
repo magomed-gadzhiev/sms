@@ -417,6 +417,72 @@ func (s *Server) ProcessDLR(ctx context.Context, req *messagingv1.ProcessDLRRequ
 	}, nil
 }
 
+// ListScheduledMessages возвращает список запланированных сообщений клиента
+func (s *Server) ListScheduledMessages(
+	ctx context.Context,
+	req *messagingv1.ListScheduledMessagesRequest,
+) (*messagingv1.ListScheduledMessagesResponse, error) {
+	clientID, err := parseClientID(req.ClientId)
+	if err != nil {
+		return nil, err
+	}
+
+	limit := int(req.Limit)
+	offset := int(req.Offset)
+
+	messages, total, err := s.messageService.ListScheduledMessages(ctx, clientID, limit, offset)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения запланированных сообщений")
+		return nil, status.Errorf(codes.Internal, "list scheduled messages: %v", err)
+	}
+
+	pbMessages := make([]*messagingv1.MessageInfo, len(messages))
+	for i, msg := range messages {
+		protoMsg := &messagingv1.MessageInfo{
+			MessageId:    msg.ID.String(),
+			Source:       msg.Source,
+			Destination:  msg.Destination,
+			Text:         msg.Text,
+			Status:       string(msg.Status),
+			ExternalId:   msg.ExternalID,
+			CreatedAt:    timestamppb.New(msg.CreatedAt),
+			SegmentCount: int32(msg.SegmentCount),
+		}
+		if msg.ClientID != nil {
+			protoMsg.ClientId = msg.ClientID.String()
+		}
+		if msg.SubmittedAt != nil {
+			protoMsg.SubmittedAt = timestamppb.New(*msg.SubmittedAt)
+		}
+		if msg.DeliveredAt != nil {
+			protoMsg.DeliveredAt = timestamppb.New(*msg.DeliveredAt)
+		}
+		if msg.FailedAt != nil {
+			protoMsg.FailedAt = timestamppb.New(*msg.FailedAt)
+		}
+		if msg.ProviderID != nil {
+			protoMsg.ProviderId = msg.ProviderID.String()
+		}
+		if msg.RouteID != nil {
+			protoMsg.RouteId = msg.RouteID.String()
+		}
+		if msg.ScheduledAt != nil {
+			protoMsg.ScheduledAt = timestamppb.New(*msg.ScheduledAt)
+		}
+		if msg.ExpiredAt != nil {
+			protoMsg.ExpiredAt = timestamppb.New(*msg.ExpiredAt)
+		}
+		pbMessages[i] = protoMsg
+	}
+
+	return &messagingv1.ListScheduledMessagesResponse{
+		Messages: pbMessages,
+		Total:    int32(total),
+		Limit:    req.Limit,
+		Offset:   req.Offset,
+	}, nil
+}
+
 // CancelMessage отменяет запланированное сообщение
 func (s *Server) CancelMessage(ctx context.Context, req *messagingv1.CancelMessageRequest) (*messagingv1.CancelMessageResponse, error) {
 	if req.MessageId == "" {

@@ -123,6 +123,14 @@ func (m *mockMessageRepo) BulkUpdateStatusToExpired(ctx context.Context, message
 	return args.Error(0)
 }
 
+func (m *mockMessageRepo) ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Message, int, error) {
+	args := m.Called(ctx, clientID, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*domain.Message), args.Int(1), args.Error(2)
+}
+
 type mockDLRRepo struct {
 	mock.Mock
 }
@@ -420,4 +428,72 @@ func TestMessagingServer_GetMessageStatus(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, codes.InvalidArgument, st.Code())
 	})
+}
+
+func TestServer_ListScheduledMessages(t *testing.T) {
+	msgRepo := new(mockMessageRepo)
+	dlrRepo := new(mockDLRRepo)
+	pub := new(mockEventPublisher)
+	srv := newTestMessagingServer(msgRepo, dlrRepo, pub)
+
+	clientID := uuid.New()
+	messageID := uuid.New()
+	now := time.Now()
+	scheduledAt := now.Add(time.Hour)
+
+	expectedMsg := &domain.Message{
+		ID:           messageID,
+		Source:       "Sender",
+		Destination:  "+79001234567",
+		Text:         "Hello scheduled",
+		Status:       shared.MessageStatusScheduled,
+		ClientID:     &clientID,
+		CreatedAt:    now,
+		ScheduledAt:  &scheduledAt,
+		SegmentCount: 1,
+	}
+
+	// ListScheduledMessages normalizes limit=10 (valid), so repo gets 10, 0
+	msgRepo.On("ListScheduled", mock.Anything, clientID, 10, 0).
+		Return([]*domain.Message{expectedMsg}, 1, nil)
+
+	req := &messagingv1.ListScheduledMessagesRequest{
+		ClientId: clientID.String(),
+		Limit:    10,
+		Offset:   0,
+	}
+
+	resp, err := srv.ListScheduledMessages(context.Background(), req)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, int32(1), resp.Total)
+	assert.Len(t, resp.Messages, 1)
+	assert.Equal(t, messageID.String(), resp.Messages[0].MessageId)
+	assert.Equal(t, "scheduled", resp.Messages[0].Status)
+	assert.Equal(t, int32(10), resp.Limit)
+	assert.Equal(t, int32(0), resp.Offset)
+
+	msgRepo.AssertExpectations(t)
+}
+
+func TestServer_ListScheduledMessages_InvalidClientID(t *testing.T) {
+	msgRepo := new(mockMessageRepo)
+	dlrRepo := new(mockDLRRepo)
+	pub := new(mockEventPublisher)
+	srv := newTestMessagingServer(msgRepo, dlrRepo, pub)
+
+	req := &messagingv1.ListScheduledMessagesRequest{
+		ClientId: "not-a-valid-uuid",
+		Limit:    10,
+		Offset:   0,
+	}
+
+	resp, err := srv.ListScheduledMessages(context.Background(), req)
+
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
 }
