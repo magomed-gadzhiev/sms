@@ -7,17 +7,30 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 
+	routingv1 "github.com/smpp-server/smpp-server/api/proto/routingv1"
 	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
+	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 type AdminSenderNameHandlers struct {
-	client sendernamev1.SenderNameServiceClient
+	client        sendernamev1.SenderNameServiceClient
+	routingClient routingv1.RoutingServiceClient
+	tariffClient  tarificationv1.TarificationServiceClient
 }
 
 func NewAdminSenderNameHandlers(client sendernamev1.SenderNameServiceClient) *AdminSenderNameHandlers {
 	return &AdminSenderNameHandlers{client: client}
+}
+
+// SetClients устанавливает дополнительные gRPC-клиенты для обогащения данных.
+func (h *AdminSenderNameHandlers) SetClients(
+	routingClient routingv1.RoutingServiceClient,
+	tariffClient tarificationv1.TarificationServiceClient,
+) {
+	h.routingClient = routingClient
+	h.tariffClient = tariffClient
 }
 
 func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +146,89 @@ func (h *AdminSenderNameHandlers) DeactivateSenderName(w http.ResponseWriter, r 
 		return
 	}
 	respondJSON(w, http.StatusOK, adminSenderNameToJSON(resp.SenderName))
+}
+
+// GetSenderNameAdmin возвращает имя отправителя по ID без проверки владельца.
+// GET /admin/v1/sender-names/{id}
+func (h *AdminSenderNameHandlers) GetSenderNameAdmin(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		respondError(w, shared.ErrInvalidInput("ID обязателен"))
+		return
+	}
+	// Пустой ClientId = режим администратора (без проверки владельца)
+	resp, err := h.client.GetSenderName(r.Context(), &sendernamev1.GetSenderNameRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"sender_name": adminSenderNameToJSON(resp.SenderName),
+	})
+}
+
+// GetSenderNameOperatorRegistrations возвращает список регистраций у операторов.
+// GET /admin/v1/sender-names/{id}/operator-registrations
+func (h *AdminSenderNameHandlers) GetSenderNameOperatorRegistrations(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		respondError(w, shared.ErrInvalidInput("ID обязателен"))
+		return
+	}
+
+	// Получаем имя отправителя для client_id и name
+	snResp, err := h.client.GetSenderName(r.Context(), &sendernamev1.GetSenderNameRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	empty := map[string]interface{}{"registrations": []interface{}{}}
+
+	if h.tariffClient == nil {
+		respondJSON(w, http.StatusOK, empty)
+		return
+	}
+
+	regsResp, err := h.tariffClient.ListSenderRegistrations(r.Context(), &tarificationv1.ListSenderRegistrationsRequest{
+		ClientId: snResp.SenderName.ClientId,
+		Limit:    100,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("sender_name_id", id).Msg("ошибка получения регистраций ��тправителей")
+		respondJSON(w, http.StatusOK, empty)
+		return
+	}
+
+	registrations := make([]map[string]interface{}, 0)
+	for _, reg := range regsResp.Registrations {
+		if reg.SenderName != snResp.SenderName.Name {
+			continue
+		}
+		item := map[string]interface{}{
+			"operator_id":   reg.OperatorId,
+			"operator_name": reg.OperatorId,
+			"mcc":           "",
+			"mnc":           "",
+			"status":        reg.Status,
+			"registered_at": nil,
+		}
+		if reg.CreatedAt != nil {
+			item["registered_at"] = reg.CreatedAt.AsTime()
+		}
+		// Обогащаем данными оператора
+		if h.routingClient != nil {
+			op, opErr := h.routingClient.GetOperator(r.Context(), &routingv1.GetOperatorRequest{Id: reg.OperatorId})
+			if opErr == nil {
+				item["operator_name"] = op.Name
+				item["mcc"] = op.Code
+				item["mnc"] = op.CountryId
+			}
+		}
+		registrations = append(registrations, item)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{"registrations": registrations})
 }
 
 func adminSenderNameToJSON(sn *sendernamev1.SenderNameInfo) map[string]interface{} {
