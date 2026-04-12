@@ -619,6 +619,98 @@ func TestMessageService(t *testing.T) {
 		})
 	})
 
+	t.Run("ListScheduledMessages", func(t *testing.T) {
+		t.Run("happy path returns messages and total count", func(t *testing.T) {
+			svc, msgRepo, _, _ := newTestMessageService()
+			ctx := context.Background()
+			clientID := uuid.New()
+
+			expectedMessages := []*domain.Message{
+				{ID: uuid.New(), Status: shared.MessageStatusScheduled},
+				{ID: uuid.New(), Status: shared.MessageStatusScheduled},
+			}
+			expectedTotal := 5
+
+			msgRepo.On("ListScheduled", ctx, clientID, 10, 0).Return(expectedMessages, expectedTotal, nil)
+
+			messages, total, err := svc.ListScheduledMessages(ctx, clientID, 10, 0)
+
+			require.NoError(t, err)
+			require.Len(t, messages, 2)
+			assert.Equal(t, expectedTotal, total)
+			assert.Equal(t, shared.MessageStatusScheduled, messages[0].Status)
+			assert.Equal(t, shared.MessageStatusScheduled, messages[1].Status)
+
+			msgRepo.AssertExpectations(t)
+		})
+
+		t.Run("invalid limit uses default 100", func(t *testing.T) {
+			svc, msgRepo, _, _ := newTestMessageService()
+			ctx := context.Background()
+			clientID := uuid.New()
+
+			msgRepo.On("ListScheduled", ctx, clientID, 100, 0).Return([]*domain.Message{}, 0, nil)
+
+			messages, total, err := svc.ListScheduledMessages(ctx, clientID, 0, 0)
+
+			require.NoError(t, err)
+			assert.Empty(t, messages)
+			assert.Equal(t, 0, total)
+
+			msgRepo.AssertExpectations(t)
+		})
+
+		t.Run("limit above 1000 uses default 100", func(t *testing.T) {
+			svc, msgRepo, _, _ := newTestMessageService()
+			ctx := context.Background()
+			clientID := uuid.New()
+
+			msgRepo.On("ListScheduled", ctx, clientID, 100, 0).Return([]*domain.Message{}, 0, nil)
+
+			messages, total, err := svc.ListScheduledMessages(ctx, clientID, 9999, 0)
+
+			require.NoError(t, err)
+			assert.Empty(t, messages)
+			assert.Equal(t, 0, total)
+
+			msgRepo.AssertExpectations(t)
+		})
+
+		t.Run("negative offset uses 0", func(t *testing.T) {
+			svc, msgRepo, _, _ := newTestMessageService()
+			ctx := context.Background()
+			clientID := uuid.New()
+
+			msgRepo.On("ListScheduled", ctx, clientID, 10, 0).Return([]*domain.Message{}, 0, nil)
+
+			messages, total, err := svc.ListScheduledMessages(ctx, clientID, 10, -5)
+
+			require.NoError(t, err)
+			assert.Empty(t, messages)
+			assert.Equal(t, 0, total)
+
+			msgRepo.AssertExpectations(t)
+		})
+
+		t.Run("repository error returns error", func(t *testing.T) {
+			svc, msgRepo, _, _ := newTestMessageService()
+			ctx := context.Background()
+			clientID := uuid.New()
+
+			msgRepo.On("ListScheduled", ctx, clientID, 10, 0).
+				Return(nil, 0, errors.New("db error"))
+
+			messages, total, err := svc.ListScheduledMessages(ctx, clientID, 10, 0)
+
+			require.Error(t, err)
+			assert.Nil(t, messages)
+			assert.Equal(t, 0, total)
+			assert.Contains(t, err.Error(), "db error")
+
+			msgRepo.AssertExpectations(t)
+		})
+	})
+
 	t.Run("SendBatch", func(t *testing.T) {
 		t.Run("sends multiple messages and returns results", func(t *testing.T) {
 			svc, msgRepo, _, publisher := newTestMessageService()

@@ -150,6 +150,21 @@ func (s *MessageService) CancelMessage(ctx context.Context, messageID, clientID 
 	return s.messageRepo.CancelByIDAndStatus(ctx, messageID, clientID)
 }
 
+// ListScheduledMessages returns paginated list of scheduled (not yet sent) messages for a client.
+func (s *MessageService) ListScheduledMessages(
+	ctx context.Context,
+	clientID uuid.UUID,
+	limit, offset int,
+) ([]*domain.Message, int, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.messageRepo.ListScheduled(ctx, clientID, limit, offset)
+}
+
 // SendBatch отправляет пакет сообщений
 func (s *MessageService) SendBatch(
 	ctx context.Context,
