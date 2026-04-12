@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -171,7 +172,7 @@ func (r *MessageRepository) GetSentExpired(ctx context.Context, timeout time.Dur
 func (r *MessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Message, int, error) {
 	sharedMessages, total, err := r.repo.ListScheduled(ctx, clientID, limit, offset)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("list scheduled messages: %w", err)
 	}
 
 	messages := make([]*domain.Message, len(sharedMessages))

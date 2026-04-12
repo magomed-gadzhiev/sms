@@ -434,10 +434,10 @@ func (r *MessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUI
 	countQuery := `SELECT COUNT(*) FROM messages WHERE client_id = $1 AND status = 'scheduled'`
 	var total int
 	if err := r.db.QueryRowContext(ctx, countQuery, clientID).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("count scheduled messages: %w", err)
 	}
 
-	var messages []*shared.Message
+	messages := make([]*shared.Message, 0)
 	query := `SELECT id, COALESCE(message_id, '') as message_id, COALESCE(external_id, '') as external_id,
 		source, destination, text, COALESCE(encoding, 'GSM7') as encoding,
 		COALESCE(data_coding, 0) as data_coding, COALESCE(esm_class, 0) as esm_class,
@@ -459,7 +459,7 @@ func (r *MessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUI
 		LIMIT $2 OFFSET $3`
 
 	if err := r.db.SelectContext(ctx, &messages, query, clientID, limit, offset); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("list scheduled messages: %w", err)
 	}
 
 	return messages, total, nil
