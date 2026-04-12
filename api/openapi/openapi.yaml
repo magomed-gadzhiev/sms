@@ -268,6 +268,55 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/sms/scheduled:
+    get:
+      summary: List scheduled messages
+      description: Returns a paginated list of messages scheduled for future delivery.
+      operationId: listScheduledMessages
+      tags:
+        - SMS
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Number of results per page
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: Paginated list of scheduled messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScheduledMessageItem'
+                  total:
+                    type: integer
+                    example: 42
+                  limit:
+                    type: integer
+                    example: 100
+                  offset:
+                    type: integer
+                    example: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/v1/account/balance:
     get:
       tags:
@@ -608,6 +657,37 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    ScheduledMessageItem:
+      type: object
+      properties:
+        message_id:
+          type: string
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        source:
+          type: string
+          example: "MyCompany"
+        destination:
+          type: string
+          example: "+79991234567"
+        text:
+          type: string
+          example: "Your appointment is tomorrow"
+        status:
+          type: string
+          enum: [scheduled]
+          example: "scheduled"
+        external_id:
+          type: string
+          example: "order-123"
+        scheduled_at:
+          type: string
+          format: date-time
+          example: "2026-04-15T10:00:00Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-04-12T08:30:00Z"
 
     Error:
       type: object
