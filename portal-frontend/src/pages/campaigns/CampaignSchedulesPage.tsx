@@ -56,6 +56,10 @@ export function CampaignSchedulesPage() {
   // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  // Toggle error state
+  const [toggleError, setToggleError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,12 +78,8 @@ export function CampaignSchedulesPage() {
     load();
   }, [load]);
 
-  async function openCreateModal() {
-    setForm(EMPTY_FORM);
-    setCreateError('');
+  async function loadCampaigns() {
     setCampaignsError(false);
-    setShowCreate(true);
-    // Load campaigns for the template picker
     setCampaignsLoading(true);
     try {
       const resp = await campaignsApi.list(1, 200);
@@ -92,19 +92,28 @@ export function CampaignSchedulesPage() {
     }
   }
 
+  async function openCreateModal() {
+    setForm(EMPTY_FORM);
+    setCreateError('');
+    setShowCreate(true);
+    await loadCampaigns();
+  }
+
   async function handleToggle(s: CampaignSchedule) {
     const newActive = !s.is_active;
+    setToggleError('');
     // Optimistic update
     setSchedules((prev) =>
       prev.map((item) => (item.id === s.id ? { ...item, is_active: newActive } : item)),
     );
     try {
       await campaignSchedulesApi.toggle(s.id, newActive);
-    } catch {
-      // Revert on error
+    } catch (err) {
+      // Revert on error and show message
       setSchedules((prev) =>
         prev.map((item) => (item.id === s.id ? { ...item, is_active: s.is_active } : item)),
       );
+      setToggleError(err instanceof ApiError ? err.message : 'Не удалось изменить статус расписания');
     }
   }
 
@@ -150,12 +159,13 @@ export function CampaignSchedulesPage() {
   async function confirmDelete() {
     if (!deleteId) return;
     setDeleting(true);
+    setDeleteError('');
     try {
       await campaignSchedulesApi.remove(deleteId);
       setSchedules((prev) => prev.filter((s) => s.id !== deleteId));
       setDeleteId(null);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при удалении');
+      setDeleteError(err instanceof ApiError ? err.message : 'Ошибка при удалении');
     } finally {
       setDeleting(false);
     }
@@ -228,6 +238,9 @@ export function CampaignSchedulesPage() {
       />
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
+      {toggleError && (
+        <p className="text-red-600 mb-4 text-sm">{toggleError}</p>
+      )}
 
       {!loading && !error && schedules.length === 0 && (
         <div className="text-center py-12 text-gray-500">
@@ -304,7 +317,7 @@ export function CampaignSchedulesPage() {
             ) : campaignsError ? (
               <p className="text-sm text-red-600">
                 Не удалось загрузить кампании.{' '}
-                <button type="button" className="underline" onClick={openCreateModal}>
+                <button type="button" className="underline" onClick={loadCampaigns}>
                   Повторить
                 </button>
               </p>
@@ -381,7 +394,7 @@ export function CampaignSchedulesPage() {
             <Button variant="secondary" onClick={() => setShowCreate(false)} disabled={creating}>
               Отмена
             </Button>
-            <Button onClick={handleCreate} disabled={creating || campaignsLoading}>
+            <Button onClick={handleCreate} disabled={creating || campaignsLoading || campaigns.length === 0}>
               {creating ? 'Создание...' : 'Создать'}
             </Button>
           </div>
@@ -391,9 +404,13 @@ export function CampaignSchedulesPage() {
       <ConfirmDialog
         open={deleteId !== null}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleteId(null)}
+        onCancel={() => { setDeleteId(null); setDeleteError(''); }}
         title="Удалить расписание"
-        description="Вы уверены, что хотите удалить это расписание? Это действие нельзя отменить."
+        description={
+          deleteError
+            ? deleteError
+            : 'Вы уверены, что хотите удалить это расписание? Это действие нельзя отменить.'
+        }
         confirmLabel="Удалить"
         variant="danger"
         loading={deleting}

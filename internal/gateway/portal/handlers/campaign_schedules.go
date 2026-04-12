@@ -188,6 +188,45 @@ func (h *CampaignScheduleHandlers) Toggle(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInvalidInput("Некорректное тело запроса"))
 		return
 	}
+
+	// When activating, recalculate next_run_at if it is in the past (or missing)
+	// to prevent the schedule from firing immediately on the next tick.
+	if req.IsActive {
+		var frequency string
+		var cronExpr *string
+		var nextRunAt *time.Time
+		err := h.db.QueryRow(r.Context(), `
+			SELECT frequency, cron_expression, next_run_at
+			FROM campaign_schedules WHERE id = $1::uuid AND client_id = $2
+		`, id, clientID.String()).Scan(&frequency, &cronExpr, &nextRunAt)
+		if err != nil {
+			respondError(w, shared.ErrNotFound("Расписание не найдено"))
+			return
+		}
+		now := time.Now().UTC()
+		if nextRunAt == nil || nextRunAt.Before(now) {
+			cronStr := ""
+			if cronExpr != nil {
+				cronStr = *cronExpr
+			}
+			newNext := schedules.NextRunTime(frequency, cronStr, now)
+			res, err := h.db.Exec(r.Context(), `
+				UPDATE campaign_schedules SET is_active = true, next_run_at = $1, updated_at = NOW()
+				WHERE id = $2::uuid AND client_id = $3
+			`, newNext, id, clientID.String())
+			if err != nil {
+				respondError(w, shared.ErrInternalServer("Ошибка обновления расписания"))
+				return
+			}
+			if res.RowsAffected() == 0 {
+				respondError(w, shared.ErrNotFound("Расписание не найдено"))
+				return
+			}
+			respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			return
+		}
+	}
+
 	res, err := h.db.Exec(r.Context(), `
 		UPDATE campaign_schedules SET is_active = $1, updated_at = NOW()
 		WHERE id = $2::uuid AND client_id = $3
