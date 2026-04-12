@@ -23,6 +23,7 @@ type MessageRepository interface {
 	CancelByIDAndStatus(ctx context.Context, id uuid.UUID, clientID uuid.UUID) error
 	GetSentExpired(ctx context.Context, timeout time.Duration, limit int) ([]*Message, error)
 	BulkUpdateStatusToExpired(ctx context.Context, messages []*Message) error
+	ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*Message, int, error)
 }
 
 // DLRRepository определяет интерфейс репозитория DLR receipts

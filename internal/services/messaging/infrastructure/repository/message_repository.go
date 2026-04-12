@@ -167,6 +167,21 @@ func (r *MessageRepository) GetSentExpired(ctx context.Context, timeout time.Dur
 	return messages, nil
 }
 
+// ListScheduled returns paginated scheduled messages for a client with total count
+func (r *MessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Message, int, error) {
+	sharedMessages, total, err := r.repo.ListScheduled(ctx, clientID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	messages := make([]*domain.Message, len(sharedMessages))
+	for i, sm := range sharedMessages {
+		messages[i] = domain.MessageFromShared(sm)
+	}
+
+	return messages, total, nil
+}
+
 // BulkUpdateStatusToExpired updates a batch of messages to expired status
 func (r *MessageRepository) BulkUpdateStatusToExpired(ctx context.Context, messages []*domain.Message) error {
 	ids := make([]uuid.UUID, len(messages))

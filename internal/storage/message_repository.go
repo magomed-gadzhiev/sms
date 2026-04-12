@@ -429,6 +429,42 @@ func (r *MessageRepository) GetStuckPending(ctx context.Context, threshold time.
 	return messages, nil
 }
 
+// ListScheduled returns paginated scheduled messages for a client with total count.
+func (r *MessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*shared.Message, int, error) {
+	countQuery := `SELECT COUNT(*) FROM messages WHERE client_id = $1 AND status = 'scheduled'`
+	var total int
+	if err := r.db.QueryRowContext(ctx, countQuery, clientID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	var messages []*shared.Message
+	query := `SELECT id, COALESCE(message_id, '') as message_id, COALESCE(external_id, '') as external_id,
+		source, destination, text, COALESCE(encoding, 'GSM7') as encoding,
+		COALESCE(data_coding, 0) as data_coding, COALESCE(esm_class, 0) as esm_class,
+		COALESCE(protocol_id, 0) as protocol_id, COALESCE(priority_flag, 0) as priority_flag,
+		COALESCE(replace_if_present, 0) as replace_if_present,
+		COALESCE(registered_delivery, 1) as registered_delivery,
+		validity_period, COALESCE(service_type, '') as service_type,
+		COALESCE(source_addr_ton, 0) as source_addr_ton, COALESCE(source_addr_npi, 0) as source_addr_npi,
+		COALESCE(dest_addr_ton, 0) as dest_addr_ton, COALESCE(dest_addr_npi, 0) as dest_addr_npi,
+		COALESCE(status, 'pending') as status, COALESCE(status_message, '') as status_message,
+		provider_id, route_id, client_id,
+		COALESCE(retry_count, 0) as retry_count, COALESCE(max_retries, 5) as max_retries,
+		next_retry_at, COALESCE(smpp_message_id, '') as smpp_message_id,
+		submitted_at, delivered_at, failed_at, created_at, updated_at,
+		scheduled_at, COALESCE(segment_count, 1) as segment_count, expired_at
+		FROM messages
+		WHERE client_id = $1 AND status = 'scheduled'
+		ORDER BY scheduled_at ASC
+		LIMIT $2 OFFSET $3`
+
+	if err := r.db.SelectContext(ctx, &messages, query, clientID, limit, offset); err != nil {
+		return nil, 0, err
+	}
+
+	return messages, total, nil
+}
+
 // CancelByIDAndStatus atomically cancels a scheduled message
 func (r *MessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientID uuid.UUID) error {
 	query := `UPDATE messages SET status = 'cancelled', updated_at = NOW()

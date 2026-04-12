@@ -111,3 +111,11 @@ func (m *MockMessageRepository) BulkUpdateStatusToExpired(ctx context.Context, m
 	args := m.Called(ctx, messages)
 	return args.Error(0)
 }
+
+func (m *MockMessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*domain.Message, int, error) {
+	args := m.Called(ctx, clientID, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*domain.Message), args.Int(1), args.Error(2)
+}
