@@ -452,6 +452,76 @@ func (h *SMSHandlers) GetHistory(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, response)
 }
 
+// ListScheduled returns paginated list of scheduled messages.
+// GET /api/v1/sms/scheduled?limit=100&offset=0
+func (h *SMSHandlers) ListScheduled(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	limit := 100
+	offset := 0
+
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 1000 {
+			limit = n
+		}
+	}
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+
+	resp, err := h.messagingClient.ListScheduledMessages(r.Context(), &messagingv1.ListScheduledMessagesRequest{
+		ClientId: clientID.String(),
+		Limit:    int32(limit),
+		Offset:   int32(offset),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	type messageItem struct {
+		MessageID   string  `json:"message_id"`
+		Source      string  `json:"source"`
+		Destination string  `json:"destination"`
+		Text        string  `json:"text"`
+		Status      string  `json:"status"`
+		ExternalID  string  `json:"external_id,omitempty"`
+		ScheduledAt *string `json:"scheduled_at,omitempty"`
+		CreatedAt   string  `json:"created_at"`
+	}
+
+	items := make([]messageItem, len(resp.Messages))
+	for i, m := range resp.Messages {
+		item := messageItem{
+			MessageID:   m.MessageId,
+			Source:      m.Source,
+			Destination: m.Destination,
+			Text:        m.Text,
+			Status:      m.Status,
+			ExternalID:  m.ExternalId,
+			CreatedAt:   m.CreatedAt.AsTime().Format(time.RFC3339),
+		}
+		if m.ScheduledAt != nil {
+			t := m.ScheduledAt.AsTime().Format(time.RFC3339)
+			item.ScheduledAt = &t
+		}
+		items[i] = item
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"messages": items,
+		"total":    resp.Total,
+		"limit":    resp.Limit,
+		"offset":   resp.Offset,
+	})
+}
+
 // CancelSMS отменяет запланированное сообщение
 func (h *SMSHandlers) CancelSMS(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())

@@ -77,6 +77,14 @@ func (m *mockMessagingClient) CancelMessage(ctx context.Context, in *messagingv1
 	return args.Get(0).(*messagingv1.CancelMessageResponse), args.Error(1)
 }
 
+func (m *mockMessagingClient) ListScheduledMessages(ctx context.Context, in *messagingv1.ListScheduledMessagesRequest, opts ...grpc.CallOption) (*messagingv1.ListScheduledMessagesResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*messagingv1.ListScheduledMessagesResponse), args.Error(1)
+}
+
 // --- Mock TemplateServiceClient ---
 
 type mockTemplateClient struct {
@@ -488,6 +496,133 @@ func TestSMSHandlers(t *testing.T) {
 
 			assert.Equal(t, http.StatusNoContent, rr.Code)
 			msgClient.AssertExpectations(t)
+		})
+	})
+
+	t.Run("ListScheduled", func(t *testing.T) {
+		t.Run("success returns scheduled messages", func(t *testing.T) {
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+
+			clientID := uuid.New()
+			scheduledTs := timestamppb.Now()
+			createdTs := timestamppb.Now()
+
+			msgClient.On("ListScheduledMessages", mock.Anything, mock.MatchedBy(func(req *messagingv1.ListScheduledMessagesRequest) bool {
+				return req.ClientId == clientID.String() && req.Limit == 50 && req.Offset == 10
+			})).Return(&messagingv1.ListScheduledMessagesResponse{
+				Messages: []*messagingv1.MessageInfo{
+					{
+						MessageId:   "msg-sched-1",
+						Source:      "Sender",
+						Destination: "+79001234567",
+						Text:        "Scheduled text",
+						Status:      "scheduled",
+						ExternalId:  "ext-1",
+						CreatedAt:   createdTs,
+						ScheduledAt: scheduledTs,
+					},
+				},
+				Total:  1,
+				Limit:  50,
+				Offset: 10,
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/scheduled?limit=50&offset=10", nil)
+			req = req.WithContext(contextWithClientID(req.Context(), clientID))
+
+			rr := httptest.NewRecorder()
+			handler.ListScheduled(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, float64(1), resp["total"])
+			assert.Equal(t, float64(50), resp["limit"])
+			assert.Equal(t, float64(10), resp["offset"])
+
+			messages, ok := resp["messages"].([]interface{})
+			require.True(t, ok)
+			require.Len(t, messages, 1)
+
+			msg := messages[0].(map[string]interface{})
+			assert.Equal(t, "msg-sched-1", msg["message_id"])
+			assert.Equal(t, "Sender", msg["source"])
+			assert.Equal(t, "+79001234567", msg["destination"])
+			assert.Equal(t, "Scheduled text", msg["text"])
+			assert.Equal(t, "scheduled", msg["status"])
+			assert.Equal(t, "ext-1", msg["external_id"])
+			assert.NotNil(t, msg["scheduled_at"])
+			assert.NotEmpty(t, msg["created_at"])
+
+			msgClient.AssertExpectations(t)
+		})
+
+		t.Run("returns 401 when no client ID", func(t *testing.T) {
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/scheduled", nil)
+
+			rr := httptest.NewRecorder()
+			handler.ListScheduled(rr, req)
+
+			assert.Equal(t, http.StatusUnauthorized, rr.Code)
+		})
+
+		t.Run("uses default limit and offset when not provided", func(t *testing.T) {
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+
+			clientID := uuid.New()
+
+			msgClient.On("ListScheduledMessages", mock.Anything, mock.MatchedBy(func(req *messagingv1.ListScheduledMessagesRequest) bool {
+				return req.ClientId == clientID.String() && req.Limit == 100 && req.Offset == 0
+			})).Return(&messagingv1.ListScheduledMessagesResponse{
+				Messages: []*messagingv1.MessageInfo{},
+				Total:    0,
+				Limit:    100,
+				Offset:   0,
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/scheduled", nil)
+			req = req.WithContext(contextWithClientID(req.Context(), clientID))
+
+			rr := httptest.NewRecorder()
+			handler.ListScheduled(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp map[string]interface{}
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, float64(0), resp["total"])
+
+			msgClient.AssertExpectations(t)
+		})
+
+		t.Run("returns error when messaging service fails", func(t *testing.T) {
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+
+			clientID := uuid.New()
+
+			msgClient.On("ListScheduledMessages", mock.Anything, mock.Anything).
+				Return(nil, status.Error(codes.Unavailable, "service down"))
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/scheduled", nil)
+			req = req.WithContext(contextWithClientID(req.Context(), clientID))
+
+			rr := httptest.NewRecorder()
+			handler.ListScheduled(rr, req)
+
+			assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 		})
 	})
 }
