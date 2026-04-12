@@ -125,8 +125,10 @@ func main() {
 	stubConfigHandlers := handlers.NewStubConfigHandlers(stubConfigRepo)
 
 	userHandlers := handlers.NewUserHandlers(serviceClients.AuthClient)
+	userHandlers.SetClientClient(serviceClients.ClientClient)
 	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
 	senderNameHandlers := handlers.NewAdminSenderNameHandlers(serviceClients.SenderNameClient)
+	senderNameHandlers.SetClients(serviceClients.RoutingClient, serviceClients.TarificationClient)
 	hierarchicalPeriodsHandler := handlers.NewHierarchicalPeriodsHandler(adminDB)
 	detalizationHandlers := handlers.NewDetalizationHandlers(adminDB)
 	legalEntityHandlers := handlers.NewLegalEntityHandlers(adminDB)

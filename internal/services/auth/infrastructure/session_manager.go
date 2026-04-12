@@ -69,9 +69,13 @@ func (m *SessionManager) CreateSession(
 
 	// Сохраняем в Redis hash
 	redisKey := sessionPrefix + sessionID
+	clientIDStr := ""
+	if clientID != uuid.Nil {
+		clientIDStr = clientID.String()
+	}
 	fields := map[string]interface{}{
 		"user_id":    userID.String(),
-		"client_id":  clientID.String(),
+		"client_id":  clientIDStr,
 		"role":       role,
 		"ip_address": ipAddress,
 		"user_agent": userAgent,

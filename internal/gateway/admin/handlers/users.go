@@ -8,12 +8,14 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
+	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // UserHandlers обрабатывает HTTP запросы для управления пользователями
 type UserHandlers struct {
-	authClient authv1.AuthServiceClient
+	authClient   authv1.AuthServiceClient
+	clientClient clientv1.ClientServiceClient
 }
 
 // NewUserHandlers создает новый экземпляр UserHandlers
@@ -21,6 +23,11 @@ func NewUserHandlers(authClient authv1.AuthServiceClient) *UserHandlers {
 	return &UserHandlers{
 		authClient: authClient,
 	}
+}
+
+// SetClientClient устанавливает gRPC клиент для client service
+func (h *UserHandlers) SetClientClient(clientClient clientv1.ClientServiceClient) {
+	h.clientClient = clientClient
 }
 
 // ListUsers обрабатывает GET /admin/v1/users
@@ -215,6 +222,78 @@ func (h *UserHandlers) ResetUserPassword(w http.ResponseWriter, r *http.Request)
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"temporary_password": resp.TemporaryPassword,
+	})
+}
+
+// AssignClient обрабатывает POST /admin/v1/users/:id/assign-client
+// Создаёт нового клиента для пользователя или привязывает существующего.
+// Тело запроса:
+//   - client_id (string, опционально): UUID существующего клиента для привязки
+//   - company_name (string): имя компании для нового клиента (если client_id не указан)
+//   - email (string, опционально): email нового клиента
+//   - contact_person (string, опционально): контактное лицо
+//   - phone (string, опционально): телефон
+func (h *UserHandlers) AssignClient(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	var req struct {
+		ClientID      string `json:"client_id"`
+		CompanyName   string `json:"company_name"`
+		Email         string `json:"email"`
+		ContactPerson string `json:"contact_person"`
+		Phone         string `json:"phone"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	targetClientID := req.ClientID
+
+	// Если client_id не передан — создаём нового клиента
+	if targetClientID == "" {
+		if req.CompanyName == "" {
+			respondError(w, shared.ErrInvalidInput("Укажите client_id для привязки существующего клиента или company_name для создания нового"))
+			return
+		}
+		if h.clientClient == nil {
+			respondError(w, shared.ErrInternalServer("clientClient не настроен"))
+			return
+		}
+
+		createResp, err := h.clientClient.CreateClient(r.Context(), &clientv1.CreateClientRequest{
+			Name:          req.CompanyName,
+			Email:         req.Email,
+			ContactPerson: req.ContactPerson,
+			Phone:         req.Phone,
+			Active:        true,
+		})
+		if err != nil {
+			log.Error().Err(err).Str("user_id", userID).Msg("ошибка создания клиента при assign-client")
+			respondGRPCError(w, err)
+			return
+		}
+		targetClientID = createResp.ClientId
+	}
+
+	// Привязываем клиента к пользователю через UpdateUser
+	userResp, err := h.authClient.UpdateUser(r.Context(), &authv1.UpdateUserRequest{
+		UserId:   userID,
+		ClientId: targetClientID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Str("client_id", targetClientID).Msg("ошибка привязки клиента к пользователю")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"user":      userInfoToMap(userResp.User),
+		"client_id": targetClientID,
 	})
 }
 

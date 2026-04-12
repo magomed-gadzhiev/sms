@@ -388,6 +388,7 @@ message UpdateUserRequest {
   string email = 2;
   string role_id = 3;
   bool active = 4;
+  string client_id = 5;  // Опционально: привязать клиента к пользователю
 }
 
 message UpdateUserResponse {

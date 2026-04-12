@@ -146,13 +146,13 @@ func (r *UserRepository) Update(ctx context.Context, user *domain.User) error {
 	query := `
 		UPDATE users SET
 			username = $2, email = $3, password_hash = $4,
-			role_id = $5, active = $6, updated_at = $7
+			role_id = $5, active = $6, updated_at = $7, client_id = $8
 		WHERE id = $1
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
 		user.ID, user.Username, user.Email, user.PasswordHash,
-		user.RoleID, user.Active, user.UpdatedAt,
+		user.RoleID, user.Active, user.UpdatedAt, user.ClientID,
 	)
 
 	if err != nil {

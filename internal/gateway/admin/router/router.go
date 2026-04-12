@@ -196,6 +196,7 @@ func SetupRouter(
 	users.HandleFunc("/{id}/deactivate", userHandlers.DeactivateUser).Methods("POST")
 	users.HandleFunc("/{id}/reset-2fa", userHandlers.ResetUser2FA).Methods("POST")
 	users.HandleFunc("/{id}/reset-password", userHandlers.ResetUserPassword).Methods("POST")
+	users.HandleFunc("/{id}/assign-client", userHandlers.AssignClient).Methods("POST")
 
 	// Roles endpoints
 	roles := adminV1.PathPrefix("/roles").Subrouter()
@@ -211,9 +212,11 @@ func SetupRouter(
 	// Sender Names endpoints
 	senderNames := adminV1.PathPrefix("/sender-names").Subrouter()
 	senderNames.HandleFunc("", senderNameHandlers.ListAllSenderNames).Methods("GET")
+	senderNames.HandleFunc("/{id}", senderNameHandlers.GetSenderNameAdmin).Methods("GET")
 	senderNames.HandleFunc("/{id}/approve", senderNameHandlers.ApproveSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/reject", senderNameHandlers.RejectSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/deactivate", senderNameHandlers.DeactivateSenderName).Methods("POST")
+	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.GetSenderNameOperatorRegistrations).Methods("GET")
 
 	// Detalization endpoints (admin message log)
 	messages := adminV1.PathPrefix("/messages").Subrouter()

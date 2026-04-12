@@ -397,8 +397,9 @@ func (s *AuthService) CreateUser(ctx context.Context, username, email, password 
 	return s.userRepo.GetByIDWithRole(ctx, user.ID)
 }
 
-// UpdateUser обновляет пользователя (email, роль, активность)
-func (s *AuthService) UpdateUser(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, active bool) (*domain.User, error) {
+// UpdateUser обновляет пользователя (email, роль, активность, client_id).
+// clientID обновляется только если указатель не nil.
+func (s *AuthService) UpdateUser(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, active bool, clientID *uuid.UUID) (*domain.User, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -407,6 +408,29 @@ func (s *AuthService) UpdateUser(ctx context.Context, userID uuid.UUID, email st
 	user.Email = email
 	user.RoleID = roleID
 	user.Active = active
+	user.UpdatedAt = time.Now()
+
+	// Обновляем client_id только если явно передан
+	if clientID != nil {
+		user.ClientID = clientID
+	}
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return s.userRepo.GetByIDWithRole(ctx, user.ID)
+}
+
+// AssignClientToUser привязывает существующего клиента к пользователю.
+// Остальные поля пользователя не затрагиваются.
+func (s *AuthService) AssignClientToUser(ctx context.Context, userID, clientID uuid.UUID) (*domain.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	user.ClientID = &clientID
 	user.UpdatedAt = time.Now()
 
 	if err := s.userRepo.Update(ctx, user); err != nil {

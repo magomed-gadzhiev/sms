@@ -759,6 +759,18 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 	}
 	clientID := createClientResp.ClientId
 
+	// Компенсирующее действие: удалить клиента при ошибке на любом следующем шаге
+	var registrationErr error
+	defer func() {
+		if registrationErr != nil && clientID != "" {
+			if _, delErr := s.clientService.DeleteClient(ctx, &clientv1.DeleteClientRequest{ClientId: clientID}); delErr != nil {
+				log.Error().Err(delErr).Str("client_id", clientID).Msg("ошибка компенсации: не удалось удалить клиента после падения регистрации")
+			} else {
+				log.Info().Str("client_id", clientID).Msg("компенсация: клиент удалён после падения регистрации")
+			}
+		}
+	}()
+
 	// Назначаем тарифный план, если указан
 	if req.PlanName != "" {
 		// Получаем список планов, чтобы найти ID по имени
@@ -786,6 +798,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 	passwordHash, err := s.passwordHasher.HashPassword(req.Password)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка хеширования пароля при регистрации")
+		registrationErr = err
 		return nil, status.Error(codes.Internal, "registration failed")
 	}
 
@@ -793,6 +806,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 	clientRole, err := s.roleRepo.GetByName(ctx, "client")
 	if err != nil {
 		log.Error().Err(err).Msg("роль 'client' не найдена при регистрации")
+		registrationErr = err
 		return nil, status.Error(codes.Internal, "registration failed")
 	}
 
@@ -816,6 +830,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		log.Error().Err(err).Msg("ошибка создания пользователя при регистрации")
+		registrationErr = err
 		return nil, status.Error(codes.Internal, "registration failed")
 	}
 
@@ -902,7 +917,23 @@ func (s *Server) UpdateUser(ctx context.Context, req *authv1.UpdateUserRequest) 
 		}
 	}
 
-	user, err := s.authService.UpdateUser(ctx, userID, req.Email, roleID, req.Active)
+	var clientID *uuid.UUID
+	if req.ClientId != "" {
+		parsed, parseErr := uuid.Parse(req.ClientId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+		}
+		clientID = &parsed
+	}
+
+	// Если передан только client_id (без email/role) — используем специализированный метод,
+	// чтобы не затирать остальные поля пользователя нулевыми значениями.
+	var user *domain.User
+	if req.Email == "" && req.RoleId == "" && clientID != nil {
+		user, err = s.authService.AssignClientToUser(ctx, userID, *clientID)
+	} else {
+		user, err = s.authService.UpdateUser(ctx, userID, req.Email, roleID, req.Active, clientID)
+	}
 	if err != nil {
 		if err == authrepo.ErrUserNotFound {
 			return nil, status.Error(codes.NotFound, "user not found")

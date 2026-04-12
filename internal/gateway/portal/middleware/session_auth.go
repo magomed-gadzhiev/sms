@@ -12,6 +12,18 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
+// AdminRoleMiddleware запрещает доступ всем, кроме пользователей с ролью admin или superadmin
+func AdminRoleMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role, ok := GetRole(r.Context())
+		if !ok || (role != "admin" && role != "superadmin") {
+			response.Error(w, shared.ErrForbidden("Доступ запрещён"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 type contextKey string
 
 const (
