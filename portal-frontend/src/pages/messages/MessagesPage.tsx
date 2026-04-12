@@ -19,6 +19,7 @@ interface MessageItem {
   segment_count: number;
   created_at?: string;
   delivered_at?: string;
+  scheduled_at?: string;
 }
 
 interface MessagesResponse {
@@ -37,6 +38,7 @@ const STATUS_LABELS: Record<string, string> = {
   failed: 'Ошибка',
   expired: 'Истекло',
   rejected: 'Отклонено',
+  scheduled: 'Запланировано',
 };
 
 const MESSAGE_FILTERS: FilterDef[] = [
@@ -48,6 +50,7 @@ const MESSAGE_FILTERS: FilterDef[] = [
     { value: 'failed', label: 'Ошибка' },
     { value: 'expired', label: 'Истекло' },
     { value: 'rejected', label: 'Отклонено' },
+    { value: 'scheduled', label: 'Запланировано' },
   ]},
   { key: 'date_from', label: 'С даты', type: 'date' },
   { key: 'date_to', label: 'По дату', type: 'date' },
@@ -64,6 +67,7 @@ function StatusBadge({ status }: { status: string }) {
     expired: 'bg-gray-100 text-gray-600',
     queued: 'bg-yellow-100 text-yellow-800',
     pending: 'bg-yellow-100 text-yellow-800',
+    scheduled: 'bg-purple-100 text-purple-800',
   };
   const cls = colorMap[status] ?? 'bg-gray-100 text-gray-700';
   return <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
@@ -85,6 +89,22 @@ function buildColumns(liveUpdates: Record<string, { status: string }>): Column<M
     },
     { key: 'segment_count', header: 'Сегменты' },
     { key: 'created_at', header: 'Дата создания', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
+    {
+      key: 'scheduled_at',
+      header: 'Запланировано',
+      render: (msg) => {
+        const scheduledAt = msg.scheduled_at;
+        if (!scheduledAt) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className="text-sm">
+            {new Date(scheduledAt).toLocaleString('ru-RU', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </span>
+        );
+      },
+    },
   ];
 }
 
