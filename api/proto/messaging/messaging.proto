@@ -25,6 +25,9 @@ service MessagingService {
 
   // CancelMessage отменяет запланированное сообщение
   rpc CancelMessage(CancelMessageRequest) returns (CancelMessageResponse);
+
+  // ListScheduledMessages возвращает список запланированных сообщений
+  rpc ListScheduledMessages(ListScheduledMessagesRequest) returns (ListScheduledMessagesResponse);
 }
 
 // SendMessageRequest представляет запрос на отправку SMS
@@ -157,4 +160,17 @@ message CancelMessageRequest {
 
 message CancelMessageResponse {
   bool success = 1;
+}
+
+message ListScheduledMessagesRequest {
+  string client_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListScheduledMessagesResponse {
+  repeated MessageInfo messages = 1;
+  int32 total = 2;
+  int32 limit = 3;
+  int32 offset = 4;
 }

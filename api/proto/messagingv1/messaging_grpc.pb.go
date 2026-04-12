@@ -24,7 +24,8 @@ const (
 	MessagingService_GetMessageStatus_FullMethodName  = "/messaging.v1.MessagingService/GetMessageStatus"
 	MessagingService_GetMessageHistory_FullMethodName = "/messaging.v1.MessagingService/GetMessageHistory"
 	MessagingService_ProcessDLR_FullMethodName        = "/messaging.v1.MessagingService/ProcessDLR"
-	MessagingService_CancelMessage_FullMethodName     = "/messaging.v1.MessagingService/CancelMessage"
+	MessagingService_CancelMessage_FullMethodName            = "/messaging.v1.MessagingService/CancelMessage"
+	MessagingService_ListScheduledMessages_FullMethodName    = "/messaging.v1.MessagingService/ListScheduledMessages"
 )
 
 // MessagingServiceClient is the client API for MessagingService service.
@@ -45,6 +46,8 @@ type MessagingServiceClient interface {
 	ProcessDLR(ctx context.Context, in *ProcessDLRRequest, opts ...grpc.CallOption) (*ProcessDLRResponse, error)
 	// CancelMessage отменяет запланированное сообщение
 	CancelMessage(ctx context.Context, in *CancelMessageRequest, opts ...grpc.CallOption) (*CancelMessageResponse, error)
+	// ListScheduledMessages возвращает список запланированных сообщений
+	ListScheduledMessages(ctx context.Context, in *ListScheduledMessagesRequest, opts ...grpc.CallOption) (*ListScheduledMessagesResponse, error)
 }
 
 type messagingServiceClient struct {
@@ -115,6 +118,16 @@ func (c *messagingServiceClient) CancelMessage(ctx context.Context, in *CancelMe
 	return out, nil
 }
 
+func (c *messagingServiceClient) ListScheduledMessages(ctx context.Context, in *ListScheduledMessagesRequest, opts ...grpc.CallOption) (*ListScheduledMessagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListScheduledMessagesResponse)
+	err := c.cc.Invoke(ctx, MessagingService_ListScheduledMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MessagingServiceServer is the server API for MessagingService service.
 // All implementations must embed UnimplementedMessagingServiceServer
 // for forward compatibility.
@@ -133,6 +146,8 @@ type MessagingServiceServer interface {
 	ProcessDLR(context.Context, *ProcessDLRRequest) (*ProcessDLRResponse, error)
 	// CancelMessage отменяет запланированное сообщение
 	CancelMessage(context.Context, *CancelMessageRequest) (*CancelMessageResponse, error)
+	// ListScheduledMessages возвращает список запланированных сообщений
+	ListScheduledMessages(context.Context, *ListScheduledMessagesRequest) (*ListScheduledMessagesResponse, error)
 	mustEmbedUnimplementedMessagingServiceServer()
 }
 
@@ -160,6 +175,9 @@ func (UnimplementedMessagingServiceServer) ProcessDLR(context.Context, *ProcessD
 }
 func (UnimplementedMessagingServiceServer) CancelMessage(context.Context, *CancelMessageRequest) (*CancelMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelMessage not implemented")
+}
+func (UnimplementedMessagingServiceServer) ListScheduledMessages(context.Context, *ListScheduledMessagesRequest) (*ListScheduledMessagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListScheduledMessages not implemented")
 }
 func (UnimplementedMessagingServiceServer) mustEmbedUnimplementedMessagingServiceServer() {}
 func (UnimplementedMessagingServiceServer) testEmbeddedByValue()                          {}
@@ -290,6 +308,24 @@ func _MessagingService_CancelMessage_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MessagingService_ListScheduledMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListScheduledMessagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessagingServiceServer).ListScheduledMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MessagingService_ListScheduledMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessagingServiceServer).ListScheduledMessages(ctx, req.(*ListScheduledMessagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MessagingService_ServiceDesc is the grpc.ServiceDesc for MessagingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -320,6 +356,10 @@ var MessagingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelMessage",
 			Handler:    _MessagingService_CancelMessage_Handler,
+		},
+		{
+			MethodName: "ListScheduledMessages",
+			Handler:    _MessagingService_ListScheduledMessages_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
