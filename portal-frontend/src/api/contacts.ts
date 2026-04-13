@@ -36,6 +36,11 @@ export interface ImportJob {
   created_at: string;
 }
 
+export interface ContactListSegments {
+  countries: { code: string; name: string }[];
+  operators: { code: string; name: string }[];
+}
+
 export const contactListsApi = {
   list: (page = 1, perPage = 20) =>
     apiFetch<{ items: ContactList[]; total: number }>(
@@ -130,4 +135,7 @@ export const contactListsApi = {
       `/contact-lists/${listId}/segment/preview`,
       { method: 'POST', body: JSON.stringify({ rules, tags }) },
     ),
+
+  getSegments: (id: string) =>
+    apiFetch<ContactListSegments>(`/contact-lists/${id}/segments`),
 };

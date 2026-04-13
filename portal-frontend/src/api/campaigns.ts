@@ -72,6 +72,9 @@ export const campaignsApi = {
     template_id?: string;
     source?: string;
     send_rate?: number;
+    scheduled_at?: string;
+    use_subscriber_timezone?: boolean;
+    segment_rules?: Record<string, unknown>;
   }) =>
     apiFetch<Campaign>('/campaigns', {
       method: 'POST',
@@ -176,7 +179,13 @@ export const campaignsApi = {
       }[];
     }>(`/campaigns/${id}/heatmap`),
 
-  estimateCost: (data: { contact_list_id: string; text: string; source: string }) =>
+  estimateCost: (data: {
+    contact_list_id: string;
+    text: string;
+    source: string;
+    exclude_countries?: string[];
+    exclude_operators?: string[];
+  }) =>
     apiFetch<{
       recipients: number;
       segments_per_msg: number;
