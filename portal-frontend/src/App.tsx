@@ -44,6 +44,7 @@ import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
 import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
 import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDetail';
 import { RoutingPage } from './pages/routing/RoutingPage';
+import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -112,6 +113,7 @@ export function App() {
         <Route path="/segments" element={<SegmentsPage />} />
         <Route path="/segments/new" element={<SegmentDetailPage />} />
         <Route path="/segments/:id" element={<SegmentDetailPage />} />
+        <Route path="/quick-send" element={<QuickSendPage />} />
         <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/campaigns/new" element={<CampaignWizardPage />} />
         <Route path="/campaigns/:id" element={<CampaignDetailPage />} />

@@ -14,7 +14,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Отправить',
     items: [
-      { path: '/campaigns/new', label: 'Быстрая отправка' },
+      { path: '/quick-send', label: 'Быстрая отправка' },
       { path: '/campaigns', label: 'Кампании' },
       { path: '/campaign-schedules', label: 'Расписания' },
       { path: '/templates', label: 'Шаблоны' },
