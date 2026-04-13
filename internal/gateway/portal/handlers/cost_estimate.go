@@ -33,9 +33,11 @@ func NewCostEstimateHandlers(
 
 // costEstimateRequest is the request body for POST /portal/v1/campaigns/estimate-cost.
 type costEstimateRequest struct {
-	ContactListID string `json:"contact_list_id"`
-	Text          string `json:"text"`
-	Source        string `json:"source"`
+	ContactListID    string   `json:"contact_list_id"`
+	Text             string   `json:"text"`
+	Source           string   `json:"source"`
+	ExcludeCountries []string `json:"exclude_countries,omitempty"`
+	ExcludeOperators []string `json:"exclude_operators,omitempty"`
 }
 
 // CostEstimateResponse is the response for cost estimation.
