@@ -1,65 +1,70 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { campaignsApi } from '../../api/campaigns';
-import { contactListsApi, type ContactList } from '../../api/contacts';
-import { ApiError, type TemplateInfo } from '../../api/client';
+import { contactListsApi, type ContactList, type ContactListSegments } from '../../api/contacts';
+import { senderNamesApi, type SenderNameInfo, ApiError, type TemplateInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { TemplatePreview } from '../../components/campaigns/TemplatePreview';
+import { CharacterCounter } from '../../components/ui/CharacterCounter';
 import { TemplatePicker } from '../../components/campaigns/TemplatePicker';
 import { StepIndicator } from '../../components/campaigns/StepIndicator';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
-type WizardStep = 'basics' | 'message' | 'ab_test' | 'schedule' | 'retry' | 'confirm';
+type WizardStep = 'message' | 'audience' | 'schedule' | 'confirm';
 
-const STEPS: WizardStep[] = ['basics', 'message', 'ab_test', 'schedule', 'retry', 'confirm'];
+const STEPS: WizardStep[] = ['message', 'audience', 'schedule', 'confirm'];
 const STEP_LABELS: Record<WizardStep, string> = {
-  basics: '1. Основное',
-  message: '2. Сообщение',
-  ab_test: '3. A/B Тест',
-  schedule: '4. Расписание',
-  retry: '5. Повторы',
-  confirm: '6. Подтверждение',
+  message: '1. Сообщение',
+  audience: '2. Аудитория',
+  schedule: '3. Расписание',
+  confirm: '4. Подтверждение',
 };
 
 export function CampaignWizardPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<WizardStep>('basics');
+  const [step, setStep] = useState<WizardStep>('message');
   const [maxReachedIndex, setMaxReachedIndex] = useState(0);
   const [validationErrors, setValidationErrors] = useState<Partial<Record<WizardStep, boolean>>>({});
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
-  // Step 1: Basics
-  const [name, setName] = useState('');
-  const [contactListId, setContactListId] = useState('');
-  const [source, setSource] = useState('');
-  const [contactLists, setContactLists] = useState<ContactList[]>([]);
-
-  // Step 2: Message
+  // Шаг 1: Сообщение
+  const [messageText, setMessageText] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateInfo | null>(null);
-  const [messageText, setMessageText] = useState('');
+  const [senderNameId, setSenderNameId] = useState('');
+  const [senderNames, setSenderNames] = useState<SenderNameInfo[]>([]);
 
-  // Step 3: A/B Test
+  // A/B тест (часть шага 1)
   const [abEnabled, setAbEnabled] = useState(false);
+  const [abTextB, setAbTextB] = useState('');
+  const [abTemplateIdB, setAbTemplateIdB] = useState('');
+  const [abTemplateB, setAbTemplateB] = useState<TemplateInfo | null>(null);
   const [abSplitPercent, setAbSplitPercent] = useState(20);
-  const [abDurationHours, setAbDurationHours] = useState(24);
-  const [abMetric, setAbMetric] = useState<'delivery_rate' | 'click_rate'>('delivery_rate');
-  const [abVariantBTemplateId, setAbVariantBTemplateId] = useState('');
-  const [abVariantBTemplate, setAbVariantBTemplate] = useState<TemplateInfo | null>(null);
+  const [abDurationHours, setAbDurationHours] = useState(6);
+  const [abMetric, setAbMetric] = useState<'delivery_rate' | 'click_rate' | 'unique_click_rate'>('delivery_rate');
 
-  // Step 4: Schedule
-  const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now');
-  const [sendRate, setSendRate] = useState(100);
+  // Шаг 2: Аудитория
+  const [contactListId, setContactListId] = useState('');
+  const [contactLists, setContactLists] = useState<ContactList[]>([]);
+  const [segments, setSegments] = useState<ContactListSegments | null>(null);
+  const [excludeCountries, setExcludeCountries] = useState<string[]>([]);
+  const [excludeOperators, setExcludeOperators] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Step 5: Retry
-  const [retryEnabled, setRetryEnabled] = useState(false);
-  const [retryDelay, setRetryDelay] = useState(1);
-  const [maxRetries, setMaxRetries] = useState(2);
+  // Шаг 3: Расписание
+  const [sendMode, setSendMode] = useState<'now' | 'later'>('now');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [useSubscriberTimezone, setUseSubscriberTimezone] = useState(false);
 
-  // Cost estimation
+  // Шаг 4: Подтверждение
+  const [campaignName, setCampaignName] = useState('');
+  const [editingName, setEditingName] = useState(false);
   const [costEstimate, setCostEstimate] = useState<{
     recipients: number;
     segments_per_msg: number;
@@ -71,26 +76,54 @@ export function CampaignWizardPage() {
   } | null>(null);
   const [costLoading, setCostLoading] = useState(false);
 
+  // Загрузка sender names
   useEffect(() => {
-    contactListsApi
-      .list(1, 100)
-      .then((resp) => setContactLists(resp.items ?? []))
-      .catch(() => {});
+    senderNamesApi.listApproved().then((res) => {
+      const names = res.sender_names ?? [];
+      setSenderNames(names);
+      if (names.length > 0) setSenderNameId(names[0].id);
+    }).catch(() => {});
   }, []);
 
+  // Загрузка контактных баз
+  useEffect(() => {
+    contactListsApi.list(1, 100).then((res) => setContactLists(res.items ?? [])).catch(() => {});
+  }, []);
+
+  // Загрузка сегментов при выборе базы
+  useEffect(() => {
+    if (!contactListId) { setSegments(null); return; }
+    contactListsApi.getSegments(contactListId).then(setSegments).catch(() => setSegments(null));
+  }, [contactListId]);
+
+  // Автогенерация названия кампании при достижении шага confirm
   useEffect(() => {
     if (step !== 'confirm') return;
+    const now = sendMode === 'later' && scheduledDate && scheduledTime
+      ? new Date(`${scheduledDate}T${scheduledTime}`)
+      : new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    setCampaignName((prev) => prev || `SMS · ${dd}.${mm}.${yyyy} · ${hh}:${min}`);
+  }, [step]);
+
+  // Расчёт стоимости при переходе на confirm
+  useEffect(() => {
+    if (step !== 'confirm' || !contactListId) return;
     setCostLoading(true);
-    campaignsApi
-      .estimateCost({
-        contact_list_id: contactListId,
-        text: messageText || (selectedTemplate?.body ?? ''),
-        source: source,
-      })
-      .then(setCostEstimate)
-      .catch(() => setCostEstimate(null))
-      .finally(() => setCostLoading(false));
-  }, [step, contactListId, messageText, selectedTemplate, source]);
+    const text = messageText || selectedTemplate?.body || '';
+    const source = senderNames.find((s) => s.id === senderNameId)?.name || '';
+    campaignsApi.estimateCost({
+      contact_list_id: contactListId,
+      text,
+      source,
+      exclude_countries: excludeCountries.length > 0 ? excludeCountries : undefined,
+      exclude_operators: excludeOperators.length > 0 ? excludeOperators : undefined,
+    }).then(setCostEstimate).catch(() => setCostEstimate(null)).finally(() => setCostLoading(false));
+  }, [step]);
 
   const currentStepIdx = STEPS.indexOf(step);
 
@@ -121,16 +154,21 @@ export function CampaignWizardPage() {
 
   function canProceed(): boolean {
     switch (step) {
-      case 'basics':
-        return name.trim().length > 0 && contactListId.length > 0;
       case 'message':
-        return templateId.trim().length > 0 || messageText.trim().length > 0;
-      case 'ab_test':
-        if (!abEnabled) return true;
-        return abVariantBTemplateId.trim().length > 0;
-      case 'schedule':
+        if (!templateId && !messageText.trim()) return false;
+        if (!senderNameId) return false;
+        if (abEnabled) {
+          if (!abTemplateIdB && !abTextB.trim()) return false;
+        }
         return true;
-      case 'retry':
+      case 'audience':
+        return contactListId.length > 0;
+      case 'schedule':
+        if (sendMode === 'later') {
+          if (!scheduledDate || !scheduledTime) return false;
+          const dt = new Date(`${scheduledDate}T${scheduledTime}`);
+          if (dt <= new Date(Date.now() + 5 * 60 * 1000)) return false;
+        }
         return true;
       case 'confirm':
         return true;
@@ -143,29 +181,28 @@ export function CampaignWizardPage() {
     setSubmitting(true);
     setError('');
     try {
+      const senderName = senderNames.find((s) => s.id === senderNameId);
+      const scheduledAt = sendMode === 'later' && scheduledDate && scheduledTime
+        ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+        : undefined;
+
       const campaign = await campaignsApi.create({
-        name: name.trim(),
+        name: campaignName.trim(),
         contact_list_id: contactListId,
-        template_id: templateId.trim() || undefined,
-        source: source.trim() || undefined,
-        send_rate: sendRate,
+        template_id: templateId || undefined,
+        source: senderName?.name || '',
+        send_rate: 100,
+        scheduled_at: scheduledAt,
+        use_subscriber_timezone: sendMode === 'later' ? useSubscriberTimezone : false,
+        segment_rules: (excludeCountries.length > 0 || excludeOperators.length > 0)
+          ? { exclude_countries: excludeCountries, exclude_operators: excludeOperators }
+          : undefined,
       });
 
-      // Set A/B test config if enabled
       if (abEnabled) {
         await campaignsApi.setVariants(campaign.id, [
-          {
-            name: 'Вариант A',
-            template_id: templateId.trim(),
-            percentage: 100 - abSplitPercent,
-            is_control: true,
-          },
-          {
-            name: 'Вариант B',
-            template_id: abVariantBTemplateId.trim(),
-            percentage: abSplitPercent,
-            is_control: false,
-          },
+          { name: 'Вариант A', template_id: templateId, percentage: 100 - abSplitPercent, is_control: true },
+          { name: 'Вариант B', template_id: abTemplateIdB, percentage: abSplitPercent, is_control: false },
         ]);
         await campaignsApi.setABConfig(campaign.id, {
           metric: abMetric,
@@ -174,29 +211,36 @@ export function CampaignWizardPage() {
         });
       }
 
-      // Set retry config if enabled
-      if (retryEnabled) {
-        await campaignsApi.setRetryConfig(campaign.id, {
-          enabled: true,
-          delay_hours: retryDelay,
-          max_retries: maxRetries,
-        });
-      }
-
-      // Launch if "now" mode
       if (sendMode === 'now') {
         await campaignsApi.launch(campaign.id);
       }
 
       navigate(`/campaigns/${campaign.id}`);
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Ошибка при создании рассылки',
-      );
+      setError(err instanceof ApiError ? err.message : 'Ошибка при создании рассылки');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSaveDraft() {
+    setSavingDraft(true);
+    setError('');
+    try {
+      const senderName = senderNames.find((s) => s.id === senderNameId);
+      await campaignsApi.create({
+        name: campaignName.trim() || `Черновик ${new Date().toLocaleDateString('ru')}`,
+        contact_list_id: contactListId || (contactLists[0]?.id ?? ''),
+        template_id: templateId || undefined,
+        source: senderName?.name || '',
+        send_rate: 100,
+      });
+      navigate('/campaigns');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Ошибка при сохранении черновика');
+    } finally {
+      setSavingDraft(false);
+      setShowCancelDialog(false);
     }
   }
 
