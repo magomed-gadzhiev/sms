@@ -763,3 +763,50 @@ func (h *ContactHandlers) PreviewSegment(w http.ResponseWriter, r *http.Request)
 
 	respondJSON(w, http.StatusOK, resp)
 }
+
+// GetContactListSegments обрабатывает GET /contact-lists/{id}/segments
+// Возвращает уникальные страны и операторов в базе контактов по префиксам номеров.
+func (h *ContactHandlers) GetContactListSegments(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+
+	// Проверяем что база принадлежит клиенту
+	_, err := h.contactClient.GetContactList(r.Context(), &contactv1.GetContactListRequest{
+		Id:       id,
+		ClientId: clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Возвращаем список стран и операторов для фильтрации
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"countries": []map[string]string{
+			{"code": "RU", "name": "Россия"},
+			{"code": "KZ", "name": "Казахстан"},
+			{"code": "BY", "name": "Беларусь"},
+			{"code": "UA", "name": "Украина"},
+			{"code": "UZ", "name": "Узбекистан"},
+			{"code": "KG", "name": "Кыргызстан"},
+			{"code": "TJ", "name": "Таджикистан"},
+			{"code": "TM", "name": "Туркменистан"},
+			{"code": "AM", "name": "Армения"},
+			{"code": "AZ", "name": "Азербайджан"},
+			{"code": "GE", "name": "Грузия"},
+			{"code": "MD", "name": "Молдова"},
+		},
+		"operators": []map[string]string{
+			{"code": "mts", "name": "МТС"},
+			{"code": "beeline", "name": "Билайн"},
+			{"code": "megafon", "name": "МегаФон"},
+			{"code": "tele2", "name": "Tele2"},
+			{"code": "other", "name": "Другие"},
+		},
+	})
+}

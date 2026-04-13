@@ -251,6 +251,7 @@ func SetupRouter(
 	contactLists.HandleFunc("/{id}/imports/{iid}", contactHandlers.GetImportStatus).Methods("GET")
 	contactLists.HandleFunc("/{id}/imports", contactHandlers.ListImports).Methods("GET")
 	contactLists.HandleFunc("/{id}/segment/preview", contactHandlers.PreviewSegment).Methods("POST")
+	contactLists.HandleFunc("/{id}/segments", contactHandlers.GetContactListSegments).Methods("GET")
 
 	// Segments
 	segments := protected.PathPrefix("/segments").Subrouter()
