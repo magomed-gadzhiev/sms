@@ -274,181 +274,158 @@ export function CampaignWizardPage() {
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        {/* Step 1: Basics */}
-        {step === 'basics' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Основные настройки
-            </h3>
-            <Input
-              label="Название рассылки *"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Например: Новогодняя акция"
-              autoFocus
-              required
-            />
-            <Select
-              label="Контактная база *"
-              value={contactListId}
-              onChange={(v) => setContactListId(v)}
-              options={contactLists.map((l) => ({
-                value: l.id,
-                label: `${l.name} (${(l.contacts_count ?? 0).toLocaleString()} контактов)`,
-              }))}
-              placeholder="-- Выберите базу --"
-            />
-            <div>
-              <Input
-                label="Имя отправителя (Sender ID)"
-                type="text"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="Например: MyCompany"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Если не указан, будет использоваться ID отправителя по умолчанию
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Message */}
+        {/* Step 1: Сообщение */}
         {step === 'message' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Сообщение
-            </h3>
+          <div className="space-y-5 max-w-xl">
+            <h3 className="text-lg font-medium text-gray-900">Сообщение</h3>
+
+            {/* Textarea */}
+            <div className="space-y-1">
+              <label htmlFor="msg-text" className="text-sm font-medium text-gray-700">
+                Текст сообщения
+              </label>
+              <textarea
+                id="msg-text"
+                value={messageText}
+                onChange={(e) => { setMessageText(e.target.value); if (e.target.value) { setTemplateId(''); setSelectedTemplate(null); } }}
+                rows={4}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
+                placeholder="Введите текст сообщения..."
+              />
+              <div className="flex justify-between items-center">
+                <CharacterCounter current={messageText.length} max={160} />
+              </div>
+            </div>
+
+            {/* Template picker */}
             <TemplatePicker
               value={templateId}
               selectedTemplate={selectedTemplate}
-              onChange={(id, tpl) => { setTemplateId(id); setSelectedTemplate(tpl); }}
+              onChange={(id, tpl) => {
+                setTemplateId(id);
+                setSelectedTemplate(tpl);
+                if (id) setMessageText('');
+              }}
             />
-            <div className="flex flex-col gap-1">
-              <label htmlFor="campaign-msg-text" className="text-sm font-medium text-gray-700">
-                Или текст сообщения
+
+            {/* Sender name */}
+            <Select
+              label="Имя отправителя *"
+              value={senderNameId}
+              onChange={setSenderNameId}
+              options={senderNames.map((s) => ({ value: s.id, label: s.name }))}
+              placeholder="-- Выберите отправителя --"
+            />
+
+            {/* A/B toggle */}
+            <div className="pt-2 border-t border-gray-200">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={abEnabled}
+                  onClick={() => setAbEnabled((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${abEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${abEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+                <span className="text-sm font-medium text-gray-700">A/B тестирование</span>
               </label>
-              <textarea
-                id="campaign-msg-text"
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                rows={4}
-                className="rounded border border-gray-300 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
-                placeholder="Введите текст SMS сообщения..."
-                aria-describedby="campaign-msg-hint"
-              />
-              <p id="campaign-msg-hint" className="text-xs text-gray-500">
-                {messageText.length} / 160 символов
-                {messageText.length > 160 &&
-                  ` (${Math.ceil(messageText.length / 153)} SMS)`}
-              </p>
             </div>
-            {messageText && (
-              <TemplatePreview
-                templateText={messageText}
-                contactListId={contactListId}
-              />
-            )}
-          </div>
-        )}
 
-        {/* Step 3: A/B Test */}
-        {step === 'ab_test' && (
-          <div className="space-y-6 max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              A/B Тестирование
-            </h3>
-            <p className="text-sm text-gray-500 -mt-4">
-              Протестируйте два варианта сообщения и автоматически выберите победителя.
-            </p>
-
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={abEnabled}
-                onChange={(e) => setAbEnabled(e.target.checked)}
-                className="rounded w-4 h-4"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Включить A/B тест
-              </span>
-            </label>
-
+            {/* A/B panel */}
             {abEnabled && (
-              <div className="space-y-5 pl-6 border-l-2 border-blue-200">
-                {/* Variant B message */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-800">Вариант B — сообщение</h4>
-                  <p className="text-xs text-gray-500">
-                    Вариант A — это основное сообщение, выбранное на предыдущем шаге.
-                  </p>
-                  <TemplatePicker
-                    value={abVariantBTemplateId}
-                    selectedTemplate={abVariantBTemplate}
-                    onChange={(id, tpl) => {
-                      setAbVariantBTemplateId(id);
-                      setAbVariantBTemplate(tpl);
-                    }}
+              <div className="space-y-4 pl-4 border-l-2 border-blue-200 bg-blue-50/30 rounded-r p-4">
+                <h4 className="text-sm font-semibold text-gray-800">Вариант B</h4>
+
+                <div className="space-y-1">
+                  <label htmlFor="msg-text-b" className="text-sm font-medium text-gray-700">
+                    Текст сообщения (Вариант B)
+                  </label>
+                  <textarea
+                    id="msg-text-b"
+                    value={abTextB}
+                    onChange={(e) => { setAbTextB(e.target.value); if (e.target.value) { setAbTemplateIdB(''); setAbTemplateB(null); } }}
+                    rows={3}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    placeholder="Введите альтернативный текст..."
                   />
-                  {!abVariantBTemplateId && (
-                    <p className="text-xs text-amber-600">
-                      Для варианта B необходимо выбрать шаблон из библиотеки.
-                    </p>
-                  )}
+                  <CharacterCounter current={abTextB.length} max={160} />
                 </div>
 
-                {/* Split percentage */}
+                <TemplatePicker
+                  value={abTemplateIdB}
+                  selectedTemplate={abTemplateB}
+                  onChange={(id, tpl) => {
+                    setAbTemplateIdB(id);
+                    setAbTemplateB(tpl);
+                    if (id) setAbTextB('');
+                  }}
+                />
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Доля аудитории для теста: <span className="text-blue-600 font-semibold">{abSplitPercent}%</span>
+                    Доля аудитории для теста:{' '}
+                    <span className="text-blue-600 font-semibold">{abSplitPercent}%</span>
                   </label>
                   <p className="text-xs text-gray-500">
-                    Вариант A: {100 - abSplitPercent}% &nbsp;·&nbsp; Вариант B: {abSplitPercent}%
+                    Вариант A: {100 - abSplitPercent}% · Вариант B: {abSplitPercent}%
                   </p>
                   <input
                     type="range"
-                    min={10}
+                    min={5}
                     max={50}
                     step={5}
                     value={abSplitPercent}
                     onChange={(e) => setAbSplitPercent(Number(e.target.value))}
                     className="w-full accent-blue-600"
-                    aria-label="Процент сплита"
+                    aria-label="Доля аудитории для теста"
                   />
                   <div className="flex justify-between text-xs text-gray-400">
-                    <span>10%</span>
-                    <span>50%</span>
+                    <span>5%</span><span>50%</span>
                   </div>
                 </div>
 
-                {/* Test duration */}
-                <Input
-                  label="Время до выбора победителя (часы)"
-                  type="number"
-                  value={String(abDurationHours)}
-                  onChange={(e) => setAbDurationHours(Number(e.target.value))}
-                  min={1}
-                  max={168}
-                />
-
-                {/* Winning metric */}
                 <Select
-                  label="Метрика победителя"
-                  value={abMetric}
-                  onChange={(v) => setAbMetric(v as 'delivery_rate' | 'click_rate')}
+                  label="Время до выбора победителя"
+                  value={String(abDurationHours)}
+                  onChange={(v) => setAbDurationHours(Number(v))}
                   options={[
-                    { value: 'delivery_rate', label: 'Доставляемость (delivery rate)' },
-                    { value: 'click_rate', label: 'Кликабельность (click rate)' },
+                    { value: '1', label: '1 час' },
+                    { value: '3', label: '3 часа' },
+                    { value: '6', label: '6 часов' },
+                    { value: '12', label: '12 часов' },
+                    { value: '24', label: '24 часа' },
                   ]}
                 />
+
+                <fieldset>
+                  <legend className="text-sm font-medium text-gray-700 mb-2">Метрика победителя</legend>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'delivery_rate', label: 'Процент доставки' },
+                      { value: 'click_rate', label: 'CTR (Click Rate)' },
+                      { value: 'unique_click_rate', label: 'Уникальный CTR' },
+                    ].map((opt) => (
+                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="abMetric"
+                          value={opt.value}
+                          checked={abMetric === opt.value}
+                          onChange={() => setAbMetric(opt.value as typeof abMetric)}
+                          className="text-blue-600"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
             )}
 
-            {!abEnabled && (
-              <p className="text-sm text-gray-400 italic">
-                A/B тест отключён — будет использован один вариант сообщения.
-              </p>
+            {validationErrors.message && (
+              <p className="text-sm text-red-600">Заполните текст сообщения и выберите имя отправителя.</p>
             )}
           </div>
         )}
@@ -499,46 +476,6 @@ export function CampaignWizardPage() {
                 Рекомендуемая скорость: 50-500 SMS/сек
               </p>
             </div>
-          </div>
-        )}
-
-        {/* Step 5: Retry */}
-        {step === 'retry' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Повторная отправка
-            </h3>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={retryEnabled}
-                onChange={(e) => setRetryEnabled(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Повторять отправку недоставленных сообщений
-              </span>
-            </label>
-            {retryEnabled && (
-              <div className="space-y-4 pl-6 border-l-2 border-blue-200">
-                <Input
-                  label="Задержка перед повтором (часы)"
-                  type="number"
-                  value={String(retryDelay)}
-                  onChange={(e) => setRetryDelay(Number(e.target.value))}
-                  min={1}
-                  max={72}
-                />
-                <Input
-                  label="Максимум повторов"
-                  type="number"
-                  value={String(maxRetries)}
-                  onChange={(e) => setMaxRetries(Number(e.target.value))}
-                  min={1}
-                  max={5}
-                />
-              </div>
-            )}
           </div>
         )}
 
@@ -605,34 +542,6 @@ export function CampaignWizardPage() {
                 </dd>
               </div>
             </dl>
-          </div>
-        )}
-
-        {/* Cost Estimation */}
-        {step === 'confirm' && (
-          <div className="bg-gray-50 rounded-lg p-4 border mb-4 max-w-lg">
-            <h3 className="font-medium mb-3">Предварительный расчёт стоимости</h3>
-            {costLoading ? (
-              <p className="text-sm text-gray-500">Расчёт...</p>
-            ) : costEstimate ? (
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Получателей: <span className="font-medium">{costEstimate.recipients}</span></div>
-                <div>Сегментов/сообщение: <span className="font-medium">{costEstimate.segments_per_msg}</span></div>
-                <div>Всего сегментов: <span className="font-medium">{costEstimate.total_segments}</span></div>
-                <div>Цена/сегмент: <span className="font-medium">{costEstimate.price_per_segment} ₽</span></div>
-                <div className="col-span-2 border-t pt-2 mt-1">
-                  Итого: <span className="font-bold text-lg">{costEstimate.estimated_cost} ₽</span>
-                </div>
-                <div className="col-span-2">
-                  Баланс: {costEstimate.current_balance} ₽
-                  {!costEstimate.balance_sufficient && (
-                    <span className="ml-2 text-red-600 text-sm">⚠ Недостаточно средств</span>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400">Стоимость будет рассчитана автоматически</p>
-            )}
           </div>
         )}
 
