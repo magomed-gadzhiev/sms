@@ -8,7 +8,7 @@
 
 ## Цель
 
-Сократить визард создания SMS-кампании с 6 шагов до 4, убрав шаг повторов (retry) и объединив шаги Message + A/B Test в один. Упростить UX, не меняя бэкенд-архитектуру.
+Сократить визард создания SMS-кампании с 6 шагов до 4, убрав шаг повторов (retry) и объединив шаги Message + A/B Test в один. Упростить UX. Добавить поддержку часового пояса абонента и фильтров исключения по стране/оператору — для этого требуются изменения на бэкенде.
 
 ---
 
@@ -71,8 +71,8 @@
 ### Фильтры исключения
 
 - Опциональный блок, раскрывается кнопкой "Добавить фильтры"
-- **MultiSelect "Исключить страны"** — список стран определяется по префиксам номеров в выбранной базе. Если endpoint для получения уникальных стран/операторов по базе отсутствует — отображается статический список (RU, KZ, BY, UA, ...), а подсчёт исключений не производится до шага подтверждения
-- **MultiSelect "Исключить операторов"** — аналогично (МТС, Билайн, МегаФон, ...)
+- **MultiSelect "Исключить страны"** — список стран загружается через новый endpoint `GET /portal/v1/contact-lists/{id}/segments` (нужно добавить на бэкенде); возвращает уникальные страны и операторы в базе, определённые по префиксам номеров
+- **MultiSelect "Исключить операторов"** — данные из того же endpoint
 - Фильтры передаются бэкенду при создании кампании в поле `segment_rules` (JSONB); реальная фильтрация на бэкенде
 
 ### Сводка (реактивная)
@@ -116,7 +116,7 @@ Radio group:
 
 - "Сейчас": `scheduled_at: null`, после создания вызываем `POST /campaigns/{id}/launch`
 - "Позже": `scheduled_at: "<ISO 8601>"`, `use_subscriber_timezone: bool`
-- Если поле `use_subscriber_timezone` отсутствует в текущей модели бэкенда — добавить в `CreateCampaignRequest`
+- Поле `use_subscriber_timezone` **отсутствует** в текущей модели — требуется добавить в бэкенд (миграция + proto + handler)
 
 ---
 
@@ -150,8 +150,8 @@ Radio group:
 - `По часовому поясу абонента: Да/Нет`
 
 **Стоимость (приблизительно)**:
-- Расчёт: `кол-во_получателей × частей_SMS × стоимость_1_SMS`
-- Стоимость 1 SMS берётся из существующего `estimate-cost` endpoint или из настроек клиента
+- Расчёт выполняется через расширенный `POST /portal/v1/campaigns/estimate-cost` — передаём `{contact_list_id, text, source, exclude_countries?, exclude_operators?}`, получаем `{estimated_cost, recipient_count, sms_parts, balance, sufficient}`
+- Запрос делается при переходе на шаг 4 (async, показываем skeleton до ответа)
 - Баланс пользователя
 - Если баланс >= стоимость: зелёная галочка "Достаточно"
 - Если баланс < стоимость: предупреждение "Недостаточно средств", кнопка "Отправить" неактивна
@@ -195,20 +195,27 @@ Radio group:
 
 ## Затрагиваемые файлы
 
+### Бэкенд
+
+| Файл | Изменение |
+|------|-----------|
+| `internal/services/campaign/domain/models.go` | Добавить `UseSubscriberTimezone bool` в `Campaign` |
+| `api/proto/campaign/campaign.proto` | Добавить `use_subscriber_timezone` в `CreateCampaignRequest` и `Campaign` |
+| `internal/gateway/portal/handlers/campaigns.go` | Принимать и передавать `use_subscriber_timezone`; расширить `estimate-cost` (фильтры) |
+| `internal/storage/campaign_repository.go` | Сохранять/читать `use_subscriber_timezone` |
+| `migrations/000XXX_campaign_subscriber_timezone.sql` | `ALTER TABLE campaigns ADD COLUMN use_subscriber_timezone BOOLEAN NOT NULL DEFAULT FALSE` |
+| `internal/gateway/portal/handlers/contact_lists.go` | Новый handler `GET /contact-lists/{id}/segments` |
+| `internal/gateway/portal/router/router.go` | Зарегистрировать новый маршрут `/contact-lists/{id}/segments` |
+| `internal/storage/contact_list_repository.go` | Запрос уникальных стран/операторов по префиксам номеров в базе |
+
+### Фронтенд
+
 | Файл | Изменение |
 |------|-----------|
 | `portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx` | Основные изменения: 6 → 4 шагов, новый стейт, новая логика |
-| `portal-frontend/src/components/campaigns/StepIndicator.tsx` | Только данные шагов (labels), не логика |
-| `portal-frontend/src/api/campaigns.ts` | Добавить `use_subscriber_timezone` и `segment_rules` в `CreateCampaignRequest` |
-| `portal-frontend/src/pages/campaigns/CampaignsPage.tsx` | Проверить ссылку на визард (маршрут не меняется) |
-
----
-
-## Открытые вопросы
-
-1. **`use_subscriber_timezone`** — есть ли это поле в текущей бэкенд-модели кампании? Если нет — нужно добавить на бэкенде.
-2. **Фильтры по стране/оператору** — есть ли endpoint для получения уникальных стран/операторов в конкретной базе контактов? Если нет — первая итерация использует статический список.
-3. **Стоимость 1 SMS** — как получить текущую стоимость для клиента? Через `estimate-cost` с минимальными параметрами или отдельный endpoint тарификации?
+| `portal-frontend/src/components/campaigns/StepIndicator.tsx` | Обновить labels шагов |
+| `portal-frontend/src/api/campaigns.ts` | Добавить `use_subscriber_timezone`, `segment_rules` в `CreateCampaignRequest`; расширить `estimateCost` параметры |
+| `portal-frontend/src/api/contactLists.ts` | Добавить `getSegments(id)` → `{countries: string[], operators: string[]}` |
 
 ---
 
@@ -217,4 +224,4 @@ Radio group:
 - Шаг "Повторы" (retry) — удаляется полностью, без замены
 - Каскадная доставка в визарде — отдельная фича
 - Мобильная адаптация — визард остаётся десктопным
-- Изменения бэкенда, кроме поля `use_subscriber_timezone` если его нет
+- Бэкенд-логика фильтрации по часовому поясу (только сохраняем флаг; рассылка по часовым поясам — отдельная задача воркера)
