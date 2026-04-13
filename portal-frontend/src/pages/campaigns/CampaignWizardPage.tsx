@@ -244,8 +244,6 @@ export function CampaignWizardPage() {
     }
   }
 
-  const selectedList = contactLists.find((l) => l.id === contactListId);
-
   return (
     <div>
       <PageHeader
@@ -430,143 +428,402 @@ export function CampaignWizardPage() {
           </div>
         )}
 
-        {/* Step 4: Schedule */}
+        {/* Step 2: Аудитория */}
+        {step === 'audience' && (
+          <div className="space-y-5 max-w-xl">
+            <h3 className="text-lg font-medium text-gray-900">Аудитория</h3>
+
+            <Select
+              label="Контактная база *"
+              value={contactListId}
+              onChange={(v) => {
+                setContactListId(v);
+                setExcludeCountries([]);
+                setExcludeOperators([]);
+                setShowFilters(false);
+              }}
+              options={contactLists.map((l) => ({
+                value: l.id,
+                label: `${l.name} (${(l.contacts_count ?? 0).toLocaleString()} контактов)`,
+              }))}
+              placeholder="-- Выберите базу контактов --"
+            />
+
+            {contactListId && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((v) => !v)}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline flex items-center gap-1"
+                >
+                  {showFilters ? '− Скрыть фильтры' : '+ Добавить фильтры исключения'}
+                </button>
+
+                {showFilters && segments && (
+                  <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                    {segments.countries.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Исключить страны</label>
+                        <div className="flex flex-wrap gap-2">
+                          {segments.countries.map((c) => (
+                            <label key={c.code} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={excludeCountries.includes(c.code)}
+                                onChange={(e) =>
+                                  setExcludeCountries((prev) =>
+                                    e.target.checked ? [...prev, c.code] : prev.filter((x) => x !== c.code)
+                                  )
+                                }
+                                className="rounded"
+                              />
+                              {c.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {segments.operators.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Исключить операторов</label>
+                        <div className="flex flex-wrap gap-2">
+                          {segments.operators.map((op) => (
+                            <label key={op.code} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={excludeOperators.includes(op.code)}
+                                onChange={(e) =>
+                                  setExcludeOperators((prev) =>
+                                    e.target.checked ? [...prev, op.code] : prev.filter((x) => x !== op.code)
+                                  )
+                                }
+                                className="rounded"
+                              />
+                              {op.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(() => {
+                  const list = contactLists.find((l) => l.id === contactListId);
+                  const total = list?.contacts_count ?? 0;
+                  const hasFilters = excludeCountries.length > 0 || excludeOperators.length > 0;
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                      <span>
+                        Контактов к отправке: <strong>{total.toLocaleString()}</strong>
+                        {hasFilters && <span className="text-gray-500 ml-1">(фильтры применяются при запуске)</span>}
+                        {abEnabled && (
+                          <span className="block text-gray-500 mt-1">
+                            Тестовая группа: ~{Math.round(total * abSplitPercent / 100).toLocaleString()} контактов ({abSplitPercent}%)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+
+            {validationErrors.audience && (
+              <p className="text-sm text-red-600">Выберите контактную базу.</p>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Расписание */}
         {step === 'schedule' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Расписание отправки
-            </h3>
+          <div className="space-y-5 max-w-xl">
+            <h3 className="text-lg font-medium text-gray-900">Расписание</h3>
+
             <fieldset>
-              <legend className="text-sm font-medium text-gray-700 mb-2">Режим отправки</legend>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <legend className="text-sm font-medium text-gray-700 mb-3">Время отправки</legend>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="radio"
                     name="sendMode"
                     value="now"
                     checked={sendMode === 'now'}
-                    onChange={() => setSendMode('now')}
+                    onChange={() => { setSendMode('now'); setUseSubscriberTimezone(false); }}
                     className="text-blue-600"
                   />
-                  <span className="text-sm">Отправить сейчас</span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Сейчас</span>
+                    <p className="text-xs text-gray-500">Рассылка начнётся сразу после подтверждения</p>
+                  </div>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="radio"
                     name="sendMode"
-                    value="scheduled"
-                    checked={sendMode === 'scheduled'}
-                    onChange={() => setSendMode('scheduled')}
+                    value="later"
+                    checked={sendMode === 'later'}
+                    onChange={() => setSendMode('later')}
                     className="text-blue-600"
                   />
-                  <span className="text-sm">Сохранить как черновик</span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Позже</span>
+                    <p className="text-xs text-gray-500">Выберите дату и время начала</p>
+                  </div>
                 </label>
               </div>
             </fieldset>
-            <div>
-              <Input
-                label="Скорость отправки (SMS/сек)"
-                type="number"
-                value={String(sendRate)}
-                onChange={(e) => setSendRate(Number(e.target.value))}
-                min={1}
-                max={10000}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Рекомендуемая скорость: 50-500 SMS/сек
-              </p>
+
+            {sendMode === 'later' && (
+              <div className="space-y-3 pl-7">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <Input
+                      label="Дата"
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      label="Время"
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-start gap-3 cursor-pointer mt-2">
+                  <input
+                    type="checkbox"
+                    checked={useSubscriberTimezone}
+                    onChange={(e) => setUseSubscriberTimezone(e.target.checked)}
+                    className="rounded mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">
+                      По часовому поясу абонента
+                    </span>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Каждый получатель получит SMS в указанное время по своему часовому поясу,
+                      определённому по номеру телефона
+                    </p>
+                  </div>
+                </label>
+
+                {scheduledDate && scheduledTime &&
+                  new Date(`${scheduledDate}T${scheduledTime}`) <= new Date(Date.now() + 5 * 60 * 1000) && (
+                  <p className="text-sm text-red-600">
+                    Время отправки должно быть не менее чем через 5 минут от текущего момента.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {validationErrors.schedule && (
+              <p className="text-sm text-red-600">Укажите корректную дату и время отправки.</p>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Подтверждение */}
+        {step === 'confirm' && (
+          <div className="space-y-5 max-w-xl">
+            <h3 className="text-lg font-medium text-gray-900">Подтверждение</h3>
+
+            {/* Campaign name */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Название рассылки</label>
+              {editingName ? (
+                <Input
+                  type="text"
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  onBlur={() => setEditingName(false)}
+                  autoFocus
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-900">{campaignName}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingName(true)}
+                    className="text-gray-400 hover:text-gray-600"
+                    aria-label="Редактировать название"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Summary */}
+            <dl className="bg-gray-50 rounded-lg divide-y divide-gray-200 text-sm overflow-hidden border border-gray-200">
+              <div className="p-3 flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <dt className="text-gray-500 text-xs mb-1">Сообщение</dt>
+                  <dd className="text-gray-900 truncate">
+                    {(messageText || selectedTemplate?.body || '—').slice(0, 100)}
+                    {(messageText || selectedTemplate?.body || '').length > 100 ? '…' : ''}
+                  </dd>
+                  <dd className="text-gray-500 text-xs mt-0.5">
+                    Отправитель: {senderNames.find((s) => s.id === senderNameId)?.name || '—'}
+                  </dd>
+                </div>
+                <button type="button" onClick={() => setStep('message')}
+                  className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
+              </div>
+
+              {abEnabled && (
+                <div className="p-3 flex justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <dt className="text-gray-500 text-xs mb-1">A/B тестирование</dt>
+                    <dd className="text-gray-900 truncate">
+                      Вариант B: {(abTextB || abTemplateB?.body || '—').slice(0, 80)}
+                    </dd>
+                    <dd className="text-gray-500 text-xs mt-0.5">
+                      Доля: {abSplitPercent}% · Время: {abDurationHours}ч ·{' '}
+                      Метрика: {abMetric === 'delivery_rate' ? 'Доставка' : abMetric === 'click_rate' ? 'CTR' : 'Уник. CTR'}
+                    </dd>
+                  </div>
+                  <button type="button" onClick={() => setStep('message')}
+                    className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
+                </div>
+              )}
+
+              <div className="p-3 flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <dt className="text-gray-500 text-xs mb-1">Аудитория</dt>
+                  <dd className="text-gray-900">
+                    {contactLists.find((l) => l.id === contactListId)?.name ?? '—'} ·{' '}
+                    {(contactLists.find((l) => l.id === contactListId)?.contacts_count ?? 0).toLocaleString()} контактов
+                  </dd>
+                  {(excludeCountries.length > 0 || excludeOperators.length > 0) && (
+                    <dd className="text-gray-500 text-xs mt-0.5">
+                      Исключены: {[...excludeCountries, ...excludeOperators].join(', ')}
+                    </dd>
+                  )}
+                </div>
+                <button type="button" onClick={() => setStep('audience')}
+                  className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
+              </div>
+
+              <div className="p-3 flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <dt className="text-gray-500 text-xs mb-1">Расписание</dt>
+                  <dd className="text-gray-900">
+                    {sendMode === 'now' ? 'Сейчас' : (scheduledDate && scheduledTime
+                      ? new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString('ru', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—')}
+                  </dd>
+                  {sendMode === 'later' && (
+                    <dd className="text-gray-500 text-xs mt-0.5">
+                      По часовому поясу абонента: {useSubscriberTimezone ? 'Да' : 'Нет'}
+                    </dd>
+                  )}
+                </div>
+                <button type="button" onClick={() => setStep('schedule')}
+                  className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
+              </div>
+            </dl>
+
+            {/* Cost estimate */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Предварительная стоимость</h4>
+              {costLoading ? (
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                </div>
+              ) : costEstimate ? (
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Получателей</span>
+                    <span className="font-medium">{costEstimate.recipients.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Частей SMS</span>
+                    <span className="font-medium">{costEstimate.segments_per_msg}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
+                    <span className="text-gray-700 font-medium">Итого</span>
+                    <span className="font-bold text-base">{costEstimate.estimated_cost} ₽</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Баланс</span>
+                    <span className={costEstimate.balance_sufficient ? 'text-green-600' : 'text-red-600'}>
+                      {costEstimate.current_balance} ₽{' '}
+                      {costEstimate.balance_sufficient ? '✓' : '⚠ Недостаточно'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Не удалось рассчитать стоимость</p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Step 5: Confirm */}
-        {step === 'confirm' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Подтверждение
-            </h3>
-            <dl className="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Название:</dt>
-                <dd className="font-medium text-gray-900">{name}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Контактная база:</dt>
-                <dd className="font-medium text-gray-900">
-                  {selectedList?.name ?? '—'}
-                  {selectedList && (
-                    <span className="text-gray-500 ml-1">
-                      ({(selectedList.contacts_count ?? 0).toLocaleString()} контактов)
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Отправитель:</dt>
-                <dd className="font-medium text-gray-900">
-                  {source || 'По умолчанию'}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Шаблон:</dt>
-                <dd className="font-medium text-gray-900">
-                  {selectedTemplate ? selectedTemplate.name : templateId ? templateId : 'Произвольный текст'}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Режим:</dt>
-                <dd className="font-medium text-gray-900">
-                  {sendMode === 'now' ? 'Отправить сейчас' : 'Черновик'}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Скорость:</dt>
-                <dd className="font-medium text-gray-900">
-                  {sendRate} SMS/сек
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">A/B Тест:</dt>
-                <dd className="font-medium text-gray-900">
-                  {abEnabled
-                    ? `Вкл. (сплит ${abSplitPercent}%, ${abDurationHours}ч, метрика: ${abMetric === 'delivery_rate' ? 'доставляемость' : 'клики'})`
-                    : 'Нет'}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Повторы:</dt>
-                <dd className="font-medium text-gray-900">
-                  {retryEnabled
-                    ? `Да (${maxRetries}x, через ${retryDelay}ч)`
-                    : 'Нет'}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        )}
-
         {/* Navigation buttons */}
-        <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
-          <Button
-            variant="secondary"
-            onClick={currentStepIdx === 0 ? () => navigate('/campaigns') : prevStep}
-          >
-            {currentStepIdx === 0 ? 'Отмена' : 'Назад'}
-          </Button>
-          {step === 'confirm' ? (
-            <Button onClick={handleLaunch} disabled={submitting}>
-              {submitting
-                ? 'Создание...'
-                : sendMode === 'now'
-                  ? 'Запустить рассылку'
-                  : 'Сохранить черновик'}
+        <div className="flex items-center justify-between mt-8 pt-4 border-t border-gray-200">
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShowCancelDialog(true)}
+            >
+              Отмена
             </Button>
-          ) : (
-            <Button onClick={nextStep} disabled={!canProceed()}>
-              Далее
+            {currentStepIdx > 0 && (
+              <Button variant="secondary" onClick={prevStep}>
+                Назад
+              </Button>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleSaveDraft}
+              disabled={savingDraft}
+            >
+              {savingDraft ? 'Сохранение...' : 'Сохранить как черновик'}
             </Button>
-          )}
+
+            {step === 'confirm' ? (
+              <Button
+                onClick={handleLaunch}
+                disabled={submitting || (costEstimate !== null && !costEstimate.balance_sufficient)}
+              >
+                {submitting
+                  ? 'Создание...'
+                  : sendMode === 'now'
+                    ? 'Отправить'
+                    : 'Запланировать'}
+              </Button>
+            ) : (
+              <Button onClick={nextStep}>
+                Далее
+              </Button>
+            )}
+          </div>
         </div>
+
+        <ConfirmDialog
+          open={showCancelDialog}
+          title="Отменить создание рассылки?"
+          description="Хотите сохранить текущий прогресс как черновик или выйти без сохранения?"
+          onConfirm={handleSaveDraft}
+          onCancel={() => { setShowCancelDialog(false); navigate('/campaigns'); }}
+          confirmLabel={savingDraft ? 'Сохранение...' : 'Сохранить как черновик'}
+          loading={savingDraft}
+        />
       </div>
     </div>
   );
