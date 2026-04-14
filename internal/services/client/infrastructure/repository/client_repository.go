@@ -32,12 +32,17 @@ func NewClientRepository(db *database.DB) *ClientRepository {
 
 // Create создает нового клиента
 func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) error {
+	accountType := "direct"
+	if client.ParentClientID != nil {
+		accountType = "sub_account"
+	}
+
 	query := `
 		INSERT INTO clients (
 			id, name, api_key, secret, email, contact_person, phone, active, metadata,
-			parent_client_id, is_reseller, max_sub_accounts, is_sandbox, created_at, updated_at
+			parent_client_id, is_reseller, max_sub_accounts, is_sandbox, account_type, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 		)
 	`
 
@@ -46,7 +51,7 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 		client.Email, client.ContactPerson, client.Phone,
 		client.Active, string(client.Metadata),
 		client.ParentClientID, client.IsReseller, client.MaxSubAccounts,
-		client.IsSandbox,
+		client.IsSandbox, accountType,
 		client.CreatedAt, client.UpdatedAt,
 	)
 
