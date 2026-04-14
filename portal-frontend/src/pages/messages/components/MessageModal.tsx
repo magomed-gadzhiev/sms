@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
@@ -30,7 +31,7 @@ export function MessageModal({ message, onClose }: Props) {
   const statusLabel = STATUS_LABELS[message.status] ?? message.status;
   const statusCls = STATUS_COLORS[message.status] ?? 'bg-gray-100 text-gray-700';
 
-  const rows: Array<{ label: string; value: React.ReactNode }> = [
+  const rows: Array<{ label: string; value: ReactNode }> = [
     { label: 'ID', value: <span className="font-mono text-xs break-all">{message.id}</span> },
     {
       label: 'Статус',

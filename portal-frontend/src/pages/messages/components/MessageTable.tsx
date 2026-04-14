@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { DetalizationMessage } from '../../../api/client';
 
@@ -39,7 +40,7 @@ interface ColSpec {
   key: string;
   header: string;
   sortField?: SortField;
-  render: (msg: DetalizationMessage) => React.ReactNode;
+  render: (msg: DetalizationMessage) => ReactNode;
 }
 
 export const ALL_COLUMNS: ColSpec[] = [
@@ -124,18 +125,23 @@ export function MessageTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              {cols.map((col) => (
-                <th
-                  key={col.key}
-                  className={`text-left px-3 py-2 text-xs font-medium text-gray-500 whitespace-nowrap ${col.sortField ? 'cursor-pointer hover:text-gray-900 select-none' : ''}`}
-                  onClick={col.sortField ? () => onSort(col.sortField!) : undefined}
-                >
-                  {col.header}
-                  {col.sortField && (
-                    <SortIcon active={sort.field === col.sortField} order={sort.order} />
-                  )}
-                </th>
-              ))}
+              {cols.map((col) => {
+                const handleSortActivate = col.sortField ? () => onSort(col.sortField!) : undefined;
+                return (
+                  <th
+                    key={col.key}
+                    className={`text-left px-3 py-2 text-xs font-medium text-gray-500 whitespace-nowrap ${col.sortField ? 'cursor-pointer hover:text-gray-900 select-none' : ''}`}
+                    onClick={handleSortActivate}
+                    tabIndex={col.sortField ? 0 : undefined}
+                    onKeyDown={col.sortField ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSortActivate!(); } } : undefined}
+                  >
+                    {col.header}
+                    {col.sortField && (
+                      <SortIcon active={sort.field === col.sortField} order={sort.order} />
+                    )}
+                  </th>
+                );
+              })}
               <th className="px-3 py-2 text-xs font-medium text-gray-500 text-right">
                 <span className="sr-only">Действия</span>
               </th>
@@ -160,6 +166,8 @@ export function MessageTable({
               <tr
                 key={msg.id}
                 onClick={() => onRowClick(msg)}
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') onRowClick(msg); }}
                 className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
               >
                 {cols.map((col) => (

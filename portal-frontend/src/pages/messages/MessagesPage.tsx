@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { detalizationApi, exportApi, referencesApi } from '../../api/client';
+import { detalizationApi, exportApi, referencesApi, senderNamesApi } from '../../api/client';
 import type { DetalizationMessage } from '../../api/client';
 import { MessageFilters } from './components/MessageFilters';
 import type { FilterDef } from './components/MessageFilters';
@@ -74,11 +74,18 @@ export function MessagesPage() {
 
   const [exportJobId, setExportJobId] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const exportPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [operatorOptions, setOperatorOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [countryOptions, setCountryOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [senderNameOptions, setSenderNameOptions] = useState<Array<{ value: string; label: string }>>([]);
+
+  useEffect(() => {
+    return () => {
+      if (exportPollRef.current) clearInterval(exportPollRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     referencesApi.operators().then((r) =>
@@ -88,9 +95,8 @@ export function MessagesPage() {
       setCountryOptions(r.countries.map((c) => ({ value: c.name, label: c.name })))
     ).catch(() => {});
     // Load approved sender names for dropdown
-    fetch('/portal/v1/sender-names?status=approved&per_page=100', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((r: { sender_names?: Array<{ name: string }> }) => {
+    senderNamesApi.listApproved()
+      .then((r) => {
         setSenderNameOptions((r.sender_names ?? []).map((s) => ({ value: s.name, label: s.name })));
       })
       .catch(() => {});
@@ -164,6 +170,7 @@ export function MessagesPage() {
   const handleExport = useCallback(async () => {
     if (exportJobId) return;
     setExportStatus('pending');
+    setExportError(null);
     const filters: Record<string, string> = {};
     Object.entries(appliedFilters).forEach(([k, v]) => { if (v) filters[k] = v; });
     try {
@@ -189,6 +196,7 @@ export function MessagesPage() {
             clearInterval(exportPollRef.current!);
             setExportStatus(null);
             setExportJobId(null);
+            setExportError('Ошибка при создании экспорта. Попробуйте снова.');
           }
         } catch {
           clearInterval(exportPollRef.current!);
@@ -198,6 +206,7 @@ export function MessagesPage() {
       }, 2000);
     } catch {
       setExportStatus(null);
+      setExportError('Не удалось запустить экспорт. Попробуйте снова.');
     }
   }, [appliedFilters, exportJobId]);
 
@@ -238,13 +247,18 @@ export function MessagesPage() {
           {exportStatus && exportStatus !== 'ready' && (
             <span className="text-sm text-gray-400 self-center">Экспорт...</span>
           )}
-          <Button
-            variant="secondary"
-            onClick={handleExport}
-            disabled={!!exportJobId || (data?.total ?? 0) === 0}
-          >
-            Экспорт
-          </Button>
+          <div className="flex flex-col items-end">
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              disabled={!!exportJobId || (data?.total ?? 0) === 0}
+            >
+              Экспорт
+            </Button>
+            {exportError && (
+              <p className="text-sm text-red-600 mt-1">{exportError}</p>
+            )}
+          </div>
           <ColumnConfigurator
             columns={columnDefs}
             visible={visibleColumns}

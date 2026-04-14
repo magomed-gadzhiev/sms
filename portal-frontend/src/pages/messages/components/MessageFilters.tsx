@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 
 export interface FilterOption {
@@ -25,6 +25,10 @@ interface Props {
 export function MessageFilters({ primary, secondary, values, onSearch, onReset }: Props) {
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const [showExtra, setShowExtra] = useState(false);
+
+  useEffect(() => {
+    setDraft(values);
+  }, [values]);
 
   const handleReset = () => {
     const empty: Record<string, string> = {};
