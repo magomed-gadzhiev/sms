@@ -481,7 +481,7 @@ export const senderTariffApi = {
 };
 
 // Operators API
-export interface OperatorInfo {
+export interface SenderNameOperatorInfo {
   id: string;
   name: string;
   slug: string;
@@ -498,7 +498,7 @@ export interface OperatorRegistration {
 
 export const operatorsApi = {
   list: () =>
-    apiFetch<{ operators: OperatorInfo[] }>('/operators'),
+    apiFetch<{ operators: SenderNameOperatorInfo[] }>('/operators'),
 };
 
 export const senderNameRegistrationsApi = {
