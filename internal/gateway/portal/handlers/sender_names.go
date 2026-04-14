@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
 	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
@@ -20,10 +21,16 @@ type SenderNameHandlers struct {
 	routingClient routingv1.RoutingServiceClient
 	tariffClient  tarificationv1.TarificationServiceClient
 	billingClient billingv1.BillingServiceClient
+	pool          *pgxpool.Pool
 }
 
 func NewSenderNameHandlers(client sendernamev1.SenderNameServiceClient) *SenderNameHandlers {
 	return &SenderNameHandlers{client: client}
+}
+
+// SetPool устанавливает пул соединений для прямых SQL-запросов
+func (h *SenderNameHandlers) SetPool(pool *pgxpool.Pool) {
+	h.pool = pool
 }
 
 // SetBillingClients устанавливает gRPC клиенты для тарификации
@@ -417,4 +424,60 @@ func historyEntryToJSON(e *sendernamev1.SenderNameHistoryEntry) map[string]inter
 		m["created_at"] = e.CreatedAt.AsTime()
 	}
 	return m
+}
+
+// ListOperators GET /portal/v1/operators
+// Возвращает список активных операторов с доступными типами регистрации.
+func (h *SenderNameHandlers) ListOperators(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		respondError(w, shared.ErrInternalServer("database pool недоступен"))
+		return
+	}
+
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT id, name, code, supports_paid_sender, supports_free_sender, monthly_tariff_amount::text
+		 FROM operators WHERE active = true ORDER BY name`)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка операторов")
+		respondError(w, shared.ErrInternalServer("ошибка получения операторов"))
+		return
+	}
+	defer rows.Close()
+
+	type operatorJSON struct {
+		ID                string   `json:"id"`
+		Name              string   `json:"name"`
+		Slug              string   `json:"slug"`
+		RegistrationTypes []string `json:"registration_types"`
+		MonthlyTariff     *string  `json:"monthly_tariff_amount"`
+	}
+
+	operators := make([]operatorJSON, 0)
+	for rows.Next() {
+		var id, name, code string
+		var supportsPaid, supportsFree bool
+		var tariff *string
+		if err := rows.Scan(&id, &name, &code, &supportsPaid, &supportsFree, &tariff); err != nil {
+			log.Error().Err(err).Msg("ошибка сканирования оператора")
+			continue
+		}
+		types := make([]string, 0, 2)
+		if supportsFree {
+			types = append(types, "free")
+		}
+		if supportsPaid {
+			types = append(types, "paid")
+		}
+		operators = append(operators, operatorJSON{
+			ID:                id,
+			Name:              name,
+			Slug:              code,
+			RegistrationTypes: types,
+			MonthlyTariff:     tariff,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"operators": operators,
+	})
 }
