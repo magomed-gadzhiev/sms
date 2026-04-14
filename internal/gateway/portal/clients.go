@@ -22,6 +22,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
+	companyv1 "github.com/smpp-server/smpp-server/api/proto/companyv1"
 	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
@@ -48,6 +49,7 @@ type ServiceClients struct {
 	CascadeClient         cascadev1.CascadeServiceClient
 	CascadeChannelAdmin   cascadev1.ChannelAdminServiceClient
 	CascadeStrategyAdmin  cascadev1.StrategyAdminServiceClient
+	CompanyClient         companyv1.CompanyServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -212,6 +214,17 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		}
 		clients.TemplateClient = templatev1.NewTemplateServiceClient(conn)
 		clients.SenderNameClient = sendernamev1.NewSenderNameServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// CompanyService работает на том же адресе, что и TemplateService (порт 9099)
+	if addresses.Template != "" {
+		conn, err := grpc.Dial(addresses.Template, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Company Service: %w", err)
+		}
+		clients.CompanyClient = companyv1.NewCompanyServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
