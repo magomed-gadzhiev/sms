@@ -69,15 +69,15 @@ func main() {
 
 	// Получение адресов сервисов из переменных окружения или использование значений по умолчанию
 	serviceAddresses := admin.ServiceAddresses{
-		Auth:      getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
-		Client:    getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
-		Provider:  getEnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9090"),
-		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
-		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
-		Billing:   getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
-		Template:     getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
-		Tarification: getEnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
+		Auth:      config.EnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
+		Client:    config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
+		Provider:  config.EnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9090"),
+		Routing:   config.EnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Analytics: config.EnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
+		Billing:   config.EnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
+		Webhook:   config.EnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Template:     config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
+		Tarification: config.EnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -136,7 +136,7 @@ func main() {
 	operatorTemplateHandlers := handlers.NewOperatorTemplateHandlers(adminDB)
 
 	// Redis client для ConnectionsHandlers
-	redisDSN := getEnvOrDefault("REDIS_ADDR", "localhost:6379")
+	redisDSN := config.EnvOrDefault("REDIS_ADDR", "localhost:6379")
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisDSN,
 	})
@@ -263,10 +263,3 @@ func main() {
 	logger.Info().Msg("Admin Gateway остановлен")
 }
 
-// getEnvOrDefault возвращает значение переменной окружения или значение по умолчанию
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}

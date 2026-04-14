@@ -42,14 +42,6 @@ func NewServer(
 	}
 }
 
-// SetAsyncProducer устанавливает AsyncProducer для пакетной публикации.
-// Когда asyncProducer задан, SendBatchSMS использует неблокирующий PublishAsync
-// вместо синхронного PublishOutgoing для каждого сообщения.
-func (s *Server) SetAsyncProducer(ap BatchMessagePublisher, topicOutgoing string) {
-	s.asyncProducer = ap
-	s.topicOutgoing = topicOutgoing
-}
-
 // SendSMS отправляет одно SMS сообщение
 func (s *Server) SendSMS(ctx context.Context, req *smsv1.SendSMSRequest) (*smsv1.SendSMSResponse, error) {
 	// Валидация

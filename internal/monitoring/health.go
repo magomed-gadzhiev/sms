@@ -56,11 +56,6 @@ func (h *HealthChecker) SetRedis(redis *redis.Client) {
 	h.redis = redis
 }
 
-// SetKafka устанавливает клиент Kafka для проверки
-func (h *HealthChecker) SetKafka(kafka sarama.Client) {
-	h.kafka = kafka
-}
-
 // Check выполняет проверку здоровья сервиса
 func (h *HealthChecker) Check(ctx context.Context) HealthStatus {
 	status := HealthStatus{

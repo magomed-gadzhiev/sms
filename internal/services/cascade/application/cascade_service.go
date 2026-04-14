@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
-	flashchannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/flash_call"
-	maxchannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
+	flashchannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/flashcall"
+	maxchannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/maxmessenger"
 	smschannel "github.com/smpp-server/smpp-server/internal/services/cascade/channels/sms"
 	"github.com/smpp-server/smpp-server/internal/services/cascade/domain"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"

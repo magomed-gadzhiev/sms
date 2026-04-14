@@ -24,10 +24,6 @@ func NewBaseRepository(db *database.DB) BaseRepository {
 	}
 }
 
-// NewBaseRepositoryFromSqlx создает BaseRepository из *sqlx.DB
-func NewBaseRepositoryFromSqlx(db *sqlx.DB) BaseRepository {
-	return BaseRepository{DB: db}
-}
 
 // GetByID выполняет SELECT одной строки по ID с маппингом через StructScan.
 // Возвращает notFoundErr если строка не найдена.

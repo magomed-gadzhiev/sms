@@ -1,9 +1,6 @@
-const API_BASE = '/admin/v1';
+import { getCookie } from '../utils/cookies';
 
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-  return match ? match[2] : null;
-}
+const API_BASE = '/admin/v1';
 
 export class AdminApiError extends Error {
   constructor(public status: number, message: string, public details?: unknown) {

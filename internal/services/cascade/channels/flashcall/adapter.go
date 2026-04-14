@@ -1,4 +1,4 @@
-package flash_call
+package flashcall
 
 import (
 	"bytes"

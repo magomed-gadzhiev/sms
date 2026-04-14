@@ -19,10 +19,8 @@ type RealtimeMetrics struct {
 
 // RealtimeService предоставляет бизнес-логику для real-time метрик
 type RealtimeService struct {
-	mu sync.RWMutex
+	mu      sync.RWMutex
 	metrics *RealtimeMetrics
-	messageCounts map[string]int64 // ключ: provider_id, значение: количество сообщений
-	lastUpdate    time.Time
 }
 
 // NewRealtimeService создает новый сервис real-time метрик
@@ -31,8 +29,6 @@ func NewRealtimeService() *RealtimeService {
 		metrics: &RealtimeMetrics{
 			ProviderMetrics: make(map[string]int64),
 		},
-		messageCounts: make(map[string]int64),
-		lastUpdate:    time.Now(),
 	}
 }
 
@@ -60,49 +56,3 @@ func (s *RealtimeService) GetRealtimeMetrics(ctx context.Context) (*RealtimeMetr
 	return metrics, nil
 }
 
-// IncrementMessageCount инкрементирует счетчик сообщений для провайдера
-func (s *RealtimeService) IncrementMessageCount(providerID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.messageCounts[providerID]++
-	
-	// Обновляем метрики каждую секунду
-	now := time.Now()
-	if now.Sub(s.lastUpdate) >= time.Second {
-		s.updateMetrics()
-		s.lastUpdate = now
-	}
-}
-
-// updateMetrics обновляет вычисляемые метрики
-func (s *RealtimeService) updateMetrics() {
-	// Вычисляем messages per second
-	var totalMessages int64
-	for _, count := range s.messageCounts {
-		totalMessages += count
-	}
-
-	s.metrics.MessagesPerSecond = totalMessages
-	
-	// Копируем provider metrics
-	s.metrics.ProviderMetrics = make(map[string]int64)
-	for k, v := range s.messageCounts {
-		s.metrics.ProviderMetrics[k] = v
-	}
-
-	// Сбрасываем счетчики
-	s.messageCounts = make(map[string]int64)
-}
-
-// UpdateMetrics обновляет метрики из внешних источников
-func (s *RealtimeService) UpdateMetrics(queued int64, processing int64, activeProviders int64, activeConnections int64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.metrics.TotalMessagesQueued = queued
-	s.metrics.TotalMessagesProcessing = processing
-	s.metrics.ActiveProviders = activeProviders
-	s.metrics.ActiveConnections = activeConnections
-	s.metrics.Timestamp = time.Now()
-}

@@ -1,4 +1,4 @@
-package max_messenger
+package maxmessenger
 
 // SendRequest — тело запроса к Max Bot API для отправки сообщения
 type SendRequest struct {

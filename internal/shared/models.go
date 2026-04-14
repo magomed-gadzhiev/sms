@@ -34,12 +34,6 @@ func (ns NullString) Value() (driver.Value, error) {
 	return string(ns), nil
 }
 
-// RoutingRule описывает правило маршрутизации через провайдера
-type RoutingRule struct {
-	Pattern  string `json:"pattern"`
-	Priority int    `json:"priority"`
-}
-
 // StringArray представляет массив строк для PostgreSQL
 type StringArray []string
 
@@ -374,12 +368,4 @@ type Company struct {
 	Active          bool       `json:"active" db:"active"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
-}
-
-// ClientCompany — связь клиент ↔ компания
-type ClientCompany struct {
-	ClientID  uuid.UUID `json:"client_id" db:"client_id"`
-	CompanyID uuid.UUID `json:"company_id" db:"company_id"`
-	IsDefault bool      `json:"is_default" db:"is_default"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }

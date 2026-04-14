@@ -74,15 +74,15 @@ func main() {
 
 	// Получение адресов сервисов из переменных окружения или использование значений по умолчанию
 	serviceAddresses := client.ServiceAddresses{
-		Auth:      getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
-		Messaging: getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
-		Analytics: getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
-		Billing:   getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Webhook:   getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
-		Template:  getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
-		Routing:   getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
-		Client:    getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9091"),
-		Cascade:   getEnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9105"),
+		Auth:      config.EnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
+		Messaging: config.EnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
+		Analytics: config.EnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
+		Billing:   config.EnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
+		Webhook:   config.EnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Template:  config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
+		Routing:   config.EnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Client:    config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9091"),
+		Cascade:   config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9105"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -254,10 +254,3 @@ func main() {
 	logger.Info().Msg("Client Gateway остановлен")
 }
 
-// getEnvOrDefault возвращает значение переменной окружения или значение по умолчанию
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}

@@ -1,4 +1,4 @@
-package max_messenger
+package maxmessenger
 
 import "github.com/prometheus/client_golang/prometheus"
 

@@ -36,7 +36,7 @@ func main() {
 		Msg("запуск SMPP Gateway")
 	
 	// Получение адреса Auth Service из переменных окружения или использование значения по умолчанию
-	authServiceAddr := getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090")
+	authServiceAddr := config.EnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090")
 	
 	// Инициализация gRPC клиентов
 	serviceAddresses := smppgateway.ServiceAddresses{
@@ -159,10 +159,3 @@ func main() {
 	logger.Info().Msg("SMPP Gateway остановлен")
 }
 
-// getEnvOrDefault возвращает значение переменной окружения или значение по умолчанию
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}

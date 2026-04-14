@@ -1,3 +1,5 @@
+import { getCookie } from '../utils/cookies';
+
 const API_BASE = '/portal/v1';
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -34,11 +36,6 @@ export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: unknown) {
     super(message);
   }
-}
-
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-  return match ? match[2] : null;
 }
 
 // Auth API

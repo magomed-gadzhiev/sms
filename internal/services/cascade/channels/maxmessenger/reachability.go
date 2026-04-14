@@ -1,4 +1,4 @@
-package max_messenger
+package maxmessenger
 
 import (
 	"bytes"

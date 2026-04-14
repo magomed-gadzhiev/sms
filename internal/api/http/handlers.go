@@ -42,11 +42,6 @@ func NewHandler(
 	}
 }
 
-// SetAsyncProducer устанавливает AsyncProducer для пакетной публикации.
-func (h *Handler) SetAsyncProducer(ap BatchMessagePublisher, topicOutgoing string) {
-	h.asyncProducer = ap
-	h.topicOutgoing = topicOutgoing
-}
 
 // SendSMS обрабатывает запрос на отправку SMS
 func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {

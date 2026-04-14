@@ -28,7 +28,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
 	routinginfra "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
-	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
+	maxmessenger "github.com/smpp-server/smpp-server/internal/services/cascade/channels/maxmessenger"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
 	cascadepg "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/postgres"
 	portalschedules "github.com/smpp-server/smpp-server/internal/gateway/portal/schedules"
@@ -65,21 +65,21 @@ func main() {
 
 	// Получение адресов сервисов из переменных окружения или использование значений по умолчанию
 	serviceAddresses := portal.ServiceAddresses{
-		Auth:         getEnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
-		Client:       getEnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
-		Billing:      getEnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Messaging:    getEnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
-		Analytics:    getEnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
-		Webhook:      getEnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
-		Audit:        getEnvOrDefault("AUDIT_SERVICE_ADDR", ""),
-		Routing:      getEnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
-		Provider:     getEnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9094"),
-		Contact:      getEnvOrDefault("CONTACT_SERVICE_ADDR", "localhost:5012"),
-		Campaign:     getEnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
-		Template:     getEnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
-		Tarification: getEnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
-		Link:         getEnvOrDefault("LINK_SERVICE_ADDR", "localhost:9103"),
-		Cascade:      getEnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9110"),
+		Auth:         config.EnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
+		Client:       config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
+		Billing:      config.EnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
+		Messaging:    config.EnvOrDefault("MESSAGING_SERVICE_ADDR", "localhost:9090"),
+		Analytics:    config.EnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
+		Webhook:      config.EnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Audit:        config.EnvOrDefault("AUDIT_SERVICE_ADDR", ""),
+		Routing:      config.EnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Provider:     config.EnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9094"),
+		Contact:      config.EnvOrDefault("CONTACT_SERVICE_ADDR", "localhost:5012"),
+		Campaign:     config.EnvOrDefault("CAMPAIGN_SERVICE_ADDR", "localhost:5013"),
+		Template:     config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
+		Tarification: config.EnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
+		Link:         config.EnvOrDefault("LINK_SERVICE_ADDR", "localhost:9103"),
+		Cascade:      config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9110"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -95,8 +95,8 @@ func main() {
 	healthChecker := monitoring.NewHealthChecker("portal-gateway", cfg.Service.Version)
 
 	// Создание Redis клиента для сессий
-	redisAddr := getEnvOrDefault("REDIS_ADDR", "localhost:6379")
-	redisPassword := getEnvOrDefault("REDIS_PASSWORD", "")
+	redisAddr := config.EnvOrDefault("REDIS_ADDR", "localhost:6379")
+	redisPassword := config.EnvOrDefault("REDIS_PASSWORD", "")
 	redisDB := 0
 	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
 		if db, err := strconv.Atoi(dbStr); err == nil {
@@ -116,11 +116,11 @@ func main() {
 	// Создание пула PostgreSQL для прямых запросов (сегменты и т.д.)
 	dbDSN := os.Getenv("DATABASE_URL")
 	if dbDSN == "" {
-		pgHost := getEnvOrDefault("POSTGRES_HOST", "localhost")
-		pgPort := getEnvOrDefault("POSTGRES_PORT", "5432")
-		pgUser := getEnvOrDefault("POSTGRES_USER", "smpp")
-		pgPass := getEnvOrDefault("POSTGRES_PASSWORD", "smpp_password")
-		pgDB := getEnvOrDefault("POSTGRES_DB", "smpp_db")
+		pgHost := config.EnvOrDefault("POSTGRES_HOST", "localhost")
+		pgPort := config.EnvOrDefault("POSTGRES_PORT", "5432")
+		pgUser := config.EnvOrDefault("POSTGRES_USER", "smpp")
+		pgPass := config.EnvOrDefault("POSTGRES_PASSWORD", "smpp_password")
+		pgDB := config.EnvOrDefault("POSTGRES_DB", "smpp_db")
 		dbDSN = "postgres://" + pgUser + ":" + pgPass + "@" + pgHost + ":" + pgPort + "/" + pgDB + "?sslmode=disable"
 	}
 	dbPool, err := pgxpool.New(context.Background(), dbDSN)
@@ -140,7 +140,7 @@ func main() {
 	tenantLoggerMw := middleware.TenantLoggerMiddleware(logger)
 
 	// Создание Kafka producer для audit events
-	kafkaBrokers := getEnvOrDefault("KAFKA_BROKERS", "localhost:9092")
+	kafkaBrokers := config.EnvOrDefault("KAFKA_BROKERS", "localhost:9092")
 	kafkaConfig := sarama.NewConfig()
 	kafkaConfig.Producer.RequiredAcks = sarama.WaitForAll
 	kafkaConfig.Producer.Retry.Max = 3
@@ -172,7 +172,7 @@ func main() {
 	}
 
 	// Запускаем SSE hub для real-time стриминга статусов сообщений.
-	kafkaStatusTopic := getEnvOrDefault("KAFKA_TOPIC_STATUS", "sms.status")
+	kafkaStatusTopic := config.EnvOrDefault("KAFKA_TOPIC_STATUS", "sms.status")
 	var sseHub *sse.Hub
 	if dbPool != nil {
 		sseHub = sse.NewHub([]string{kafkaBrokers}, kafkaStatusTopic, dbPool, logger)
@@ -253,10 +253,10 @@ func main() {
 	var maxMessengerWebhookHandler http.HandlerFunc
 	if kafkaProducer != nil {
 		cascadeTopics := cascadekafka.CascadeTopics{
-			Start:         getEnvOrDefault("CASCADE_TOPIC_START", "cascade.start"),
-			AttemptSend:   getEnvOrDefault("CASCADE_TOPIC_ATTEMPT_SEND", "cascade.attempt.send"),
-			AttemptResult: getEnvOrDefault("CASCADE_TOPIC_ATTEMPT_RESULT", "cascade.attempt.result"),
-			Billing:       getEnvOrDefault("CASCADE_TOPIC_BILLING", "cascade.billing"),
+			Start:         config.EnvOrDefault("CASCADE_TOPIC_START", "cascade.start"),
+			AttemptSend:   config.EnvOrDefault("CASCADE_TOPIC_ATTEMPT_SEND", "cascade.attempt.send"),
+			AttemptResult: config.EnvOrDefault("CASCADE_TOPIC_ATTEMPT_RESULT", "cascade.attempt.result"),
+			Billing:       config.EnvOrDefault("CASCADE_TOPIC_BILLING", "cascade.billing"),
 		}
 		cascadeProducer := cascadekafka.NewCascadeProducer(kafkaProducer, cascadeTopics)
 		cascadeWebhookHandlers = handlers.NewCascadeWebhookHandlers(cascadeProducer, logger)
@@ -265,8 +265,8 @@ func main() {
 		if dbPool != nil {
 			channelRepo := cascadepg.NewChannelRepository(dbPool)
 			attemptRepo := cascadepg.NewAttemptRepository(dbPool)
-			maxMessengerMetrics := max_messenger.NewMaxMessengerMetrics()
-			maxMessengerWebhook := max_messenger.NewWebhookHandler(channelRepo, attemptRepo, cascadeProducer, maxMessengerMetrics, logger)
+			maxMessengerMetrics := maxmessenger.NewMaxMessengerMetrics()
+			maxMessengerWebhook := maxmessenger.NewWebhookHandler(channelRepo, attemptRepo, cascadeProducer, maxMessengerMetrics, logger)
 			maxMessengerWebhookHandler = maxMessengerWebhook.Handle
 		}
 	}
@@ -398,10 +398,3 @@ func main() {
 	logger.Info().Msg("Portal Gateway остановлен")
 }
 
-// getEnvOrDefault возвращает значение переменной окружения или значение по умолчанию
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}

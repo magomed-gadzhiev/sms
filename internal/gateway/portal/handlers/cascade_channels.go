@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
-	max_messenger "github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
+	maxmessenger "github.com/smpp-server/smpp-server/internal/services/cascade/channels/maxmessenger"
 )
 
 // CascadeChannelHandlers обрабатывает admin-запросы для управления каналами
@@ -145,5 +145,5 @@ func validateChannelConfig(channelType, configJSON string) error {
 	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
 		return err
 	}
-	return max_messenger.ValidateConfig(cfg)
+	return maxmessenger.ValidateConfig(cfg)
 }
