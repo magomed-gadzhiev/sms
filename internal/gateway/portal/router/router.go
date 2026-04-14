@@ -63,6 +63,7 @@ func SetupRouter(
 	alertsHandlers *handlers.AlertsHandlers,
 	wsMessagesHandlers *handlers.WsMessagesHandlers,
 	companyHandlers *handlers.CompanyHandlers,
+	referencesHandlers *handlers.ReferencesHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -355,6 +356,11 @@ func SetupRouter(
 	optOut.HandleFunc("", optOutHandlers.AddOptOut).Methods("POST")
 	optOut.HandleFunc("/import", optOutHandlers.ImportOptOut).Methods("POST")
 	optOut.HandleFunc("/{id}", optOutHandlers.RemoveOptOut).Methods("DELETE")
+
+	// References endpoints (operators, countries for dropdowns)
+	references := protected.PathPrefix("/references").Subrouter()
+	references.HandleFunc("/operators", referencesHandlers.ListOperators).Methods("GET")
+	references.HandleFunc("/countries", referencesHandlers.ListCountries).Methods("GET")
 
 	// Route management (admin-managed default & client routes)
 	routes := protected.PathPrefix("/routes").Subrouter()

@@ -224,6 +224,7 @@ func main() {
 	searchHandlers := handlers.NewSearchHandlers(dbPool)
 	exportHandlers := handlers.NewExportHandlers(redisClient, serviceClients.MessagingClient)
 	optOutHandlers := handlers.NewOptOutHandlers(dbPool)
+	referencesHandlers := handlers.NewReferencesHandlers(dbPool)
 	routeRepo := routinginfra.NewRouteRepo(dbPool)
 	routeHandlers := handlers.NewRouteHandlers(routeRepo, dbPool)
 
@@ -316,6 +317,7 @@ func main() {
 		alertsHandlers,
 		wsMessagesHandlers,
 		companyHandlers,
+		referencesHandlers,
 	)
 
 	// Регистрируем маршруты cascade webhook
