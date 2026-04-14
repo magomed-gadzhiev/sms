@@ -488,3 +488,63 @@ func (h *SenderNameHandlers) ListOperators(w http.ResponseWriter, r *http.Reques
 		"operators": operators,
 	})
 }
+
+// GetSenderNameOperatorRegistrations GET /portal/v1/sender-names/{id}/operator-registrations
+// Возвращает список регистраций данного имени отправителя у операторов.
+func (h *SenderNameHandlers) GetSenderNameOperatorRegistrations(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if h.pool == nil {
+		respondError(w, shared.ErrInternalServer("database pool недоступен"))
+		return
+	}
+
+	senderNameID := mux.Vars(r)["id"]
+	if senderNameID == "" {
+		respondError(w, shared.ErrInvalidInput("ID обязателен"))
+		return
+	}
+
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT sr.operator_id, o.name AS operator_name, sr.type, sr.status
+		 FROM sender_registrations sr
+		 JOIN operators o ON o.id = sr.operator_id
+		 JOIN sender_names sn ON sn.name = sr.sender_name AND sn.client_id = sr.client_id
+		 WHERE sn.id = $1 AND sn.client_id = $2`,
+		senderNameID, clientID)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения operator registrations")
+		respondError(w, shared.ErrInternalServer("ошибка получения регистраций"))
+		return
+	}
+	defer rows.Close()
+
+	type regJSON struct {
+		OperatorID   string `json:"operator_id"`
+		OperatorName string `json:"operator_name"`
+		Type         string `json:"type"`
+		Status       string `json:"status"`
+	}
+	regs := make([]regJSON, 0)
+	for rows.Next() {
+		var reg regJSON
+		if err := rows.Scan(&reg.OperatorID, &reg.OperatorName, &reg.Type, &reg.Status); err != nil {
+			log.Error().Err(err).Msg("ошибка сканирования registration")
+			respondError(w, shared.ErrInternalServer("ошибка получения регистраций"))
+			return
+		}
+		regs = append(regs, reg)
+	}
+	if err := rows.Err(); err != nil {
+		log.Error().Err(err).Msg("ошибка итерации registrations")
+		respondError(w, shared.ErrInternalServer("ошибка получения регистраций"))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"registrations": regs,
+	})
+}
