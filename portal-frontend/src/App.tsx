@@ -29,6 +29,8 @@ import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
 import { CampaignSchedulesPage } from './pages/campaigns/CampaignSchedulesPage';
 import { TemplatesPage } from './pages/templates/TemplatesPage';
 import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
+import { SenderNameDetailPage } from './pages/sender-names/SenderNameDetailPage';
+import { SenderNameOperatorsPage } from './pages/sender-names/SenderNameOperatorsPage';
 import { SenderNameBillingHistory } from './pages/sender-names/SenderNameBillingHistory';
 import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
@@ -128,6 +130,8 @@ export function App() {
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/sender-names" element={<SenderNamesPage />} />
+        <Route path="/sender-names/:id" element={<SenderNameDetailPage />} />
+        <Route path="/sender-names/:id/operators" element={<SenderNameOperatorsPage />} />
         <Route path="/sender-registrations/:id/billing" element={<SenderNameBillingHistory />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/tariffs" element={<TariffsPage />} />
