@@ -144,9 +144,12 @@ func (m *SessionManager) ValidateSession(ctx context.Context, sessionID string) 
 		return uuid.Nil, uuid.Nil, "", fmt.Errorf("failed to parse user_id: %w", err)
 	}
 
-	clientID, err := uuid.Parse(result["client_id"])
-	if err != nil {
-		return uuid.Nil, uuid.Nil, "", fmt.Errorf("failed to parse client_id: %w", err)
+	var clientID uuid.UUID
+	if clientIDStr := result["client_id"]; clientIDStr != "" {
+		clientID, err = uuid.Parse(clientIDStr)
+		if err != nil {
+			return uuid.Nil, uuid.Nil, "", fmt.Errorf("failed to parse client_id: %w", err)
+		}
 	}
 
 	role := result["role"]
