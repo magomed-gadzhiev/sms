@@ -26,7 +26,6 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Отследить',
     items: [
       { path: '/messages', label: 'Сообщения' },
-      { path: '/detalization', label: 'Детализация' },
       { path: '/cascade/history', label: 'История каскадов' },
     ],
   },
