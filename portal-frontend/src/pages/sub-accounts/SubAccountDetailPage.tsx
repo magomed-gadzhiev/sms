@@ -9,6 +9,7 @@ import { StatCard } from '../../components/data/StatCard';
 import { StatusBadge, Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Select } from '../../components/ui/Select';
+import { useToast } from '../../components/ui/Toast';
 
 type TabName = 'overview' | 'messages' | 'analytics' | 'api-keys' | 'webhooks';
 
@@ -117,9 +118,22 @@ export function SubAccountDetailPage() {
     loadDetail();
   }, [id]);
 
-  if (loading) return <div role="status">Загрузка...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!detail) return <div>Суб-аккаунт не найден</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+      <span className="ml-3 text-sm text-gray-500">Загрузка...</span>
+    </div>
+  );
+  if (error) return (
+    <div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-6 text-center">
+      <p className="font-medium mb-1">Ошибка загрузки</p>
+      <p className="text-sm">{error}</p>
+      <button onClick={loadDetail} className="mt-3 text-sm underline text-red-700 hover:text-red-900">
+        Повторить
+      </button>
+    </div>
+  );
+  if (!detail) return <div role="alert" className="text-gray-500 text-center py-16">Суб-аккаунт не найден</div>;
 
   return (
     <div className="max-w-5xl">
@@ -168,7 +182,10 @@ function OverviewTab({
   onUpdate: () => void;
   onDeleted: () => void;
 }) {
+  const toast = useToast();
   const [error, setError] = useState('');
+  const [limitsError, setLimitsError] = useState('');
+  const [transferError, setTransferError] = useState('');
 
   // Edit limits
   const [dailyLimit, setDailyLimit] = useState(String(detail.daily_limit));
@@ -185,16 +202,23 @@ function OverviewTab({
 
   async function handleSaveLimits(e: FormEvent) {
     e.preventDefault();
+    const daily = Number(dailyLimit);
+    const monthly = Number(monthlyLimit);
+    if (daily < 0 || monthly < 0) {
+      setLimitsError('Лимиты не могут быть отрицательными');
+      return;
+    }
+    setLimitsError('');
     setSavingLimits(true);
-    setError('');
     try {
       await subAccountsApi.updateLimits(detail.id, {
-        daily_limit: Number(dailyLimit),
-        monthly_limit: Number(monthlyLimit),
+        daily_limit: daily,
+        monthly_limit: monthly,
       });
+      toast.success('Лимиты успешно обновлены');
       onUpdate();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось обновить лимиты');
+      setLimitsError(err instanceof ApiError ? err.message : 'Не удалось обновить лимиты');
     } finally {
       setSavingLimits(false);
     }
@@ -202,14 +226,20 @@ function OverviewTab({
 
   async function handleTransfer(e: FormEvent) {
     e.preventDefault();
+    const amount = parseFloat(transferAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setTransferError('Введите корректную сумму больше нуля');
+      return;
+    }
+    setTransferError('');
     setTransferring(true);
-    setError('');
     try {
       await subAccountsApi.transfer(detail.id, transferAmount);
       setTransferAmount('');
+      toast.success(`Переведено ${transferAmount} на баланс суб-аккаунта`);
       onUpdate();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось перевести средства');
+      setTransferError(err instanceof ApiError ? err.message : 'Не удалось перевести средства');
     } finally {
       setTransferring(false);
     }
@@ -229,11 +259,11 @@ function OverviewTab({
 
   return (
     <div>
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>}
 
       {/* Info cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard title="Баланс" value={detail.balance} />
+        <StatCard title="Баланс" value={`${parseFloat(detail.balance).toFixed(2)} ₽`} />
         <StatCard title="Дневной лимит" value={`${detail.messages_today} / ${detail.daily_limit}`} />
         <StatCard title="Месячный лимит" value={`${detail.messages_this_month} / ${detail.monthly_limit}`} />
         <StatCard title="Email" value={detail.email} />
@@ -247,21 +277,24 @@ function OverviewTab({
           <Input
             label="Дневной лимит"
             type="number"
+            min="0"
             value={dailyLimit}
-            onChange={(e) => setDailyLimit(e.target.value)}
+            onChange={(e) => { setDailyLimit(e.target.value); setLimitsError(''); }}
             className="w-40"
           />
           <Input
             label="Месячный лимит"
             type="number"
+            min="0"
             value={monthlyLimit}
-            onChange={(e) => setMonthlyLimit(e.target.value)}
+            onChange={(e) => { setMonthlyLimit(e.target.value); setLimitsError(''); }}
             className="w-40"
           />
           <Button type="submit" disabled={savingLimits}>
             {savingLimits ? 'Сохранение...' : 'Сохранить лимиты'}
           </Button>
         </form>
+        {limitsError && <p role="alert" className="mt-2 text-xs text-red-600">{limitsError}</p>}
       </div>
 
       {/* Balance transfer form */}
@@ -270,9 +303,11 @@ function OverviewTab({
         <form onSubmit={handleTransfer} className="flex gap-4 items-end">
           <Input
             label="Сумма"
-            type="text"
+            type="number"
+            min="0.01"
+            step="0.01"
             value={transferAmount}
-            onChange={(e) => setTransferAmount(e.target.value)}
+            onChange={(e) => { setTransferAmount(e.target.value); setTransferError(''); }}
             placeholder="0.00"
             required
             className="w-40"
@@ -281,6 +316,7 @@ function OverviewTab({
             {transferring ? 'Перевод...' : 'Перевести'}
           </Button>
         </form>
+        {transferError && <p role="alert" className="mt-2 text-xs text-red-600">{transferError}</p>}
       </div>
 
       {/* Delete section */}
@@ -386,7 +422,7 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
         />
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 mb-3">{error}</p>}
 
       <DataTable<MessageItem>
         columns={messageColumns}
@@ -452,8 +488,13 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
         ))}
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
-      {loading && <div role="status">Загрузка аналитики...</div>}
+      {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 mb-3">{error}</p>}
+      {loading && (
+        <div className="flex items-center justify-center py-10" role="status" aria-live="polite">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+          <span className="ml-2 text-sm text-gray-500">Загрузка аналитики...</span>
+        </div>
+      )}
 
       {data && !loading && (
         <>
@@ -508,14 +549,25 @@ const apiKeyColumns: Column<APIKeyItem>[] = [
 
 function APIKeysTab({ keys }: { keys: APIKeyItem[] }) {
   return (
-    <DataTable<APIKeyItem>
-      columns={apiKeyColumns}
-      data={keys}
-      total={keys.length}
-      page={1}
-      pageSize={keys.length || 1}
-      onPageChange={() => {}}
-    />
+    <div>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
+        Просмотр API ключей суб-аккаунта. Управление ключами (создание/удаление) доступно через API суб-аккаунта напрямую.
+      </div>
+      {keys.length === 0 ? (
+        <div className="border border-dashed border-gray-300 rounded-lg p-10 text-center">
+          <p className="text-gray-500">У суб-аккаунта нет API ключей</p>
+        </div>
+      ) : (
+        <DataTable<APIKeyItem>
+          columns={apiKeyColumns}
+          data={keys}
+          total={keys.length}
+          page={1}
+          pageSize={keys.length || 1}
+          onPageChange={() => {}}
+        />
+      )}
+    </div>
   );
 }
 
@@ -552,13 +604,24 @@ const webhookColumns: Column<WebhookItem>[] = [
 
 function WebhooksTab({ webhooks }: { webhooks: WebhookItem[] }) {
   return (
-    <DataTable<WebhookItem>
-      columns={webhookColumns}
-      data={webhooks}
-      total={webhooks.length}
-      page={1}
-      pageSize={webhooks.length || 1}
-      onPageChange={() => {}}
-    />
+    <div>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
+        Просмотр вебхуков суб-аккаунта. Управление вебхуками (создание/удаление) доступно через API суб-аккаунта напрямую.
+      </div>
+      {webhooks.length === 0 ? (
+        <div className="border border-dashed border-gray-300 rounded-lg p-10 text-center">
+          <p className="text-gray-500">У суб-аккаунта нет настроенных вебхуков</p>
+        </div>
+      ) : (
+        <DataTable<WebhookItem>
+          columns={webhookColumns}
+          data={webhooks}
+          total={webhooks.length}
+          page={1}
+          pageSize={webhooks.length || 1}
+          onPageChange={() => {}}
+        />
+      )}
+    </div>
   );
 }

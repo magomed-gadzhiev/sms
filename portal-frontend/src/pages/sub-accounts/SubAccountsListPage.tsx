@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/ui/Badge';
+import { useToast } from '../../components/ui/Toast';
 
 interface SubAccount {
   id: string;
@@ -42,7 +43,11 @@ const columns: Column<SubAccount>[] = [
     header: 'Активен',
     render: (sa) => <StatusBadge status={sa.active ? 'active' : 'inactive'} />,
   },
-  { key: 'balance', header: 'Баланс' },
+  {
+    key: 'balance',
+    header: 'Баланс',
+    render: (sa) => `${parseFloat(sa.balance).toFixed(2)} ₽`,
+  },
   { key: 'daily_limit', header: 'Дневной лимит' },
   { key: 'monthly_limit', header: 'Месячный лимит' },
   { key: 'messages_today', header: 'Сегодня' },
@@ -50,6 +55,7 @@ const columns: Column<SubAccount>[] = [
 ];
 
 export function SubAccountsListPage() {
+  const toast = useToast();
   const [data, setData] = useState<SubAccountsListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,10 +66,12 @@ export function SubAccountsListPage() {
   const [creating, setCreating] = useState(false);
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [formEmailError, setFormEmailError] = useState('');
   const [formContactPerson, setFormContactPerson] = useState('');
   const [formInitialBalance, setFormInitialBalance] = useState('');
   const [formDailyLimit, setFormDailyLimit] = useState('');
   const [formMonthlyLimit, setFormMonthlyLimit] = useState('');
+  const [formLimitError, setFormLimitError] = useState('');
 
   async function loadSubAccounts() {
     setLoading(true);
@@ -85,26 +93,55 @@ export function SubAccountsListPage() {
     loadSubAccounts();
   }, []);
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function validateForm(): boolean {
+    let valid = true;
+    if (!EMAIL_RE.test(formEmail)) {
+      setFormEmailError('Введите корректный email адрес');
+      valid = false;
+    } else {
+      setFormEmailError('');
+    }
+    const daily = formDailyLimit ? Number(formDailyLimit) : 0;
+    const monthly = formMonthlyLimit ? Number(formMonthlyLimit) : 0;
+    if ((formDailyLimit && daily < 0) || (formMonthlyLimit && monthly < 0)) {
+      setFormLimitError('Лимиты не могут быть отрицательными');
+      valid = false;
+    } else {
+      setFormLimitError('');
+    }
+    return valid;
+  }
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
+    if (!validateForm()) return;
     setCreating(true);
     setError('');
     try {
-      await subAccountsApi.create({
+      const resp = await subAccountsApi.create({
         name: formName,
         email: formEmail,
         contact_person: formContactPerson || undefined,
         initial_balance: formInitialBalance || undefined,
         daily_limit: formDailyLimit ? Number(formDailyLimit) : undefined,
         monthly_limit: formMonthlyLimit ? Number(formMonthlyLimit) : undefined,
-      });
+      }) as Record<string, unknown>;
       setShowCreateForm(false);
       setFormName('');
       setFormEmail('');
+      setFormEmailError('');
       setFormContactPerson('');
       setFormInitialBalance('');
       setFormDailyLimit('');
       setFormMonthlyLimit('');
+      setFormLimitError('');
+      if (resp?.balance_transfer_error) {
+        toast.success('Суб-аккаунт создан, но перевод начального баланса не удался — недостаточно средств');
+      } else {
+        toast.success('Суб-аккаунт успешно создан');
+      }
       await loadSubAccounts();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Не удалось создать суб-аккаунт');
@@ -113,7 +150,12 @@ export function SubAccountsListPage() {
     }
   }
 
-  if (loading) return <div role="status">Загрузка суб-аккаунтов...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+      <span className="ml-3 text-sm text-gray-500">Загрузка суб-аккаунтов...</span>
+    </div>
+  );
 
   const subAccounts = data?.sub_accounts ?? [];
 
@@ -151,14 +193,21 @@ export function SubAccountsListPage() {
             required
             placeholder="Название суб-аккаунта"
           />
-          <Input
-            label="Email"
-            type="email"
-            value={formEmail}
-            onChange={(e) => setFormEmail(e.target.value)}
-            required
-            placeholder="email@example.com"
-          />
+          <div>
+            <Input
+              label="Email"
+              type="email"
+              value={formEmail}
+              onChange={(e) => { setFormEmail(e.target.value); setFormEmailError(''); }}
+              required
+              placeholder="email@example.com"
+              aria-describedby={formEmailError ? 'email-error' : undefined}
+              aria-invalid={!!formEmailError}
+            />
+            {formEmailError && (
+              <p id="email-error" role="alert" className="mt-1 text-xs text-red-600">{formEmailError}</p>
+            )}
+          </div>
           <Input
             label="Контактное лицо"
             value={formContactPerson}
@@ -171,21 +220,28 @@ export function SubAccountsListPage() {
             onChange={(e) => setFormInitialBalance(e.target.value)}
             placeholder="0.00"
           />
-          <div className="flex gap-4">
-            <Input
-              label="Дневной лимит"
-              type="number"
-              value={formDailyLimit}
-              onChange={(e) => setFormDailyLimit(e.target.value)}
-              placeholder="напр. 1000"
-            />
-            <Input
-              label="Месячный лимит"
-              type="number"
-              value={formMonthlyLimit}
-              onChange={(e) => setFormMonthlyLimit(e.target.value)}
-              placeholder="напр. 30000"
-            />
+          <div>
+            <div className="flex gap-4">
+              <Input
+                label="Дневной лимит"
+                type="number"
+                min="0"
+                value={formDailyLimit}
+                onChange={(e) => { setFormDailyLimit(e.target.value); setFormLimitError(''); }}
+                placeholder="напр. 1000"
+              />
+              <Input
+                label="Месячный лимит"
+                type="number"
+                min="0"
+                value={formMonthlyLimit}
+                onChange={(e) => { setFormMonthlyLimit(e.target.value); setFormLimitError(''); }}
+                placeholder="напр. 30000"
+              />
+            </div>
+            {formLimitError && (
+              <p role="alert" className="mt-1 text-xs text-red-600">{formLimitError}</p>
+            )}
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={creating}>
@@ -199,7 +255,14 @@ export function SubAccountsListPage() {
       </Modal>
 
       {/* Sub-accounts table */}
-      {canCreate && (
+      {canCreate && subAccounts.length === 0 && !error && (
+        <div className="border border-dashed border-gray-300 rounded-lg p-12 text-center">
+          <p className="text-gray-500 font-medium mb-1">Суб-аккаунтов пока нет</p>
+          <p className="text-sm text-gray-400">Нажмите «Создать суб-аккаунт», чтобы добавить первый</p>
+        </div>
+      )}
+
+      {canCreate && subAccounts.length > 0 && (
         <DataTable
           columns={columns}
           data={subAccounts}
