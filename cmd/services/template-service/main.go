@@ -16,11 +16,14 @@ import (
 
 	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
+	companyv1 "github.com/smpp-server/smpp-server/api/proto/companyv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/services/template/application"
 	templategrpc "github.com/smpp-server/smpp-server/internal/services/template/grpc"
 	templaterepo "github.com/smpp-server/smpp-server/internal/services/template/infrastructure/repository"
+	companyapplication "github.com/smpp-server/smpp-server/internal/services/company/application"
+	companygrpc "github.com/smpp-server/smpp-server/internal/services/company/grpc"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/database"
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -86,6 +89,12 @@ func main() {
 
 	senderNameHandler := templategrpc.NewSenderNameHandler(senderNameService)
 	sendernamev1.RegisterSenderNameServiceServer(grpcServer, senderNameHandler)
+
+	// Company Service
+	companyStorageRepo := storage.NewCompanyRepository(dbx)
+	companyAppService := companyapplication.NewCompanyService(companyStorageRepo, nil)
+	companyGrpcServer := companygrpc.NewServer(companyAppService)
+	companyv1.RegisterCompanyServiceServer(grpcServer, companyGrpcServer)
 
 	if cfg.Service.Env == "development" {
 		reflection.Register(grpcServer)
