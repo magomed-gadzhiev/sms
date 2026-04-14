@@ -56,7 +56,7 @@ func NewDetalizationHandlers(db *pgxpool.Pool) *DetalizationHandlers {
 }
 
 // ListMessages handles GET /portal/v1/detalization
-// Query params: status, source, destination, date_from, date_to, limit, offset,
+// Query params: status, destination, date_from, date_to, limit, offset,
 //
 //	login, operator, sender_name, channel, country, send_method, message_id,
 //	sort_by (submitted_at|created_at|status_at|total_amount|segment_count), sort_order (asc|desc)
@@ -69,7 +69,6 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 
 	q := r.URL.Query()
 	status      := q.Get("status")
-	source      := q.Get("source")
 	destination := q.Get("destination")
 	dateFrom    := q.Get("date_from")
 	dateTo      := q.Get("date_to")
@@ -118,9 +117,6 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 
 	if status != "" {
 		conditions += " AND m.status::text = " + nextArg(status)
-	}
-	if source != "" {
-		conditions += " AND m.source ILIKE " + nextArg("%"+source+"%")
 	}
 	if senderName != "" {
 		conditions += " AND m.source ILIKE " + nextArg("%"+senderName+"%")
