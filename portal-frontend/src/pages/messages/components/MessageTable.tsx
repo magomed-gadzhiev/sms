@@ -48,7 +48,7 @@ export const ALL_COLUMNS: ColSpec[] = [
   { key: 'operator_name', header: 'Оператор', render: (m) => m.operator_name || '—' },
   { key: 'channel', header: 'Канал', render: (m) => m.channel || '—' },
   {
-    key: 'text_preview', header: 'Текст',
+    key: 'text_preview', header: 'Текст сообщения',
     render: (m) => <span className="block max-w-[200px] truncate text-sm" title={m.text_preview}>{m.text_preview}</span>,
   },
   {
@@ -86,6 +86,19 @@ export const ALL_COLUMNS: ColSpec[] = [
   { key: 'country_name', header: 'Страна', render: (m) => m.country_name || '—' },
   { key: 'send_method', header: 'Способ отправки', render: (m) => m.send_method || '—' },
 ];
+
+function buildPageWindow(current: number, total: number): (number | 'ellipsis-left' | 'ellipsis-right')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const delta = 2;
+  const start = Math.max(2, current - delta);
+  const end = Math.min(total - 1, current + delta);
+  const pages: (number | 'ellipsis-left' | 'ellipsis-right')[] = [1];
+  if (start > 2) pages.push('ellipsis-left');
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < total - 1) pages.push('ellipsis-right');
+  pages.push(total);
+  return pages;
+}
 
 function SortIcon({ active, order }: { active: boolean; order: 'asc' | 'desc' }) {
   return (
@@ -188,13 +201,27 @@ export function MessageTable({
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
             className="px-2 py-1 rounded border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50"
-          >←</button>
-          <span className="px-3 py-1 text-sm text-gray-600">{page} / {totalPages}</span>
+          >← Предыдущая</button>
+          {buildPageWindow(page, totalPages).map((p) =>
+            typeof p === 'string' ? (
+              <span key={p} className="px-2 text-gray-400 text-sm">…</span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => onPageChange(p)}
+                className={`px-3 py-1 rounded text-sm ${
+                  p === page ? 'bg-primary text-white font-medium' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {p}
+              </button>
+            )
+          )}
           <button
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
             className="px-2 py-1 rounded border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50"
-          >→</button>
+          >Следующая →</button>
         </div>
       </div>
     </div>
