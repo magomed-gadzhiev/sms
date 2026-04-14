@@ -221,6 +221,16 @@ const (
 	MessageStatusCancelled MessageStatus = "cancelled"
 )
 
+// MessageFilter задаёт фильтры для выборки сообщений
+type MessageFilter struct {
+	Status      *MessageStatus
+	Destination string
+	From        *time.Time
+	To          *time.Time
+	Limit       int
+	Offset      int
+}
+
 // MessageEncoding представляет кодировку сообщения
 type MessageEncoding string
 
@@ -339,4 +349,37 @@ type OperatorPrefix struct {
 type RoutingDecision struct {
 	ProviderID uuid.UUID
 	RouteID    uuid.UUID
+}
+
+// Company представляет юридическое лицо клиента
+type Company struct {
+	ID              uuid.UUID  `json:"id" db:"id"`
+	INN             NullString `json:"inn,omitempty" db:"inn"`
+	Name            string     `json:"name" db:"name"`
+	FullName        NullString `json:"full_name,omitempty" db:"full_name"`
+	KPP             NullString `json:"kpp,omitempty" db:"kpp"`
+	OGRN            NullString `json:"ogrn,omitempty" db:"ogrn"`
+	LegalAddress    NullString `json:"legal_address,omitempty" db:"legal_address"`
+	ActualAddress   NullString `json:"actual_address,omitempty" db:"actual_address"`
+	CEOName         NullString `json:"ceo_name,omitempty" db:"ceo_name"`
+	CEOTitle        NullString `json:"ceo_title,omitempty" db:"ceo_title"`
+	ActingBasis     NullString `json:"acting_basis,omitempty" db:"acting_basis"`
+	BankName        NullString `json:"bank_name,omitempty" db:"bank_name"`
+	BankBIK         NullString `json:"bank_bik,omitempty" db:"bank_bik"`
+	BankCorrAccount NullString `json:"bank_corr_account,omitempty" db:"bank_corr_account"`
+	BankAccount     NullString `json:"bank_account,omitempty" db:"bank_account"`
+	Email           NullString `json:"email,omitempty" db:"email"`
+	Phone           NullString `json:"phone,omitempty" db:"phone"`
+	IsOffer         bool       `json:"is_offer" db:"is_offer"`
+	Active          bool       `json:"active" db:"active"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// ClientCompany — связь клиент ↔ компания
+type ClientCompany struct {
+	ClientID  uuid.UUID `json:"client_id" db:"client_id"`
+	CompanyID uuid.UUID `json:"company_id" db:"company_id"`
+	IsDefault bool      `json:"is_default" db:"is_default"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
