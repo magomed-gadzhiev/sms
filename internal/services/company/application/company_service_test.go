@@ -106,7 +106,7 @@ func TestUpdateCompany_InvalidINN(t *testing.T) {
 	_, err := svc.UpdateCompany(context.Background(), UpdateCompanyInput{
 		ID:   companyID,
 		Name: "New",
-		INN:  "0000000000",
+		INN:  "7707083890", // Сбербанк с неверной контрольной суммой
 	})
 	assert.ErrorIs(t, err, domain.ErrInvalidINN)
 }
