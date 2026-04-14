@@ -34,6 +34,20 @@ func (h *CascadeStrategyHandlers) ListStrategies(w http.ResponseWriter, r *http.
 	})
 }
 
+// ListStrategiesClient обрабатывает GET /cascade/strategies — клиентский read-only список активных стратегий
+func (h *CascadeStrategyHandlers) ListStrategiesClient(w http.ResponseWriter, r *http.Request) {
+	resp, err := h.client.ListStrategies(r.Context(), &cascadev1.ListStrategiesRequest{
+		ActiveOnly: true,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"strategies": resp.Strategies,
+	})
+}
+
 // GetStrategy обрабатывает GET /admin/delivery-strategies/{id}
 func (h *CascadeStrategyHandlers) GetStrategy(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
