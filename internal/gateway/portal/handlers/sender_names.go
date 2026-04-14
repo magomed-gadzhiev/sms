@@ -459,7 +459,8 @@ func (h *SenderNameHandlers) ListOperators(w http.ResponseWriter, r *http.Reques
 		var tariff *string
 		if err := rows.Scan(&id, &name, &code, &supportsPaid, &supportsFree, &tariff); err != nil {
 			log.Error().Err(err).Msg("ошибка сканирования оператора")
-			continue
+			respondError(w, shared.ErrInternalServer("ошибка получения операторов"))
+			return
 		}
 		types := make([]string, 0, 2)
 		if supportsFree {
@@ -475,6 +476,12 @@ func (h *SenderNameHandlers) ListOperators(w http.ResponseWriter, r *http.Reques
 			RegistrationTypes: types,
 			MonthlyTariff:     tariff,
 		})
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Error().Err(err).Msg("ошибка итерации операторов")
+		respondError(w, shared.ErrInternalServer("ошибка получения операторов"))
+		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
