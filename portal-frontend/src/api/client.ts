@@ -480,6 +480,39 @@ export const senderTariffApi = {
     ),
 };
 
+// Operators API
+export interface OperatorInfo {
+  id: string;
+  name: string;
+  slug: string;
+  registration_types: string[];
+  monthly_tariff_amount: string | null;
+}
+
+export interface OperatorRegistration {
+  operator_id: string;
+  operator_name: string;
+  type: string;
+  status: string;
+}
+
+export const operatorsApi = {
+  list: () =>
+    apiFetch<{ operators: OperatorInfo[] }>('/operators'),
+};
+
+export const senderNameRegistrationsApi = {
+  list: (senderNameId: string) =>
+    apiFetch<{ registrations: OperatorRegistration[] }>(
+      `/sender-names/${senderNameId}/operator-registrations`,
+    ),
+  bulkCreate: (senderNameId: string, registrations: { operator_id: string; type: string }[]) =>
+    apiFetch<{ results: Array<{ operator_id: string; id?: string; status: string; error?: string }> }>(
+      `/sender-names/${senderNameId}/operator-registrations`,
+      { method: 'POST', body: JSON.stringify({ registrations }) },
+    ),
+};
+
 // Billing API
 export const billingApi = {
   getBalance: () =>
