@@ -744,9 +744,16 @@ export interface DetalizationMessage {
   status: string;
   segment_count: number;
   created_at: string;
+  submitted_at?: string;
   delivered_at?: string;
   failed_at?: string;
   provider_name: string;
+  operator_name?: string;
+  country_name?: string;
+  channel?: string;
+  send_method?: string;
+  login?: string;
+  total_amount?: string;
 }
 
 export interface DetalizationMessageDetail {
@@ -788,9 +795,18 @@ export const detalizationApi = {
   list: (params?: {
     status?: string;
     source?: string;
+    sender_name?: string;
     destination?: string;
     date_from?: string;
     date_to?: string;
+    login?: string;
+    operator?: string;
+    channel?: string;
+    country?: string;
+    send_method?: string;
+    message_id?: string;
+    sort_by?: string;
+    sort_order?: string;
     limit?: number;
     offset?: number;
   }) => {
@@ -806,6 +822,24 @@ export const detalizationApi = {
     );
   },
   get: (id: string) => apiFetch<DetalizationMessageDetail>(`/detalization/${id}`),
+};
+
+// References API for filter dropdowns
+export interface OperatorRef {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface CountryRef {
+  id: string;
+  name: string;
+  iso_code: string;
+}
+
+export const referencesApi = {
+  operators: () => apiFetch<{ operators: OperatorRef[] }>('/references/operators'),
+  countries: () => apiFetch<{ countries: CountryRef[] }>('/references/countries'),
 };
 
 // --- Notification Settings API ---
