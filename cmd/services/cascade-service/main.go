@@ -22,8 +22,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	cascadeapp "github.com/smpp-server/smpp-server/internal/services/cascade/application"
-	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/flash_call"
-	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/max_messenger"
+	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/flashcall"
+	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/maxmessenger"
 	"github.com/smpp-server/smpp-server/internal/services/cascade/channels/sms"
 	"github.com/smpp-server/smpp-server/internal/services/cascade/domain"
 	cascadegrpc "github.com/smpp-server/smpp-server/internal/services/cascade/grpc"
@@ -122,9 +122,9 @@ func main() {
 
 	// Channel adapters
 	smsAdapter := sms.NewAdapter(cascadeProducer)
-	flashCallAdapter := flash_call.NewAdapter(logger)
-	maxMessengerMetrics := max_messenger.NewMaxMessengerMetrics()
-	maxMessengerAdapter := max_messenger.NewAdapter(logger, maxMessengerMetrics)
+	flashCallAdapter := flashcall.NewAdapter(logger)
+	maxMessengerMetrics := maxmessenger.NewMaxMessengerMetrics()
+	maxMessengerAdapter := maxmessenger.NewAdapter(logger, maxMessengerMetrics)
 
 	channelAdapters := map[domain.ChannelType]domain.Channel{
 		domain.ChannelSMS:            smsAdapter,
@@ -225,7 +225,7 @@ func main() {
 	billingConsumer.Start(ctx)
 
 	// Inject Max Messenger reachability checker
-	maxMessengerReachability := max_messenger.NewReachabilityChecker(logger, maxMessengerMetrics)
+	maxMessengerReachability := maxmessenger.NewReachabilityChecker(logger, maxMessengerMetrics)
 	reachabilityService.SetMaxMessengerChecker(maxMessengerReachability, channelRepo)
 
 	// Inject reachability into cascade service
@@ -270,7 +270,7 @@ func main() {
 	metricsMux.HandleFunc("/health/ready", healthChecker.ReadinessHandler())
 
 	// Max Messenger webhook handler
-	maxMessengerWebhook := max_messenger.NewWebhookHandler(channelRepo, attemptRepo, cascadeProducer, maxMessengerMetrics, logger)
+	maxMessengerWebhook := maxmessenger.NewWebhookHandler(channelRepo, attemptRepo, cascadeProducer, maxMessengerMetrics, logger)
 	metricsMux.HandleFunc("/webhooks/cascade/max_messenger", maxMessengerWebhook.Handle)
 
 	if cfg.Monitoring.Prometheus.Enabled {
