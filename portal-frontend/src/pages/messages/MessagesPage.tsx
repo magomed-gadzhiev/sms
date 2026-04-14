@@ -1,364 +1,274 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { messagesApi, exportApi } from '../../api/client';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
-import { DataTable, type Column } from '../../components/data/DataTable';
 import { Button } from '../../components/ui/Button';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
-import type { BulkAction } from '../../components/data/BulkActionBar';
-import { useMessageStream } from '../../hooks/useMessageStream';
+import { detalizationApi, exportApi, referencesApi } from '../../api/client';
+import type { DetalizationMessage } from '../../api/client';
+import { MessageFilters } from './components/MessageFilters';
+import type { FilterDef } from './components/MessageFilters';
+import { ActiveFilterChips } from './components/ActiveFilterChips';
+import { MessageTable, ALL_COLUMNS } from './components/MessageTable';
+import type { SortField, SortState } from './components/MessageTable';
+import { MessageModal } from './components/MessageModal';
+import { ColumnConfigurator } from './components/ColumnConfigurator';
+import type { ColumnDef } from './components/ColumnConfigurator';
 
-interface MessageItem {
-  message_id: string;
-  source: string;
-  destination: string;
-  text: string;
-  status: string;
-  segment_count: number;
-  created_at?: string;
-  delivered_at?: string;
-  scheduled_at?: string;
+const STORAGE_KEY = 'messages_visible_columns';
+const DEFAULT_VISIBLE = new Set([
+  'login', 'destination', 'operator_name', 'channel',
+  'text_preview', 'submitted_at', 'status', 'total_amount',
+]);
+
+function loadVisibleColumns(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+  } catch { /* ignore */ }
+  return new Set(DEFAULT_VISIBLE);
 }
 
-interface MessagesResponse {
-  messages: MessageItem[];
-  total: number;
-  page: number;
-  per_page: number;
-  total_pages: number;
+function saveVisibleColumns(cols: Set<string>) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...cols]));
+  } catch { /* ignore */ }
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидание',
-  queued: 'В очереди',
-  sent: 'Отправлено',
-  delivered: 'Доставлено',
-  failed: 'Ошибка',
-  expired: 'Истекло',
-  rejected: 'Отклонено',
-  scheduled: 'Запланировано',
-};
-
-const MESSAGE_FILTERS: FilterDef[] = [
-  { key: 'status', label: 'Статус', type: 'select', options: [
-    { value: 'pending', label: 'Ожидание' },
-    { value: 'queued', label: 'В очереди' },
-    { value: 'sent', label: 'Отправлено' },
-    { value: 'delivered', label: 'Доставлено' },
-    { value: 'failed', label: 'Ошибка' },
-    { value: 'expired', label: 'Истекло' },
-    { value: 'rejected', label: 'Отклонено' },
-    { value: 'scheduled', label: 'Запланировано' },
-  ]},
-  { key: 'date_from', label: 'С даты', type: 'date' },
-  { key: 'date_to', label: 'По дату', type: 'date' },
-  { key: 'destination', label: 'Получатель', type: 'text', placeholder: '+7...' },
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Ожидание' },
+  { value: 'queued', label: 'В очереди' },
+  { value: 'sent', label: 'Отправлено' },
+  { value: 'delivered', label: 'Доставлено' },
+  { value: 'failed', label: 'Ошибка' },
+  { value: 'expired', label: 'Истекло' },
+  { value: 'rejected', label: 'Отклонено' },
+  { value: 'scheduled', label: 'Запланировано' },
 ];
 
-function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABELS[status] || status;
-  const colorMap: Record<string, string> = {
-    delivered: 'bg-green-100 text-green-800',
-    sent: 'bg-blue-100 text-blue-800',
-    failed: 'bg-red-100 text-red-800',
-    rejected: 'bg-red-100 text-red-800',
-    expired: 'bg-gray-100 text-gray-600',
-    queued: 'bg-yellow-100 text-yellow-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    scheduled: 'bg-purple-100 text-purple-800',
-  };
-  const cls = colorMap[status] ?? 'bg-gray-100 text-gray-700';
-  return <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
-}
+const CHANNEL_OPTIONS = [
+  { value: 'SMS', label: 'SMS' },
+  { value: 'MAX', label: 'MAX' },
+  { value: 'Viber', label: 'Viber' },
+];
 
-function buildColumns(liveUpdates: Record<string, { status: string }>): Column<MessageItem>[] {
-  return [
-    { key: 'message_id', header: 'ID', render: (msg) => <span className="font-mono text-xs">{msg.message_id.substring(0, 8)}...</span> },
-    { key: 'source', header: 'Отправитель' },
-    { key: 'destination', header: 'Получатель' },
-    { key: 'text', header: 'Текст', render: (msg) => <span className="block max-w-[200px] truncate" title={msg.text}>{msg.text}</span> },
-    {
-      key: 'status',
-      header: 'Статус',
-      render: (msg) => {
-        const live = liveUpdates[msg.message_id];
-        return <StatusBadge status={live ? live.status : msg.status} />;
-      },
-    },
-    { key: 'segment_count', header: 'Сегменты' },
-    { key: 'created_at', header: 'Дата создания', render: (msg) => <span className="text-xs">{msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}</span> },
-    {
-      key: 'scheduled_at',
-      header: 'Запланировано',
-      render: (msg) => {
-        const scheduledAt = msg.scheduled_at;
-        if (!scheduledAt) return <span className="text-muted-foreground">—</span>;
-        return (
-          <span className="text-sm">
-            {new Date(scheduledAt).toLocaleString('ru-RU', {
-              day: '2-digit', month: '2-digit', year: 'numeric',
-              hour: '2-digit', minute: '2-digit',
-            })}
-          </span>
-        );
-      },
-    },
-  ];
-}
+const SEND_METHOD_OPTIONS = [
+  { value: 'PORTAL', label: 'ЛК' },
+  { value: 'API', label: 'API' },
+  { value: 'SMPP', label: 'SMPP' },
+];
 
-// GSM-7 базовый набор + расширение. Всё, что вне него → UCS-2 (70 симв./сег.)
-const GSM7_CHARS = new Set(
-  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1BÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?' +
-  '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà' +
-  '€[\\]^{|}~',
-);
-
-function calcSegments(text: string): { chars: number; segments: number } {
-  const chars = text.length;
-  if (chars === 0) return { chars: 0, segments: 1 };
-  const isGsm7 = [...text].every((c) => GSM7_CHARS.has(c));
-  const single = isGsm7 ? 160 : 70;
-  const multi = isGsm7 ? 153 : 67;
-  const segments = chars <= single ? 1 : Math.ceil(chars / multi);
-  return { chars, segments };
-}
-
-const INITIAL_FILTERS: Record<string, string> = {
-  status: '',
-  date_from: '',
-  date_to: '',
-  destination: '',
+const EMPTY_FILTERS: Record<string, string> = {
+  date_from: '', date_to: '', destination: '', login: '',
+  status: '', operator: '', sender_name: '', channel: '',
+  message_id: '', send_method: '', country: '',
 };
 
 export function MessagesPage() {
-  const [data, setData] = useState<MessagesResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<{ messages: DetalizationMessage[]; total: number } | null>(null);
   const [loading, setLoading] = useState(false);
-
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [filterValues, setFilterValues] = useState<Record<string, string>>(INITIAL_FILTERS);
-
-  // Real-time SSE stream for live status updates.
-  const { streamStatus, updates: liveUpdates } = useMessageStream();
+  const [pageSize, setPageSize] = useState(20);
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortState>({ field: 'submitted_at', order: 'desc' });
+  const [selectedMsg, setSelectedMsg] = useState<DetalizationMessage | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(loadVisibleColumns);
 
   const [exportJobId, setExportJobId] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const exportPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleExportCsv = useCallback(async () => {
+  const [operatorOptions, setOperatorOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [countryOptions, setCountryOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [senderNameOptions, setSenderNameOptions] = useState<Array<{ value: string; label: string }>>([]);
+
+  useEffect(() => {
+    referencesApi.operators().then((r) =>
+      setOperatorOptions(r.operators.map((o) => ({ value: o.name, label: o.name })))
+    ).catch(() => {});
+    referencesApi.countries().then((r) =>
+      setCountryOptions(r.countries.map((c) => ({ value: c.name, label: c.name })))
+    ).catch(() => {});
+    // Load approved sender names for dropdown
+    fetch('/portal/v1/sender-names?status=approved&per_page=100', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((r: { sender_names?: Array<{ name: string }> }) => {
+        setSenderNameOptions((r.sender_names ?? []).map((s) => ({ value: s.name, label: s.name })));
+      })
+      .catch(() => {});
+  }, []);
+
+  const primaryFilters: FilterDef[] = [
+    { key: 'date_from', label: 'Дата от', type: 'date' },
+    { key: 'date_to', label: 'Дата до', type: 'date' },
+    { key: 'destination', label: 'Номер', type: 'text', placeholder: '+7...' },
+    { key: 'login', label: 'Логин', type: 'text', placeholder: 'Суб-аккаунт' },
+    { key: 'status', label: 'Статус', type: 'select', options: STATUS_OPTIONS },
+    { key: 'operator', label: 'Оператор', type: 'select', options: operatorOptions },
+    { key: 'sender_name', label: 'Имя отправителя', type: 'select', options: senderNameOptions },
+    { key: 'channel', label: 'Канал', type: 'select', options: CHANNEL_OPTIONS },
+  ];
+
+  const secondaryFilters: FilterDef[] = [
+    { key: 'message_id', label: 'ID сообщения', type: 'text', placeholder: 'Поиск по ID' },
+    { key: 'send_method', label: 'Способ отправки', type: 'select', options: SEND_METHOD_OPTIONS },
+    { key: 'country', label: 'Страна', type: 'select', options: countryOptions },
+  ];
+
+  const allFilterDefs = [...primaryFilters, ...secondaryFilters];
+
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    const activeFilters = Object.fromEntries(Object.entries(appliedFilters).filter(([, v]) => v !== ''));
+    detalizationApi.list({
+      ...activeFilters,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      sort_by: sort.field,
+      sort_order: sort.order,
+    }).then((r) => setData({ messages: r.messages, total: r.total }))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Ошибка загрузки'))
+      .finally(() => setLoading(false));
+  }, [appliedFilters, page, pageSize, sort]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleSearch = (values: Record<string, string>) => {
+    setAppliedFilters(values);
+    setPage(1);
+  };
+
+  const handleReset = () => {
+    setAppliedFilters(EMPTY_FILTERS);
+    setPage(1);
+  };
+
+  const handleRemoveChip = (key: string) => {
+    setAppliedFilters((prev) => ({ ...prev, [key]: '' }));
+    setPage(1);
+  };
+
+  const handleSort = (field: SortField) => {
+    setSort((prev) =>
+      prev.field === field
+        ? { field, order: prev.order === 'asc' ? 'desc' : 'asc' }
+        : { field, order: 'desc' }
+    );
+    setPage(1);
+  };
+
+  const handleColumnsChange = (cols: Set<string>) => {
+    setVisibleColumns(cols);
+    saveVisibleColumns(cols);
+  };
+
+  const handleExport = useCallback(async () => {
+    if (exportJobId) return;
     setExportStatus('pending');
     const filters: Record<string, string> = {};
-    if (filterValues.status) filters.status = filterValues.status;
-    if (filterValues.date_from) filters.date_from = filterValues.date_from;
-    if (filterValues.date_to) filters.date_to = filterValues.date_to;
-    if (filterValues.destination) filters.destination = filterValues.destination;
+    Object.entries(appliedFilters).forEach(([k, v]) => { if (v) filters[k] = v; });
     try {
       const { job_id } = await exportApi.start(filters);
       setExportJobId(job_id);
       exportPollRef.current = setInterval(async () => {
-        const job = await exportApi.getStatus(job_id);
-        setExportStatus(job.status);
-        if (job.status === 'ready') {
+        try {
+          const job = await exportApi.getStatus(job_id);
+          setExportStatus(job.status);
+          if (job.status === 'ready') {
+            clearInterval(exportPollRef.current!);
+            const res = await exportApi.download(job_id);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `messages_export_${job_id.slice(0, 8)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            setExportStatus(null);
+            setExportJobId(null);
+          } else if (job.status === 'error') {
+            clearInterval(exportPollRef.current!);
+            setExportStatus(null);
+            setExportJobId(null);
+          }
+        } catch {
           clearInterval(exportPollRef.current!);
-          const res = await exportApi.download(job_id);
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `messages_export_${job_id.slice(0, 8)}.csv`;
-          a.click();
-          URL.revokeObjectURL(url);
           setExportStatus(null);
           setExportJobId(null);
-        } else if (job.status === 'error') {
-          clearInterval(exportPollRef.current!);
-          setExportStatus(null);
         }
       }, 2000);
     } catch {
       setExportStatus(null);
     }
-  }, [filterValues]);
+  }, [appliedFilters, exportJobId]);
 
-  const messageBulkActions: BulkAction<MessageItem>[] = [
-    {
-      label: 'Экспорт CSV',
-      variant: 'secondary',
-      onAction: () => handleExportCsv(),
-    },
-  ];
-
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [sendDest, setSendDest] = useState('');
-  const [sendText, setSendText] = useState('');
-  const [sendSource, setSendSource] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState('');
-  const [sendSuccess, setSendSuccess] = useState(false);
-
-  const fetchMessages = useCallback(() => {
-    setLoading(true);
-    setError(null);
-
-    const params: Record<string, string> = {
-      page: String(page),
-      per_page: '20',
-    };
-    if (filterValues.status) params.status = filterValues.status;
-    if (filterValues.date_from) params.date_from = filterValues.date_from;
-    if (filterValues.date_to) params.date_to = filterValues.date_to;
-    if (filterValues.destination) params.destination = filterValues.destination;
-
-    messagesApi
-      .list(params)
-      .then((resp) => setData(resp as MessagesResponse))
-      .catch((err) => setError(err.message || 'Failed to load messages'))
-      .finally(() => setLoading(false));
-  }, [page, filterValues]);
-
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
-  const handleFilterChange = (values: Record<string, string>) => {
-    setFilterValues(values);
-    setPage(1);
-  };
-
-  const handleReset = () => {
-    setFilterValues(INITIAL_FILTERS);
-    setPage(1);
-  };
-
-  const handleSendSMS = async () => {
-    setSendError('');
-    const normalizedDest = sendDest.replace(/\s/g, '');
-    const phoneRegex = /^\+?[0-9]{10,15}$/;
-    if (!phoneRegex.test(normalizedDest)) {
-      setSendError('Введите корректный номер телефона (например, +79001234567)');
-      return;
-    }
-    if (!sendSource.trim()) {
-      setSendError('Укажите Sender ID');
-      return;
-    }
-    if (!sendText.trim()) {
-      setSendError('Введите текст сообщения');
-      return;
-    }
-    setSending(true);
-    try {
-      await messagesApi.send({ destination: normalizedDest, text: sendText.trim(), source: sendSource.trim() });
-      setSendSuccess(true);
-      setTimeout(() => {
-        setShowSendModal(false);
-        setSendDest('');
-        setSendText('');
-        setSendSource('');
-        setSendSuccess(false);
-        fetchMessages();
-      }, 1200);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('source is required')) {
-        setSendError('Укажите Sender ID');
-      } else if (msg.includes('destination')) {
-        setSendError('Некорректный номер получателя');
-      } else {
-        setSendError(msg || 'Ошибка отправки');
-      }
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const navigate = useNavigate();
-  const columns = buildColumns(liveUpdates);
+  const columnDefs: ColumnDef[] = ALL_COLUMNS.map((c) => ({
+    key: c.key,
+    label: c.header,
+    defaultVisible: DEFAULT_VISIBLE.has(c.key),
+  }));
 
   return (
     <div>
-      <PageHeader
-        title="Сообщения"
-        actions={
-          <div className="flex gap-2 items-center">
-            {streamStatus === 'connected' && (
-              <span className="flex items-center gap-1 text-xs text-green-600" title="Статусы обновляются в реальном времени">
-                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Live
-              </span>
-            )}
-            {exportStatus && exportStatus !== 'ready' && (
-              <span className="text-sm text-gray-500 self-center">Экспорт: {exportStatus}...</span>
-            )}
-            <Button
-              variant="secondary"
-              onClick={handleExportCsv}
-              disabled={!!exportJobId || (data?.total ?? 0) === 0}
-            >
-              Экспорт CSV
-            </Button>
-            <Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>
-          </div>
-        }
-      />
+      <PageHeader title="Сообщения" />
+      <p className="text-sm text-muted-foreground mb-4">Детализация трафика по всем клиентам и каналам</p>
 
-      <Modal open={showSendModal} onClose={() => { setShowSendModal(false); setSendDest(''); setSendText(''); setSendSource(''); setSendError(''); setSendSuccess(false); }} title="Отправить SMS" description="Отправка тестового SMS сообщения">
-        <div className="space-y-3">
-          {sendSuccess && <p role="status" className="text-green-700 text-sm bg-green-50 border border-green-200 rounded px-3 py-2">SMS успешно отправлено</p>}
-          {sendError && <p role="alert" className="text-red-600 text-sm">{sendError}</p>}
-          <Input label="Номер получателя *" value={sendDest} onChange={(e) => setSendDest(e.target.value)} placeholder="+79001234567" required disabled={sendSuccess} />
-          <Input label="Sender ID *" value={sendSource} onChange={(e) => setSendSource(e.target.value)} placeholder="MyCompany" required disabled={sendSuccess} />
-          <div>
-            <label htmlFor="sms-text" className="block text-sm font-medium text-gray-700 mb-1">
-              Текст сообщения *
-              {(() => { const s = calcSegments(sendText); return (
-                <span className="ml-2 font-normal text-gray-400 text-xs">
-                  {s.chars} симв. · {s.segments} сег.
-                </span>
-              ); })()}
-            </label>
-            <textarea id="sms-text" className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required disabled={sendSuccess} />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => { setShowSendModal(false); setSendDest(''); setSendText(''); setSendSource(''); setSendError(''); setSendSuccess(false); }}>Отмена</Button>
-            <Button onClick={handleSendSMS} disabled={sending || sendSuccess || !sendDest || !sendText || !sendSource}>{sending ? 'Отправка...' : 'Отправить'}</Button>
-          </div>
-        </div>
-      </Modal>
-
-      <FilterBar
-        filters={MESSAGE_FILTERS}
-        values={filterValues}
-        onChange={handleFilterChange}
+      <MessageFilters
+        primary={primaryFilters}
+        secondary={secondaryFilters}
+        values={appliedFilters}
+        onSearch={handleSearch}
         onReset={handleReset}
       />
 
-      {error && <div className="text-red-600 mb-3">Ошибка: {error}</div>}
+      <ActiveFilterChips
+        filterDefs={allFilterDefs}
+        values={appliedFilters}
+        onRemove={handleRemoveChip}
+      />
 
-      {!loading && !error && (data?.messages?.length ?? 0) === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          <p className="mb-2">Сообщений пока нет</p>
-          <p className="text-sm mb-4">Отправьте первое SMS-сообщение</p>
-          <Button onClick={() => setShowSendModal(true)}>Отправить SMS</Button>
+      {error && <div className="text-red-600 mb-3 text-sm">Ошибка: {error}</div>}
+
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-gray-500">
+          {!loading && data != null && (
+            <>Найдено: <strong>{data.total}</strong> сообщений</>
+          )}
+        </span>
+        <div className="flex gap-2">
+          {exportStatus && exportStatus !== 'ready' && (
+            <span className="text-sm text-gray-400 self-center">Экспорт...</span>
+          )}
+          <Button
+            variant="secondary"
+            onClick={handleExport}
+            disabled={!!exportJobId || (data?.total ?? 0) === 0}
+          >
+            Экспорт
+          </Button>
+          <ColumnConfigurator
+            columns={columnDefs}
+            visible={visibleColumns}
+            onChange={handleColumnsChange}
+          />
         </div>
-      )}
+      </div>
 
-      {(loading || (data?.messages?.length ?? 0) > 0) && (
-        <DataTable
-          columns={columns}
-          data={data?.messages ?? []}
-          total={data?.total ?? 0}
-          page={page}
-          pageSize={20}
-          onPageChange={setPage}
-          keyField="message_id"
-          tableLabel="Список SMS сообщений"
-          loading={loading}
-          bulkActions={messageBulkActions}
-          onRowClick={(msg) => navigate(`/messages/${msg.message_id}`)}
-        />
+      <MessageTable
+        data={data?.messages ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        visibleColumns={visibleColumns}
+        sort={sort}
+        onSort={handleSort}
+        onRowClick={setSelectedMsg}
+        loading={loading}
+      />
+
+      {selectedMsg && (
+        <MessageModal message={selectedMsg} onClose={() => setSelectedMsg(null)} />
       )}
     </div>
   );
