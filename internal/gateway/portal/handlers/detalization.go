@@ -25,9 +25,16 @@ type ClientMessage struct {
 	Status       string     `json:"status"`
 	SegmentCount int        `json:"segment_count"`
 	CreatedAt    time.Time  `json:"created_at"`
-	ProviderName string     `json:"provider_name"`
+	SubmittedAt  *time.Time `json:"submitted_at,omitempty"`
 	DeliveredAt  *time.Time `json:"delivered_at,omitempty"`
 	FailedAt     *time.Time `json:"failed_at,omitempty"`
+	ProviderName string     `json:"provider_name"`
+	OperatorName string     `json:"operator_name,omitempty"`
+	CountryName  string     `json:"country_name,omitempty"`
+	Channel      string     `json:"channel,omitempty"`
+	SendMethod   string     `json:"send_method,omitempty"`
+	Login        string     `json:"login,omitempty"`
+	TotalAmount  string     `json:"total_amount,omitempty"`
 }
 
 // listMessagesResponse is the typed response for ListMessages.
@@ -49,7 +56,10 @@ func NewDetalizationHandlers(db *pgxpool.Pool) *DetalizationHandlers {
 }
 
 // ListMessages handles GET /portal/v1/detalization
-// Query params: status, source, destination, date_from (YYYY-MM-DD), date_to (YYYY-MM-DD), limit, offset
+// Query params: status, source, destination, date_from, date_to, limit, offset,
+//
+//	login, operator, sender_name, channel, country, send_method, message_id,
+//	sort_by (submitted_at|created_at|status_at|total_amount|segment_count), sort_order (asc|desc)
 func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
@@ -58,13 +68,39 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	}
 
 	q := r.URL.Query()
-	status := q.Get("status")
-	source := q.Get("source")
+	status      := q.Get("status")
+	source      := q.Get("source")
 	destination := q.Get("destination")
-	dateFrom := q.Get("date_from")
-	dateTo := q.Get("date_to")
+	dateFrom    := q.Get("date_from")
+	dateTo      := q.Get("date_to")
+	login       := q.Get("login")
+	operator    := q.Get("operator")
+	senderName  := q.Get("sender_name")
+	channel     := q.Get("channel")
+	country     := q.Get("country")
+	sendMethod  := q.Get("send_method")
+	messageID   := q.Get("message_id")
+	sortBy      := q.Get("sort_by")
+	sortOrder   := q.Get("sort_order")
 
-	limit := 50
+	// Validate sort params
+	validSortBy := map[string]string{
+		"submitted_at":  "m.submitted_at",
+		"created_at":    "m.created_at",
+		"status_at":     "COALESCE(m.delivered_at, m.failed_at)",
+		"total_amount":  "tl.total_amount",
+		"segment_count": "m.segment_count",
+	}
+	orderCol := "m.created_at"
+	if col, ok2 := validSortBy[sortBy]; ok2 {
+		orderCol = col
+	}
+	direction := "DESC"
+	if sortOrder == "asc" {
+		direction = "ASC"
+	}
+
+	limit := 20
 	if v, err := strconv.Atoi(q.Get("limit")); err == nil && v > 0 && v <= 200 {
 		limit = v
 	}
@@ -74,7 +110,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	}
 
 	args := []interface{}{clientID.String()}
-	conditions := " AND m.client_id = $1::uuid"
+	conditions := ` AND (m.client_id = $1::uuid OR cli.parent_client_id = $1::uuid)`
 	nextArg := func(v interface{}) string {
 		args = append(args, v)
 		return fmt.Sprintf("$%d", len(args))
@@ -86,6 +122,9 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	if source != "" {
 		conditions += " AND m.source ILIKE " + nextArg("%"+source+"%")
 	}
+	if senderName != "" {
+		conditions += " AND m.source ILIKE " + nextArg("%"+senderName+"%")
+	}
 	if destination != "" {
 		conditions += " AND m.destination ILIKE " + nextArg("%"+destination+"%")
 	}
@@ -95,10 +134,40 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	if dateTo != "" {
 		conditions += " AND m.created_at < (" + nextArg(dateTo) + "::timestamptz + INTERVAL '1 day')"
 	}
+	if login != "" {
+		conditions += " AND cli.name ILIKE " + nextArg("%"+login+"%")
+	}
+	if operator != "" {
+		conditions += " AND op.name ILIKE " + nextArg("%"+operator+"%")
+	}
+	if channel != "" {
+		conditions += " AND m.channel = " + nextArg(channel)
+	}
+	if country != "" {
+		conditions += " AND co.name ILIKE " + nextArg("%"+country+"%")
+	}
+	if sendMethod != "" {
+		conditions += " AND m.send_method = " + nextArg(sendMethod)
+	}
+	if messageID != "" {
+		conditions += " AND m.id::text ILIKE " + nextArg("%"+messageID+"%")
+	}
+
+	joins := `
+		LEFT JOIN providers p   ON p.id = m.provider_id
+		LEFT JOIN operators op  ON op.id = m.operator_id
+		LEFT JOIN countries co  ON co.id = m.country_id
+		LEFT JOIN clients cli   ON cli.id = m.client_id
+		LEFT JOIN LATERAL (
+			SELECT total_amount
+			FROM tarification_log
+			WHERE message_id = m.id
+			ORDER BY created_at DESC LIMIT 1
+		) tl ON true`
 
 	countQuery := `
 		SELECT COUNT(*)
-		FROM messages m
+		FROM messages m` + joins + `
 		WHERE 1=1` + conditions
 
 	listQuery := `
@@ -110,13 +179,19 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 			m.status::text,
 			COALESCE(m.segment_count, 0)     AS segment_count,
 			m.created_at,
+			m.submitted_at,
 			m.delivered_at,
 			m.failed_at,
-			COALESCE(p.name, '')             AS provider_name
-		FROM messages m
-		LEFT JOIN providers p ON p.id = m.provider_id
+			COALESCE(p.name, '')             AS provider_name,
+			COALESCE(op.name, '')            AS operator_name,
+			COALESCE(co.name, '')            AS country_name,
+			COALESCE(m.channel, '')          AS channel,
+			COALESCE(m.send_method, '')      AS send_method,
+			COALESCE(cli.name, '')           AS login,
+			COALESCE(tl.total_amount::text, '') AS total_amount
+		FROM messages m` + joins + `
 		WHERE 1=1` + conditions + `
-		ORDER BY m.created_at DESC
+		ORDER BY ` + orderCol + ` ` + direction + `
 		LIMIT ` + strconv.Itoa(limit) + ` OFFSET ` + strconv.Itoa(offset)
 
 	ctx := r.Context()
@@ -139,20 +214,24 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	messages := []ClientMessage{}
 	for rows.Next() {
 		var (
-			id, src, dst, textPreview, st, providerName string
-			segmentCount                                  int
-			createdAt                                     time.Time
-			deliveredAt, failedAt                         *time.Time
+			id, src, dst, textPreview, st         string
+			providerName, operatorName             string
+			countryName, ch, sm                    string
+			loginName, totalAmount                 string
+			segmentCount                           int
+			createdAt                              time.Time
+			submittedAt, deliveredAt, failedAt     *time.Time
 		)
 		if err := rows.Scan(
 			&id, &src, &dst, &textPreview, &st,
-			&segmentCount, &createdAt, &deliveredAt, &failedAt,
-			&providerName,
+			&segmentCount, &createdAt, &submittedAt, &deliveredAt, &failedAt,
+			&providerName, &operatorName, &countryName, &ch, &sm,
+			&loginName, &totalAmount,
 		); err != nil {
 			log.Error().Err(err).Msg("detalization: ошибка сканирования строки")
 			continue
 		}
-		msg := ClientMessage{
+		messages = append(messages, ClientMessage{
 			ID:           id,
 			Source:       src,
 			Destination:  dst,
@@ -160,11 +239,17 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 			Status:       st,
 			SegmentCount: segmentCount,
 			CreatedAt:    createdAt,
-			ProviderName: providerName,
+			SubmittedAt:  submittedAt,
 			DeliveredAt:  deliveredAt,
 			FailedAt:     failedAt,
-		}
-		messages = append(messages, msg)
+			ProviderName: providerName,
+			OperatorName: operatorName,
+			CountryName:  countryName,
+			Channel:      ch,
+			SendMethod:   sm,
+			Login:        loginName,
+			TotalAmount:  totalAmount,
+		})
 	}
 
 	if err := rows.Err(); err != nil {
