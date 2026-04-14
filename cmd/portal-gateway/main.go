@@ -203,6 +203,7 @@ func main() {
 	contactHandlers := handlers.NewContactHandlers(serviceClients.ContactClient)
 	campaignHandlers := handlers.NewCampaignHandlers(serviceClients.CampaignClient)
 	templateHandlers := handlers.NewTemplateHandlers(serviceClients.TemplateClient)
+	companyHandlers := handlers.NewCompanyHandlers(serviceClients.CompanyClient)
 	billingHandlers := handlers.NewBillingHandlers(serviceClients.BillingClient, payment.NewStubPaymentProvider())
 	tariffHandlers := handlers.NewTariffHandlers(serviceClients.ClientClient, serviceClients.TarificationClient, serviceClients.BillingClient)
 	domainHandlers := handlers.NewDomainHandlers(serviceClients.LinkDomainClient)
@@ -314,6 +315,7 @@ func main() {
 		healthHandlers,
 		alertsHandlers,
 		wsMessagesHandlers,
+		companyHandlers,
 	)
 
 	// Регистрируем маршруты cascade webhook

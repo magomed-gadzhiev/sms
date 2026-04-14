@@ -62,6 +62,7 @@ func SetupRouter(
 	healthHandlers *handlers.HealthHandlers,
 	alertsHandlers *handlers.AlertsHandlers,
 	wsMessagesHandlers *handlers.WsMessagesHandlers,
+	companyHandlers *handlers.CompanyHandlers,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -313,6 +314,15 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}/history", senderNameHandlers.GetSenderNameHistory).Methods("GET")
 	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.GetSenderNameOperatorRegistrations).Methods("GET")
 	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.BulkCreateOperatorRegistrations).Methods("POST")
+
+	// Companies endpoints
+	companies := protected.PathPrefix("/companies").Subrouter()
+	companies.HandleFunc("", companyHandlers.ListCompanies).Methods("GET")
+	companies.HandleFunc("", companyHandlers.CreateCompany).Methods("POST")
+	companies.HandleFunc("/{id}", companyHandlers.GetCompany).Methods("GET")
+	companies.HandleFunc("/{id}", companyHandlers.UpdateCompany).Methods("PUT")
+	companies.HandleFunc("/{id}/set-default", companyHandlers.SetDefaultCompany).Methods("POST")
+	companies.HandleFunc("/{id}/detach", companyHandlers.DetachCompany).Methods("DELETE")
 
 	// Sender Registration endpoints
 	senderRegs := protected.PathPrefix("/sender-registrations").Subrouter()
