@@ -1655,6 +1655,11 @@ const file_template_proto_rawDesc = "" +
 	"ubmitForReviewRequest\x1a$.template.v1.SubmitForReviewResponseB9Z7github.com/smpp-server/smpp-server" +
 	"/api/proto/templatev1b\x06proto3"
 
+var (
+	file_template_proto_rawDescOnce sync.Once
+	file_template_proto_rawDescData []byte
+)
+
 func file_template_proto_rawDescGZIP() []byte {
 	file_template_proto_rawDescOnce.Do(func() {
 		file_template_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_template_proto_rawDesc), len(file_template_proto_rawDesc)))
