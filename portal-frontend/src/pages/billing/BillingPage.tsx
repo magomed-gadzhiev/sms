@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { billingApi, ApiError } from '../../api/client';
+import { billingApi, companiesApi, ApiError, type CompanyInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { DataTable, type Column } from '../../components/data/DataTable';
@@ -120,6 +120,9 @@ const columns: Column<TransactionItem>[] = [
 /* ---------- Component ---------- */
 
 export function BillingPage() {
+  /* Companies state */
+  const [companies, setCompanies] = useState<CompanyInfo[]>([]);
+
   /* Balance state */
   const [balance, setBalance] = useState<BalanceInfo | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -191,6 +194,12 @@ export function BillingPage() {
   }, [fetchBalance]);
 
   useEffect(() => {
+    companiesApi.list()
+      .then((res) => setCompanies(res.companies ?? []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
 
@@ -256,6 +265,39 @@ export function BillingPage() {
         title="Биллинг"
         actions={<Button onClick={openTopUpModal}>Пополнить</Button>}
       />
+
+      {/* Company balances */}
+      {companies.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
+            Балансы по компаниям
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {companies.map((c) => (
+              <div key={c.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{c.name}</p>
+                    {c.inn && <p className="text-xs text-gray-500 mt-0.5">ИНН: {c.inn}</p>}
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {c.is_default && (
+                      <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                        Основная
+                      </span>
+                    )}
+                    {c.is_offer && (
+                      <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                        Оферта
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Balance card */}
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">

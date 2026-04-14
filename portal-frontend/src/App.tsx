@@ -28,6 +28,8 @@ import { CampaignWizardPage } from './pages/campaigns/CampaignWizardPage';
 import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
 import { CampaignSchedulesPage } from './pages/campaigns/CampaignSchedulesPage';
 import { TemplatesPage } from './pages/templates/TemplatesPage';
+import { CompaniesPage } from './pages/companies/CompaniesPage';
+import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
 import { SenderNameDetailPage } from './pages/sender-names/SenderNameDetailPage';
 import { SenderNameOperatorsPage } from './pages/sender-names/SenderNameOperatorsPage';
@@ -129,6 +131,8 @@ export function App() {
         <Route path="/sub-accounts" element={<SubAccountsListPage />} />
         <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/companies" element={<CompaniesPage />} />
+        <Route path="/companies/:id" element={<CompanyDetailPage />} />
         <Route path="/sender-names" element={<SenderNamesPage />} />
         <Route path="/sender-names/:id" element={<SenderNameDetailPage />} />
         <Route path="/sender-names/:id/operators" element={<SenderNameOperatorsPage />} />

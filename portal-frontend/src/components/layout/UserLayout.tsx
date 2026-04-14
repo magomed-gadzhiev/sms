@@ -19,6 +19,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/campaign-schedules', label: 'Расписания' },
       { path: '/templates', label: 'Шаблоны' },
       { path: '/sender-names', label: 'Имена отправителей' },
+      { path: '/companies', label: 'Мои компании' },
     ],
   },
   {

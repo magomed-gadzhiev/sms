@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { senderNamesApi, ApiError, type SenderNameInfo } from '../../api/client';
+import { senderNamesApi, companiesApi, ApiError, type SenderNameInfo, type CompanyInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -40,6 +40,10 @@ export function SenderNamesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Companies
+  const [companies, setCompanies] = useState<CompanyInfo[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -62,6 +66,15 @@ export function SenderNamesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    companiesApi.list().then((res) => {
+      const list = res.companies ?? [];
+      setCompanies(list);
+      const def = list.find((c) => c.is_default);
+      if (def) setSelectedCompanyId(def.id);
+    }).catch(() => {});
+  }, []);
+
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     const nameErr = validateName(createName);
@@ -69,7 +82,7 @@ export function SenderNamesPage() {
     setCreating(true);
     setCreateError('');
     try {
-      await senderNamesApi.create(createName.trim());
+      await senderNamesApi.create(createName.trim(), selectedCompanyId || undefined);
       setShowCreate(false);
       setCreateName('');
       load();
@@ -129,6 +142,22 @@ export function SenderNamesPage() {
       {/* Create modal */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Зарегистрировать имя отправителя">
         <form onSubmit={handleCreate} className="space-y-4">
+          {companies.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Компания</label>
+              <select
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+              >
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.is_offer ? ' (Оферта)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <Input
               label="Имя отправителя"

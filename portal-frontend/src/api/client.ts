@@ -447,8 +447,8 @@ export const senderNamesApi = {
     );
   },
   get: (id: string) => apiFetch<SenderNameInfo>(`/sender-names/${id}`),
-  create: (name: string) =>
-    apiFetch<SenderNameInfo>('/sender-names', { method: 'POST', body: JSON.stringify({ name }) }),
+  create: (name: string, companyId?: string) =>
+    apiFetch<SenderNameInfo>('/sender-names', { method: 'POST', body: JSON.stringify({ name, ...(companyId ? { company_id: companyId } : {}) }) }),
   update: (id: string, name: string) =>
     apiFetch<SenderNameInfo>(`/sender-names/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   resubmit: (id: string) =>
@@ -872,6 +872,78 @@ export const defaultSendersApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+};
+
+// ===== Companies API =====
+
+export interface CompanyInfo {
+  id: string;
+  inn?: string;
+  name: string;
+  full_name?: string;
+  kpp?: string;
+  ogrn?: string;
+  legal_address?: string;
+  actual_address?: string;
+  ceo_name?: string;
+  ceo_title?: string;
+  acting_basis?: string;
+  bank_name?: string;
+  bank_bik?: string;
+  bank_corr_account?: string;
+  bank_account?: string;
+  email?: string;
+  phone?: string;
+  is_offer: boolean;
+  is_default: boolean;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyUpsertRequest {
+  inn?: string;
+  name: string;
+  full_name?: string;
+  kpp?: string;
+  ogrn?: string;
+  legal_address?: string;
+  actual_address?: string;
+  ceo_name?: string;
+  ceo_title?: string;
+  acting_basis?: string;
+  bank_name?: string;
+  bank_bik?: string;
+  bank_corr_account?: string;
+  bank_account?: string;
+  email?: string;
+  phone?: string;
+}
+
+export const companiesApi = {
+  list: () =>
+    apiFetch<{ companies: CompanyInfo[] }>('/companies'),
+
+  create: (data: CompanyUpsertRequest) =>
+    apiFetch<CompanyInfo>('/companies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  get: (id: string) =>
+    apiFetch<CompanyInfo>(`/companies/${id}`),
+
+  update: (id: string, data: CompanyUpsertRequest) =>
+    apiFetch<CompanyInfo>(`/companies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  setDefault: (id: string) =>
+    apiFetch<void>(`/companies/${id}/set-default`, { method: 'POST' }),
+
+  detach: (id: string) =>
+    apiFetch<void>(`/companies/${id}/detach`, { method: 'DELETE' }),
 };
 
 // ── Command Center Types ─────────────────────────────────────────────
