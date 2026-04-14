@@ -548,3 +548,117 @@ func (h *SenderNameHandlers) GetSenderNameOperatorRegistrations(w http.ResponseW
 		"registrations": regs,
 	})
 }
+
+// BulkCreateOperatorRegistrations POST /portal/v1/sender-names/{id}/operator-registrations
+// Создаёт регистрации имени отправителя у нескольких операторов.
+func (h *SenderNameHandlers) BulkCreateOperatorRegistrations(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	senderNameID := mux.Vars(r)["id"]
+	if senderNameID == "" {
+		respondError(w, shared.ErrInvalidInput("ID обязателен"))
+		return
+	}
+
+	// Получаем имя отправителя по ID
+	snResp, err := h.client.GetSenderName(r.Context(), &sendernamev1.GetSenderNameRequest{
+		Id: senderNameID, ClientId: clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	if snResp.SenderName.Status != "approved" {
+		respondError(w, shared.ErrInvalidInput("имя отправителя должно быть в статусе approved"))
+		return
+	}
+
+	var req struct {
+		Registrations []struct {
+			OperatorID string `json:"operator_id"`
+			Type       string `json:"type"`
+		} `json:"registrations"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if len(req.Registrations) == 0 {
+		respondError(w, shared.ErrInvalidInput("registrations не может быть пустым"))
+		return
+	}
+
+	if h.tariffClient == nil {
+		respondError(w, shared.ErrInternalServer("tarification service недоступен"))
+		return
+	}
+
+	type resultItem struct {
+		OperatorID string `json:"operator_id"`
+		ID         string `json:"id,omitempty"`
+		Status     string `json:"status"`
+		Error      string `json:"error,omitempty"`
+	}
+	results := make([]resultItem, 0, len(req.Registrations))
+
+	for _, reg := range req.Registrations {
+		if reg.OperatorID == "" {
+			results = append(results, resultItem{OperatorID: reg.OperatorID, Status: "error", Error: "operator_id обязателен"})
+			continue
+		}
+		regType := reg.Type
+		if regType == "" {
+			regType = "free"
+		}
+
+		regResp, err := h.tariffClient.CreateSenderRegistration(r.Context(), &tarificationv1.CreateSenderRegistrationRequest{
+			ClientId:   clientID.String(),
+			OperatorId: reg.OperatorID,
+			SenderName: snResp.SenderName.Name,
+			Type:       regType,
+		})
+		if err != nil {
+			log.Error().Err(err).Str("operator_id", reg.OperatorID).Msg("ошибка создания sender registration")
+			results = append(results, resultItem{OperatorID: reg.OperatorID, Status: "error", Error: err.Error()})
+			continue
+		}
+
+		// Для платных регистраций создаём billing record
+		if regType == "paid" && h.routingClient != nil {
+			op, opErr := h.routingClient.GetOperator(r.Context(), &routingv1.GetOperatorRequest{Id: reg.OperatorID})
+			if opErr != nil {
+				log.Error().Err(opErr).Str("operator_id", reg.OperatorID).Msg("не удалось получить тариф оператора для billing")
+			} else if op.MonthlyTariffAmount != "" {
+				billingResp, billingErr := h.tariffClient.CreateSenderBillingRecord(r.Context(), &tarificationv1.CreateSenderBillingRecordRequest{
+					SenderRegistrationId: regResp.Id,
+					ClientId:             clientID.String(),
+					OperatorId:           reg.OperatorID,
+					Amount:               op.MonthlyTariffAmount,
+				})
+				if billingErr != nil {
+					log.Error().Err(billingErr).Str("registration_id", regResp.Id).Msg("не удалось создать billing record")
+				} else if !billingResp.GetAlreadyExisted() && h.billingClient != nil {
+					_, chargeErr := h.billingClient.DeductCredits(r.Context(), &billingv1.DeductCreditsRequest{
+						ClientId:    clientID.String(),
+						Amount:      op.MonthlyTariffAmount,
+						Currency:    "RUB",
+						Description: "Paid sender name monthly fee",
+					})
+					if chargeErr != nil {
+						log.Error().Err(chargeErr).Str("registration_id", regResp.Id).Msg("не удалось списать оплату")
+					}
+				}
+			}
+		}
+
+		results = append(results, resultItem{OperatorID: reg.OperatorID, ID: regResp.Id, Status: "created"})
+	}
+
+	respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"results": results,
+	})
+}
