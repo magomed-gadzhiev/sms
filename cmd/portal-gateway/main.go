@@ -217,6 +217,7 @@ func main() {
 		serviceClients.TarificationClient,
 		serviceClients.BillingClient,
 	)
+	senderNameHandlers.SetPool(dbPool)
 
 	notificationHandlers := handlers.NewNotificationHandlers(dbPool)
 	searchHandlers := handlers.NewSearchHandlers(dbPool)
@@ -325,8 +326,8 @@ func main() {
 
 	// Регистрируем маршруты cascade
 	if cascadeChannelHandlers != nil {
-		portalrouter.RegisterCascadeAdminRoutes(router, sessionAuthMw, cascadeChannelHandlers, cascadeStrategyHandlers)
-		portalrouter.RegisterCascadeDeliveryRoutes(router, sessionAuthMw, cascadeDeliveryHandlers)
+		portalrouter.RegisterCascadeAdminRoutes(router, sessionAuthMw, csrfMw, cascadeChannelHandlers, cascadeStrategyHandlers)
+		portalrouter.RegisterCascadeDeliveryRoutes(router, sessionAuthMw, cascadeDeliveryHandlers, cascadeStrategyHandlers)
 	}
 
 	// Регистрируем маршруты детализации сообщений

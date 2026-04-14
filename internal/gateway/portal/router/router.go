@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/handlers"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 )
 
@@ -310,6 +311,8 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}", senderNameHandlers.UpdateSenderName).Methods("PUT")
 	senderNames.HandleFunc("/{id}/resubmit", senderNameHandlers.ResubmitSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/history", senderNameHandlers.GetSenderNameHistory).Methods("GET")
+	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.GetSenderNameOperatorRegistrations).Methods("GET")
+	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.BulkCreateOperatorRegistrations).Methods("POST")
 
 	// Sender Registration endpoints
 	senderRegs := protected.PathPrefix("/sender-registrations").Subrouter()
@@ -318,6 +321,8 @@ func SetupRouter(
 
 	// Operator Sender Tariff
 	protected.HandleFunc("/operators/{id}/sender-tariff", senderNameHandlers.GetOperatorSenderTariff).Methods("GET")
+	// Operators list with registration types
+	protected.HandleFunc("/operators", senderNameHandlers.ListOperators).Methods("GET")
 
 	// Notifications endpoints
 	notifications := protected.PathPrefix("/notifications").Subrouter()
@@ -432,23 +437,30 @@ func RegisterCascadeDeliveryRoutes(
 	router *mux.Router,
 	sessionAuthMiddleware func(http.Handler) http.Handler,
 	h *handlers.CascadeDeliveryHandlers,
+	strategies *handlers.CascadeStrategyHandlers,
 ) {
 	cascade := router.PathPrefix("/portal/v1/cascade").Subrouter()
 	cascade.Use(sessionAuthMiddleware)
 	cascade.HandleFunc("/deliveries", h.ListDeliveries).Methods("GET")
 	cascade.HandleFunc("/deliveries/{id}", h.GetDelivery).Methods("GET")
 	cascade.HandleFunc("/stats", h.GetStats).Methods("GET")
+	if strategies != nil {
+		cascade.HandleFunc("/strategies", strategies.ListStrategiesClient).Methods("GET")
+	}
 }
 
 // RegisterCascadeAdminRoutes добавляет admin-маршруты для управления каналами и стратегиями
 func RegisterCascadeAdminRoutes(
 	router *mux.Router,
 	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
 	channels *handlers.CascadeChannelHandlers,
 	strategies *handlers.CascadeStrategyHandlers,
 ) {
 	admin := router.PathPrefix("/portal/v1/admin").Subrouter()
 	admin.Use(sessionAuthMiddleware)
+	admin.Use(middleware.AdminRoleMiddleware)
+	admin.Use(csrfMiddleware)
 
 	// Channels
 	ch := admin.PathPrefix("/channels").Subrouter()
