@@ -120,9 +120,10 @@ func (h *TemplateHandlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateTemplateRequest struct {
-	Name        *string `json:"name,omitempty"`
-	Body        *string `json:"body,omitempty"`
-	TrafficType *string `json:"traffic_type,omitempty"`
+	Name         *string `json:"name,omitempty"`
+	Body         *string `json:"body,omitempty"`
+	TrafficType  *string `json:"traffic_type,omitempty"`
+	SenderNameID *string `json:"sender_name_id,omitempty"`
 }
 
 func (h *TemplateHandlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -150,6 +151,9 @@ func (h *TemplateHandlers) UpdateTemplate(w http.ResponseWriter, r *http.Request
 	}
 	if req.TrafficType != nil {
 		grpcReq.TrafficType = req.TrafficType
+	}
+	if req.SenderNameID != nil {
+		grpcReq.SenderNameId = req.SenderNameID
 	}
 	resp, err := h.templateClient.UpdateTemplate(r.Context(), grpcReq)
 	if err != nil {

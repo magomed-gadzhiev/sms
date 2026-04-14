@@ -211,6 +211,10 @@ func (s *SenderNameService) GetSenderNameHistory(ctx context.Context, senderName
 	return s.repo.GetHistory(ctx, senderNameID, limit, offset)
 }
 
+func (s *SenderNameService) GetSenderNameAdmin(ctx context.Context, id uuid.UUID) (*domain.SenderName, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
 func (s *SenderNameService) GetSenderNameHistoryAdmin(ctx context.Context, senderNameID uuid.UUID, limit, offset int) ([]*domain.SenderNameStatusHistory, int, error) {
 	return s.repo.GetHistory(ctx, senderNameID, limit, offset)
 }

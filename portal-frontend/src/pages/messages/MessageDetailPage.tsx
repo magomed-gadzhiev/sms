@@ -393,7 +393,7 @@ export function MessageDetailPage() {
             )}
             {message.dlr.done_date && (
               <div>
-                <span className="text-sm text-gray-500">Статус от оператора</span>
+                <span className="text-sm text-gray-500">Время финального статуса</span>
                 <p className="text-sm mt-0.5">{formatTimestamp(message.dlr.done_date)}</p>
               </div>
             )}

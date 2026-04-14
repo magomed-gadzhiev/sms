@@ -108,6 +108,23 @@ function buildColumns(liveUpdates: Record<string, { status: string }>): Column<M
   ];
 }
 
+// GSM-7 базовый набор + расширение. Всё, что вне него → UCS-2 (70 симв./сег.)
+const GSM7_CHARS = new Set(
+  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1BÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?' +
+  '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà' +
+  '€[\\]^{|}~',
+);
+
+function calcSegments(text: string): { chars: number; segments: number } {
+  const chars = text.length;
+  if (chars === 0) return { chars: 0, segments: 1 };
+  const isGsm7 = [...text].every((c) => GSM7_CHARS.has(c));
+  const single = isGsm7 ? 160 : 70;
+  const multi = isGsm7 ? 153 : 67;
+  const segments = chars <= single ? 1 : Math.ceil(chars / multi);
+  return { chars, segments };
+}
+
 const INITIAL_FILTERS: Record<string, string> = {
   status: '',
   date_from: '',
@@ -227,9 +244,13 @@ export function MessagesPage() {
       setSendError('Укажите Sender ID');
       return;
     }
+    if (!sendText.trim()) {
+      setSendError('Введите текст сообщения');
+      return;
+    }
     setSending(true);
     try {
-      await messagesApi.send({ destination: normalizedDest, text: sendText, source: sendSource });
+      await messagesApi.send({ destination: normalizedDest, text: sendText.trim(), source: sendSource.trim() });
       setSendSuccess(true);
       setTimeout(() => {
         setShowSendModal(false);
@@ -292,9 +313,11 @@ export function MessagesPage() {
           <div>
             <label htmlFor="sms-text" className="block text-sm font-medium text-gray-700 mb-1">
               Текст сообщения *
-              <span className="ml-2 font-normal text-gray-400 text-xs">
-                {sendText.length} симв. · {Math.ceil(sendText.length / 160) || 1} сег.
-              </span>
+              {(() => { const s = calcSegments(sendText); return (
+                <span className="ml-2 font-normal text-gray-400 text-xs">
+                  {s.chars} симв. · {s.segments} сег.
+                </span>
+              ); })()}
             </label>
             <textarea id="sms-text" className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" rows={3} value={sendText} onChange={(e) => setSendText(e.target.value)} required disabled={sendSuccess} />
           </div>

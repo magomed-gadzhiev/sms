@@ -170,6 +170,21 @@ func (r *ClientRepository) Update(ctx context.Context, client *shared.Client) er
 	return nil
 }
 
+// GetBalance возвращает текущий баланс клиента из таблицы accounts.
+func (r *ClientRepository) GetBalance(ctx context.Context, clientID uuid.UUID) (float64, string, error) {
+	var balance float64
+	var currency string
+	query := `SELECT balance, currency FROM accounts WHERE client_id = $1`
+	err := r.db.QueryRowContext(ctx, query, clientID).Scan(&balance, &currency)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, "RUB", nil
+		}
+		return 0, "", err
+	}
+	return balance, currency, nil
+}
+
 // IncrementMonthlySMSCount увеличивает счётчик SMS за месяц (с авто-сбросом в начале нового месяца)
 func (r *ClientRepository) IncrementMonthlySMSCount(ctx context.Context, clientID uuid.UUID, count int) error {
 	query := `UPDATE clients

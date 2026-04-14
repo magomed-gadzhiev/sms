@@ -171,6 +171,9 @@ export interface ListDeliveriesFilter {
 }
 
 export const cascadeDeliveriesApi = {
+  listStrategies: () =>
+    apiFetch<{ strategies: DeliveryStrategy[] }>('/cascade/strategies'),
+
   list: (filter: ListDeliveriesFilter = {}) => {
     const qs = new URLSearchParams();
     if (filter.strategy_id) qs.set('strategy_id', filter.strategy_id);

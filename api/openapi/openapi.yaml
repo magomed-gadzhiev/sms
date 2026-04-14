@@ -22,7 +22,7 @@ info:
     API для отправки SMS сообщений через SMS Gateway платформу.
 
     Поддерживает отправку одиночных и пакетных SMS, получение статуса сообщений,
-    историю, управление шаблонами, вебхуками и HLR-запросы.
+    историю, управление запланированными сообщениями и баланс аккаунта.
 
     ## Аутентификация
     Все запросы к `/api/v1/*` требуют заголовок `X-API-Key` с вашим API ключом.
@@ -42,12 +42,6 @@ tags:
     description: Отправка и отслеживание SMS сообщений
   - name: Account
     description: Баланс и статистика аккаунта
-  - name: Webhooks
-    description: Управление webhook-уведомлениями
-  - name: Templates
-    description: Управление шаблонами сообщений
-  - name: Lookup
-    description: HLR-запросы (проверка номера)
   - name: Health
     description: Проверка здоровья сервиса
 
@@ -57,7 +51,9 @@ paths:
       tags:
         - SMS
       summary: Отправка одного SMS
-      description: Отправляет одно SMS сообщение. Текст можно указать напрямую или через шаблон.
+      description: |
+        Отправляет одно SMS сообщение. Поддерживает немедленную и запланированную отправку.
+        Поле `text` обязательно. Поля `text` и `template_id` взаимоисключающие.
       operationId: sendSMS
       security:
         - ApiKeyAuth: []
@@ -74,15 +70,13 @@ paths:
                   source: "MyCompany"
                   destination: "79001234567"
                   text: "Ваш код подтверждения: 1234"
-              with_template:
-                summary: Отправка через шаблон
+              scheduled:
+                summary: Запланированная отправка
                 value:
                   source: "MyCompany"
                   destination: "79001234567"
-                  template_id: "tpl-welcome-01"
-                  variables:
-                    name: "Иван"
-                    code: "5678"
+                  text: "Ваша встреча завтра в 10:00"
+                  scheduled_at: "2026-04-15T10:00:00Z"
               full:
                 summary: Все параметры
                 value:
@@ -95,7 +89,7 @@ paths:
                   validity_period: "2026-12-31T23:59:59Z"
                   data_coding: 0
       responses:
-        '200':
+        '202':
           description: Сообщение принято в обработку
           content:
             application/json:
@@ -118,7 +112,7 @@ paths:
       tags:
         - SMS
       summary: Пакетная отправка SMS
-      description: Отправляет несколько SMS сообщений за один запрос (до 1000).
+      description: Отправляет несколько SMS сообщений за один запрос (до 1000). `scheduled_at` на уровне пакета перекрывает `scheduled_at` отдельных сообщений.
       operationId: sendBatchSMS
       security:
         - ApiKeyAuth: []
@@ -137,7 +131,7 @@ paths:
                   destination: "79009876543"
                   text: "Привет, Мария!"
       responses:
-        '200':
+        '202':
           description: Результаты пакетной отправки
           content:
             application/json:
@@ -174,10 +168,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetStatusResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -186,7 +182,7 @@ paths:
       tags:
         - SMS
       summary: Отмена сообщения
-      description: Отменяет запланированное сообщение (только если ещё не отправлено).
+      description: Отменяет запланированное сообщение (только если статус `scheduled`).
       operationId: cancelSMS
       security:
         - ApiKeyAuth: []
@@ -201,10 +197,12 @@ paths:
       responses:
         '204':
           description: Сообщение отменено
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -238,7 +236,7 @@ paths:
           description: Фильтр по статусу
           schema:
             type: string
-            enum: [pending, queued, sent, delivered, failed, expired, rejected]
+            enum: [pending, queued, sent, delivered, failed, expired, rejected, scheduled]
         - name: destination
           in: query
           description: Фильтр по номеру получателя
@@ -263,6 +261,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -270,8 +270,8 @@ paths:
 
   /api/v1/sms/scheduled:
     get:
-      summary: List scheduled messages
-      description: Returns a paginated list of messages scheduled for future delivery.
+      summary: Список запланированных сообщений
+      description: Возвращает постраничный список сообщений, запланированных на будущее.
       operationId: listScheduledMessages
       tags:
         - SMS
@@ -285,17 +285,17 @@ paths:
             minimum: 1
             maximum: 1000
             default: 100
-          description: Number of results per page
+          description: Количество записей на страницу
         - name: offset
           in: query
           schema:
             type: integer
             minimum: 0
             default: 0
-          description: Pagination offset
+          description: Смещение для пагинации
       responses:
         '200':
-          description: Paginated list of scheduled messages
+          description: Постраничный список запланированных сообщений
           content:
             application/json:
               schema:
@@ -316,6 +316,8 @@ paths:
                     example: 0
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/account/balance:
     get:
@@ -336,28 +338,52 @@ paths:
                   balance:
                     type: number
                     format: double
+                    example: 1500.50
                   currency:
                     type: string
+                    example: "RUB"
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/account/stats:
     get:
       tags:
         - Account
-      summary: Статистика аккаунта
+      summary: Статистика отправок
       operationId: getStats
       security:
         - ApiKeyAuth: []
       responses:
         '200':
-          description: Статистика отправок
+          description: Статистика отправок по статусам
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Всего сообщений
+                    example: 1500
+                  counts:
+                    type: object
+                    description: Количество сообщений по каждому статусу
+                    additionalProperties:
+                      type: integer
+                    example:
+                      queued: 10
+                      sent: 800
+                      delivered: 600
+                      failed: 50
+                      expired: 20
+                      rejected: 5
+                      scheduled: 15
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /health:
     get:
@@ -374,11 +400,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
+  /health/live:
+    get:
+      tags:
+        - Health
+      summary: Liveness probe
+      description: Kubernetes liveness probe (без аутентификации)
+      operationId: livenessCheck
+      responses:
+        '200':
+          description: Сервис жив
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe
+      description: Kubernetes readiness probe — проверяет доступность БД и Redis
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Сервис готов к работе
+          content:
+            application/json:
+              schema:
+                type: object
+        '503':
+          description: Сервис не готов
+
   /metrics:
     get:
       tags:
         - Health
       summary: Prometheus метрики
+      description: Путь настраивается через конфиг (`monitoring.prometheus.path`), по умолчанию `/metrics`.
       operationId: getMetrics
       responses:
         '200':
@@ -441,18 +500,18 @@ components:
           maxLength: 21
         text:
           type: string
-          description: Текст сообщения (обязателен если нет template_id)
+          description: Текст сообщения (обязателен если нет template_id, взаимоисключающее с template_id)
           example: "Ваш код: 1234"
           maxLength: 1600
         template_id:
           type: string
-          description: ID шаблона (обязателен если нет text, взаимоисключающе с text)
+          description: ID шаблона (взаимоисключающее с text; функция в разработке — вернёт 400)
           example: "tpl-welcome-01"
         variables:
           type: object
           additionalProperties:
             type: string
-          description: Переменные для шаблона
+          description: Переменные для шаблона (используется совместно с template_id)
           example:
             name: "Иван"
             code: "5678"
@@ -477,7 +536,7 @@ components:
         scheduled_at:
           type: string
           format: date-time
-          description: Запланировать отправку на указанное время
+          description: Запланировать отправку на указанное время. Сообщение сохранится со статусом `scheduled` и не попадёт в очередь до указанного времени.
         service_type:
           type: string
           maxLength: 6
@@ -516,17 +575,17 @@ components:
           description: ID сообщения для отслеживания
         status:
           type: string
-          enum: [queued, sent, failed]
+          enum: [queued, scheduled, failed]
         created_at:
           type: string
           format: date-time
-        segment_count:
-          type: integer
-          description: Количество сегментов (длинные SMS разбиваются)
         scheduled_at:
           type: string
           format: date-time
           nullable: true
+        segment_count:
+          type: integer
+          description: Количество сегментов (длинные SMS разбиваются)
         error:
           type: string
           description: Ошибка (если status=failed)
@@ -545,7 +604,7 @@ components:
         scheduled_at:
           type: string
           format: date-time
-          description: Запланировать всю пачку на указанное время
+          description: Запланировать всю пачку на указанное время (перекрывает scheduled_at отдельных сообщений)
 
     SendBatchResponse:
       type: object
@@ -567,7 +626,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [pending, queued, sent, delivered, failed, expired, rejected]
+          enum: [pending, queued, sent, delivered, failed, expired, rejected, scheduled, cancelled]
         status_message:
           type: string
         created_at:
@@ -618,6 +677,8 @@ components:
                 type: string
               status:
                 type: string
+              status_message:
+                type: string
               external_id:
                 type: string
               created_at:
@@ -631,14 +692,12 @@ components:
                 type: string
                 format: date-time
                 nullable: true
-              provider_id:
-                type: string
-                nullable: true
-              route_id:
+              smpp_message_id:
                 type: string
                 nullable: true
         total:
           type: integer
+          description: Общее количество записей (с учётом фильтров, без пагинации)
         limit:
           type: integer
         offset:
@@ -663,13 +722,14 @@ components:
       properties:
         message_id:
           type: string
+          format: uuid
           example: "550e8400-e29b-41d4-a716-446655440000"
         source:
           type: string
           example: "MyCompany"
         destination:
           type: string
-          example: "+79991234567"
+          example: "79991234567"
         text:
           type: string
           example: "Your appointment is tomorrow"

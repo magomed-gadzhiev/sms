@@ -104,6 +104,11 @@ export function OptOutListPage() {
       .split(/[\n,;]+/)
       .map((p) => p.trim())
       .filter(Boolean);
+    const MAX_PHONES = 10_000;
+    if (phones.length > MAX_PHONES) {
+      toast.error(`Слишком много номеров: ${phones.length.toLocaleString()}. Максимум — 10 000 за один импорт`);
+      return;
+    }
     if (phones.length === 0) return;
     setImporting(true);
     setImportResult(null);

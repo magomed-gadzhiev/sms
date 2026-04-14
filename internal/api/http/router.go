@@ -18,7 +18,6 @@ func SetupRouter(
 ) *mux.Router {
 	router := mux.NewRouter()
 
-	// Применяем middleware в правильном порядке
 	router.Use(recoveryMiddleware)
 	router.Use(loggingMiddleware)
 	router.Use(corsMiddleware)
@@ -28,12 +27,18 @@ func SetupRouter(
 
 	// API v1
 	v1 := router.PathPrefix("/api/v1").Subrouter()
-	
+
 	// SMS endpoints
 	v1.HandleFunc("/sms/send", handler.SendSMS).Methods("POST")
 	v1.HandleFunc("/sms/batch", handler.SendBatchSMS).Methods("POST")
-	v1.HandleFunc("/sms/status", handler.GetStatus).Methods("GET")
+	v1.HandleFunc("/sms/status/{id}", handler.GetStatus).Methods("GET")
 	v1.HandleFunc("/sms/history", handler.GetHistory).Methods("GET")
+	v1.HandleFunc("/sms/scheduled", handler.GetScheduled).Methods("GET")
+	v1.HandleFunc("/sms/{id}", handler.CancelSMS).Methods("DELETE")
+
+	// Account endpoints
+	v1.HandleFunc("/account/balance", handler.GetBalance).Methods("GET")
+	v1.HandleFunc("/account/stats", handler.GetStats).Methods("GET")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", handler.Health).Methods("GET")

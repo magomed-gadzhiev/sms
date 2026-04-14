@@ -70,7 +70,16 @@ func (s *Server) UpdateTemplate(ctx context.Context, req *templatev1.UpdateTempl
 		return nil, err
 	}
 
-	tmpl, err := s.templateService.UpdateTemplate(ctx, id, clientID, req.Name, req.Body, nil, req.TrafficType)
+	var senderNameID *uuid.UUID
+	if req.SenderNameId != nil && *req.SenderNameId != "" {
+		parsed, parseErr := uuid.Parse(*req.SenderNameId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid sender_name_id format")
+		}
+		senderNameID = &parsed
+	}
+
+	tmpl, err := s.templateService.UpdateTemplate(ctx, id, clientID, req.Name, req.Body, senderNameID, req.TrafficType)
 	if err != nil {
 		return nil, s.mapError(err)
 	}

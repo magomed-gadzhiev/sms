@@ -11,10 +11,12 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toast';
 
 export function ContactListDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [list, setList] = useState<ContactList | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -31,6 +33,7 @@ export function ContactListDetailPage() {
   const [newAttrs, setNewAttrs] = useState<Record<string, string>>({});
   const [newTags, setNewTags] = useState('');
   const [adding, setAdding] = useState(false);
+  const [addContactError, setAddContactError] = useState('');
 
   // Attributes modal
   const [showAttrsModal, setShowAttrsModal] = useState(false);
@@ -61,7 +64,9 @@ export function ContactListDetailPage() {
   useEffect(() => {
     if (!id) return;
     // Load list info and attributes
-    contactListsApi.get(id).then(setList).catch(() => {});
+    contactListsApi.get(id).then(setList).catch(() => {
+      setError('Не удалось загрузить информацию о списке');
+    });
     contactListsApi
       .getAttributes(id)
       .then((resp) => setAttributes(resp.attributes ?? []))
@@ -95,7 +100,7 @@ export function ContactListDetailPage() {
       setNewTags('');
       loadContacts();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при добавлении контакта');
+      setAddContactError(err instanceof ApiError ? err.message : 'Ошибка при добавлении контакта');
     } finally {
       setAdding(false);
     }
@@ -110,7 +115,7 @@ export function ContactListDetailPage() {
       setTotal((prev) => prev - 1);
       setDeleteContactId(null);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при удалении');
+      toast.error(err instanceof ApiError ? err.message : 'Ошибка при удалении');
     } finally {
       setDeletingContact(false);
     }
@@ -118,13 +123,25 @@ export function ContactListDetailPage() {
 
   async function handleSaveAttributes() {
     if (!id) return;
+    // Проверка что все атрибуты имеют системное имя
+    if (editAttrs.some(a => !a.name.trim())) {
+      alert('Все атрибуты должны иметь системное имя');
+      return;
+    }
+    // Проверка дублей системных имён
+    const names = editAttrs.map(a => a.name.trim()).filter(Boolean);
+    const uniqueNames = new Set(names);
+    if (uniqueNames.size !== names.length) {
+      alert('Системные имена атрибутов должны быть уникальными');
+      return;
+    }
     setSavingAttrs(true);
     try {
       const resp = await contactListsApi.setAttributes(id, editAttrs);
       setAttributes(resp.attributes ?? []);
       setShowAttrsModal(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при сохранении атрибутов');
+      toast.error(err instanceof ApiError ? err.message : 'Ошибка при сохранении атрибутов');
     } finally {
       setSavingAttrs(false);
     }
@@ -186,7 +203,7 @@ export function ContactListDetailPage() {
             >
               Импорт
             </Button>
-            <Button onClick={() => setShowAddContact(true)}>
+            <Button onClick={() => { setAddContactError(''); setShowAddContact(true); }}>
               + Добавить контакт
             </Button>
           </div>
@@ -248,7 +265,28 @@ export function ContactListDetailPage() {
                         colSpan={3 + attributes.length}
                         className="px-4 py-8 text-center text-gray-500"
                       >
-                        Контакты не найдены
+                        {search ? (
+                          'По запросу ничего не найдено'
+                        ) : (
+                          <div>
+                            <p className="mb-3">Контакты не добавлены</p>
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => setShowAddContact(true)}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Добавить контакт
+                              </button>
+                              <span className="text-gray-300">|</span>
+                              <button
+                                onClick={() => navigate(`/contact-lists/${id}/import`)}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Импортировать из файла
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -327,10 +365,15 @@ export function ContactListDetailPage() {
       {/* Add contact modal */}
       <Modal
         open={showAddContact}
-        onClose={() => setShowAddContact(false)}
+        onClose={() => { setShowAddContact(false); setAddContactError(''); }}
         title="Добавить контакт"
       >
         <div className="space-y-4">
+          {addContactError && (
+            <div role="alert" className="rounded bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+              {addContactError}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Телефон *
@@ -449,8 +492,9 @@ export function ContactListDetailPage() {
                 variant="danger"
                 size="sm"
                 onClick={() => removeAttribute(idx)}
+                aria-label="Удалить атрибут"
               >
-                X
+                ✕
               </Button>
             </div>
           ))}

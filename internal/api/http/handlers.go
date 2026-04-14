@@ -8,6 +8,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -18,12 +19,12 @@ import (
 
 // Handler представляет HTTP handlers для API Gateway
 type Handler struct {
-	producer       MessageProducer
-	asyncProducer  BatchMessagePublisher
-	topicOutgoing  string
-	messageRepo    MessageRepository
-	clientRepo     ClientRepository
-	healthChecker  *monitoring.HealthChecker
+	producer      MessageProducer
+	asyncProducer BatchMessagePublisher
+	topicOutgoing string
+	messageRepo   MessageRepository
+	clientRepo    ClientRepository
+	healthChecker *monitoring.HealthChecker
 }
 
 // NewHandler создает новый HTTP handler
@@ -42,8 +43,6 @@ func NewHandler(
 }
 
 // SetAsyncProducer устанавливает AsyncProducer для пакетной публикации.
-// Когда asyncProducer задан, SendBatchSMS использует неблокирующий PublishAsync
-// вместо синхронного PublishOutgoing для каждого сообщения.
 func (h *Handler) SetAsyncProducer(ap BatchMessagePublisher, topicOutgoing string) {
 	h.asyncProducer = ap
 	h.topicOutgoing = topicOutgoing
@@ -57,7 +56,6 @@ func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация
 	if err := req.Validate(); err != nil {
 		if appErr, ok := err.(*shared.AppError); ok {
 			respondError(w, appErr)
@@ -67,47 +65,66 @@ func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем клиента из контекста
+	if req.TemplateID != "" {
+		respondError(w, shared.ErrInvalidInput("Отправка через шаблон не поддерживается в этом эндпоинте"))
+		return
+	}
+
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
 
-	// Создаем сообщение
+	now := time.Now()
 	msg := &shared.Message{
-		ID:                uuid.New(),
-		Source:            req.Source,
-		Destination:       req.Destination,
-		Text:              req.Text,
-		ExternalID:        shared.NullString(req.ExternalID),
-		PriorityFlag:      req.Priority,
+		ID:                 uuid.New(),
+		Source:             req.Source,
+		Destination:        req.Destination,
+		Text:               req.Text,
+		ExternalID:         shared.NullString(req.ExternalID),
+		PriorityFlag:       req.Priority,
 		RegisteredDelivery: boolToInt(req.RegisteredDelivery),
-		ValidityPeriod:    req.ValidityPeriod,
-		ServiceType:       req.ServiceType,
-		SourceAddrTON:     req.SourceAddrTON,
-		SourceAddrNPI:     req.SourceAddrNPI,
-		DestAddrTON:       req.DestAddrTON,
-		DestAddrNPI:       req.DestAddrNPI,
-		DataCoding:        req.DataCoding,
-		Status:            shared.MessageStatusPending,
-		ClientID:          &clientID,
-		MaxRetries:        5,
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
+		ValidityPeriod:     req.ValidityPeriod,
+		ScheduledAt:        req.ScheduledAt,
+		ServiceType:        req.ServiceType,
+		SourceAddrTON:      req.SourceAddrTON,
+		SourceAddrNPI:      req.SourceAddrNPI,
+		DestAddrTON:        req.DestAddrTON,
+		DestAddrNPI:        req.DestAddrNPI,
+		DataCoding:         req.DataCoding,
+		ClientID:           &clientID,
+		MaxRetries:         5,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
-
-	// Определяем кодировку
 	msg.Encoding = detectEncoding(msg.Text)
 
-	// Сохраняем в БД
+	// Если указано время отправки — сохраняем как scheduled, не публикуем в Kafka
+	if req.ScheduledAt != nil {
+		msg.Status = shared.MessageStatusScheduled
+		if err := h.messageRepo.Create(r.Context(), msg); err != nil {
+			log.Error().Err(err).Msg("ошибка сохранения запланированного сообщения")
+			respondError(w, shared.ErrDatabase("Ошибка сохранения сообщения", err))
+			return
+		}
+		respondJSON(w, http.StatusAccepted, SendSMSResponse{
+			MessageID:    msg.ID.String(),
+			Status:       string(msg.Status),
+			CreatedAt:    msg.CreatedAt,
+			ScheduledAt:  msg.ScheduledAt,
+			SegmentCount: calcSegmentCount(msg.Text),
+		})
+		return
+	}
+
+	msg.Status = shared.MessageStatusPending
 	if err := h.messageRepo.Create(r.Context(), msg); err != nil {
 		log.Error().Err(err).Msg("ошибка сохранения сообщения")
 		respondError(w, shared.ErrDatabase("Ошибка сохранения сообщения", err))
 		return
 	}
 
-	// Публикуем в Kafka
 	kafkaMsg := queue.FromMessage(msg)
 	kafkaMsg.TraceID = shared.GetRequestID(r.Context())
 	if err := h.producer.PublishOutgoing(r.Context(), kafkaMsg); err != nil {
@@ -116,7 +133,6 @@ func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Обновляем статус на queued
 	msg.Status = shared.MessageStatusQueued
 	msg.UpdatedAt = time.Now()
 	if err := h.messageRepo.UpdateStatus(r.Context(), msg.ID, msg.Status, ""); err != nil {
@@ -124,8 +140,10 @@ func (h *Handler) SendSMS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusAccepted, SendSMSResponse{
-		MessageID: msg.ID.String(),
-		Status:    string(msg.Status),
+		MessageID:    msg.ID.String(),
+		Status:       string(msg.Status),
+		CreatedAt:    msg.CreatedAt,
+		SegmentCount: calcSegmentCount(msg.Text),
 	})
 }
 
@@ -142,7 +160,6 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем клиента из контекста
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
@@ -154,7 +171,6 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 	failedCount := 0
 
 	for _, msgReq := range req.Messages {
-		// Валидация
 		if err := msgReq.Validate(); err != nil {
 			var errMsg string
 			if appErr, ok := err.(*shared.AppError); ok {
@@ -162,56 +178,72 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 			} else {
 				errMsg = err.Error()
 			}
-			results = append(results, SendSMSResponse{
-				Status: "failed",
-				Error:  errMsg,
-			})
+			results = append(results, SendSMSResponse{Status: "failed", Error: errMsg})
 			failedCount++
 			continue
 		}
 
-		// Создаем сообщение
-		msg := &shared.Message{
-			ID:                uuid.New(),
-			Source:            msgReq.Source,
-			Destination:       msgReq.Destination,
-			Text:              msgReq.Text,
-			ExternalID:        shared.NullString(msgReq.ExternalID),
-			PriorityFlag:      msgReq.Priority,
-			RegisteredDelivery: boolToInt(msgReq.RegisteredDelivery),
-			ValidityPeriod:    msgReq.ValidityPeriod,
-			ServiceType:       msgReq.ServiceType,
-			SourceAddrTON:     msgReq.SourceAddrTON,
-			SourceAddrNPI:     msgReq.SourceAddrNPI,
-			DestAddrTON:       msgReq.DestAddrTON,
-			DestAddrNPI:       msgReq.DestAddrNPI,
-			DataCoding:        msgReq.DataCoding,
-			Status:            shared.MessageStatusPending,
-			ClientID:          &clientID,
-			MaxRetries:        5,
-			CreatedAt:         time.Now(),
-			UpdatedAt:         time.Now(),
+		// Поле scheduled_at в пакетном запросе перекрывает поле из отдельного сообщения
+		scheduledAt := msgReq.ScheduledAt
+		if req.ScheduledAt != nil {
+			scheduledAt = req.ScheduledAt
 		}
 
+		now := time.Now()
+		msg := &shared.Message{
+			ID:                 uuid.New(),
+			Source:             msgReq.Source,
+			Destination:        msgReq.Destination,
+			Text:               msgReq.Text,
+			ExternalID:         shared.NullString(msgReq.ExternalID),
+			PriorityFlag:       msgReq.Priority,
+			RegisteredDelivery: boolToInt(msgReq.RegisteredDelivery),
+			ValidityPeriod:     msgReq.ValidityPeriod,
+			ScheduledAt:        scheduledAt,
+			ServiceType:        msgReq.ServiceType,
+			SourceAddrTON:      msgReq.SourceAddrTON,
+			SourceAddrNPI:      msgReq.SourceAddrNPI,
+			DestAddrTON:        msgReq.DestAddrTON,
+			DestAddrNPI:        msgReq.DestAddrNPI,
+			DataCoding:         msgReq.DataCoding,
+			ClientID:           &clientID,
+			MaxRetries:         5,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}
 		msg.Encoding = detectEncoding(msg.Text)
 
-		// Сохраняем в БД
+		if scheduledAt != nil {
+			msg.Status = shared.MessageStatusScheduled
+			if err := h.messageRepo.Create(r.Context(), msg); err != nil {
+				log.Error().Err(err).Msg("ошибка сохранения запланированного сообщения")
+				results = append(results, SendSMSResponse{Status: "failed", Error: "Ошибка сохранения сообщения"})
+				failedCount++
+				continue
+			}
+			results = append(results, SendSMSResponse{
+				MessageID:    msg.ID.String(),
+				Status:       string(msg.Status),
+				CreatedAt:    msg.CreatedAt,
+				ScheduledAt:  msg.ScheduledAt,
+				SegmentCount: calcSegmentCount(msg.Text),
+			})
+			successCount++
+			continue
+		}
+
+		msg.Status = shared.MessageStatusPending
 		if err := h.messageRepo.Create(r.Context(), msg); err != nil {
 			log.Error().Err(err).Msg("ошибка сохранения сообщения")
-			results = append(results, SendSMSResponse{
-				Status: "failed",
-				Error:  "Ошибка сохранения сообщения",
-			})
+			results = append(results, SendSMSResponse{Status: "failed", Error: "Ошибка сохранения сообщения"})
 			failedCount++
 			continue
 		}
 
-		// Публикуем в Kafka
 		kafkaMsg := queue.FromMessage(msg)
 		kafkaMsg.TraceID = shared.GetRequestID(r.Context())
 
 		if h.asyncProducer != nil {
-			// Асинхронная пакетная публикация через AsyncProducer (T032)
 			data, err := kafkaMsg.Serialize()
 			if err != nil {
 				log.Error().Err(err).Msg("ошибка сериализации сообщения для Kafka")
@@ -223,7 +255,6 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 				failedCount++
 				continue
 			}
-
 			headers := []sarama.RecordHeader{
 				{Key: []byte("message_id"), Value: []byte(kafkaMsg.MessageID.String())},
 				{Key: []byte("source"), Value: []byte(kafkaMsg.Source)},
@@ -231,7 +262,6 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 			}
 			h.asyncProducer.PublishAsync(h.topicOutgoing, kafkaMsg.MessageID.String(), data, headers)
 		} else {
-			// Синхронная публикация (fallback)
 			if err := h.producer.PublishOutgoing(r.Context(), kafkaMsg); err != nil {
 				log.Error().Err(err).Msg("ошибка публикации сообщения в Kafka")
 				results = append(results, SendSMSResponse{
@@ -244,7 +274,6 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Обновляем статус
 		msg.Status = shared.MessageStatusQueued
 		msg.UpdatedAt = time.Now()
 		if err := h.messageRepo.UpdateStatus(r.Context(), msg.ID, msg.Status, ""); err != nil {
@@ -252,22 +281,26 @@ func (h *Handler) SendBatchSMS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		results = append(results, SendSMSResponse{
-			MessageID: msg.ID.String(),
-			Status:    string(msg.Status),
+			MessageID:    msg.ID.String(),
+			Status:       string(msg.Status),
+			CreatedAt:    msg.CreatedAt,
+			SegmentCount: calcSegmentCount(msg.Text),
 		})
 		successCount++
 	}
 
 	respondJSON(w, http.StatusAccepted, SendBatchResponse{
-		Results:     results,
+		Results:      results,
 		SuccessCount: successCount,
 		FailedCount:  failedCount,
 	})
 }
 
 // GetStatus обрабатывает запрос на получение статуса сообщения
+// Параметр id передаётся как path variable: GET /api/v1/sms/status/{id}
 func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
-	messageIDStr := r.URL.Query().Get("id")
+	vars := mux.Vars(r)
+	messageIDStr := vars["id"]
 	if messageIDStr == "" {
 		respondError(w, shared.ErrInvalidInput("Параметр id обязателен"))
 		return
@@ -279,7 +312,6 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем сообщение из БД
 	msg, err := h.messageRepo.GetByID(r.Context(), messageID)
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -291,94 +323,240 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем права доступа (клиент может видеть только свои сообщения)
 	clientID, ok := middleware.GetClientID(r.Context())
-	if ok && msg.ClientID != nil && *msg.ClientID != clientID {
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if msg.ClientID != nil && *msg.ClientID != clientID {
 		respondError(w, shared.ErrForbidden("Нет доступа к этому сообщению"))
 		return
 	}
 
 	respondJSON(w, http.StatusOK, GetStatusResponse{
-		MessageID:    msg.ID.String(),
-		Status:       string(msg.Status),
+		MessageID:     msg.ID.String(),
+		Status:        string(msg.Status),
 		StatusMessage: string(msg.StatusMessage),
-		CreatedAt:    msg.CreatedAt,
-		SubmittedAt: msg.SubmittedAt,
-		DeliveredAt: msg.DeliveredAt,
-		FailedAt:    msg.FailedAt,
+		CreatedAt:     msg.CreatedAt,
+		SubmittedAt:   msg.SubmittedAt,
+		DeliveredAt:   msg.DeliveredAt,
+		FailedAt:      msg.FailedAt,
 		SMPPMessageID: string(msg.SMPPMessageID),
 	})
 }
 
 // GetHistory обрабатывает запрос на получение истории сообщений
 func (h *Handler) GetHistory(w http.ResponseWriter, r *http.Request) {
-	// Получаем параметры запроса
-	clientID, _ := middleware.GetClientID(r.Context())
-	
-	limitStr := r.URL.Query().Get("limit")
-	limit := 100
-	if limitStr != "" {
-		var err error
-		limit, err = strconv.Atoi(limitStr)
-		if err != nil || limit < 1 || limit > 1000 {
-			limit = 100
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	filter := shared.MessageFilter{
+		Limit:  parseIntParam(r, "limit", 100, 1, 1000),
+		Offset: parseIntParam(r, "offset", 0, 0, -1),
+	}
+
+	if s := r.URL.Query().Get("status"); s != "" {
+		st := shared.MessageStatus(s)
+		filter.Status = &st
+	}
+	if d := r.URL.Query().Get("destination"); d != "" {
+		filter.Destination = d
+	}
+	if f := r.URL.Query().Get("from"); f != "" {
+		if t, err := time.Parse(time.RFC3339, f); err == nil {
+			filter.From = &t
+		} else {
+			respondError(w, shared.ErrInvalidInput("Неверный формат параметра from (ожидается RFC3339)"))
+			return
+		}
+	}
+	if t := r.URL.Query().Get("to"); t != "" {
+		if pt, err := time.Parse(time.RFC3339, t); err == nil {
+			filter.To = &pt
+		} else {
+			respondError(w, shared.ErrInvalidInput("Неверный формат параметра to (ожидается RFC3339)"))
+			return
 		}
 	}
 
-	offsetStr := r.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		var err error
-		offset, err = strconv.Atoi(offsetStr)
-		if err != nil || offset < 0 {
-			offset = 0
-		}
-	}
-
-	statusStr := r.URL.Query().Get("status")
-	var status *shared.MessageStatus
-	if statusStr != "" {
-		s := shared.MessageStatus(statusStr)
-		status = &s
-	}
-
-	// Получаем сообщения
-	var messages []*shared.Message
-	var err error
-	
-	if clientID != uuid.Nil {
-		messages, err = h.messageRepo.GetByClientID(r.Context(), clientID, limit, offset, status)
-	} else {
-		// Административный доступ (если нужно)
-		messages, err = h.messageRepo.GetAll(r.Context(), limit, offset, status)
-	}
-
+	messages, total, err := h.messageRepo.ListMessages(r.Context(), clientID, filter)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка получения истории сообщений")
 		respondError(w, shared.ErrDatabase("Ошибка получения истории", err))
 		return
 	}
 
-	// Преобразуем в формат ответа
 	results := make([]GetStatusResponse, len(messages))
 	for i, msg := range messages {
 		results[i] = GetStatusResponse{
-			MessageID:    msg.ID.String(),
-			Status:       string(msg.Status),
+			MessageID:     msg.ID.String(),
+			Status:        string(msg.Status),
 			StatusMessage: string(msg.StatusMessage),
-			CreatedAt:    msg.CreatedAt,
-			SubmittedAt: msg.SubmittedAt,
-			DeliveredAt: msg.DeliveredAt,
-			FailedAt:    msg.FailedAt,
+			CreatedAt:     msg.CreatedAt,
+			SubmittedAt:   msg.SubmittedAt,
+			DeliveredAt:   msg.DeliveredAt,
+			FailedAt:      msg.FailedAt,
 			SMPPMessageID: string(msg.SMPPMessageID),
 		}
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"messages": results,
+		"total":    total,
+		"limit":    filter.Limit,
+		"offset":   filter.Offset,
+	})
+}
+
+// CancelSMS отменяет запланированное сообщение
+func (h *Handler) CancelSMS(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	messageIDStr := vars["id"]
+	messageID, err := uuid.Parse(messageIDStr)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат ID сообщения"))
+		return
+	}
+
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	if err := h.messageRepo.CancelByIDAndStatus(r.Context(), messageID, clientID); err != nil {
+		if err == storage.ErrNotFound {
+			respondError(w, shared.ErrNotFound("Сообщение не найдено или не может быть отменено"))
+			return
+		}
+		// CancelByIDAndStatus возвращает fmt.Errorf при rows==0
+		log.Error().Err(err).Msg("ошибка отмены сообщения")
+		respondError(w, &shared.AppError{
+			HTTPStatus: http.StatusNotFound,
+			Code:       "NOT_FOUND",
+			Message:    "Сообщение не найдено или не находится в статусе scheduled",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetBalance возвращает баланс аккаунта
+func (h *Handler) GetBalance(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	balance, currency, err := h.clientRepo.GetBalance(r.Context(), clientID)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения баланса")
+		respondError(w, shared.ErrDatabase("Ошибка получения баланса", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"balance":  balance,
+		"currency": currency,
+	})
+}
+
+// GetStats возвращает статистику отправок клиента
+func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	statuses := []shared.MessageStatus{
+		shared.MessageStatusQueued,
+		shared.MessageStatusSent,
+		shared.MessageStatusDelivered,
+		shared.MessageStatusFailed,
+		shared.MessageStatusExpired,
+		shared.MessageStatusRejected,
+		shared.MessageStatusScheduled,
+	}
+
+	counts := make(map[string]int, len(statuses))
+	total := 0
+	for _, st := range statuses {
+		s := st
+		msgs, n, err := h.messageRepo.ListMessages(r.Context(), clientID, shared.MessageFilter{
+			Status: &s,
+			Limit:  1,
+			Offset: 0,
+		})
+		_ = msgs
+		if err != nil {
+			log.Error().Err(err).Str("status", string(st)).Msg("ошибка получения статистики")
+			respondError(w, shared.ErrDatabase("Ошибка получения статистики", err))
+			return
+		}
+		counts[string(st)] = n
+		total += n
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"total":  total,
+		"counts": counts,
+	})
+}
+
+// GetScheduled возвращает список запланированных сообщений
+func (h *Handler) GetScheduled(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	limit := parseIntParam(r, "limit", 100, 1, 1000)
+	offset := parseIntParam(r, "offset", 0, 0, -1)
+
+	messages, total, err := h.messageRepo.ListScheduled(r.Context(), clientID, limit, offset)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения запланированных сообщений")
+		respondError(w, shared.ErrDatabase("Ошибка получения запланированных сообщений", err))
+		return
+	}
+
+	type item struct {
+		MessageID   string     `json:"message_id"`
+		Source      string     `json:"source"`
+		Destination string     `json:"destination"`
+		Text        string     `json:"text"`
+		Status      string     `json:"status"`
+		ExternalID  string     `json:"external_id,omitempty"`
+		ScheduledAt *time.Time `json:"scheduled_at"`
+		CreatedAt   time.Time  `json:"created_at"`
+	}
+
+	results := make([]item, len(messages))
+	for i, msg := range messages {
+		results[i] = item{
+			MessageID:   msg.ID.String(),
+			Source:      msg.Source,
+			Destination: msg.Destination,
+			Text:        msg.Text,
+			Status:      string(msg.Status),
+			ExternalID:  string(msg.ExternalID),
+			ScheduledAt: msg.ScheduledAt,
+			CreatedAt:   msg.CreatedAt,
+		}
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"messages": results,
+		"total":    total,
 		"limit":    limit,
 		"offset":   offset,
-		"count":    len(results),
 	})
 }
 
@@ -407,18 +585,16 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 func respondError(w http.ResponseWriter, err *shared.AppError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(err.HTTPStatus)
-	
+
 	response := map[string]interface{}{
 		"error": map[string]interface{}{
 			"code":    err.Code,
 			"message": err.Message,
 		},
 	}
-	
 	if err.Details != "" {
 		response["error"].(map[string]interface{})["details"] = err.Details
 	}
-	
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -430,11 +606,54 @@ func boolToInt(b bool) int {
 }
 
 func detectEncoding(text string) shared.MessageEncoding {
-	// Простая проверка - если все символы в ASCII диапазоне, используем GSM7
 	for _, r := range text {
 		if r > 127 {
 			return shared.MessageEncodingUCS2
 		}
 	}
 	return shared.MessageEncodingGSM7
+}
+
+func calcSegmentCount(text string) int {
+	if len(text) == 0 {
+		return 1
+	}
+	isUCS2 := false
+	for _, r := range text {
+		if r > 127 {
+			isUCS2 = true
+			break
+		}
+	}
+	runeCount := len([]rune(text))
+	if isUCS2 {
+		if runeCount <= 70 {
+			return 1
+		}
+		return (runeCount + 66) / 67
+	}
+	if runeCount <= 160 {
+		return 1
+	}
+	return (runeCount + 152) / 153
+}
+
+// parseIntParam парses a query param as int with default and bounds.
+// maxVal <= 0 means no upper bound.
+func parseIntParam(r *http.Request, name string, defaultVal, minVal, maxVal int) int {
+	s := r.URL.Query().Get(name)
+	if s == "" {
+		return defaultVal
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return defaultVal
+	}
+	if v < minVal {
+		return minVal
+	}
+	if maxVal > 0 && v > maxVal {
+		return maxVal
+	}
+	return v
 }

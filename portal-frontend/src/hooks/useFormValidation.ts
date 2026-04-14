@@ -85,5 +85,11 @@ export function useFormValidation<K extends string>(rules: ValidationRules<K>) {
     [errors, onChange, onBlur],
   );
 
-  return { errors, touched, fieldProps, validateAll, scrollToFirstError };
+  const reset = useCallback(() => {
+    setErrors({});
+    setTouched({});
+    valuesRef.current = {};
+  }, []);
+
+  return { errors, touched, fieldProps, validateAll, scrollToFirstError, reset };
 }

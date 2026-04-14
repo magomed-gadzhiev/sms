@@ -63,6 +63,21 @@ export function ImportWizardPage() {
 
   async function handleFileUpload(file: File) {
     if (!id) return;
+
+    // Проверяем размер до загрузки (лимит 50MB)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      setError('Файл слишком большой. Максимальный размер — 50 МБ');
+      return;
+    }
+
+    const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+    const fileExt = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExt)) {
+      setError('Поддерживаются только файлы CSV и XLSX');
+      return;
+    }
+
     setUploading(true);
     setError('');
     try {
@@ -138,8 +153,7 @@ export function ImportWizardPage() {
         setJob(status);
         if (
           status.status === 'completed' ||
-          status.status === 'failed' ||
-          status.status === 'error'
+          status.status === 'failed'
         ) {
           if (pollRef.current) clearInterval(pollRef.current);
           setStep('result');

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/smpp-server/smpp-server/internal/api/middleware"
@@ -396,7 +397,8 @@ func TestHandler(t *testing.T) {
 					nil,
 				)
 
-				req := httptest.NewRequest("GET", "/api/v1/sms/status?id="+tt.messageID, nil)
+				req := httptest.NewRequest("GET", "/api/v1/sms/status/"+tt.messageID, nil)
+				req = mux.SetURLVars(req, map[string]string{"id": tt.messageID})
 				ctx := context.WithValue(req.Context(), middleware.ClientIDKey, tt.contextClientID)
 				req = req.WithContext(ctx)
 
@@ -429,11 +431,11 @@ func TestHandler(t *testing.T) {
 				queryParams: "limit=10&offset=0",
 				setupMocks: func() (*testutil.MockMessageRepository, *testutil.MockClientRepository) {
 					messageRepo := &testutil.MockMessageRepository{
-						GetByClientIDFunc: func(ctx context.Context, id uuid.UUID, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error) {
+						ListMessagesFunc: func(ctx context.Context, id uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error) {
 							return []*shared.Message{
 								{ID: uuid.New(), Source: "12345", Destination: "79001234567", Status: shared.MessageStatusSent},
 								{ID: uuid.New(), Source: "12345", Destination: "79001234568", Status: shared.MessageStatusQueued},
-							}, nil
+							}, 2, nil
 						},
 					}
 					return messageRepo, &testutil.MockClientRepository{}
@@ -446,6 +448,7 @@ func TestHandler(t *testing.T) {
 					require.NoError(t, err)
 					assert.Contains(t, result, "messages")
 					assert.Equal(t, float64(10), result["limit"])
+					assert.Equal(t, float64(2), result["total"])
 				},
 			},
 			{
@@ -453,13 +456,13 @@ func TestHandler(t *testing.T) {
 				queryParams: "limit=10&offset=0&status=sent",
 				setupMocks: func() (*testutil.MockMessageRepository, *testutil.MockClientRepository) {
 					messageRepo := &testutil.MockMessageRepository{
-						GetByClientIDFunc: func(ctx context.Context, id uuid.UUID, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error) {
-							if status != nil && *status == shared.MessageStatusSent {
+						ListMessagesFunc: func(ctx context.Context, id uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error) {
+							if filter.Status != nil && *filter.Status == shared.MessageStatusSent {
 								return []*shared.Message{
 									{ID: uuid.New(), Status: shared.MessageStatusSent},
-								}, nil
+								}, 1, nil
 							}
-							return []*shared.Message{}, nil
+							return []*shared.Message{}, 0, nil
 						},
 					}
 					return messageRepo, &testutil.MockClientRepository{}
@@ -468,14 +471,14 @@ func TestHandler(t *testing.T) {
 				expectedStatus:  http.StatusOK,
 			},
 			{
-				name:        "invalid limit",
+				name:        "invalid limit uses default 100",
 				queryParams: "limit=invalid&offset=0",
 				setupMocks: func() (*testutil.MockMessageRepository, *testutil.MockClientRepository) {
 					messageRepo := &testutil.MockMessageRepository{
-						GetByClientIDFunc: func(ctx context.Context, id uuid.UUID, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error) {
+						ListMessagesFunc: func(ctx context.Context, id uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error) {
 							// Должен использоваться дефолтный limit=100
-							assert.Equal(t, 100, limit)
-							return []*shared.Message{}, nil
+							assert.Equal(t, 100, filter.Limit)
+							return []*shared.Message{}, 0, nil
 						},
 					}
 					return messageRepo, &testutil.MockClientRepository{}

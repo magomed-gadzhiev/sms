@@ -50,6 +50,7 @@ func (h *ReferencesHandlers) ListOperators(w http.ResponseWriter, r *http.Reques
 	for rows.Next() {
 		var op operatorItem
 		if err := rows.Scan(&op.ID, &op.Name, &op.Code); err != nil {
+			log.Warn().Err(err).Msg("references: skipping malformed operator row")
 			continue
 		}
 		operators = append(operators, op)
@@ -80,6 +81,7 @@ func (h *ReferencesHandlers) ListCountries(w http.ResponseWriter, r *http.Reques
 	for rows.Next() {
 		var c countryItem
 		if err := rows.Scan(&c.ID, &c.Name, &c.ISOCode); err != nil {
+			log.Warn().Err(err).Msg("references: skipping malformed country row")
 			continue
 		}
 		countries = append(countries, c)

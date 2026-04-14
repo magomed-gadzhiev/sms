@@ -46,7 +46,7 @@ function AttemptCard({ attempt }: { attempt: AttemptInfo }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span>{icon}</span>
-          <span className="font-medium text-sm">{attempt.channel_type.replace('_', ' ').toUpperCase()}</span>
+          <span className="font-medium text-sm">{attempt.channel_type.replace(/_/g, ' ').toUpperCase()}</span>
           <span className="text-gray-400 text-xs">шаг {attempt.step_order}</span>
         </div>
         <Badge variant={badge.variant}>{badge.label}</Badge>

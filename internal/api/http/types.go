@@ -8,19 +8,22 @@ import (
 
 // SendSMSRequest представляет запрос на отправку SMS
 type SendSMSRequest struct {
-	Source            string     `json:"source"`
-	Destination       string     `json:"destination"`
-	Text              string     `json:"text"`
-	ExternalID        string     `json:"external_id,omitempty"`
-	Priority          int        `json:"priority,omitempty"`
-	RegisteredDelivery bool      `json:"registered_delivery,omitempty"`
-	ValidityPeriod    *time.Time `json:"validity_period,omitempty"`
-	ServiceType       string     `json:"service_type,omitempty"`
-	SourceAddrTON     int        `json:"source_addr_ton,omitempty"`
-	SourceAddrNPI     int        `json:"source_addr_npi,omitempty"`
-	DestAddrTON       int        `json:"dest_addr_ton,omitempty"`
-	DestAddrNPI       int        `json:"dest_addr_npi,omitempty"`
-	DataCoding        int        `json:"data_coding,omitempty"`
+	Source             string            `json:"source"`
+	Destination        string            `json:"destination"`
+	Text               string            `json:"text,omitempty"`
+	TemplateID         string            `json:"template_id,omitempty"`
+	Variables          map[string]string `json:"variables,omitempty"`
+	ExternalID         string            `json:"external_id,omitempty"`
+	Priority           int               `json:"priority,omitempty"`
+	RegisteredDelivery bool              `json:"registered_delivery,omitempty"`
+	ValidityPeriod     *time.Time        `json:"validity_period,omitempty"`
+	ScheduledAt        *time.Time        `json:"scheduled_at,omitempty"`
+	ServiceType        string            `json:"service_type,omitempty"`
+	SourceAddrTON      int               `json:"source_addr_ton,omitempty"`
+	SourceAddrNPI      int               `json:"source_addr_npi,omitempty"`
+	DestAddrTON        int               `json:"dest_addr_ton,omitempty"`
+	DestAddrNPI        int               `json:"dest_addr_npi,omitempty"`
+	DataCoding         int               `json:"data_coding,omitempty"`
 }
 
 // Validate валидирует запрос
@@ -28,11 +31,20 @@ func (r *SendSMSRequest) Validate() error {
 	if r.Source == "" {
 		return shared.ErrInvalidInput("Поле source обязательно")
 	}
+	if len(r.Source) > 21 {
+		return shared.ErrInvalidInput("Поле source не должно превышать 21 символ")
+	}
 	if r.Destination == "" {
 		return shared.ErrInvalidInput("Поле destination обязательно")
 	}
-	if r.Text == "" {
-		return shared.ErrInvalidInput("Поле text обязательно")
+	if len(r.Destination) > 21 {
+		return shared.ErrInvalidInput("Поле destination не должно превышать 21 символ")
+	}
+	if r.Text == "" && r.TemplateID == "" {
+		return shared.ErrInvalidInput("Необходимо указать text или template_id")
+	}
+	if r.Text != "" && r.TemplateID != "" {
+		return shared.ErrInvalidInput("Поля text и template_id взаимоисключающие")
 	}
 	if len(r.Text) > 1600 {
 		return shared.ErrInvalidInput("Текст сообщения слишком длинный (максимум 1600 символов)")
@@ -45,14 +57,18 @@ func (r *SendSMSRequest) Validate() error {
 
 // SendSMSResponse представляет ответ на отправку SMS
 type SendSMSResponse struct {
-	MessageID string `json:"message_id"`
-	Status    string `json:"status"`
-	Error     string `json:"error,omitempty"`
+	MessageID    string     `json:"message_id"`
+	Status       string     `json:"status"`
+	CreatedAt    time.Time  `json:"created_at"`
+	ScheduledAt  *time.Time `json:"scheduled_at,omitempty"`
+	SegmentCount int        `json:"segment_count"`
+	Error        string     `json:"error,omitempty"`
 }
 
 // SendBatchRequest представляет запрос на пакетную отправку SMS
 type SendBatchRequest struct {
-	Messages []SendSMSRequest `json:"messages"`
+	Messages    []SendSMSRequest `json:"messages"`
+	ScheduledAt *time.Time       `json:"scheduled_at,omitempty"`
 }
 
 // SendBatchResponse представляет ответ на пакетную отправку
@@ -73,3 +89,4 @@ type GetStatusResponse struct {
 	FailedAt      *time.Time `json:"failed_at,omitempty"`
 	SMPPMessageID string     `json:"smpp_message_id,omitempty"`
 }
+

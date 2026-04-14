@@ -95,6 +95,9 @@ type MockMessageRepository struct {
 	GetAllFunc                func(ctx context.Context, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error)
 	GetByDestinationFunc      func(ctx context.Context, destination string, limit, offset int) ([]*shared.Message, error)
 	IncrementRetryCountFunc   func(ctx context.Context, id uuid.UUID, nextRetryAt time.Time) error
+	ListMessagesFunc          func(ctx context.Context, clientID uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error)
+	ListScheduledFunc         func(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*shared.Message, int, error)
+	CancelByIDAndStatusFunc   func(ctx context.Context, id, clientID uuid.UUID) error
 }
 
 func (m *MockMessageRepository) Create(ctx context.Context, msg *shared.Message) error {
@@ -181,6 +184,27 @@ func (m *MockMessageRepository) IncrementRetryCount(ctx context.Context, id uuid
 	return nil
 }
 
+func (m *MockMessageRepository) ListMessages(ctx context.Context, clientID uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error) {
+	if m.ListMessagesFunc != nil {
+		return m.ListMessagesFunc(ctx, clientID, filter)
+	}
+	return []*shared.Message{}, 0, nil
+}
+
+func (m *MockMessageRepository) ListScheduled(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*shared.Message, int, error) {
+	if m.ListScheduledFunc != nil {
+		return m.ListScheduledFunc(ctx, clientID, limit, offset)
+	}
+	return []*shared.Message{}, 0, nil
+}
+
+func (m *MockMessageRepository) CancelByIDAndStatus(ctx context.Context, id, clientID uuid.UUID) error {
+	if m.CancelByIDAndStatusFunc != nil {
+		return m.CancelByIDAndStatusFunc(ctx, id, clientID)
+	}
+	return nil
+}
+
 // MockClientRepository представляет мок для ClientRepository
 type MockClientRepository struct {
 	CreateFunc      func(ctx context.Context, client *shared.Client) error
@@ -190,6 +214,7 @@ type MockClientRepository struct {
 	GetAllFunc      func(ctx context.Context) ([]*shared.Client, error)
 	UpdateFunc      func(ctx context.Context, client *shared.Client) error
 	DeleteFunc      func(ctx context.Context, id uuid.UUID) error
+	GetBalanceFunc  func(ctx context.Context, clientID uuid.UUID) (float64, string, error)
 }
 
 func (m *MockClientRepository) Create(ctx context.Context, client *shared.Client) error {
@@ -239,6 +264,13 @@ func (m *MockClientRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return m.DeleteFunc(ctx, id)
 	}
 	return nil
+}
+
+func (m *MockClientRepository) GetBalance(ctx context.Context, clientID uuid.UUID) (float64, string, error) {
+	if m.GetBalanceFunc != nil {
+		return m.GetBalanceFunc(ctx, clientID)
+	}
+	return 0, "RUB", nil
 }
 
 // MockProviderRepository представляет мок для ProviderRepository

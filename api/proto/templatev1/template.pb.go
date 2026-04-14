@@ -151,6 +151,7 @@ type UpdateTemplateRequest struct {
 	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Body          *string                `protobuf:"bytes,4,opt,name=body,proto3,oneof" json:"body,omitempty"`
 	TrafficType   *string                `protobuf:"bytes,5,opt,name=traffic_type,json=trafficType,proto3,oneof" json:"traffic_type,omitempty"`
+	SenderNameId  *string                `protobuf:"bytes,6,opt,name=sender_name_id,json=senderNameId,proto3,oneof" json:"sender_name_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -216,6 +217,13 @@ func (x *UpdateTemplateRequest) GetBody() string {
 func (x *UpdateTemplateRequest) GetTrafficType() string {
 	if x != nil && x.TrafficType != nil {
 		return *x.TrafficType
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetSenderNameId() string {
+	if x != nil && x.SenderNameId != nil {
+		return *x.SenderNameId
 	}
 	return ""
 }
@@ -1579,149 +1587,73 @@ func (x *SubmitForReviewResponse) GetTemplate() *TemplateInfo {
 var File_template_proto protoreflect.FileDescriptor
 
 const file_template_proto_rawDesc = "" +
-	"\n" +
-	"\x0etemplate.proto\x12\vtemplate.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x01\n" +
-	"\x15CreateTemplateRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04body\x18\x03 \x01(\tR\x04body\x12)\n" +
-	"\x0esender_name_id\x18\x04 \x01(\tH\x00R\fsenderNameId\x88\x01\x01B\x11\n" +
-	"\x0f_sender_name_id\"O\n" +
-	"\x16CreateTemplateResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"\x88\x01\n" +
-	"\x15UpdateTemplateRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x17\n" +
-	"\x04name\x18\x03 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
-	"\x04body\x18\x04 \x01(\tH\x01R\x04body\x88\x01\x01B\a\n" +
-	"\x05_nameB\a\n" +
-	"\x05_body\"O\n" +
-	"\x16UpdateTemplateResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"D\n" +
-	"\x15DeleteTemplateRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\"2\n" +
-	"\x16DeleteTemplateResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"A\n" +
-	"\x12GetTemplateRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\"L\n" +
-	"\x13GetTemplateResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"y\n" +
-	"\x14ListTemplatesRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\x94\x01\n" +
-	"\x15ListTemplatesResponse\x127\n" +
-	"\ttemplates\x18\x01 \x03(\v2\x19.template.v1.TemplateInfoR\ttemplates\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\x05R\x06offset\"C\n" +
-	"\x16ApproveTemplateRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\bactor_id\x18\x02 \x01(\tR\aactorId\"P\n" +
-	"\x17ApproveTemplateResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"Z\n" +
-	"\x15RejectTemplateRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason\"O\n" +
-	"\x16RejectTemplateResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"\xe4\x01\n" +
-	"\x15RenderTemplateRequest\x12\x1f\n" +
-	"\vtemplate_id\x18\x01 \x01(\tR\n" +
-	"templateId\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12O\n" +
-	"\tvariables\x18\x03 \x03(\v21.template.v1.RenderTemplateRequest.VariablesEntryR\tvariables\x1a<\n" +
-	"\x0eVariablesEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"b\n" +
-	"\x16RenderTemplateResponse\x12#\n" +
-	"\rrendered_text\x18\x01 \x01(\tR\frenderedText\x12#\n" +
-	"\rtemplate_name\x18\x02 \x01(\tR\ftemplateName\"k\n" +
-	"\x1aGetTemplateAuditLogRequest\x12\x1f\n" +
-	"\vtemplate_id\x18\x01 \x01(\tR\n" +
-	"templateId\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\"f\n" +
-	"\x1bGetTemplateAuditLogResponse\x121\n" +
-	"\aentries\x18\x01 \x03(\v2\x17.template.v1.AuditEntryR\aentries\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x86\x04\n" +
-	"\fTemplateInfo\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
-	"\x04body\x18\x04 \x01(\tR\x04body\x12\x1c\n" +
-	"\tvariables\x18\x05 \x03(\tR\tvariables\x12\x16\n" +
-	"\x06status\x18\x06 \x01(\tR\x06status\x12)\n" +
-	"\x10rejection_reason\x18\a \x01(\tR\x0frejectionReason\x129\n" +
-	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
-	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1f\n" +
-	"\vreviewer_id\x18\n" +
-	" \x01(\tR\n" +
-	"reviewerId\x12%\n" +
-	"\x0ereview_comment\x18\v \x01(\tR\rreviewComment\x12;\n" +
-	"\vreviewed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"reviewedAt\x12$\n" +
-	"\x0esender_name_id\x18\r \x01(\tR\fsenderNameId\x12\x1f\n" +
-	"\vsender_name\x18\x0e \x01(\tR\n" +
-	"senderName\"\x98\x02\n" +
-	"\n" +
-	"AuditEntry\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
-	"\vtemplate_id\x18\x02 \x01(\tR\n" +
-	"templateId\x12\x16\n" +
-	"\x06action\x18\x03 \x01(\tR\x06action\x12\x19\n" +
-	"\bold_body\x18\x04 \x01(\tR\aoldBody\x12\x19\n" +
-	"\bnew_body\x18\x05 \x01(\tR\anewBody\x12\x19\n" +
-	"\bactor_id\x18\x06 \x01(\tR\aactorId\x12\x1d\n" +
-	"\n" +
-	"actor_type\x18\a \x01(\tR\tactorType\x12\x16\n" +
-	"\x06reason\x18\b \x01(\tR\x06reason\x129\n" +
-	"\n" +
-	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"Y\n" +
-	"\x15AssignReviewerRequest\x12\x1f\n" +
-	"\vtemplate_id\x18\x01 \x01(\tR\n" +
-	"templateId\x12\x1f\n" +
-	"\vreviewer_id\x18\x02 \x01(\tR\n" +
-	"reviewerId\"O\n" +
-	"\x16AssignReviewerResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"t\n" +
-	"\x16RequestRevisionRequest\x12\x1f\n" +
-	"\vtemplate_id\x18\x01 \x01(\tR\n" +
-	"templateId\x12\x1f\n" +
-	"\vreviewer_id\x18\x02 \x01(\tR\n" +
-	"reviewerId\x12\x18\n" +
-	"\acomment\x18\x03 \x01(\tR\acomment\"P\n" +
-	"\x17RequestRevisionResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"V\n" +
-	"\x16SubmitForReviewRequest\x12\x1f\n" +
-	"\vtemplate_id\x18\x01 \x01(\tR\n" +
-	"templateId\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\"P\n" +
-	"\x17SubmitForReviewResponse\x125\n" +
-	"\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate2\xe1\b\n" +
-	"\x0fTemplateService\x12Y\n" +
-	"\x0eCreateTemplate\x12\".template.v1.CreateTemplateRequest\x1a#.template.v1.CreateTemplateResponse\x12Y\n" +
-	"\x0eUpdateTemplate\x12\".template.v1.UpdateTemplateRequest\x1a#.template.v1.UpdateTemplateResponse\x12Y\n" +
-	"\x0eDeleteTemplate\x12\".template.v1.DeleteTemplateRequest\x1a#.template.v1.DeleteTemplateResponse\x12P\n" +
-	"\vGetTemplate\x12\x1f.template.v1.GetTemplateRequest\x1a .template.v1.GetTemplateResponse\x12V\n" +
-	"\rListTemplates\x12!.template.v1.ListTemplatesRequest\x1a\".template.v1.ListTemplatesResponse\x12\\\n" +
-	"\x0fApproveTemplate\x12#.template.v1.ApproveTemplateRequest\x1a$.template.v1.ApproveTemplateResponse\x12Y\n" +
-	"\x0eRejectTemplate\x12\".template.v1.RejectTemplateRequest\x1a#.template.v1.RejectTemplateResponse\x12Y\n" +
-	"\x0eRenderTemplate\x12\".template.v1.RenderTemplateRequest\x1a#.template.v1.RenderTemplateResponse\x12h\n" +
-	"\x13GetTemplateAuditLog\x12'.template.v1.GetTemplateAuditLogRequest\x1a(.template.v1.GetTemplateAuditLogResponse\x12Y\n" +
-	"\x0eAssignReviewer\x12\".template.v1.AssignReviewerRequest\x1a#.template.v1.AssignReviewerResponse\x12\\\n" +
-	"\x0fRequestRevision\x12#.template.v1.RequestRevisionRequest\x1a$.template.v1.RequestRevisionResponse\x12\\\n" +
-	"\x0fSubmitForReview\x12#.template.v1.SubmitForReviewRequest\x1a$.template.v1.SubmitForReviewResponseB9Z7github.com/smpp-server/smpp-server/api/proto/templatev1b\x06proto3"
-
-var (
-	file_template_proto_rawDescOnce sync.Once
-	file_template_proto_rawDescData []byte
-)
+	"\n\x0etemplate.proto\x12\vtemplate.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x01\n\x15CreateTe" +
+	"mplateRequest\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04" +
+	"name\x12\x12\n\x04body\x18\x03 \x01(\tR\x04body\x12)\n\x0esender_name_id\x18\x04 \x01(\tH\x00R\fsend" +
+	"erNameId\x88\x01\x01B\x11\n\x0f_sender_name_id\"O\n\x16CreateTemplateResponse\x125\n\btemplate\x18\x01" +
+	" \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"\xff\x01\n\x15UpdateTemplateRequest\x12\x0e\n\x02" +
+	"id\x18\x01 \x01(\tR\x02id\x12\x1b\n\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x17\n\x04name\x18\x03 " +
+	"\x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n\x04body\x18\x04 \x01(\tH\x01R\x04body\x88\x01\x01\x12&\n" +
+	"\ftraffic_type\x18\x05 \x01(\tH\x02R\vtrafficType\x88\x01\x01\x12)\n\x0esender_name_id\x18\x06 \x01(" +
+	"\tH\x03R\fsenderNameId\x88\x01\x01B\a\n\x05_nameB\a\n\x05_bodyB\x0f\n\r_traffic_typeB\x11\n\x0f_send" +
+	"er_name_id\"O\n\x16UpdateTemplateResponse\x125\n\btemplate\x18\x01 \x01(\v2\x19.template.v1.Template" +
+	"InfoR\btemplate\"D\n\x15DeleteTemplateRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n\tclie" +
+	"nt_id\x18\x02 \x01(\tR\bclientId\"2\n\x16DeleteTemplateResponse\x12\x18\n\asuccess\x18\x01 \x01(\bR\a" +
+	"success\"A\n\x12GetTemplateRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n\tclient_id\x18\x02" +
+	" \x01(\tR\bclientId\"L\n\x13GetTemplateResponse\x125\n\btemplate\x18\x01 \x01(\v2\x19.template.v1.Te" +
+	"mplateInfoR\btemplate\"y\n\x14ListTemplatesRequest\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\bclientId\x12" +
+	"\x16\n\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\x94\x01\n\x15ListTemplatesResponse\x127\n\ttemplates\x18\x01" +
+	" \x03(\v2\x19.template.v1.TemplateInfoR\ttemplates\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total\x12" +
+	"\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x04 \x01(\x05R\x06offset\"C\n\x16" +
+	"ApproveTemplateRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n\bactor_id\x18\x02 \x01(\tR\a" +
+	"actorId\"P\n\x17ApproveTemplateResponse\x125\n\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateIn" +
+	"foR\btemplate\"Z\n\x15RejectTemplateRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n\bactor_" +
+	"id\x18\x02 \x01(\tR\aactorId\x12\x16\n\x06reason\x18\x03 \x01(\tR\x06reason\"O\n\x16RejectTemplateRe" +
+	"sponse\x125\n\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"\xe4\x01\n\x15Rend" +
+	"erTemplateRequest\x12\x1f\n\vtemplate_id\x18\x01 \x01(\tR\ntemplateId\x12\x1b\n\tclient_id\x18\x02 \x01" +
+	"(\tR\bclientId\x12O\n\tvariables\x18\x03 \x03(\v21.template.v1.RenderTemplateRequest.VariablesEntryR" +
+	"\tvariables\x1a<\n\x0eVariablesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18" +
+	"\x02 \x01(\tR\x05value:\x028\x01\"b\n\x16RenderTemplateResponse\x12#\n\rrendered_text\x18\x01 \x01(\t" +
+	"R\frenderedText\x12#\n\rtemplate_name\x18\x02 \x01(\tR\ftemplateName\"k\n\x1aGetTemplateAuditLogRequ" +
+	"est\x12\x1f\n\vtemplate_id\x18\x01 \x01(\tR\ntemplateId\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05lim" +
+	"it\x12\x16\n\x06offset\x18\x03 \x01(\x05R\x06offset\"f\n\x1bGetTemplateAuditLogResponse\x121\n\aentr" +
+	"ies\x18\x01 \x03(\v2\x17.template.v1.AuditEntryR\aentries\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05t" +
+	"otal\"\xa9\x04\n\fTemplateInfo\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n\tclient_id\x18\x02 \x01" +
+	"(\tR\bclientId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n\x04body\x18\x04 \x01(\tR\x04body" +
+	"\x12\x1c\n\tvariables\x18\x05 \x03(\tR\tvariables\x12\x16\n\x06status\x18\x06 \x01(\tR\x06status\x12" +
+	")\n\x10rejection_reason\x18\a \x01(\tR\x0frejectionReason\x129\n\ncreated_at\x18\b \x01(\v2\x1a.goog" +
+	"le.protobuf.TimestampR\tcreatedAt\x129\n\nupdated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\t" +
+	"updatedAt\x12\x1f\n\vreviewer_id\x18\n \x01(\tR\nreviewerId\x12%\n\x0ereview_comment\x18\v \x01(\tR\r" +
+	"reviewComment\x12;\n\vreviewed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\nreviewedAt\x12$\n\x0e" +
+	"sender_name_id\x18\r \x01(\tR\fsenderNameId\x12\x1f\n\vsender_name\x18\x0e \x01(\tR\nsenderName\x12!" +
+	"\n\ftraffic_type\x18\x0f \x01(\tR\vtrafficType\"\x98\x02\n\nAuditEntry\x12\x0e\n\x02id\x18\x01 \x01(" +
+	"\tR\x02id\x12\x1f\n\vtemplate_id\x18\x02 \x01(\tR\ntemplateId\x12\x16\n\x06action\x18\x03 \x01(\tR\x06" +
+	"action\x12\x19\n\bold_body\x18\x04 \x01(\tR\aoldBody\x12\x19\n\bnew_body\x18\x05 \x01(\tR\anewBody\x12" +
+	"\x19\n\bactor_id\x18\x06 \x01(\tR\aactorId\x12\x1d\n\nactor_type\x18\a \x01(\tR\tactorType\x12\x16\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\x129\n\ncreated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR" +
+	"\tcreatedAt\"Y\n\x15AssignReviewerRequest\x12\x1f\n\vtemplate_id\x18\x01 \x01(\tR\ntemplateId\x12\x1f" +
+	"\n\vreviewer_id\x18\x02 \x01(\tR\nreviewerId\"O\n\x16AssignReviewerResponse\x125\n\btemplate\x18\x01" +
+	" \x01(\v2\x19.template.v1.TemplateInfoR\btemplate\"t\n\x16RequestRevisionRequest\x12\x1f\n\vtemplate" +
+	"_id\x18\x01 \x01(\tR\ntemplateId\x12\x1f\n\vreviewer_id\x18\x02 \x01(\tR\nreviewerId\x12\x18\n\acomm" +
+	"ent\x18\x03 \x01(\tR\acomment\"P\n\x17RequestRevisionResponse\x125\n\btemplate\x18\x01 \x01(\v2\x19." +
+	"template.v1.TemplateInfoR\btemplate\"V\n\x16SubmitForReviewRequest\x12\x1f\n\vtemplate_id\x18\x01 \x01" +
+	"(\tR\ntemplateId\x12\x1b\n\tclient_id\x18\x02 \x01(\tR\bclientId\"P\n\x17SubmitForReviewResponse\x12" +
+	"5\n\btemplate\x18\x01 \x01(\v2\x19.template.v1.TemplateInfoR\btemplate2\xe1\b\n\x0fTemplateService\x12" +
+	"Y\n\x0eCreateTemplate\x12\".template.v1.CreateTemplateRequest\x1a#.template.v1.CreateTemplateRespons" +
+	"e\x12Y\n\x0eUpdateTemplate\x12\".template.v1.UpdateTemplateRequest\x1a#.template.v1.UpdateTemplateRe" +
+	"sponse\x12Y\n\x0eDeleteTemplate\x12\".template.v1.DeleteTemplateRequest\x1a#.template.v1.DeleteTempl" +
+	"ateResponse\x12P\n\vGetTemplate\x12\x1f.template.v1.GetTemplateRequest\x1a .template.v1.GetTemplateR" +
+	"esponse\x12V\n\rListTemplates\x12!.template.v1.ListTemplatesRequest\x1a\".template.v1.ListTemplatesR" +
+	"esponse\x12\\\n\x0fApproveTemplate\x12#.template.v1.ApproveTemplateRequest\x1a$.template.v1.ApproveT" +
+	"emplateResponse\x12Y\n\x0eRejectTemplate\x12\".template.v1.RejectTemplateRequest\x1a#.template.v1.Re" +
+	"jectTemplateResponse\x12Y\n\x0eRenderTemplate\x12\".template.v1.RenderTemplateRequest\x1a#.template." +
+	"v1.RenderTemplateResponse\x12h\n\x13GetTemplateAuditLog\x12'.template.v1.GetTemplateAuditLogRequest\x1a" +
+	"(.template.v1.GetTemplateAuditLogResponse\x12Y\n\x0eAssignReviewer\x12\".template.v1.AssignReviewerR" +
+	"equest\x1a#.template.v1.AssignReviewerResponse\x12\\\n\x0fRequestRevision\x12#.template.v1.RequestRe" +
+	"visionRequest\x1a$.template.v1.RequestRevisionResponse\x12\\\n\x0fSubmitForReview\x12#.template.v1.S" +
+	"ubmitForReviewRequest\x1a$.template.v1.SubmitForReviewResponseB9Z7github.com/smpp-server/smpp-server" +
+	"/api/proto/templatev1b\x06proto3"
 
 func file_template_proto_rawDescGZIP() []byte {
 	file_template_proto_rawDescOnce.Do(func() {

@@ -72,7 +72,7 @@ func (h *MessageHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Source == "" {
-		respondError(w, shared.ErrInvalidInput("source is required"))
+		respondError(w, shared.ErrInvalidInput("Поле source обязательно"))
 		return
 	}
 
@@ -575,6 +575,11 @@ func (h *MessageHandlers) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		} else if t, err := time.Parse("2006-01-02", toStr); err == nil {
 			dateTo = timestamppb.New(t.Add(24*time.Hour - time.Second))
 		}
+	}
+
+	if h.messagingClient == nil {
+		respondError(w, shared.ErrServiceUnavailable("Сервис отправки сообщений недоступен"))
+		return
 	}
 
 	resp, err := h.messagingClient.GetMessageHistory(r.Context(), &messagingv1.GetMessageHistoryRequest{

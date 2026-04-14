@@ -68,16 +68,31 @@ func (h *SenderNameHandler) UpdateSenderName(ctx context.Context, req *sendernam
 }
 
 func (h *SenderNameHandler) GetSenderName(ctx context.Context, req *sendernamev1.GetSenderNameRequest) (*sendernamev1.GetSenderNameResponse, error) {
-	id, clientID, err := parseTwoUUIDs(req.Id, req.ClientId)
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, "invalid id format")
 	}
 
+	// Пустой ClientId — режим администратора (без проверки владельца)
+	if req.ClientId == "" {
+		sn, err := h.svc.GetSenderNameAdmin(ctx, id)
+		if err != nil {
+			return nil, h.mapError(err)
+		}
+		return &sendernamev1.GetSenderNameResponse{SenderName: senderNameToProto(sn)}, nil
+	}
+
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
+	}
 	sn, err := h.svc.GetSenderName(ctx, id, clientID)
 	if err != nil {
 		return nil, h.mapError(err)
 	}
-
 	return &sendernamev1.GetSenderNameResponse{SenderName: senderNameToProto(sn)}, nil
 }
 

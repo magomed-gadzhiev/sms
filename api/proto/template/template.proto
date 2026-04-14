@@ -40,6 +40,7 @@ message UpdateTemplateRequest {
   optional string name = 3;
   optional string body = 4;
   optional string traffic_type = 5;
+  optional string sender_name_id = 6;
 }
 
 message UpdateTemplateResponse {

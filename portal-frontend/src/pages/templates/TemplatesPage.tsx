@@ -72,6 +72,7 @@ export function TemplatesPage() {
   const [previewVars, setPreviewVars] = useState<Record<string, string>>({});
   const [previewResult, setPreviewResult] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState('');
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -104,20 +105,24 @@ export function TemplatesPage() {
   // --- Create / Edit ---
 
   function openCreateForm() {
+    tplValidation.reset();
     setEditingTemplate(null);
     setFormName('');
     setFormBody('');
     setFormSenderNameId('');
     setFormTrafficType('transactional');
+    setError('');
     setShowForm(true);
   }
 
   function openEditForm(tpl: TemplateInfo) {
+    tplValidation.reset();
     setEditingTemplate(tpl);
     setFormName(tpl.name);
     setFormBody(tpl.body);
     setFormSenderNameId(tpl.sender_name_id || '');
     setFormTrafficType(tpl.traffic_type || 'transactional');
+    setError('');
     setShowForm(true);
   }
 
@@ -173,23 +178,25 @@ export function TemplatesPage() {
     vars.forEach((v) => { initial[v] = ''; });
     setPreviewVars(initial);
     setPreviewResult(null);
+    setPreviewError('');
   }
 
   function closePreview() {
     setPreviewTemplate(null);
     setPreviewVars({});
     setPreviewResult(null);
+    setPreviewError('');
   }
 
   async function handleRender() {
     if (!previewTemplate) return;
     setPreviewing(true);
-    setError('');
+    setPreviewError('');
     try {
       const res = await templatesApi.render(previewTemplate.id, previewVars);
       setPreviewResult(res.rendered_text);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось отрендерить шаблон');
+      setPreviewError(err instanceof ApiError ? err.message : 'Не удалось отрендерить шаблон');
     } finally {
       setPreviewing(false);
     }
@@ -348,7 +355,7 @@ export function TemplatesPage() {
               <label className="block text-sm font-medium text-gray-700">
                 Текст шаблона *
               </label>
-              <CharacterCounter current={formBody.length} max={160} />
+              <CharacterCounter current={formBody.length} max={1600} />
             </div>
             <textarea
               value={formBody}
@@ -393,6 +400,12 @@ export function TemplatesPage() {
             <p className="whitespace-pre-wrap">{previewTemplate?.body}</p>
           </div>
 
+          {previewTemplate?.status !== 'approved' && Object.keys(previewVars).length > 0 && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              Рендеринг доступен только для одобренных шаблонов.
+            </p>
+          )}
+
           {Object.keys(previewVars).length > 0 ? (
             <>
               <div className="space-y-3">
@@ -411,12 +424,16 @@ export function TemplatesPage() {
                 ))}
               </div>
 
-              <Button onClick={handleRender} disabled={previewing}>
+              <Button onClick={handleRender} disabled={previewing || previewTemplate?.status !== 'approved'}>
                 {previewing ? 'Рендеринг...' : 'Показать'}
               </Button>
             </>
           ) : (
             <p className="text-sm text-gray-500">Шаблон не содержит переменных.</p>
+          )}
+
+          {previewError && (
+            <p className="text-sm text-red-600">{previewError}</p>
           )}
 
           {previewResult !== null && (
@@ -469,7 +486,10 @@ export function TemplatesPage() {
             requiresConfirmation: true,
             confirmMessage: (n) => `Отправить ${n} шаблонов на проверку?`,
             onAction: async (ids) => {
-              await Promise.all(ids.map((id) => templatesApi.submit(id).catch(() => {})));
+              const submittable = templates
+                .filter((t) => ids.includes(t.id) && (t.status === 'draft' || t.status === 'revision_requested'))
+                .map((t) => t.id);
+              await Promise.all(submittable.map((id) => templatesApi.submit(id).catch(() => {})));
               await fetchTemplates();
             },
           } as BulkAction<TemplateInfo>,

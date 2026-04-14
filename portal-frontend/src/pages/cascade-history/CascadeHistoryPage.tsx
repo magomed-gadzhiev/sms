@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cascadeDeliveriesApi, cascadeStrategiesApi, type Delivery, type DeliveryStrategy } from '../../api/cascade';
+import { cascadeDeliveriesApi, type Delivery, type DeliveryStrategy } from '../../api/cascade';
 import { Badge } from '../../components/ui/Badge';
 import { DataTable, type Column } from '../../components/data/DataTable';
 
@@ -27,11 +27,17 @@ export function CascadeHistoryPage() {
   const [error, setError] = useState('');
 
   const [strategies, setStrategies] = useState<DeliveryStrategy[]>([]);
+
+  // Локальное (несохранённое) состояние фильтров — обновляется при изменении select'ов
   const [filterStrategy, setFilterStrategy] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
+  // Применённые фильтры — обновляются только при клике «Применить»
+  const [appliedStrategy, setAppliedStrategy] = useState('');
+  const [appliedStatus, setAppliedStatus] = useState('');
+
   useEffect(() => {
-    cascadeStrategiesApi.list(true).then((r) => setStrategies(r.strategies ?? [])).catch(() => {});
+    cascadeDeliveriesApi.listStrategies().then((r) => setStrategies(r.strategies ?? [])).catch(() => {});
   }, []);
 
   const load = useCallback(async () => {
@@ -39,8 +45,8 @@ export function CascadeHistoryPage() {
     setError('');
     try {
       const res = await cascadeDeliveriesApi.list({
-        strategy_id: filterStrategy || undefined,
-        status: filterStatus || undefined,
+        strategy_id: appliedStrategy || undefined,
+        status: appliedStatus || undefined,
         page,
         page_size: PAGE_SIZE,
       });
@@ -51,13 +57,14 @@ export function CascadeHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filterStrategy, filterStatus]);
+  }, [page, appliedStrategy, appliedStatus]);
 
   useEffect(() => { load(); }, [load]);
 
   const applyFilters = () => {
+    setAppliedStrategy(filterStrategy);
+    setAppliedStatus(filterStatus);
     setPage(1);
-    load();
   };
 
   const columns: Column<Delivery>[] = [
