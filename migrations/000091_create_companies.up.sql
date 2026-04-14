@@ -43,32 +43,50 @@ CREATE UNIQUE INDEX idx_client_companies_default
 
 CREATE INDEX idx_client_companies_company_id ON client_companies (company_id);
 
--- 3. Привязать accounts к компании
+-- 3. Привязать accounts к компании (nullable до заполнения)
 ALTER TABLE accounts ADD COLUMN company_id UUID REFERENCES companies(id);
 CREATE INDEX idx_accounts_company_id ON accounts (company_id) WHERE company_id IS NOT NULL;
 
 -- 4. Для каждого существующего клиента создать компанию «Оферта»
---    и привязать к ней существующий account
+--    и привязать к ней существующий account (set-based через temp-column)
+
+-- Step A: добавить временную колонку для сопоставления клиента → компании
+ALTER TABLE companies ADD COLUMN _tmp_client_id UUID;
+
+-- Step B: вставить по одной Оферта-компании на каждого клиента
+INSERT INTO companies (name, is_offer, _tmp_client_id)
+SELECT 'Оферта', TRUE, id
+FROM clients;
+
+-- Step C: создать связи client_companies
+INSERT INTO client_companies (client_id, company_id, is_default)
+SELECT _tmp_client_id, id, TRUE
+FROM companies
+WHERE _tmp_client_id IS NOT NULL;
+
+-- Step D: привязать accounts к соответствующей компании
+UPDATE accounts a
+SET company_id = co.id
+FROM companies co
+WHERE co._tmp_client_id = a.client_id
+  AND co.is_offer = TRUE;
+
+-- Step E: удалить временную колонку
+ALTER TABLE companies DROP COLUMN _tmp_client_id;
+
+-- 5. Проверить, что все accounts привязаны, и сделать NOT NULL
 DO $$
-DECLARE
-    r RECORD;
-    new_company_id UUID;
+DECLARE unlinked_count INT;
 BEGIN
-    FOR r IN SELECT id FROM clients LOOP
-        INSERT INTO companies (name, is_offer)
-        VALUES ('Оферта', TRUE)
-        RETURNING id INTO new_company_id;
-
-        INSERT INTO client_companies (client_id, company_id, is_default)
-        VALUES (r.id, new_company_id, TRUE);
-
-        UPDATE accounts
-        SET company_id = new_company_id
-        WHERE client_id = r.id;
-    END LOOP;
+    SELECT COUNT(*) INTO unlinked_count FROM accounts WHERE company_id IS NULL;
+    IF unlinked_count > 0 THEN
+        RAISE EXCEPTION 'Migration failed: % account(s) have no company_id', unlinked_count;
+    END IF;
 END $$;
 
--- 5. sender_names: добавить company_id (nullable сначала, заполнить, затем NOT NULL)
+ALTER TABLE accounts ALTER COLUMN company_id SET NOT NULL;
+
+-- 6. sender_names: добавить company_id (nullable сначала, заполнить, затем NOT NULL)
 ALTER TABLE sender_names ADD COLUMN company_id UUID REFERENCES companies(id);
 
 UPDATE sender_names sn
@@ -77,7 +95,22 @@ FROM client_companies cc
 WHERE cc.client_id = sn.client_id
   AND cc.is_default = TRUE;
 
+-- Проверить, что все sender_names привязаны
+DO $$
+DECLARE unlinked_count INT;
+BEGIN
+    SELECT COUNT(*) INTO unlinked_count FROM sender_names WHERE company_id IS NULL;
+    IF unlinked_count > 0 THEN
+        RAISE EXCEPTION 'Migration failed: % sender_name(s) have no company_id', unlinked_count;
+    END IF;
+END $$;
+
 ALTER TABLE sender_names ALTER COLUMN company_id SET NOT NULL;
 CREATE INDEX idx_sender_names_company_id ON sender_names (company_id);
+
+-- 7. Триггер updated_at для companies
+CREATE TRIGGER update_companies_updated_at
+    BEFORE UPDATE ON companies
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMIT;
