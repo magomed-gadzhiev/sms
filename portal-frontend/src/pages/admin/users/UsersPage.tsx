@@ -12,8 +12,10 @@ import { useToast } from '../../../components/ui/Toast';
 import {
   usersApi,
   rolesApi,
+  clientsApi,
   type UserDetailInfo,
   type RoleDetail,
+  type ClientInfo,
 } from '../../../api/admin';
 
 const PAGE_SIZE = 20;
@@ -33,6 +35,7 @@ export function UsersPage() {
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
 
   const [roles, setRoles] = useState<RoleDetail[]>([]);
+  const [clients, setClients] = useState<ClientInfo[]>([]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState<UserDetailInfo | null>(null);
@@ -50,6 +53,7 @@ export function UsersPage() {
     password: '',
     role_id: '',
     active: true,
+    client_id: '',
   });
 
   const [editForm, setEditForm] = useState({
@@ -58,12 +62,14 @@ export function UsersPage() {
     active: true,
   });
 
-  // Fetch roles for selects
+  // Fetch roles and clients for selects
   useEffect(() => {
     rolesApi.list().then((res) => setRoles(res.roles || [])).catch(() => {});
+    clientsApi.list({ limit: 500 }).then((res) => setClients(res.clients || [])).catch(() => {});
   }, []);
 
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
+  const clientOptions = clients.map((c) => ({ value: c.client_id, label: c.name }));
 
   const filters: FilterDef[] = [
     { key: 'search', label: 'Поиск', type: 'text', placeholder: 'Имя или email...' },
@@ -164,7 +170,7 @@ export function UsersPage() {
   // ── Create ──
 
   const openCreate = () => {
-    setCreateForm({ username: '', email: '', password: '', role_id: '', active: true });
+    setCreateForm({ username: '', email: '', password: '', role_id: '', active: true, client_id: '' });
     setShowCreate(true);
   };
 
@@ -342,6 +348,13 @@ export function UsersPage() {
             ]}
             value={String(createForm.active)}
             onChange={(v) => setCreateForm({ ...createForm, active: v === 'true' })}
+          />
+          <Select
+            label="Клиент (опционально)"
+            options={clientOptions}
+            value={createForm.client_id}
+            onChange={(v) => setCreateForm({ ...createForm, client_id: v })}
+            placeholder="Без клиента"
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>

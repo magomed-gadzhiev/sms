@@ -627,7 +627,7 @@ export const usersApi = {
   list: (params?: { search?: string; role_id?: string; active_only?: boolean; limit?: number; offset?: number }) =>
     adminFetch<{ users: UserDetailInfo[]; total: number; limit: number; offset: number }>(`/users${qs(params || {})}`),
   get: (id: string) => adminFetch<{ user: UserDetailInfo }>(`/users/${id}`),
-  create: (data: { username: string; email: string; password: string; role_id: string; active?: boolean }) =>
+  create: (data: { username: string; email: string; password: string; role_id: string; active?: boolean; client_id?: string }) =>
     adminFetch<{ user: UserDetailInfo }>('/users', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: { email?: string; role_id?: string; active?: boolean }) =>
     adminFetch<{ user: UserDetailInfo }>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

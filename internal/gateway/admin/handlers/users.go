@@ -92,6 +92,7 @@ func (h *UserHandlers) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 		RoleID   string `json:"role_id"`
 		Active   bool   `json:"active"`
+		ClientID string `json:"client_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
@@ -120,6 +121,23 @@ func (h *UserHandlers) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Str("username", req.Username).Msg("ошибка создания пользователя")
 		respondGRPCError(w, err)
+		return
+	}
+
+	// Если указан client_id — привязываем клиента сразу после создания
+	if req.ClientID != "" {
+		updateResp, updateErr := h.authClient.UpdateUser(r.Context(), &authv1.UpdateUserRequest{
+			UserId:   resp.User.Id,
+			ClientId: req.ClientID,
+		})
+		if updateErr != nil {
+			log.Warn().Err(updateErr).Str("user_id", resp.User.Id).Str("client_id", req.ClientID).
+				Msg("пользователь создан, но не удалось привязать клиента")
+			// Возвращаем созданного пользователя, не прерывая ответ
+			respondJSON(w, http.StatusCreated, userInfoToMap(resp.User))
+			return
+		}
+		respondJSON(w, http.StatusCreated, userInfoToMap(updateResp.User))
 		return
 	}
 
