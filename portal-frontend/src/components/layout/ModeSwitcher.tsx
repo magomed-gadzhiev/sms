@@ -1,5 +1,5 @@
 // portal-frontend/src/components/layout/ModeSwitcher.tsx
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const LS_KEY = 'reseller_mode';
 
@@ -19,7 +19,6 @@ interface ModeSwitcherProps {
 
 export function ModeSwitcher({ currentMode }: ModeSwitcherProps) {
   const navigate = useNavigate();
-  const location = useLocation();
 
   function toggle() {
     if (currentMode === 'own') {

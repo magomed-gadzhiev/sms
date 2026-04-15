@@ -1,6 +1,6 @@
 // portal-frontend/src/components/layout/NetworkLayout.tsx
 import { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { Sidebar, type NavItem, type NavGroup } from './Sidebar';
 import { ModeSwitcher, setResellerMode } from './ModeSwitcher';
 import { SkipLink } from '../SkipLink';
