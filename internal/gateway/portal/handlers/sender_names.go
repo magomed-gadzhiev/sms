@@ -72,7 +72,7 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 			return
 		}
 		if err := h.pool.QueryRow(r.Context(),
-			`SELECT company_id FROM client_companies WHERE client_id = $1 AND is_default = TRUE LIMIT 1`,
+			`SELECT company_id::text FROM client_companies WHERE client_id = $1 AND is_default = TRUE LIMIT 1`,
 			clientID,
 		).Scan(&companyID); err != nil {
 			log.Error().Err(err).Str("client_id", clientID.String()).Msg("не найдена дефолтная компания клиента")
