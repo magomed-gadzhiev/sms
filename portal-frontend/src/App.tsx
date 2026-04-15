@@ -4,6 +4,16 @@ import { useAuth } from './contexts/AuthContext';
 import { RequireRole } from './components/RequireRole';
 import { RequireReseller } from './components/RequireReseller';
 import { UserLayout } from './components/layout/UserLayout';
+import { PublicLayout } from './components/layout/PublicLayout';
+import { LandingPage } from './pages/public/LandingPage';
+import { PricingPage } from './pages/public/PricingPage';
+import { FeaturesPage } from './pages/public/FeaturesPage';
+import { DocsPage } from './pages/public/DocsPage';
+import { DocArticlePage } from './pages/public/DocArticlePage';
+import { BlogPage } from './pages/public/BlogPage';
+import { BlogPostPage } from './pages/public/BlogPostPage';
+import { AboutPage } from './pages/public/AboutPage';
+import { ContactPage } from './pages/public/ContactPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
@@ -98,6 +108,27 @@ function RequireAuth() {
 export function App() {
   return (
     <Routes>
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/docs" element={<DocsPage />} />
+        <Route path="/docs/:slug" element={<DocArticlePage />} />
+        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/blog/:slug" element={<BlogPostPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/en" element={<LandingPage />} />
+        <Route path="/en/pricing" element={<PricingPage />} />
+        <Route path="/en/features" element={<FeaturesPage />} />
+        <Route path="/en/docs" element={<DocsPage />} />
+        <Route path="/en/docs/:slug" element={<DocArticlePage />} />
+        <Route path="/en/blog" element={<BlogPage />} />
+        <Route path="/en/blog/:slug" element={<BlogPostPage />} />
+        <Route path="/en/about" element={<AboutPage />} />
+        <Route path="/en/contact" element={<ContactPage />} />
+      </Route>
+
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/reset-password-request" element={<PasswordResetRequestPage />} />
