@@ -23,6 +23,12 @@ scrape_configs:
         labels:
           service: 'smpp-gateway'
 
+  - job_name: 'dlr-delivery'
+    static_configs:
+      - targets: ['dlr-delivery:2112']
+        labels:
+          service: 'dlr-delivery'
+
   # Microservices
   - job_name: 'auth-service'
     static_configs:
