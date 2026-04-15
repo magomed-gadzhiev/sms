@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package smpp.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/smppv1";
+
+// SMPPGateway provides internal gRPC methods for SMPP gateway operations
+service SMPPGateway {
+  // DeliverDLR delivers a DLR (Delivery Receipt) to a connected SMPP client
+  rpc DeliverDLR(DeliverDLRRequest) returns (DeliverDLRResponse);
+}
+
+// DeliverDLRRequest represents a request to deliver a DLR to an SMPP client
+message DeliverDLRRequest {
+  string system_id = 1;        // SMPP system_id of the target client
+  string source_addr = 2;      // Source address (originator)
+  string destination_addr = 3; // Destination address (recipient)
+  string receipt_text = 4;     // DLR receipt text (id:XXX sub:001 dlvrd:001 ...)
+}
+
+// DeliverDLRResponse represents the result of a DLR delivery attempt
+message DeliverDLRResponse {
+  bool delivered = 1;  // Whether the DLR was successfully delivered
+  string error = 2;    // Error message if delivery failed
+}
