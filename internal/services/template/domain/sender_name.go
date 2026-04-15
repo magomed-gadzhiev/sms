@@ -37,6 +37,7 @@ var (
 type SenderName struct {
 	ID              uuid.UUID
 	ClientID        uuid.UUID
+	CompanyID       uuid.UUID
 	Name            string
 	Status          string
 	RejectionReason string
