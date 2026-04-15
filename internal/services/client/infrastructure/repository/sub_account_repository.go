@@ -27,7 +27,7 @@ func NewSubAccountRepository(db *database.DB) *SubAccountRepository {
 func (r *SubAccountRepository) ListByParentID(ctx context.Context, parentID uuid.UUID) ([]*domain.Client, error) {
 	var clients []*domain.Client
 	query := `
-		SELECT id, name, email, contact_person, phone, active, metadata,
+		SELECT id, name, COALESCE(email, ''), COALESCE(contact_person, ''), COALESCE(phone, ''), active, metadata,
 		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
 		FROM clients
 		WHERE parent_client_id = $1
@@ -78,7 +78,7 @@ func (r *SubAccountRepository) CountByParentID(ctx context.Context, parentID uui
 func (r *SubAccountRepository) GetSubAccount(ctx context.Context, subAccountID, parentID uuid.UUID) (*domain.Client, error) {
 	var client domain.Client
 	query := `
-		SELECT id, name, email, contact_person, phone, active, metadata,
+		SELECT id, name, COALESCE(email, ''), COALESCE(contact_person, ''), COALESCE(phone, ''), active, metadata,
 		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
 		FROM clients
 		WHERE id = $1 AND parent_client_id = $2
