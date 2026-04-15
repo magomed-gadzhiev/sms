@@ -1239,4 +1239,51 @@ export const resellerApi = {
       method: 'POST',
       body: JSON.stringify({ note }),
     }),
+
+  // --- Routing ---
+  listNetworkProviders: (params?: { sub_account_id?: string }) => {
+    const qs = params?.sub_account_id ? `?sub_account_id=${params.sub_account_id}` : '';
+    return apiFetch<{ providers: unknown[]; total: number }>(`/reseller/routing/providers${qs}`);
+  },
+  listNetworkRoutes: (params?: { sub_account_id?: string }) => {
+    const qs = params?.sub_account_id ? `?sub_account_id=${params.sub_account_id}` : '';
+    return apiFetch<{ routes: unknown[]; total: number }>(`/reseller/routing/routes${qs}`);
+  },
+  bulkAssignProvider: (data: { sub_account_ids: string[]; provider_id: string; priority?: number }) =>
+    apiFetch<{ results: unknown[] }>('/reseller/routing/bulk-assign', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // --- Tariffs ---
+  listTariffs: (params?: { sub_account_id?: string }) => {
+    const qs = params?.sub_account_id ? `?sub_account_id=${params.sub_account_id}` : '';
+    return apiFetch<{ tariffs: unknown[]; total: number }>(`/reseller/tariffs${qs}`);
+  },
+  upsertTariffs: (data: { sub_account_id?: string; tariffs: { operator_id: string; sender_category?: string; price_per_sms: string }[] }) =>
+    apiFetch<{ updated: number }>('/reseller/tariffs', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  copyTariffs: (from_sub_account_id: string, to_sub_account_id: string) =>
+    apiFetch<{ copied: number }>('/reseller/tariffs/copy', {
+      method: 'POST',
+      body: JSON.stringify({ from_sub_account_id, to_sub_account_id }),
+    }),
+
+  // --- Analytics ---
+  getNetworkAnalytics: (params?: { period?: string; sub_account_id?: string; group_by?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.period) qs.set('period', params.period);
+    if (params?.sub_account_id) qs.set('sub_account_id', params.sub_account_id);
+    if (params?.group_by) qs.set('group_by', params.group_by);
+    const q = qs.toString();
+    return apiFetch<unknown>(`/reseller/analytics${q ? `?${q}` : ''}`);
+  },
+
+  // --- Dashboard ---
+  getDashboard: (params?: { period?: string }) => {
+    const qs = params?.period ? `?period=${params.period}` : '';
+    return apiFetch<unknown>(`/reseller/dashboard${qs}`);
+  },
 };
