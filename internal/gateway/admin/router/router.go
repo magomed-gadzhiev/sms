@@ -32,6 +32,7 @@ func SetupRouter(
 	legalEntityHandlers *handlers.LegalEntityHandlers,
 	contractHandlers *handlers.ContractHandlers,
 	operatorTemplateHandlers *handlers.OperatorTemplateHandlers,
+	adminOpRegHandlers *handlers.AdminOperatorRegistrationHandlers,
 	platformRoutesHandlers *handlers.PlatformRoutesHandlers,
 	connectionsHandlers *handlers.ConnectionsHandlers,
 	auditHandlers *handlers.AdminAuditHandlers,
@@ -247,6 +248,16 @@ func SetupRouter(
 	operatorTemplates.HandleFunc("/{id}", operatorTemplateHandlers.GetOperatorTemplate).Methods("GET")
 	operatorTemplates.HandleFunc("/{id}", operatorTemplateHandlers.UpdateOperatorTemplate).Methods("PUT")
 	operatorTemplates.HandleFunc("/{id}", operatorTemplateHandlers.DeleteOperatorTemplate).Methods("DELETE")
+	operatorTemplates.HandleFunc("/{id}/approve", operatorTemplateHandlers.ApproveOperatorTemplate).Methods("POST")
+	operatorTemplates.HandleFunc("/{id}/reject", operatorTemplateHandlers.RejectOperatorTemplate).Methods("POST")
+	operatorTemplates.HandleFunc("/{id}/request-revision", operatorTemplateHandlers.RequestRevisionOperatorTemplate).Methods("POST")
+
+	// Operator Registrations moderation (direct users only)
+	opRegs := adminV1.PathPrefix("/operator-registrations").Subrouter()
+	opRegs.HandleFunc("", adminOpRegHandlers.ListAdminOperatorRegistrations).Methods("GET")
+	opRegs.HandleFunc("/{id}/approve", adminOpRegHandlers.ApproveAdminOperatorRegistration).Methods("POST")
+	opRegs.HandleFunc("/{id}/reject", adminOpRegHandlers.RejectAdminOperatorRegistration).Methods("POST")
+	opRegs.HandleFunc("/{id}/request-revision", adminOpRegHandlers.RequestRevisionAdminOperatorRegistration).Methods("POST")
 
 	// Platform Routes endpoints (operator-based routing model)
 	platformRoutes := adminV1.PathPrefix("/platform-routes").Subrouter()

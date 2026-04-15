@@ -277,3 +277,126 @@ func (h *OperatorTemplateHandlers) DeleteOperatorTemplate(w http.ResponseWriter,
 	}
 	respondJSON(w, http.StatusNoContent, nil)
 }
+
+// ApproveOperatorTemplate POST /admin/v1/operator-templates/{id}/approve
+func (h *OperatorTemplateHandlers) ApproveOperatorTemplate(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var currentStatus string
+	err := h.db.QueryRowContext(r.Context(),
+		`SELECT ot.moderation_status FROM operator_templates ot
+		 JOIN sender_names sn ON sn.id = ot.sender_name_id
+		 JOIN clients c ON c.id = sn.client_id
+		 WHERE ot.id = $1 AND c.parent_client_id IS NULL`,
+		id,
+	).Scan(&currentStatus)
+	if err != nil {
+		respondError(w, shared.ErrNotFound("шаблон не найден"))
+		return
+	}
+	if currentStatus != "submitted" {
+		respondError(w, shared.ErrInvalidInput("approve возможен только из статуса submitted"))
+		return
+	}
+
+	_, err = h.db.ExecContext(r.Context(),
+		`UPDATE operator_templates
+		 SET moderation_status = 'approved', resolved_at = NOW(), updated_at = NOW()
+		 WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка обновления"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"moderation_status": "approved"})
+}
+
+// RejectOperatorTemplate POST /admin/v1/operator-templates/{id}/reject
+func (h *OperatorTemplateHandlers) RejectOperatorTemplate(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var currentStatus string
+	err := h.db.QueryRowContext(r.Context(),
+		`SELECT ot.moderation_status FROM operator_templates ot
+		 JOIN sender_names sn ON sn.id = ot.sender_name_id
+		 JOIN clients c ON c.id = sn.client_id
+		 WHERE ot.id = $1 AND c.parent_client_id IS NULL`,
+		id,
+	).Scan(&currentStatus)
+	if err != nil {
+		respondError(w, shared.ErrNotFound("шаблон не найден"))
+		return
+	}
+	if currentStatus != "submitted" {
+		respondError(w, shared.ErrInvalidInput("reject возможен только из статуса submitted"))
+		return
+	}
+
+	var req struct {
+		Note string `json:"note"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	note := opTplNullStr(req.Note)
+	_, err = h.db.ExecContext(r.Context(),
+		`UPDATE operator_templates
+		 SET moderation_status = 'rejected', moderator_note = $2,
+		     resolved_at = NOW(), updated_at = NOW()
+		 WHERE id = $1`,
+		id, note,
+	)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка обновления"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"moderation_status": "rejected"})
+}
+
+// RequestRevisionOperatorTemplate POST /admin/v1/operator-templates/{id}/request-revision
+func (h *OperatorTemplateHandlers) RequestRevisionOperatorTemplate(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var currentStatus string
+	err := h.db.QueryRowContext(r.Context(),
+		`SELECT ot.moderation_status FROM operator_templates ot
+		 JOIN sender_names sn ON sn.id = ot.sender_name_id
+		 JOIN clients c ON c.id = sn.client_id
+		 WHERE ot.id = $1 AND c.parent_client_id IS NULL`,
+		id,
+	).Scan(&currentStatus)
+	if err != nil {
+		respondError(w, shared.ErrNotFound("шаблон не найден"))
+		return
+	}
+	if currentStatus != "submitted" {
+		respondError(w, shared.ErrInvalidInput("request-revision возможен только из статуса submitted"))
+		return
+	}
+
+	var req struct {
+		Note string `json:"note"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	note := opTplNullStr(req.Note)
+	_, err = h.db.ExecContext(r.Context(),
+		`UPDATE operator_templates
+		 SET moderation_status = 'revision_requested', moderator_note = $2,
+		     resolved_at = NOW(), updated_at = NOW()
+		 WHERE id = $1`,
+		id, note,
+	)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка обновления"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"moderation_status": "revision_requested"})
+}
+
+func opTplNullStr(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
