@@ -36,6 +36,7 @@ type SenderNameInfo struct {
 	ReviewedAt      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=reviewed_at,json=reviewedAt,proto3" json:"reviewed_at,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CompanyId       string                 `protobuf:"bytes,10,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -131,6 +132,13 @@ func (x *SenderNameInfo) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *SenderNameInfo) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
+	}
+	return ""
 }
 
 type SenderNameHistoryEntry struct {
@@ -238,6 +246,7 @@ type CreateSenderNameRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	CompanyId     string                 `protobuf:"bytes,3,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -282,6 +291,13 @@ func (x *CreateSenderNameRequest) GetClientId() string {
 func (x *CreateSenderNameRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateSenderNameRequest) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
 	}
 	return ""
 }
