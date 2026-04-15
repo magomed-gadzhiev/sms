@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { subAccountsApi, ApiError } from '../../api/client';
+import { subAccountsApi, billingApi, ApiError } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -72,6 +72,8 @@ export function SubAccountsListPage() {
   const [formDailyLimit, setFormDailyLimit] = useState('');
   const [formMonthlyLimit, setFormMonthlyLimit] = useState('');
   const [formLimitError, setFormLimitError] = useState('');
+  const [parentBalance, setParentBalance] = useState<string | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   async function loadSubAccounts() {
     setLoading(true);
@@ -114,6 +116,20 @@ export function SubAccountsListPage() {
     return valid;
   }
 
+  async function openCreateForm() {
+    setShowCreateForm(true);
+    setParentBalance(null);
+    setLoadingBalance(true);
+    try {
+      const res = await billingApi.getBalance() as { balance: string };
+      setParentBalance(res.balance);
+    } catch {
+      // не критично — просто не показываем баланс
+    } finally {
+      setLoadingBalance(false);
+    }
+  }
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!validateForm()) return;
@@ -138,7 +154,7 @@ export function SubAccountsListPage() {
       setFormMonthlyLimit('');
       setFormLimitError('');
       if (resp?.balance_transfer_error) {
-        toast.success('Суб-аккаунт создан, но перевод начального баланса не удался — недостаточно средств');
+        toast.info('Суб-аккаунт создан. Перевод начального баланса не выполнен — недостаточно средств');
       } else {
         toast.success('Суб-аккаунт успешно создан');
       }
@@ -164,7 +180,7 @@ export function SubAccountsListPage() {
       <PageHeader
         title="Суб-аккаунты"
         subtitle={data ? `${data.current_count} / ${data.max_sub_accounts}` : undefined}
-        actions={canCreate ? <Button onClick={() => setShowCreateForm(true)}>Создать суб-аккаунт</Button> : undefined}
+        actions={canCreate ? <Button onClick={openCreateForm}>Создать суб-аккаунт</Button> : undefined}
       />
 
       {error && !canCreate && (
@@ -214,12 +230,29 @@ export function SubAccountsListPage() {
             onChange={(e) => setFormContactPerson(e.target.value)}
             placeholder="Имя контактного лица"
           />
-          <Input
-            label="Начальный баланс"
-            value={formInitialBalance}
-            onChange={(e) => setFormInitialBalance(e.target.value)}
-            placeholder="0.00"
-          />
+          <div>
+            <Input
+              label="Начальный баланс"
+              value={formInitialBalance}
+              onChange={(e) => setFormInitialBalance(e.target.value)}
+              placeholder="0.00"
+            />
+            {loadingBalance && (
+              <p className="mt-1 text-xs text-gray-400">Загрузка баланса...</p>
+            )}
+            {parentBalance !== null && !loadingBalance && (
+              <p className="mt-1 text-xs text-gray-500">
+                Доступный баланс: {parseFloat(parentBalance).toFixed(2)} ₽
+              </p>
+            )}
+            {parentBalance !== null &&
+              formInitialBalance !== '' &&
+              parseFloat(formInitialBalance) > parseFloat(parentBalance) && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Сумма превышает доступный баланс. Суб-аккаунт будет создан, но перевод средств не выполнится.
+                </p>
+              )}
+          </div>
           <div>
             <div className="flex gap-4">
               <Input
