@@ -1,0 +1,64 @@
+{
+  "nav": { "features": "Features", "pricing": "Pricing", "docs": "Docs", "blog": "Blog", "about": "About", "contact": "Contact", "login": "Log in", "getStarted": "Get Started" },
+  "hero": { "title": "SMS Platform for Your Business", "subtitle": "Connect your providers, manage clients, scale delivery. All in one system.", "cta": "Start for Free", "docs": "API Documentation" },
+  "stats": { "sms": "SMS per month", "uptime": "Uptime", "providers": "Providers", "resellers": "Resellers" },
+  "features": {
+    "title": "Key Features", "subtitle": "Everything you need for SMS business",
+    "providers": { "title": "Your Providers", "desc": "SMPP and HTTP — connect any operator worldwide" },
+    "multiTenant": { "title": "Multi-tenant", "desc": "Sub-accounts with individual tariffs for each client" },
+    "routing": { "title": "Routing", "desc": "Rules by country, operator, and cost" },
+    "analytics": { "title": "Analytics", "desc": "Detailed reports, statistics, CSV export" },
+    "billing": { "title": "Billing", "desc": "Client tarification, balance, transactions" },
+    "api": { "title": "API & Webhooks", "desc": "REST API, delivery callbacks, full integration" }
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "step1": { "title": "Register", "desc": "Create an account and set up your company" },
+    "step2": { "title": "Connect Providers", "desc": "SMPP or HTTP — add your operators" },
+    "step3": { "title": "Start Sending", "desc": "API, web panel, or SMPP — choose your way" }
+  },
+  "screenshot": { "title": "Powerful Control Panel", "alt": "SMS platform dashboard screenshot" },
+  "pricingPreview": { "title": "Pricing Plans", "popular": "Popular", "perMonth": "/mo", "custom": "Custom", "moreDetails": "View all plans →", "smsIncluded": "SMS included", "cta": "Get Started" },
+  "finalCta": { "title": "Launch Your SMS Business in 10 Minutes", "subtitle": "Free registration. No commitments.", "cta": "Create Free Account" },
+  "footer": { "product": "Product", "company": "Company", "legal": "Legal", "support": "Support", "terms": "Terms of Service", "privacy": "Privacy Policy", "telegram": "Telegram", "email": "Email", "faq": "FAQ", "copyright": "© 2026 SMS Platform. All rights reserved." },
+  "pricing": {
+    "title": "Pricing Plans", "subtitle": "Choose the plan that fits your business",
+    "starter": { "name": "Starter", "desc": "For new resellers", "price": "$XX", "smsLimit": "50,000", "subAccounts": "1 sub-account", "providerLimit": "3 providers", "features": ["API + web panel", "Email support", "Basic analytics"] },
+    "business": { "name": "Business", "desc": "For growing business", "price": "$XX", "smsLimit": "500,000", "subAccounts": "20 sub-accounts", "providerLimit": "10 providers", "features": ["Rule-based routing", "Cascade delivery", "Campaigns & templates", "Analytics + export", "Priority support"] },
+    "enterprise": { "name": "Enterprise", "desc": "For large aggregators", "price": "Custom", "smsLimit": "Unlimited", "subAccounts": "Unlimited sub-accounts", "providerLimit": "Unlimited providers", "features": ["SMPP access", "HLR lookup", "SLA + dedicated manager", "Custom integration"] },
+    "compareTitle": "Plan Comparison", "faqTitle": "Frequently Asked Questions",
+    "faq": [
+      { "q": "What if I exceed the limit?", "a": "Overage SMS are billed at your plan's per-SMS rate. You can always see your current usage in the dashboard." },
+      { "q": "How do I upgrade my plan?", "a": "You can upgrade at any time from settings. The cost difference is prorated." },
+      { "q": "Is there a trial period?", "a": "Yes, the Starter plan is free for 14 days with full functionality." },
+      { "q": "How does billing work?", "a": "Monthly or annual subscription. We accept bank transfers and cards." }
+    ],
+    "calculatorTitle": "Cost Calculator", "calculatorLabel": "SMS volume per month", "calculatorResult": "Estimated cost", "overageRate": 0.005
+  },
+  "featuresPage": {
+    "title": "Everything for SMS Business", "subtitle": "Complete toolkit for launching and scaling your SMS service",
+    "items": [
+      { "title": "Provider Integration", "desc": "SMPP and HTTP protocol support. Connect any operator worldwide. Real-time connection monitoring. Automatic reconnection on failures." },
+      { "title": "Multi-tenant / Sub-accounts", "desc": "Create client accounts with individual tariffs. Control balances and limits. Complete data isolation between accounts." },
+      { "title": "Routing", "desc": "Flexible routing rules by country, operator, and cost. Priority and fallback routes. Load balancing across providers." },
+      { "title": "Cascade Delivery", "desc": "Automatic fallback on delivery failure. SMS → Viber → other channels. Configurable delivery strategies with timeouts." },
+      { "title": "Campaigns & Broadcasts", "desc": "Mass sending to contact lists. Templates with variables. Scheduled delivery. Audience segmentation." },
+      { "title": "API & Integrations", "desc": "REST API for full automation. Webhooks for delivery status. SMPP interface for high-throughput integrations." },
+      { "title": "Analytics & Reporting", "desc": "Dashboard with key metrics. Statistics by provider and client. CSV report export. Real-time monitoring." },
+      { "title": "Billing & Tarification", "desc": "Destination-based tariffs. Automatic balance deduction. Full transaction history. Per-message breakdown." },
+      { "title": "Sender Names", "desc": "Sender name management. Registration status tracking with operators. Automatic status change notifications." },
+      { "title": "HLR Lookup", "desc": "Number validation before sending. Operator and status detection. Save up to 15% on invalid numbers." }
+    ]
+  },
+  "about": { "title": "About the Platform", "mission": "We build infrastructure that enables SMS aggregators and resellers to launch and scale their business without developing their own platform.", "mission2": "Our platform processes millions of messages daily, ensuring reliable delivery through any operator worldwide.", "statsTitle": "Platform in Numbers" },
+  "contact": { "title": "Contact Us", "subtitle": "Have questions? We'd love to help.", "name": "Name", "email": "Email", "company": "Company", "message": "Message", "send": "Send", "sending": "Sending...", "success": "Message sent! We'll get back to you shortly.", "error": "Failed to send. Please try again later.", "directTitle": "Or reach us directly" },
+  "seo": {
+    "landing": { "title": "SMS Platform — SMS Platform for Resellers", "desc": "PaaS for SMS business. Connect your providers, manage clients, scale delivery." },
+    "pricing": { "title": "Pricing — SMS Platform", "desc": "SMS platform pricing: Starter, Business, Enterprise. Flexible billing model." },
+    "features": { "title": "Features — SMS Platform", "desc": "Providers, routing, cascade delivery, API, analytics, billing — everything for SMS business." },
+    "docs": { "title": "API Documentation — SMS Platform", "desc": "SMS platform API docs: sending, statuses, contacts, campaigns." },
+    "blog": { "title": "Blog — SMS Platform", "desc": "Platform updates, reseller guides, industry news." },
+    "about": { "title": "About — SMS Platform", "desc": "SMS platform for aggregators and resellers. Infrastructure for your SMS business." },
+    "contact": { "title": "Contact — SMS Platform", "desc": "Contact us: feedback form, email, Telegram." }
+  }
+}
