@@ -1156,6 +1156,36 @@ export const commandCenterApi = {
   },
 };
 
+// Quota API
+export interface QuotaData {
+  id: string;
+  client_id: string;
+  segment_limit: number;
+  segments_used: number;
+  overage_segments: number;
+  overage_rate: string;
+  currency: string;
+  period_start: string;
+  period_end: string;
+  is_active: boolean;
+}
+
+export interface QuotaHistoryEntry {
+  id: string;
+  segment_limit: number;
+  segments_used: number;
+  overage_segments: number;
+  overage_rate: string;
+  currency: string;
+  period_start: string;
+  period_end: string;
+}
+
+export const quotaApi = {
+  getMyQuota: () => apiFetch<{ quota: QuotaData | null }>('/quota'),
+  getQuotaHistory: () => apiFetch<{ history: QuotaHistoryEntry[] }>('/quota/history'),
+};
+
 // Reseller moderation API
 export interface ResellerSenderName {
   id: string;
