@@ -978,6 +978,17 @@ export const campaignSchedulesApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  update: (id: string, data: {
+    name: string;
+    frequency: string;
+    cron_expression?: string;
+    max_runs?: number;
+    clear_max_runs?: boolean;
+  }) =>
+    apiFetch<{ ok: boolean }>(`/campaign-schedules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
   toggle: (id: string, is_active: boolean) =>
     apiFetch<{ ok: boolean }>(`/campaign-schedules/${id}`, {
       method: 'PUT',

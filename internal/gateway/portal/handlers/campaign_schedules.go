@@ -242,6 +242,91 @@ func (h *CampaignScheduleHandlers) Toggle(w http.ResponseWriter, r *http.Request
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+type updateScheduleRequest struct {
+	Name           string  `json:"name"`
+	Frequency      string  `json:"frequency"`
+	CronExpression *string `json:"cron_expression"`
+	MaxRuns        *int    `json:"max_runs"`
+	ClearMaxRuns   bool    `json:"clear_max_runs"`
+}
+
+func (h *CampaignScheduleHandlers) Update(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	id := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("Некорректный ID расписания"))
+		return
+	}
+
+	var req updateScheduleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Некорректное тело запроса"))
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		respondError(w, shared.ErrInvalidInput("name обязателен"))
+		return
+	}
+	if req.Frequency == "" {
+		respondError(w, shared.ErrInvalidInput("frequency обязателен"))
+		return
+	}
+	if !validFrequencies[req.Frequency] {
+		respondError(w, shared.ErrInvalidInput("frequency: допустимые значения: daily, weekly, monthly, custom"))
+		return
+	}
+	if req.Frequency == "custom" {
+		if req.CronExpression == nil || *req.CronExpression == "" {
+			respondError(w, shared.ErrInvalidInput("cron_expression обязателен для частоты 'custom'"))
+			return
+		}
+		if err := schedules.ValidateCronExpression(*req.CronExpression); err != nil {
+			respondError(w, shared.ErrInvalidInput("Некорректное cron-выражение: "+err.Error()))
+			return
+		}
+	}
+	if req.MaxRuns != nil && *req.MaxRuns <= 0 {
+		respondError(w, shared.ErrInvalidInput("max_runs должно быть положительным числом"))
+		return
+	}
+
+	// Recalculate next_run_at based on new frequency/cron
+	cronExpr := ""
+	if req.CronExpression != nil {
+		cronExpr = *req.CronExpression
+	}
+	nextRunAt := schedules.NextRunTime(req.Frequency, cronExpr, time.Now().UTC())
+
+	var maxRunsArg interface{}
+	if req.ClearMaxRuns {
+		maxRunsArg = nil
+	} else {
+		maxRunsArg = req.MaxRuns
+	}
+
+	res, err := h.db.Exec(r.Context(), `
+		UPDATE campaign_schedules
+		SET name = $1, frequency = $2, cron_expression = $3, max_runs = $4,
+		    next_run_at = $5, updated_at = NOW()
+		WHERE id = $6::uuid AND client_id = $7
+	`, req.Name, req.Frequency, req.CronExpression, maxRunsArg, nextRunAt, id, clientID.String())
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("Ошибка обновления расписания"))
+		return
+	}
+	if res.RowsAffected() == 0 {
+		respondError(w, shared.ErrNotFound("Расписание не найдено"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func (h *CampaignScheduleHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {

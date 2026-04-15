@@ -524,8 +524,28 @@ func (h *SubAccountHandlers) GetSubAccountAnalytics(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Parse period param
+	now := time.Now().UTC()
+	var dateFrom time.Time
+	switch r.URL.Query().Get("period") {
+	case "30d":
+		dateFrom = now.AddDate(0, 0, -30)
+	case "90d":
+		dateFrom = now.AddDate(0, 0, -90)
+	default:
+		dateFrom = now.AddDate(0, 0, -7)
+	}
+
+	groupBy := r.URL.Query().Get("group_by")
+	if groupBy == "" {
+		groupBy = "day"
+	}
+
 	resp, err := h.analyticsClient.GetStatistics(r.Context(), &analyticsv1.GetStatisticsRequest{
 		ClientId: subAccountID,
+		From:     timestamppb.New(dateFrom),
+		To:       timestamppb.New(now),
+		GroupBy:  groupBy,
 	})
 	if err != nil {
 		log.Error().Err(err).Str("sub_account_id", subAccountID).Msg("ошибка получения аналитики суб-аккаунта")
@@ -533,7 +553,37 @@ func (h *SubAccountHandlers) GetSubAccountAnalytics(w http.ResponseWriter, r *ht
 		return
 	}
 
-	respondJSON(w, http.StatusOK, resp)
+	summary := map[string]interface{}{
+		"total_sent":      int64(0),
+		"total_delivered": int64(0),
+		"total_failed":    int64(0),
+		"delivery_rate":   int32(0),
+		"total_cost":      "",
+		"currency":        "RUB",
+	}
+	if resp.Totals != nil {
+		summary["total_sent"] = resp.Totals.TotalSent
+		summary["total_delivered"] = resp.Totals.TotalDelivered
+		summary["total_failed"] = resp.Totals.TotalFailed
+		summary["delivery_rate"] = resp.Totals.SuccessRate
+	}
+
+	timeline := make([]map[string]interface{}, 0, len(resp.Groups))
+	for _, group := range resp.Groups {
+		entry := map[string]interface{}{"period": group.Key}
+		if group.Stats != nil {
+			entry["sent"] = group.Stats.TotalSent
+			entry["delivered"] = group.Stats.TotalDelivered
+			entry["failed"] = group.Stats.TotalFailed
+			entry["delivery_rate"] = group.Stats.SuccessRate
+		}
+		timeline = append(timeline, entry)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"summary":  summary,
+		"timeline": timeline,
+	})
 }
 
 // GetSubAccountAPIKeys обрабатывает GET /sub-accounts/{id}/api-keys

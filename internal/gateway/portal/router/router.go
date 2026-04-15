@@ -451,6 +451,7 @@ func RegisterCampaignScheduleRoutes(
 	schedules.Use(csrfMiddleware)
 	schedules.HandleFunc("", h.List).Methods("GET")
 	schedules.HandleFunc("", h.Create).Methods("POST")
+	schedules.HandleFunc("/{id}", h.Update).Methods("PATCH")
 	schedules.HandleFunc("/{id}", h.Toggle).Methods("PUT")
 	schedules.HandleFunc("/{id}", h.Delete).Methods("DELETE")
 }

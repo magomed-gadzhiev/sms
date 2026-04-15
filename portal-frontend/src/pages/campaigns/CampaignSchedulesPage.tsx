@@ -37,6 +37,13 @@ const EMPTY_FORM: CreateForm = {
   max_runs: '',
 };
 
+interface EditForm {
+  name: string;
+  frequency: string;
+  cron_expression: string;
+  max_runs: string;
+}
+
 export function CampaignSchedulesPage() {
   const [schedules, setSchedules] = useState<CampaignSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +67,12 @@ export function CampaignSchedulesPage() {
 
   // Toggle error state
   const [toggleError, setToggleError] = useState('');
+
+  // Edit modal state
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({ name: '', frequency: 'daily', cron_expression: '', max_runs: '' });
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,6 +148,10 @@ export function CampaignSchedulesPage() {
       setCreateError('Укажите cron-выражение для частоты "По расписанию"');
       return;
     }
+    if (form.max_runs && parseInt(form.max_runs, 10) <= 0) {
+      setCreateError('Макс. запусков должно быть положительным числом');
+      return;
+    }
     setCreating(true);
     try {
       await campaignSchedulesApi.create({
@@ -153,6 +170,56 @@ export function CampaignSchedulesPage() {
       setCreateError(err instanceof ApiError ? err.message : 'Ошибка создания расписания');
     } finally {
       setCreating(false);
+    }
+  }
+
+  function openEditModal(s: CampaignSchedule) {
+    setEditId(s.id);
+    setEditForm({
+      name: s.name,
+      frequency: s.frequency,
+      cron_expression: s.cron_expression ?? '',
+      max_runs: s.max_runs != null ? String(s.max_runs) : '',
+    });
+    setEditError('');
+  }
+
+  async function handleEdit() {
+    if (!editId) return;
+    setEditError('');
+    if (!editForm.name.trim()) {
+      setEditError('Укажите название расписания');
+      return;
+    }
+    if (!editForm.frequency) {
+      setEditError('Выберите частоту');
+      return;
+    }
+    if (editForm.frequency === 'custom' && !editForm.cron_expression.trim()) {
+      setEditError('Укажите cron-выражение для частоты "По расписанию"');
+      return;
+    }
+    if (editForm.max_runs && parseInt(editForm.max_runs, 10) <= 0) {
+      setEditError('Макс. запусков должно быть положительным числом');
+      return;
+    }
+    setEditing(true);
+    try {
+      await campaignSchedulesApi.update(editId, {
+        name: editForm.name.trim(),
+        frequency: editForm.frequency,
+        cron_expression: editForm.frequency === 'custom' && editForm.cron_expression.trim()
+          ? editForm.cron_expression.trim()
+          : undefined,
+        max_runs: editForm.max_runs ? parseInt(editForm.max_runs, 10) : undefined,
+        clear_max_runs: !editForm.max_runs,
+      });
+      setEditId(null);
+      await load();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Ошибка сохранения расписания');
+    } finally {
+      setEditing(false);
     }
   }
 
@@ -190,7 +257,14 @@ export function CampaignSchedulesPage() {
     {
       key: 'frequency',
       header: 'Частота',
-      render: (s) => <span>{FREQUENCY_LABELS[s.frequency] ?? s.frequency}</span>,
+      render: (s) => (
+        <span>
+          {FREQUENCY_LABELS[s.frequency] ?? s.frequency}
+          {s.frequency === 'custom' && s.cron_expression && (
+            <code className="ml-1 text-xs text-gray-400 font-mono">({s.cron_expression})</code>
+          )}
+        </span>
+      ),
     },
     {
       key: 'last_run_at',
@@ -202,7 +276,11 @@ export function CampaignSchedulesPage() {
       key: 'next_run_at',
       header: 'Следующий запуск',
       responsive: true,
-      render: (s) => <span className="text-gray-500 text-sm">{formatDate(s.next_run_at)}</span>,
+      render: (s) => (
+        <span className="text-gray-500 text-sm">
+          {s.is_active ? formatDate(s.next_run_at) : '—'}
+        </span>
+      ),
     },
     {
       key: 'run_count',
@@ -265,6 +343,14 @@ export function CampaignSchedulesPage() {
           tableLabel="Список расписаний"
           rowActions={(s) => (
             <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={`Редактировать расписание ${s.name}`}
+                onClick={() => openEditModal(s)}
+              >
+                Изменить
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -396,6 +482,83 @@ export function CampaignSchedulesPage() {
             </Button>
             <Button onClick={handleCreate} disabled={creating || campaignsLoading || campaigns.length === 0}>
               {creating ? 'Создание...' : 'Создать'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal
+        open={editId !== null}
+        onClose={() => setEditId(null)}
+        title="Редактировать расписание"
+      >
+        <div className="flex flex-col gap-4">
+          {editError && <p className="text-red-600 text-sm">{editError}</p>}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={editForm.name}
+              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Название расписания"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Частота</label>
+            <select
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={editForm.frequency}
+              onChange={(e) => setEditForm((f) => ({ ...f, frequency: e.target.value }))}
+            >
+              <option value="daily">Ежедневно</option>
+              <option value="weekly">Еженедельно</option>
+              <option value="monthly">Ежемесячно</option>
+              <option value="custom">По расписанию (cron)</option>
+            </select>
+          </div>
+
+          {editForm.frequency === 'custom' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cron-выражение
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={editForm.cron_expression}
+                onChange={(e) => setEditForm((f) => ({ ...f, cron_expression: e.target.value }))}
+                placeholder="0 9 * * 1"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Формат: минута час день-месяца месяц день-недели. Пример: <code>0 9 * * 1</code> — каждый понедельник в 9:00.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Макс. запусков (необязательно)
+            </label>
+            <input
+              type="number"
+              min="1"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={editForm.max_runs}
+              onChange={(e) => setEditForm((f) => ({ ...f, max_runs: e.target.value }))}
+              placeholder="Без ограничений"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setEditId(null)} disabled={editing}>
+              Отмена
+            </Button>
+            <Button onClick={handleEdit} disabled={editing}>
+              {editing ? 'Сохранение...' : 'Сохранить'}
             </Button>
           </div>
         </div>
