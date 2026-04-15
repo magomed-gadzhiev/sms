@@ -258,6 +258,52 @@ func (h *ResellerModerationHandlers) RequestRevisionResellerOperatorRegistration
 	respondJSON(w, http.StatusOK, map[string]interface{}{"status": "revision_requested"})
 }
 
+// GetModerationCounts GET /portal/v1/reseller/moderation/counts
+func (h *ResellerModerationHandlers) GetModerationCounts(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := h.checkReseller(w, r)
+	if !ok {
+		return
+	}
+
+	var snCount, tplCount, regCount int
+	err := h.pool.QueryRow(r.Context(),
+		`SELECT COUNT(*) FROM sender_names sn
+		 JOIN clients c ON c.id = sn.client_id
+		 WHERE c.parent_client_id = $1 AND sn.status = 'pending'`,
+		clientID,
+	).Scan(&snCount)
+	if err != nil {
+		snCount = 0
+	}
+
+	err = h.pool.QueryRow(r.Context(),
+		`SELECT COUNT(*) FROM templates t
+		 JOIN clients c ON c.id = t.client_id
+		 WHERE c.parent_client_id = $1 AND (t.status = 'pending' OR t.status = 'revision_requested')`,
+		clientID,
+	).Scan(&tplCount)
+	if err != nil {
+		tplCount = 0
+	}
+
+	err = h.pool.QueryRow(r.Context(),
+		`SELECT COUNT(*) FROM operator_registrations or2
+		 JOIN sender_names sn ON sn.id = or2.sender_name_id
+		 JOIN clients c ON c.id = sn.client_id
+		 WHERE c.parent_client_id = $1 AND or2.status = 'submitted'`,
+		clientID,
+	).Scan(&regCount)
+	if err != nil {
+		regCount = 0
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"sender_names":  snCount,
+		"templates":     tplCount,
+		"registrations": regCount,
+	})
+}
+
 func resellerNullStr(s string) interface{} {
 	if s == "" {
 		return nil
