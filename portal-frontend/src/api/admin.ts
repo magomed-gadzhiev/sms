@@ -235,7 +235,7 @@ export interface RealTimeMetrics {
   queue_depth: number;
 }
 
-export interface GroupedStatRow {
+export interface GroupedStatGroup {
   label: string;
   sent: number;
   delivered: number;
@@ -245,7 +245,7 @@ export interface GroupedStatRow {
 }
 
 export interface GroupedStatsResponse {
-  rows: GroupedStatRow[];
+  groups: GroupedStatGroup[];
   totals: {
     sent: number;
     delivered: number;

@@ -96,7 +96,7 @@ export function AnalyticsPage() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   const summary = stats?.summary;
-  const rows = grouped?.rows ?? [];
+  const rows = grouped?.groups ?? [];
   const totals = grouped?.totals;
 
   const labelHeader = groupBy === 'day' ? 'Дата' : groupBy === 'operator' ? 'Оператор' : 'Страна';
