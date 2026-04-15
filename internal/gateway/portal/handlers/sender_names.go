@@ -45,7 +45,8 @@ func (h *SenderNameHandlers) SetBillingClients(
 }
 
 type createSenderNameRequest struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	CompanyID string `json:"company_id"`
 }
 
 func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Request) {
@@ -63,9 +64,27 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 		respondError(w, shared.ErrInvalidInput("Поле name обязательно"))
 		return
 	}
+
+	companyID := req.CompanyID
+	if companyID == "" {
+		if h.pool == nil {
+			respondError(w, shared.ErrInternalServer("database pool недоступен"))
+			return
+		}
+		if err := h.pool.QueryRow(r.Context(),
+			`SELECT company_id FROM client_companies WHERE client_id = $1 AND is_default = TRUE LIMIT 1`,
+			clientID,
+		).Scan(&companyID); err != nil {
+			log.Error().Err(err).Str("client_id", clientID.String()).Msg("не найдена дефолтная компания клиента")
+			respondError(w, shared.ErrInvalidInput("у клиента не найдена компания по умолчанию"))
+			return
+		}
+	}
+
 	resp, err := h.client.CreateSenderName(r.Context(), &sendernamev1.CreateSenderNameRequest{
-		ClientId: clientID.String(),
-		Name:     req.Name,
+		ClientId:  clientID.String(),
+		Name:      req.Name,
+		CompanyId: companyID,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка создания имени отправителя")
