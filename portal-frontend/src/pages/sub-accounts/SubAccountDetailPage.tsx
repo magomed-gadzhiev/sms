@@ -11,11 +11,12 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 
-type TabName = 'overview' | 'messages' | 'analytics' | 'api-keys' | 'webhooks';
+type TabName = 'overview' | 'messages' | 'campaigns' | 'analytics' | 'api-keys' | 'webhooks';
 
 const TABS: { key: TabName; label: string }[] = [
   { key: 'overview', label: 'Обзор' },
   { key: 'messages', label: 'Сообщения' },
+  { key: 'campaigns', label: 'Кампании' },
   { key: 'analytics', label: 'Аналитика' },
   { key: 'api-keys', label: 'API Ключи' },
   { key: 'webhooks', label: 'Вебхуки' },
@@ -164,6 +165,7 @@ export function SubAccountDetailPage() {
         <OverviewTab detail={detail} onUpdate={loadDetail} onDeleted={() => navigate('/sub-accounts')} />
       )}
       {activeTab === 'messages' && id && <MessagesTab subAccountId={id} />}
+      {activeTab === 'campaigns' && <CampaignsTab subAccountId={id!} />}
       {activeTab === 'analytics' && id && <AnalyticsTab subAccountId={id} />}
       {activeTab === 'api-keys' && <APIKeysTab keys={detail.api_keys || []} />}
       {activeTab === 'webhooks' && <WebhooksTab webhooks={detail.webhooks || []} />}
@@ -263,7 +265,7 @@ function OverviewTab({
 
       {/* Info cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard title="Баланс" value={`${parseFloat(detail.balance).toFixed(2)} ₽`} />
+        <StatCard title="Баланс" value={`${parseFloat(detail.balance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`} />
         <StatCard title="Дневной лимит" value={`${detail.messages_today} / ${detail.daily_limit}`} />
         <StatCard title="Месячный лимит" value={`${detail.messages_this_month} / ${detail.monthly_limit}`} />
         <StatCard title="Email" value={detail.email} />
@@ -300,9 +302,12 @@ function OverviewTab({
       {/* Balance transfer form */}
       <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
         <h3 className="mt-0 text-base font-semibold mb-3">Перевод средств</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Баланс суб-аккаунта: <span className="font-medium text-gray-700">{parseFloat(detail.balance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</span>
+        </p>
         <form onSubmit={handleTransfer} className="flex gap-4 items-end">
           <Input
-            label="Сумма"
+            label="Сумма (₽)"
             type="number"
             min="0.01"
             step="0.01"
@@ -373,7 +378,7 @@ const messageColumns: Column<MessageItem>[] = [
     header: 'Создан',
     render: (msg) => (
       <span className="text-xs">
-        {msg.created_at ? new Date(msg.created_at).toLocaleString() : '-'}
+        {msg.created_at ? new Date(msg.created_at).toLocaleString('ru-RU') : '-'}
       </span>
     ),
   },
@@ -505,7 +510,9 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
             <StatCard title="Доставляемость" value={`${data.summary.delivery_rate}%`} />
             <StatCard
               title="Стоимость"
-              value={data.summary.total_cost ? `${data.summary.total_cost} ${data.summary.currency}` : 'N/A'}
+              value={data.summary.total_cost
+                ? `${parseFloat(data.summary.total_cost).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${data.summary.currency}`
+                : 'N/A'}
             />
           </div>
 
@@ -523,6 +530,96 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
         </>
       )}
     </div>
+  );
+}
+
+// ---- Campaigns Tab ----
+
+const CAMPAIGN_STATUS_CONFIG: Record<string, { variant: 'default' | 'info' | 'warning' | 'success' | 'danger'; label: string }> = {
+  draft: { variant: 'default', label: 'Черновик' },
+  running: { variant: 'info', label: 'Запущена' },
+  paused: { variant: 'warning', label: 'На паузе' },
+  completed: { variant: 'success', label: 'Завершена' },
+  cancelled: { variant: 'danger', label: 'Отменена' },
+};
+
+interface CampaignItem {
+  id: string;
+  name: string;
+  status: string;
+  total_recipients: number;
+  delivered: number;
+  created_at: string;
+}
+
+const campaignColumns: Column<CampaignItem>[] = [
+  { key: 'name', header: 'Название' },
+  {
+    key: 'status',
+    header: 'Статус',
+    render: (c) => {
+      const cfg = CAMPAIGN_STATUS_CONFIG[c.status] || { variant: 'default' as const, label: c.status };
+      return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+    },
+  },
+  {
+    key: 'total_recipients',
+    header: 'Получатели',
+    render: (c) => <>{c.total_recipients?.toLocaleString() ?? '—'}</>,
+  },
+  {
+    key: 'delivered',
+    header: 'Доставлено',
+    render: (c) => <>{c.delivered?.toLocaleString() ?? '—'}</>,
+  },
+  {
+    key: 'created_at',
+    header: 'Создана',
+    render: (c) => <>{new Date(c.created_at).toLocaleDateString()}</>,
+  },
+];
+
+function CampaignsTab({ subAccountId }: { subAccountId: string }) {
+  const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    subAccountsApi
+      .campaigns(subAccountId, { page: String(page), per_page: '20' })
+      .then((data) => {
+        setCampaigns(data.campaigns || []);
+        setTotal(data.total || 0);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Ошибка загрузки кампаний'))
+      .finally(() => setLoading(false));
+  }, [subAccountId, page]);
+
+  if (loading) return <div className="py-10 text-center text-gray-400">Загрузка кампаний...</div>;
+  if (error) return <div className="py-10 text-center text-red-500">{error}</div>;
+  if (campaigns.length === 0) {
+    return (
+      <div className="border border-dashed border-gray-300 rounded-lg p-10 text-center">
+        <p className="text-gray-500 font-medium mb-1">Нет кампаний</p>
+        <p className="text-sm text-gray-400">У этого суб-аккаунта пока нет кампаний.</p>
+      </div>
+    );
+  }
+
+  return (
+    <DataTable<CampaignItem>
+      columns={campaignColumns}
+      data={campaigns}
+      total={total}
+      page={page}
+      pageSize={20}
+      onPageChange={setPage}
+      keyField="id"
+    />
   );
 }
 

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { RequireRole } from './components/RequireRole';
+import { RequireReseller } from './components/RequireReseller';
 import { UserLayout } from './components/layout/UserLayout';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
@@ -126,8 +127,8 @@ export function App() {
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProviderWizardPage />} />
         <Route path="/routing" element={<RoutingPage />} />
-        <Route path="/sub-accounts" element={<SubAccountsListPage />} />
-        <Route path="/sub-accounts/:id" element={<SubAccountDetailPage />} />
+        <Route path="/sub-accounts" element={<RequireReseller><SubAccountsListPage /></RequireReseller>} />
+        <Route path="/sub-accounts/:id" element={<RequireReseller><SubAccountDetailPage /></RequireReseller>} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/companies/:id" element={<CompanyDetailPage />} />

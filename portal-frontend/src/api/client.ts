@@ -5,15 +5,28 @@ const API_BASE = '/portal/v1';
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const csrfToken = getCookie('csrf_token');
   const isFormData = options?.body instanceof FormData;
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    ...options,
-    headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-      ...options?.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      credentials: 'include',
+      signal: controller.signal,
+      ...options,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        ...options?.headers,
+      },
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(0, 'Превышено время ожидания ответа от сервера');
+    }
+    throw err;
+  }
+  clearTimeout(timeoutId);
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) {
       if (window.location.pathname !== '/login') {
@@ -110,6 +123,9 @@ export interface ProfileData {
   totp_enabled: boolean;
   is_sandbox?: boolean;
   role?: 'client' | 'admin' | 'superadmin';
+  is_reseller?: boolean;
+  parent_client_id?: string;
+  max_sub_accounts?: number;
 }
 
 // Dashboard API
@@ -208,6 +224,12 @@ export const subAccountsApi = {
   analytics: (id: string, params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<unknown>(`/sub-accounts/${id}/analytics?${qs}`);
+  },
+  apiKeys: (id: string) => apiFetch<unknown>(`/sub-accounts/${id}/api-keys`),
+  webhooks: (id: string) => apiFetch<unknown>(`/sub-accounts/${id}/webhooks`),
+  campaigns: (id: string, params?: Record<string, string>) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return apiFetch<{ campaigns: Array<{ id: string; name: string; status: string; total_recipients: number; delivered: number; created_at: string }>; total: number }>(`/sub-accounts/${id}/campaigns${qs ? `?${qs}` : ''}`);
   },
 };
 

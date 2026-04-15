@@ -12,6 +12,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/billingv1"
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	campaignv1 "github.com/smpp-server/smpp-server/api/proto/campaignv1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -26,6 +27,7 @@ type SubAccountHandlers struct {
 	messagingClient messagingv1.MessagingServiceClient
 	analyticsClient analyticsv1.AnalyticsServiceClient
 	webhookClient   webhookv1.WebhookServiceClient
+	campaignClient  campaignv1.CampaignServiceClient
 	auditPublisher  *audit.Publisher
 }
 
@@ -37,6 +39,7 @@ func NewSubAccountHandlers(
 	messagingClient messagingv1.MessagingServiceClient,
 	analyticsClient analyticsv1.AnalyticsServiceClient,
 	webhookClient webhookv1.WebhookServiceClient,
+	campaignClient campaignv1.CampaignServiceClient,
 	auditPublisher *audit.Publisher,
 ) *SubAccountHandlers {
 	return &SubAccountHandlers{
@@ -46,6 +49,7 @@ func NewSubAccountHandlers(
 		messagingClient: messagingClient,
 		analyticsClient: analyticsClient,
 		webhookClient:   webhookClient,
+		campaignClient:  campaignClient,
 		auditPublisher:  auditPublisher,
 	}
 }
@@ -632,6 +636,51 @@ func (h *SubAccountHandlers) GetSubAccountWebhooks(w http.ResponseWriter, r *htt
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"webhooks": subscriptions,
 	})
+}
+
+// GetSubAccountCampaigns обрабатывает GET /sub-accounts/{id}/campaigns
+func (h *SubAccountHandlers) GetSubAccountCampaigns(w http.ResponseWriter, r *http.Request) {
+	parentClientID, appErr := h.getParentClientID(r)
+	if appErr != nil {
+		respondError(w, appErr)
+		return
+	}
+
+	vars := mux.Vars(r)
+	subAccountID := vars["id"]
+	if subAccountID == "" {
+		respondError(w, shared.ErrInvalidInput("ID суб-аккаунта обязателен"))
+		return
+	}
+
+	// Проверяем принадлежность суб-аккаунта
+	_, err := h.clientClient.GetSubAccount(r.Context(), &clientv1.GetSubAccountRequest{
+		SubAccountId:   subAccountID,
+		ParentClientId: parentClientID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("sub_account_id", subAccountID).Msg("суб-аккаунт не найден или не принадлежит текущему клиенту")
+		respondGRPCError(w, err)
+		return
+	}
+
+	page, perPage := parsePagination(r)
+	offset := (page - 1) * perPage
+	status := r.URL.Query().Get("status")
+
+	resp, err := h.campaignClient.ListCampaigns(r.Context(), &campaignv1.ListCampaignsRequest{
+		ClientId: subAccountID,
+		Status:   status,
+		Limit:    perPage,
+		Offset:   offset,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("sub_account_id", subAccountID).Msg("ошибка получения кампаний суб-аккаунта")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, resp)
 }
 
 // subAccountToMap преобразует proto SubAccount в map для JSON ответа

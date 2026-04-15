@@ -194,6 +194,7 @@ func main() {
 		serviceClients.MessagingClient,
 		serviceClients.AnalyticsClient,
 		serviceClients.WebhookClient,
+		serviceClients.CampaignClient,
 		auditPublisher,
 	)
 	auditHandlers := handlers.NewAuditHandlers(serviceClients.AuditClient)

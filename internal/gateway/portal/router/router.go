@@ -168,6 +168,7 @@ func SetupRouter(
 	subAccounts.HandleFunc("/{id}/analytics", subAccountHandlers.GetSubAccountAnalytics).Methods("GET")
 	subAccounts.HandleFunc("/{id}/api-keys", subAccountHandlers.GetSubAccountAPIKeys).Methods("GET")
 	subAccounts.HandleFunc("/{id}/webhooks", subAccountHandlers.GetSubAccountWebhooks).Methods("GET")
+	subAccounts.HandleFunc("/{id}/campaigns", subAccountHandlers.GetSubAccountCampaigns).Methods("GET")
 
 	// Sub-account routing (reseller management)
 	subAccounts.HandleFunc("/{id}/providers", subAccountRoutingHandlers.AssignProvider).Methods("POST")
