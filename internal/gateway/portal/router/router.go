@@ -57,6 +57,8 @@ func SetupRouter(
 	opRegHandlers *handlers.OperatorRegistrationHandlers,
 	portalOpTplHandlers *handlers.PortalOperatorTemplateHandlers,
 	resellerHandlers *handlers.ResellerModerationHandlers,
+	resellerSenderNameHandlers *handlers.ResellerSenderNameHandlers,
+	resellerTemplateHandlers *handlers.ResellerTemplateHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
@@ -391,6 +393,22 @@ func SetupRouter(
 	resellerOpRegs.HandleFunc("/{id}/approve", resellerHandlers.ApproveResellerOperatorRegistration).Methods("POST")
 	resellerOpRegs.HandleFunc("/{id}/reject", resellerHandlers.RejectResellerOperatorRegistration).Methods("POST")
 	resellerOpRegs.HandleFunc("/{id}/request-revision", resellerHandlers.RequestRevisionResellerOperatorRegistration).Methods("POST")
+
+	// Moderation counts
+	reseller.HandleFunc("/moderation/counts", resellerHandlers.GetModerationCounts).Methods("GET")
+
+	// Reseller sender names moderation
+	resellerSN := reseller.PathPrefix("/sender-names").Subrouter()
+	resellerSN.HandleFunc("", resellerSenderNameHandlers.ListResellerSenderNames).Methods("GET")
+	resellerSN.HandleFunc("/{id}/approve", resellerSenderNameHandlers.ApproveResellerSenderName).Methods("POST")
+	resellerSN.HandleFunc("/{id}/reject", resellerSenderNameHandlers.RejectResellerSenderName).Methods("POST")
+
+	// Reseller templates moderation
+	resellerTpl := reseller.PathPrefix("/templates").Subrouter()
+	resellerTpl.HandleFunc("", resellerTemplateHandlers.ListResellerTemplates).Methods("GET")
+	resellerTpl.HandleFunc("/{id}/approve", resellerTemplateHandlers.ApproveResellerTemplate).Methods("POST")
+	resellerTpl.HandleFunc("/{id}/reject", resellerTemplateHandlers.RejectResellerTemplate).Methods("POST")
+	resellerTpl.HandleFunc("/{id}/request-revision", resellerTemplateHandlers.RequestRevisionResellerTemplate).Methods("POST")
 
 	// WebSocket: live message stream (bypasses CSRF — session auth only)
 	wsProtected := portalV1.PathPrefix("").Subrouter()
