@@ -144,6 +144,7 @@ func main() {
 
 	platformRoutesHandlers := handlers.NewPlatformRoutesHandlers(adminDB)
 	connectionsHandlers := handlers.NewConnectionsHandlers(adminDB, serviceClients.ProviderClient, redisClient)
+	auditHandlers := handlers.NewAdminAuditHandlers(serviceClients.AuditClient)
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
@@ -177,6 +178,7 @@ func main() {
 		operatorTemplateHandlers,
 		platformRoutesHandlers,
 		connectionsHandlers,
+		auditHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,

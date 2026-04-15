@@ -34,6 +34,7 @@ func SetupRouter(
 	operatorTemplateHandlers *handlers.OperatorTemplateHandlers,
 	platformRoutesHandlers *handlers.PlatformRoutesHandlers,
 	connectionsHandlers *handlers.ConnectionsHandlers,
+	auditHandlers *handlers.AdminAuditHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -261,6 +262,9 @@ func SetupRouter(
 	connections.HandleFunc("/{id}", connectionsHandlers.GetConnection).Methods("GET")
 	connections.HandleFunc("/{id}/reconnect", connectionsHandlers.ReconnectConnection).Methods("POST")
 	connections.HandleFunc("/{id}/stop", connectionsHandlers.StopConnection).Methods("POST")
+
+	// Audit log endpoint
+	adminV1.HandleFunc("/audit", auditHandlers.ListAuditLog).Methods("GET")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")
