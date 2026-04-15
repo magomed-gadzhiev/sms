@@ -6,7 +6,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const csrfToken = getCookie('csrf_token');
   const isFormData = options?.body instanceof FormData;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  const timeoutId = setTimeout(() => controller.abort(), isFormData ? 120_000 : 30_000);
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -43,7 +43,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
     let msg = err.error?.message || res.statusText;
     if (typeof msg === 'string') {
-      msg = msg.replace(' не найден', '').replace('parent client not found', 'Parent client not found');
+      msg = msg.replace('parent client not found', 'Parent client not found');
     }
     throw new ApiError(res.status, msg, err.error);
   }

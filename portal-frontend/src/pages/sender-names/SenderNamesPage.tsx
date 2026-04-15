@@ -72,6 +72,7 @@ export function SenderNamesPage() {
       setCompanies(list);
       const def = list.find((c) => c.is_default);
       if (def) setSelectedCompanyId(def.id);
+      else if (list.length > 0) setSelectedCompanyId(list[0].id);
     }).catch(() => {});
   }, []);
 
