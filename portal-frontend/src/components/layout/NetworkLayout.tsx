@@ -18,6 +18,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Управление',
     items: [
       { path: '/network/moderation', label: 'Модерация' },
+      { path: '/network/routing', label: 'Маршрутизация' },
+      { path: '/network/tariffs', label: 'Тарифы' },
+      { path: '/network/analytics', label: 'Аналитика' },
     ],
   },
 ];

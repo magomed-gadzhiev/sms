@@ -62,6 +62,9 @@ import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 import { NetworkLayout } from './components/layout/NetworkLayout';
 import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
+import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
+import { NetworkTariffsPage } from './pages/network/NetworkTariffsPage';
+import { NetworkAnalyticsPage } from './pages/network/NetworkAnalyticsPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -192,6 +195,9 @@ export function App() {
           <Route path="sub-accounts" element={<SubAccountsListPage />} />
           <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
           <Route path="moderation" element={<ModerationPage />} />
+          <Route path="routing" element={<NetworkRoutingPage />} />
+          <Route path="tariffs" element={<NetworkTariffsPage />} />
+          <Route path="analytics" element={<NetworkAnalyticsPage />} />
         </Route>
 
         {/* Backward compat redirects */}
