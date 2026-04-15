@@ -36,13 +36,20 @@ func (h *SenderNameHandler) CreateSenderName(ctx context.Context, req *sendernam
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
+	if req.CompanyId == "" {
+		return nil, status.Error(codes.InvalidArgument, "company_id is required")
+	}
 
 	clientID, err := uuid.Parse(req.ClientId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
 	}
+	companyID, err := uuid.Parse(req.CompanyId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid company_id format")
+	}
 
-	sn, err := h.svc.RegisterSenderName(ctx, clientID, req.Name)
+	sn, err := h.svc.RegisterSenderName(ctx, clientID, companyID, req.Name)
 	if err != nil {
 		return nil, h.mapError(err)
 	}
@@ -291,6 +298,7 @@ func senderNameToProto(sn *domain.SenderName) *sendernamev1.SenderNameInfo {
 	info := &sendernamev1.SenderNameInfo{
 		Id:              sn.ID.String(),
 		ClientId:        sn.ClientID.String(),
+		CompanyId:       sn.CompanyID.String(),
 		Name:            sn.Name,
 		Status:          sn.Status,
 		RejectionReason: sn.RejectionReason,
