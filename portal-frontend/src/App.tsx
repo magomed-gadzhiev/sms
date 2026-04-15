@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { RequireRole } from './components/RequireRole';
 import { RequireReseller } from './components/RequireReseller';
@@ -59,7 +59,6 @@ import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
 import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDetail';
 import { RoutingPage } from './pages/routing/RoutingPage';
 import { QuickSendPage } from './pages/quick-send/QuickSendPage';
-import { NetworkLayout } from './components/layout/NetworkLayout';
 import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
@@ -189,7 +188,7 @@ export function App() {
         <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />
 
         {/* Network mode (reseller) */}
-        <Route path="/network" element={<RequireReseller><NetworkLayout /></RequireReseller>}>
+        <Route path="/network" element={<RequireReseller><Outlet /></RequireReseller>}>
           <Route index element={<Navigate to="/network/dashboard" replace />} />
           <Route path="dashboard" element={<NetworkDashboardPage />} />
           <Route path="sub-accounts" element={<SubAccountsListPage />} />

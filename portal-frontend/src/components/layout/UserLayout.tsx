@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar, type NavItem, type NavGroup } from './Sidebar';
 import { SkipLink } from '../SkipLink';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationBell } from '../ui/NotificationBell';
 import { CommandPalette } from '../ui/CommandPalette';
 import { ModeSwitcher } from './ModeSwitcher';
+import { apiFetch } from '../../api/client';
 
-const NAV_ITEMS: NavItem[] = [
+const OWN_NAV_ITEMS: NavItem[] = [
   { path: '/command-center', label: 'Командный центр' },
 ];
 
-function buildNavGroups(): NavGroup[] {
+function buildOwnNavGroups(): NavGroup[] {
   return [
     {
       label: 'Отправить',
@@ -76,11 +77,46 @@ function buildNavGroups(): NavGroup[] {
   ];
 }
 
+const NETWORK_NAV_ITEMS: NavItem[] = [
+  { path: '/network/dashboard', label: 'Дашборд сети' },
+  { path: '/network/sub-accounts', label: 'Суб-аккаунты' },
+];
+
+function buildNetworkNavGroups(moderationCount: number): NavGroup[] {
+  return [
+    {
+      label: 'Управление',
+      items: [
+        {
+          path: '/network/moderation',
+          label: moderationCount > 0 ? `Модерация (${moderationCount})` : 'Модерация',
+        },
+        { path: '/network/routing', label: 'Маршрутизация' },
+        { path: '/network/tariffs', label: 'Тарифы' },
+        { path: '/network/analytics', label: 'Аналитика' },
+      ],
+    },
+  ];
+}
+
 export function UserLayout() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const isNetworkMode = location.pathname.startsWith('/network');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const navGroups = buildNavGroups();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [moderationCount, setModerationCount] = useState(0);
+
+  useEffect(() => {
+    if (!isNetworkMode || !user?.is_reseller) return;
+    apiFetch<{ sender_names: number; templates: number; registrations: number }>('/reseller/moderation/counts')
+      .then((data) => setModerationCount(data.sender_names + data.templates + data.registrations))
+      .catch(() => {});
+  }, [isNetworkMode, user?.is_reseller]);
+
+  const navItems = isNetworkMode ? NETWORK_NAV_ITEMS : OWN_NAV_ITEMS;
+  const navGroups = isNetworkMode ? buildNetworkNavGroups(moderationCount) : buildOwnNavGroups();
+  const sidebarTitle = isNetworkMode ? 'Управление сетью' : 'SMS Portal';
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -108,7 +144,7 @@ export function UserLayout() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="ml-3 font-semibold text-gray-900">SMS Portal</span>
+        <span className="ml-3 font-semibold text-gray-900">{sidebarTitle}</span>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setIsPaletteOpen(true)}
@@ -124,8 +160,8 @@ export function UserLayout() {
       </div>
 
       <Sidebar
-        title="SMS Portal"
-        items={NAV_ITEMS}
+        title={sidebarTitle}
+        items={navItems}
         groups={navGroups}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
@@ -133,7 +169,7 @@ export function UserLayout() {
           <div>
             {!!user?.is_reseller && (
               <div className="mb-3">
-                <ModeSwitcher currentMode="own" />
+                <ModeSwitcher currentMode={isNetworkMode ? 'network' : 'own'} />
               </div>
             )}
             <div className="flex items-center justify-between mb-2">
