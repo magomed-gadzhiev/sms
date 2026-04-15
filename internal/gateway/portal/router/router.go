@@ -451,6 +451,20 @@ func RegisterMaxMessengerWebhookRoute(router *mux.Router, handler http.HandlerFu
 	router.HandleFunc("/webhooks/cascade/max_messenger", handler).Methods("POST")
 }
 
+// RegisterAggregatorQuotaRoutes добавляет маршруты просмотра квоты для агрегаторов
+func RegisterAggregatorQuotaRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.AggregatorQuotaHandlers,
+) {
+	quota := router.PathPrefix("/portal/v1/quota").Subrouter()
+	quota.Use(sessionAuthMiddleware)
+	quota.Use(csrfMiddleware)
+	quota.HandleFunc("", h.GetMyQuota).Methods("GET")
+	quota.HandleFunc("/history", h.GetQuotaSpending).Methods("GET")
+}
+
 // RegisterDetalizationRoutes добавляет маршруты детализации сообщений для клиентского портала
 func RegisterDetalizationRoutes(
 	router *mux.Router,

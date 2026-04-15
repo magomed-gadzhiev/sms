@@ -15,6 +15,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
+	"database/sql"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	sharedmw "github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal"
@@ -32,6 +37,8 @@ import (
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
 	cascadepg "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/postgres"
 	portalschedules "github.com/smpp-server/smpp-server/internal/gateway/portal/schedules"
+	tarificationapp "github.com/smpp-server/smpp-server/internal/services/tarification/application"
+	tarificationrepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
 )
 
 func main() {
@@ -370,6 +377,18 @@ func main() {
 	// Регистрируем маршрут оценки стоимости кампании
 	costEstimateHandlers := handlers.NewCostEstimateHandlers(serviceClients.BillingClient, serviceClients.ContactClient)
 	portalrouter.RegisterCostEstimateRoutes(router, sessionAuthMw, csrfMw, costEstimateHandlers)
+
+	// Регистрируем маршруты просмотра квоты агрегатора
+	if sqlDB, err := sql.Open("pgx", dbDSN); err == nil {
+		sqlxDB := sqlx.NewDb(sqlDB, "pgx")
+		quotaRepo := tarificationrepo.NewAggregatorQuotaRepository(sqlxDB)
+		quotaService := tarificationapp.NewQuotaService(quotaRepo)
+		aggregatorQuotaHandlers := handlers.NewAggregatorQuotaHandlers(quotaService)
+		portalrouter.RegisterAggregatorQuotaRoutes(router, sessionAuthMw, csrfMw, aggregatorQuotaHandlers)
+		defer sqlDB.Close()
+	} else {
+		logger.Warn().Err(err).Msg("не удалось открыть sqlx соединение, quota handlers будут недоступны")
+	}
 
 	// Добавляем Prometheus metrics endpoint
 	if cfg.Monitoring.Prometheus.Enabled {
