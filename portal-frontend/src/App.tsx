@@ -60,6 +60,7 @@ import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDe
 import { RoutingPage } from './pages/routing/RoutingPage';
 import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 import { NetworkLayout } from './components/layout/NetworkLayout';
+import { ModerationPage } from './pages/network/ModerationPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -188,7 +189,7 @@ export function App() {
           <Route index element={<Navigate to="/network/sub-accounts" replace />} />
           <Route path="sub-accounts" element={<SubAccountsListPage />} />
           <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
-          <Route path="moderation" element={<div>Moderation placeholder</div>} />
+          <Route path="moderation" element={<ModerationPage />} />
         </Route>
 
         {/* Backward compat redirects */}
