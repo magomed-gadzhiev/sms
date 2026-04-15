@@ -97,9 +97,13 @@ export function ImportWizardPage() {
       setMapping(newMapping);
       setStep('mapping');
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Ошибка при загрузке файла',
-      );
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof TypeError) {
+        setError('Не удалось подключиться к серверу. Проверьте соединение');
+      } else {
+        setError('Ошибка при загрузке файла');
+      }
     } finally {
       setUploading(false);
     }
