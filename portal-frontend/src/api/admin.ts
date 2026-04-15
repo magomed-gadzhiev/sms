@@ -495,6 +495,14 @@ export const tarificationApi = {
     adminFetch<{ period: HierarchicalPeriod }>(`/tarification/periods/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePeriod: (id: string) =>
     adminFetch<void>(`/tarification/periods/${id}`, { method: 'DELETE' }),
+  listPeriodTiers: (periodId: string) =>
+    adminFetch<{ tiers: TariffTier[]; total: number }>(`/tarification/periods/${periodId}/tiers`),
+  createPeriodTier: (periodId: string, data: { from_count: number; price_per_segment: string }) =>
+    adminFetch<{ tier: TariffTier }>(`/tarification/periods/${periodId}/tiers`, { method: 'POST', body: JSON.stringify(data) }),
+  updatePeriodTier: (periodId: string, tierId: string, data: { from_count: number; price_per_segment: string }) =>
+    adminFetch<{ tier: TariffTier }>(`/tarification/periods/${periodId}/tiers/${tierId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePeriodTier: (periodId: string, tierId: string) =>
+    adminFetch<void>(`/tarification/periods/${periodId}/tiers/${tierId}`, { method: 'DELETE' }),
 };
 
 export const hlrApi = {
@@ -582,9 +590,8 @@ export interface HierarchicalPeriod {
 }
 
 export interface AutoCloseWarning {
-  closed_period_id: string;
-  old_end_date: string;
-  message: string;
+  period_id: string;
+  new_end_date: string;
 }
 
 export interface CreateHierarchicalPeriodRequest {
@@ -918,6 +925,53 @@ export interface OperatorTemplate {
   created_at: string;
   updated_at: string;
 }
+
+// ── Aggregator Quotas API ──
+
+export interface AggregatorQuota {
+  quota_id: string;
+  aggregator_id: string;
+  period_start: string;
+  period_end: string;
+  segment_limit: number;
+  segments_used: number;
+  overage_rate: string;
+  currency: string;
+  auto_renew: boolean;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const aggregatorQuotasApi = {
+  list: (aggregatorId: string, params?: { limit?: number; offset?: number }) =>
+    adminFetch<{ quotas: AggregatorQuota[]; total: number }>(
+      `/aggregators/${aggregatorId}/quotas${qs(params || {})}`,
+    ),
+  getActive: (aggregatorId: string) =>
+    adminFetch<{ quota: AggregatorQuota }>(`/aggregators/${aggregatorId}/quotas/active`),
+  create: (aggregatorId: string, data: {
+    period_start: string;
+    period_end: string;
+    segment_limit: number;
+    overage_rate: string;
+    currency?: string;
+    auto_renew?: boolean;
+  }) =>
+    adminFetch<{ quota: AggregatorQuota }>(`/aggregators/${aggregatorId}/quotas`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (aggregatorId: string, quotaId: string, data: {
+    segment_limit: number;
+    overage_rate: string;
+    auto_renew: boolean;
+  }) =>
+    adminFetch<{ quota: AggregatorQuota }>(`/aggregators/${aggregatorId}/quotas/${quotaId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
 
 export const operatorTemplatesApi = {
   list: (params?: { operator_id?: string; sender_name_id?: string; status?: string; limit?: number; offset?: number }) =>
