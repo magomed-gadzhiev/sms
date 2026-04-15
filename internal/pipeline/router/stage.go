@@ -36,6 +36,7 @@ type Stage struct {
 	defaultOperatorID uuid.UUID
 	cfg               *config.Config
 	logger            zerolog.Logger
+	pool              *pgxpool.Pool
 }
 
 // NewStage создает новый Router stage pipeline.
@@ -90,6 +91,7 @@ func NewStage(cfg *config.Config, db *storage.DB) (*Stage, error) {
 		defaultOperatorID: defaultOpID,
 		cfg:               cfg,
 		logger:            logger,
+		pool:              pool,
 	}
 
 	// Периодически перезагружаем маршруты для подхватывания изменений.
@@ -219,12 +221,19 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		providerID = *kafkaMsg.ProviderID
 	}
 
+	// Resolve sender name: substitute with system fallback if not approved.
+	clientIDStr := ""
+	if kafkaMsg.ClientID != nil {
+		clientIDStr = kafkaMsg.ClientID.String()
+	}
+	resolvedSource := s.resolveSenderName(ctx, clientIDStr, kafkaMsg.Source, operatorID.String())
+
 	resolvedOperatorID := operatorID
 	routed := &pipeline.RoutedMessage{
 		SchemaVersion: 1,
 		MessageID:     kafkaMsg.MessageID,
 		TraceID:       kafkaMsg.TraceID,
-		Source:        kafkaMsg.Source,
+		Source:        resolvedSource,
 		Destination:   kafkaMsg.Destination,
 		Text:          kafkaMsg.Text,
 		ClientID:      kafkaMsg.ClientID,
@@ -296,6 +305,79 @@ func (s *Stage) deserializeByTopic(msg *sarama.ConsumerMessage) (*queue.KafkaMes
 		return nil, fmt.Errorf("десериализация KafkaMessage: %w", err)
 	}
 	return kafkaMsg, nil
+}
+
+// resolveSenderName checks if sender name is approved for the given operator.
+// Returns fallback system sender if not approved. Fail-open: on DB error returns original name.
+func (s *Stage) resolveSenderName(ctx context.Context, clientID, senderName, operatorID string) string {
+	if senderName == "" || s.pool == nil || clientID == "" {
+		return senderName
+	}
+
+	// Numeric sender names (phone numbers) don't need registration checks.
+	isNumeric := true
+	for _, c := range senderName {
+		if c < '0' || c > '9' {
+			isNumeric = false
+			break
+		}
+	}
+	if isNumeric {
+		return senderName
+	}
+
+	// Check if sub-account or direct client, and get sender_name status.
+	var parentClientID *string
+	var snStatus string
+	err := s.pool.QueryRow(ctx,
+		`SELECT c.parent_client_id, COALESCE(sn.status, '')
+		 FROM clients c
+		 LEFT JOIN sender_names sn ON sn.client_id = c.id AND sn.name = $2
+		 WHERE c.id = $1
+		 LIMIT 1`,
+		clientID, senderName,
+	).Scan(&parentClientID, &snStatus)
+	if err != nil {
+		return senderName // fail-open
+	}
+
+	// Sub-account: only check sender_name approval.
+	if parentClientID != nil {
+		if snStatus == "approved" {
+			return senderName
+		}
+		return s.getFallbackSender(ctx)
+	}
+
+	// Direct client: check operator_registrations.approved_type.
+	var approvedType *string
+	err = s.pool.QueryRow(ctx,
+		`SELECT or2.approved_type
+		 FROM operator_registrations or2
+		 JOIN sender_names sn ON sn.id = or2.sender_name_id
+		 WHERE sn.client_id = $1 AND sn.name = $2 AND or2.operator_id = $3
+		 LIMIT 1`,
+		clientID, senderName, operatorID,
+	).Scan(&approvedType)
+	if err != nil || approvedType == nil {
+		return s.getFallbackSender(ctx)
+	}
+	return senderName
+}
+
+// getFallbackSender returns the system-configured default sender name.
+func (s *Stage) getFallbackSender(ctx context.Context) string {
+	if s.pool == nil {
+		return "SMS"
+	}
+	var val string
+	err := s.pool.QueryRow(ctx,
+		`SELECT value FROM system_defaults WHERE key = 'default_sender_name' LIMIT 1`,
+	).Scan(&val)
+	if err != nil || val == "" {
+		return "SMS"
+	}
+	return val
 }
 
 // Close выполняет graceful shutdown stage: закрывает consumer и producer.
