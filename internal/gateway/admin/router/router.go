@@ -36,6 +36,7 @@ func SetupRouter(
 	platformRoutesHandlers *handlers.PlatformRoutesHandlers,
 	connectionsHandlers *handlers.ConnectionsHandlers,
 	auditHandlers *handlers.AdminAuditHandlers,
+	aggregatorQuotaHandlers *handlers.AggregatorQuotaHandler,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -179,6 +180,10 @@ func SetupRouter(
 	tarification.HandleFunc("/periods", hierarchicalPeriodsHandler.CreatePeriod).Methods("POST")
 	tarification.HandleFunc("/periods/{id}", hierarchicalPeriodsHandler.UpdatePeriod).Methods("PUT")
 	tarification.HandleFunc("/periods/{id}", hierarchicalPeriodsHandler.DeletePeriod).Methods("DELETE")
+	tarification.HandleFunc("/periods/{id}/tiers", hierarchicalPeriodsHandler.ListPeriodTiers).Methods("GET")
+	tarification.HandleFunc("/periods/{id}/tiers", hierarchicalPeriodsHandler.CreatePeriodTier).Methods("POST")
+	tarification.HandleFunc("/periods/{id}/tiers/{tier_id}", hierarchicalPeriodsHandler.UpdatePeriodTier).Methods("PUT")
+	tarification.HandleFunc("/periods/{id}/tiers/{tier_id}", hierarchicalPeriodsHandler.DeletePeriodTier).Methods("DELETE")
 
 	// HLR Provider endpoints
 	hlrProviders := adminV1.PathPrefix("/hlr/providers").Subrouter()
@@ -276,6 +281,12 @@ func SetupRouter(
 
 	// Audit log endpoint
 	adminV1.HandleFunc("/audit", auditHandlers.ListAuditLog).Methods("GET")
+
+	// Aggregator Quotas
+	adminV1.HandleFunc("/aggregators/{id}/quotas", aggregatorQuotaHandlers.CreateQuota).Methods("POST")
+	adminV1.HandleFunc("/aggregators/{id}/quotas", aggregatorQuotaHandlers.ListQuotas).Methods("GET")
+	adminV1.HandleFunc("/aggregators/{id}/quotas/active", aggregatorQuotaHandlers.GetActiveQuota).Methods("GET")
+	adminV1.HandleFunc("/aggregators/{id}/quotas/{quota_id}", aggregatorQuotaHandlers.UpdateQuota).Methods("PUT")
 
 	// Health check endpoints (без аутентификации)
 	router.HandleFunc("/health", healthChecker.Handler()).Methods("GET")

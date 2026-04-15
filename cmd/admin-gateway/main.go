@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 	sharedmw "github.com/smpp-server/smpp-server/internal/api/middleware"
 	"github.com/smpp-server/smpp-server/internal/config"
@@ -22,6 +23,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	adminrouter "github.com/smpp-server/smpp-server/internal/gateway/admin/router"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
+	"github.com/smpp-server/smpp-server/internal/services/tarification/application"
+	quotarepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -147,6 +150,12 @@ func main() {
 	connectionsHandlers := handlers.NewConnectionsHandlers(adminDB, serviceClients.ProviderClient, redisClient)
 	auditHandlers := handlers.NewAdminAuditHandlers(serviceClients.AuditClient)
 
+	// Quota service — wraps the existing *sql.DB with sqlx for the quota repository
+	sqlxDB := sqlx.NewDb(adminDB.DB, "pgx")
+	quotaRepo := quotarepo.NewAggregatorQuotaRepository(sqlxDB)
+	quotaService := application.NewQuotaService(quotaRepo)
+	aggregatorQuotaHandlers := handlers.NewAggregatorQuotaHandler(quotaService)
+
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
 	loggingMiddleware := sharedmw.LoggingMiddleware(logger)
@@ -181,6 +190,7 @@ func main() {
 		platformRoutesHandlers,
 		connectionsHandlers,
 		auditHandlers,
+		aggregatorQuotaHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,
