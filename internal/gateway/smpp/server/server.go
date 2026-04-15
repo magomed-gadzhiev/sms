@@ -29,6 +29,7 @@ type Server struct {
 	messageRepo *storage.MessageRepository
 	optOutRepo  *storage.OptOutRepository
 	producer    *queue.Producer
+	redisStore  *RedisStore
 	logger      zerolog.Logger
 
 	// Контекст для graceful shutdown
@@ -53,6 +54,7 @@ func NewServer(
 	messageRepo *storage.MessageRepository,
 	optOutRepo *storage.OptOutRepository,
 	producer *queue.Producer,
+	redisStore *RedisStore,
 	logger zerolog.Logger,
 ) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -64,6 +66,7 @@ func NewServer(
 		messageRepo: messageRepo,
 		optOutRepo:  optOutRepo,
 		producer:    producer,
+		redisStore:  redisStore,
 		logger:      logger.With().Str("component", "smpp_gateway").Logger(),
 		ctx:         ctx,
 		cancel:      cancel,
@@ -174,6 +177,11 @@ func (s *Server) handleConnection(conn net.Conn) {
 	
 	// Удаляем сессию при завершении
 	defer func() {
+		if s.redisStore != nil && session.SystemID != "" {
+			if err := s.redisStore.DeleteSessionBinding(context.Background(), session.SystemID); err != nil {
+				s.logger.Error().Err(err).Str("system_id", session.SystemID).Msg("ошибка удаления session binding при disconnect")
+			}
+		}
 		s.sessionsMu.Lock()
 		delete(s.sessions, session.ID)
 		s.sessionsMu.Unlock()
@@ -190,7 +198,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	authAdapter := NewAuthAdapter(s.authClient, s.logger)
 	
 	// Создаем обработчик команд
-	handler := NewHandler(session, authAdapter, s.messageRepo, s.optOutRepo, s.producer, s.logger)
+	handler := NewHandler(session, authAdapter, s.messageRepo, s.optOutRepo, s.producer, s.redisStore, s.logger)
 	
 	// Читаем и обрабатываем PDU
 	for {

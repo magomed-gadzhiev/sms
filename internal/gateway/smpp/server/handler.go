@@ -26,6 +26,7 @@ type Handler struct {
 	messageRepo  *storage.MessageRepository
 	optOutRepo   *storage.OptOutRepository
 	producer     *queue.Producer
+	redisStore   *RedisStore
 	logger       zerolog.Logger
 }
 
@@ -36,6 +37,7 @@ func NewHandler(
 	messageRepo *storage.MessageRepository,
 	optOutRepo *storage.OptOutRepository,
 	producer *queue.Producer,
+	redisStore *RedisStore,
 	logger zerolog.Logger,
 ) *Handler {
 	return &Handler{
@@ -47,6 +49,7 @@ func NewHandler(
 		messageRepo: messageRepo,
 		optOutRepo:  optOutRepo,
 		producer:    producer,
+		redisStore:  redisStore,
 		logger:      logger,
 	}
 }
@@ -142,7 +145,14 @@ func (h *Handler) handleBindReceiver(pdu *protocol.PDU) error {
 		h.logger.Error().Err(err).Msg("ошибка привязки сессии")
 		return h.sendBindResp(pdu.SequenceNumber, protocol.BindReceiverResp, protocol.ESME_RINVBNDSTS, "")
 	}
-	
+
+	if h.redisStore != nil {
+		binding := &SessionBinding{GatewayAddr: "smpp-gateway:9095"}
+		if err := h.redisStore.SaveSessionBinding(context.Background(), bind.SystemID, binding); err != nil {
+			h.logger.Error().Err(err).Str("system_id", bind.SystemID).Msg("ошибка сохранения session binding в Redis")
+		}
+	}
+
 	// Отправляем успешный ответ
 	return h.sendBindResp(pdu.SequenceNumber, protocol.BindReceiverResp, protocol.ESME_ROK, bind.SystemID)
 }
@@ -183,7 +193,14 @@ func (h *Handler) handleBindTransmitter(pdu *protocol.PDU) error {
 		h.logger.Error().Err(err).Msg("ошибка привязки сессии")
 		return h.sendBindResp(pdu.SequenceNumber, protocol.BindTransmitterResp, protocol.ESME_RINVBNDSTS, "")
 	}
-	
+
+	if h.redisStore != nil {
+		binding := &SessionBinding{GatewayAddr: "smpp-gateway:9095"}
+		if err := h.redisStore.SaveSessionBinding(context.Background(), bind.SystemID, binding); err != nil {
+			h.logger.Error().Err(err).Str("system_id", bind.SystemID).Msg("ошибка сохранения session binding в Redis")
+		}
+	}
+
 	// Отправляем успешный ответ
 	return h.sendBindResp(pdu.SequenceNumber, protocol.BindTransmitterResp, protocol.ESME_ROK, bind.SystemID)
 }
@@ -224,7 +241,14 @@ func (h *Handler) handleBindTransceiver(pdu *protocol.PDU) error {
 		h.logger.Error().Err(err).Msg("ошибка привязки сессии")
 		return h.sendBindResp(pdu.SequenceNumber, protocol.BindTransceiverResp, protocol.ESME_RINVBNDSTS, "")
 	}
-	
+
+	if h.redisStore != nil {
+		binding := &SessionBinding{GatewayAddr: "smpp-gateway:9095"}
+		if err := h.redisStore.SaveSessionBinding(context.Background(), bind.SystemID, binding); err != nil {
+			h.logger.Error().Err(err).Str("system_id", bind.SystemID).Msg("ошибка сохранения session binding в Redis")
+		}
+	}
+
 	// Отправляем успешный ответ
 	return h.sendBindResp(pdu.SequenceNumber, protocol.BindTransceiverResp, protocol.ESME_ROK, bind.SystemID)
 }
@@ -239,7 +263,13 @@ func (h *Handler) handleUnbind(pdu *protocol.PDU) error {
 		h.logger.Error().Err(err).Msg("ошибка отвязки сессии")
 		return h.sendUnbindResp(pdu.SequenceNumber, protocol.ESME_RSYSERR)
 	}
-	
+
+	if h.redisStore != nil {
+		if err := h.redisStore.DeleteSessionBinding(context.Background(), h.session.SystemID); err != nil {
+			h.logger.Error().Err(err).Msg("ошибка удаления session binding из Redis")
+		}
+	}
+
 	return h.sendUnbindResp(pdu.SequenceNumber, protocol.ESME_ROK)
 }
 
@@ -337,6 +367,19 @@ func (h *Handler) handleSubmitSM(pdu *protocol.PDU) error {
 		return h.sendSubmitSMResp(pdu.SequenceNumber, protocol.ESME_RSYSERR, "")
 	}
 	
+	// Сохраняем маппинг message_id → session для DLR delivery
+	if h.redisStore != nil {
+		mapping := &MessageMapping{
+			SystemID:   h.session.SystemID,
+			SourceAddr: submit.SourceAddr,
+			DestAddr:   submit.DestinationAddr,
+			SubmitDate: time.Now(),
+		}
+		if err := h.redisStore.SaveMessageMapping(ctx, msgID.String(), mapping); err != nil {
+			h.logger.Error().Err(err).Str("message_id", msgID.String()).Msg("ошибка сохранения message mapping в Redis")
+		}
+	}
+
 	// Увеличиваем счетчик полученных сообщений
 	clientIDStr := ""
 	if h.session.ClientID != nil {
@@ -361,7 +404,13 @@ func (h *Handler) handleEnquireLink(pdu *protocol.PDU) error {
 	}
 	
 	h.session.UpdateEnquireLinkSent()
-	
+
+	if h.redisStore != nil && h.session.SystemID != "" {
+		if err := h.redisStore.RefreshSessionTTL(context.Background(), h.session.SystemID); err != nil {
+			h.logger.Error().Err(err).Msg("ошибка обновления TTL session binding")
+		}
+	}
+
 	return h.sendEnquireLinkResp(pdu.SequenceNumber, protocol.ESME_ROK)
 }
 
