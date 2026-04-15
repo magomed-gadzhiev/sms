@@ -30,9 +30,9 @@ func (r *TransactionRepository) Create(ctx context.Context, transaction *domain.
 		INSERT INTO transactions (
 			id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		)
 	`
 
@@ -57,6 +57,7 @@ func (r *TransactionRepository) Create(ctx context.Context, transaction *domain.
 		transaction.MessageID,
 		transaction.PaymentMethod,
 		metadataJSON,
+		transaction.AttributedSubAccountID,
 		transaction.CreatedAt,
 	)
 
@@ -69,9 +70,9 @@ func (r *TransactionRepository) CreateTx(ctx context.Context, tx *sqlx.Tx, trans
 		INSERT INTO transactions (
 			id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		)
 	`
 
@@ -96,6 +97,7 @@ func (r *TransactionRepository) CreateTx(ctx context.Context, tx *sqlx.Tx, trans
 		transaction.MessageID,
 		transaction.PaymentMethod,
 		metadataJSON,
+		transaction.AttributedSubAccountID,
 		transaction.CreatedAt,
 	)
 
@@ -107,11 +109,12 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	var transaction domain.Transaction
 	var metadataJSON []byte
 	var messageID sql.NullString
+	var attributedSubAccountID sql.NullString
 
 	query := `
 		SELECT id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		FROM transactions
 		WHERE id = $1
 	`
@@ -128,6 +131,7 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 		&messageID,
 		&transaction.PaymentMethod,
 		&metadataJSON,
+		&attributedSubAccountID,
 		&transaction.CreatedAt,
 	)
 	if err != nil {
@@ -141,6 +145,13 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 		msgID, err := uuid.Parse(messageID.String)
 		if err == nil {
 			transaction.MessageID = &msgID
+		}
+	}
+
+	if attributedSubAccountID.Valid {
+		subAcctID, err := uuid.Parse(attributedSubAccountID.String)
+		if err == nil {
+			transaction.AttributedSubAccountID = &subAcctID
 		}
 	}
 
@@ -160,7 +171,7 @@ func (r *TransactionRepository) GetAll(ctx context.Context, limit, offset int) (
 	query := `
 		SELECT id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		FROM transactions
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -174,7 +185,7 @@ func (r *TransactionRepository) GetByClientID(ctx context.Context, clientID uuid
 	query := `
 		SELECT id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		FROM transactions
 		WHERE client_id = $1
 		ORDER BY created_at DESC
@@ -189,7 +200,7 @@ func (r *TransactionRepository) GetByClientIDAndType(ctx context.Context, client
 	query := `
 		SELECT id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		FROM transactions
 		WHERE client_id = $1 AND type = $2
 		ORDER BY created_at DESC
@@ -204,7 +215,7 @@ func (r *TransactionRepository) GetByClientIDAndPeriod(ctx context.Context, clie
 	query := `
 		SELECT id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		FROM transactions
 		WHERE client_id = $1 AND created_at >= $2 AND created_at <= $3
 		ORDER BY created_at DESC
@@ -219,11 +230,12 @@ func (r *TransactionRepository) GetByMessageID(ctx context.Context, messageID uu
 	var transaction domain.Transaction
 	var metadataJSON []byte
 	var msgID sql.NullString
+	var attributedSubAccountID sql.NullString
 
 	query := `
 		SELECT id, client_id, type, amount, currency,
 			balance_before, balance_after, description,
-			message_id, payment_method, metadata, created_at
+			message_id, payment_method, metadata, attributed_sub_account_id, created_at
 		FROM transactions
 		WHERE message_id = $1
 		LIMIT 1
@@ -241,6 +253,7 @@ func (r *TransactionRepository) GetByMessageID(ctx context.Context, messageID uu
 		&msgID,
 		&transaction.PaymentMethod,
 		&metadataJSON,
+		&attributedSubAccountID,
 		&transaction.CreatedAt,
 	)
 	if err != nil {
@@ -254,6 +267,13 @@ func (r *TransactionRepository) GetByMessageID(ctx context.Context, messageID uu
 		parsedID, err := uuid.Parse(msgID.String)
 		if err == nil {
 			transaction.MessageID = &parsedID
+		}
+	}
+
+	if attributedSubAccountID.Valid {
+		subAcctID, err := uuid.Parse(attributedSubAccountID.String)
+		if err == nil {
+			transaction.AttributedSubAccountID = &subAcctID
 		}
 	}
 
@@ -281,6 +301,7 @@ func (r *TransactionRepository) scanTransactions(ctx context.Context, query stri
 		var transaction domain.Transaction
 		var metadataJSON []byte
 		var messageID sql.NullString
+		var attributedSubAccountID sql.NullString
 
 		err := rows.Scan(
 			&transaction.ID,
@@ -294,6 +315,7 @@ func (r *TransactionRepository) scanTransactions(ctx context.Context, query stri
 			&messageID,
 			&transaction.PaymentMethod,
 			&metadataJSON,
+			&attributedSubAccountID,
 			&transaction.CreatedAt,
 		)
 		if err != nil {
@@ -304,6 +326,13 @@ func (r *TransactionRepository) scanTransactions(ctx context.Context, query stri
 			msgID, err := uuid.Parse(messageID.String)
 			if err == nil {
 				transaction.MessageID = &msgID
+			}
+		}
+
+		if attributedSubAccountID.Valid {
+			subAcctID, err := uuid.Parse(attributedSubAccountID.String)
+			if err == nil {
+				transaction.AttributedSubAccountID = &subAcctID
 			}
 		}
 

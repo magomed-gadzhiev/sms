@@ -29,6 +29,7 @@ type Transaction struct {
 	MessageID     *uuid.UUID
 	PaymentMethod *string
 	Metadata      map[string]interface{}
+	AttributedSubAccountID *uuid.UUID
 	CreatedAt     time.Time
 }
 
@@ -67,6 +68,12 @@ func (t *Transaction) WithDescription(description string) *Transaction {
 // WithPaymentMethod добавляет способ оплаты
 func (t *Transaction) WithPaymentMethod(method string) *Transaction {
 	t.PaymentMethod = &method
+	return t
+}
+
+// WithAttributedSubAccount tags a transaction with the sub-account that triggered it.
+func (t *Transaction) WithAttributedSubAccount(subAccountID uuid.UUID) *Transaction {
+	t.AttributedSubAccountID = &subAccountID
 	return t
 }
 
