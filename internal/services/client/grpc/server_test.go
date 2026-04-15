@@ -55,6 +55,11 @@ func (m *mockClientRepo) List(ctx context.Context, activeOnly bool, search strin
 	return args.Get(0).([]*domain.Client), args.Int(1), args.Error(2)
 }
 
+func (m *mockClientRepo) AssignPlan(ctx context.Context, clientID uuid.UUID, planID uuid.UUID) error {
+	args := m.Called(ctx, clientID, planID)
+	return args.Error(0)
+}
+
 type mockConfigRepo struct {
 	mock.Mock
 }

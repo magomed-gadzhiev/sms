@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,11 +18,12 @@ import (
 // HierarchicalPeriodsHandler handles the dimension-based periods API.
 type HierarchicalPeriodsHandler struct {
 	svc *services.PeriodService
+	db  *storage.DB
 }
 
 // NewHierarchicalPeriodsHandler creates the handler.
 func NewHierarchicalPeriodsHandler(db *storage.DB) *HierarchicalPeriodsHandler {
-	return &HierarchicalPeriodsHandler{svc: services.NewPeriodService(db)}
+	return &HierarchicalPeriodsHandler{svc: services.NewPeriodService(db), db: db}
 }
 
 // periodResponse is the JSON shape returned to the frontend.
@@ -282,6 +284,171 @@ func parseDimensions(countryStr, operatorStr, senderCat, trafficType, clientStr 
 		d.ClientID = id
 	}
 	return d, nil
+}
+
+// tierResponse is the JSON shape for a tariff_tiers_new row.
+type tierResponse struct {
+	ID             string `json:"id"`
+	TariffPeriodID string `json:"tariff_period_id"`
+	FromCount      int    `json:"from_count"`
+	PricePerSegment string `json:"price_per_segment"`
+	CreatedAt      string `json:"created_at"`
+}
+
+// ListPeriodTiers handles GET /admin/v1/tarification/periods/{id}/tiers
+func (h *HierarchicalPeriodsHandler) ListPeriodTiers(w http.ResponseWriter, r *http.Request) {
+	periodID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid period id"))
+		return
+	}
+	rows, err := h.db.QueryContext(r.Context(),
+		`SELECT id::text, tariff_period_id::text, from_count, price_per_segment::text, created_at
+		 FROM tariff_tiers_new WHERE tariff_period_id = $1 ORDER BY from_count ASC`, periodID)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer(err.Error()))
+		return
+	}
+	defer rows.Close()
+	tiers := make([]tierResponse, 0)
+	for rows.Next() {
+		var t tierResponse
+		var createdAt time.Time
+		if err := rows.Scan(&t.ID, &t.TariffPeriodID, &t.FromCount, &t.PricePerSegment, &createdAt); err != nil {
+			respondError(w, shared.ErrInternalServer(err.Error()))
+			return
+		}
+		t.CreatedAt = createdAt.Format(time.RFC3339)
+		tiers = append(tiers, t)
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, shared.ErrInternalServer(err.Error()))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"tiers": tiers, "total": len(tiers)})
+}
+
+// createPeriodTierRequest is the POST body for tier creation.
+type createPeriodTierRequest struct {
+	FromCount       int    `json:"from_count"`
+	PricePerSegment string `json:"price_per_segment"`
+}
+
+// CreatePeriodTier handles POST /admin/v1/tarification/periods/{id}/tiers
+func (h *HierarchicalPeriodsHandler) CreatePeriodTier(w http.ResponseWriter, r *http.Request) {
+	periodID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid period id"))
+		return
+	}
+	var req createPeriodTierRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
+		return
+	}
+	if req.PricePerSegment == "" {
+		respondError(w, shared.ErrInvalidInput("price_per_segment is required"))
+		return
+	}
+	if req.FromCount < 0 {
+		respondError(w, shared.ErrInvalidInput("from_count must be >= 0"))
+		return
+	}
+	var t tierResponse
+	var createdAt time.Time
+	err = h.db.QueryRowContext(r.Context(),
+		`INSERT INTO tariff_tiers_new (tariff_period_id, from_count, price_per_segment)
+		 VALUES ($1, $2, $3)
+		 RETURNING id::text, tariff_period_id::text, from_count, price_per_segment::text, created_at`,
+		periodID, req.FromCount, req.PricePerSegment,
+	).Scan(&t.ID, &t.TariffPeriodID, &t.FromCount, &t.PricePerSegment, &createdAt)
+	if err != nil {
+		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+			respondError(w, shared.ErrConflict(fmt.Sprintf("tier with from_count=%d already exists in this period", req.FromCount)))
+			return
+		}
+		if strings.Contains(err.Error(), "foreign key") || strings.Contains(err.Error(), "violates") {
+			respondError(w, shared.ErrNotFound("period not found"))
+			return
+		}
+		respondError(w, shared.ErrInternalServer(err.Error()))
+		return
+	}
+	t.CreatedAt = createdAt.Format(time.RFC3339)
+	respondJSON(w, http.StatusCreated, map[string]interface{}{"tier": t})
+}
+
+// updatePeriodTierRequest is the PUT body.
+type updatePeriodTierRequest struct {
+	FromCount       int    `json:"from_count"`
+	PricePerSegment string `json:"price_per_segment"`
+}
+
+// UpdatePeriodTier handles PUT /admin/v1/tarification/periods/{id}/tiers/{tier_id}
+func (h *HierarchicalPeriodsHandler) UpdatePeriodTier(w http.ResponseWriter, r *http.Request) {
+	periodID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid period id"))
+		return
+	}
+	tierID, err := uuid.Parse(mux.Vars(r)["tier_id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid tier id"))
+		return
+	}
+	var req updatePeriodTierRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
+		return
+	}
+	if req.PricePerSegment == "" {
+		respondError(w, shared.ErrInvalidInput("price_per_segment is required"))
+		return
+	}
+	var t tierResponse
+	var createdAt time.Time
+	err = h.db.QueryRowContext(r.Context(),
+		`UPDATE tariff_tiers_new SET from_count=$1, price_per_segment=$2
+		 WHERE id=$3 AND tariff_period_id=$4
+		 RETURNING id::text, tariff_period_id::text, from_count, price_per_segment::text, created_at`,
+		req.FromCount, req.PricePerSegment, tierID, periodID,
+	).Scan(&t.ID, &t.TariffPeriodID, &t.FromCount, &t.PricePerSegment, &createdAt)
+	if err != nil {
+		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+			respondError(w, shared.ErrConflict(fmt.Sprintf("tier with from_count=%d already exists in this period", req.FromCount)))
+			return
+		}
+		respondError(w, shared.ErrNotFound("tier not found"))
+		return
+	}
+	t.CreatedAt = createdAt.Format(time.RFC3339)
+	respondJSON(w, http.StatusOK, map[string]interface{}{"tier": t})
+}
+
+// DeletePeriodTier handles DELETE /admin/v1/tarification/periods/{id}/tiers/{tier_id}
+func (h *HierarchicalPeriodsHandler) DeletePeriodTier(w http.ResponseWriter, r *http.Request) {
+	periodID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid period id"))
+		return
+	}
+	tierID, err := uuid.Parse(mux.Vars(r)["tier_id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid tier id"))
+		return
+	}
+	res, err := h.db.ExecContext(r.Context(),
+		`DELETE FROM tariff_tiers_new WHERE id=$1 AND tariff_period_id=$2`, tierID, periodID)
+	if err != nil {
+		respondError(w, shared.ErrInternalServer(err.Error()))
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		respondError(w, shared.ErrNotFound("tier not found"))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // respondPeriodError maps service errors to HTTP status codes.

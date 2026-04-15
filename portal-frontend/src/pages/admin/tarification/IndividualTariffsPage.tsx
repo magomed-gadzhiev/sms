@@ -12,6 +12,7 @@ import { useToast } from '../../../components/ui/Toast';
 import {
   clientsApi,
   tarificationApi,
+  AdminApiError,
   type ClientInfo,
   type HierarchicalPeriod,
   type TariffTier,
@@ -19,11 +20,15 @@ import {
 } from '../../../api/admin';
 
 const STRATEGY_OPTIONS = [
-  { value: 'fixed', label: 'fixed' },
-  { value: 'threshold', label: 'threshold' },
-  { value: 'threshold_recalc', label: 'threshold_recalc' },
-  { value: 'prepaid_threshold', label: 'prepaid_threshold' },
+  { value: 'fixed', label: 'Фиксированная (fixed)' },
+  { value: 'threshold', label: 'Пороговая (threshold)' },
+  { value: 'threshold_recalc', label: 'Пороговая с пересчётом (threshold_recalc)' },
+  { value: 'prepaid_threshold', label: 'Предоплатная пороговая (prepaid_threshold)' },
 ];
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function periodStatus(p: HierarchicalPeriod): { label: string; variant: 'success' | 'warning' | 'default' } {
   const today = new Date();
@@ -37,6 +42,11 @@ function periodStatus(p: HierarchicalPeriod): { label: string; variant: 'success
     if (end < today) return { label: 'Истёк', variant: 'default' };
   }
   return { label: 'Активен', variant: 'success' };
+}
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof AdminApiError) return err.message;
+  return fallback;
 }
 
 export function IndividualTariffsPage() {
@@ -58,8 +68,9 @@ export function IndividualTariffsPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState('');
   const [showTierForm, setShowTierForm] = useState(false);
   const [editTier, setEditTier] = useState<TariffTier | null>(null);
+  const [deleteTier, setDeleteTier] = useState<TariffTier | null>(null);
   const [savingTier, setSavingTier] = useState(false);
-  const [tierForm, setTierForm] = useState({ tariff_period_id: '', from_count: 0, price_per_segment: '' });
+  const [tierForm, setTierForm] = useState({ from_count: 0, price_per_segment: '' });
 
   const clientOptions = clients.map((c) => ({ value: c.client_id, label: c.name }));
   const periodOptions = periods.map((p) => ({
@@ -77,8 +88,8 @@ export function IndividualTariffsPage() {
     try {
       const res = await tarificationApi.listPeriods({ client_id: selectedClientId });
       setPeriods(res.periods || []);
-    } catch {
-      toast.error('Не удалось загрузить периоды');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Не удалось загрузить периоды'));
     } finally {
       setPeriodsLoading(false);
     }
@@ -88,10 +99,10 @@ export function IndividualTariffsPage() {
     if (!selectedPeriodId) return;
     setTiersLoading(true);
     try {
-      const res = await tarificationApi.listTariffTiers({ tariff_period_id: selectedPeriodId });
+      const res = await tarificationApi.listPeriodTiers(selectedPeriodId);
       setTiers(res.tiers || []);
-    } catch {
-      toast.error('Не удалось загрузить тиры');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Не удалось загрузить тиры'));
     } finally {
       setTiersLoading(false);
     }
@@ -113,13 +124,19 @@ export function IndividualTariffsPage() {
         start_date: periodForm.start_date,
         end_date: periodForm.end_date || null,
       };
-      await tarificationApi.createPeriod(req);
-      toast.success('Период создан');
+      const result = await tarificationApi.createPeriod(req);
+      if (result.auto_close_warning) {
+        toast.info(
+          `Период создан. Предыдущий открытый период автоматически закрыт — установлена дата окончания ${result.auto_close_warning.new_end_date}`
+        );
+      } else {
+        toast.success('Период создан');
+      }
       setShowPeriodForm(false);
       setPeriodForm({ strategy: 'fixed', start_date: '', end_date: '' });
       fetchPeriods();
-    } catch {
-      toast.error('Не удалось создать период');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Не удалось создать период'));
     } finally {
       setSavingPeriod(false);
     }
@@ -131,44 +148,70 @@ export function IndividualTariffsPage() {
       await tarificationApi.deletePeriod(deletePeriod.id);
       toast.success('Период удалён');
       setDeletePeriod(null);
+      if (selectedPeriodId === deletePeriod.id) {
+        setSelectedPeriodId('');
+        setTiers([]);
+      }
       fetchPeriods();
-    } catch {
-      toast.error('Не удалось удалить период');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Не удалось удалить период'));
     }
   }
 
   function openCreateTier() {
     setEditTier(null);
-    setTierForm({ tariff_period_id: selectedPeriodId, from_count: 0, price_per_segment: '' });
+    setTierForm({ from_count: 0, price_per_segment: '' });
     setShowTierForm(true);
   }
 
   function openEditTier(t: TariffTier) {
     setEditTier(t);
-    setTierForm({ tariff_period_id: t.tariff_period_id, from_count: t.from_count, price_per_segment: t.price_per_segment });
+    setTierForm({ from_count: t.from_count, price_per_segment: t.price_per_segment });
     setShowTierForm(true);
   }
 
   async function handleSaveTier() {
-    if (!tierForm.tariff_period_id || !tierForm.price_per_segment) {
-      toast.error('Выберите период и укажите цену');
+    if (!tierForm.price_per_segment) {
+      toast.error('Укажите цену за сегмент');
+      return;
+    }
+    if (!selectedPeriodId) {
+      toast.error('Выберите период');
       return;
     }
     setSavingTier(true);
     try {
       if (editTier) {
-        await tarificationApi.updateTariffTier(editTier.id, { from_count: tierForm.from_count, price_per_segment: tierForm.price_per_segment });
+        await tarificationApi.updatePeriodTier(selectedPeriodId, editTier.id, {
+          from_count: tierForm.from_count,
+          price_per_segment: tierForm.price_per_segment,
+        });
         toast.success('Тир обновлён');
       } else {
-        await tarificationApi.createTariffTier({ tariff_period_id: tierForm.tariff_period_id, from_count: tierForm.from_count, price_per_segment: tierForm.price_per_segment });
+        await tarificationApi.createPeriodTier(selectedPeriodId, {
+          from_count: tierForm.from_count,
+          price_per_segment: tierForm.price_per_segment,
+        });
         toast.success('Тир создан');
       }
       setShowTierForm(false);
       fetchTiers();
-    } catch {
-      toast.error('Не удалось сохранить тир');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Не удалось сохранить тир'));
     } finally {
       setSavingTier(false);
+    }
+  }
+
+  async function handleDeleteTier() {
+    if (!deleteTier || !selectedPeriodId) return;
+    try {
+      await tarificationApi.deletePeriodTier(selectedPeriodId, deleteTier.id);
+      toast.success('Тир удалён');
+      setDeleteTier(null);
+      fetchTiers();
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Не удалось удалить тир'));
     }
   }
 
@@ -290,7 +333,10 @@ export function IndividualTariffsPage() {
                   onPageChange={() => {}}
                   loading={tiersLoading}
                   rowActions={(t) => (
-                    <Button size="sm" variant="ghost" onClick={() => openEditTier(t)}>Изменить</Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => openEditTier(t)}>Изменить</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteTier(t)}>Удалить</Button>
+                    </div>
                   )}
                 />
               ) : (
@@ -318,6 +364,7 @@ export function IndividualTariffsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Дата начала *</label>
               <Input
                 type="date"
+                min={todayISO()}
                 value={periodForm.start_date}
                 onChange={(e) => setPeriodForm((f) => ({ ...f, start_date: e.target.value }))}
               />
@@ -326,6 +373,7 @@ export function IndividualTariffsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Дата окончания</label>
               <Input
                 type="date"
+                min={periodForm.start_date || todayISO()}
                 value={periodForm.end_date}
                 onChange={(e) => setPeriodForm((f) => ({ ...f, end_date: e.target.value }))}
               />
@@ -342,17 +390,6 @@ export function IndividualTariffsPage() {
 
       <Modal open={showTierForm} onClose={() => setShowTierForm(false)} title={editTier ? 'Изменить тир' : 'Добавить тир'}>
         <div className="space-y-4">
-          {!editTier && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Период *</label>
-              <Select
-                value={tierForm.tariff_period_id}
-                onChange={(v) => setTierForm((f) => ({ ...f, tariff_period_id: v }))}
-                options={periodOptions}
-                placeholder="Выберите период..."
-              />
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">От (сегментов)</label>
@@ -388,6 +425,14 @@ export function IndividualTariffsPage() {
         description={`Период с ${deletePeriod?.start_date ?? ''} будет удалён вместе со всеми тирами.`}
         onConfirm={handleDeletePeriod}
         onCancel={() => setDeletePeriod(null)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTier}
+        title="Удалить тир?"
+        description={`Тир «от ${deleteTier?.from_count ?? ''} сегментов» будет удалён.`}
+        onConfirm={handleDeleteTier}
+        onCancel={() => setDeleteTier(null)}
       />
     </>
   );

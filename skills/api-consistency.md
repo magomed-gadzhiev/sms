@@ -5,10 +5,10 @@
 мёртвые эндпоинты и расхождения между контрактами и реализацией.
 В режиме fix — исправляй найденное. В режиме report — пиши отчёт.
 
-## Входные данные
-- **Scope:** {Scope: all | конкретный модуль/сервис, например: gateway, portal, billing}
-- **Mode:** {Mode: auto | interactive}
-- **Action:** {Action: report | fix}
+## Input
+- **Scope:** {all | specific module/service, e.g.: gateway, portal, billing}
+- **Mode:** {auto | interactive}
+- **Action:** {report | fix}
 
 ## Архитектура проекта (SMS-платформа)
 - HTTP API: Go 1.24 + gorilla/mux, роуты регистрируются в `router/` или `routes.go`

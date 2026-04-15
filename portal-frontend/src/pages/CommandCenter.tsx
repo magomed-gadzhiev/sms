@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import {
   commandCenterApi,
+  subAccountsApi,
   type DashboardMetrics,
   type ProviderHealth,
   type AlertItem,
@@ -389,14 +390,23 @@ function LiveFeed({
 
 // ── Command Center (main component) ──────────────────────────────────
 
+interface SubAccountSummary {
+  count: number;
+  activeCount: number;
+  totalBalance: number;
+  lowBalanceCount: number;
+}
+
 export function CommandCenter() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const isReseller = !!user?.is_reseller;
   const { unreadCount } = useNotifications(isAuthenticated);
 
   const [metrics, setMetrics]   = useState<DashboardMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [providers, setProviders] = useState<ProviderHealth[]>([]);
   const [alerts, setAlerts]     = useState<AlertItem[]>([]);
+  const [subSummary, setSubSummary] = useState<SubAccountSummary | null>(null);
 
   const fetchMetrics   = useCallback(() => {
     setMetricsLoading(true);
@@ -404,6 +414,22 @@ export function CommandCenter() {
   }, []);
   const fetchProviders = useCallback(() => commandCenterApi.getProviderHealth().then(r => setProviders(r.providers)).catch(() => {}), []);
   const fetchAlerts    = useCallback(() => commandCenterApi.getAlerts().then(r => setAlerts(r.items)).catch(() => {}), []);
+
+  useEffect(() => {
+    if (!isReseller) return;
+    subAccountsApi.list().then((resp) => {
+      const data = resp as { sub_accounts: Array<{ active: boolean; balance?: string }> };
+      const subs = data.sub_accounts ?? [];
+      const totalBalance = subs.reduce((sum, s) => sum + parseFloat(s.balance ?? '0'), 0);
+      const lowBalanceCount = subs.filter(s => parseFloat(s.balance ?? '0') < 100).length;
+      setSubSummary({
+        count: subs.length,
+        activeCount: subs.filter(s => s.active).length,
+        totalBalance,
+        lowBalanceCount,
+      });
+    }).catch(() => {});
+  }, [isReseller]);
 
   usePolling(fetchMetrics,   15_000);
   usePolling(fetchProviders, 30_000);
@@ -553,6 +579,37 @@ export function CommandCenter() {
           )}
         </KpiCard>
       </div>
+      )}
+
+      {/* Row 1b: Sub-accounts summary (resellers only) */}
+      {isReseller && subSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <KpiCard
+            title="Суб-аккаунты"
+            value={`${subSummary.activeCount} / ${subSummary.count}`}
+            subtitle="активных суб-аккаунтов"
+          >
+            <ProgressBar value={subSummary.activeCount} max={subSummary.count || 1} color="var(--cc-accent-blue)" />
+          </KpiCard>
+          <KpiCard
+            title="Суммарный баланс"
+            value={`${subSummary.totalBalance.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`}
+            subtitle="сумма балансов всех суб-аккаунтов"
+          />
+          <KpiCard
+            title="Низкий баланс"
+            value={subSummary.lowBalanceCount}
+            subtitle="суб-аккаунтов с балансом < 100 ₽"
+          >
+            <Link
+              to="/sub-accounts"
+              style={{ color: 'var(--cc-accent-blue)' }}
+              className="text-xs hover:underline mt-1 inline-block"
+            >
+              Управление суб-аккаунтами →
+            </Link>
+          </KpiCard>
+        </div>
       )}
 
       {/* Row 2: Live Feed (2/3) + Health Map (1/3) */}

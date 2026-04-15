@@ -143,6 +143,22 @@ func (m *mockTarificationClient) GetMarginReport(ctx context.Context, in *tarifi
 	return nil, nil
 }
 
+func (m *mockTarificationClient) CreateSenderBillingRecord(ctx context.Context, in *tarificationv1.CreateSenderBillingRecordRequest, opts ...grpc.CallOption) (*tarificationv1.CreateSenderBillingRecordResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*tarificationv1.CreateSenderBillingRecordResponse), args.Error(1)
+}
+
+func (m *mockTarificationClient) ListSenderBillingRecords(ctx context.Context, in *tarificationv1.ListSenderBillingRecordsRequest, opts ...grpc.CallOption) (*tarificationv1.ListSenderBillingRecordsResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*tarificationv1.ListSenderBillingRecordsResponse), args.Error(1)
+}
+
 var _ tarificationv1.TarificationServiceClient = (*mockTarificationClient)(nil)
 
 // --- Tests ---

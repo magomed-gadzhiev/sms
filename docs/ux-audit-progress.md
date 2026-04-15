@@ -1,5 +1,7 @@
 # UX Audit Progress
 
+## [IN_PROGRESS] Модуль: Повторяющиеся рассылки (client, /campaign-schedules, fix mode + инфраструктура + QA full, 2026-04-15)
+
 ## [DONE] Модуль: Сообщения и рассылки — роль аггрегатор (fix mode + инфраструктура, 2026-04-15)
 
 ### Исправлено
@@ -165,17 +167,59 @@
 | `GET /tariffs/current` / `GET /tariffs/plans` / `POST /tariffs/change` | ✅ все маршруты зарегистрированы |
 | Proto `billingv1`: GetBalance, AddCredits, TransferBalance, SetLowBalanceThreshold, ListBalances | ✅ все RPC соответствуют handler-вызовам |
 | Таблицы `accounts`, `transactions`, `balance_transfers` | ✅ миграции 000006, 000020, 000053 |
-| Нет endpoint `/sub-accounts/{id}/transactions` | ❌ агрегатор не видит историю транзакций суб-аккаунта |
+| `GET /sub-accounts/{id}/transactions` — история транзакций суб-аккаунта | ✅ исправлено — добавлен handler + маршрут |
+
+### Доисправлено (2026-04-15)
+
+| # | Файл | Было → Стало |
+|---|---|---|
+| 6 | `internal/gateway/portal/handlers/sub_accounts.go` + `router.go` | Нет `/sub-accounts/{id}/transactions` → добавлен `GetSubAccountTransactions` с ownership-check, date/type фильтрацией |
+| 7 | `portal-frontend/src/api/client.ts` | Нет `subAccountsApi.transactions()` → добавлен |
+| 8 | `portal-frontend/src/pages/sub-accounts/SubAccountDetailPage.tsx` | Нет вкладки «Транзакции» → добавлена (тип/сумма/баланс-после/дата, форматирование ru-RU) |
+| 9 | `portal-frontend/src/pages/CommandCenter.tsx` | CommandCenter не показывал данные суб-аккаунтов → 3 новых KPI-карточки для реселлера: активные, суммарный баланс, низкий баланс |
 
 ### Остаточные проблемы
 
 | Приоритет | Проблема | Комментарий |
 |---|---|---|
-| HIGH | Нет endpoint `/sub-accounts/{id}/transactions` | Агрегатор не может видеть историю расходов суб-аккаунта. Нужен backend handler + вкладка «Транзакции» в SubAccountDetailPage |
-| MED | CommandCenter показывает только баланс агрегатора | Для реселлера было бы полезно видеть суммарный баланс суб-аккаунтов или количество суб-аккаунтов с низким балансом |
-| LOW | Нет обратного перевода (суб-аккаунт → агрегатор) в UI | Форма перевода только в одну сторону. При необходимости возврата — только через удаление суб-аккаунта (автоматический возврат) |
+| LOW | Нет обратного перевода (суб-аккаунт → агрегатор) в UI | Форма перевода только в одну сторону. Возврат средств — только автоматически при удалении суб-аккаунта |
 
 ---
+
+## [DONE] Модуль: Индивидуальные тарифы (admin, /admin/individual-tariffs, fix mode + инфраструктура, 2026-04-15)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `internal/gateway/admin/handlers/hierarchical_periods.go` + `router.go` | Тиры создавались/читались через `POST/GET /tariff-tiers` → gRPC → `tariff_tiers` (старая таблица), а периоды лежат в `tariff_periods_new` → FK-нарушение, тиры никогда не находились | Новые handlers `ListPeriodTiers`, `CreatePeriodTier`, `UpdatePeriodTier`, `DeletePeriodTier` напрямую работают с `tariff_tiers_new`; маршруты `/periods/{id}/tiers` и `/periods/{id}/tiers/{tier_id}` |
+| 2 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | `fetchTiers()` вызывал `tarificationApi.listTariffTiers` → старая таблица | Использует `tarificationApi.listPeriodTiers(periodId)` → новые endpoints |
+| 3 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | `handleSaveTier()` вызывал `createTariffTier`/`updateTariffTier` → gRPC → `tariff_tiers` | Использует `createPeriodTier`/`updatePeriodTier` → `tariff_tiers_new` |
+| 4 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | `auto_close_warning` из ответа при создании периода полностью игнорировался | `toast.info()` показывает сообщение об автоматически закрытом периоде |
+| 5 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | `catch` показывал «Не удалось создать период» вне зависимости от ошибки | `apiErrorMessage(err, fallback)` — показывает `AdminApiError.message` (напр. «no active period at parent level») |
+| 6 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | `STRATEGY_OPTIONS` — raw English: `fixed`, `threshold_recalc` | Русские читаемые подписи: «Фиксированная (fixed)», «Пороговая с пересчётом (threshold_recalc)» |
+| 7 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | Поле `start_date` без ограничения — можно выбрать прошлое, получить 422 после сабмита | `min={todayISO()}` — браузер блокирует прошлые даты до отправки |
+| 8 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | Нет кнопки «Удалить» для тира | Кнопка «Удалить» + `ConfirmDialog` + `handleDeleteTier()` через `deletePeriodTier()` |
+| 9 | `portal-frontend/src/pages/admin/tarification/IndividualTariffsPage.tsx` | После удаления периода `selectedPeriodId` оставался указывать на удалённый период | Сброс `selectedPeriodId` и `tiers` если удалён выбранный период |
+| 10 | `portal-frontend/src/api/admin.ts` | `AutoCloseWarning` имел `closed_period_id`, `old_end_date`, `message` — не совпадало с бэкендом | Исправлено на `period_id`, `new_end_date` (соответствует JSON из Go handler) |
+| 11 | `portal-frontend/src/pages/admin/tarification/PeriodsTab.tsx` | `res.auto_close_warning.message` — несуществующее поле | Использует `new_end_date` |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| `POST /tarification/periods` → `tariff_periods_new` | ✅ `HierarchicalPeriodsHandler.CreatePeriod` |
+| `GET /tarification/periods` → фильтр по `client_id` | ✅ `HierarchicalPeriodsHandler.ListPeriods` |
+| `PUT /tarification/periods/{id}` | ✅ стратегия + end_date |
+| `DELETE /tarification/periods/{id}` → проверка child periods | ✅ |
+| `GET /tarification/periods/{id}/tiers` → `tariff_tiers_new` | ✅ добавлено в этом раунде |
+| `POST /tarification/periods/{id}/tiers` → `tariff_tiers_new` | ✅ добавлено в этом раунде |
+| `PUT /tarification/periods/{id}/tiers/{tier_id}` | ✅ добавлено в этом раунде |
+| `DELETE /tarification/periods/{id}/tiers/{tier_id}` | ✅ добавлено в этом раунде |
+| `tariff_tiers_new`: UNIQUE(tariff_period_id, from_count), FK ON DELETE CASCADE | ✅ миграция 000081 |
+| Admin auth middleware на всех новых маршрутах | ✅ все маршруты внутри `tarification` subrouter |
+
+
 
 ## Test Accounts
 

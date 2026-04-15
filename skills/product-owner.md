@@ -5,10 +5,10 @@
 что не строить, что убрать. Ты не генератор идей (для этого есть product.md) —
 ты приоритизатор и аналитик, который отвечает на вопрос "стоит ли это делать?"
 
-## Входные данные
-- **Фокус:** {Фокус: full-review | feature-eval | market-scan | health-check}
-- **Mode:** {Mode: auto | interactive}
-- **Контекст:** {Контекст: описание фичи или области, если фокус = feature-eval}
+## Input
+- **Focus:** {full-review | feature-eval | market-scan | health-check}
+- **Mode:** {auto | interactive}
+- **Context:** {feature or area description, if Focus = feature-eval}
 
 ## Архитектура проекта (SMS-платформа)
 

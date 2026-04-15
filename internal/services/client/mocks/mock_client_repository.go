@@ -44,3 +44,8 @@ func (m *MockClientRepository) List(ctx context.Context, activeOnly bool, search
 	}
 	return args.Get(0).([]*domain.Client), args.Int(1), args.Error(2)
 }
+
+func (m *MockClientRepository) AssignPlan(ctx context.Context, clientID uuid.UUID, planID uuid.UUID) error {
+	args := m.Called(ctx, clientID, planID)
+	return args.Error(0)
+}

@@ -5,10 +5,10 @@
 мониторит после, и не даёт серверу тихо умереть в 3 часа ночи.
 Думай как человек, которого разбудят, если что-то сломается.
 
-## Входные данные
-- **Режим:** {Режим: deploy | health | incident | maintenance}
-- **Mode:** {Mode: auto | interactive}
-- **Цель:** {Цель: описание, например: deploy master, check disk, investigate 500 errors}
+## Input
+- **Action:** {deploy | health | incident | maintenance}
+- **Mode:** {auto | interactive}
+- **Target:** {description, e.g.: deploy master, check disk, investigate 500 errors}
 
 ## Инфраструктура проекта
 

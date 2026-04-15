@@ -1,0 +1,122 @@
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - link "Перейти к основному содержимому" [ref=e8] [cursor=pointer]:
+      - /url: "#main-content"
+    - complementary "Боковая навигация" [ref=e9]:
+      - heading "SMS Portal" [level=2] [ref=e11]
+      - navigation "Главное меню" [ref=e12]:
+        - list [ref=e13]:
+          - listitem [ref=e14]:
+            - link "Командный центр" [ref=e15] [cursor=pointer]:
+              - /url: /command-center
+          - listitem [ref=e16]:
+            - button "Отправить" [expanded] [ref=e17]:
+              - generic [ref=e18]: Отправить
+              - img [ref=e19]
+            - list [ref=e21]:
+              - listitem [ref=e22]:
+                - link "Быстрая отправка" [ref=e23] [cursor=pointer]:
+                  - /url: /quick-send
+              - listitem [ref=e24]:
+                - link "Кампании" [ref=e25] [cursor=pointer]:
+                  - /url: /campaigns
+              - listitem [ref=e26]:
+                - link "Расписания" [ref=e27] [cursor=pointer]:
+                  - /url: /campaign-schedules
+              - listitem [ref=e28]:
+                - link "Шаблоны" [ref=e29] [cursor=pointer]:
+                  - /url: /templates
+              - listitem [ref=e30]:
+                - link "Имена отправителей" [ref=e31] [cursor=pointer]:
+                  - /url: /sender-names
+              - listitem [ref=e32]:
+                - link "Мои компании" [ref=e33] [cursor=pointer]:
+                  - /url: /companies
+          - listitem [ref=e34]:
+            - button "Отследить" [ref=e35]:
+              - generic [ref=e36]: Отследить
+              - img [ref=e37]
+          - listitem [ref=e39]:
+            - button "Аналитика" [ref=e40]:
+              - generic [ref=e41]: Аналитика
+              - img [ref=e42]
+          - listitem [ref=e44]:
+            - button "Контакты" [ref=e45]:
+              - generic [ref=e46]: Контакты
+              - img [ref=e47]
+          - listitem [ref=e49]:
+            - button "Финансы" [ref=e50]:
+              - generic [ref=e51]: Финансы
+              - img [ref=e52]
+          - listitem [ref=e54]:
+            - button "Интеграции" [ref=e55]:
+              - generic [ref=e56]: Интеграции
+              - img [ref=e57]
+          - listitem [ref=e59]:
+            - button "Настройки" [ref=e60]:
+              - generic [ref=e61]: Настройки
+              - img [ref=e62]
+      - generic [ref=e65]:
+        - generic [ref=e67]:
+          - button "Поиск (Ctrl+K)" [ref=e68]:
+            - img [ref=e69]
+          - button "Уведомления" [ref=e71]:
+            - img [ref=e72]
+        - button "Выйти" [ref=e74]
+    - main [ref=e75]:
+      - generic [ref=e177]:
+        - generic [ref=e178]:
+          - navigation "Breadcrumb" [ref=e179]:
+            - list [ref=e180]:
+              - listitem [ref=e181]:
+                - link "Рассылки" [ref=e182] [cursor=pointer]:
+                  - /url: /campaigns
+              - listitem [ref=e183]:
+                - generic [ref=e184]: /
+                - generic [ref=e185]: Новая рассылка
+          - heading "Создать рассылку" [level=1] [ref=e188]
+        - navigation "Шаги создания рассылки" [ref=e190]:
+          - list [ref=e191]:
+            - listitem [ref=e192]:
+              - generic [ref=e193]:
+                - button "1. Сообщение — текущий" [ref=e194]: 1. Сообщение
+                - generic "Ошибка валидации" [ref=e236]
+            - listitem [ref=e195]:
+              - button "2. Аудитория — ожидает" [disabled] [ref=e198]: 2. Аудитория
+            - listitem [ref=e199]:
+              - button "3. Расписание — ожидает" [disabled] [ref=e202]: 3. Расписание
+            - listitem [ref=e203]:
+              - button "4. Подтверждение — ожидает" [disabled] [ref=e206]: 4. Подтверждение
+        - generic [ref=e207]:
+          - generic [ref=e208]:
+            - heading "Сообщение" [level=3] [ref=e209]
+            - generic [ref=e210]:
+              - text: Текст сообщения
+              - textbox "Текст сообщения" [ref=e211]:
+                - /placeholder: Введите текст сообщения...
+                - text: Тестовый текст сообщения
+              - generic [ref=e213]: 136 осталось
+            - generic [ref=e214]:
+              - generic [ref=e215]: Шаблон
+              - button "Выбрать шаблон" [ref=e216] [cursor=pointer]:
+                - generic [ref=e217]: Выберите шаблон из библиотеки
+                - img [ref=e219]
+              - paragraph [ref=e221]: Показываются только одобренные шаблоны
+            - generic [ref=e222]:
+              - generic [ref=e223]: Имя отправителя *
+              - combobox "Имя отправителя *" [ref=e224]:
+                - option "-- Выберите отправителя --" [selected]
+            - generic [ref=e226] [cursor=pointer]:
+              - switch "A/B тестирование" [ref=e227]
+              - generic [ref=e229]: A/B тестирование
+            - paragraph [ref=e237]: Заполните текст сообщения и выберите имя отправителя.
+          - generic [ref=e230]:
+            - button "Отмена" [ref=e232]
+            - generic [ref=e233]:
+              - button "Сохранить как черновик" [ref=e234]
+              - button "Далее" [active] [ref=e235]
+    - link "Поддержка" [ref=e174] [cursor=pointer]:
+      - /url: https://t.me/sms_support
+      - img [ref=e175]
+  - region "Notifications (F8)":
+    - list

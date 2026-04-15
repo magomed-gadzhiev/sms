@@ -1,0 +1,147 @@
+- generic:
+  - generic:
+    - generic:
+      - link:
+        - /url: "#main-content"
+        - text: Перейти к основному содержимому
+      - complementary:
+        - generic:
+          - heading [level=2]: SMS Portal
+        - navigation:
+          - list:
+            - listitem:
+              - link:
+                - /url: /command-center
+                - text: Командный центр
+            - listitem:
+              - button:
+                - generic: Отправить
+                - img
+            - listitem:
+              - button:
+                - generic: Отследить
+                - img
+            - listitem:
+              - button:
+                - generic: Аналитика
+                - img
+            - listitem:
+              - button:
+                - generic: Контакты
+                - img
+            - listitem:
+              - button:
+                - generic: Финансы
+                - img
+            - listitem:
+              - button:
+                - generic: Интеграции
+                - img
+            - listitem:
+              - button [expanded]:
+                - generic: Настройки
+                - img
+              - list:
+                - listitem:
+                  - link:
+                    - /url: /profile
+                    - text: Профиль
+                - listitem:
+                  - link:
+                    - /url: /sub-accounts
+                    - text: Суб-аккаунты
+                - listitem:
+                  - link:
+                    - /url: /settings/domains
+                    - text: Домены
+                - listitem:
+                  - link:
+                    - /url: /settings/notifications
+                    - text: Уведомления
+                - listitem:
+                  - link:
+                    - /url: /settings/default-senders
+                    - text: Имена по умолчанию
+                - listitem:
+                  - link:
+                    - /url: /audit-log
+                    - text: Журнал аудита
+        - generic:
+          - generic:
+            - generic:
+              - generic: reseller@test.local
+              - generic:
+                - button:
+                  - img
+                - button:
+                  - img
+            - button: Выйти
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Суб-аккаунты
+                - paragraph: 0 / 5
+              - generic:
+                - button: Создать суб-аккаунт
+          - generic:
+            - region:
+              - generic:
+                - table:
+                  - caption: Таблица данных
+                  - rowgroup:
+                    - row:
+                      - columnheader:
+                        - generic: Название
+                      - columnheader:
+                        - generic: Email
+                      - columnheader:
+                        - generic: Активен
+                      - columnheader:
+                        - generic: Баланс
+                      - columnheader:
+                        - generic: Дневной лимит
+                      - columnheader:
+                        - generic: Месячный лимит
+                      - columnheader:
+                        - generic: Сегодня
+                      - columnheader:
+                        - generic: За месяц
+                  - rowgroup:
+                    - row:
+                      - cell: Данные не найдены
+      - link:
+        - /url: https://t.me/sms_support
+        - img
+  - dialog "Создать суб-аккаунт" [ref=e115]:
+    - heading "Создать суб-аккаунт" [level=2] [ref=e116]
+    - paragraph [ref=e117]: Создать суб-аккаунт
+    - generic [ref=e118]:
+      - generic [ref=e119]:
+        - generic [ref=e120]: Название
+        - textbox "Название" [active] [ref=e121]:
+          - /placeholder: Название суб-аккаунта
+      - generic [ref=e122]:
+        - generic [ref=e123]: Email
+        - textbox "Email" [ref=e124]:
+          - /placeholder: email@example.com
+      - generic [ref=e125]:
+        - generic [ref=e126]: Контактное лицо
+        - textbox "Контактное лицо" [ref=e127]:
+          - /placeholder: Имя контактного лица
+      - generic [ref=e128]:
+        - generic [ref=e129]: Начальный баланс
+        - textbox "Начальный баланс" [ref=e130]:
+          - /placeholder: "0.00"
+      - generic [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]: Дневной лимит
+          - spinbutton "Дневной лимит" [ref=e134]
+        - generic [ref=e135]:
+          - generic [ref=e136]: Месячный лимит
+          - spinbutton "Месячный лимит" [ref=e137]
+      - generic [ref=e138]:
+        - button "Создать" [ref=e139]
+        - button "Отмена" [ref=e140]
+    - button "Закрыть" [ref=e141]: ✕

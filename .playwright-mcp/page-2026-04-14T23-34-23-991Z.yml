@@ -1,0 +1,540 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic: S
+        - navigation:
+          - generic:
+            - link:
+              - /url: /admin
+              - generic: 📊
+          - generic:
+            - link:
+              - /url: /admin/clients
+              - generic: 👥
+            - link:
+              - /url: /admin/operator-templates
+              - generic: 📝
+            - link:
+              - /url: /admin/templates
+              - generic: ✅
+            - link:
+              - /url: /admin/sender-names
+              - generic: 📱
+            - link:
+              - /url: /admin/users
+              - generic: 🔑
+          - generic:
+            - link:
+              - /url: /admin/billing
+              - generic: 💰
+            - link:
+              - /url: /admin/tarification
+              - generic: 📋
+            - link:
+              - /url: /admin/individual-tariffs
+              - generic: 💱
+            - link:
+              - /url: /admin/legal-entities
+              - generic: 🏢
+            - link:
+              - /url: /admin/contracts
+              - generic: 📄
+          - generic:
+            - link:
+              - /url: /admin/providers
+              - generic: 🔌
+            - link:
+              - /url: /admin/routes
+              - generic: 🔀
+            - link:
+              - /url: /admin/connections
+              - generic: 🔗
+            - link:
+              - /url: /admin/individual-routes
+              - generic: 🧭
+            - link:
+              - /url: /admin/channels
+              - generic: 📦
+            - link:
+              - /url: /admin/delivery-strategies
+              - generic: 🚚
+            - link:
+              - /url: /admin/hlr
+              - generic: 📡
+          - generic:
+            - link:
+              - /url: /admin/countries
+              - generic: 🌍
+            - link:
+              - /url: /admin/webhooks
+              - generic: 🔗
+          - generic:
+            - link:
+              - /url: /admin/detalization
+              - generic: 🔍
+            - link:
+              - /url: /admin/analytics
+              - generic: 📈
+            - link:
+              - /url: /admin/monitoring
+              - generic: ⚡
+            - link:
+              - /url: /admin/audit
+              - generic: 📜
+          - generic:
+            - link:
+              - /url: /admin/settings
+              - generic: ⚙️
+        - generic:
+          - button: ↵
+      - main:
+        - generic:
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /admin/dashboard
+                  - text: Админ
+              - listitem:
+                - generic: /
+                - generic: Пользователи
+          - generic:
+            - generic:
+              - heading [level=1]: Пользователи
+              - paragraph: 37 пользователей
+            - generic:
+              - button: Создать пользователя
+        - generic:
+          - generic:
+            - generic:
+              - generic: Поиск
+              - textbox:
+                - /placeholder: Имя или email...
+          - generic:
+            - generic:
+              - generic: Роль
+              - combobox
+          - generic:
+            - generic:
+              - generic: Статус
+              - combobox
+        - generic:
+          - region:
+            - generic:
+              - table:
+                - caption: Таблица данных
+                - rowgroup:
+                  - row:
+                    - button:
+                      - generic: Пользователь
+                    - columnheader:
+                      - generic: Роль
+                    - columnheader:
+                      - generic: Статус
+                    - columnheader:
+                      - generic: 2FA
+                    - columnheader:
+                      - generic: Последний вход
+                    - columnheader:
+                      - generic: Создан
+                    - columnheader
+                - rowgroup:
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: lanser@test.ru
+                        - generic: Lanser
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 12.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: campaign-test@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 08.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: testadmin@test.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 07.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: testuser@testportal.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 07.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: test-client@example.com
+                        - generic: test-client
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 06.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: spam_3@test.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: spam_2@test.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: spam_1@test.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: hacker_1775333336@evil.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qatest_1775333166@test.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa_b_1775242009104@test.io
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa_a_1775242009104@test.io
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa_b_1775241621039@test.io
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa_a_1775241621039@test.io
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa_auto_1775239843868@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa-empty-1775033804191@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa-reg-1775033729022@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa-reg-1775019984296@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa-reg-1775019874517@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+                  - row:
+                    - cell:
+                      - generic:
+                        - generic: qa-1774983119@example.com
+                    - cell:
+                      - generic: client
+                    - cell:
+                      - generic: Активен
+                    - cell:
+                      - generic: Отключен
+                    - cell: "-"
+                    - cell: 31.03.2026
+                    - cell:
+                      - generic:
+                        - button: Редактировать
+                        - button: Деактивировать
+                        - button: Сбросить 2FA
+                        - button: Сбросить пароль
+            - navigation:
+              - generic:
+                - generic: 1–20 из 37
+                - generic:
+                  - button [disabled]: Назад
+                  - button: Вперёд
+  - dialog "Создать пользователя" [ref=e487]:
+    - heading "Создать пользователя" [level=2] [ref=e488]
+    - paragraph [ref=e489]: Создать пользователя
+    - generic [ref=e490]:
+      - generic [ref=e491]:
+        - generic [ref=e492]: Имя пользователя
+        - textbox "Имя пользователя" [active] [ref=e493]
+      - generic [ref=e494]:
+        - generic [ref=e495]: Email
+        - textbox "Email" [ref=e496]
+      - generic [ref=e497]:
+        - generic [ref=e498]: Пароль
+        - textbox "Пароль" [ref=e499]
+      - generic [ref=e500]:
+        - generic [ref=e501]: Роль
+        - combobox [ref=e502]:
+          - option "Выберите роль" [selected]
+          - option "admin"
+          - option "client"
+          - option "operator"
+      - generic [ref=e503]:
+        - generic [ref=e504]: Статус
+        - combobox [ref=e505]:
+          - option "Активен" [selected]
+          - option "Неактивен"
+      - generic [ref=e506]:
+        - button "Отмена" [ref=e507]
+        - button "Создать" [disabled] [ref=e508]
+    - button "Закрыть" [ref=e509]: ✕

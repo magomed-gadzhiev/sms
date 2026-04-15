@@ -1,0 +1,54 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e7]: S
+      - navigation [ref=e8]
+      - button "↵" [ref=e10]
+    - main [ref=e11]:
+      - generic [ref=e12]:
+        - navigation "Breadcrumb" [ref=e13]:
+          - list [ref=e14]:
+            - listitem [ref=e15]:
+              - link "Админ" [ref=e16] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e17]:
+              - generic [ref=e18]: /
+              - generic [ref=e19]: Клиенты
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - heading "Клиенты" [level=1] [ref=e22]
+            - paragraph [ref=e23]: 0 клиентов
+          - button "Создать клиента" [ref=e25]
+      - generic [ref=e26]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: Поиск
+          - textbox "Поиск" [ref=e30]:
+            - /placeholder: Имя или email...
+        - generic [ref=e32]:
+          - generic [ref=e33]: Статус
+          - combobox "Статус" [ref=e34]:
+            - option "Все" [selected]
+            - option "Только активные"
+      - region "Таблица данных" [ref=e36]:
+        - table "Таблица данных" [ref=e38]:
+          - caption [ref=e39]: Таблица данных
+          - rowgroup [ref=e40]:
+            - row "Название Email Контакт Статус Лимит (сообщ/с) Создан" [ref=e41]:
+              - button "Название" [ref=e42] [cursor=pointer]:
+                - generic [ref=e43]: Название
+              - columnheader "Email" [ref=e44]:
+                - generic [ref=e45]: Email
+              - columnheader "Контакт" [ref=e46]:
+                - generic [ref=e47]: Контакт
+              - columnheader "Статус" [ref=e48]:
+                - generic [ref=e49]: Статус
+              - columnheader "Лимит (сообщ/с)" [ref=e50]:
+                - generic [ref=e51]: Лимит (сообщ/с)
+              - columnheader "Создан" [ref=e52]:
+                - generic [ref=e53]: Создан
+              - columnheader [ref=e54]
+          - rowgroup [ref=e55]:
+            - row "Данные не найдены" [ref=e56]:
+              - cell "Данные не найдены" [ref=e57]
+  - region "Notifications (F8)":
+    - list

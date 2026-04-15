@@ -1,0 +1,1217 @@
+- generic [ref=e14]:
+  - generic [ref=e15]:
+    - search [ref=e16]:
+      - img [ref=e17]
+      - textbox "Search" [ref=e19]:
+        - /placeholder: Search...
+    - generic [ref=e20]:
+      - menu [ref=e21]:
+        - menuitem "Getting Started" [ref=e22]:
+          - generic "Getting Started" [ref=e24] [cursor=pointer]
+        - menuitem "Аутентификация" [ref=e25]:
+          - generic "Аутентификация" [ref=e27] [cursor=pointer]
+        - menuitem "SMS" [expanded] [active] [ref=e28]:
+          - generic [ref=e29] [cursor=pointer]:
+            - generic "SMS" [ref=e30]
+            - img [ref=e31]
+          - list [ref=e1379]:
+            - menuitem "Отправка одного SMS" [ref=e1380]:
+              - generic [ref=e1381] [cursor=pointer]:
+                - generic [ref=e1382]: post
+                - generic [ref=e1383]: Отправка одного SMS
+            - menuitem "Пакетная отправка SMS" [ref=e1384]:
+              - generic [ref=e1385] [cursor=pointer]:
+                - generic [ref=e1386]: post
+                - generic [ref=e1387]: Пакетная отправка SMS
+            - menuitem "Статус сообщения" [ref=e1388]:
+              - generic [ref=e1389] [cursor=pointer]:
+                - generic [ref=e1390]: get
+                - generic [ref=e1391]: Статус сообщения
+            - menuitem "Отмена сообщения" [ref=e1392]:
+              - generic [ref=e1393] [cursor=pointer]:
+                - generic [ref=e1394]: del
+                - generic [ref=e1395]: Отмена сообщения
+            - menuitem "История сообщений" [ref=e1396]:
+              - generic [ref=e1397] [cursor=pointer]:
+                - generic [ref=e1398]: get
+                - generic [ref=e1399]: История сообщений
+            - menuitem "Список запланированных сообщений" [ref=e1400]:
+              - generic [ref=e1401] [cursor=pointer]:
+                - generic [ref=e1402]: get
+                - generic [ref=e1403]: Список запланированных сообщений
+        - menuitem "Account" [ref=e33]:
+          - generic [ref=e34] [cursor=pointer]:
+            - generic "Account" [ref=e35]
+            - img [ref=e36]
+        - menuitem "Health" [ref=e38]:
+          - generic [ref=e39] [cursor=pointer]:
+            - generic "Health" [ref=e40]
+            - img [ref=e41]
+      - link "redocly logo API docs by Redocly" [ref=e44] [cursor=pointer]:
+        - /url: https://redocly.com/redoc/
+        - img "redocly logo" [ref=e45]
+        - text: API docs by Redocly
+  - generic [ref=e46]:
+    - generic [ref=e49]:
+      - heading "SMS Gateway API (1.0.0)" [level=1] [ref=e50]:
+        - text: SMS Gateway API
+        - generic [ref=e51]: (1.0.0)
+      - paragraph [ref=e52]:
+        - text: "Download OpenAPI specification:"
+        - link "Download" [ref=e53] [cursor=pointer]:
+          - /url: http://72.56.232.202:8080/docs/openapi.yaml
+      - generic [ref=e57]:
+        - text: "| API Support:"
+        - link "support@example.com" [ref=e58] [cursor=pointer]:
+          - /url: mailto:support@example.com
+    - generic [ref=e59]:
+      - heading "section/Getting-Started Getting Started" [level=2] [ref=e62]:
+        - link "section/Getting-Started" [ref=e63] [cursor=pointer]:
+          - /url: "#section/Getting-Started"
+        - text: Getting Started
+      - generic [ref=e65]:
+        - list [ref=e66]:
+          - listitem [ref=e67]:
+            - text: Получите API-ключ в
+            - link "личном кабинете" [ref=e68] [cursor=pointer]:
+              - /url: http://72.56.232.202:8083
+          - listitem [ref=e69]:
+            - text: "Добавьте заголовок:"
+            - code [ref=e70]: "X-API-Key: <your-api-key>"
+          - listitem [ref=e71]:
+            - text: "Базовый URL:"
+            - code [ref=e72]: http://72.56.232.202:8080/api/v1
+        - heading "Первый запрос" [level=3] [ref=e73]
+        - code [ref=e75]: "curl -X POST http://72.56.232.202:8080/api/v1/sms/send \\ -H \"X-API-Key: YOUR_API_KEY\" \\ -H \"Content-Type: application/json\" \\ -d '{\"phone\": \"+79001234567\", \"text\": \"Hello!\"}'"
+        - separator [ref=e76]
+        - paragraph [ref=e77]: API для отправки SMS сообщений через SMS Gateway платформу.
+        - paragraph [ref=e78]: Поддерживает отправку одиночных и пакетных SMS, получение статуса сообщений, историю, управление запланированными сообщениями и баланс аккаунта.
+    - generic [ref=e79]:
+      - heading "section/Autentifikaciya Аутентификация" [level=2] [ref=e82]:
+        - link "section/Autentifikaciya" [ref=e83] [cursor=pointer]:
+          - /url: "#section/Autentifikaciya"
+        - text: Аутентификация
+      - paragraph [ref=e86]:
+        - text: Все запросы к
+        - code [ref=e87]: /api/v1/*
+        - text: требуют заголовок
+        - code [ref=e88]: X-API-Key
+        - text: с вашим API ключом.
+    - generic [ref=e89]:
+      - heading "tag/SMS SMS" [level=2] [ref=e92]:
+        - link "tag/SMS" [ref=e93] [cursor=pointer]:
+          - /url: "#tag/SMS"
+        - text: SMS
+      - paragraph [ref=e96]: Отправка и отслеживание SMS сообщений
+    - generic [ref=e98]:
+      - generic [ref=e99]:
+        - heading "tag/SMS/operation/sendSMS Отправка одного SMS" [level=2] [ref=e100]:
+          - link "tag/SMS/operation/sendSMS" [ref=e101] [cursor=pointer]:
+            - /url: "#tag/SMS/operation/sendSMS"
+          - text: Отправка одного SMS
+        - paragraph [ref=e104]:
+          - text: Отправляет одно SMS сообщение. Поддерживает немедленную и запланированную отправку. Поле
+          - code [ref=e105]: text
+          - text: обязательно. Поля
+          - code [ref=e106]: text
+          - text: и
+          - code [ref=e107]: template_id
+          - text: взаимоисключающие.
+        - generic [ref=e108]:
+          - generic [ref=e109] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e110]
+            - img [ref=e111]
+          - generic [ref=e115]: ApiKeyAuth
+        - 'heading "Request Body schema: application/json required" [level=5] [ref=e116]':
+          - text: "Request Body schema: application/json"
+          - generic [ref=e117]: required
+        - table [ref=e118]:
+          - rowgroup [ref=e119]:
+            - row "source required string <= 21 characters Имя отправителя или номер" [ref=e120]:
+              - cell "source required" [ref=e121]:
+                - text: source
+                - generic [ref=e123]: required
+              - cell "string <= 21 characters Имя отправителя или номер" [ref=e124]:
+                - generic [ref=e125]:
+                  - generic [ref=e126]:
+                    - text: string
+                    - generic [ref=e128]: <= 21 characters
+                  - paragraph [ref=e131]: Имя отправителя или номер
+            - row "destination required string <= 21 characters Номер получателя (международный формат)" [ref=e132]:
+              - cell "destination required" [ref=e133]:
+                - text: destination
+                - generic [ref=e135]: required
+              - cell "string <= 21 characters Номер получателя (международный формат)" [ref=e136]:
+                - generic [ref=e137]:
+                  - generic [ref=e138]:
+                    - text: string
+                    - generic [ref=e140]: <= 21 characters
+                  - paragraph [ref=e143]: Номер получателя (международный формат)
+            - row "text string <= 1600 characters Текст сообщения (обязателен если нет template_id, взаимоисключающее с template_id)" [ref=e144]:
+              - cell "text" [ref=e145]: text
+              - cell "string <= 1600 characters Текст сообщения (обязателен если нет template_id, взаимоисключающее с template_id)" [ref=e147]:
+                - generic [ref=e148]:
+                  - generic [ref=e149]:
+                    - text: string
+                    - generic [ref=e151]: <= 1600 characters
+                  - paragraph [ref=e154]: Текст сообщения (обязателен если нет template_id, взаимоисключающее с template_id)
+            - row "template_id string ID шаблона (взаимоисключающее с text; функция в разработке — вернёт 400)" [ref=e155]:
+              - cell "template_id" [ref=e156]: template_id
+              - cell "string ID шаблона (взаимоисключающее с text; функция в разработке — вернёт 400)" [ref=e158]:
+                - generic [ref=e159]:
+                  - generic [ref=e160]: string
+                  - paragraph [ref=e163]: ID шаблона (взаимоисключающее с text; функция в разработке — вернёт 400)
+            - row "expand variables object Переменные для шаблона (используется совместно с template_id)" [ref=e164]:
+              - cell "expand variables" [ref=e165]:
+                - button "expand variables" [ref=e167] [cursor=pointer]:
+                  - text: variables
+                  - img [ref=e168]
+              - cell "object Переменные для шаблона (используется совместно с template_id)" [ref=e170]:
+                - generic [ref=e171]:
+                  - generic [ref=e172]: object
+                  - paragraph [ref=e175]: Переменные для шаблона (используется совместно с template_id)
+            - row "external_id string Ваш внешний ID для отслеживания" [ref=e176]:
+              - cell "external_id" [ref=e177]: external_id
+              - cell "string Ваш внешний ID для отслеживания" [ref=e179]:
+                - generic [ref=e180]:
+                  - generic [ref=e181]: string
+                  - paragraph [ref=e184]: Ваш внешний ID для отслеживания
+            - 'row "priority integer [ 0 .. 3 ] Default: 0 Приоритет: 0 (обычный) — 3 (максимальный)" [ref=e185]':
+              - cell "priority" [ref=e186]: priority
+              - 'cell "integer [ 0 .. 3 ] Default: 0 Приоритет: 0 (обычный) — 3 (максимальный)" [ref=e188]':
+                - generic [ref=e189]:
+                  - generic [ref=e190]:
+                    - text: integer
+                    - generic [ref=e192]: "[ 0 .. 3 ]"
+                  - generic [ref=e193]:
+                    - generic [ref=e194]: "Default:"
+                    - text: "0"
+                  - paragraph [ref=e197]: "Приоритет: 0 (обычный) — 3 (максимальный)"
+            - 'row "registered_delivery boolean Default: false Запрашивать отчёт о доставке" [ref=e198]':
+              - cell "registered_delivery" [ref=e199]: registered_delivery
+              - 'cell "boolean Default: false Запрашивать отчёт о доставке" [ref=e201]':
+                - generic [ref=e202]:
+                  - generic [ref=e203]: boolean
+                  - generic [ref=e204]:
+                    - generic [ref=e205]: "Default:"
+                    - text: "false"
+                  - paragraph [ref=e208]: Запрашивать отчёт о доставке
+            - row "validity_period string <date-time> Срок жизни сообщения" [ref=e209]:
+              - cell "validity_period" [ref=e210]: validity_period
+              - cell "string <date-time> Срок жизни сообщения" [ref=e212]:
+                - generic [ref=e213]:
+                  - generic [ref=e214]:
+                    - text: string
+                    - generic [ref=e215]: <date-time>
+                  - paragraph [ref=e218]: Срок жизни сообщения
+            - row "scheduled_at string <date-time> Запланировать отправку на указанное время. Сообщение сохранится со статусом scheduled и не попадёт в очередь до указанного времени." [ref=e219]:
+              - cell "scheduled_at" [ref=e220]: scheduled_at
+              - cell "string <date-time> Запланировать отправку на указанное время. Сообщение сохранится со статусом scheduled и не попадёт в очередь до указанного времени." [ref=e222]:
+                - generic [ref=e223]:
+                  - generic [ref=e224]:
+                    - text: string
+                    - generic [ref=e225]: <date-time>
+                  - paragraph [ref=e228]:
+                    - text: Запланировать отправку на указанное время. Сообщение сохранится со статусом
+                    - code [ref=e229]: scheduled
+                    - text: и не попадёт в очередь до указанного времени.
+            - row "service_type string <= 6 characters" [ref=e230]:
+              - cell "service_type" [ref=e231]: service_type
+              - cell "string <= 6 characters" [ref=e233]:
+                - generic [ref=e235]:
+                  - text: string
+                  - generic [ref=e237]: <= 6 characters
+            - 'row "source_addr_ton integer [ 0 .. 6 ] Default: 0" [ref=e238]':
+              - cell "source_addr_ton" [ref=e239]: source_addr_ton
+              - 'cell "integer [ 0 .. 6 ] Default: 0" [ref=e241]':
+                - generic [ref=e242]:
+                  - generic [ref=e243]:
+                    - text: integer
+                    - generic [ref=e245]: "[ 0 .. 6 ]"
+                  - generic [ref=e246]:
+                    - generic [ref=e247]: "Default:"
+                    - text: "0"
+            - 'row "source_addr_npi integer [ 0 .. 18 ] Default: 0" [ref=e248]':
+              - cell "source_addr_npi" [ref=e249]: source_addr_npi
+              - 'cell "integer [ 0 .. 18 ] Default: 0" [ref=e251]':
+                - generic [ref=e252]:
+                  - generic [ref=e253]:
+                    - text: integer
+                    - generic [ref=e255]: "[ 0 .. 18 ]"
+                  - generic [ref=e256]:
+                    - generic [ref=e257]: "Default:"
+                    - text: "0"
+            - 'row "dest_addr_ton integer [ 0 .. 6 ] Default: 0" [ref=e258]':
+              - cell "dest_addr_ton" [ref=e259]: dest_addr_ton
+              - 'cell "integer [ 0 .. 6 ] Default: 0" [ref=e261]':
+                - generic [ref=e262]:
+                  - generic [ref=e263]:
+                    - text: integer
+                    - generic [ref=e265]: "[ 0 .. 6 ]"
+                  - generic [ref=e266]:
+                    - generic [ref=e267]: "Default:"
+                    - text: "0"
+            - 'row "dest_addr_npi integer [ 0 .. 18 ] Default: 0" [ref=e268]':
+              - cell "dest_addr_npi" [ref=e269]: dest_addr_npi
+              - 'cell "integer [ 0 .. 18 ] Default: 0" [ref=e271]':
+                - generic [ref=e272]:
+                  - generic [ref=e273]:
+                    - text: integer
+                    - generic [ref=e275]: "[ 0 .. 18 ]"
+                  - generic [ref=e276]:
+                    - generic [ref=e277]: "Default:"
+                    - text: "0"
+            - 'row "data_coding integer Default: 0 Enum: 0 1 3 8 Кодировка: 0=Latin, 8=UCS2 (кириллица)" [ref=e278]':
+              - cell "data_coding" [ref=e279]: data_coding
+              - 'cell "integer Default: 0 Enum: 0 1 3 8 Кодировка: 0=Latin, 8=UCS2 (кириллица)" [ref=e281]':
+                - generic [ref=e282]:
+                  - generic [ref=e283]: integer
+                  - generic [ref=e284]:
+                    - generic [ref=e285]: "Default:"
+                    - text: "0"
+                  - generic [ref=e286]:
+                    - generic [ref=e287]: "Enum:"
+                    - text: 0 1 3 8
+                  - paragraph [ref=e290]: "Кодировка: 0=Latin, 8=UCS2 (кириллица)"
+        - generic [ref=e291]:
+          - heading "Responses" [level=3] [ref=e292]
+          - button "202 Сообщение принято в обработку" [ref=e294] [cursor=pointer]:
+            - img [ref=e295]
+            - strong [ref=e297]: "202"
+            - paragraph [ref=e299]: Сообщение принято в обработку
+          - button "400 Неверный запрос" [ref=e301] [cursor=pointer]:
+            - img [ref=e302]
+            - strong [ref=e304]: "400"
+            - paragraph [ref=e306]: Неверный запрос
+          - button "401 Не авторизован" [ref=e308] [cursor=pointer]:
+            - img [ref=e309]
+            - strong [ref=e311]: "401"
+            - paragraph [ref=e313]: Не авторизован
+          - button "500 Внутренняя ошибка сервера" [ref=e315] [cursor=pointer]:
+            - img [ref=e316]
+            - strong [ref=e318]: "500"
+            - paragraph [ref=e320]: Внутренняя ошибка сервера
+      - generic [ref=e321]:
+        - button "post /api/v1/sms/send" [ref=e323] [cursor=pointer]:
+          - generic [ref=e324]: post
+          - generic [ref=e325]: /api/v1/sms/send
+          - img [ref=e326]
+        - generic [ref=e328]:
+          - heading "Request samples" [level=3] [ref=e329]
+          - generic [ref=e330]:
+            - tablist [ref=e331]:
+              - tab "Payload" [selected] [ref=e332] [cursor=pointer]
+            - tabpanel "Payload" [ref=e333]:
+              - generic [ref=e334]:
+                - generic [ref=e335]:
+                  - generic [ref=e336]: Content type
+                  - generic [ref=e337]: application/json
+                - generic [ref=e338]:
+                  - generic [ref=e339]:
+                    - generic [ref=e340]: Example
+                    - generic [ref=e341] [cursor=pointer]:
+                      - img
+                      - combobox [ref=e342]:
+                        - option "Простая отправка" [selected]
+                        - option "Запланированная отправка"
+                        - option "Все параметры"
+                      - generic [ref=e343]: Простая отправка
+                  - generic [ref=e345]:
+                    - button "Copy" [ref=e347] [cursor=pointer]:
+                      - generic [ref=e348]: Copy
+                    - code [ref=e351]:
+                      - text: "- { …"
+                      - list [ref=e352]:
+                        - listitem [ref=e353]:
+                          - generic [ref=e354]: "\"source\": \"MyCompany\","
+                        - listitem [ref=e355]:
+                          - generic [ref=e356]: "\"destination\": \"79001234567\","
+                        - listitem [ref=e357]:
+                          - generic [ref=e358]: "\"text\": \"Ваш код подтверждения: 1234\""
+                      - text: "}"
+        - generic [ref=e359]:
+          - heading "Response samples" [level=3] [ref=e360]
+          - generic [ref=e361]:
+            - tablist [ref=e362]:
+              - tab "202" [selected] [ref=e363] [cursor=pointer]
+              - tab "400" [ref=e364] [cursor=pointer]
+              - tab "401" [ref=e365] [cursor=pointer]
+              - tab "500" [ref=e366] [cursor=pointer]
+            - tabpanel "202" [ref=e367]:
+              - generic [ref=e368]:
+                - generic [ref=e369]:
+                  - generic [ref=e370]: Content type
+                  - generic [ref=e371]: application/json
+                - generic [ref=e373]:
+                  - button "Copy" [ref=e375] [cursor=pointer]:
+                    - generic [ref=e376]: Copy
+                  - code [ref=e379]:
+                    - text: "- { …"
+                    - list [ref=e380]:
+                      - listitem [ref=e381]:
+                        - generic [ref=e382]: "\"message_id\": \"550e8400-e29b-41d4-a716-446655440000\","
+                      - listitem [ref=e383]:
+                        - generic [ref=e384]: "\"status\": \"queued\","
+                      - listitem [ref=e385]:
+                        - generic [ref=e386]: "\"created_at\": \"2026-03-27T12:00:00Z\","
+                      - listitem [ref=e387]:
+                        - generic [ref=e388]: "\"segment_count\": 1"
+                    - text: "}"
+            - tabpanel "400"
+            - tabpanel "401"
+            - tabpanel "500"
+    - generic [ref=e390]:
+      - generic [ref=e391]:
+        - heading "tag/SMS/operation/sendBatchSMS Пакетная отправка SMS" [level=2] [ref=e392]:
+          - link "tag/SMS/operation/sendBatchSMS" [ref=e393] [cursor=pointer]:
+            - /url: "#tag/SMS/operation/sendBatchSMS"
+          - text: Пакетная отправка SMS
+        - paragraph [ref=e396]:
+          - text: Отправляет несколько SMS сообщений за один запрос (до 1000).
+          - code [ref=e397]: scheduled_at
+          - text: на уровне пакета перекрывает
+          - code [ref=e398]: scheduled_at
+          - text: отдельных сообщений.
+        - generic [ref=e399]:
+          - generic [ref=e400] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e401]
+            - img [ref=e402]
+          - generic [ref=e406]: ApiKeyAuth
+        - 'heading "Request Body schema: application/json required" [level=5] [ref=e407]':
+          - text: "Request Body schema: application/json"
+          - generic [ref=e408]: required
+        - table [ref=e409]:
+          - rowgroup [ref=e410]:
+            - row "expand messages required Array of objects (SendSMSRequest) [ 1 .. 1000 ] items" [ref=e411]:
+              - cell "expand messages required" [ref=e412]:
+                - button "expand messages" [ref=e414] [cursor=pointer]:
+                  - text: messages
+                  - img [ref=e415]
+                - generic [ref=e417]: required
+              - cell "Array of objects (SendSMSRequest) [ 1 .. 1000 ] items" [ref=e418]:
+                - generic [ref=e420]:
+                  - text: Array of objects
+                  - generic [ref=e421]: (SendSMSRequest)
+                  - generic [ref=e423]: "[ 1 .. 1000 ] items"
+            - row "scheduled_at string <date-time> Запланировать всю пачку на указанное время (перекрывает scheduled_at отдельных сообщений)" [ref=e424]:
+              - cell "scheduled_at" [ref=e425]: scheduled_at
+              - cell "string <date-time> Запланировать всю пачку на указанное время (перекрывает scheduled_at отдельных сообщений)" [ref=e427]:
+                - generic [ref=e428]:
+                  - generic [ref=e429]:
+                    - text: string
+                    - generic [ref=e430]: <date-time>
+                  - paragraph [ref=e433]: Запланировать всю пачку на указанное время (перекрывает scheduled_at отдельных сообщений)
+        - generic [ref=e434]:
+          - heading "Responses" [level=3] [ref=e435]
+          - button "202 Результаты пакетной отправки" [ref=e437] [cursor=pointer]:
+            - img [ref=e438]
+            - strong [ref=e440]: "202"
+            - paragraph [ref=e442]: Результаты пакетной отправки
+          - button "400 Неверный запрос" [ref=e444] [cursor=pointer]:
+            - img [ref=e445]
+            - strong [ref=e447]: "400"
+            - paragraph [ref=e449]: Неверный запрос
+          - button "401 Не авторизован" [ref=e451] [cursor=pointer]:
+            - img [ref=e452]
+            - strong [ref=e454]: "401"
+            - paragraph [ref=e456]: Не авторизован
+          - button "500 Внутренняя ошибка сервера" [ref=e458] [cursor=pointer]:
+            - img [ref=e459]
+            - strong [ref=e461]: "500"
+            - paragraph [ref=e463]: Внутренняя ошибка сервера
+      - generic [ref=e464]:
+        - button "post /api/v1/sms/batch" [ref=e466] [cursor=pointer]:
+          - generic [ref=e467]: post
+          - generic [ref=e468]: /api/v1/sms/batch
+          - img [ref=e469]
+        - generic [ref=e471]:
+          - heading "Request samples" [level=3] [ref=e472]
+          - generic [ref=e473]:
+            - tablist [ref=e474]:
+              - tab "Payload" [selected] [ref=e475] [cursor=pointer]
+            - tabpanel "Payload" [ref=e476]:
+              - generic [ref=e477]:
+                - generic [ref=e478]:
+                  - generic [ref=e479]: Content type
+                  - generic [ref=e480]: application/json
+                - generic [ref=e482]:
+                  - generic [ref=e483]:
+                    - button "Copy" [ref=e484] [cursor=pointer]:
+                      - generic [ref=e485]: Copy
+                    - button "Expand all" [ref=e486] [cursor=pointer]
+                    - button "Collapse all" [ref=e487] [cursor=pointer]
+                  - code [ref=e490]:
+                    - text: "- { …"
+                    - list [ref=e491]:
+                      - listitem [ref=e492]:
+                        - generic [ref=e493]:
+                          - text: "\"messages\":"
+                          - button "collapse" [ref=e494]: "-"
+                          - text: "[ …"
+                          - list [ref=e495]:
+                            - listitem [ref=e496]:
+                              - generic [ref=e497]:
+                                - button "expand" [ref=e498]: +
+                                - text: "{"
+                                - generic [ref=e499]: …
+                                - text: "},"
+                            - listitem [ref=e500]:
+                              - generic [ref=e501]:
+                                - button "expand" [ref=e502]: +
+                                - text: "{"
+                                - generic [ref=e503]: …
+                                - text: "}"
+                          - text: "]"
+                    - text: "}"
+        - generic [ref=e504]:
+          - heading "Response samples" [level=3] [ref=e505]
+          - generic [ref=e506]:
+            - tablist [ref=e507]:
+              - tab "202" [selected] [ref=e508] [cursor=pointer]
+              - tab "400" [ref=e509] [cursor=pointer]
+              - tab "401" [ref=e510] [cursor=pointer]
+              - tab "500" [ref=e511] [cursor=pointer]
+            - tabpanel "202" [ref=e512]:
+              - generic [ref=e513]:
+                - generic [ref=e514]:
+                  - generic [ref=e515]: Content type
+                  - generic [ref=e516]: application/json
+                - generic [ref=e518]:
+                  - generic [ref=e519]:
+                    - button "Copy" [ref=e520] [cursor=pointer]:
+                      - generic [ref=e521]: Copy
+                    - button "Expand all" [ref=e522] [cursor=pointer]
+                    - button "Collapse all" [ref=e523] [cursor=pointer]
+                  - code [ref=e526]:
+                    - text: "- { …"
+                    - list [ref=e527]:
+                      - listitem [ref=e528]:
+                        - generic [ref=e529]:
+                          - text: "\"results\":"
+                          - button "collapse" [ref=e530]: "-"
+                          - text: "[ …"
+                          - list [ref=e531]:
+                            - listitem [ref=e532]:
+                              - generic [ref=e533]:
+                                - button "expand" [ref=e534]: +
+                                - text: "{"
+                                - generic [ref=e535]: …
+                                - text: "}"
+                          - text: "],"
+                      - listitem [ref=e536]:
+                        - generic [ref=e537]: "\"success_count\": 0,"
+                      - listitem [ref=e538]:
+                        - generic [ref=e539]: "\"failed_count\": 0"
+                    - text: "}"
+            - tabpanel "400"
+            - tabpanel "401"
+            - tabpanel "500"
+    - generic [ref=e541]:
+      - generic [ref=e542]:
+        - heading "tag/SMS/operation/getStatus Статус сообщения" [level=2] [ref=e543]:
+          - link "tag/SMS/operation/getStatus" [ref=e544] [cursor=pointer]:
+            - /url: "#tag/SMS/operation/getStatus"
+          - text: Статус сообщения
+        - paragraph [ref=e547]: Получает текущий статус SMS сообщения по его ID.
+        - generic [ref=e548]:
+          - generic [ref=e549] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e550]
+            - img [ref=e551]
+          - generic [ref=e555]: ApiKeyAuth
+        - generic [ref=e556]:
+          - heading "path Parameters" [level=5] [ref=e557]
+          - table [ref=e558]:
+            - rowgroup [ref=e559]:
+              - row "id required string <uuid> UUID сообщения (из ответа send/batch)" [ref=e560]:
+                - cell "id required" [ref=e561]:
+                  - text: id
+                  - generic [ref=e563]: required
+                - cell "string <uuid> UUID сообщения (из ответа send/batch)" [ref=e564]:
+                  - generic [ref=e565]:
+                    - generic [ref=e566]:
+                      - text: string
+                      - generic [ref=e567]: <uuid>
+                    - paragraph [ref=e570]: UUID сообщения (из ответа send/batch)
+        - generic [ref=e571]:
+          - heading "Responses" [level=3] [ref=e572]
+          - button "200 Статус сообщения" [ref=e574] [cursor=pointer]:
+            - img [ref=e575]
+            - strong [ref=e577]: "200"
+            - paragraph [ref=e579]: Статус сообщения
+          - button "400 Неверный запрос" [ref=e581] [cursor=pointer]:
+            - img [ref=e582]
+            - strong [ref=e584]: "400"
+            - paragraph [ref=e586]: Неверный запрос
+          - button "401 Не авторизован" [ref=e588] [cursor=pointer]:
+            - img [ref=e589]
+            - strong [ref=e591]: "401"
+            - paragraph [ref=e593]: Не авторизован
+          - button "404 Не найдено" [ref=e595] [cursor=pointer]:
+            - img [ref=e596]
+            - strong [ref=e598]: "404"
+            - paragraph [ref=e600]: Не найдено
+          - button "500 Внутренняя ошибка сервера" [ref=e602] [cursor=pointer]:
+            - img [ref=e603]
+            - strong [ref=e605]: "500"
+            - paragraph [ref=e607]: Внутренняя ошибка сервера
+      - generic [ref=e608]:
+        - 'button "get /api/v1/sms/status/{id}" [ref=e610] [cursor=pointer]':
+          - generic [ref=e611]: get
+          - generic [ref=e612]: "/api/v1/sms/status/{id}"
+          - img [ref=e613]
+        - generic [ref=e615]:
+          - heading "Response samples" [level=3] [ref=e616]
+          - generic [ref=e617]:
+            - tablist [ref=e618]:
+              - tab "200" [selected] [ref=e619] [cursor=pointer]
+              - tab "400" [ref=e620] [cursor=pointer]
+              - tab "401" [ref=e621] [cursor=pointer]
+              - tab "404" [ref=e622] [cursor=pointer]
+              - tab "500" [ref=e623] [cursor=pointer]
+            - tabpanel "200" [ref=e624]:
+              - generic [ref=e625]:
+                - generic [ref=e626]:
+                  - generic [ref=e627]: Content type
+                  - generic [ref=e628]: application/json
+                - generic [ref=e630]:
+                  - button "Copy" [ref=e632] [cursor=pointer]:
+                    - generic [ref=e633]: Copy
+                  - code [ref=e636]:
+                    - text: "- { …"
+                    - list [ref=e637]:
+                      - listitem [ref=e638]:
+                        - generic [ref=e639]: "\"message_id\": \"d7d9d9fd-478f-40e6-b651-49b7f19878a2\","
+                      - listitem [ref=e640]:
+                        - generic [ref=e641]: "\"status\": \"pending\","
+                      - listitem [ref=e642]:
+                        - generic [ref=e643]: "\"status_message\": \"string\","
+                      - listitem [ref=e644]:
+                        - generic [ref=e645]: "\"created_at\": \"2019-08-24T14:15:22Z\","
+                      - listitem [ref=e646]:
+                        - generic [ref=e647]: "\"submitted_at\": \"2019-08-24T14:15:22Z\","
+                      - listitem [ref=e648]:
+                        - generic [ref=e649]: "\"delivered_at\": \"2019-08-24T14:15:22Z\","
+                      - listitem [ref=e650]:
+                        - generic [ref=e651]: "\"failed_at\": \"2019-08-24T14:15:22Z\","
+                      - listitem [ref=e652]:
+                        - generic [ref=e653]: "\"expired_at\": \"2019-08-24T14:15:22Z\","
+                      - listitem [ref=e654]:
+                        - generic [ref=e655]: "\"smpp_message_id\": \"string\","
+                      - listitem [ref=e656]:
+                        - generic [ref=e657]: "\"error_code\": \"string\","
+                      - listitem [ref=e658]:
+                        - generic [ref=e659]: "\"error_message\": \"string\""
+                    - text: "}"
+            - tabpanel "400"
+            - tabpanel "401"
+            - tabpanel "404"
+            - tabpanel "500"
+    - generic [ref=e661]:
+      - generic [ref=e662]:
+        - heading "tag/SMS/operation/cancelSMS Отмена сообщения" [level=2] [ref=e663]:
+          - link "tag/SMS/operation/cancelSMS" [ref=e664] [cursor=pointer]:
+            - /url: "#tag/SMS/operation/cancelSMS"
+          - text: Отмена сообщения
+        - paragraph [ref=e667]:
+          - text: Отменяет запланированное сообщение (только если статус
+          - code [ref=e668]: scheduled
+          - text: ).
+        - generic [ref=e669]:
+          - generic [ref=e670] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e671]
+            - img [ref=e672]
+          - generic [ref=e676]: ApiKeyAuth
+        - generic [ref=e677]:
+          - heading "path Parameters" [level=5] [ref=e678]
+          - table [ref=e679]:
+            - rowgroup [ref=e680]:
+              - row "id required string <uuid> UUID сообщения" [ref=e681]:
+                - cell "id required" [ref=e682]:
+                  - text: id
+                  - generic [ref=e684]: required
+                - cell "string <uuid> UUID сообщения" [ref=e685]:
+                  - generic [ref=e686]:
+                    - generic [ref=e687]:
+                      - text: string
+                      - generic [ref=e688]: <uuid>
+                    - paragraph [ref=e691]: UUID сообщения
+        - generic [ref=e692]:
+          - heading "Responses" [level=3] [ref=e693]
+          - button "— 204 Сообщение отменено" [disabled] [ref=e695]:
+            - text: —
+            - strong [ref=e696]: "204"
+            - paragraph [ref=e698]: Сообщение отменено
+          - button "400 Неверный запрос" [ref=e700] [cursor=pointer]:
+            - img [ref=e701]
+            - strong [ref=e703]: "400"
+            - paragraph [ref=e705]: Неверный запрос
+          - button "401 Не авторизован" [ref=e707] [cursor=pointer]:
+            - img [ref=e708]
+            - strong [ref=e710]: "401"
+            - paragraph [ref=e712]: Не авторизован
+          - button "404 Не найдено" [ref=e714] [cursor=pointer]:
+            - img [ref=e715]
+            - strong [ref=e717]: "404"
+            - paragraph [ref=e719]: Не найдено
+          - button "500 Внутренняя ошибка сервера" [ref=e721] [cursor=pointer]:
+            - img [ref=e722]
+            - strong [ref=e724]: "500"
+            - paragraph [ref=e726]: Внутренняя ошибка сервера
+      - generic [ref=e727]:
+        - 'button "delete /api/v1/sms/{id}" [ref=e729] [cursor=pointer]':
+          - generic [ref=e730]: delete
+          - generic [ref=e731]: "/api/v1/sms/{id}"
+          - img [ref=e732]
+        - generic [ref=e734]:
+          - heading "Response samples" [level=3] [ref=e735]
+          - generic [ref=e736]:
+            - tablist [ref=e737]:
+              - tab "400" [selected] [ref=e738] [cursor=pointer]
+              - tab "401" [ref=e739] [cursor=pointer]
+              - tab "404" [ref=e740] [cursor=pointer]
+              - tab "500" [ref=e741] [cursor=pointer]
+            - tabpanel "400" [ref=e742]:
+              - generic [ref=e743]:
+                - generic [ref=e744]:
+                  - generic [ref=e745]: Content type
+                  - generic [ref=e746]: application/json
+                - generic [ref=e748]:
+                  - generic [ref=e749]:
+                    - button "Copy" [ref=e750] [cursor=pointer]:
+                      - generic [ref=e751]: Copy
+                    - button "Expand all" [ref=e752] [cursor=pointer]
+                    - button "Collapse all" [ref=e753] [cursor=pointer]
+                  - code [ref=e756]:
+                    - text: "- { …"
+                    - list [ref=e757]:
+                      - listitem [ref=e758]:
+                        - generic [ref=e759]:
+                          - text: "\"error\":"
+                          - button "collapse" [ref=e760]: "-"
+                          - text: "{ …"
+                          - list [ref=e761]:
+                            - listitem [ref=e762]:
+                              - generic [ref=e763]: "\"code\": \"INVALID_INPUT\","
+                            - listitem [ref=e764]:
+                              - generic [ref=e765]: "\"message\": \"Неверный формат запроса\","
+                            - listitem [ref=e766]:
+                              - generic [ref=e767]: "\"details\": \"string\""
+                          - text: "}"
+                    - text: "}"
+            - tabpanel "401"
+            - tabpanel "404"
+            - tabpanel "500"
+    - generic [ref=e769]:
+      - generic [ref=e770]:
+        - heading "tag/SMS/operation/getHistory История сообщений" [level=2] [ref=e771]:
+          - link "tag/SMS/operation/getHistory" [ref=e772] [cursor=pointer]:
+            - /url: "#tag/SMS/operation/getHistory"
+          - text: История сообщений
+        - paragraph [ref=e775]: Получает историю SMS с пагинацией и фильтрацией.
+        - generic [ref=e776]:
+          - generic [ref=e777] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e778]
+            - img [ref=e779]
+          - generic [ref=e783]: ApiKeyAuth
+        - generic [ref=e784]:
+          - heading "query Parameters" [level=5] [ref=e785]
+          - table [ref=e786]:
+            - rowgroup [ref=e787]:
+              - 'row "limit integer [ 1 .. 1000 ] Default: 100 Количество записей (макс. 1000)" [ref=e788]':
+                - cell "limit" [ref=e789]: limit
+                - 'cell "integer [ 1 .. 1000 ] Default: 100 Количество записей (макс. 1000)" [ref=e791]':
+                  - generic [ref=e792]:
+                    - generic [ref=e793]:
+                      - text: integer
+                      - generic [ref=e795]: "[ 1 .. 1000 ]"
+                    - generic [ref=e796]:
+                      - generic [ref=e797]: "Default:"
+                      - text: "100"
+                    - paragraph [ref=e800]: Количество записей (макс. 1000)
+              - 'row "offset integer >= 0 Default: 0 Смещение для пагинации" [ref=e801]':
+                - cell "offset" [ref=e802]: offset
+                - 'cell "integer >= 0 Default: 0 Смещение для пагинации" [ref=e804]':
+                  - generic [ref=e805]:
+                    - generic [ref=e806]:
+                      - text: integer
+                      - generic [ref=e808]: ">= 0"
+                    - generic [ref=e809]:
+                      - generic [ref=e810]: "Default:"
+                      - text: "0"
+                    - paragraph [ref=e813]: Смещение для пагинации
+              - 'row "status string Enum: \"pending\" \"queued\" \"sent\" \"delivered\" \"failed\" \"expired\" \"rejected\" \"scheduled\" Фильтр по статусу" [ref=e814]':
+                - cell "status" [ref=e815]: status
+                - 'cell "string Enum: \"pending\" \"queued\" \"sent\" \"delivered\" \"failed\" \"expired\" \"rejected\" \"scheduled\" Фильтр по статусу" [ref=e817]':
+                  - generic [ref=e818]:
+                    - generic [ref=e819]: string
+                    - generic [ref=e820]:
+                      - generic [ref=e821]: "Enum:"
+                      - text: "\"pending\" \"queued\" \"sent\" \"delivered\" \"failed\" \"expired\" \"rejected\" \"scheduled\""
+                    - paragraph [ref=e824]: Фильтр по статусу
+              - row "destination string Фильтр по номеру получателя" [ref=e825]:
+                - cell "destination" [ref=e826]: destination
+                - cell "string Фильтр по номеру получателя" [ref=e828]:
+                  - generic [ref=e829]:
+                    - generic [ref=e830]: string
+                    - paragraph [ref=e833]: Фильтр по номеру получателя
+              - row "from string <date-time> Начало периода (RFC3339)" [ref=e834]:
+                - cell "from" [ref=e835]: from
+                - cell "string <date-time> Начало периода (RFC3339)" [ref=e837]:
+                  - generic [ref=e838]:
+                    - generic [ref=e839]:
+                      - text: string
+                      - generic [ref=e840]: <date-time>
+                    - paragraph [ref=e843]: Начало периода (RFC3339)
+              - row "to string <date-time> Конец периода (RFC3339)" [ref=e844]:
+                - cell "to" [ref=e845]: to
+                - cell "string <date-time> Конец периода (RFC3339)" [ref=e847]:
+                  - generic [ref=e848]:
+                    - generic [ref=e849]:
+                      - text: string
+                      - generic [ref=e850]: <date-time>
+                    - paragraph [ref=e853]: Конец периода (RFC3339)
+        - generic [ref=e854]:
+          - heading "Responses" [level=3] [ref=e855]
+          - button "200 История сообщений" [ref=e857] [cursor=pointer]:
+            - img [ref=e858]
+            - strong [ref=e860]: "200"
+            - paragraph [ref=e862]: История сообщений
+          - button "400 Неверный запрос" [ref=e864] [cursor=pointer]:
+            - img [ref=e865]
+            - strong [ref=e867]: "400"
+            - paragraph [ref=e869]: Неверный запрос
+          - button "401 Не авторизован" [ref=e871] [cursor=pointer]:
+            - img [ref=e872]
+            - strong [ref=e874]: "401"
+            - paragraph [ref=e876]: Не авторизован
+          - button "500 Внутренняя ошибка сервера" [ref=e878] [cursor=pointer]:
+            - img [ref=e879]
+            - strong [ref=e881]: "500"
+            - paragraph [ref=e883]: Внутренняя ошибка сервера
+      - generic [ref=e884]:
+        - button "get /api/v1/sms/history" [ref=e886] [cursor=pointer]:
+          - generic [ref=e887]: get
+          - generic [ref=e888]: /api/v1/sms/history
+          - img [ref=e889]
+        - generic [ref=e891]:
+          - heading "Response samples" [level=3] [ref=e892]
+          - generic [ref=e893]:
+            - tablist [ref=e894]:
+              - tab "200" [selected] [ref=e895] [cursor=pointer]
+              - tab "400" [ref=e896] [cursor=pointer]
+              - tab "401" [ref=e897] [cursor=pointer]
+              - tab "500" [ref=e898] [cursor=pointer]
+            - tabpanel "200" [ref=e899]:
+              - generic [ref=e900]:
+                - generic [ref=e901]:
+                  - generic [ref=e902]: Content type
+                  - generic [ref=e903]: application/json
+                - generic [ref=e905]:
+                  - generic [ref=e906]:
+                    - button "Copy" [ref=e907] [cursor=pointer]:
+                      - generic [ref=e908]: Copy
+                    - button "Expand all" [ref=e909] [cursor=pointer]
+                    - button "Collapse all" [ref=e910] [cursor=pointer]
+                  - code [ref=e913]:
+                    - text: "- { …"
+                    - list [ref=e914]:
+                      - listitem [ref=e915]:
+                        - generic [ref=e916]:
+                          - text: "\"messages\":"
+                          - button "collapse" [ref=e917]: "-"
+                          - text: "[ …"
+                          - list [ref=e918]:
+                            - listitem [ref=e919]:
+                              - generic [ref=e920]:
+                                - button "expand" [ref=e921]: +
+                                - text: "{"
+                                - generic [ref=e922]: …
+                                - text: "}"
+                          - text: "],"
+                      - listitem [ref=e923]:
+                        - generic [ref=e924]: "\"total\": 0,"
+                      - listitem [ref=e925]:
+                        - generic [ref=e926]: "\"limit\": 0,"
+                      - listitem [ref=e927]:
+                        - generic [ref=e928]: "\"offset\": 0"
+                    - text: "}"
+            - tabpanel "400"
+            - tabpanel "401"
+            - tabpanel "500"
+    - generic [ref=e930]:
+      - generic [ref=e931]:
+        - heading "tag/SMS/operation/listScheduledMessages Список запланированных сообщений" [level=2] [ref=e932]:
+          - link "tag/SMS/operation/listScheduledMessages" [ref=e933] [cursor=pointer]:
+            - /url: "#tag/SMS/operation/listScheduledMessages"
+          - text: Список запланированных сообщений
+        - paragraph [ref=e936]: Возвращает постраничный список сообщений, запланированных на будущее.
+        - generic [ref=e937]:
+          - generic [ref=e938] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e939]
+            - img [ref=e940]
+          - generic [ref=e944]: ApiKeyAuth
+        - generic [ref=e945]:
+          - heading "query Parameters" [level=5] [ref=e946]
+          - table [ref=e947]:
+            - rowgroup [ref=e948]:
+              - 'row "limit integer [ 1 .. 1000 ] Default: 100 Количество записей на страницу" [ref=e949]':
+                - cell "limit" [ref=e950]: limit
+                - 'cell "integer [ 1 .. 1000 ] Default: 100 Количество записей на страницу" [ref=e952]':
+                  - generic [ref=e953]:
+                    - generic [ref=e954]:
+                      - text: integer
+                      - generic [ref=e956]: "[ 1 .. 1000 ]"
+                    - generic [ref=e957]:
+                      - generic [ref=e958]: "Default:"
+                      - text: "100"
+                    - paragraph [ref=e961]: Количество записей на страницу
+              - 'row "offset integer >= 0 Default: 0 Смещение для пагинации" [ref=e962]':
+                - cell "offset" [ref=e963]: offset
+                - 'cell "integer >= 0 Default: 0 Смещение для пагинации" [ref=e965]':
+                  - generic [ref=e966]:
+                    - generic [ref=e967]:
+                      - text: integer
+                      - generic [ref=e969]: ">= 0"
+                    - generic [ref=e970]:
+                      - generic [ref=e971]: "Default:"
+                      - text: "0"
+                    - paragraph [ref=e974]: Смещение для пагинации
+        - generic [ref=e975]:
+          - heading "Responses" [level=3] [ref=e976]
+          - button "200 Постраничный список запланированных сообщений" [ref=e978] [cursor=pointer]:
+            - img [ref=e979]
+            - strong [ref=e981]: "200"
+            - paragraph [ref=e983]: Постраничный список запланированных сообщений
+          - button "401 Не авторизован" [ref=e985] [cursor=pointer]:
+            - img [ref=e986]
+            - strong [ref=e988]: "401"
+            - paragraph [ref=e990]: Не авторизован
+          - button "500 Внутренняя ошибка сервера" [ref=e992] [cursor=pointer]:
+            - img [ref=e993]
+            - strong [ref=e995]: "500"
+            - paragraph [ref=e997]: Внутренняя ошибка сервера
+      - generic [ref=e998]:
+        - button "get /api/v1/sms/scheduled" [ref=e1000] [cursor=pointer]:
+          - generic [ref=e1001]: get
+          - generic [ref=e1002]: /api/v1/sms/scheduled
+          - img [ref=e1003]
+        - generic [ref=e1005]:
+          - heading "Response samples" [level=3] [ref=e1006]
+          - generic [ref=e1007]:
+            - tablist [ref=e1008]:
+              - tab "200" [selected] [ref=e1009] [cursor=pointer]
+              - tab "401" [ref=e1010] [cursor=pointer]
+              - tab "500" [ref=e1011] [cursor=pointer]
+            - tabpanel "200" [ref=e1012]:
+              - generic [ref=e1013]:
+                - generic [ref=e1014]:
+                  - generic [ref=e1015]: Content type
+                  - generic [ref=e1016]: application/json
+                - generic [ref=e1018]:
+                  - generic [ref=e1019]:
+                    - button "Copy" [ref=e1020] [cursor=pointer]:
+                      - generic [ref=e1021]: Copy
+                    - button "Expand all" [ref=e1022] [cursor=pointer]
+                    - button "Collapse all" [ref=e1023] [cursor=pointer]
+                  - code [ref=e1026]:
+                    - text: "- { …"
+                    - list [ref=e1027]:
+                      - listitem [ref=e1028]:
+                        - generic [ref=e1029]:
+                          - text: "\"messages\":"
+                          - button "collapse" [ref=e1030]: "-"
+                          - text: "[ …"
+                          - list [ref=e1031]:
+                            - listitem [ref=e1032]:
+                              - generic [ref=e1033]:
+                                - button "expand" [ref=e1034]: +
+                                - text: "{"
+                                - generic [ref=e1035]: …
+                                - text: "}"
+                          - text: "],"
+                      - listitem [ref=e1036]:
+                        - generic [ref=e1037]: "\"total\": 42,"
+                      - listitem [ref=e1038]:
+                        - generic [ref=e1039]: "\"limit\": 100,"
+                      - listitem [ref=e1040]:
+                        - generic [ref=e1041]: "\"offset\": 0"
+                    - text: "}"
+            - tabpanel "401"
+            - tabpanel "500"
+    - generic [ref=e1042]:
+      - heading "tag/Account Account" [level=2] [ref=e1045]:
+        - link "tag/Account" [ref=e1046] [cursor=pointer]:
+          - /url: "#tag/Account"
+        - text: Account
+      - paragraph [ref=e1049]: Баланс и статистика аккаунта
+    - generic [ref=e1051]:
+      - generic [ref=e1052]:
+        - heading "tag/Account/operation/getBalance Баланс аккаунта" [level=2] [ref=e1053]:
+          - link "tag/Account/operation/getBalance" [ref=e1054] [cursor=pointer]:
+            - /url: "#tag/Account/operation/getBalance"
+          - text: Баланс аккаунта
+        - generic [ref=e1055]:
+          - generic [ref=e1056] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e1057]
+            - img [ref=e1058]
+          - generic [ref=e1062]: ApiKeyAuth
+        - generic [ref=e1063]:
+          - heading "Responses" [level=3] [ref=e1064]
+          - button "200 Текущий баланс" [ref=e1066] [cursor=pointer]:
+            - img [ref=e1067]
+            - strong [ref=e1069]: "200"
+            - paragraph [ref=e1071]: Текущий баланс
+          - button "401 Не авторизован" [ref=e1073] [cursor=pointer]:
+            - img [ref=e1074]
+            - strong [ref=e1076]: "401"
+            - paragraph [ref=e1078]: Не авторизован
+          - button "500 Внутренняя ошибка сервера" [ref=e1080] [cursor=pointer]:
+            - img [ref=e1081]
+            - strong [ref=e1083]: "500"
+            - paragraph [ref=e1085]: Внутренняя ошибка сервера
+      - generic [ref=e1086]:
+        - button "get /api/v1/account/balance" [ref=e1088] [cursor=pointer]:
+          - generic [ref=e1089]: get
+          - generic [ref=e1090]: /api/v1/account/balance
+          - img [ref=e1091]
+        - generic [ref=e1093]:
+          - heading "Response samples" [level=3] [ref=e1094]
+          - generic [ref=e1095]:
+            - tablist [ref=e1096]:
+              - tab "200" [selected] [ref=e1097] [cursor=pointer]
+              - tab "401" [ref=e1098] [cursor=pointer]
+              - tab "500" [ref=e1099] [cursor=pointer]
+            - tabpanel "200" [ref=e1100]:
+              - generic [ref=e1101]:
+                - generic [ref=e1102]:
+                  - generic [ref=e1103]: Content type
+                  - generic [ref=e1104]: application/json
+                - generic [ref=e1106]:
+                  - button "Copy" [ref=e1108] [cursor=pointer]:
+                    - generic [ref=e1109]: Copy
+                  - code [ref=e1112]:
+                    - text: "- { …"
+                    - list [ref=e1113]:
+                      - listitem [ref=e1114]:
+                        - generic [ref=e1115]: "\"balance\": 1500.5,"
+                      - listitem [ref=e1116]:
+                        - generic [ref=e1117]: "\"currency\": \"RUB\""
+                    - text: "}"
+            - tabpanel "401"
+            - tabpanel "500"
+    - generic [ref=e1119]:
+      - generic [ref=e1120]:
+        - heading "tag/Account/operation/getStats Статистика отправок" [level=2] [ref=e1121]:
+          - link "tag/Account/operation/getStats" [ref=e1122] [cursor=pointer]:
+            - /url: "#tag/Account/operation/getStats"
+          - text: Статистика отправок
+        - generic [ref=e1123]:
+          - generic [ref=e1124] [cursor=pointer]:
+            - heading "Authorizations:" [level=5] [ref=e1125]
+            - img [ref=e1126]
+          - generic [ref=e1130]: ApiKeyAuth
+        - generic [ref=e1131]:
+          - heading "Responses" [level=3] [ref=e1132]
+          - button "200 Статистика отправок по статусам" [ref=e1134] [cursor=pointer]:
+            - img [ref=e1135]
+            - strong [ref=e1137]: "200"
+            - paragraph [ref=e1139]: Статистика отправок по статусам
+          - button "401 Не авторизован" [ref=e1141] [cursor=pointer]:
+            - img [ref=e1142]
+            - strong [ref=e1144]: "401"
+            - paragraph [ref=e1146]: Не авторизован
+          - button "500 Внутренняя ошибка сервера" [ref=e1148] [cursor=pointer]:
+            - img [ref=e1149]
+            - strong [ref=e1151]: "500"
+            - paragraph [ref=e1153]: Внутренняя ошибка сервера
+      - generic [ref=e1154]:
+        - button "get /api/v1/account/stats" [ref=e1156] [cursor=pointer]:
+          - generic [ref=e1157]: get
+          - generic [ref=e1158]: /api/v1/account/stats
+          - img [ref=e1159]
+        - generic [ref=e1161]:
+          - heading "Response samples" [level=3] [ref=e1162]
+          - generic [ref=e1163]:
+            - tablist [ref=e1164]:
+              - tab "200" [selected] [ref=e1165] [cursor=pointer]
+              - tab "401" [ref=e1166] [cursor=pointer]
+              - tab "500" [ref=e1167] [cursor=pointer]
+            - tabpanel "200" [ref=e1168]:
+              - generic [ref=e1169]:
+                - generic [ref=e1170]:
+                  - generic [ref=e1171]: Content type
+                  - generic [ref=e1172]: application/json
+                - generic [ref=e1174]:
+                  - generic [ref=e1175]:
+                    - button "Copy" [ref=e1176] [cursor=pointer]:
+                      - generic [ref=e1177]: Copy
+                    - button "Expand all" [ref=e1178] [cursor=pointer]
+                    - button "Collapse all" [ref=e1179] [cursor=pointer]
+                  - code [ref=e1182]:
+                    - text: "- { …"
+                    - list [ref=e1183]:
+                      - listitem [ref=e1184]:
+                        - generic [ref=e1185]: "\"total\": 1500,"
+                      - listitem [ref=e1186]:
+                        - generic [ref=e1187]:
+                          - text: "\"counts\":"
+                          - button "collapse" [ref=e1188]: "-"
+                          - text: "{ …"
+                          - list [ref=e1189]:
+                            - listitem [ref=e1190]:
+                              - generic [ref=e1191]: "\"queued\": 10,"
+                            - listitem [ref=e1192]:
+                              - generic [ref=e1193]: "\"sent\": 800,"
+                            - listitem [ref=e1194]:
+                              - generic [ref=e1195]: "\"delivered\": 600,"
+                            - listitem [ref=e1196]:
+                              - generic [ref=e1197]: "\"failed\": 50,"
+                            - listitem [ref=e1198]:
+                              - generic [ref=e1199]: "\"expired\": 20,"
+                            - listitem [ref=e1200]:
+                              - generic [ref=e1201]: "\"rejected\": 5,"
+                            - listitem [ref=e1202]:
+                              - generic [ref=e1203]: "\"scheduled\": 15"
+                          - text: "}"
+                    - text: "}"
+            - tabpanel "401"
+            - tabpanel "500"
+    - generic [ref=e1204]:
+      - heading "tag/Health Health" [level=2] [ref=e1207]:
+        - link "tag/Health" [ref=e1208] [cursor=pointer]:
+          - /url: "#tag/Health"
+        - text: Health
+      - paragraph [ref=e1211]: Проверка здоровья сервиса
+    - generic [ref=e1213]:
+      - generic [ref=e1214]:
+        - heading "tag/Health/operation/healthCheck Health check" [level=2] [ref=e1215]:
+          - link "tag/Health/operation/healthCheck" [ref=e1216] [cursor=pointer]:
+            - /url: "#tag/Health/operation/healthCheck"
+          - text: Health check
+        - paragraph [ref=e1219]: Проверка здоровья сервиса (без аутентификации)
+        - generic [ref=e1220]:
+          - heading "Responses" [level=3] [ref=e1221]
+          - button "200 Сервис работает" [ref=e1223] [cursor=pointer]:
+            - img [ref=e1224]
+            - strong [ref=e1226]: "200"
+            - paragraph [ref=e1228]: Сервис работает
+      - generic [ref=e1229]:
+        - button "get /health" [ref=e1231] [cursor=pointer]:
+          - generic [ref=e1232]: get
+          - generic [ref=e1233]: /health
+          - img [ref=e1234]
+        - generic [ref=e1236]:
+          - heading "Response samples" [level=3] [ref=e1237]
+          - generic [ref=e1238]:
+            - tablist [ref=e1239]:
+              - tab "200" [selected] [ref=e1240] [cursor=pointer]
+            - tabpanel "200" [ref=e1241]:
+              - generic [ref=e1242]:
+                - generic [ref=e1243]:
+                  - generic [ref=e1244]: Content type
+                  - generic [ref=e1245]: application/json
+                - generic [ref=e1247]:
+                  - button "Copy" [ref=e1249] [cursor=pointer]:
+                    - generic [ref=e1250]: Copy
+                  - code [ref=e1253]:
+                    - text: "- { …"
+                    - list [ref=e1254]:
+                      - listitem [ref=e1255]:
+                        - generic [ref=e1256]: "\"status\": \"ok\","
+                      - listitem [ref=e1257]:
+                        - generic [ref=e1258]: "\"service\": \"string\","
+                      - listitem [ref=e1259]:
+                        - generic [ref=e1260]: "\"version\": \"string\","
+                      - listitem [ref=e1261]:
+                        - generic [ref=e1262]: "\"timestamp\": \"2019-08-24T14:15:22Z\""
+                    - text: "}"
+    - generic [ref=e1264]:
+      - generic [ref=e1265]:
+        - heading "tag/Health/operation/livenessCheck Liveness probe" [level=2] [ref=e1266]:
+          - link "tag/Health/operation/livenessCheck" [ref=e1267] [cursor=pointer]:
+            - /url: "#tag/Health/operation/livenessCheck"
+          - text: Liveness probe
+        - paragraph [ref=e1270]: Kubernetes liveness probe (без аутентификации)
+        - generic [ref=e1271]:
+          - heading "Responses" [level=3] [ref=e1272]
+          - button "200 Сервис жив" [ref=e1274] [cursor=pointer]:
+            - img [ref=e1275]
+            - strong [ref=e1277]: "200"
+            - paragraph [ref=e1279]: Сервис жив
+      - generic [ref=e1280]:
+        - button "get /health/live" [ref=e1282] [cursor=pointer]:
+          - generic [ref=e1283]: get
+          - generic [ref=e1284]: /health/live
+          - img [ref=e1285]
+        - generic [ref=e1287]:
+          - heading "Response samples" [level=3] [ref=e1288]
+          - generic [ref=e1289]:
+            - tablist [ref=e1290]:
+              - tab "200" [selected] [ref=e1291] [cursor=pointer]
+            - tabpanel "200" [ref=e1292]:
+              - generic [ref=e1293]:
+                - generic [ref=e1294]:
+                  - generic [ref=e1295]: Content type
+                  - generic [ref=e1296]: application/json
+                - generic [ref=e1298]:
+                  - button "Copy" [ref=e1300] [cursor=pointer]:
+                    - generic [ref=e1301]: Copy
+                  - code [ref=e1304]: "{ }"
+    - generic [ref=e1306]:
+      - generic [ref=e1307]:
+        - heading "tag/Health/operation/readinessCheck Readiness probe" [level=2] [ref=e1308]:
+          - link "tag/Health/operation/readinessCheck" [ref=e1309] [cursor=pointer]:
+            - /url: "#tag/Health/operation/readinessCheck"
+          - text: Readiness probe
+        - paragraph [ref=e1312]: Kubernetes readiness probe — проверяет доступность БД и Redis
+        - generic [ref=e1313]:
+          - heading "Responses" [level=3] [ref=e1314]
+          - button "200 Сервис готов к работе" [ref=e1316] [cursor=pointer]:
+            - img [ref=e1317]
+            - strong [ref=e1319]: "200"
+            - paragraph [ref=e1321]: Сервис готов к работе
+          - button "— 503 Сервис не готов" [disabled] [ref=e1323]:
+            - text: —
+            - strong [ref=e1324]: "503"
+            - paragraph [ref=e1326]: Сервис не готов
+      - generic [ref=e1327]:
+        - button "get /health/ready" [ref=e1329] [cursor=pointer]:
+          - generic [ref=e1330]: get
+          - generic [ref=e1331]: /health/ready
+          - img [ref=e1332]
+        - generic [ref=e1334]:
+          - heading "Response samples" [level=3] [ref=e1335]
+          - generic [ref=e1336]:
+            - tablist [ref=e1337]:
+              - tab "200" [selected] [ref=e1338] [cursor=pointer]
+            - tabpanel "200" [ref=e1339]:
+              - generic [ref=e1340]:
+                - generic [ref=e1341]:
+                  - generic [ref=e1342]: Content type
+                  - generic [ref=e1343]: application/json
+                - generic [ref=e1345]:
+                  - button "Copy" [ref=e1347] [cursor=pointer]:
+                    - generic [ref=e1348]: Copy
+                  - code [ref=e1351]: "{ }"
+    - generic [ref=e1353]:
+      - generic [ref=e1354]:
+        - heading "tag/Health/operation/getMetrics Prometheus метрики" [level=2] [ref=e1355]:
+          - link "tag/Health/operation/getMetrics" [ref=e1356] [cursor=pointer]:
+            - /url: "#tag/Health/operation/getMetrics"
+          - text: Prometheus метрики
+        - paragraph [ref=e1359]:
+          - text: Путь настраивается через конфиг (
+          - code [ref=e1360]: monitoring.prometheus.path
+          - text: ), по умолчанию
+          - code [ref=e1361]: /metrics
+          - text: .
+        - generic [ref=e1362]:
+          - heading "Responses" [level=3] [ref=e1363]
+          - button "200 Метрики в формате Prometheus" [ref=e1365] [cursor=pointer]:
+            - img [ref=e1366]
+            - strong [ref=e1368]: "200"
+            - paragraph [ref=e1370]: Метрики в формате Prometheus
+      - button "get /metrics" [ref=e1373] [cursor=pointer]:
+        - generic [ref=e1374]: get
+        - generic [ref=e1375]: /metrics
+        - img [ref=e1376]

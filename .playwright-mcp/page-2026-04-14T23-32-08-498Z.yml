@@ -1,0 +1,413 @@
+- generic [active]:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic: S
+        - navigation:
+          - generic:
+            - link:
+              - /url: /admin
+              - generic: 📊
+          - generic:
+            - link:
+              - /url: /admin/clients
+              - generic: 👥
+            - link:
+              - /url: /admin/operator-templates
+              - generic: 📝
+            - link:
+              - /url: /admin/templates
+              - generic: ✅
+            - link:
+              - /url: /admin/sender-names
+              - generic: 📱
+            - link:
+              - /url: /admin/users
+              - generic: 🔑
+          - generic:
+            - link:
+              - /url: /admin/billing
+              - generic: 💰
+            - link:
+              - /url: /admin/tarification
+              - generic: 📋
+            - link:
+              - /url: /admin/individual-tariffs
+              - generic: 💱
+            - link:
+              - /url: /admin/legal-entities
+              - generic: 🏢
+            - link:
+              - /url: /admin/contracts
+              - generic: 📄
+          - generic:
+            - link:
+              - /url: /admin/providers
+              - generic: 🔌
+            - link:
+              - /url: /admin/routes
+              - generic: 🔀
+            - link:
+              - /url: /admin/connections
+              - generic: 🔗
+            - link:
+              - /url: /admin/individual-routes
+              - generic: 🧭
+            - link:
+              - /url: /admin/channels
+              - generic: 📦
+            - link:
+              - /url: /admin/delivery-strategies
+              - generic: 🚚
+            - link:
+              - /url: /admin/hlr
+              - generic: 📡
+          - generic:
+            - link:
+              - /url: /admin/countries
+              - generic: 🌍
+            - link:
+              - /url: /admin/webhooks
+              - generic: 🔗
+          - generic:
+            - link:
+              - /url: /admin/detalization
+              - generic: 🔍
+            - link:
+              - /url: /admin/analytics
+              - generic: 📈
+            - link:
+              - /url: /admin/monitoring
+              - generic: ⚡
+            - link:
+              - /url: /admin/audit
+              - generic: 📜
+          - generic:
+            - link:
+              - /url: /admin/settings
+              - generic: ⚙️
+        - generic:
+          - button: ↵
+      - main:
+        - generic:
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /admin/dashboard
+                  - text: Админ
+              - listitem:
+                - generic: /
+                - generic: Клиенты
+          - generic:
+            - generic:
+              - heading [level=1]: Клиенты
+              - paragraph: 41 клиентов
+            - generic:
+              - button: Создать клиента
+        - generic:
+          - generic:
+            - generic:
+              - generic: Поиск
+              - textbox:
+                - /placeholder: Имя или email...
+          - generic:
+            - generic:
+              - generic: Статус
+              - combobox
+        - generic:
+          - region:
+            - generic:
+              - table:
+                - caption: Таблица данных
+                - rowgroup:
+                  - row:
+                    - button:
+                      - generic: Название
+                    - columnheader:
+                      - generic: Email
+                    - columnheader:
+                      - generic: Контакт
+                    - columnheader:
+                      - generic: Статус
+                    - columnheader:
+                      - generic: Лимит (сообщ/с)
+                    - columnheader:
+                      - generic: Создан
+                    - columnheader
+                - rowgroup:
+                  - row:
+                    - cell: Lanser Test
+                    - cell: lanser@test.ru
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 12.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Campaign Test Corp
+                    - cell: campaign-test@example.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 08.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: LoadTest-Client
+                    - cell: loadtest-client@test.local
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 08.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Test Company
+                    - cell: testadmin@test.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 07.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Test Company
+                    - cell: testuser@testportal.com
+                    - cell: Test User
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 07.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Test Client
+                    - cell
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 06.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Spam 3
+                    - cell: spam_3@test.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Spam 2
+                    - cell: spam_2@test.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Spam 1
+                    - cell: spam_1@test.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: Evil Corp
+                    - cell: hacker_1775333336@evil.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Test Co
+                    - cell: qatest_1775333166@test.com
+                    - cell: <script>alert(1)</script>
+                    - cell:
+                      - generic: Неактивен
+                    - cell: Без лимита
+                    - cell: 04.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Corp
+                    - cell: qa_b_1775242009104@test.io
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Corp
+                    - cell: qa_a_1775242009104@test.io
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Corp
+                    - cell: qa_b_1775241621039@test.io
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Corp
+                    - cell: qa_a_1775241621039@test.io
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Auto Co
+                    - cell: qa_auto_1775239843868@example.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 03.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Empty States Corp
+                    - cell: qa-empty-1775033804191@example.com
+                    - cell
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Automation Corp
+                    - cell: qa-reg-1775033729022@example.com
+                    - cell: QA Bot
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Registration Co
+                    - cell: qa-reg-1775019984296@example.com
+                    - cell: QA Robot
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+                  - row:
+                    - cell: QA Registration Co
+                    - cell: qa-reg-1775019874517@example.com
+                    - cell: QA Robot
+                    - cell:
+                      - generic: Активен
+                    - cell: Без лимита
+                    - cell: 01.04.2026
+                    - cell:
+                      - generic:
+                        - button: Изменить
+                        - button: Деактивировать
+            - navigation:
+              - generic:
+                - generic: 1–20 из 41
+                - generic:
+                  - button [disabled]: Назад
+                  - button: Вперёд
+    - list:
+      - listitem [ref=e384]:
+        - generic [ref=e385]: failed to create client
+  - dialog "Создание клиента" [ref=e361]:
+    - heading "Создание клиента" [level=2] [ref=e362]
+    - paragraph [ref=e363]: Создание клиента
+    - generic [ref=e364]:
+      - generic [ref=e365]:
+        - generic [ref=e366]: Название
+        - textbox "Название" [ref=e367]: Test Reseller Corp
+      - generic [ref=e368]:
+        - generic [ref=e369]: Email
+        - textbox "Email" [ref=e370]: reseller@test.local
+      - generic [ref=e371]:
+        - generic [ref=e372]: Контактное лицо
+        - textbox "Контактное лицо" [ref=e373]: Reseller Admin
+      - generic [ref=e374]:
+        - generic [ref=e375]: Телефон
+        - textbox "Телефон" [ref=e376]: "+70000000001"
+      - generic [ref=e377]:
+        - generic [ref=e378]: Статус
+        - combobox [ref=e379]:
+          - option "Активен" [selected]
+          - option "Неактивен"
+      - generic [ref=e380]:
+        - button "Отмена" [ref=e381]
+        - button "Сохранить" [ref=e382]
+    - button "Закрыть" [ref=e383]: ✕

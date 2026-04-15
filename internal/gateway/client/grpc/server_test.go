@@ -72,6 +72,14 @@ func (m *mockMessagingClient) CancelMessage(ctx context.Context, in *messagingv1
 	return nil, args.Error(1)
 }
 
+func (m *mockMessagingClient) ListScheduledMessages(ctx context.Context, in *messagingv1.ListScheduledMessagesRequest, opts ...grpc.CallOption) (*messagingv1.ListScheduledMessagesResponse, error) {
+	args := m.Called(ctx, in)
+	if v := args.Get(0); v != nil {
+		return v.(*messagingv1.ListScheduledMessagesResponse), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 type mockBillingClient struct {
 	mock.Mock
 }

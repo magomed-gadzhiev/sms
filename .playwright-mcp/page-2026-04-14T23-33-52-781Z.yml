@@ -1,0 +1,380 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e7]: S
+      - navigation [ref=e8]:
+        - link "📊" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e11]: 📊
+        - generic [ref=e12]:
+          - link "👥" [ref=e13] [cursor=pointer]:
+            - /url: /admin/clients
+            - generic [ref=e14]: 👥
+          - link "📝" [ref=e15] [cursor=pointer]:
+            - /url: /admin/operator-templates
+            - generic [ref=e16]: 📝
+          - link "✅" [ref=e17] [cursor=pointer]:
+            - /url: /admin/templates
+            - generic [ref=e18]: ✅
+          - link "📱" [ref=e19] [cursor=pointer]:
+            - /url: /admin/sender-names
+            - generic [ref=e20]: 📱
+          - link "🔑" [ref=e21] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e22]: 🔑
+        - generic [ref=e23]:
+          - link "💰" [ref=e24] [cursor=pointer]:
+            - /url: /admin/billing
+            - generic [ref=e25]: 💰
+          - link "📋" [ref=e26] [cursor=pointer]:
+            - /url: /admin/tarification
+            - generic [ref=e27]: 📋
+          - link "💱" [ref=e28] [cursor=pointer]:
+            - /url: /admin/individual-tariffs
+            - generic [ref=e29]: 💱
+          - link "🏢" [ref=e30] [cursor=pointer]:
+            - /url: /admin/legal-entities
+            - generic [ref=e31]: 🏢
+          - link "📄" [ref=e32] [cursor=pointer]:
+            - /url: /admin/contracts
+            - generic [ref=e33]: 📄
+        - generic [ref=e34]:
+          - link "🔌" [ref=e35] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e36]: 🔌
+          - link "🔀" [ref=e37] [cursor=pointer]:
+            - /url: /admin/routes
+            - generic [ref=e38]: 🔀
+          - link "🔗" [ref=e39] [cursor=pointer]:
+            - /url: /admin/connections
+            - generic [ref=e40]: 🔗
+          - link "🧭" [ref=e41] [cursor=pointer]:
+            - /url: /admin/individual-routes
+            - generic [ref=e42]: 🧭
+          - link "📦" [ref=e43] [cursor=pointer]:
+            - /url: /admin/channels
+            - generic [ref=e44]: 📦
+          - link "🚚" [ref=e45] [cursor=pointer]:
+            - /url: /admin/delivery-strategies
+            - generic [ref=e46]: 🚚
+          - link "📡" [ref=e47] [cursor=pointer]:
+            - /url: /admin/hlr
+            - generic [ref=e48]: 📡
+        - generic [ref=e49]:
+          - link "🌍" [ref=e50] [cursor=pointer]:
+            - /url: /admin/countries
+            - generic [ref=e51]: 🌍
+          - link "🔗" [ref=e52] [cursor=pointer]:
+            - /url: /admin/webhooks
+            - generic [ref=e53]: 🔗
+        - generic [ref=e54]:
+          - link "🔍" [ref=e55] [cursor=pointer]:
+            - /url: /admin/detalization
+            - generic [ref=e56]: 🔍
+          - link "📈" [ref=e57] [cursor=pointer]:
+            - /url: /admin/analytics
+            - generic [ref=e58]: 📈
+          - link "⚡" [ref=e59] [cursor=pointer]:
+            - /url: /admin/monitoring
+            - generic [ref=e60]: ⚡
+          - link "📜" [ref=e61] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e62]: 📜
+        - link "⚙️" [ref=e65] [cursor=pointer]:
+          - /url: /admin/settings
+          - generic [ref=e66]: ⚙️
+      - button "↵" [ref=e68]
+    - main [ref=e69]:
+      - generic [ref=e70]:
+        - navigation "Breadcrumb" [ref=e71]:
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Админ" [ref=e74] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e75]:
+              - generic [ref=e76]: /
+              - generic [ref=e77]: Клиенты
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - heading "Клиенты" [level=1] [ref=e80]
+            - paragraph [ref=e81]: 42 клиентов
+          - button "Создать клиента" [ref=e83]
+      - generic [ref=e84]:
+        - generic [ref=e86]:
+          - generic [ref=e87]: Поиск
+          - textbox "Поиск" [ref=e88]:
+            - /placeholder: Имя или email...
+        - generic [ref=e90]:
+          - generic [ref=e91]: Статус
+          - combobox "Статус" [ref=e92]:
+            - option "Все" [selected]
+            - option "Только активные"
+      - region "Таблица данных" [ref=e386]:
+        - table "Таблица данных" [ref=e388]:
+          - caption [ref=e389]: Таблица данных
+          - rowgroup [ref=e390]:
+            - row "Название Email Контакт Статус Лимит (сообщ/с) Создан" [ref=e391]:
+              - button "Название" [ref=e392] [cursor=pointer]:
+                - generic [ref=e393]: Название
+              - columnheader "Email" [ref=e394]:
+                - generic [ref=e395]: Email
+              - columnheader "Контакт" [ref=e396]:
+                - generic [ref=e397]: Контакт
+              - columnheader "Статус" [ref=e398]:
+                - generic [ref=e399]: Статус
+              - columnheader "Лимит (сообщ/с)" [ref=e400]:
+                - generic [ref=e401]: Лимит (сообщ/с)
+              - columnheader "Создан" [ref=e402]:
+                - generic [ref=e403]: Создан
+              - columnheader [ref=e404]
+          - rowgroup [ref=e405]:
+            - row "Test Reseller Corp reseller@test.local Reseller Admin Активен Без лимита 15.04.2026 Изменить Деактивировать" [ref=e406]:
+              - cell "Test Reseller Corp" [ref=e407]
+              - cell "reseller@test.local" [ref=e408]
+              - cell "Reseller Admin" [ref=e409]
+              - cell "Активен" [ref=e410]:
+                - generic [ref=e411]: Активен
+              - cell "Без лимита" [ref=e412]
+              - cell "15.04.2026" [ref=e413]
+              - cell "Изменить Деактивировать" [ref=e414]:
+                - generic [ref=e415]:
+                  - button "Изменить" [ref=e416]
+                  - button "Деактивировать" [ref=e417]
+            - row "Lanser Test lanser@test.ru Активен Без лимита 12.04.2026 Изменить Деактивировать" [ref=e418]:
+              - cell "Lanser Test" [ref=e419]
+              - cell "lanser@test.ru" [ref=e420]
+              - cell [ref=e421]
+              - cell "Активен" [ref=e422]:
+                - generic [ref=e423]: Активен
+              - cell "Без лимита" [ref=e424]
+              - cell "12.04.2026" [ref=e425]
+              - cell "Изменить Деактивировать" [ref=e426]:
+                - generic [ref=e427]:
+                  - button "Изменить" [ref=e428]
+                  - button "Деактивировать" [ref=e429]
+            - row "Campaign Test Corp campaign-test@example.com Активен Без лимита 08.04.2026 Изменить Деактивировать" [ref=e430]:
+              - cell "Campaign Test Corp" [ref=e431]
+              - cell "campaign-test@example.com" [ref=e432]
+              - cell [ref=e433]
+              - cell "Активен" [ref=e434]:
+                - generic [ref=e435]: Активен
+              - cell "Без лимита" [ref=e436]
+              - cell "08.04.2026" [ref=e437]
+              - cell "Изменить Деактивировать" [ref=e438]:
+                - generic [ref=e439]:
+                  - button "Изменить" [ref=e440]
+                  - button "Деактивировать" [ref=e441]
+            - row "LoadTest-Client loadtest-client@test.local Активен Без лимита 08.04.2026 Изменить Деактивировать" [ref=e442]:
+              - cell "LoadTest-Client" [ref=e443]
+              - cell "loadtest-client@test.local" [ref=e444]
+              - cell [ref=e445]
+              - cell "Активен" [ref=e446]:
+                - generic [ref=e447]: Активен
+              - cell "Без лимита" [ref=e448]
+              - cell "08.04.2026" [ref=e449]
+              - cell "Изменить Деактивировать" [ref=e450]:
+                - generic [ref=e451]:
+                  - button "Изменить" [ref=e452]
+                  - button "Деактивировать" [ref=e453]
+            - row "Test Company testadmin@test.com Активен Без лимита 07.04.2026 Изменить Деактивировать" [ref=e454]:
+              - cell "Test Company" [ref=e455]
+              - cell "testadmin@test.com" [ref=e456]
+              - cell [ref=e457]
+              - cell "Активен" [ref=e458]:
+                - generic [ref=e459]: Активен
+              - cell "Без лимита" [ref=e460]
+              - cell "07.04.2026" [ref=e461]
+              - cell "Изменить Деактивировать" [ref=e462]:
+                - generic [ref=e463]:
+                  - button "Изменить" [ref=e464]
+                  - button "Деактивировать" [ref=e465]
+            - row "Test Company testuser@testportal.com Test User Активен Без лимита 07.04.2026 Изменить Деактивировать" [ref=e466]:
+              - cell "Test Company" [ref=e467]
+              - cell "testuser@testportal.com" [ref=e468]
+              - cell "Test User" [ref=e469]
+              - cell "Активен" [ref=e470]:
+                - generic [ref=e471]: Активен
+              - cell "Без лимита" [ref=e472]
+              - cell "07.04.2026" [ref=e473]
+              - cell "Изменить Деактивировать" [ref=e474]:
+                - generic [ref=e475]:
+                  - button "Изменить" [ref=e476]
+                  - button "Деактивировать" [ref=e477]
+            - row "Test Client Активен Без лимита 06.04.2026 Изменить Деактивировать" [ref=e478]:
+              - cell "Test Client" [ref=e479]
+              - cell [ref=e480]
+              - cell [ref=e481]
+              - cell "Активен" [ref=e482]:
+                - generic [ref=e483]: Активен
+              - cell "Без лимита" [ref=e484]
+              - cell "06.04.2026" [ref=e485]
+              - cell "Изменить Деактивировать" [ref=e486]:
+                - generic [ref=e487]:
+                  - button "Изменить" [ref=e488]
+                  - button "Деактивировать" [ref=e489]
+            - row "Spam 3 spam_3@test.com Активен Без лимита 04.04.2026 Изменить Деактивировать" [ref=e490]:
+              - cell "Spam 3" [ref=e491]
+              - cell "spam_3@test.com" [ref=e492]
+              - cell [ref=e493]
+              - cell "Активен" [ref=e494]:
+                - generic [ref=e495]: Активен
+              - cell "Без лимита" [ref=e496]
+              - cell "04.04.2026" [ref=e497]
+              - cell "Изменить Деактивировать" [ref=e498]:
+                - generic [ref=e499]:
+                  - button "Изменить" [ref=e500]
+                  - button "Деактивировать" [ref=e501]
+            - row "Spam 2 spam_2@test.com Активен Без лимита 04.04.2026 Изменить Деактивировать" [ref=e502]:
+              - cell "Spam 2" [ref=e503]
+              - cell "spam_2@test.com" [ref=e504]
+              - cell [ref=e505]
+              - cell "Активен" [ref=e506]:
+                - generic [ref=e507]: Активен
+              - cell "Без лимита" [ref=e508]
+              - cell "04.04.2026" [ref=e509]
+              - cell "Изменить Деактивировать" [ref=e510]:
+                - generic [ref=e511]:
+                  - button "Изменить" [ref=e512]
+                  - button "Деактивировать" [ref=e513]
+            - row "Spam 1 spam_1@test.com Активен Без лимита 04.04.2026 Изменить Деактивировать" [ref=e514]:
+              - cell "Spam 1" [ref=e515]
+              - cell "spam_1@test.com" [ref=e516]
+              - cell [ref=e517]
+              - cell "Активен" [ref=e518]:
+                - generic [ref=e519]: Активен
+              - cell "Без лимита" [ref=e520]
+              - cell "04.04.2026" [ref=e521]
+              - cell "Изменить Деактивировать" [ref=e522]:
+                - generic [ref=e523]:
+                  - button "Изменить" [ref=e524]
+                  - button "Деактивировать" [ref=e525]
+            - row "Evil Corp hacker_1775333336@evil.com Активен Без лимита 04.04.2026 Изменить Деактивировать" [ref=e526]:
+              - cell "Evil Corp" [ref=e527]
+              - cell "hacker_1775333336@evil.com" [ref=e528]
+              - cell [ref=e529]
+              - cell "Активен" [ref=e530]:
+                - generic [ref=e531]: Активен
+              - cell "Без лимита" [ref=e532]
+              - cell "04.04.2026" [ref=e533]
+              - cell "Изменить Деактивировать" [ref=e534]:
+                - generic [ref=e535]:
+                  - button "Изменить" [ref=e536]
+                  - button "Деактивировать" [ref=e537]
+            - row "QA Test Co qatest_1775333166@test.com <script>alert(1)</script> Неактивен Без лимита 04.04.2026 Изменить Деактивировать" [ref=e538]:
+              - cell "QA Test Co" [ref=e539]
+              - cell "qatest_1775333166@test.com" [ref=e540]
+              - cell "<script>alert(1)</script>" [ref=e541]
+              - cell "Неактивен" [ref=e542]:
+                - generic [ref=e543]: Неактивен
+              - cell "Без лимита" [ref=e544]
+              - cell "04.04.2026" [ref=e545]
+              - cell "Изменить Деактивировать" [ref=e546]:
+                - generic [ref=e547]:
+                  - button "Изменить" [ref=e548]
+                  - button "Деактивировать" [ref=e549]
+            - row "QA Corp qa_b_1775242009104@test.io Активен Без лимита 03.04.2026 Изменить Деактивировать" [ref=e550]:
+              - cell "QA Corp" [ref=e551]
+              - cell "qa_b_1775242009104@test.io" [ref=e552]
+              - cell [ref=e553]
+              - cell "Активен" [ref=e554]:
+                - generic [ref=e555]: Активен
+              - cell "Без лимита" [ref=e556]
+              - cell "03.04.2026" [ref=e557]
+              - cell "Изменить Деактивировать" [ref=e558]:
+                - generic [ref=e559]:
+                  - button "Изменить" [ref=e560]
+                  - button "Деактивировать" [ref=e561]
+            - row "QA Corp qa_a_1775242009104@test.io Активен Без лимита 03.04.2026 Изменить Деактивировать" [ref=e562]:
+              - cell "QA Corp" [ref=e563]
+              - cell "qa_a_1775242009104@test.io" [ref=e564]
+              - cell [ref=e565]
+              - cell "Активен" [ref=e566]:
+                - generic [ref=e567]: Активен
+              - cell "Без лимита" [ref=e568]
+              - cell "03.04.2026" [ref=e569]
+              - cell "Изменить Деактивировать" [ref=e570]:
+                - generic [ref=e571]:
+                  - button "Изменить" [ref=e572]
+                  - button "Деактивировать" [ref=e573]
+            - row "QA Corp qa_b_1775241621039@test.io Активен Без лимита 03.04.2026 Изменить Деактивировать" [ref=e574]:
+              - cell "QA Corp" [ref=e575]
+              - cell "qa_b_1775241621039@test.io" [ref=e576]
+              - cell [ref=e577]
+              - cell "Активен" [ref=e578]:
+                - generic [ref=e579]: Активен
+              - cell "Без лимита" [ref=e580]
+              - cell "03.04.2026" [ref=e581]
+              - cell "Изменить Деактивировать" [ref=e582]:
+                - generic [ref=e583]:
+                  - button "Изменить" [ref=e584]
+                  - button "Деактивировать" [ref=e585]
+            - row "QA Corp qa_a_1775241621039@test.io Активен Без лимита 03.04.2026 Изменить Деактивировать" [ref=e586]:
+              - cell "QA Corp" [ref=e587]
+              - cell "qa_a_1775241621039@test.io" [ref=e588]
+              - cell [ref=e589]
+              - cell "Активен" [ref=e590]:
+                - generic [ref=e591]: Активен
+              - cell "Без лимита" [ref=e592]
+              - cell "03.04.2026" [ref=e593]
+              - cell "Изменить Деактивировать" [ref=e594]:
+                - generic [ref=e595]:
+                  - button "Изменить" [ref=e596]
+                  - button "Деактивировать" [ref=e597]
+            - row "QA Auto Co qa_auto_1775239843868@example.com Активен Без лимита 03.04.2026 Изменить Деактивировать" [ref=e598]:
+              - cell "QA Auto Co" [ref=e599]
+              - cell "qa_auto_1775239843868@example.com" [ref=e600]
+              - cell [ref=e601]
+              - cell "Активен" [ref=e602]:
+                - generic [ref=e603]: Активен
+              - cell "Без лимита" [ref=e604]
+              - cell "03.04.2026" [ref=e605]
+              - cell "Изменить Деактивировать" [ref=e606]:
+                - generic [ref=e607]:
+                  - button "Изменить" [ref=e608]
+                  - button "Деактивировать" [ref=e609]
+            - row "QA Empty States Corp qa-empty-1775033804191@example.com Активен Без лимита 01.04.2026 Изменить Деактивировать" [ref=e610]:
+              - cell "QA Empty States Corp" [ref=e611]
+              - cell "qa-empty-1775033804191@example.com" [ref=e612]
+              - cell [ref=e613]
+              - cell "Активен" [ref=e614]:
+                - generic [ref=e615]: Активен
+              - cell "Без лимита" [ref=e616]
+              - cell "01.04.2026" [ref=e617]
+              - cell "Изменить Деактивировать" [ref=e618]:
+                - generic [ref=e619]:
+                  - button "Изменить" [ref=e620]
+                  - button "Деактивировать" [ref=e621]
+            - row "QA Automation Corp qa-reg-1775033729022@example.com QA Bot Активен Без лимита 01.04.2026 Изменить Деактивировать" [ref=e622]:
+              - cell "QA Automation Corp" [ref=e623]
+              - cell "qa-reg-1775033729022@example.com" [ref=e624]
+              - cell "QA Bot" [ref=e625]
+              - cell "Активен" [ref=e626]:
+                - generic [ref=e627]: Активен
+              - cell "Без лимита" [ref=e628]
+              - cell "01.04.2026" [ref=e629]
+              - cell "Изменить Деактивировать" [ref=e630]:
+                - generic [ref=e631]:
+                  - button "Изменить" [ref=e632]
+                  - button "Деактивировать" [ref=e633]
+            - row "QA Registration Co qa-reg-1775019984296@example.com QA Robot Активен Без лимита 01.04.2026 Изменить Деактивировать" [ref=e634]:
+              - cell "QA Registration Co" [ref=e635]
+              - cell "qa-reg-1775019984296@example.com" [ref=e636]
+              - cell "QA Robot" [ref=e637]
+              - cell "Активен" [ref=e638]:
+                - generic [ref=e639]: Активен
+              - cell "Без лимита" [ref=e640]
+              - cell "01.04.2026" [ref=e641]
+              - cell "Изменить Деактивировать" [ref=e642]:
+                - generic [ref=e643]:
+                  - button "Изменить" [ref=e644]
+                  - button "Деактивировать" [ref=e645]
+        - navigation "Постраничная навигация" [ref=e646]:
+          - generic [ref=e647]:
+            - generic [ref=e648]: 1–20 из 42
+            - generic [ref=e649]:
+              - button "Предыдущая страница" [disabled] [ref=e650]: Назад
+              - button "Следующая страница" [ref=e651]: Вперёд
+  - region "Notifications (F8)":
+    - list [ref=e653]:
+      - listitem [ref=e654]:
+        - generic [ref=e655]: Клиент создан

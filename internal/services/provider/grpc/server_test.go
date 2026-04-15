@@ -81,6 +81,14 @@ func (m *mockProviderRepo) GetByIDAndClientID(ctx context.Context, id, clientID 
 	return args.Get(0).(*domain.Provider), args.Error(1)
 }
 
+func (m *mockProviderRepo) LinkToClient(ctx context.Context, providerID, clientID uuid.UUID, ownership string) error {
+	return m.Called(ctx, providerID, clientID, ownership).Error(0)
+}
+
+func (m *mockProviderRepo) UnlinkFromClient(ctx context.Context, providerID, clientID uuid.UUID) error {
+	return m.Called(ctx, providerID, clientID).Error(0)
+}
+
 // ─── Mock: ConnectionPoolService ──────────────────────────────────────────────
 
 type mockConnectionPool struct {

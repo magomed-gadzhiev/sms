@@ -67,7 +67,7 @@ func (p *Pool) Connect(ctx context.Context, provider *shared.Provider) (*Connect
 		return connection, nil
 	}
 
-	addr := fmt.Sprintf("%s:%d", provider.Host, provider.Port)
+	addr := net.JoinHostPort(provider.Host, fmt.Sprintf("%d", provider.Port))
 
 	p.logger.Info().
 		Str("provider_id", provider.ID.String()).

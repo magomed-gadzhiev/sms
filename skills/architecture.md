@@ -5,10 +5,10 @@
 масштабировалась, не падала каскадно и оставалась понятной через год.
 Смотри между сервисами, а не внутри — для внутренностей есть code-health.
 
-## Входные данные
-- **Scope:** {Scope: all | конкретный сервис или связка, например: gateway→billing, portal}
-- **Mode:** {Mode: auto | interactive}
-- **Action:** {Action: report | recommend}
+## Input
+- **Scope:** {all | specific service or link, e.g.: gateway→billing, portal}
+- **Mode:** {auto | interactive}
+- **Action:** {report | recommend}
 
 ## Архитектура проекта (SMS-платформа)
 

@@ -1,0 +1,110 @@
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - link "Перейти к основному содержимому" [ref=e8] [cursor=pointer]:
+      - /url: "#main-content"
+    - complementary "Боковая навигация" [ref=e9]:
+      - heading "SMS Portal" [level=2] [ref=e11]
+      - navigation "Главное меню" [ref=e12]:
+        - list [ref=e13]:
+          - listitem [ref=e14]:
+            - link "Командный центр" [ref=e15] [cursor=pointer]:
+              - /url: /command-center
+          - listitem [ref=e16]:
+            - button "Отправить" [ref=e17]:
+              - generic [ref=e18]: Отправить
+              - img [ref=e19]
+          - listitem [ref=e21]:
+            - button "Отследить" [ref=e22]:
+              - generic [ref=e23]: Отследить
+              - img [ref=e24]
+          - listitem [ref=e26]:
+            - button "Аналитика" [ref=e27]:
+              - generic [ref=e28]: Аналитика
+              - img [ref=e29]
+          - listitem [ref=e31]:
+            - button "Контакты" [ref=e32]:
+              - generic [ref=e33]: Контакты
+              - img [ref=e34]
+          - listitem [ref=e36]:
+            - button "Финансы" [ref=e37]:
+              - generic [ref=e38]: Финансы
+              - img [ref=e39]
+          - listitem [ref=e41]:
+            - button "Интеграции" [ref=e42]:
+              - generic [ref=e43]: Интеграции
+              - img [ref=e44]
+          - listitem [ref=e46]:
+            - button "Настройки" [ref=e47]:
+              - generic [ref=e48]: Настройки
+              - img [ref=e49]
+      - generic [ref=e52]:
+        - generic [ref=e54]:
+          - button "Поиск (Ctrl+K)" [ref=e55]:
+            - img [ref=e56]
+          - button "Уведомления" [ref=e58]:
+            - img [ref=e59]
+        - button "Выйти" [ref=e61]
+    - main [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - heading "Командный центр" [level=1] [ref=e66]
+            - generic [ref=e68]: ● Все системы в норме
+          - generic [ref=e69]:
+            - link "95 752 152,00 RUB" [ref=e70] [cursor=pointer]:
+              - /url: /billing
+              - text: 95 752 152,00 RUB
+              - generic [ref=e71]: →
+            - link "Уведомления" [ref=e72] [cursor=pointer]:
+              - /url: /notifications
+              - img [ref=e73]
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e78]: Скорость (msg/s)
+            - generic [ref=e79]: 0 msg/s
+            - generic [ref=e80]: сообщений в секунду за последний час
+            - application [ref=e83]
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - generic [ref=e86]: Доставлено за 24ч (%)
+              - generic [ref=e87]: ↓ 33%
+            - generic [ref=e88]: 0%
+            - generic [ref=e89]: доля успешно доставленных сообщений
+          - generic [ref=e91]:
+            - generic [ref=e93]: Баланс
+            - generic [ref=e94]: 95 752 152,00 RUB
+            - generic [ref=e95]: Расходов нет
+        - generic [ref=e97]:
+          - generic [ref=e99]:
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - heading "Live Feed" [level=3] [ref=e102]
+                - generic "connecting" [ref=e103]
+              - generic [ref=e104]:
+                - generic [ref=e105]: 0 msg/s · 0 за 5 мин
+                - button "⏸ Пауза" [ref=e106]
+            - generic [ref=e107]:
+              - table "Живая лента сообщений":
+                - rowgroup
+              - status [ref=e108]: Подключение к live-ленте...
+          - generic [ref=e109]:
+            - heading "Провайдеры" [level=3] [ref=e110]
+            - paragraph [ref=e112]: Нет провайдеров
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - heading "Оповещения" [level=3] [ref=e116]
+              - link "Все →" [ref=e117] [cursor=pointer]:
+                - /url: /notifications
+            - paragraph [ref=e119]: ✓ Нет активных оповещений
+          - generic [ref=e121]:
+            - generic [ref=e122]:
+              - heading "Активные кампании" [level=3] [ref=e123]
+              - link "+ Новая →" [ref=e124] [cursor=pointer]:
+                - /url: /campaigns/new
+            - paragraph [ref=e125]: Нет активных кампаний
+    - link "Поддержка" [ref=e126] [cursor=pointer]:
+      - /url: https://t.me/sms_support
+      - img [ref=e127]
+  - region "Notifications (F8)":
+    - list

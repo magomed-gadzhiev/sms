@@ -73,5 +73,15 @@ func (m *MockProviderRepository) GetByIDAndClientID(ctx context.Context, id, cli
 	return args.Get(0).(*domain.Provider), args.Error(1)
 }
 
+func (m *MockProviderRepository) LinkToClient(ctx context.Context, providerID, clientID uuid.UUID, ownership string) error {
+	args := m.Called(ctx, providerID, clientID, ownership)
+	return args.Error(0)
+}
+
+func (m *MockProviderRepository) UnlinkFromClient(ctx context.Context, providerID, clientID uuid.UUID) error {
+	args := m.Called(ctx, providerID, clientID)
+	return args.Error(0)
+}
+
 // ProviderRepository — псевдоним для использования в тестах application пакета
 type ProviderRepository = MockProviderRepository

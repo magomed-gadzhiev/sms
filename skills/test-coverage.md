@@ -4,10 +4,10 @@
 как QA-лид: ищи непокрытые критичные пути, слабые тесты и пропущенные edge cases.
 В режиме generate — пиши недостающие тесты. В режиме report — пиши отчёт.
 
-## Входные данные
-- **Scope:** {Scope: all | конкретный модуль/сервис, например: gateway, portal, billing}
-- **Mode:** {Mode: auto | interactive}
-- **Action:** {Action: report | generate}
+## Input
+- **Scope:** {all | specific module/service, e.g.: gateway, portal, billing}
+- **Mode:** {auto | interactive}
+- **Action:** {report | generate}
 
 ## Архитектура проекта (SMS-платформа)
 - Backend: Go 1.24 + gorilla/mux → gRPC → PostgreSQL 15 / Redis 7 / Kafka

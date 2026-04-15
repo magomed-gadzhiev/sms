@@ -1,0 +1,104 @@
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - link "Перейти к основному содержимому" [ref=e8] [cursor=pointer]:
+      - /url: "#main-content"
+    - complementary "Боковая навигация" [ref=e9]:
+      - heading "SMS Portal" [level=2] [ref=e11]
+      - navigation "Главное меню" [ref=e12]:
+        - list [ref=e13]:
+          - listitem [ref=e14]:
+            - link "Командный центр" [ref=e15] [cursor=pointer]:
+              - /url: /command-center
+          - listitem [ref=e16]:
+            - button "Отправить" [expanded] [ref=e17]:
+              - generic [ref=e18]: Отправить
+              - img [ref=e19]
+            - list [ref=e86]:
+              - listitem [ref=e87]:
+                - link "Быстрая отправка" [ref=e88] [cursor=pointer]:
+                  - /url: /quick-send
+              - listitem [ref=e89]:
+                - link "Кампании" [ref=e90] [cursor=pointer]:
+                  - /url: /campaigns
+              - listitem [ref=e91]:
+                - link "Расписания" [ref=e92] [cursor=pointer]:
+                  - /url: /campaign-schedules
+              - listitem [ref=e93]:
+                - link "Шаблоны" [ref=e94] [cursor=pointer]:
+                  - /url: /templates
+              - listitem [ref=e95]:
+                - link "Имена отправителей" [ref=e96] [cursor=pointer]:
+                  - /url: /sender-names
+              - listitem [ref=e97]:
+                - link "Мои компании" [ref=e98] [cursor=pointer]:
+                  - /url: /companies
+          - listitem [ref=e21]:
+            - button "Отследить" [expanded] [ref=e22]:
+              - generic [ref=e23]: Отследить
+              - img [ref=e24]
+            - list [ref=e99]:
+              - listitem [ref=e100]:
+                - link "Сообщения" [ref=e101] [cursor=pointer]:
+                  - /url: /messages
+              - listitem [ref=e102]:
+                - link "История каскадов" [ref=e103] [cursor=pointer]:
+                  - /url: /cascade/history
+          - listitem [ref=e26]:
+            - button "Аналитика" [expanded] [active] [ref=e27]:
+              - generic [ref=e28]: Аналитика
+              - img [ref=e29]
+            - list [ref=e104]:
+              - listitem [ref=e105]:
+                - link "Статистика" [ref=e106] [cursor=pointer]:
+                  - /url: /analytics
+          - listitem [ref=e31]:
+            - button "Контакты" [expanded] [ref=e32]:
+              - generic [ref=e33]: Контакты
+              - img [ref=e34]
+            - list [ref=e36]:
+              - listitem [ref=e37]:
+                - link "Контактные базы" [ref=e38] [cursor=pointer]:
+                  - /url: /contact-lists
+              - listitem [ref=e39]:
+                - link "Сегменты" [ref=e40] [cursor=pointer]:
+                  - /url: /segments
+              - listitem [ref=e41]:
+                - link "Список отписок" [ref=e42] [cursor=pointer]:
+                  - /url: /opt-out
+          - listitem [ref=e43]:
+            - button "Финансы" [ref=e44]:
+              - generic [ref=e45]: Финансы
+              - img [ref=e46]
+          - listitem [ref=e48]:
+            - button "Интеграции" [ref=e49]:
+              - generic [ref=e50]: Интеграции
+              - img [ref=e51]
+          - listitem [ref=e53]:
+            - button "Настройки" [ref=e54]:
+              - generic [ref=e55]: Настройки
+              - img [ref=e56]
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - generic [ref=e61]: reseller@test.local
+          - generic [ref=e62]:
+            - button "Поиск (Ctrl+K)" [ref=e63]:
+              - img [ref=e64]
+            - button "Уведомления" [ref=e66]:
+              - img [ref=e67]
+        - button "Выйти" [ref=e69]
+    - main [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e73]:
+          - generic [ref=e74]:
+            - heading "Контактные базы" [level=1] [ref=e75]
+            - paragraph [ref=e76]: Управление списками контактов для рассылок
+          - button "+ Создать базу" [ref=e78]
+        - generic [ref=e79]:
+          - paragraph [ref=e80]: Контактные базы не созданы
+          - paragraph [ref=e81]: Создайте первую базу контактов для отправки рассылок
+          - button "Создать базу" [ref=e82]
+    - link "Поддержка" [ref=e83] [cursor=pointer]:
+      - /url: https://t.me/sms_support
+      - img [ref=e84]
+  - region "Notifications (F8)":
+    - list

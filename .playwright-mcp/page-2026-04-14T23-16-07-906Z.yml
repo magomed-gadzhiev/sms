@@ -1,0 +1,64 @@
+- generic [ref=e2]:
+  - generic [ref=e18]:
+    - complementary [ref=e19]:
+      - generic [ref=e21]: S
+      - navigation [ref=e22]
+      - button "↵" [ref=e24]
+    - main [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - navigation "Breadcrumb" [ref=e28]:
+            - list [ref=e29]:
+              - listitem [ref=e30]:
+                - generic [ref=e31]: Админ
+              - listitem [ref=e32]:
+                - generic [ref=e33]: /
+                - generic [ref=e34]: Панель управления
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - heading "Панель управления" [level=1] [ref=e37]
+              - paragraph [ref=e38]: "Обновлено: 02:16"
+            - button "Пауза" [ref=e40]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: Сообщений/сек
+              - generic [ref=e45]: "-"
+            - generic [ref=e46]:
+              - generic [ref=e47]: Доставлено сегодня
+              - generic [ref=e48]: "-"
+            - generic [ref=e49]:
+              - generic [ref=e50]: Ошибки
+              - generic [ref=e51]: "-"
+            - generic [ref=e52]:
+              - generic [ref=e53]: Очередь
+              - generic [ref=e54]: "-"
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - generic [ref=e57]: Активные клиенты
+              - generic [ref=e58]: "0"
+            - generic [ref=e59]:
+              - generic [ref=e60]: Выручка сегодня
+              - generic [ref=e61]: 0 ₽
+            - generic [ref=e62]:
+              - generic [ref=e63]: Провайдеры
+              - generic [ref=e64]: 0/0 исправны
+            - generic [ref=e65]:
+              - generic [ref=e66]: Шаблоны на проверке
+              - generic [ref=e67]: "0"
+        - generic [ref=e68]:
+          - heading "Трафик сообщений (последний час)" [level=3] [ref=e69]
+          - generic [ref=e71]:
+            - list [ref=e73]:
+              - listitem [ref=e74]:
+                - img "Доставлено legend icon" [ref=e75]
+                - text: Доставлено
+              - listitem [ref=e77]:
+                - img "Ошибки legend icon" [ref=e78]
+                - text: Ошибки
+            - application [ref=e80]
+        - generic [ref=e82]:
+          - heading "Оповещения" [level=3] [ref=e83]
+          - paragraph [ref=e84]: Нет активных оповещений
+  - region "Notifications (F8)":
+    - list

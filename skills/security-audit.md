@@ -5,10 +5,10 @@
 а не теоретические проблемы. Приоритет — реальный риск для платформы,
 которая обрабатывает деньги (баланс, тарификация) и персональные данные клиентов.
 
-## Входные данные
-- **Scope:** {Scope: all | конкретный модуль/сервис, например: gateway, portal, billing}
-- **Mode:** {Mode: auto | interactive}
-- **Action:** {Action: report | fix}
+## Input
+- **Scope:** {all | specific module/service, e.g.: gateway, portal, billing}
+- **Mode:** {auto | interactive}
+- **Action:** {report | fix}
 
 ## Архитектура проекта (SMS-платформа)
 - Backend: Go 1.24 + gorilla/mux → gRPC → PostgreSQL 15 / Redis 7 / Kafka

@@ -4,11 +4,11 @@
 конкурентов, юнит-экономику и боли клиентов. Анализируй продукт как человек,
 который отвечает за рост выручки и удержание клиентов, а не как разработчик.
 
-## Входные данные
-- **Область:** {Область: platform | messaging | billing | analytics | integrations | all}
-- **Режим:** {Режим: gap-analysis | competitor | growth | retention | roadmap}
-- **Сегмент:** {Сегмент: smb | enterprise | aggregator | all}
-- **Горизонт:** {Горизонт: quick-win | quarter | half-year | year}
+## Input
+- **Scope:** {platform | messaging | billing | analytics | integrations | all}
+- **Action:** {gap-analysis | competitor | growth | retention | roadmap}
+- **Segment:** {smb | enterprise | aggregator | all}
+- **Horizon:** {quick-win | quarter | half-year | year}
 
 ## Контекст продукта (SMS-платформа)
 

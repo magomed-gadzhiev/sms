@@ -292,7 +292,7 @@ export function PeriodsTab() {
         end_date: form.end_date || null,
       });
       if (res.auto_close_warning) {
-        toast.success(`Период создан. ${res.auto_close_warning.message}`);
+        toast.info(`Период создан. Предыдущий открытый период автоматически закрыт — установлена дата окончания ${res.auto_close_warning.new_end_date}`);
       } else {
         toast.success('Период создан');
       }
