@@ -31,6 +31,9 @@ type TarificationService struct {
 	clientInfoRepo   domain.ClientInfoRepository
 	aggTariffRepo    domain.AggregatorTariffRepository
 	aggMarginLogRepo domain.AggregatorMarginLogRepository
+
+	// Aggregator quota
+	quotaService *QuotaService
 }
 
 // NewTarificationService создает новый сервис тарификации
@@ -79,6 +82,11 @@ func (s *TarificationService) SetAggregatorRepos(
 	s.clientInfoRepo = clientInfoRepo
 	s.aggTariffRepo = aggTariffRepo
 	s.aggMarginLogRepo = aggMarginLogRepo
+}
+
+// SetQuotaService подключает сервис квот агрегатора
+func (s *TarificationService) SetQuotaService(qs *QuotaService) {
+	s.quotaService = qs
 }
 
 // TarifyMessageRequest запрос на тарификацию сообщения
@@ -183,44 +191,133 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 		return nil, fmt.Errorf("strategy calculation failed: %w", err)
 	}
 
-	// 8. Проверяем, является ли клиент субаккаунтом, и применяем тариф агрегатора
+	// 8. Check aggregator context (sub-account? billing mode? quota?)
 	isSubAccount, aggregatorID, aggChargeAmount, subChargeAmount := s.resolveAggregatorBilling(
 		ctx, req.ClientID, req.OperatorID, category, result, req.SegmentCount,
 	)
 
+	// 8a. Consume infrastructure quota (if aggregator has active quota)
+	if isSubAccount && aggregatorID != uuid.Nil && s.quotaService != nil {
+		quotaResult, quotaErr := s.quotaService.ConsumeQuota(ctx, aggregatorID, req.SegmentCount)
+		if quotaErr != nil {
+			return nil, fmt.Errorf("quota consumption failed: %w", quotaErr)
+		}
+		// Charge overage from aggregator's balance if needed
+		if !quotaResult.NoQuota && quotaResult.HasOverage {
+			overageResult, overageErr := s.saga.Charge(ctx,
+				aggregatorID.String(),
+				req.MessageID.String()+"-overage",
+				quotaResult.OverageChargeAmount,
+				quotaResult.Currency,
+				fmt.Sprintf("Infrastructure overage: %d segments", req.SegmentCount),
+				int32(req.SegmentCount),
+			)
+			if overageErr != nil {
+				return nil, fmt.Errorf("overage charge failed: %w", overageErr)
+			}
+			if !overageResult.Success {
+				return &TarifyMessageResponse{
+					Approved:        false,
+					RejectionReason: "aggregator balance insufficient for overage",
+				}, nil
+			}
+		}
+	}
+
+	// 8b. Determine charge target based on billing_mode
+	var clientInfo *domain.ClientAccountInfo
+	if isSubAccount && s.clientInfoRepo != nil {
+		clientInfo, _ = s.clientInfoRepo.GetAccountInfo(ctx, req.ClientID)
+	}
+
+	billingMode := domain.BillingModeOwn
+	if clientInfo != nil {
+		billingMode = clientInfo.BillingMode
+	}
+
 	var chargeResult *ChargeResult
 	if isSubAccount && aggregatorID != uuid.Nil {
-		// Двойное списание: субаккаунт по тарифу агрегатора + агрегатор по платформенному тарифу
-		dualResult, dualErr := s.saga.ChargeDual(ctx,
-			req.ClientID.String(),
-			aggregatorID.String(),
-			req.MessageID.String(),
-			subChargeAmount,
-			aggChargeAmount,
-			plan.Currency,
-		)
-		if dualErr != nil {
-			return nil, fmt.Errorf("dual billing charge failed: %w", dualErr)
-		}
-		if !dualResult.Success {
-			return &TarifyMessageResponse{
-				Approved:        false,
-				RejectionReason: domain.ErrInsufficientBalance.Error(),
-			}, nil
-		}
-		chargeResult = dualResult.SubAccountCharge
+		switch billingMode {
+		case domain.BillingModeOwn:
+			chargeAmount := result.ChargeAmount
+			if subChargeAmount != "" {
+				chargeAmount = subChargeAmount
+			}
+			chargeResult, err = s.saga.Charge(ctx,
+				req.ClientID.String(), req.MessageID.String(),
+				chargeAmount, plan.Currency,
+				fmt.Sprintf("SMS tarification: %s, %d segments", plan.Strategy, req.SegmentCount),
+				int32(req.SegmentCount),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("billing charge failed: %w", err)
+			}
+			if !chargeResult.Success {
+				return &TarifyMessageResponse{
+					Approved:        false,
+					RejectionReason: domain.ErrInsufficientBalance.Error(),
+				}, nil
+			}
 
-		// Записываем маржу агрегатора
-		s.logAggregatorMargin(ctx, aggregatorID, req.ClientID, req.MessageID, req.OperatorID,
-			req.SegmentCount, result.PricePerSegment, subChargeAmount, aggChargeAmount,
-			req.IdempotencyKey)
+		case domain.BillingModeAggregator:
+			chargeResult, err = s.saga.Charge(ctx,
+				aggregatorID.String(), req.MessageID.String(),
+				aggChargeAmount, plan.Currency,
+				fmt.Sprintf("Traffic for sub-account %s: %d segments", req.ClientID, req.SegmentCount),
+				int32(req.SegmentCount),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("aggregator charge failed: %w", err)
+			}
+			if !chargeResult.Success {
+				return &TarifyMessageResponse{
+					Approved:        false,
+					RejectionReason: "aggregator balance insufficient",
+				}, nil
+			}
+
+		case domain.BillingModeHybrid:
+			chargeAmount := result.ChargeAmount
+			if subChargeAmount != "" {
+				chargeAmount = subChargeAmount
+			}
+			chargeResult, err = s.saga.Charge(ctx,
+				req.ClientID.String(), req.MessageID.String(),
+				chargeAmount, plan.Currency,
+				fmt.Sprintf("SMS tarification: %s, %d segments", plan.Strategy, req.SegmentCount),
+				int32(req.SegmentCount),
+			)
+			if err != nil || (chargeResult != nil && !chargeResult.Success) {
+				// Fallback to aggregator
+				chargeResult, err = s.saga.Charge(ctx,
+					aggregatorID.String(), req.MessageID.String()+"-fallback",
+					aggChargeAmount, plan.Currency,
+					fmt.Sprintf("Hybrid fallback for sub-account %s: %d segments", req.ClientID, req.SegmentCount),
+					int32(req.SegmentCount),
+				)
+				if err != nil {
+					return nil, fmt.Errorf("hybrid fallback charge failed: %w", err)
+				}
+				if !chargeResult.Success {
+					return &TarifyMessageResponse{
+						Approved:        false,
+						RejectionReason: "both sub-account and aggregator balance insufficient",
+					}, nil
+				}
+			}
+		}
+
+		// Log aggregator margin
+		if billingMode == domain.BillingModeOwn || billingMode == domain.BillingModeHybrid {
+			s.logAggregatorMargin(ctx, aggregatorID, req.ClientID, req.MessageID, req.OperatorID,
+				req.SegmentCount, result.PricePerSegment, subChargeAmount, aggChargeAmount,
+				req.IdempotencyKey)
+		}
 	} else {
-		// Обычное списание (не субаккаунт или нет тарифа агрегатора)
+		// Regular client (not sub-account) — standard charge
 		chargeResult, err = s.saga.Charge(ctx,
-			req.ClientID.String(),
-			req.MessageID.String(),
-			result.ChargeAmount,
-			plan.Currency,
+			req.ClientID.String(), req.MessageID.String(),
+			result.ChargeAmount, plan.Currency,
 			fmt.Sprintf("SMS tarification: %s strategy, %d segments", plan.Strategy, req.SegmentCount),
 			int32(req.SegmentCount),
 		)
