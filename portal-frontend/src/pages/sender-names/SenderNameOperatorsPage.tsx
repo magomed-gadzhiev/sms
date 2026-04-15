@@ -9,6 +9,42 @@ import {
   type SenderNameOperatorInfo,
   type OperatorRegistration,
 } from '../../api/client';
+
+function RegistrationStatusBadge({ reg, onResubmit }: { reg: OperatorRegistration; onResubmit: (id: string) => void }) {
+  if (reg.approved_type) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        Зарегистрировано ({reg.approved_type === 'free' ? 'бесплатно' : 'платно'})
+      </span>
+    );
+  }
+  const statusMap: Record<string, { label: string; className: string }> = {
+    submitted: { label: 'На модерации', className: 'bg-yellow-100 text-yellow-800' },
+    rejected: { label: 'Отклонено', className: 'bg-red-100 text-red-800' },
+    revision_requested: { label: 'Требует доработки', className: 'bg-orange-100 text-orange-800' },
+  };
+  const style = statusMap[reg.status] ?? { label: reg.status, className: 'bg-gray-100 text-gray-800' };
+  return (
+    <div className="flex flex-col gap-1 items-start">
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${style.className}`}>
+        {style.label}
+      </span>
+      {reg.moderator_note && (
+        <span className="text-xs text-gray-500" title={reg.moderator_note}>
+          {reg.moderator_note.length > 40 ? reg.moderator_note.slice(0, 40) + '…' : reg.moderator_note}
+        </span>
+      )}
+      {reg.status === 'revision_requested' && (
+        <button
+          onClick={() => onResubmit(reg.id)}
+          className="text-xs px-2 py-0.5 bg-orange-600 text-white rounded hover:bg-orange-700"
+        >
+          Повторно подать
+        </button>
+      )}
+    </div>
+  );
+}
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 
@@ -26,6 +62,7 @@ export function SenderNameOperatorsPage() {
   // Selection state: { operatorId: { selected, type } }
   const [selection, setSelection] = useState<Record<string, { selected: boolean; type: string }>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [resubmitting, setResubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -89,6 +126,20 @@ export function SenderNameOperatorsPage() {
 
   const selectedCount = Object.values(selection).filter((s) => s.selected).length;
 
+  const handleResubmit = async (registrationId: string) => {
+    if (!id) return;
+    setResubmitting(true);
+    try {
+      await senderNameRegistrationsApi.resubmit(id, registrationId);
+      toast.success('Заявка повторно подана');
+      load();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Ошибка');
+    } finally {
+      setResubmitting(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!id) return;
     const regs = Object.entries(selection)
@@ -126,7 +177,6 @@ export function SenderNameOperatorsPage() {
   }
 
   const registeredIds = new Set(registrations.map((r) => r.operator_id));
-  const registeredNames = registrations.map((r) => r.operator_name);
 
   return (
     <div>
@@ -174,6 +224,8 @@ export function SenderNameOperatorsPage() {
               const isSelected = sel?.selected ?? false;
               const currentType = sel?.type ?? '';
 
+              const existingReg = registrations.find((r) => r.operator_id === op.id);
+
               return (
                 <tr
                   key={op.id}
@@ -218,10 +270,8 @@ export function SenderNameOperatorsPage() {
                     )}
                   </td>
                   <td className="px-3 py-3">
-                    {isRegistered ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Зарегистрировано
-                      </span>
+                    {existingReg ? (
+                      <RegistrationStatusBadge reg={existingReg} onResubmit={handleResubmit} />
                     ) : (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                         Не зарегистрировано
@@ -237,15 +287,10 @@ export function SenderNameOperatorsPage() {
 
       {/* Footer */}
       <div className="flex items-center gap-3 mt-4">
-        <Button onClick={handleSubmit} disabled={submitting || selectedCount === 0}>
+        <Button onClick={handleSubmit} disabled={submitting || resubmitting || selectedCount === 0}>
           {submitting ? 'Регистрация...' : `Зарегистрировать у выбранных (${selectedCount})`}
         </Button>
         <Button variant="ghost" onClick={() => navigate(`/sender-names/${id}`)}>Отмена</Button>
-        {registeredNames.length > 0 && (
-          <span className="text-sm text-gray-500 ml-auto">
-            Уже зарегистрировано: {registeredNames.join(', ')}
-          </span>
-        )}
       </div>
     </div>
   );

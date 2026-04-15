@@ -521,10 +521,30 @@ export interface SenderNameOperatorInfo {
 }
 
 export interface OperatorRegistration {
+  id: string;
   operator_id: string;
   operator_name: string;
   type: string;
-  status: string;
+  registration_type: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'revision_requested';
+  approved_type: string | null;
+  approved_at: string | null;
+  moderator_note: string | null;
+  submitted_at: string;
+}
+
+export interface OperatorTemplate {
+  id: string;
+  name: string;
+  operator_id: string;
+  operator_name: string;
+  body: string;
+  moderation_status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'revision_requested';
+  moderator_note: string | null;
+  submitted_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const operatorsApi = {
@@ -541,6 +561,45 @@ export const senderNameRegistrationsApi = {
     apiFetch<{ results: Array<{ operator_id: string; id?: string; status: string; error?: string }> }>(
       `/sender-names/${senderNameId}/operator-registrations`,
       { method: 'POST', body: JSON.stringify({ registrations }) },
+    ),
+  resubmit: (senderNameId: string, registrationId: string) =>
+    apiFetch<{ status: string }>(
+      `/sender-names/${senderNameId}/operator-registrations/${registrationId}/resubmit`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+};
+
+export const operatorTemplatesApi = {
+  list: (senderNameId: string, operatorId?: string) => {
+    const qs = operatorId ? `?operator_id=${operatorId}` : '';
+    return apiFetch<{ templates: OperatorTemplate[] }>(
+      `/sender-names/${senderNameId}/operator-templates${qs}`,
+    );
+  },
+  create: (senderNameId: string, data: { operator_id: string; name: string; body: string }) =>
+    apiFetch<{ id: string; moderation_status: string }>(
+      `/sender-names/${senderNameId}/operator-templates`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  update: (senderNameId: string, tid: string, data: { name: string; body: string }) =>
+    apiFetch<{ id: string }>(
+      `/sender-names/${senderNameId}/operator-templates/${tid}`,
+      { method: 'PUT', body: JSON.stringify(data) },
+    ),
+  delete: (senderNameId: string, tid: string) =>
+    apiFetch<void>(
+      `/sender-names/${senderNameId}/operator-templates/${tid}`,
+      { method: 'DELETE' },
+    ),
+  submit: (senderNameId: string, tid: string) =>
+    apiFetch<{ moderation_status: string }>(
+      `/sender-names/${senderNameId}/operator-templates/${tid}/submit`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+  resubmit: (senderNameId: string, tid: string) =>
+    apiFetch<{ moderation_status: string }>(
+      `/sender-names/${senderNameId}/operator-templates/${tid}/resubmit`,
+      { method: 'POST', body: JSON.stringify({}) },
     ),
 };
 

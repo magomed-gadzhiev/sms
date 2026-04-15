@@ -4,12 +4,15 @@ import {
   senderNamesApi,
   senderNameRegistrationsApi,
   operatorsApi,
+  operatorTemplatesApi,
   ApiError,
   type SenderNameInfo,
   type SenderNameHistoryEntry,
   type OperatorRegistration,
   type SenderNameOperatorInfo,
+  type OperatorTemplate,
 } from '../../api/client';
+import { OperatorTemplatesSection } from './OperatorTemplatesSection';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -39,6 +42,9 @@ export function SenderNameDetailPage() {
   const [registrations, setRegistrations] = useState<OperatorRegistration[]>([]);
   const [operators, setOperators] = useState<SenderNameOperatorInfo[]>([]);
 
+  // Operator templates
+  const [operatorTemplates, setOperatorTemplates] = useState<OperatorTemplate[]>([]);
+
   // History
   const [history, setHistory] = useState<SenderNameHistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -59,12 +65,14 @@ export function SenderNameDetailPage() {
       setEditName(sn.name);
 
       if (sn.status === 'approved') {
-        const [regsRes, opsRes] = await Promise.all([
+        const [regsRes, opsRes, tplRes] = await Promise.all([
           senderNameRegistrationsApi.list(id),
           operatorsApi.list(),
+          operatorTemplatesApi.list(id),
         ]);
         setRegistrations(regsRes.registrations ?? []);
         setOperators(opsRes.operators ?? []);
+        setOperatorTemplates(tplRes.templates ?? []);
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Ошибка загрузки');
@@ -176,6 +184,17 @@ export function SenderNameDetailPage() {
             Зарегистрировать у операторов →
           </Button>
         </div>
+      )}
+
+      {/* Approved: operator templates section */}
+      {senderName.status === 'approved' && (
+        <OperatorTemplatesSection
+          senderNameId={id!}
+          templates={operatorTemplates}
+          onRefresh={() => {
+            if (id) operatorTemplatesApi.list(id).then((r) => setOperatorTemplates(r.templates ?? []));
+          }}
+        />
       )}
 
       {/* Rejected: reason + resubmit form */}
