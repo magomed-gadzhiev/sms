@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,14 +11,40 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	smppv1 "github.com/smpp-server/smpp-server/api/proto/smppv1"
 	"github.com/smpp-server/smpp-server/internal/config"
+	smppgateway "github.com/smpp-server/smpp-server/internal/gateway/smpp"
+	smppserver "github.com/smpp-server/smpp-server/internal/gateway/smpp/server"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 	"github.com/smpp-server/smpp-server/internal/storage"
-	smppgateway "github.com/smpp-server/smpp-server/internal/gateway/smpp"
-	smppserver "github.com/smpp-server/smpp-server/internal/gateway/smpp/server"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
+
+// cacheRedisAdapter adapts cache.Cache to the smppserver.RedisClient interface.
+// cache.Cache uses Delete(ctx, keys...) while RedisClient expects Del(ctx, keys...).
+type cacheRedisAdapter struct {
+	cache *cache.Cache
+}
+
+func (a *cacheRedisAdapter) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return a.cache.Set(ctx, key, value, expiration)
+}
+
+func (a *cacheRedisAdapter) Get(ctx context.Context, key string) (string, error) {
+	return a.cache.Get(ctx, key)
+}
+
+func (a *cacheRedisAdapter) Del(ctx context.Context, keys ...string) error {
+	return a.cache.Delete(ctx, keys...)
+}
+
+func (a *cacheRedisAdapter) Expire(ctx context.Context, key string, expiration time.Duration) error {
+	return a.cache.Expire(ctx, key, expiration)
+}
 
 func main() {
 	// Инициализация логгера
@@ -84,6 +111,25 @@ func main() {
 	messageRepo := storage.NewMessageRepository(db)
 	optOutRepo := storage.NewOptOutRepository(db)
 
+	// Redis для DLR маппинга
+	redisCache, err := cache.NewCache(&cache.Config{
+		Host:         cfg.Redis.Host,
+		Port:         cfg.Redis.Port,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+		DialTimeout:  cfg.Redis.DialTimeout,
+		ReadTimeout:  cfg.Redis.ReadTimeout,
+		WriteTimeout: cfg.Redis.WriteTimeout,
+	})
+	if err != nil {
+		logger.Fatal().Err(err).Msg("ошибка подключения к Redis")
+	}
+	defer redisCache.Close()
+
+	redisStore := smppserver.NewRedisStore(&cacheRedisAdapter{cache: redisCache}, 24*time.Hour, 5*time.Minute)
+
 	// Создание SMPP Gateway сервера
 	smppGateway := smppserver.NewServer(
 		&cfg.SMSP,
@@ -91,6 +137,7 @@ func main() {
 		messageRepo,
 		optOutRepo,
 		producer,
+		redisStore,
 		logger,
 	)
 	
@@ -102,6 +149,25 @@ func main() {
 	logger.Info().
 		Str("addr", cfg.SMSP.GetAddr()).
 		Msg("SMPP Gateway запущен и готов принимать соединения")
+
+	// Запуск internal gRPC сервера для DLR доставки
+	grpcInternalPort := config.EnvOrDefault("GRPC_INTERNAL_PORT", "9095")
+	grpcListener, err := net.Listen("tcp", ":"+grpcInternalPort)
+	if err != nil {
+		logger.Fatal().Err(err).Str("port", grpcInternalPort).Msg("ошибка запуска internal gRPC listener")
+	}
+
+	grpcServer := grpc.NewServer()
+	dlrGRPCServer := smppserver.NewGRPCServerFromServer(smppGateway)
+	smppv1.RegisterSMPPGatewayServer(grpcServer, dlrGRPCServer)
+	reflection.Register(grpcServer)
+
+	go func() {
+		logger.Info().Str("port", grpcInternalPort).Msg("internal gRPC сервер запущен")
+		if err := grpcServer.Serve(grpcListener); err != nil {
+			logger.Error().Err(err).Msg("ошибка internal gRPC сервера")
+		}
+	}()
 
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("smpp-gateway", cfg.Service.Version)
@@ -143,6 +209,9 @@ func main() {
 	<-sigChan
 	logger.Info().Msg("получен сигнал остановки")
 	
+	// Остановка internal gRPC сервера
+	grpcServer.GracefulStop()
+
 	// Остановка сервера
 	if err := smppGateway.Stop(); err != nil {
 		logger.Error().Err(err).Msg("ошибка остановки SMPP Gateway")
