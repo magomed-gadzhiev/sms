@@ -81,13 +81,15 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	log.Info().Str("client_id", clientID.String()).Str("name", req.Name).Str("company_id", companyID).Msg("создание имени отправителя: отправка gRPC")
+
 	resp, err := h.client.CreateSenderName(r.Context(), &sendernamev1.CreateSenderNameRequest{
 		ClientId:  clientID.String(),
 		Name:      req.Name,
 		CompanyId: companyID,
 	})
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка создания имени отправителя")
+		log.Error().Err(err).Str("company_id", companyID).Msg("ошибка создания имени отправителя")
 		respondGRPCError(w, err)
 		return
 	}
