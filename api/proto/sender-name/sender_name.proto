@@ -63,6 +63,7 @@ message SenderNameInfo {
   google.protobuf.Timestamp reviewed_at = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  string company_id = 10;
 }
 
 message SenderNameHistoryEntry {
@@ -84,6 +85,7 @@ message SenderNameHistoryEntry {
 message CreateSenderNameRequest {
   string client_id = 1;
   string name = 2;
+  string company_id = 3;
 }
 
 message CreateSenderNameResponse {
