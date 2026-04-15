@@ -237,7 +237,7 @@ export function APIKeysPage() {
   if (loading) return <div role="status">Загрузка API ключей...</div>;
 
   return (
-    <div className="max-w-[900px]">
+    <div>
       <PageHeader
         title="API Ключи"
         actions={
