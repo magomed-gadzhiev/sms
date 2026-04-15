@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -247,7 +248,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 func (s *Server) readPDU(conn net.Conn) (*protocol.PDU, error) {
 	// Читаем заголовок (16 байт)
 	header := make([]byte, protocol.PDUHeaderLength)
-	if _, err := conn.Read(header); err != nil {
+	if _, err := io.ReadFull(conn, header); err != nil {
 		return nil, fmt.Errorf("ошибка чтения заголовка: %w", err)
 	}
 	
@@ -266,7 +267,7 @@ func (s *Server) readPDU(conn net.Conn) (*protocol.PDU, error) {
 	bodyLength := int(commandLength) - protocol.PDUHeaderLength
 	body := make([]byte, bodyLength)
 	if bodyLength > 0 {
-		if _, err := conn.Read(body); err != nil {
+		if _, err := io.ReadFull(conn, body); err != nil {
 			return nil, fmt.Errorf("ошибка чтения тела: %w", err)
 		}
 	}
