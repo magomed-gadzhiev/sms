@@ -35,16 +35,17 @@ func NewSenderNameService(repo SenderNameRepository) *SenderNameService {
 	}
 }
 
-func (s *SenderNameService) RegisterSenderName(ctx context.Context, clientID uuid.UUID, name string) (*domain.SenderName, error) {
+func (s *SenderNameService) RegisterSenderName(ctx context.Context, clientID, companyID uuid.UUID, name string) (*domain.SenderName, error) {
 	if err := domain.ValidateSenderName(name); err != nil {
 		return nil, err
 	}
 
 	sn := &domain.SenderName{
-		ID:       uuid.New(),
-		ClientID: clientID,
-		Name:     name,
-		Status:   domain.SenderNameStatusPending,
+		ID:        uuid.New(),
+		ClientID:  clientID,
+		CompanyID: companyID,
+		Name:      name,
+		Status:    domain.SenderNameStatusPending,
 	}
 
 	created, err := s.repo.Create(ctx, sn)
