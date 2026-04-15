@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/google/uuid"
 	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
@@ -122,9 +123,11 @@ func (s *SagaOrchestrator) ChargeDual(
 	}
 
 	// Затем списываем с агрегатора по платформенному тарифу
+	// Генерируем уникальный UUID для транзакции агрегатора (детерминированно от messageID)
+	aggMessageID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(messageID+"_agg")).String()
 	aggResp, err := s.billingClient.ChargeMessage(ctx, &billingv1.ChargeMessageRequest{
 		ClientId:    aggregatorID,
-		MessageId:   messageID + "_agg",
+		MessageId:   aggMessageID,
 		Amount:      aggregatorAmount,
 		Currency:    currency,
 		Description: "SMS агрегатор: платформенный тариф",
