@@ -77,6 +77,8 @@ func GRPCError(w http.ResponseWriter, err error) {
 		appErr = shared.ErrForbidden(st.Message())
 	case codes.AlreadyExists:
 		appErr = shared.ErrConflict(st.Message())
+	case codes.FailedPrecondition:
+		appErr = shared.ErrInvalidInput(st.Message())
 	case codes.ResourceExhausted:
 		appErr = &shared.AppError{Code: "TOO_MANY_REQUESTS", Message: st.Message(), HTTPStatus: http.StatusTooManyRequests}
 	case codes.DeadlineExceeded, codes.Unavailable:

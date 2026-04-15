@@ -9,10 +9,24 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/services/template/domain"
 )
+
+// isUniqueViolation checks for unique constraint violations from both pgx and lib/pq drivers.
+func isUniqueViolation(err error) bool {
+	var pgxErr *pgconn.PgError
+	if errors.As(err, &pgxErr) && pgxErr.Code == "23505" {
+		return true
+	}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+		return true
+	}
+	return false
+}
 
 type SenderNameRepository struct {
 	db *sqlx.DB
@@ -65,8 +79,7 @@ func (r *SenderNameRepository) Create(ctx context.Context, sn *domain.SenderName
 	var row senderNameRow
 	err := r.db.QueryRowxContext(ctx, q, sn.ID, sn.ClientID, sn.CompanyID, sn.Name, sn.Status).StructScan(&row)
 	if err != nil {
-		var pgErr *pq.Error
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if isUniqueViolation(err) {
 			return nil, domain.ErrDuplicateSenderName
 		}
 		return nil, fmt.Errorf("create sender name: %w", err)
@@ -177,8 +190,7 @@ func (r *SenderNameRepository) Update(ctx context.Context, sn *domain.SenderName
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrSenderNameNotFound
 		}
-		var pgErr *pq.Error
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if isUniqueViolation(err) {
 			return nil, domain.ErrDuplicateSenderName
 		}
 		return nil, fmt.Errorf("update sender name: %w", err)
