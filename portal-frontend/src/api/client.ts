@@ -1155,3 +1155,88 @@ export const commandCenterApi = {
     return `${proto}://${location.host}/portal/v1/ws/messages`;
   },
 };
+
+// Reseller moderation API
+export interface ResellerSenderName {
+  id: string;
+  client_id: string;
+  sub_account_email: string;
+  name: string;
+  status: string;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
+export interface ResellerTemplate {
+  id: string;
+  client_id: string;
+  sub_account_email: string;
+  name: string;
+  body_preview: string;
+  status: string;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
+export interface ModerationCounts {
+  sender_names: number;
+  templates: number;
+  registrations: number;
+}
+
+export const resellerApi = {
+  getModerationCounts: () =>
+    apiFetch<ModerationCounts>('/reseller/moderation/counts'),
+
+  // Sender names
+  listSenderNames: (params?: { status?: string }) => {
+    const qs = params?.status ? `?status=${params.status}` : '';
+    return apiFetch<{ sender_names: ResellerSenderName[]; total: number }>(`/reseller/sender-names${qs}`);
+  },
+  approveSenderName: (id: string) =>
+    apiFetch<unknown>(`/reseller/sender-names/${id}/approve`, { method: 'POST' }),
+  rejectSenderName: (id: string, reason: string) =>
+    apiFetch<unknown>(`/reseller/sender-names/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  // Templates
+  listTemplates: (params?: { status?: string }) => {
+    const qs = params?.status ? `?status=${params.status}` : '';
+    return apiFetch<{ templates: ResellerTemplate[]; total: number }>(`/reseller/templates${qs}`);
+  },
+  approveTemplate: (id: string) =>
+    apiFetch<unknown>(`/reseller/templates/${id}/approve`, { method: 'POST' }),
+  rejectTemplate: (id: string, reason: string) =>
+    apiFetch<unknown>(`/reseller/templates/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  requestRevisionTemplate: (id: string, comment: string) =>
+    apiFetch<unknown>(`/reseller/templates/${id}/request-revision`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
+
+  // Operator registrations (existing endpoints, typed access)
+  listOperatorRegistrations: (params?: { status?: string; sub_account_id?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.sub_account_id) qs.set('sub_account_id', params.sub_account_id);
+    const q = qs.toString();
+    return apiFetch<{ registrations: unknown[] }>(`/reseller/operator-registrations${q ? `?${q}` : ''}`);
+  },
+  approveOperatorRegistration: (id: string) =>
+    apiFetch<unknown>(`/reseller/operator-registrations/${id}/approve`, { method: 'POST' }),
+  rejectOperatorRegistration: (id: string, note?: string) =>
+    apiFetch<unknown>(`/reseller/operator-registrations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+  requestRevisionOperatorRegistration: (id: string, note?: string) =>
+    apiFetch<unknown>(`/reseller/operator-registrations/${id}/request-revision`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+};
