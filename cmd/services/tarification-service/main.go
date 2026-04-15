@@ -158,6 +158,12 @@ func main() {
 		eventPublisher,
 	)
 
+	// Подключаем репозитории агрегаторской тарификации
+	clientInfoRepo := tarificationrepo.NewClientInfoRepository(dbx)
+	aggTariffRepo := tarificationrepo.NewAggregatorTariffRepository(dbx)
+	aggMarginLogRepo := tarificationrepo.NewAggregatorMarginLogRepository(dbx)
+	tarificationService.SetAggregatorRepos(clientInfoRepo, aggTariffRepo, aggMarginLogRepo)
+
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("tarification-service", cfg.Service.Version)
 	healthChecker.SetDatabase(dbConn.DB)
