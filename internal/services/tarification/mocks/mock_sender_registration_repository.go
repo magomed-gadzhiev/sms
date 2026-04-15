@@ -53,3 +53,11 @@ func (m *MockSenderRegistrationRepository) List(ctx context.Context, clientID, o
 	}
 	return args.Get(0).([]*domain.SenderRegistration), args.Int(1), args.Error(2)
 }
+
+func (m *MockSenderRegistrationRepository) ListActivePaid(ctx context.Context) ([]*domain.SenderRegistration, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.SenderRegistration), args.Error(1)
+}
