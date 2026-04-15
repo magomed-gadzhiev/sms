@@ -59,6 +59,7 @@ func SetupRouter(
 	resellerHandlers *handlers.ResellerModerationHandlers,
 	resellerSenderNameHandlers *handlers.ResellerSenderNameHandlers,
 	resellerTemplateHandlers *handlers.ResellerTemplateHandlers,
+	resellerDashboardHandlers *handlers.ResellerDashboardHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
@@ -393,6 +394,9 @@ func SetupRouter(
 	resellerOpRegs.HandleFunc("/{id}/approve", resellerHandlers.ApproveResellerOperatorRegistration).Methods("POST")
 	resellerOpRegs.HandleFunc("/{id}/reject", resellerHandlers.RejectResellerOperatorRegistration).Methods("POST")
 	resellerOpRegs.HandleFunc("/{id}/request-revision", resellerHandlers.RequestRevisionResellerOperatorRegistration).Methods("POST")
+
+	// Reseller dashboard
+	reseller.HandleFunc("/dashboard", resellerDashboardHandlers.GetResellerDashboard).Methods("GET")
 
 	// Moderation counts
 	reseller.HandleFunc("/moderation/counts", resellerHandlers.GetModerationCounts).Methods("GET")

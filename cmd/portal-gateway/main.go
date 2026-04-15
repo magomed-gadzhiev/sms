@@ -283,6 +283,7 @@ func main() {
 	resellerHandlers := handlers.NewResellerModerationHandlers(dbPool)
 	resellerSenderNameHandlers := handlers.NewResellerSenderNameHandlers(dbPool, serviceClients.SenderNameClient)
 	resellerTemplateHandlers := handlers.NewResellerTemplateHandlers(dbPool, serviceClients.TemplateClient)
+	resellerDashboardHandlers := handlers.NewResellerDashboardHandlers(dbPool, serviceClients.BillingClient, serviceClients.AnalyticsClient, serviceClients.ClientClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -321,6 +322,7 @@ func main() {
 		resellerHandlers,
 		resellerSenderNameHandlers,
 		resellerTemplateHandlers,
+		resellerDashboardHandlers,
 		notificationHandlers,
 		searchHandlers,
 		exportHandlers,
