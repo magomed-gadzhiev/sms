@@ -32,7 +32,7 @@ const columns: Column<SubAccount>[] = [
     key: 'name',
     header: 'Название',
     render: (sa) => (
-      <Link to={`/sub-accounts/${sa.id}`} className="text-primary hover:underline">
+      <Link to={`/network/sub-accounts/${sa.id}`} className="text-primary hover:underline">
         {sa.name}
       </Link>
     ),

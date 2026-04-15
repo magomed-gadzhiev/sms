@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { RequireRole } from './components/RequireRole';
 import { RequireReseller } from './components/RequireReseller';
@@ -59,6 +59,7 @@ import { CascadeHistoryPage } from './pages/cascade-history/CascadeHistoryPage';
 import { CascadeDeliveryDetail } from './pages/cascade-history/CascadeDeliveryDetail';
 import { RoutingPage } from './pages/routing/RoutingPage';
 import { QuickSendPage } from './pages/quick-send/QuickSendPage';
+import { NetworkLayout } from './components/layout/NetworkLayout';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -103,6 +104,11 @@ function RequireAuth() {
   );
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
   return <UserLayout />;
+}
+
+function SubAccountRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/network/sub-accounts/${id}`} replace />;
 }
 
 export function App() {
@@ -158,8 +164,6 @@ export function App() {
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProviderWizardPage />} />
         <Route path="/routing" element={<RoutingPage />} />
-        <Route path="/sub-accounts" element={<RequireReseller><SubAccountsListPage /></RequireReseller>} />
-        <Route path="/sub-accounts/:id" element={<RequireReseller><SubAccountDetailPage /></RequireReseller>} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/companies/:id" element={<CompanyDetailPage />} />
@@ -178,6 +182,18 @@ export function App() {
         <Route path="/settings/default-senders" element={<DefaultSendersPage />} />
         <Route path="/cascade/history" element={<CascadeHistoryPage />} />
         <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />
+
+        {/* Network mode (reseller) */}
+        <Route path="/network" element={<RequireReseller><NetworkLayout /></RequireReseller>}>
+          <Route index element={<Navigate to="/network/sub-accounts" replace />} />
+          <Route path="sub-accounts" element={<SubAccountsListPage />} />
+          <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
+          <Route path="moderation" element={<div>Moderation placeholder</div>} />
+        </Route>
+
+        {/* Backward compat redirects */}
+        <Route path="/sub-accounts" element={<Navigate to="/network/sub-accounts" replace />} />
+        <Route path="/sub-accounts/:id" element={<SubAccountRedirect />} />
       </Route>
 
       <Route
