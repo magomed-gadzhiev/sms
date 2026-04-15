@@ -134,6 +134,7 @@ func main() {
 	legalEntityHandlers := handlers.NewLegalEntityHandlers(adminDB)
 	contractHandlers := handlers.NewContractHandlers(adminDB)
 	operatorTemplateHandlers := handlers.NewOperatorTemplateHandlers(adminDB)
+	adminOpRegHandlers := handlers.NewAdminOperatorRegistrationHandlers(adminDB)
 
 	// Redis client для ConnectionsHandlers
 	redisDSN := config.EnvOrDefault("REDIS_ADDR", "localhost:6379")
@@ -176,6 +177,7 @@ func main() {
 		legalEntityHandlers,
 		contractHandlers,
 		operatorTemplateHandlers,
+		adminOpRegHandlers,
 		platformRoutesHandlers,
 		connectionsHandlers,
 		auditHandlers,

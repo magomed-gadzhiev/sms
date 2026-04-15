@@ -277,6 +277,11 @@ func main() {
 	alertsHandlers := handlers.NewAlertsHandlers(serviceClients.BillingClient, serviceClients.ProviderClient, dbPool)
 	wsMessagesHandlers := handlers.NewWsMessagesHandlers(sseHub, dbPool)
 
+	// Создание handlers для модерации operator_registrations и operator_templates
+	opRegHandlers := handlers.NewOperatorRegistrationHandlers(dbPool)
+	portalOpTplHandlers := handlers.NewPortalOperatorTemplateHandlers(dbPool)
+	resellerHandlers := handlers.NewResellerModerationHandlers(dbPool)
+
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
 		healthChecker,
@@ -309,6 +314,9 @@ func main() {
 		subAccountRoutingHandlers,
 		clientRoutingHandlers,
 		senderNameHandlers,
+		opRegHandlers,
+		portalOpTplHandlers,
+		resellerHandlers,
 		notificationHandlers,
 		searchHandlers,
 		exportHandlers,
