@@ -25,6 +25,7 @@ func NewSenderNameRepository(db *sqlx.DB) *SenderNameRepository {
 type senderNameRow struct {
 	ID              uuid.UUID      `db:"id"`
 	ClientID        uuid.UUID      `db:"client_id"`
+	CompanyID       uuid.UUID      `db:"company_id"`
 	Name            string         `db:"name"`
 	Status          string         `db:"status"`
 	RejectionReason sql.NullString `db:"rejection_reason"`
@@ -38,6 +39,7 @@ func (r *senderNameRow) toDomain() *domain.SenderName {
 	sn := &domain.SenderName{
 		ID:        r.ID,
 		ClientID:  r.ClientID,
+		CompanyID: r.CompanyID,
 		Name:      r.Name,
 		Status:    r.Status,
 		ReviewerID: r.ReviewerID,
@@ -56,12 +58,12 @@ func (r *senderNameRow) toDomain() *domain.SenderName {
 
 func (r *SenderNameRepository) Create(ctx context.Context, sn *domain.SenderName) (*domain.SenderName, error) {
 	const q = `
-		INSERT INTO sender_names (id, client_id, name, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
-		RETURNING id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at`
+		INSERT INTO sender_names (id, client_id, company_id, name, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		RETURNING id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at`
 
 	var row senderNameRow
-	err := r.db.QueryRowxContext(ctx, q, sn.ID, sn.ClientID, sn.Name, sn.Status).StructScan(&row)
+	err := r.db.QueryRowxContext(ctx, q, sn.ID, sn.ClientID, sn.CompanyID, sn.Name, sn.Status).StructScan(&row)
 	if err != nil {
 		var pgErr *pq.Error
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -74,7 +76,7 @@ func (r *SenderNameRepository) Create(ctx context.Context, sn *domain.SenderName
 
 func (r *SenderNameRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.SenderName, error) {
 	const q = `
-		SELECT id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
+		SELECT id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
 		FROM sender_names WHERE id = $1`
 
 	var row senderNameRow
@@ -89,7 +91,7 @@ func (r *SenderNameRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 
 func (r *SenderNameRepository) GetByClientAndName(ctx context.Context, clientID uuid.UUID, name string) (*domain.SenderName, error) {
 	const q = `
-		SELECT id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
+		SELECT id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
 		FROM sender_names WHERE client_id = $1 AND name = $2`
 
 	var row senderNameRow
@@ -120,7 +122,7 @@ func (r *SenderNameRepository) ListByClient(ctx context.Context, clientID uuid.U
 	}
 	args = append(args, limit, offset)
 	q := fmt.Sprintf(`
-		SELECT id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
+		SELECT id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
 		FROM sender_names %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`,
 		where, len(args)-1, len(args))
 
@@ -146,7 +148,7 @@ func (r *SenderNameRepository) UpdateStatus(ctx context.Context, id uuid.UUID, s
 		UPDATE sender_names
 		SET status = $2, rejection_reason = $3, reviewer_id = $4, reviewed_at = NOW(), updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at`
+		RETURNING id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at`
 
 	var reason sql.NullString
 	if rejectionReason != "" {
@@ -168,7 +170,7 @@ func (r *SenderNameRepository) Update(ctx context.Context, sn *domain.SenderName
 		UPDATE sender_names
 		SET name = $2, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at`
+		RETURNING id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at`
 
 	var row senderNameRow
 	if err := r.db.QueryRowxContext(ctx, q, sn.ID, sn.Name).StructScan(&row); err != nil {
@@ -216,7 +218,7 @@ func (r *SenderNameRepository) ListAll(ctx context.Context, clientID *uuid.UUID,
 	}
 	args = append(args, limit, offset)
 	q := fmt.Sprintf(`
-		SELECT id, client_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
+		SELECT id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
 		FROM sender_names %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`,
 		where, len(args)-1, len(args))
 
