@@ -36,6 +36,19 @@ func nullableString(s *string) interface{} {
 	return *s
 }
 
+// parsePagination извлекает page и per_page из query-параметров
+func parsePagination(r *http.Request) (page, perPage int32) {
+	page = parseIntParam(r, "page", 1)
+	perPage = parseIntParam(r, "per_page", 50)
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 500 {
+		perPage = 50
+	}
+	return
+}
+
 // parseIntParam извлекает целочисленный query-параметр с дефолтным значением
 func parseIntParam(r *http.Request, name string, defaultVal int32) int32 {
 	val := r.URL.Query().Get(name)
