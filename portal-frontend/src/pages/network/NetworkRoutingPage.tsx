@@ -44,6 +44,7 @@ export function NetworkRoutingPage() {
   const [providers, setProviders] = useState<ProviderAssignment[]>([]);
   const [routes, setRoutes] = useState<RouteEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [allProviders, setAllProviders] = useState<{ id: string; name: string }[]>([]);
 
   // Bulk assign modal
   const [showBulk, setShowBulk] = useState(false);
@@ -55,6 +56,19 @@ export function NetworkRoutingPage() {
   useEffect(() => {
     subAccountsApi.list().then((r: any) => {
       setSubAccounts((r.sub_accounts || []).map((sa: any) => ({ id: sa.id, name: sa.name || sa.email })));
+    }).catch(() => {});
+
+    // Load all distinct providers used across sub-accounts for the bulk assign dropdown
+    resellerApi.listNetworkProviders().then((r) => {
+      const seen = new Set<string>();
+      const unique: { id: string; name: string }[] = [];
+      for (const p of r.providers as ProviderAssignment[]) {
+        if (!seen.has(p.provider_id)) {
+          seen.add(p.provider_id);
+          unique.push({ id: p.provider_id, name: p.provider_name });
+        }
+      }
+      setAllProviders(unique);
     }).catch(() => {});
   }, []);
 
@@ -200,13 +214,29 @@ export function NetworkRoutingPage() {
       {/* Bulk assign modal */}
       <Modal open={showBulk} onClose={() => setShowBulk(false)} title="Массовое назначение провайдера">
         <div className="flex flex-col gap-4">
-          <Input
-            label="ID провайдера"
-            value={bulkProviderID}
-            onChange={(e) => setBulkProviderID(e.target.value)}
-            required
-            placeholder="UUID провайдера"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Провайдер</label>
+            {allProviders.length > 0 ? (
+              <select
+                value={bulkProviderID}
+                onChange={(e) => setBulkProviderID(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2 text-sm w-full"
+                required
+              >
+                <option value="">Выберите провайдера</option>
+                {allProviders.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                value={bulkProviderID}
+                onChange={(e) => setBulkProviderID(e.target.value)}
+                required
+                placeholder="UUID провайдера"
+              />
+            )}
+          </div>
           <Input
             label="Приоритет"
             type="number"

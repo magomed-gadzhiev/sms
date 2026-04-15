@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { useToast } from '../../components/ui/Toast';
-import { resellerApi, subAccountsApi, ApiError } from '../../api/client';
+import { resellerApi, subAccountsApi, apiFetch, ApiError } from '../../api/client';
 
 interface Tariff {
   id: string;
@@ -60,7 +60,7 @@ export function NetworkTariffsPage() {
         const items = r.tariffs as Tariff[];
         setTariffs(items);
         const prices: Record<string, string> = {};
-        items.forEach((t) => { prices[t.operator_id] = t.price_per_sms; });
+        items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
         setEditingPrices(prices);
       })
       .catch(() => toast.error('Ошибка загрузки тарифов'))
@@ -71,13 +71,14 @@ export function NetworkTariffsPage() {
     if (!selectedSA) return;
     setSaving(true);
     try {
-      const tariffList = Object.entries(editingPrices)
-        .filter(([_, price]) => price !== '')
-        .map(([operatorId, price]) => ({
-          operator_id: operatorId,
-          sender_category: 'standard',
-          price_per_sms: price,
-        }));
+      const tariffList = tariffs
+        .map((t) => {
+          const price = editingPrices[`${t.operator_id}_${t.sender_category}`];
+          return price !== undefined && price !== ''
+            ? { operator_id: t.operator_id, sender_category: t.sender_category, price_per_sms: price }
+            : null;
+        })
+        .filter(Boolean) as { operator_id: string; sender_category: string; price_per_sms: string }[];
       if (tariffList.length === 0) {
         toast.error('Нет тарифов для сохранения');
         return;
@@ -86,7 +87,11 @@ export function NetworkTariffsPage() {
       toast.success(`Сохранено ${tariffList.length} тарифов`);
       // Reload
       const r = await resellerApi.listTariffs({ sub_account_id: selectedSA });
-      setTariffs(r.tariffs as Tariff[]);
+      const items = r.tariffs as Tariff[];
+      setTariffs(items);
+      const prices: Record<string, string> = {};
+      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
+      setEditingPrices(prices);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка сохранения');
     } finally {
@@ -103,9 +108,10 @@ export function NetworkTariffsPage() {
       setShowCopy(false);
       // Reload
       const r = await resellerApi.listTariffs({ sub_account_id: selectedSA });
-      setTariffs(r.tariffs as Tariff[]);
+      const items = r.tariffs as Tariff[];
+      setTariffs(items);
       const prices: Record<string, string> = {};
-      (r.tariffs as Tariff[]).forEach((t) => { prices[t.operator_id] = t.price_per_sms; });
+      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
       setEditingPrices(prices);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка копирования');
@@ -119,7 +125,7 @@ export function NetworkTariffsPage() {
     setBulkSaving(true);
     try {
       // Get all operators from references
-      const resp = await (await fetch('/portal/v1/references/operators', { credentials: 'include' })).json();
+      const resp = await apiFetch<{ operators: { id: string }[] }>('/references/operators');
       const operators = resp.operators || [];
       const tariffList = operators.map((op: any) => ({
         operator_id: op.id,
@@ -131,9 +137,10 @@ export function NetworkTariffsPage() {
       setShowBulkPrice(false);
       // Reload
       const r = await resellerApi.listTariffs({ sub_account_id: selectedSA });
-      setTariffs(r.tariffs as Tariff[]);
+      const items = r.tariffs as Tariff[];
+      setTariffs(items);
       const prices: Record<string, string> = {};
-      (r.tariffs as Tariff[]).forEach((t) => { prices[t.operator_id] = t.price_per_sms; });
+      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
       setEditingPrices(prices);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка');
@@ -193,8 +200,8 @@ export function NetworkTariffsPage() {
                     <td className="p-3">
                       <input
                         type="text"
-                        value={editingPrices[t.operator_id] ?? t.price_per_sms}
-                        onChange={(e) => setEditingPrices((prev) => ({ ...prev, [t.operator_id]: e.target.value }))}
+                        value={editingPrices[`${t.operator_id}_${t.sender_category}`] ?? t.price_per_sms}
+                        onChange={(e) => setEditingPrices((prev) => ({ ...prev, [`${t.operator_id}_${t.sender_category}`]: e.target.value }))}
                         className="border border-gray-300 rounded px-2 py-1 w-32 text-sm"
                       />
                     </td>

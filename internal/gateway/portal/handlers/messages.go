@@ -307,6 +307,12 @@ LIMIT 1`
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			// Message may be in-flight (not yet persisted from Kafka pipeline).
+			// If gRPC client is available, try it as a fallback before returning 404.
+			if h.messagingClient != nil {
+				h.getMessageViaGRPC(w, r, id, clientID.String())
+				return
+			}
 			respondError(w, shared.ErrNotFound("Сообщение не найдено"))
 		} else {
 			log.Error().Err(err).Str("message_id", id).Msg("ошибка запроса сообщения из БД")

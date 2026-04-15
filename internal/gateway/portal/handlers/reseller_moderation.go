@@ -52,7 +52,7 @@ func (h *ResellerModerationHandlers) ListResellerOperatorRegistrations(w http.Re
 	                 or2.operator_id, o.name AS operator_name,
 	                 or2.registration_type, or2.status, or2.approved_type,
 	                 or2.moderator_note, or2.submitted_at, or2.resolved_at,
-	                 sn.client_id AS sub_account_id
+	                 sn.client_id AS sub_account_id, c.email AS sub_account_email
 	          FROM operator_registrations or2
 	          JOIN sender_names sn ON sn.id = or2.sender_name_id
 	          JOIN operators o ON o.id = or2.operator_id
@@ -93,6 +93,7 @@ func (h *ResellerModerationHandlers) ListResellerOperatorRegistrations(w http.Re
 		SubmittedAt      time.Time  `json:"submitted_at"`
 		ResolvedAt       *time.Time `json:"resolved_at"`
 		SubAccountID     string     `json:"sub_account_id"`
+		SubAccountEmail  string     `json:"sub_account_email"`
 	}
 	regs := make([]regJSON, 0)
 	for rows.Next() {
@@ -102,7 +103,7 @@ func (h *ResellerModerationHandlers) ListResellerOperatorRegistrations(w http.Re
 			&reg.OperatorID, &reg.OperatorName,
 			&reg.RegistrationType, &reg.Status, &reg.ApprovedType,
 			&reg.ModeratorNote, &reg.SubmittedAt, &reg.ResolvedAt,
-			&reg.SubAccountID,
+			&reg.SubAccountID, &reg.SubAccountEmail,
 		); err != nil {
 			respondError(w, shared.ErrInternalServer("ошибка чтения данных"))
 			return

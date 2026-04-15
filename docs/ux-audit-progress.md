@@ -1,6 +1,44 @@
 # UX Audit Progress
 
-## [IN_PROGRESS] Модуль: Повторяющиеся рассылки (client, /campaign-schedules, fix mode + инфраструктура + QA full, 2026-04-15)
+## [DONE] Модуль: Управление сетью (aggregator, /network/*, fix mode + инфраструктура + QA full, 2026-04-15)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `internal/gateway/portal/handlers/reseller_moderation.go` | `regJSON` не содержал `sub_account_email` → вкладка "Регистрации" показывала сырой UUID субаккаунта | Добавлен `c.email AS sub_account_email` в SQL, поле `SubAccountEmail string` в struct |
+| 2 | `portal-frontend/src/pages/network/ModerationPage.tsx` | `regColumns[0].key = 'sub_account_id'` → UUID в ячейке таблицы | `key = 'sub_account_email'` → читаемый email субаккаунта |
+| 3 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | `editingPrices` кеширован по `operator_id` → при нескольких категориях на оператора данные перезаписывались | Ключ `${operator_id}_${sender_category}` — каждая комбинация хранится независимо |
+| 4 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | `handleSave()` всегда отправлял `sender_category: 'standard'` → перезаписывал non-standard категории | Использует оригинальную категорию из `tariffs[]` при сохранении |
+| 5 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | `<input>` в строке таблицы привязан к `editingPrices[t.operator_id]` | Привязан к `editingPrices[${t.operator_id}_${t.sender_category}]` |
+| 6 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | `handleBulkPrice` использовал сырой `fetch('/portal/v1/references/operators')` без проверки статуса | Заменён на `apiFetch('/references/operators')` с правильной обработкой ошибок |
+| 7 | `portal-frontend/src/pages/network/NetworkRoutingPage.tsx` | Модал "Массовое назначение" — поле ID провайдера: сырой UUID-ввод без подсказок | Загружается список уникальных провайдеров из `listNetworkProviders()`, отображается `<select>` с именами провайдеров; fallback на текстовый ввод если список пуст |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| `GET /reseller/moderation/counts` | ✅ `GetModerationCounts` — проверяет `is_reseller` |
+| `GET /reseller/sender-names` | ✅ `ListResellerSenderNames` — фильтр по `parent_client_id` |
+| `POST /reseller/sender-names/{id}/approve|reject` | ✅ gRPC → SenderNameService |
+| `GET /reseller/templates` | ✅ `ListResellerTemplates` — фильтр по `parent_client_id` |
+| `POST /reseller/templates/{id}/approve|reject|request-revision` | ✅ JSON полей совпадает: `reason`/`comment` |
+| `GET /reseller/operator-registrations` | ✅ `ListResellerOperatorRegistrations` — исправлено в этом раунде (+`sub_account_email`) |
+| `POST /reseller/operator-registrations/{id}/approve|reject|request-revision` | ✅ JSON поля `note` совпадает |
+| `GET /reseller/dashboard` | ✅ параллельный fetch billing+analytics+moderation |
+| `GET /reseller/routing/providers` | ✅ query `client_providers JOIN clients WHERE parent_client_id = $1` |
+| `GET /reseller/routing/routes` | ✅ query `client_routes JOIN clients WHERE parent_client_id = $1` |
+| `POST /reseller/routing/bulk-assign` | ✅ gRPC `AssignProviderToClient` с ownership-check |
+| `GET /reseller/tariffs` | ✅ query `aggregator_tariffs WHERE aggregator_id = $1` |
+| `PUT /reseller/tariffs` | ✅ UPSERT с unique index |
+| `POST /reseller/tariffs/copy` | ✅ ownership-check обоих субаккаунтов |
+| `GET /reseller/analytics` | ✅ параллельный gRPC GetStatistics по субаккаунтам |
+| `aggregator_tariffs` table | ✅ migration 000096 (unique index по aggregator+sub+operator+category) |
+| `operator_registrations` + `operator_registration_history` | ✅ migration 000094 (comment column присутствует) |
+| `client_providers` + `client_routes` | ✅ migrations 000037, 000038 |
+| Auth на всех reseller handlers | ✅ каждый handler вызывает `checkReseller()` → `is_reseller = true` |
+
+## [DONE] Модуль: Повторяющиеся рассылки (client, /campaign-schedules, fix mode + инфраструктура + QA full, 2026-04-15)
 
 ## [DONE] Модуль: Сообщения и рассылки — роль аггрегатор (fix mode + инфраструктура, 2026-04-15)
 
@@ -220,6 +258,55 @@
 | Admin auth middleware на всех новых маршрутах | ✅ все маршруты внутри `tarification` subrouter |
 
 
+
+## [IN_PROGRESS] Модуль: Отправить / Быстрая отправка — Повторный аудит (client, /quick-send, fix mode + инфраструктура + QA full, 2026-04-16)
+
+## [DONE] Модуль: Отправить / Быстрая отправка (client, /quick-send, fix mode + инфраструктура + QA full, 2026-04-16)
+
+### Тест-кейсы (8 TC, 7 PASS, 1 PARTIAL)
+
+| TC | Тип | Описание | Вердикт |
+|---|---|---|---|
+| TC-1 | happy | Отправить 1 сообщение с валидными полями | PASS (201, статус queued в UI) |
+| TC-2 | edge | CharacterCounter при >160 символов | PARTIAL (работает, но "лишних" → исправлено на "+N сверх") |
+| TC-3 | negative | Пустая форма — Submit без заполнения | PASS ("Введите текст сообщения") |
+| TC-4 | negative | Только пробелы в тексте | PASS (trim() → "Введите текст сообщения") |
+| TC-5 | negative | Некорректный формат номера | PASS (ошибка валидации); дополнительно исправлен BUG-3 (скобки/тире) |
+| TC-6 | edge | allDone при failed send (err- prefix) | FAIL → FIXED (polling теперь завершается) |
+| TC-7 | state | loadingSenders error silent catch | FAIL → FIXED (добавлен error state + кнопка "Повторить") |
+| TC-8 | infra | GET /messages/{id} — polling статуса | FAIL → PARTIAL (добавлен max retry limit + gRPC fallback) |
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `allDone` не учитывал `err-` prefix сообщений → polling никогда не завершался при ошибках отправки | `isMessageDone()` проверяет и terminal statuses, и `err-` prefix |
+| 2 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | Нет лимита polling → бесконечные 404 в консоли (89+ ошибок) | `MAX_POLL_ATTEMPTS=60` (3 мин) + `pollAttemptsRef`, после лимита статус → `expired` |
+| 3 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `status: 'failed: ${msg}'` → StatusBadge не распознавал, показывал серым | Нормализован до `status: 'failed'` |
+| 4 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `parsePhones` убирал только пробелы → `+7(900)123-45-67` отклонялся | Убираем `[\s\-().]` — распространённый русский формат проходит |
+| 5 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `catch(() => {})` при загрузке sender names → пользователь видел "Нет имён" вместо ошибки | Добавлен `sendersError` state + "Повторить" кнопка |
+| 6 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | "Будет отправлено 1 сообщений" — неверная русская грамматика | `pluralMessages(n)` → "1 сообщение", "2 сообщения", "5 сообщений" |
+| 7 | `portal-frontend/src/components/ui/CharacterCounter.tsx` | "40 лишних" → вводит в заблуждение (символы не обрезаются, а в 2-м сегменте) | "+40 сверх · 2 SMS" |
+| 8 | `internal/gateway/portal/handlers/messages.go` | `GetMessage` возвращал 404 для in-flight сообщений (async Kafka pipeline) без fallback | При `pgx.ErrNoRows` и наличии `messagingClient` → fallback на `getMessageViaGRPC` |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| `POST /messages` → `SendMessage` gRPC | ✅ handler корректен, возвращает 201 + message_id |
+| `GET /messages/{id}` → `GetMessage` DB+gRPC | ✅ исправлен в этом раунде (gRPC fallback при 404 DB) |
+| `GET /sender-names?status=approved` | ✅ handler + pagination |
+| `GET /messages/stream` SSE | ✅ handler зарегистрирован (не используется QuickSend, polling вместо SSE) |
+| Messaging service: non-scheduled → Kafka async (no DB write at send time) | ⚠️ By design, но вызывает 404 при polling до persist stage |
+| Messaging scheduler: `"missing destination name channel"` error | ❌ Постоянная ошибка — возможно блокирует pipeline |
+
+### Остаточные проблемы
+
+| Приоритет | Проблема | Комментарий |
+|---|---|---|
+| HIGH | Scheduler `"missing destination name channel in *[]*shared.Message"` | Постоянная ошибка в messaging-service logs — вероятно блокирует обработку сообщений через pipeline |
+| MED | QuickSendPage использует REST polling вместо SSE | `/messages/stream` уже существует. Переход на SSE устранит 404-флуд полностью |
+| LOW | Нет ограничения количества получателей в форме | Можно вставить 10000 номеров — последовательная отправка заблокирует UI надолго |
 
 ## Test Accounts
 

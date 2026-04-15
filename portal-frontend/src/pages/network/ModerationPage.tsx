@@ -258,7 +258,7 @@ export function ModerationPage() {
   ];
 
   const regColumns: Column<Record<string, unknown>>[] = [
-    { key: 'sub_account_id' as string, header: 'Субаккаунт' },
+    { key: 'sub_account_email' as string, header: 'Субаккаунт' },
     { key: 'sender_name' as string, header: 'Имя отправителя' },
     { key: 'operator_name' as string, header: 'Оператор' },
     { key: 'registration_type' as string, header: 'Тип' },

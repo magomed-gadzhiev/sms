@@ -13,7 +13,7 @@ export function CharacterCounter({ current, max }: Props) {
 
   return (
     <span className={`text-xs ${colorClass}`} aria-live="polite">
-      {remaining >= 0 ? `${remaining} осталось` : `${Math.abs(remaining)} лишних`}
+      {remaining >= 0 ? `${remaining} осталось` : `+${Math.abs(remaining)} сверх`}
       {segments > 1 && ` · ${segments} SMS`}
     </span>
   );

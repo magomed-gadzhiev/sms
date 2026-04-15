@@ -46,8 +46,17 @@ interface SentMessage {
 function parsePhones(raw: string): string[] {
   return raw
     .split(/[\n,;]+/)
-    .map((s) => s.replace(/\s/g, ''))
+    // strip whitespace, parentheses, dashes, dots — common in formats like +7(900)123-45-67
+    .map((s) => s.replace(/[\s\-().]/g, ''))
     .filter((s) => s.length > 0);
+}
+
+function pluralMessages(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} сообщение`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} сообщения`;
+  return `${n} сообщений`;
 }
 
 export function QuickSendPage() {
@@ -59,6 +68,8 @@ export function QuickSendPage() {
   const [senderNames, setSenderNames] = useState<SenderNameInfo[]>([]);
   const [loadingSenders, setLoadingSenders] = useState(true);
 
+  const [sendersError, setSendersError] = useState(false);
+
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
@@ -66,13 +77,18 @@ export function QuickSendPage() {
 
   const [sentMessages, setSentMessages] = useState<SentMessage[]>([]);
   const [polling, setPolling] = useState(false);
+  // Track consecutive poll attempts per message to avoid infinite 404 loops
+  const pollAttemptsRef = useRef<Record<string, number>>({});
 
   const terminalStatuses = new Set(['delivered', 'failed', 'expired', 'rejected']);
-  const allDone =
-    sentMessages.length > 0 &&
-    sentMessages.every((m) => terminalStatuses.has(m.status));
+  // A message is "done" when it reached a terminal status OR had a send error (err- prefix)
+  const isMessageDone = (m: SentMessage) =>
+    terminalStatuses.has(m.status) || m.message_id.startsWith('err-');
+  const allDone = sentMessages.length > 0 && sentMessages.every(isMessageDone);
 
-  // Poll message statuses every 3s until all reach terminal state
+  const MAX_POLL_ATTEMPTS = 60; // 60 × 3s = 3 minutes max per message
+
+  // Poll message statuses every 3s until all reach terminal state or timeout
   useEffect(() => {
     if (sentMessages.length === 0 || allDone) {
       setPolling(false);
@@ -83,16 +99,23 @@ export function QuickSendPage() {
     const timer = setInterval(async () => {
       const updated = await Promise.all(
         sentMessages.map(async (msg) => {
-          if (terminalStatuses.has(msg.status) || msg.message_id.startsWith('err-')) {
-            return msg;
+          if (isMessageDone(msg)) return msg;
+
+          const attempts = (pollAttemptsRef.current[msg.message_id] ?? 0) + 1;
+          pollAttemptsRef.current[msg.message_id] = attempts;
+
+          // Stop polling this message after MAX_POLL_ATTEMPTS — treat as unknown
+          if (attempts > MAX_POLL_ATTEMPTS) {
+            return { ...msg, status: 'expired' };
           }
+
           try {
             const resp = await messagesApi.get(msg.message_id) as { status?: string };
             if (resp.status && resp.status !== msg.status) {
               return { ...msg, status: resp.status };
             }
           } catch {
-            // keep current status on error
+            // keep current status on 404 or network error
           }
           return msg;
         }),
@@ -101,6 +124,7 @@ export function QuickSendPage() {
     }, 3000);
 
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sentMessages, allDone]);
 
   const tableRef = useRef<HTMLDivElement>(null);
@@ -114,7 +138,7 @@ export function QuickSendPage() {
           setSource(resp.sender_names[0].name);
         }
       })
-      .catch(() => {})
+      .catch(() => setSendersError(true))
       .finally(() => setLoadingSenders(false));
   }, []);
 
@@ -140,6 +164,12 @@ export function QuickSendPage() {
       return null;
     }
 
+    const MAX_RECIPIENTS = 500;
+    if (phones.length > MAX_RECIPIENTS) {
+      setFormError(`Слишком много получателей: ${phones.length}. Максимум — ${MAX_RECIPIENTS}. Используйте кампании для массовой рассылки.`);
+      return null;
+    }
+
     const phoneRegex = /^\+?[0-9]{10,15}$/;
     const invalid = phones.filter((p) => !phoneRegex.test(p));
     if (invalid.length > 0) {
@@ -161,23 +191,28 @@ export function QuickSendPage() {
     setShowConfirm(false);
     setSending(true);
     setSentMessages([]);
+    pollAttemptsRef.current = {};
 
-    const results: SentMessage[] = [];
+    let failedCount = 0;
+    let sentCount = 0;
     for (const phone of pendingPhones) {
+      let msg: SentMessage;
       try {
         const resp = await messagesApi.send({ destination: phone, text: text.trim(), source });
-        results.push({ message_id: resp.message_id, destination: phone, text: text.trim(), status: resp.status });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Ошибка';
-        results.push({ message_id: `err-${phone}`, destination: phone, text: text.trim(), status: `failed: ${msg}` });
+        msg = { message_id: resp.message_id, destination: phone, text: text.trim(), status: resp.status };
+        sentCount++;
+      } catch {
+        // Normalize send error to 'failed' so StatusBadge renders correctly
+        // and allDone includes this message via err- prefix on message_id
+        msg = { message_id: `err-${phone}`, destination: phone, text: text.trim(), status: 'failed' };
+        failedCount++;
       }
+      // Stream results as they arrive — each send updates the table immediately
+      setSentMessages((prev) => [...prev, msg]);
     }
 
-    setSentMessages(results);
     setSending(false);
 
-    const failedCount = results.filter((r) => r.status.startsWith('failed')).length;
-    const sentCount = results.length - failedCount;
     if (failedCount === 0) {
       toast.success(`Отправлено ${sentCount} сообщений`);
     } else {
@@ -239,6 +274,16 @@ export function QuickSendPage() {
                 <span className="block text-sm font-medium text-gray-700 mb-1">Имя отправителя</span>
                 <div className="h-9 bg-gray-100 rounded animate-pulse" />
               </>
+            ) : sendersError ? (
+              <>
+                <span className="block text-sm font-medium text-gray-700 mb-1">Имя отправителя</span>
+                <p className="text-sm text-red-600">
+                  Не удалось загрузить имена отправителей.{' '}
+                  <button className="underline" onClick={() => { setSendersError(false); setLoadingSenders(true); senderNamesApi.listApproved().then((r) => { setSenderNames(r.sender_names); if (r.sender_names.length > 0) setSource(r.sender_names[0].name); }).catch(() => setSendersError(true)).finally(() => setLoadingSenders(false)); }}>
+                    Повторить
+                  </button>
+                </p>
+              </>
             ) : senderNames.length === 0 ? (
               <>
                 <span className="block text-sm font-medium text-gray-700 mb-1">Имя отправителя</span>
@@ -269,7 +314,7 @@ export function QuickSendPage() {
 
           <Button
             onClick={handleSend}
-            disabled={sending || loadingSenders || senderNames.length === 0}
+            disabled={sending || loadingSenders || sendersError || senderNames.length === 0}
             className="w-full"
           >
             {sending ? 'Отправка...' : 'Отправить'}
@@ -282,7 +327,7 @@ export function QuickSendPage() {
         onConfirm={handleConfirmedSend}
         onCancel={() => setShowConfirm(false)}
         title="Подтвердите отправку"
-        description={`Будет отправлено ${pendingPhones.length} сообщений с именем «${source}». Продолжить?`}
+        description={`Будет отправлено ${pluralMessages(pendingPhones.length)} с именем «${source}». Продолжить?`}
         confirmLabel="Отправить"
         variant="default"
       />
