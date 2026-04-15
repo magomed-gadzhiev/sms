@@ -54,6 +54,9 @@ func SetupRouter(
 	subAccountRoutingHandlers *handlers.SubAccountRoutingHandlers,
 	clientRoutingHandlers *handlers.ClientRoutingHandlers,
 	senderNameHandlers *handlers.SenderNameHandlers,
+	opRegHandlers *handlers.OperatorRegistrationHandlers,
+	portalOpTplHandlers *handlers.PortalOperatorTemplateHandlers,
+	resellerHandlers *handlers.ResellerModerationHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
@@ -315,8 +318,15 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}", senderNameHandlers.UpdateSenderName).Methods("PUT")
 	senderNames.HandleFunc("/{id}/resubmit", senderNameHandlers.ResubmitSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/history", senderNameHandlers.GetSenderNameHistory).Methods("GET")
-	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.GetSenderNameOperatorRegistrations).Methods("GET")
-	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.BulkCreateOperatorRegistrations).Methods("POST")
+	senderNames.HandleFunc("/{id}/operator-registrations", opRegHandlers.ListOperatorRegistrations).Methods("GET")
+	senderNames.HandleFunc("/{id}/operator-registrations", opRegHandlers.BulkSubmitOperatorRegistrations).Methods("POST")
+	senderNames.HandleFunc("/{id}/operator-registrations/{rid}/resubmit", opRegHandlers.ResubmitOperatorRegistration).Methods("POST")
+	senderNames.HandleFunc("/{id}/operator-templates", portalOpTplHandlers.ListPortalOperatorTemplates).Methods("GET")
+	senderNames.HandleFunc("/{id}/operator-templates", portalOpTplHandlers.CreatePortalOperatorTemplate).Methods("POST")
+	senderNames.HandleFunc("/{id}/operator-templates/{tid}", portalOpTplHandlers.UpdatePortalOperatorTemplate).Methods("PUT")
+	senderNames.HandleFunc("/{id}/operator-templates/{tid}", portalOpTplHandlers.DeletePortalOperatorTemplate).Methods("DELETE")
+	senderNames.HandleFunc("/{id}/operator-templates/{tid}/submit", portalOpTplHandlers.SubmitPortalOperatorTemplate).Methods("POST")
+	senderNames.HandleFunc("/{id}/operator-templates/{tid}/resubmit", portalOpTplHandlers.ResubmitPortalOperatorTemplate).Methods("POST")
 
 	// Companies endpoints
 	companies := protected.PathPrefix("/companies").Subrouter()
@@ -373,6 +383,14 @@ func SetupRouter(
 	routes.HandleFunc("/{id}", routeHandlers.GetRoute).Methods("GET")
 	routes.HandleFunc("/{id}", routeHandlers.UpdateRoute).Methods("PUT")
 	routes.HandleFunc("/{id}", routeHandlers.DeleteRoute).Methods("DELETE")
+
+	// Reseller moderation queue
+	reseller := protected.PathPrefix("/reseller").Subrouter()
+	resellerOpRegs := reseller.PathPrefix("/operator-registrations").Subrouter()
+	resellerOpRegs.HandleFunc("", resellerHandlers.ListResellerOperatorRegistrations).Methods("GET")
+	resellerOpRegs.HandleFunc("/{id}/approve", resellerHandlers.ApproveResellerOperatorRegistration).Methods("POST")
+	resellerOpRegs.HandleFunc("/{id}/reject", resellerHandlers.RejectResellerOperatorRegistration).Methods("POST")
+	resellerOpRegs.HandleFunc("/{id}/request-revision", resellerHandlers.RequestRevisionResellerOperatorRegistration).Methods("POST")
 
 	// WebSocket: live message stream (bypasses CSRF — session auth only)
 	wsProtected := portalV1.PathPrefix("").Subrouter()
