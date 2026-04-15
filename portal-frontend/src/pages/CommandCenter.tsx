@@ -331,13 +331,13 @@ function LiveFeed({
             }}
             className="text-[10px] px-2 py-0.5 rounded hover:opacity-80 transition-opacity"
           >
-            {isPaused ? '▶ Resume' : '⏸ Pause'}
+            {isPaused ? '▶ Продолжить' : '⏸ Пауза'}
           </button>
         </div>
       </div>
 
       <div className="overflow-hidden" style={{ maxHeight: 260 }}>
-        <table className="w-full text-[11px]">
+        <table className="w-full text-[11px]" aria-label="Живая лента сообщений">
           <tbody>
             {messages.slice(0, 20).map((m) => (
               <tr
@@ -365,8 +365,21 @@ function LiveFeed({
           </tbody>
         </table>
         {messages.length === 0 && (
-          <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs text-center py-4">
-            {status === 'open' ? 'Ожидание сообщений...' : 'Подключение...'}
+          <p
+            role="status"
+            style={{
+              color: status === 'error'
+                ? 'var(--cc-accent-red)'
+                : status === 'closed'
+                ? 'var(--cc-accent-yellow)'
+                : 'var(--cc-text-muted)',
+            }}
+            className="text-xs text-center py-4"
+          >
+            {status === 'open' && 'Ожидание сообщений...'}
+            {status === 'connecting' && 'Подключение к live-ленте...'}
+            {status === 'closed' && 'Соединение потеряно. Переподключение...'}
+            {status === 'error' && 'Ошибка подключения. Переподключение...'}
           </p>
         )}
       </div>
@@ -381,10 +394,14 @@ export function CommandCenter() {
   const { unreadCount } = useNotifications(isAuthenticated);
 
   const [metrics, setMetrics]   = useState<DashboardMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [providers, setProviders] = useState<ProviderHealth[]>([]);
   const [alerts, setAlerts]     = useState<AlertItem[]>([]);
 
-  const fetchMetrics   = useCallback(() => commandCenterApi.getMetrics().then(setMetrics).catch(() => {}), []);
+  const fetchMetrics   = useCallback(() => {
+    setMetricsLoading(true);
+    return commandCenterApi.getMetrics().then(setMetrics).catch(() => {}).finally(() => setMetricsLoading(false));
+  }, []);
   const fetchProviders = useCallback(() => commandCenterApi.getProviderHealth().then(r => setProviders(r.providers)).catch(() => {}), []);
   const fetchAlerts    = useCallback(() => commandCenterApi.getAlerts().then(r => setAlerts(r.items)).catch(() => {}), []);
 
@@ -407,7 +424,7 @@ export function CommandCenter() {
     : `⚠ ${degradedCount} провайдер${degradedCount === 1 ? '' : 'а'} деградирует`;
 
   const balanceFormatted = metrics
-    ? `${parseFloat(metrics.balance).toFixed(2)} ${metrics.currency}`
+    ? `${parseFloat(metrics.balance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${metrics.currency}`
     : '—';
 
   const balanceForecast = metrics && parseFloat(metrics.burn_rate_per_hour) > 0
@@ -441,9 +458,10 @@ export function CommandCenter() {
             <Link
               to="/billing"
               style={{ color: 'var(--cc-text)', background: 'var(--cc-surface)', border: '1px solid var(--cc-border)' }}
-              className="text-sm px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
+              className="text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 hover:border-[var(--cc-accent-blue)]"
             >
               {balanceFormatted}
+              <span style={{ color: 'var(--cc-text-muted)' }} className="text-xs" aria-hidden="true">→</span>
             </Link>
           )}
           <Link
@@ -469,20 +487,36 @@ export function CommandCenter() {
       </div>
 
       {/* Row 1: KPI Cards */}
+      {metricsLoading && !metrics ? (
+        <div
+          role="status"
+          aria-label="Загрузка метрик"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4"
+        >
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{ background: 'var(--cc-surface)', border: '1px solid var(--cc-border)' }}
+              className="rounded-xl p-4 h-28 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <KpiCard
-          title="Скорость"
+          title="Скорость (msg/s)"
           value={metrics ? `${metrics.msg_per_sec.toFixed(0)} msg/s` : '—'}
           trend={metrics?.msg_per_sec_trend_pct}
-          subtitle="за последний час"
+          subtitle="сообщений в секунду за последний час"
         >
           {metrics && <Sparkline data={metrics.sparkline_1h} />}
         </KpiCard>
 
         <KpiCard
-          title="Доставлено (24ч)"
+          title="Доставлено за 24ч (%)"
           value={metrics ? `${metrics.delivery_rate_24h}%` : '—'}
           trend={metrics?.delivery_rate_trend_pct}
+          subtitle="доля успешно доставленных сообщений"
         >
           {metrics && (
             <ProgressBar
@@ -519,6 +553,7 @@ export function CommandCenter() {
           )}
         </KpiCard>
       </div>
+      )}
 
       {/* Row 2: Live Feed (2/3) + Health Map (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">

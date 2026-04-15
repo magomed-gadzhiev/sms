@@ -96,10 +96,15 @@ func (h *ProfileHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 		})
 		if err == nil && clientResp.Client != nil {
 			response["company_name"] = clientResp.Client.Name
-			response["email"] = clientResp.Client.Email
+			if clientResp.Client.Email != "" {
+				response["email"] = clientResp.Client.Email
+			}
 			response["contact_person"] = clientResp.Client.ContactPerson
 			response["phone"] = clientResp.Client.Phone
 			response["is_sandbox"] = clientResp.Client.IsSandbox
+			response["is_reseller"] = clientResp.Client.IsReseller
+			response["parent_client_id"] = clientResp.Client.ParentClientId
+			response["max_sub_accounts"] = clientResp.Client.MaxSubAccounts
 		} else {
 			log.Warn().Err(err).Str("client_id", clientID.String()).Msg("клиент не найден, продолжаем без данных клиента")
 		}

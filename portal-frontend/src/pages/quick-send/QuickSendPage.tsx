@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { messagesApi, senderNamesApi, type SenderNameInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { useMessageStream } from '../../hooks/useMessageStream';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toast';
+import { CharacterCounter } from '../../components/ui/CharacterCounter';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Ожидание',
@@ -48,6 +51,8 @@ function parsePhones(raw: string): string[] {
 }
 
 export function QuickSendPage() {
+  const toast = useToast();
+
   const [text, setText] = useState('');
   const [contacts, setContacts] = useState('');
   const [source, setSource] = useState('');
@@ -56,19 +61,47 @@ export function QuickSendPage() {
 
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingPhones, setPendingPhones] = useState<string[]>([]);
 
   const [sentMessages, setSentMessages] = useState<SentMessage[]>([]);
+  const [polling, setPolling] = useState(false);
 
-  const { streamStatus, updates: liveUpdates } = useMessageStream(sentMessages.length > 0);
-
-  // Stop tracking after all messages reach a terminal state
   const terminalStatuses = new Set(['delivered', 'failed', 'expired', 'rejected']);
   const allDone =
     sentMessages.length > 0 &&
-    sentMessages.every((m) => {
-      const live = liveUpdates[m.message_id];
-      return terminalStatuses.has(live ? live.status : m.status);
-    });
+    sentMessages.every((m) => terminalStatuses.has(m.status));
+
+  // Poll message statuses every 3s until all reach terminal state
+  useEffect(() => {
+    if (sentMessages.length === 0 || allDone) {
+      setPolling(false);
+      return;
+    }
+    setPolling(true);
+
+    const timer = setInterval(async () => {
+      const updated = await Promise.all(
+        sentMessages.map(async (msg) => {
+          if (terminalStatuses.has(msg.status) || msg.message_id.startsWith('err-')) {
+            return msg;
+          }
+          try {
+            const resp = await messagesApi.get(msg.message_id) as { status?: string };
+            if (resp.status && resp.status !== msg.status) {
+              return { ...msg, status: resp.status };
+            }
+          } catch {
+            // keep current status on error
+          }
+          return msg;
+        }),
+      );
+      setSentMessages(updated);
+    }, 3000);
+
+    return () => clearInterval(timer);
+  }, [sentMessages, allDone]);
 
   const tableRef = useRef<HTMLDivElement>(null);
 
@@ -85,40 +118,52 @@ export function QuickSendPage() {
       .finally(() => setLoadingSenders(false));
   }, []);
 
-  const handleSend = async () => {
+  const validateForm = (): string[] | null => {
     setFormError('');
 
     if (!text.trim()) {
       setFormError('Введите текст сообщения');
-      return;
+      return null;
     }
     if (!contacts.trim()) {
       setFormError('Вставьте номера получателей');
-      return;
+      return null;
     }
     if (!source) {
       setFormError('Выберите имя отправителя');
-      return;
+      return null;
     }
 
     const phones = parsePhones(contacts);
     if (phones.length === 0) {
       setFormError('Не удалось распознать ни одного номера');
-      return;
+      return null;
     }
 
     const phoneRegex = /^\+?[0-9]{10,15}$/;
     const invalid = phones.filter((p) => !phoneRegex.test(p));
     if (invalid.length > 0) {
       setFormError(`Некорректные номера: ${invalid.slice(0, 5).join(', ')}${invalid.length > 5 ? ` и ещё ${invalid.length - 5}` : ''}`);
-      return;
+      return null;
     }
 
+    return phones;
+  };
+
+  const handleSend = () => {
+    const phones = validateForm();
+    if (!phones) return;
+    setPendingPhones(phones);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmedSend = async () => {
+    setShowConfirm(false);
     setSending(true);
     setSentMessages([]);
 
     const results: SentMessage[] = [];
-    for (const phone of phones) {
+    for (const phone of pendingPhones) {
       try {
         const resp = await messagesApi.send({ destination: phone, text: text.trim(), source });
         results.push({ message_id: resp.message_id, destination: phone, text: text.trim(), status: resp.status });
@@ -130,6 +175,14 @@ export function QuickSendPage() {
 
     setSentMessages(results);
     setSending(false);
+
+    const failedCount = results.filter((r) => r.status.startsWith('failed')).length;
+    const sentCount = results.length - failedCount;
+    if (failedCount === 0) {
+      toast.success(`Отправлено ${sentCount} сообщений`);
+    } else {
+      toast.error(`Отправлено ${sentCount}, ошибок: ${failedCount}`);
+    }
 
     // Scroll to results
     setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
@@ -154,7 +207,12 @@ export function QuickSendPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               disabled={sending}
+              maxLength={765}
+              aria-describedby="qs-text-counter"
             />
+            <div id="qs-text-counter" className="flex justify-end">
+              <CharacterCounter current={text.length} max={160} />
+            </div>
           </div>
 
           {/* Контакты */}
@@ -176,32 +234,30 @@ export function QuickSendPage() {
 
           {/* Имя отправителя */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="qs-source">
-              Имя отправителя
-            </label>
             {loadingSenders ? (
-              <div className="h-9 bg-gray-100 rounded animate-pulse" />
+              <>
+                <span className="block text-sm font-medium text-gray-700 mb-1">Имя отправителя</span>
+                <div className="h-9 bg-gray-100 rounded animate-pulse" />
+              </>
             ) : senderNames.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Нет одобренных имён отправителей.{' '}
-                <a href="/sender-names" className="text-primary hover:underline">
-                  Добавить
-                </a>
-              </p>
+              <>
+                <span className="block text-sm font-medium text-gray-700 mb-1">Имя отправителя</span>
+                <p className="text-sm text-gray-500">
+                  Нет одобренных имён отправителей.{' '}
+                  <a href="/sender-names" className="text-primary hover:underline">
+                    Добавить
+                  </a>
+                </p>
+              </>
             ) : (
-              <select
-                id="qs-source"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              <SearchableSelect
+                label="Имя отправителя"
+                options={senderNames.map((sn) => ({ value: sn.name, label: sn.name }))}
                 value={source}
-                onChange={(e) => setSource(e.target.value)}
+                onChange={setSource}
+                placeholder="Выберите отправителя..."
                 disabled={sending}
-              >
-                {senderNames.map((sn) => (
-                  <option key={sn.id} value={sn.name}>
-                    {sn.name}
-                  </option>
-                ))}
-              </select>
+              />
             )}
           </div>
 
@@ -221,6 +277,16 @@ export function QuickSendPage() {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={showConfirm}
+        onConfirm={handleConfirmedSend}
+        onCancel={() => setShowConfirm(false)}
+        title="Подтвердите отправку"
+        description={`Будет отправлено ${pendingPhones.length} сообщений с именем «${source}». Продолжить?`}
+        confirmLabel="Отправить"
+        variant="default"
+      />
+
       {/* Results table */}
       {sentMessages.length > 0 && (
         <div ref={tableRef}>
@@ -228,7 +294,7 @@ export function QuickSendPage() {
             <h2 className="text-base font-semibold text-gray-900">
               Результаты отправки ({sentMessages.length})
             </h2>
-            {!allDone && streamStatus === 'connected' && (
+            {polling && (
               <span className="flex items-center gap-1 text-xs text-green-600" title="Статусы обновляются в реальном времени">
                 <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 Live
@@ -245,19 +311,15 @@ export function QuickSendPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {sentMessages.map((msg) => {
-                  const live = liveUpdates[msg.message_id];
-                  const currentStatus = live ? live.status : msg.status;
-                  return (
+                {sentMessages.map((msg) => (
                     <tr key={msg.message_id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-xs">{msg.destination}</td>
                       <td className="px-4 py-3 max-w-xs truncate" title={msg.text}>{msg.text}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={currentStatus} />
+                        <StatusBadge status={msg.status} />
                       </td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
           </div>

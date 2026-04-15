@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { billingApi, companiesApi, ApiError, type CompanyInfo } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { FilterBar, type FilterDef } from '../../components/data/FilterBar';
 import { DataTable, type Column } from '../../components/data/DataTable';
@@ -37,6 +39,14 @@ interface TransactionsResponse {
   total_pages: number;
 }
 
+/* ---------- Helpers ---------- */
+
+function fmtMoney(val: string, currency: string): string {
+  const num = parseFloat(val);
+  if (isNaN(num)) return `${val} ${currency}`;
+  return `${num.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+}
+
 /* ---------- Constants ---------- */
 
 const PAGE_SIZE = 20;
@@ -45,6 +55,7 @@ const TYPE_OPTIONS = [
   { value: 'charge', label: 'Списание' },
   { value: 'credit', label: 'Пополнение' },
   { value: 'refund', label: 'Возврат' },
+  { value: 'transfer', label: 'Перевод' },
 ];
 
 const TRANSACTION_FILTERS: FilterDef[] = [
@@ -63,12 +74,14 @@ const typeBadgeVariant: Record<string, 'danger' | 'success' | 'warning' | 'defau
   charge: 'danger',
   credit: 'success',
   refund: 'warning',
+  transfer: 'default',
 };
 
 const typeLabel: Record<string, string> = {
   charge: 'Списание',
   credit: 'Пополнение',
   refund: 'Возврат',
+  transfer: 'Перевод',
 };
 
 const columns: Column<TransactionItem>[] = [
@@ -77,7 +90,7 @@ const columns: Column<TransactionItem>[] = [
     header: 'Дата',
     render: (tx) => (
       <span className="text-xs whitespace-nowrap">
-        {tx.created_at ? new Date(tx.created_at).toLocaleString() : '-'}
+        {tx.created_at ? new Date(tx.created_at).toLocaleString('ru-RU') : '-'}
       </span>
     ),
   },
@@ -95,14 +108,14 @@ const columns: Column<TransactionItem>[] = [
     header: 'Сумма',
     render: (tx) => (
       <span className={tx.type === 'charge' ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
-        {tx.type === 'charge' ? '-' : '+'}{tx.amount} {tx.currency}
+        {tx.type === 'charge' ? '-' : '+'}{fmtMoney(tx.amount, tx.currency)}
       </span>
     ),
   },
   {
     key: 'balance_after',
     header: 'Баланс после',
-    render: (tx) => <span className="tabular-nums">{tx.balance_after} {tx.currency}</span>,
+    render: (tx) => <span className="tabular-nums">{fmtMoney(tx.balance_after, tx.currency)}</span>,
   },
   { key: 'description', header: 'Описание' },
   {
@@ -120,6 +133,9 @@ const columns: Column<TransactionItem>[] = [
 /* ---------- Component ---------- */
 
 export function BillingPage() {
+  const { user } = useAuth();
+  const isReseller = !!user?.is_reseller;
+
   /* Companies state */
   const [companies, setCompanies] = useState<CompanyInfo[]>([]);
 
@@ -215,8 +231,18 @@ export function BillingPage() {
     setPage(1);
   };
 
+  const MAX_TOP_UP = 1_000_000;
+
   const handleTopUp = async () => {
-    if (!topUpAmount || Number(topUpAmount) <= 0) return;
+    const amount = Number(topUpAmount);
+    if (!topUpAmount || amount <= 0) {
+      setTopUpError('Введите сумму больше нуля');
+      return;
+    }
+    if (amount > MAX_TOP_UP) {
+      setTopUpError(`Максимальная сумма разового пополнения — ${MAX_TOP_UP.toLocaleString()} ₽`);
+      return;
+    }
     setTopUpLoading(true);
     setTopUpError('');
     try {
@@ -266,6 +292,13 @@ export function BillingPage() {
         actions={<Button onClick={openTopUpModal}>Пополнить</Button>}
       />
 
+      {isReseller && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+          Отображается баланс и транзакции вашего аккаунта. Балансы суб-аккаунтов и переводы доступны
+          в разделе <Link to="/sub-accounts" className="font-medium underline hover:text-blue-900">Суб-аккаунты</Link>.
+        </div>
+      )}
+
       {/* Company balances */}
       {companies.length > 0 && (
         <div className="mb-6">
@@ -302,7 +335,7 @@ export function BillingPage() {
       {/* Balance card */}
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         {balanceError && (
-          <p className="text-red-600 text-sm mb-2">{balanceError}</p>
+          <p role="alert" className="text-red-600 text-sm mb-2">{balanceError}</p>
         )}
         {balanceLoading && !balance ? (
           <div className="animate-pulse space-y-2">
@@ -318,7 +351,7 @@ export function BillingPage() {
               </p>
               {balance.updated_at && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Обновлено: {new Date(balance.updated_at).toLocaleString()}
+                  Обновлено: {new Date(balance.updated_at).toLocaleString('ru-RU')}
                 </p>
               )}
             </div>
@@ -361,7 +394,7 @@ export function BillingPage() {
           <p role="alert" className="text-red-600 text-sm mt-2">{thresholdError}</p>
         )}
         {thresholdSaved && (
-          <p className="text-green-600 text-sm mt-2">Порог сохранён</p>
+          <p role="status" className="text-green-600 text-sm mt-2">Порог сохранён</p>
         )}
       </div>
 
@@ -377,20 +410,24 @@ export function BillingPage() {
             <p role="alert" className="text-red-600 text-sm">{topUpError}</p>
           )}
           <Input
-            label="Сумма"
+            label="Сумма (₽)"
             type="number"
             value={topUpAmount}
-            onChange={(e) => setTopUpAmount(e.target.value)}
-            placeholder="0.00"
+            onChange={(e) => { setTopUpAmount(e.target.value); setTopUpError(''); }}
+            placeholder="1000.00"
             required
+            min="1"
+            max="1000000"
+            step="0.01"
           />
+          <p className="text-xs text-gray-400">Минимум: 1 ₽ · Максимум: 1 000 000 ₽</p>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowTopUp(false)}>
               Отмена
             </Button>
             <Button
               onClick={handleTopUp}
-              disabled={topUpLoading || !topUpAmount || Number(topUpAmount) <= 0}
+              disabled={topUpLoading || !topUpAmount || Number(topUpAmount) <= 0 || Number(topUpAmount) > 1_000_000}
             >
               {topUpLoading ? 'Создание платежа...' : 'Оплатить'}
             </Button>
@@ -408,11 +445,16 @@ export function BillingPage() {
         onReset={handleFilterReset}
       />
 
-      {error && <div className="text-red-600 mb-3">Ошибка: {error}</div>}
+      {error && <div role="alert" className="text-red-600 mb-3">Ошибка: {error}</div>}
 
       {!loading && !error && (data?.transactions?.length ?? 0) === 0 && (
-        <div className="text-center py-8 text-gray-500 text-sm">
-          История транзакций пуста
+        <div className="text-center py-10 text-gray-500">
+          <svg className="mx-auto mb-3 w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M9 14l2 2 4-4M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p className="text-sm">История транзакций пуста</p>
+          <p className="text-xs text-gray-400 mt-1">Здесь будут отображаться пополнения, списания и возвраты</p>
         </div>
       )}
 

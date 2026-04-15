@@ -237,6 +237,12 @@ export const subAccountsApi = {
     const qs = params ? new URLSearchParams(params).toString() : '';
     return apiFetch<{ campaigns: Array<{ id: string; name: string; status: string; total_recipients: number; delivered: number; created_at: string }>; total: number }>(`/sub-accounts/${id}/campaigns${qs ? `?${qs}` : ''}`);
   },
+  transactions: (id: string, params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return apiFetch<{ transactions: Array<{ transaction_id: string; type: string; amount: string; currency: string; balance_before: string; balance_after: string; description: string; message_id?: string; created_at: string }>; total: number; page: number; per_page: number; total_pages: number }>(
+      `/sub-accounts/${id}/transactions${qs ? `?${qs}` : ''}`,
+    );
+  },
 };
 
 // Audit API

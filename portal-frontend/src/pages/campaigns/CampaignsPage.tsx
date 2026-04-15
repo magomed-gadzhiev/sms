@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { DataTable, type Column } from '../../components/data/DataTable';
+import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_CONFIG: Record<
   string,
@@ -21,6 +22,9 @@ const STATUS_CONFIG: Record<
 
 export function CampaignsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSubAccount = !!user?.parent_client_id;
+  const isReseller = !!user?.is_reseller;
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -33,6 +37,7 @@ export function CampaignsPage() {
   // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const perPage = 20;
 
@@ -63,13 +68,14 @@ export function CampaignsPage() {
   async function confirmDelete() {
     if (!deleteId) return;
     setDeleting(true);
+    setDeleteError('');
     try {
       await campaignsApi.remove(deleteId);
       setCampaigns((prev) => prev.filter((c) => c.id !== deleteId));
       setTotal((prev) => prev - 1);
       setDeleteId(null);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при удалении');
+      setDeleteError(err instanceof ApiError ? err.message : 'Ошибка при удалении');
     } finally {
       setDeleting(false);
     }
@@ -163,6 +169,19 @@ export function CampaignsPage() {
         }
       />
 
+      {isSubAccount && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+          Вы работаете в режиме суб-аккаунта. Рассылки доступны только в рамках вашего аккаунта.
+        </div>
+      )}
+
+      {isReseller && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          Отображаются только ваши рассылки. Рассылки суб-аккаунтов доступны в разделе{' '}
+          <a href="/sub-accounts" className="underline font-medium hover:text-amber-900">Суб-аккаунты</a>.
+        </div>
+      )}
+
       <div className="mb-4 flex items-center gap-3">
         <label htmlFor="campaign-status-filter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
           Статус:
@@ -182,11 +201,16 @@ export function CampaignsPage() {
         </select>
       </div>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {error && <p role="alert" className="text-red-600 mb-4">{error}</p>}
+      {deleteError && <p role="alert" className="text-red-600 mb-4">{deleteError}</p>}
 
       {!loading && !error && campaigns.length === 0 && (
         <div className="text-center py-12 text-gray-500">
-          <p className="mb-2">Рассылки не созданы</p>
+          <svg className="mx-auto mb-3 w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <p className="mb-2 font-medium">Рассылки не созданы</p>
           <p className="text-sm mb-4">
             Создайте первую рассылку для массовой отправки SMS
           </p>
@@ -236,7 +260,7 @@ export function CampaignsPage() {
       <ConfirmDialog
         open={deleteId !== null}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleteId(null)}
+        onCancel={() => { setDeleteId(null); setDeleteError(''); }}
         title="Удалить рассылку"
         description="Вы уверены, что хотите удалить эту рассылку? Это действие нельзя отменить."
         confirmLabel="Удалить"

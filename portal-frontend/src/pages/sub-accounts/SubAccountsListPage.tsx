@@ -184,12 +184,23 @@ export function SubAccountsListPage() {
       />
 
       {error && !canCreate && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+        <div className="border border-dashed border-amber-300 rounded-lg p-12 text-center">
+          <svg className="mx-auto mb-3 w-12 h-12 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
           <p className="text-amber-800 font-medium text-lg mb-2">Суб-аккаунты недоступны</p>
-          <p className="text-amber-600 text-sm">
-            Для управления суб-аккаунтами необходим тарифный план с поддержкой реселлерских функций.
-            Обратитесь к администратору для обновления тарифа.
+          <p className="text-amber-600 text-sm mb-4">
+            Функция доступна на тарифах с поддержкой реселлерских возможностей.
           </p>
+          <a
+            href="https://t.me/sms_support"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            Связаться с поддержкой →
+          </a>
         </div>
       )}
 

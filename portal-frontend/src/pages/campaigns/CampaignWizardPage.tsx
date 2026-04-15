@@ -224,13 +224,18 @@ export function CampaignWizardPage() {
   }
 
   async function handleSaveDraft() {
+    const listId = contactListId || contactLists[0]?.id;
+    if (!listId) {
+      setError('Нет контактных баз для сохранения черновика. Сначала создайте базу контактов.');
+      return;
+    }
     setSavingDraft(true);
     setError('');
     try {
       const senderName = senderNames.find((s) => s.id === senderNameId);
       await campaignsApi.create({
         name: campaignName.trim() || `Черновик ${new Date().toLocaleDateString('ru')}`,
-        contact_list_id: contactListId || (contactLists[0]?.id ?? ''),
+        contact_list_id: listId,
         template_id: templateId || undefined,
         source: senderName?.name || '',
         send_rate: 100,
@@ -314,6 +319,12 @@ export function CampaignWizardPage() {
               options={senderNames.map((s) => ({ value: s.id, label: s.name }))}
               placeholder="-- Выберите отправителя --"
             />
+            {senderNames.length === 0 && (
+              <p className="text-xs text-amber-600 -mt-1">
+                У вас нет одобренных имён отправителей.{' '}
+                <a href="/sender-names" className="underline font-medium">Зарегистрировать →</a>
+              </p>
+            )}
 
             {/* A/B toggle */}
             <div className="pt-2 border-t border-gray-200">
@@ -423,7 +434,15 @@ export function CampaignWizardPage() {
             )}
 
             {validationErrors.message && (
-              <p className="text-sm text-red-600">Заполните текст сообщения и выберите имя отправителя.</p>
+              <p className="text-sm text-red-600">
+                {(!messageText.trim() && !templateId) && !senderNameId
+                  ? 'Введите текст сообщения (или выберите шаблон) и укажите имя отправителя.'
+                  : (!messageText.trim() && !templateId)
+                  ? 'Введите текст сообщения или выберите шаблон.'
+                  : senderNames.length === 0
+                  ? 'Нет одобренных имён отправителей — сначала зарегистрируйте имя в разделе «Имена отправителей».'
+                  : 'Выберите имя отправителя.'}
+              </p>
             )}
           </div>
         )}

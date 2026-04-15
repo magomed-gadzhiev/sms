@@ -11,12 +11,13 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 
-type TabName = 'overview' | 'messages' | 'campaigns' | 'analytics' | 'api-keys' | 'webhooks';
+type TabName = 'overview' | 'messages' | 'campaigns' | 'transactions' | 'analytics' | 'api-keys' | 'webhooks';
 
 const TABS: { key: TabName; label: string }[] = [
   { key: 'overview', label: 'Обзор' },
   { key: 'messages', label: 'Сообщения' },
   { key: 'campaigns', label: 'Кампании' },
+  { key: 'transactions', label: 'Транзакции' },
   { key: 'analytics', label: 'Аналитика' },
   { key: 'api-keys', label: 'API Ключи' },
   { key: 'webhooks', label: 'Вебхуки' },
@@ -166,6 +167,7 @@ export function SubAccountDetailPage() {
       )}
       {activeTab === 'messages' && id && <MessagesTab subAccountId={id} />}
       {activeTab === 'campaigns' && <CampaignsTab subAccountId={id!} />}
+      {activeTab === 'transactions' && id && <TransactionsTab subAccountId={id} />}
       {activeTab === 'analytics' && id && <AnalyticsTab subAccountId={id} />}
       {activeTab === 'api-keys' && <APIKeysTab keys={detail.api_keys || []} />}
       {activeTab === 'webhooks' && <WebhooksTab webhooks={detail.webhooks || []} />}
@@ -530,6 +532,120 @@ function AnalyticsTab({ subAccountId }: { subAccountId: string }) {
         </>
       )}
     </div>
+  );
+}
+
+// ---- Transactions Tab ----
+
+interface SubAccountTxItem {
+  transaction_id: string;
+  type: string;
+  amount: string;
+  currency: string;
+  balance_after: string;
+  description: string;
+  message_id?: string;
+  created_at: string;
+}
+
+const txTypeLabel: Record<string, string> = {
+  charge: 'Списание',
+  credit: 'Пополнение',
+  refund: 'Возврат',
+  transfer: 'Перевод',
+};
+
+const txBadgeVariant: Record<string, 'danger' | 'success' | 'warning' | 'default'> = {
+  charge: 'danger',
+  credit: 'success',
+  refund: 'warning',
+  transfer: 'default',
+};
+
+function fmtMoney(val: string, currency: string): string {
+  const num = parseFloat(val);
+  if (isNaN(num)) return `${val} ${currency}`;
+  return `${num.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+}
+
+const txColumns: Column<SubAccountTxItem>[] = [
+  {
+    key: 'created_at',
+    header: 'Дата',
+    render: (tx) => (
+      <span className="text-xs whitespace-nowrap">
+        {tx.created_at ? new Date(tx.created_at).toLocaleString('ru-RU') : '-'}
+      </span>
+    ),
+  },
+  {
+    key: 'type',
+    header: 'Тип',
+    render: (tx) => (
+      <Badge variant={txBadgeVariant[tx.type] ?? 'default'}>
+        {txTypeLabel[tx.type] ?? tx.type}
+      </Badge>
+    ),
+  },
+  {
+    key: 'amount',
+    header: 'Сумма',
+    render: (tx) => (
+      <span className={tx.type === 'charge' ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+        {tx.type === 'charge' ? '-' : '+'}{fmtMoney(tx.amount, tx.currency)}
+      </span>
+    ),
+  },
+  {
+    key: 'balance_after',
+    header: 'Баланс после',
+    render: (tx) => <span className="tabular-nums">{fmtMoney(tx.balance_after, tx.currency)}</span>,
+  },
+  { key: 'description', header: 'Описание' },
+];
+
+function TransactionsTab({ subAccountId }: { subAccountId: string }) {
+  const [data, setData] = useState<{ transactions: SubAccountTxItem[]; total: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    subAccountsApi
+      .transactions(subAccountId, { page: String(page), per_page: '20' })
+      .then((resp) => setData(resp))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Не удалось загрузить транзакции'))
+      .finally(() => setLoading(false));
+  }, [subAccountId, page]);
+
+  if (error) {
+    return (
+      <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>
+    );
+  }
+
+  if (!loading && (data?.transactions?.length ?? 0) === 0) {
+    return (
+      <div className="text-center py-10 text-gray-500">
+        <p className="text-sm">История транзакций суб-аккаунта пуста</p>
+        <p className="text-xs text-gray-400 mt-1">Здесь будут отображаться пополнения, списания и переводы</p>
+      </div>
+    );
+  }
+
+  return (
+    <DataTable<SubAccountTxItem>
+      columns={txColumns}
+      data={data?.transactions ?? []}
+      total={data?.total ?? 0}
+      page={page}
+      pageSize={20}
+      onPageChange={setPage}
+      keyField="transaction_id"
+      loading={loading}
+    />
   );
 }
 

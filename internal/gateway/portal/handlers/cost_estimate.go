@@ -99,7 +99,8 @@ func (h *CostEstimateHandlers) Estimate(w http.ResponseWriter, r *http.Request) 
 	recipients := 0
 	if req.ContactListID != "" {
 		listResp, err := h.contactClient.GetContactList(ctx, &contactv1.GetContactListRequest{
-			Id: req.ContactListID,
+			Id:       req.ContactListID,
+			ClientId: clientID.String(),
 		})
 		if err != nil {
 			log.Warn().Err(err).Str("contact_list_id", req.ContactListID).Msg("cost-estimate: failed to get contact list")

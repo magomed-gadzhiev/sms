@@ -3,9 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/analyticsv1"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
@@ -681,6 +683,93 @@ func (h *SubAccountHandlers) GetSubAccountCampaigns(w http.ResponseWriter, r *ht
 	}
 
 	respondJSON(w, http.StatusOK, resp)
+}
+
+// GetSubAccountTransactions обрабатывает GET /sub-accounts/{id}/transactions
+func (h *SubAccountHandlers) GetSubAccountTransactions(w http.ResponseWriter, r *http.Request) {
+	parentClientID, appErr := h.getParentClientID(r)
+	if appErr != nil {
+		respondError(w, appErr)
+		return
+	}
+
+	vars := mux.Vars(r)
+	subAccountID := vars["id"]
+	if subAccountID == "" {
+		respondError(w, shared.ErrInvalidInput("ID суб-аккаунта обязателен"))
+		return
+	}
+
+	// Проверяем принадлежность суб-аккаунта
+	_, err := h.clientClient.GetSubAccount(r.Context(), &clientv1.GetSubAccountRequest{
+		SubAccountId:   subAccountID,
+		ParentClientId: parentClientID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("sub_account_id", subAccountID).Msg("суб-аккаунт не найден или не принадлежит текущему клиенту")
+		respondGRPCError(w, err)
+		return
+	}
+
+	page, perPage := parsePagination(r)
+	offset := (page - 1) * perPage
+	query := r.URL.Query()
+	txType := query.Get("type")
+
+	var dateFrom, dateTo *timestamppb.Timestamp
+	if fromStr := query.Get("date_from"); fromStr != "" {
+		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			dateFrom = timestamppb.New(t)
+		} else if t, err := time.Parse("2006-01-02", fromStr); err == nil {
+			dateFrom = timestamppb.New(t)
+		}
+	}
+	if toStr := query.Get("date_to"); toStr != "" {
+		if t, err := time.Parse(time.RFC3339, toStr); err == nil {
+			dateTo = timestamppb.New(t)
+		} else if t, err := time.Parse("2006-01-02", toStr); err == nil {
+			dateTo = timestamppb.New(t.Add(24*time.Hour - time.Second))
+		}
+	}
+
+	resp, err := h.billingClient.GetTransactionHistory(r.Context(), &billingv1.GetTransactionHistoryRequest{
+		ClientId:        subAccountID,
+		From:            dateFrom,
+		To:              dateTo,
+		TransactionType: txType,
+		Limit:           perPage,
+		Offset:          offset,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("sub_account_id", subAccountID).Msg("ошибка получения транзакций суб-аккаунта")
+		respondGRPCError(w, err)
+		return
+	}
+
+	transactions := make([]map[string]interface{}, 0, len(resp.Transactions))
+	for _, tx := range resp.Transactions {
+		t := map[string]interface{}{
+			"transaction_id": tx.TransactionId, "type": tx.Type, "amount": tx.Amount,
+			"currency": tx.Currency, "balance_before": tx.BalanceBefore, "balance_after": tx.BalanceAfter,
+			"description": tx.Description,
+		}
+		if tx.MessageId != "" {
+			t["message_id"] = tx.MessageId
+		}
+		if tx.CreatedAt != nil {
+			t["created_at"] = tx.CreatedAt.AsTime()
+		}
+		transactions = append(transactions, t)
+	}
+
+	totalPages := int32(0)
+	if perPage > 0 && resp.Total > 0 {
+		totalPages = (resp.Total + perPage - 1) / perPage
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"transactions": transactions, "total": resp.Total, "page": page, "per_page": perPage, "total_pages": totalPages,
+	})
 }
 
 // subAccountToMap преобразует proto SubAccount в map для JSON ответа

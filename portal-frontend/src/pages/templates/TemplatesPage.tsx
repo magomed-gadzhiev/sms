@@ -281,7 +281,7 @@ export function TemplatesPage() {
   const deleteTemplate = templates.find((t) => t.id === deleteId);
 
   return (
-    <div className="max-w-[900px]">
+    <div className="w-full">
       <PageHeader
         title="Шаблоны"
         subtitle={total > 0 ? pluralize(total, 'шаблон', 'шаблона', 'шаблонов') : undefined}

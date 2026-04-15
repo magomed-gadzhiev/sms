@@ -3,6 +3,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { detalizationApi, exportApi, referencesApi, senderNamesApi } from '../../api/client';
 import type { DetalizationMessage } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { MessageFilters } from './components/MessageFilters';
 import type { FilterDef } from './components/MessageFilters';
 import { ActiveFilterChips } from './components/ActiveFilterChips';
@@ -55,13 +56,25 @@ const SEND_METHOD_OPTIONS = [
   { value: 'SMPP', label: 'SMPP' },
 ];
 
+function getDefaultDateRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 7);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { date_from: fmt(from), date_to: fmt(to) };
+}
+
+const DEFAULT_DATE_RANGE = getDefaultDateRange();
+
 const EMPTY_FILTERS: Record<string, string> = {
-  date_from: '', date_to: '', destination: '', login: '',
+  date_from: DEFAULT_DATE_RANGE.date_from, date_to: DEFAULT_DATE_RANGE.date_to, destination: '', login: '',
   status: '', operator: '', sender_name: '', channel: '',
   message_id: '', send_method: '', country: '',
 };
 
 export function MessagesPage() {
+  const { user } = useAuth();
+  const isReseller = !!user?.is_reseller;
   const [data, setData] = useState<{ messages: DetalizationMessage[]; total: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +119,7 @@ export function MessagesPage() {
     { key: 'date_from', label: 'Дата от', type: 'date' },
     { key: 'date_to', label: 'Дата до', type: 'date' },
     { key: 'destination', label: 'Номер', type: 'text', placeholder: '+7...' },
-    { key: 'login', label: 'Логин', type: 'text', placeholder: 'Суб-аккаунт' },
+    { key: 'login', label: isReseller ? 'Суб-аккаунт' : 'Логин', type: 'text', placeholder: 'Имя суб-аккаунта' },
     { key: 'status', label: 'Статус', type: 'select', options: STATUS_OPTIONS },
     { key: 'operator', label: 'Оператор', type: 'select', options: operatorOptions },
     { key: 'sender_name', label: 'Имя отправителя', type: 'select', options: senderNameOptions },
@@ -221,6 +234,12 @@ export function MessagesPage() {
       <PageHeader title="Сообщения" />
       <p className="text-sm text-muted-foreground mb-4">Детализация трафика по всем клиентам и каналам</p>
 
+      {isReseller && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+          Отображаются сообщения вашего аккаунта и всех суб-аккаунтов. Используйте фильтр «Суб-аккаунт» для просмотра трафика конкретного суб-аккаунта.
+        </div>
+      )}
+
       <MessageFilters
         primary={primaryFilters}
         secondary={secondaryFilters}
@@ -235,17 +254,25 @@ export function MessagesPage() {
         onRemove={handleRemoveChip}
       />
 
-      {error && <div className="text-red-600 mb-3 text-sm">Ошибка: {error}</div>}
+      {error && <div role="alert" className="text-red-600 mb-3 text-sm">Ошибка: {error}</div>}
 
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-gray-500">
-          {!loading && data != null && (
+        <span className="text-sm text-gray-500" aria-live="polite" aria-atomic="true">
+          {loading ? (
+            <span role="status" className="inline-flex items-center gap-1.5">
+              <svg className="animate-spin w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Загрузка...
+            </span>
+          ) : data != null ? (
             <>Найдено: <strong>{data.total}</strong> сообщений</>
-          )}
+          ) : null}
         </span>
         <div className="flex gap-2">
           {exportStatus && exportStatus !== 'ready' && (
-            <span className="text-sm text-gray-400 self-center">Экспорт...</span>
+            <span role="status" className="text-sm text-gray-400 self-center">Экспорт...</span>
           )}
           <div className="flex flex-col items-end">
             <Button
@@ -256,7 +283,7 @@ export function MessagesPage() {
               Экспорт
             </Button>
             {exportError && (
-              <p className="text-sm text-red-600 mt-1">{exportError}</p>
+              <p role="alert" className="text-sm text-red-600 mt-1">{exportError}</p>
             )}
           </div>
           <ColumnConfigurator

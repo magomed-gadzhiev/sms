@@ -10,73 +10,76 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/command-center', label: 'Командный центр' },
 ];
 
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Отправить',
-    items: [
-      { path: '/quick-send', label: 'Быстрая отправка' },
-      { path: '/campaigns', label: 'Кампании' },
-      { path: '/campaign-schedules', label: 'Расписания' },
-      { path: '/templates', label: 'Шаблоны' },
-      { path: '/sender-names', label: 'Имена отправителей' },
-      { path: '/companies', label: 'Мои компании' },
-    ],
-  },
-  {
-    label: 'Отследить',
-    items: [
-      { path: '/messages', label: 'Сообщения' },
-      { path: '/cascade/history', label: 'История каскадов' },
-    ],
-  },
-  {
-    label: 'Аналитика',
-    items: [
-      { path: '/analytics', label: 'Статистика' },
-    ],
-  },
-  {
-    label: 'Контакты',
-    items: [
-      { path: '/contact-lists', label: 'Контактные базы' },
-      { path: '/segments', label: 'Сегменты' },
-      { path: '/opt-out', label: 'Список отписок' },
-    ],
-  },
-  {
-    label: 'Финансы',
-    items: [
-      { path: '/billing', label: 'Биллинг' },
-      { path: '/tariffs', label: 'Тарифы' },
-    ],
-  },
-  {
-    label: 'Интеграции',
-    items: [
-      { path: '/api-keys', label: 'API Ключи' },
-      { path: '/webhooks', label: 'Вебхуки' },
-      { path: '/providers', label: 'Провайдеры' },
-      { path: '/routing', label: 'Маршрутизация' },
-      { path: '/lookup', label: 'Lookup' },
-      { path: '/settings/smpp', label: 'SMPP' },
-    ],
-  },
-  {
-    label: 'Настройки',
-    items: [
-      { path: '/profile', label: 'Профиль' },
-      { path: '/sub-accounts', label: 'Суб-аккаунты' },
-      { path: '/settings/domains', label: 'Домены' },
-      { path: '/settings/notifications', label: 'Уведомления' },
-      { path: '/settings/default-senders', label: 'Имена по умолчанию' },
-      { path: '/audit-log', label: 'Журнал аудита' },
-    ],
-  },
-];
+function buildNavGroups(isReseller: boolean): NavGroup[] {
+  return [
+    {
+      label: 'Отправить',
+      items: [
+        { path: '/quick-send', label: 'Быстрая отправка' },
+        { path: '/campaigns', label: 'Кампании' },
+        { path: '/campaign-schedules', label: 'Расписания' },
+        { path: '/templates', label: 'Шаблоны' },
+        { path: '/sender-names', label: 'Имена отправителей' },
+        { path: '/companies', label: 'Мои компании' },
+      ],
+    },
+    {
+      label: 'Отследить',
+      items: [
+        { path: '/messages', label: 'Сообщения' },
+        { path: '/cascade/history', label: 'История каскадов' },
+      ],
+    },
+    {
+      label: 'Аналитика',
+      items: [
+        { path: '/analytics', label: 'Статистика' },
+      ],
+    },
+    {
+      label: 'Контакты',
+      items: [
+        { path: '/contact-lists', label: 'Контактные базы' },
+        { path: '/segments', label: 'Сегменты' },
+        { path: '/opt-out', label: 'Список отписок' },
+      ],
+    },
+    {
+      label: 'Финансы',
+      items: [
+        { path: '/billing', label: 'Биллинг' },
+        { path: '/tariffs', label: 'Тарифы' },
+      ],
+    },
+    {
+      label: 'Интеграции',
+      items: [
+        { path: '/api-keys', label: 'API Ключи' },
+        { path: '/webhooks', label: 'Вебхуки' },
+        { path: '/providers', label: 'Провайдеры' },
+        { path: '/routing', label: 'Маршрутизация' },
+        { path: '/lookup', label: 'Lookup' },
+        { path: '/settings/smpp', label: 'SMPP' },
+      ],
+    },
+    {
+      label: 'Настройки',
+      items: [
+        { path: '/profile', label: 'Профиль' },
+        ...(isReseller ? [{ path: '/sub-accounts', label: 'Суб-аккаунты' }] : []),
+        { path: '/settings/domains', label: 'Домены' },
+        { path: '/settings/notifications', label: 'Уведомления' },
+        { path: '/settings/default-senders', label: 'Имена по умолчанию' },
+        { path: '/audit-log', label: 'Журнал аудита' },
+      ],
+    },
+  ];
+}
 
 export function UserLayout() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navGroups = buildNavGroups(!!user?.is_reseller);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
@@ -123,7 +126,7 @@ export function UserLayout() {
       <Sidebar
         title="SMS Portal"
         items={NAV_ITEMS}
-        groups={NAV_GROUPS}
+        groups={navGroups}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         footer={

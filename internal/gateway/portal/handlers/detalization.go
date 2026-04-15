@@ -304,7 +304,9 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 		FROM messages m
 		LEFT JOIN providers p ON p.id = m.provider_id
 		LEFT JOIN client_routes r ON r.id = m.route_id
-		WHERE m.id = $1::uuid AND m.client_id = $2::uuid
+		LEFT JOIN clients cli ON cli.id = m.client_id
+		WHERE m.id = $1::uuid
+		  AND (m.client_id = $2::uuid OR cli.parent_client_id = $2::uuid)
 		LIMIT 1
 	`
 

@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { ABStatusPanel } from '../../components/campaigns/ABStatusPanel';
+import { useToast } from '../../components/ui/Toast';
 
 const STATUS_CONFIG: Record<
   string,
@@ -47,6 +48,7 @@ function StatCard({ label, value, subtext, color = 'text-gray-900' }: StatCardPr
 export function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [stats, setStats] = useState<CampaignStats | null>(null);
@@ -132,7 +134,7 @@ export function CampaignDetailPage() {
       }
       setCampaign(result);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка');
+      toast.error(err instanceof ApiError ? err.message : 'Ошибка при выполнении действия');
     } finally {
       setActionLoading('');
     }
@@ -146,7 +148,7 @@ export function CampaignDetailPage() {
       setCampaign(result);
       campaignsApi.getVariantComparison(id).then(setVariantComparison).catch(() => {});
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при выборе победителя');
+      toast.error(err instanceof ApiError ? err.message : 'Ошибка при выборе победителя');
     } finally {
       setSelectingWinner('');
     }
@@ -160,7 +162,7 @@ export function CampaignDetailPage() {
       setCampaign(result);
       setShowCancel(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Ошибка при отмене');
+      toast.error(err instanceof ApiError ? err.message : 'Ошибка при отмене рассылки');
     } finally {
       setCancelling(false);
     }
@@ -240,8 +242,13 @@ export function CampaignDetailPage() {
 
   if (loading) {
     return (
-      <div className="animate-pulse p-8 text-center text-gray-500">
-        Загрузка...
+      <div role="status" aria-label="Загрузка рассылки" className="p-8">
+        <div className="animate-pulse space-y-4 max-w-2xl">
+          <div className="h-6 bg-gray-200 rounded w-1/3" />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded" />)}
+          </div>
+        </div>
       </div>
     );
   }
@@ -249,7 +256,7 @@ export function CampaignDetailPage() {
   if (error) {
     return (
       <div className="p-8">
-        <p className="text-red-600 mb-4">{error}</p>
+        <p role="alert" className="text-red-600 mb-4">{error}</p>
         <Button variant="secondary" onClick={() => navigate('/campaigns')}>
           Назад к рассылкам
         </Button>
@@ -360,15 +367,21 @@ export function CampaignDetailPage() {
             />
             <StatCard
               label="Доставляемость"
-              value={
-                stats && isFinite(stats.delivery_rate)
-                  ? `${(stats.delivery_rate * 100).toFixed(1)}%`
-                  : '0%'
-              }
+              value={(() => {
+                const delivered = stats?.delivered ?? campaign.delivered_count ?? 0;
+                const total = stats?.total_recipients ?? campaign.total_recipients ?? 0;
+                if (stats && isFinite(stats.delivery_rate) && stats.delivery_rate > 0) {
+                  return `${(stats.delivery_rate * 100).toFixed(1)}%`;
+                }
+                if (delivered > 0 && total > 0) {
+                  return `${((delivered / total) * 100).toFixed(1)}%`;
+                }
+                return '0%';
+              })()}
               color="text-indigo-600"
               subtext={
                 stats?.total_cost
-                  ? `Стоимость: ${stats.total_cost.toFixed(2)}`
+                  ? `Стоимость: ${stats.total_cost.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RUB`
                   : undefined
               }
             />
@@ -564,11 +577,17 @@ export function CampaignDetailPage() {
             />
             <StatCard
               label="Доставляемость"
-              value={
-                stats && isFinite(stats.delivery_rate)
-                  ? `${(stats.delivery_rate * 100).toFixed(1)}%`
-                  : '0%'
-              }
+              value={(() => {
+                const delivered = stats?.delivered ?? campaign.delivered_count ?? 0;
+                const total = stats?.total_recipients ?? campaign.total_recipients ?? 0;
+                if (stats && isFinite(stats.delivery_rate) && stats.delivery_rate > 0) {
+                  return `${(stats.delivery_rate * 100).toFixed(1)}%`;
+                }
+                if (delivered > 0 && total > 0) {
+                  return `${((delivered / total) * 100).toFixed(1)}%`;
+                }
+                return '0%';
+              })()}
               color="text-indigo-600"
             />
           </div>
