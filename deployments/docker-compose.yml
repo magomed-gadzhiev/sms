@@ -296,7 +296,7 @@ services:
     ports:
       - "2775:2775"  # SMPP port
       - "2110:2112"  # Metrics host port changed to avoid conflict
-      - "9095:9095"  # Internal gRPC (for dlr-delivery)
+      # 9095 — internal gRPC, не выставляем наружу (только docker network)
     networks:
       - smpp-network
     depends_on:
