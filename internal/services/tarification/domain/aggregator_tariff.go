@@ -48,11 +48,23 @@ type AggregatorMarginLogRepository interface {
 	Create(ctx context.Context, entry *AggregatorMarginLog) error
 }
 
+// BillingMode тип биллинга для суб-аккаунта
+type BillingMode string
+
+const (
+	BillingModeOwn        BillingMode = "own"
+	BillingModeAggregator BillingMode = "aggregator"
+	BillingModeHybrid     BillingMode = "hybrid"
+)
+
 // ClientAccountInfo базовая информация о клиенте для определения типа аккаунта
 type ClientAccountInfo struct {
-	ID           uuid.UUID
-	AccountType  string
-	ParentClientID *uuid.UUID
+	ID                   uuid.UUID
+	AccountType          string
+	ParentClientID       *uuid.UUID
+	BillingMode          BillingMode
+	SpendingLimitMonthly *string
+	SpendingLimitDaily   *string
 }
 
 // ClientRepository минимальный интерфейс для получения информации о клиенте

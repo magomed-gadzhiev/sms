@@ -24,11 +24,12 @@ func NewClientInfoRepository(db *sqlx.DB) *ClientInfoRepository {
 func (r *ClientInfoRepository) GetAccountInfo(ctx context.Context, clientID uuid.UUID) (*domain.ClientAccountInfo, error) {
 	var info domain.ClientAccountInfo
 	var parentID *uuid.UUID
+	var billingMode string
 
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, account_type, parent_client_id FROM clients WHERE id = $1`,
+		`SELECT id, account_type, parent_client_id, billing_mode, spending_limit_monthly, spending_limit_daily FROM clients WHERE id = $1`,
 		clientID,
-	).Scan(&info.ID, &info.AccountType, &parentID)
+	).Scan(&info.ID, &info.AccountType, &parentID, &billingMode, &info.SpendingLimitMonthly, &info.SpendingLimitDaily)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -36,6 +37,7 @@ func (r *ClientInfoRepository) GetAccountInfo(ctx context.Context, clientID uuid
 		return nil, fmt.Errorf("client info lookup: %w", err)
 	}
 	info.ParentClientID = parentID
+	info.BillingMode = domain.BillingMode(billingMode)
 
 	return &info, nil
 }

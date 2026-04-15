@@ -31,6 +31,11 @@ type Client struct {
 	MonthlySMSResetAt time.Time `json:"monthly_sms_reset_at" db:"monthly_sms_reset_at"`
 	IsSandbox         bool      `json:"is_sandbox" db:"is_sandbox"`
 
+	// Billing mode for sub-accounts
+	BillingMode          string  `json:"billing_mode" db:"billing_mode"`
+	SpendingLimitMonthly *string `json:"spending_limit_monthly,omitempty" db:"spending_limit_monthly"`
+	SpendingLimitDaily   *string `json:"spending_limit_daily,omitempty" db:"spending_limit_daily"`
+
 	// Связи
 	Config *ClientConfig `json:"config,omitempty" db:"-"`
 	Plan   *Plan         `json:"plan,omitempty" db:"-"` // loaded via JOIN
