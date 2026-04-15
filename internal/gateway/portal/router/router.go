@@ -60,6 +60,9 @@ func SetupRouter(
 	resellerSenderNameHandlers *handlers.ResellerSenderNameHandlers,
 	resellerTemplateHandlers *handlers.ResellerTemplateHandlers,
 	resellerDashboardHandlers *handlers.ResellerDashboardHandlers,
+	resellerRoutingHandlers *handlers.ResellerRoutingHandlers,
+	resellerTariffHandlers *handlers.ResellerTariffHandlers,
+	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
@@ -413,6 +416,21 @@ func SetupRouter(
 	resellerTpl.HandleFunc("/{id}/approve", resellerTemplateHandlers.ApproveResellerTemplate).Methods("POST")
 	resellerTpl.HandleFunc("/{id}/reject", resellerTemplateHandlers.RejectResellerTemplate).Methods("POST")
 	resellerTpl.HandleFunc("/{id}/request-revision", resellerTemplateHandlers.RequestRevisionResellerTemplate).Methods("POST")
+
+	// Reseller routing overview
+	resellerRouting := reseller.PathPrefix("/routing").Subrouter()
+	resellerRouting.HandleFunc("/providers", resellerRoutingHandlers.ListNetworkProviders).Methods("GET")
+	resellerRouting.HandleFunc("/routes", resellerRoutingHandlers.ListNetworkRoutes).Methods("GET")
+	resellerRouting.HandleFunc("/bulk-assign", resellerRoutingHandlers.BulkAssignProvider).Methods("POST")
+
+	// Reseller tariffs
+	resellerTariffs := reseller.PathPrefix("/tariffs").Subrouter()
+	resellerTariffs.HandleFunc("", resellerTariffHandlers.ListTariffs).Methods("GET")
+	resellerTariffs.HandleFunc("", resellerTariffHandlers.UpsertTariffs).Methods("PUT")
+	resellerTariffs.HandleFunc("/copy", resellerTariffHandlers.CopyTariffs).Methods("POST")
+
+	// Reseller analytics
+	reseller.HandleFunc("/analytics", resellerAnalyticsHandlers.GetNetworkAnalytics).Methods("GET")
 
 	// WebSocket: live message stream (bypasses CSRF — session auth only)
 	wsProtected := portalV1.PathPrefix("").Subrouter()
