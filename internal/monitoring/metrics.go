@@ -298,6 +298,56 @@ var (
 		Name: "route_cache_size",
 		Help: "Number of items in route/provider cache",
 	}, []string{"type"})
+
+	// DLR delivery metrics
+	DLREventsConsumed = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "dlr_events_consumed_total",
+			Help: "Общее количество DLR событий из Kafka",
+		},
+		[]string{"status"},
+	)
+
+	DLREventsDispatched = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "dlr_events_dispatched_total",
+			Help: "Общее количество DLR событий отправленных клиентам",
+		},
+		[]string{"status", "result"},
+	)
+
+	DLRDispatchDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "dlr_dispatch_duration_seconds",
+			Help:    "Длительность отправки DLR клиенту",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
+		},
+		[]string{},
+	)
+
+	DLRRedisLookupMiss = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "dlr_redis_lookup_miss_total",
+			Help: "Промахи при Redis lookup для DLR",
+		},
+		[]string{"key_type"},
+	)
+
+	SMPPDLRDelivered = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "smpp_dlr_delivered_total",
+			Help: "Количество DLR успешно доставленных SMPP клиентам",
+		},
+		[]string{"system_id"},
+	)
+
+	SMPPDLRDeliveryFailed = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "smpp_dlr_delivery_failed_total",
+			Help: "Количество неудачных доставок DLR SMPP клиентам",
+		},
+		[]string{"system_id", "reason"},
+	)
 )
 
 // StartConsumerLagMonitor starts a goroutine that periodically polls consumer lag
