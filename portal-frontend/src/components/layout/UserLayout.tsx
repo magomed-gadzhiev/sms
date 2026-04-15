@@ -5,12 +5,13 @@ import { SkipLink } from '../SkipLink';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationBell } from '../ui/NotificationBell';
 import { CommandPalette } from '../ui/CommandPalette';
+import { ModeSwitcher } from './ModeSwitcher';
 
 const NAV_ITEMS: NavItem[] = [
   { path: '/command-center', label: 'Командный центр' },
 ];
 
-function buildNavGroups(isReseller: boolean): NavGroup[] {
+function buildNavGroups(): NavGroup[] {
   return [
     {
       label: 'Отправить',
@@ -66,7 +67,6 @@ function buildNavGroups(isReseller: boolean): NavGroup[] {
       label: 'Настройки',
       items: [
         { path: '/profile', label: 'Профиль' },
-        ...(isReseller ? [{ path: '/sub-accounts', label: 'Суб-аккаунты' }] : []),
         { path: '/settings/domains', label: 'Домены' },
         { path: '/settings/notifications', label: 'Уведомления' },
         { path: '/settings/default-senders', label: 'Имена по умолчанию' },
@@ -79,7 +79,7 @@ function buildNavGroups(isReseller: boolean): NavGroup[] {
 export function UserLayout() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const navGroups = buildNavGroups(!!user?.is_reseller);
+  const navGroups = buildNavGroups();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
@@ -131,6 +131,11 @@ export function UserLayout() {
         onClose={() => setIsMobileMenuOpen(false)}
         footer={
           <div>
+            {!!user?.is_reseller && (
+              <div className="mb-3">
+                <ModeSwitcher currentMode="own" />
+              </div>
+            )}
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-gray-600 truncate">{user?.email}</div>
               <div className="hidden md:flex items-center gap-1">
