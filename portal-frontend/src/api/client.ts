@@ -27,9 +27,15 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     throw err;
   }
   clearTimeout(timeoutId);
+  const PUBLIC_PATHS = ['/', '/pricing', '/features', '/docs', '/blog', '/about', '/contact', '/en'];
+  const isPublicPage = PUBLIC_PATHS.some(p =>
+    window.location.pathname === p || window.location.pathname.startsWith('/docs/') ||
+    window.location.pathname.startsWith('/blog/') || window.location.pathname.startsWith('/en/')
+  );
+
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) {
-      if (window.location.pathname !== '/login') {
+      if (window.location.pathname !== '/login' && !isPublicPage) {
         window.location.href = '/login';
       }
       throw new ApiError(401, 'Unauthorized');
