@@ -9,6 +9,7 @@ import { NotificationBell } from '../ui/NotificationBell';
 import { apiFetch } from '../../api/client';
 
 const NAV_ITEMS: NavItem[] = [
+  { path: '/network/dashboard', label: 'Дашборд сети' },
   { path: '/network/sub-accounts', label: 'Суб-аккаунты' },
 ];
 

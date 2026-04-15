@@ -61,6 +61,7 @@ import { RoutingPage } from './pages/routing/RoutingPage';
 import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 import { NetworkLayout } from './components/layout/NetworkLayout';
 import { ModerationPage } from './pages/network/ModerationPage';
+import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -186,7 +187,8 @@ export function App() {
 
         {/* Network mode (reseller) */}
         <Route path="/network" element={<RequireReseller><NetworkLayout /></RequireReseller>}>
-          <Route index element={<Navigate to="/network/sub-accounts" replace />} />
+          <Route index element={<Navigate to="/network/dashboard" replace />} />
+          <Route path="dashboard" element={<NetworkDashboardPage />} />
           <Route path="sub-accounts" element={<SubAccountsListPage />} />
           <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
           <Route path="moderation" element={<ModerationPage />} />

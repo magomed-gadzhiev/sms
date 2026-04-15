@@ -23,7 +23,7 @@ export function ModeSwitcher({ currentMode }: ModeSwitcherProps) {
   function toggle() {
     if (currentMode === 'own') {
       setResellerMode('network');
-      navigate('/network/sub-accounts');
+      navigate('/network/dashboard');
     } else {
       setResellerMode('own');
       navigate('/command-center');
