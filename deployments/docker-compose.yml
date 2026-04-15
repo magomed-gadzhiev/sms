@@ -322,7 +322,7 @@ services:
       dockerfile: deployments/docker/dlr-delivery.Dockerfile
     container_name: dlr-delivery
     ports:
-      - "2113:2112"
+      - "2133:2112"
     environment:
       - SERVICE_NAME=dlr-delivery
       - KAFKA_BROKERS=kafka:9092
