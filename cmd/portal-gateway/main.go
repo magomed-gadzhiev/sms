@@ -86,7 +86,8 @@ func main() {
 		Template:     config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Tarification: config.EnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
 		Link:         config.EnvOrDefault("LINK_SERVICE_ADDR", "localhost:9103"),
-		Cascade:      config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9110"),
+		Cascade:          config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9110"),
+		NetworkAnalytics: config.EnvOrDefault("NETWORK_ANALYTICS_GRPC_ADDR", "localhost:50060"),
 	}
 
 	// Инициализация gRPC клиентов
@@ -295,6 +296,7 @@ func main() {
 	resellerTariffHandlers := handlers.NewResellerTariffHandlers(dbPool)
 	resellerTariffPlanHandlers := handlers.NewResellerTariffPlanHandlers(dbPool)
 	resellerAnalyticsHandlers := handlers.NewResellerAnalyticsHandlers(dbPool, serviceClients.AnalyticsClient, serviceClients.ClientClient)
+	networkStatsHandlers := handlers.NewNetworkStatisticsHandlers(serviceClients.NetworkAnalyticsClient)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
@@ -338,6 +340,7 @@ func main() {
 		resellerTariffHandlers,
 		resellerTariffPlanHandlers,
 		resellerAnalyticsHandlers,
+		networkStatsHandlers,
 		notificationHandlers,
 		searchHandlers,
 		exportHandlers,

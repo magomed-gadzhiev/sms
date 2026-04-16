@@ -64,6 +64,7 @@ func SetupRouter(
 	resellerTariffHandlers *handlers.ResellerTariffHandlers,
 	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
+	networkStatsHandlers *handlers.NetworkStatisticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
 	exportHandlers *handlers.ExportHandlers,
@@ -460,6 +461,18 @@ func SetupRouter(
 
 	// Reseller analytics
 	reseller.HandleFunc("/analytics", resellerAnalyticsHandlers.GetNetworkAnalytics).Methods("GET")
+
+	// Network statistics / analytics / monitoring
+	reseller.HandleFunc("/statistics", networkStatsHandlers.GetStatistics).Methods("GET")
+	reseller.HandleFunc("/analytics-summary", networkStatsHandlers.GetAnalytics).Methods("GET")
+	reseller.HandleFunc("/monitoring", networkStatsHandlers.GetMonitoring).Methods("GET")
+	reseller.HandleFunc("/drilldown", networkStatsHandlers.GetDrillDown).Methods("GET")
+	reseller.HandleFunc("/export", networkStatsHandlers.StartExport).Methods("POST")
+	reseller.HandleFunc("/export/{id}/status", networkStatsHandlers.GetExportStatus).Methods("GET")
+	reseller.HandleFunc("/export/{id}/download", networkStatsHandlers.GetExportStatus).Methods("GET")
+	reseller.HandleFunc("/views", networkStatsHandlers.ListViews).Methods("GET")
+	reseller.HandleFunc("/views", networkStatsHandlers.SaveView).Methods("POST")
+	reseller.HandleFunc("/views/{id}", networkStatsHandlers.DeleteView).Methods("DELETE")
 
 	// WebSocket: live message stream (bypasses CSRF — session auth only)
 	wsProtected := portalV1.PathPrefix("").Subrouter()

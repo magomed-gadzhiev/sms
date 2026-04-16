@@ -20,6 +20,7 @@ import (
 	contactv1 "github.com/smpp-server/smpp-server/api/proto/contactv1"
 	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	networkanalyticsv1 "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
 	companyv1 "github.com/smpp-server/smpp-server/api/proto/companyv1"
@@ -46,10 +47,11 @@ type ServiceClients struct {
 	TarificationClient   tarificationv1.TarificationServiceClient
 	LinkDomainClient     linkv1.DomainServiceClient
 	SenderNameClient     sendernamev1.SenderNameServiceClient
-	CascadeClient         cascadev1.CascadeServiceClient
-	CascadeChannelAdmin   cascadev1.ChannelAdminServiceClient
-	CascadeStrategyAdmin  cascadev1.StrategyAdminServiceClient
-	CompanyClient         companyv1.CompanyServiceClient
+	CascadeClient              cascadev1.CascadeServiceClient
+	CascadeChannelAdmin        cascadev1.ChannelAdminServiceClient
+	CascadeStrategyAdmin       cascadev1.StrategyAdminServiceClient
+	CompanyClient              companyv1.CompanyServiceClient
+	NetworkAnalyticsClient     networkanalyticsv1.NetworkAnalyticsServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -70,7 +72,8 @@ type ServiceAddresses struct {
 	Template     string
 	Tarification string
 	Link         string
-	Cascade      string
+	Cascade          string
+	NetworkAnalytics string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -260,6 +263,17 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		clients.CascadeClient = cascadev1.NewCascadeServiceClient(conn)
 		clients.CascadeChannelAdmin = cascadev1.NewChannelAdminServiceClient(conn)
 		clients.CascadeStrategyAdmin = cascadev1.NewStrategyAdminServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	// Подключение к Network Analytics Service
+	if addresses.NetworkAnalytics != "" {
+		conn, err := grpc.Dial(addresses.NetworkAnalytics, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Network Analytics Service: %w", err)
+		}
+		clients.NetworkAnalyticsClient = networkanalyticsv1.NewNetworkAnalyticsServiceClient(conn)
 		clients.conns = append(clients.conns, conn)
 	}
 
