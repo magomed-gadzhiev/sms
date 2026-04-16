@@ -293,6 +293,7 @@ func main() {
 	resellerDashboardHandlers := handlers.NewResellerDashboardHandlers(dbPool, serviceClients.BillingClient, serviceClients.AnalyticsClient, serviceClients.ClientClient)
 	resellerRoutingHandlers := handlers.NewResellerRoutingHandlers(dbPool, serviceClients.RoutingClient)
 	resellerTariffHandlers := handlers.NewResellerTariffHandlers(dbPool)
+	resellerTariffPlanHandlers := handlers.NewResellerTariffPlanHandlers(dbPool)
 	resellerAnalyticsHandlers := handlers.NewResellerAnalyticsHandlers(dbPool, serviceClients.AnalyticsClient, serviceClients.ClientClient)
 
 	// Настройка HTTP роутера
@@ -335,6 +336,7 @@ func main() {
 		resellerDashboardHandlers,
 		resellerRoutingHandlers,
 		resellerTariffHandlers,
+		resellerTariffPlanHandlers,
 		resellerAnalyticsHandlers,
 		notificationHandlers,
 		searchHandlers,

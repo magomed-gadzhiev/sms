@@ -62,6 +62,7 @@ func SetupRouter(
 	resellerDashboardHandlers *handlers.ResellerDashboardHandlers,
 	resellerRoutingHandlers *handlers.ResellerRoutingHandlers,
 	resellerTariffHandlers *handlers.ResellerTariffHandlers,
+	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
 	searchHandlers *handlers.SearchHandlers,
@@ -428,6 +429,32 @@ func SetupRouter(
 	resellerTariffs.HandleFunc("", resellerTariffHandlers.ListTariffs).Methods("GET")
 	resellerTariffs.HandleFunc("", resellerTariffHandlers.UpsertTariffs).Methods("PUT")
 	resellerTariffs.HandleFunc("/copy", resellerTariffHandlers.CopyTariffs).Methods("POST")
+
+	// Reseller tariff plans (new system: templates, plans, periods, tiers)
+	resellerTariffTemplates := reseller.PathPrefix("/tariff-templates").Subrouter()
+	resellerTariffTemplates.HandleFunc("", resellerTariffPlanHandlers.ListTemplates).Methods("GET")
+	resellerTariffTemplates.HandleFunc("", resellerTariffPlanHandlers.CreateTemplate).Methods("POST")
+	resellerTariffTemplates.HandleFunc("/{id}", resellerTariffPlanHandlers.UpdateTemplate).Methods("PUT")
+	resellerTariffTemplates.HandleFunc("/{id}", resellerTariffPlanHandlers.DeleteTemplate).Methods("DELETE")
+	resellerTariffTemplates.HandleFunc("/{id}/assign", resellerTariffPlanHandlers.AssignTemplate).Methods("POST")
+	resellerTariffTemplates.HandleFunc("/{id}/assign/{sub_account_id}", resellerTariffPlanHandlers.UnassignTemplate).Methods("DELETE")
+
+	resellerPlans := reseller.PathPrefix("/tariff-plans").Subrouter()
+	resellerPlans.HandleFunc("", resellerTariffPlanHandlers.ListPlans).Methods("GET")
+	resellerPlans.HandleFunc("", resellerTariffPlanHandlers.CreatePlan).Methods("POST")
+	resellerPlans.HandleFunc("/{id}", resellerTariffPlanHandlers.UpdatePlan).Methods("PUT")
+	resellerPlans.HandleFunc("/{id}", resellerTariffPlanHandlers.DeletePlan).Methods("DELETE")
+	resellerPlans.HandleFunc("/{plan_id}/periods", resellerTariffPlanHandlers.ListPeriods).Methods("GET")
+	resellerPlans.HandleFunc("/{plan_id}/periods", resellerTariffPlanHandlers.CreatePeriod).Methods("POST")
+
+	resellerPeriods := reseller.PathPrefix("/tariff-periods").Subrouter()
+	resellerPeriods.HandleFunc("/{id}", resellerTariffPlanHandlers.UpdatePeriod).Methods("PUT")
+	resellerPeriods.HandleFunc("/{id}", resellerTariffPlanHandlers.DeletePeriod).Methods("DELETE")
+	resellerPeriods.HandleFunc("/{period_id}/tiers", resellerTariffPlanHandlers.ListTiers).Methods("GET")
+	resellerPeriods.HandleFunc("/{period_id}/tiers", resellerTariffPlanHandlers.UpsertTiers).Methods("POST")
+
+	reseller.HandleFunc("/tariff-overview", resellerTariffPlanHandlers.TariffOverview).Methods("GET")
+	reseller.HandleFunc("/tariff-plans/copy", resellerTariffPlanHandlers.CopyPlans).Methods("POST")
 
 	// Reseller analytics
 	reseller.HandleFunc("/analytics", resellerAnalyticsHandlers.GetNetworkAnalytics).Methods("GET")
