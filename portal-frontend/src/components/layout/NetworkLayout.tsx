@@ -20,7 +20,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/network/moderation', label: 'Модерация' },
       { path: '/network/routing', label: 'Маршрутизация' },
       { path: '/network/tariffs', label: 'Тарифы' },
-      { path: '/network/analytics', label: 'Аналитика' },
+      { path: '/network/statistics', label: 'Статистика' },
     ],
   },
 ];

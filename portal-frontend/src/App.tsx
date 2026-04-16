@@ -64,6 +64,7 @@ import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
 import { NetworkTariffsPage } from './pages/network/NetworkTariffsPage';
 import { NetworkAnalyticsPage } from './pages/network/NetworkAnalyticsPage';
+const NetworkStatisticsPage = lazy(() => import('./pages/network/NetworkStatisticsPage'));
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminClientsPage = lazy(() => import('./pages/admin/ClientsPage').then((m) => ({ default: m.ClientsPage })));
@@ -196,7 +197,7 @@ export function App() {
           <Route path="moderation" element={<ModerationPage />} />
           <Route path="routing" element={<NetworkRoutingPage />} />
           <Route path="tariffs" element={<NetworkTariffsPage />} />
-          <Route path="analytics" element={<NetworkAnalyticsPage />} />
+          <Route path="statistics" element={<NetworkStatisticsPage />} />
         </Route>
 
         {/* Backward compat redirects */}
