@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -28,6 +28,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   standard: 'Стандартная',
 };
 
+const CATEGORY_SHORT: Record<string, string> = {
+  paid_registered: 'Платная рег.',
+  free_registered: 'Бесплатная рег.',
+  shared: 'Общая',
+  standard: 'Стандартная',
+};
+
 function formatPrice(raw: string): string {
   const n = parseFloat(raw);
   if (isNaN(n)) return raw;
@@ -42,8 +49,10 @@ export function NetworkTariffsPage() {
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Edit state
+  // Edit state: key = `${operator_id}_${category}`, value = price string
   const [editingPrices, setEditingPrices] = useState<Record<string, string>>({});
+  // Original prices for dirty tracking
+  const [originalPrices, setOriginalPrices] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   // Copy modal
@@ -54,6 +63,7 @@ export function NetworkTariffsPage() {
   // Bulk price modal
   const [showBulkPrice, setShowBulkPrice] = useState(false);
   const [bulkPrice, setBulkPrice] = useState('');
+  const [bulkCategory, setBulkCategory] = useState('all');
   const [bulkSaving, setBulkSaving] = useState(false);
 
   function loadSubAccounts() {
@@ -68,23 +78,60 @@ export function NetworkTariffsPage() {
     loadSubAccounts();
   }, []);
 
+  function applyTariffs(items: Tariff[]) {
+    setTariffs(items);
+    const prices: Record<string, string> = {};
+    items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
+    setEditingPrices(prices);
+    setOriginalPrices({ ...prices });
+  }
+
   useEffect(() => {
     if (!selectedSA) {
       setTariffs([]);
+      setEditingPrices({});
+      setOriginalPrices({});
       return;
     }
     setLoading(true);
     resellerApi.listTariffs({ sub_account_id: selectedSA })
-      .then((r) => {
-        const items = r.tariffs as Tariff[];
-        setTariffs(items);
-        const prices: Record<string, string> = {};
-        items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
-        setEditingPrices(prices);
-      })
+      .then((r) => applyTariffs(r.tariffs as Tariff[]))
       .catch(() => toast.error('Ошибка загрузки тарифов'))
       .finally(() => setLoading(false));
   }, [selectedSA]);
+
+  // Matrix: unique operators and categories
+  const { operators, categories } = useMemo(() => {
+    const opMap = new Map<string, string>();
+    const catSet = new Set<string>();
+    tariffs.forEach((t) => {
+      opMap.set(t.operator_id, t.operator_name);
+      catSet.add(t.sender_category);
+    });
+    // Sort categories in a logical order
+    const catOrder = ['paid_registered', 'free_registered', 'shared', 'standard'];
+    const cats = [...catSet].sort((a, b) => {
+      const ai = catOrder.indexOf(a);
+      const bi = catOrder.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+    // Sort operators alphabetically, but Default first
+    const ops = [...opMap.entries()].sort((a, b) => {
+      if (a[1].startsWith('Default')) return -1;
+      if (b[1].startsWith('Default')) return 1;
+      return a[1].localeCompare(b[1], 'ru');
+    });
+    return { operators: ops, categories: cats };
+  }, [tariffs]);
+
+  // Count dirty (changed) cells
+  const dirtyCount = useMemo(() => {
+    let count = 0;
+    for (const key of Object.keys(editingPrices)) {
+      if (editingPrices[key] !== originalPrices[key]) count++;
+    }
+    return count;
+  }, [editingPrices, originalPrices]);
 
   async function handleSave() {
     if (!selectedSA) return;
@@ -114,13 +161,8 @@ export function NetworkTariffsPage() {
       }
       await resellerApi.upsertTariffs({ sub_account_id: selectedSA, tariffs: tariffList });
       toast.success(`Сохранено ${tariffList.length} тарифов`);
-      // Reload
       const r = await resellerApi.listTariffs({ sub_account_id: selectedSA });
-      const items = r.tariffs as Tariff[];
-      setTariffs(items);
-      const prices: Record<string, string> = {};
-      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
-      setEditingPrices(prices);
+      applyTariffs(r.tariffs as Tariff[]);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка сохранения');
     } finally {
@@ -135,13 +177,8 @@ export function NetworkTariffsPage() {
       const result = await resellerApi.copyTariffs(copyFrom, selectedSA);
       toast.success(`Скопировано тарифов: ${(result as any).copied}`);
       setShowCopy(false);
-      // Reload
       const r = await resellerApi.listTariffs({ sub_account_id: selectedSA });
-      const items = r.tariffs as Tariff[];
-      setTariffs(items);
-      const prices: Record<string, string> = {};
-      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
-      setEditingPrices(prices);
+      applyTariffs(r.tariffs as Tariff[]);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка копирования');
     } finally {
@@ -158,24 +195,21 @@ export function NetworkTariffsPage() {
     }
     setBulkSaving(true);
     try {
-      // Get all operators from references
       const resp = await apiFetch<{ operators: { id: string }[] }>('/references/operators');
-      const operators = resp.operators || [];
-      const tariffList = operators.map((op: any) => ({
-        operator_id: op.id,
-        sender_category: 'standard',
-        price_per_sms: bulkPrice,
-      }));
+      const ops = resp.operators || [];
+      const categoriesToSet = bulkCategory === 'all' ? ['standard'] : [bulkCategory];
+      const tariffList = ops.flatMap((op: any) =>
+        categoriesToSet.map((cat) => ({
+          operator_id: op.id,
+          sender_category: cat,
+          price_per_sms: bulkPrice,
+        }))
+      );
       await resellerApi.upsertTariffs({ sub_account_id: selectedSA, tariffs: tariffList });
-      toast.success(`Установлена единая цена для ${tariffList.length} операторов`);
+      toast.success(`Установлена единая цена для ${ops.length} операторов`);
       setShowBulkPrice(false);
-      // Reload
       const r = await resellerApi.listTariffs({ sub_account_id: selectedSA });
-      const items = r.tariffs as Tariff[];
-      setTariffs(items);
-      const prices: Record<string, string> = {};
-      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
-      setEditingPrices(prices);
+      applyTariffs(r.tariffs as Tariff[]);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка');
     } finally {
@@ -183,8 +217,12 @@ export function NetworkTariffsPage() {
     }
   }
 
+  function handleResetChanges() {
+    setEditingPrices({ ...originalPrices });
+  }
+
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-6xl">
       <PageHeader title="Тарифы субаккаунтов" />
 
       {subAccountsError && (
@@ -194,71 +232,147 @@ export function NetworkTariffsPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-4">
-        <select
-          value={selectedSA}
-          onChange={(e) => setSelectedSA(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2 text-sm min-w-[250px]"
-        >
-          <option value="">Выберите субаккаунт</option>
-          {subAccounts.map((sa) => (
-            <option key={sa.id} value={sa.id}>{sa.name}</option>
-          ))}
-        </select>
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500" htmlFor="sa-select">Субаккаунт</label>
+          <select
+            id="sa-select"
+            value={selectedSA}
+            onChange={(e) => setSelectedSA(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm min-w-[250px] focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          >
+            <option value="">Выберите субаккаунт</option>
+            {subAccounts.map((sa) => (
+              <option key={sa.id} value={sa.id}>{sa.name}</option>
+            ))}
+          </select>
+        </div>
         {selectedSA && (
-          <>
+          <div className="flex items-end gap-2">
             <Button variant="secondary" size="sm" onClick={() => setShowCopy(true)}>Скопировать из...</Button>
-            <Button variant="secondary" size="sm" onClick={() => { setShowBulkPrice(true); setBulkPrice(''); }}>Единая цена</Button>
-          </>
+            <Button variant="secondary" size="sm" onClick={() => { setShowBulkPrice(true); setBulkPrice(''); setBulkCategory('all'); }}>Единая цена</Button>
+          </div>
         )}
       </div>
 
+      {/* Content */}
       {!selectedSA ? (
-        <div className="py-12 text-center text-gray-400">Выберите субаккаунт для настройки тарифов</div>
+        <div className="py-16 text-center">
+          <div className="text-gray-400 text-sm">Выберите субаккаунт для настройки тарифов</div>
+        </div>
       ) : loading ? (
-        <div className="py-8 text-center text-gray-400">Загрузка...</div>
+        <div className="space-y-3">
+          <div className="h-10 bg-gray-100 rounded animate-pulse" />
+          <div className="h-64 bg-gray-100 rounded animate-pulse" />
+        </div>
+      ) : tariffs.length === 0 ? (
+        <div className="py-16 text-center border border-gray-200 rounded-lg bg-white">
+          <div className="text-gray-400 mb-2">Тарифы не настроены</div>
+          <div className="text-sm text-gray-400 mb-4">Используйте кнопки выше для быстрой настройки</div>
+          <div className="flex justify-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => { setShowBulkPrice(true); setBulkPrice(''); setBulkCategory('all'); }}>Единая цена</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowCopy(true)}>Скопировать из...</Button>
+          </div>
+        </div>
       ) : (
         <>
-          {tariffs.length === 0 ? (
-            <div className="py-8 text-center text-gray-400">
-              <p className="mb-2">Тарифы не настроены</p>
-              <p className="text-sm">Используйте «Единая цена» или «Скопировать из...» для быстрой настройки</p>
+          {/* Summary bar */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs text-gray-500">
+              {operators.length} {operators.length === 1 ? 'оператор' : operators.length < 5 ? 'оператора' : 'операторов'} &middot; {categories.length} {categories.length === 1 ? 'категория' : categories.length < 5 ? 'категории' : 'категорий'}
             </div>
-          ) : (
-            <table className="w-full text-sm bg-white rounded-lg border border-gray-200">
+            {dirtyCount > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-amber-600 font-medium">
+                  {dirtyCount} {dirtyCount === 1 ? 'изменение' : dirtyCount < 5 ? 'изменения' : 'изменений'}
+                </span>
+                <button
+                  onClick={handleResetChanges}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Сбросить
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Matrix table */}
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
-                  <th className="text-left p-3">Оператор</th>
-                  <th className="text-left p-3">Категория</th>
-                  <th className="text-left p-3">Цена за SMS (руб.)</th>
+                <tr className="bg-gray-50">
+                  <th className="text-left p-3 text-xs font-semibold text-gray-500 uppercase tracking-wide sticky left-0 bg-gray-50 min-w-[160px]">
+                    Оператор
+                  </th>
+                  {categories.map((cat) => (
+                    <th key={cat} className="text-center p-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[140px]">
+                      {CATEGORY_SHORT[cat] || cat}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {tariffs.map((t) => (
-                  <tr key={t.id} className="border-t border-gray-100">
-                    <td className="p-3 font-medium">{t.operator_name}</td>
-                    <td className="p-3 text-gray-500">{CATEGORY_LABELS[t.sender_category] || t.sender_category}</td>
-                    <td className="p-3">
-                      <input
-                        type="text"
-                        value={editingPrices[`${t.operator_id}_${t.sender_category}`] ?? t.price_per_sms}
-                        onChange={(e) => setEditingPrices((prev) => ({ ...prev, [`${t.operator_id}_${t.sender_category}`]: e.target.value }))}
-                        className="border border-gray-300 rounded px-2 py-1 w-32 text-sm"
-                      />
+                {operators.map(([opId, opName], idx) => (
+                  <tr
+                    key={opId}
+                    className={`border-t border-gray-100 ${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-blue-50/30 transition-colors`}
+                  >
+                    <td className="p-3 font-medium text-gray-900 sticky left-0 bg-inherit">
+                      {opName}
                     </td>
+                    {categories.map((cat) => {
+                      const key = `${opId}_${cat}`;
+                      const value = editingPrices[key];
+                      const isDirty = value !== undefined && value !== originalPrices[key];
+                      const hasValue = value !== undefined && value !== '';
+
+                      if (!hasValue && originalPrices[key] === undefined) {
+                        // No tariff for this operator+category
+                        return (
+                          <td key={cat} className="p-2 text-center">
+                            <span className="text-gray-300 text-xs">&mdash;</span>
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td key={cat} className="p-2 text-center">
+                          <div className="relative inline-block">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={value ?? ''}
+                              onChange={(e) => setEditingPrices((prev) => ({ ...prev, [key]: e.target.value }))}
+                              className={`border rounded px-2 py-1.5 w-24 text-sm text-center transition-colors
+                                ${isDirty
+                                  ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-200'
+                                  : 'border-gray-300 hover:border-gray-400'
+                                }
+                                focus:ring-2 focus:ring-primary/50 focus:border-primary`}
+                              aria-label={`${opName} — ${CATEGORY_LABELS[cat] || cat}`}
+                            />
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
+          </div>
 
-          {tariffs.length > 0 && (
-            <div className="mt-4">
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'Сохранение...' : 'Сохранить тарифы'}
-              </Button>
-            </div>
-          )}
+          {/* Save bar */}
+          <div className="sticky bottom-0 mt-4 py-3 bg-white/95 backdrop-blur border-t border-gray-200 -mx-6 px-6 flex items-center gap-3">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Сохранение...' : 'Сохранить тарифы'}
+            </Button>
+            {dirtyCount > 0 && (
+              <span className="text-xs text-gray-500">
+                {dirtyCount} несохранённых {dirtyCount === 1 ? 'изменение' : dirtyCount < 5 ? 'изменения' : 'изменений'}
+              </span>
+            )}
+          </div>
         </>
       )}
 
@@ -270,7 +384,7 @@ export function NetworkTariffsPage() {
             <select
               value={copyFrom}
               onChange={(e) => setCopyFrom(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 text-sm w-full"
+              className="border border-gray-300 rounded px-3 py-2 text-sm w-full focus:ring-2 focus:ring-primary/50"
             >
               <option value="">Выберите источник</option>
               {subAccounts.filter((sa) => sa.id !== selectedSA).map((sa) => (
@@ -290,6 +404,19 @@ export function NetworkTariffsPage() {
       {/* Bulk price modal */}
       <Modal open={showBulkPrice} onClose={() => setShowBulkPrice(false)} title="Единая цена для всех операторов">
         <div className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+            <select
+              value={bulkCategory}
+              onChange={(e) => setBulkCategory(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-2 text-sm w-full focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="all">Все категории</option>
+              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
           <Input
             label="Цена за SMS (руб.)"
             value={bulkPrice}
