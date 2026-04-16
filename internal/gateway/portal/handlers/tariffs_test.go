@@ -172,6 +172,11 @@ func TestChangePlan_Success(t *testing.T) {
 	planID := uuid.New().String()
 
 	cc := &mockClientServiceClient{}
+	cc.On("ListPlans", mock.Anything, &clientv1.ListPlansRequest{}).Return(&clientv1.ListPlansResponse{
+		Plans: []*clientv1.SubscriptionPlan{
+			{Id: planID, Name: "Test Plan", MonthlyPriceRub: 0},
+		},
+	}, nil)
 	cc.On("AssignPlan", mock.Anything, &clientv1.AssignPlanRequest{
 		ClientId: clientID.String(),
 		PlanId:   planID,

@@ -198,7 +198,7 @@ func TestTarificationHandler(t *testing.T) {
 			var resp map[string]interface{}
 			err := json.Unmarshal(rr.Body.Bytes(), &resp)
 			require.NoError(t, err)
-			assert.Equal(t, "plan-new-1", resp["id"])
+			assert.Equal(t, "plan-new-1", resp["tariff_plan_id"])
 
 			client.AssertExpectations(t)
 		})
@@ -269,7 +269,7 @@ func TestTarificationHandler(t *testing.T) {
 			var resp map[string]interface{}
 			err := json.Unmarshal(rr.Body.Bytes(), &resp)
 			require.NoError(t, err)
-			plans := resp["plans"].([]interface{})
+			plans := resp["tariff_plans"].([]interface{})
 			assert.Len(t, plans, 1)
 
 			client.AssertExpectations(t)
