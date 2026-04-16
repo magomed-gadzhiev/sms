@@ -431,6 +431,10 @@ func SetupRouter(
 	resellerTariffs.HandleFunc("/copy", resellerTariffHandlers.CopyTariffs).Methods("POST")
 
 	// Reseller tariff plans (new system: templates, plans, periods, tiers)
+	// NOTE: standalone routes MUST be registered before PathPrefix subrouters
+	// to avoid gorilla/mux prefix matching conflicts
+	reseller.HandleFunc("/tariff-overview", resellerTariffPlanHandlers.TariffOverview).Methods("GET")
+
 	resellerTariffTemplates := reseller.PathPrefix("/tariff-templates").Subrouter()
 	resellerTariffTemplates.HandleFunc("", resellerTariffPlanHandlers.ListTemplates).Methods("GET")
 	resellerTariffTemplates.HandleFunc("", resellerTariffPlanHandlers.CreateTemplate).Methods("POST")
@@ -442,6 +446,7 @@ func SetupRouter(
 	resellerPlans := reseller.PathPrefix("/tariff-plans").Subrouter()
 	resellerPlans.HandleFunc("", resellerTariffPlanHandlers.ListPlans).Methods("GET")
 	resellerPlans.HandleFunc("", resellerTariffPlanHandlers.CreatePlan).Methods("POST")
+	resellerPlans.HandleFunc("/copy", resellerTariffPlanHandlers.CopyPlans).Methods("POST")
 	resellerPlans.HandleFunc("/{id}", resellerTariffPlanHandlers.UpdatePlan).Methods("PUT")
 	resellerPlans.HandleFunc("/{id}", resellerTariffPlanHandlers.DeletePlan).Methods("DELETE")
 	resellerPlans.HandleFunc("/{plan_id}/periods", resellerTariffPlanHandlers.ListPeriods).Methods("GET")
@@ -452,9 +457,6 @@ func SetupRouter(
 	resellerPeriods.HandleFunc("/{id}", resellerTariffPlanHandlers.DeletePeriod).Methods("DELETE")
 	resellerPeriods.HandleFunc("/{period_id}/tiers", resellerTariffPlanHandlers.ListTiers).Methods("GET")
 	resellerPeriods.HandleFunc("/{period_id}/tiers", resellerTariffPlanHandlers.UpsertTiers).Methods("POST")
-
-	reseller.HandleFunc("/tariff-overview", resellerTariffPlanHandlers.TariffOverview).Methods("GET")
-	reseller.HandleFunc("/tariff-plans/copy", resellerTariffPlanHandlers.CopyPlans).Methods("POST")
 
 	// Reseller analytics
 	reseller.HandleFunc("/analytics", resellerAnalyticsHandlers.GetNetworkAnalytics).Methods("GET")
