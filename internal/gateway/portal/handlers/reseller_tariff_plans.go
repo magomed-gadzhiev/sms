@@ -918,7 +918,7 @@ func (h *ResellerTariffPlanHandlers) TariffOverview(w http.ResponseWriter, r *ht
 	}
 	subAccountID := r.URL.Query().Get("sub_account_id")
 	if subAccountID == "" {
-		respondError(w, shared.ErrBadRequest("sub_account_id обязателен"))
+		respondError(w, shared.ErrInvalidInput("sub_account_id обязателен"))
 		return
 	}
 	if !h.checkSubAccountOwnership(w, r, resellerID, subAccountID) {
