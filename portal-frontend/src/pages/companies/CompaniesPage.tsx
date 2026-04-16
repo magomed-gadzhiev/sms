@@ -131,17 +131,30 @@ export function CompaniesPage() {
 
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
 
-      <DataTable
-        columns={columns}
-        data={companies}
-        loading={loading}
-        onRowClick={(c) => navigate(`/companies/${c.id}`)}
-        total={companies.length}
-        page={1}
-        pageSize={companies.length || 20}
-        onPageChange={() => {}}
-        bulkActions={[]}
-      />
+      {!loading && companies.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="text-4xl mb-4">🏢</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Нет компаний</h3>
+          <p className="text-sm text-gray-500 mb-6 max-w-sm">
+            Добавьте юридическое лицо, чтобы регистрировать имена отправителей от имени компании.
+          </p>
+          <Button onClick={() => { setShowCreate(true); setForm({ name: '' }); setFormError(''); }}>
+            Добавить первую компанию
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={companies}
+          loading={loading}
+          onRowClick={(c) => navigate(`/companies/${c.id}`)}
+          total={companies.length}
+          page={1}
+          pageSize={companies.length || 20}
+          onPageChange={() => {}}
+          bulkActions={[]}
+        />
+      )}
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Добавить компанию">
         <form onSubmit={handleCreate} className="space-y-4">

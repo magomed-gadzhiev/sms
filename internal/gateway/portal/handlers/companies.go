@@ -84,23 +84,61 @@ func (h *CompanyHandlers) CreateCompany(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *CompanyHandlers) GetCompany(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
 	companyID := mux.Vars(r)["id"]
 	if _, err := uuid.Parse(companyID); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный ID компании"))
 		return
 	}
-	resp, err := h.client.GetCompany(r.Context(), &companyv1.GetCompanyRequest{CompanyId: companyID})
+	// Ownership check: retrieve only companies owned by this client.
+	listResp, err := h.client.ListClientCompanies(r.Context(), &companyv1.ListClientCompaniesRequest{
+		ClientId: clientID.String(),
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, resp.Company)
+	for _, c := range listResp.Companies {
+		if c.Id == companyID {
+			respondJSON(w, http.StatusOK, c)
+			return
+		}
+	}
+	respondError(w, shared.ErrNotFound("Компания не найдена"))
 }
 
 func (h *CompanyHandlers) UpdateCompany(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
 	companyID := mux.Vars(r)["id"]
 	if _, err := uuid.Parse(companyID); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный ID компании"))
+		return
+	}
+	// Ownership check: only allow updates to companies owned by this client.
+	listResp, err := h.client.ListClientCompanies(r.Context(), &companyv1.ListClientCompaniesRequest{
+		ClientId: clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	owned := false
+	for _, c := range listResp.Companies {
+		if c.Id == companyID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		respondError(w, shared.ErrNotFound("Компания не найдена"))
 		return
 	}
 	var req companyRequest

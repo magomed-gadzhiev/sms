@@ -344,7 +344,159 @@
 | MED | QuickSendPage использует REST polling вместо SSE | `/messages/stream` уже существует. Переход на SSE устранит 404-флуд полностью |
 | LOW | Нет ограничения количества получателей в форме | Можно вставить 10000 номеров — последовательная отправка заблокирует UI надолго |
 
-## [IN_PROGRESS] Модуль: Рассылки (aggregator + sub-account, /campaigns, fix mode + инфраструктура + QA full, 2026-04-16)
+## [DONE] Модуль: Рассылки (aggregator + sub-account, /campaigns, fix mode + инфраструктура + QA full, 2026-04-16)
+
+### Итог (8 TC + BVA + матрица состояний, 8 PASS, 0 FAIL)
+
+| TC | Тип | Описание | Вердикт |
+|---|---|---|---|
+| TC-1 | CRITICAL fix | segment_rules отправлялся как object вместо JSON string → 400 при фильтрах | FIXED |
+| TC-2 | HIGH fix | Прямой текст в визарде не передавался в API → кампания без контента | FIXED |
+| TC-3 | MED fix | CampaignItem.delivered vs delivered_count → колонка показывала «—» | FIXED |
+| TC-4 | MED fix | use_subscriber_timezone отображался активным, но не реализован в backend | FIXED |
+| TC-5 | LOW fix | created_at без ru-RU локали + STATUS_CONFIG без scheduled/materializing | FIXED |
+| TC-6 | LOW fix | Silent catch для senderNames и contactLists в WizardPage | FIXED |
+| TC-7 | infra | Все campaign endpoints, миграции, gRPC contracts | PASS |
+| BVA | — | Граничные значения: name required, contact_list_id required UUID, template optional | PASS |
+| State | — | Матрица статусов: draft→running→paused→completed→cancelled + scheduled + materializing | PASS |
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `CampaignWizardPage.tsx` | `segment_rules: { ... }` (object) → 400 ошибка | `segment_rules: JSON.stringify({ ... })` — корректная строка |
+| 2 | `CampaignWizardPage.tsx` | `canProceed` принимал прямой текст без шаблона → кампания без контента | Требует `templateId` (не пустой) + hint "создать шаблон →" |
+| 3 | `CampaignWizardPage.tsx` | A/B вариант B: textarea + `abTextB` (никогда не отправлялось) | Только TemplatePicker; `abTextB` state убран |
+| 4 | `CampaignWizardPage.tsx` | `use_subscriber_timezone` checkbox активный (нет в backend) | Disabled + "Функционал в разработке" |
+| 5 | `CampaignWizardPage.tsx` | Silent `.catch(() => {})` для senderNames + contactLists | `sendersError`/`contactListsError` state + "Повторить" |
+| 6 | `api/client.ts` | `subAccountsApi.campaigns` тип: `delivered: number` | `delivered_count: number` — соответствует полю proto |
+| 7 | `SubAccountDetailPage.tsx` | `CampaignItem.delivered`, колонка `key: 'delivered'` | `delivered_count`; дата `toLocaleDateString('ru-RU')` |
+| 8 | `SubAccountDetailPage.tsx` | `CAMPAIGN_STATUS_CONFIG` не содержал `scheduled`, `materializing` | Добавлены оба статуса |
+| 9 | `CampaignsPage.tsx` | `STATUS_CONFIG` не содержал `scheduled`, `materializing` | Добавлены оба статуса |
+| 10 | `CampaignsPage.tsx` | Фильтр статусов не содержал `scheduled`, `materializing` | Добавлены в `<select>` |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| Все 19 campaign endpoints (CRUD + action + stats + timeline + A/B + report) | ✅ frontend ↔ backend совпадают |
+| `GET /sub-accounts/{id}/campaigns` → `GetSubAccountCampaigns` | ✅ ownership check + ListCampaigns |
+| `POST /campaigns/estimate-cost` | ✅ отдельный subrouter с session auth |
+| `campaigns` table + partitioned `campaign_recipients` | ✅ migration 000043 |
+| `campaign_ab_config.metric` CHECK (delivery_rate, click_rate, unique_click_rate) | ✅ migration 000051 расширил constraint |
+| `use_subscriber_timezone` колонка в DB | ✅ migration 000090, но gRPC/service не реализован |
+| gRPC proto `campaignv1`: все 17 RPC соответствуют handler-вызовам | ✅ |
+| Middleware: session_auth + CSRF на всех endpoints | ✅ |
+
+### Остаточные проблемы
+
+| Приоритет | Проблема | Комментарий |
+|---|---|---|
+| MED | `use_subscriber_timezone` в DB но не в gRPC proto и service | DB column есть, но feature не работает. Нужен proto field + service logic |
+| LOW | Stats inconsistency: `sent=0` при `delivered>0` | Известная проблема из предыдущего аудита — нужна проверка SQL в campaign service |
+
+## [DONE] Модуль: Шаблоны (aggregator + sub-account, /templates, fix mode + инфраструктура + QA full, 2026-04-16)
+
+### Итог (6 TC + BVA + матрица состояний, 6 PASS, 0 FAIL)
+
+| TC | Тип | Описание | Вердикт |
+|---|---|---|---|
+| TC-1 | LOW fix | `created_at` без `ru-RU` локали в таблице | FIXED |
+| TC-2 | MED fix | Traffic type labels английские в таблице и форме | FIXED |
+| TC-3 | MED fix | Sender names dropdown скрыт, нет подсказки при пустом списке | FIXED |
+| TC-4 | MED fix | Silent catch при загрузке sender names — нет ошибки + retry | FIXED |
+| TC-5 | MED fix | Submit for review: нет loading state, риск двойного клика | FIXED |
+| TC-6 | infra | Все Template endpoints, миграции, gRPC contracts | PASS |
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/pages/templates/TemplatesPage.tsx` | `toLocaleDateString()` без локали | `toLocaleDateString('ru-RU')` |
+| 2 | `portal-frontend/src/pages/templates/TemplatesPage.tsx` | Labels: `Transactional`, `Authorization`, `Service` (EN) — в таблице и форме | `Транзакционный`, `Авторизационный`, `Сервисный` (RU) |
+| 3 | `portal-frontend/src/pages/templates/TemplatesPage.tsx` | Dropdown sender names скрыт когда `length === 0` — пользователь не понимает почему поля нет | Подсказка «Нет одобренных имён отправителей. Зарегистрировать →» |
+| 4 | `portal-frontend/src/pages/templates/TemplatesPage.tsx` | `.catch(() => {})` при загрузке sender names — silent failure | `sendersError` state + кнопка «Повторить» |
+| 5 | `portal-frontend/src/pages/templates/TemplatesPage.tsx` | `handleSubmitForReview` без loading state — двойной клик отправлял дважды | `submittingId` state, кнопка disabled + текст «Отправка...» |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| `POST /templates` → `CreateTemplate` | ✅ |
+| `GET /templates` → `ListTemplates` | ✅ |
+| `GET /templates/{id}` → `GetTemplate` | ✅ |
+| `PUT /templates/{id}` → `UpdateTemplate` | ✅ |
+| `DELETE /templates/{id}` → `DeleteTemplate` | ✅ |
+| `POST /templates/{id}/render` → `RenderTemplate` | ✅ |
+| `GET /templates/{id}/audit` → `GetTemplateAuditLog` | ✅ |
+| `POST /templates/{id}/submit` → `SubmitForReview` | ✅ |
+| `GET /reseller/templates` → `ListResellerTemplates` | ✅ |
+| `POST /reseller/templates/{id}/approve` | ✅ |
+| `POST /reseller/templates/{id}/reject` | ✅ |
+| `POST /reseller/templates/{id}/request-revision` | ✅ |
+| `templates` table: 14 колонок, все миграции применены | ✅ |
+| FK: `client_id → clients`, `reviewer_id → users`, `sender_name_id → sender_names` | ✅ |
+| status CHECK: `draft,pending,review,revision_requested,approved,rejected` | ✅ |
+| gRPC proto `templatev1`: все 12 RPC совпадают с handlers | ✅ |
+
+## [DONE] Модуль: Компании (aggregator + sub-account, /companies, fix mode + инфраструктура + QA full, 2026-04-16)
+
+### Итог (6 TC, 6 исправлений, 0 блокеров)
+
+| TC | Тип | Описание | Вердикт |
+|---|---|---|---|
+| TC-1 | CRITICAL fix | GetCompany без ownership check — чужая компания по UUID | FIXED |
+| TC-2 | CRITICAL fix | UpdateCompany без ownership check — изменение чужой компании | FIXED |
+| TC-3 | HIGH fix | CompanyDetailPage.handleSave — нет валидации ИНН перед PUT | FIXED |
+| TC-4 | MED fix | Offer-компании (is_offer=true) отображались как редактируемая форма | FIXED |
+| TC-5 | MED fix | Нет empty state в CompaniesPage при отсутствии компаний | FIXED |
+| TC-6 | MED fix | success message не исчезал автоматически + нет кнопки Detach в UI | FIXED |
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `internal/gateway/portal/handlers/companies.go` | `GetCompany` не проверял принадлежность компании клиенту — любой пользователь мог читать чужие компании по UUID | Добавлен ownership check через `ListClientCompanies`; если компания не в списке → 404 |
+| 2 | `internal/gateway/portal/handlers/companies.go` | `UpdateCompany` не проверял принадлежность — любой пользователь мог изменить чужую компанию | Добавлен ownership check через `ListClientCompanies` перед вызовом `UpdateCompany` |
+| 3 | `portal-frontend/src/pages/companies/CompanyDetailPage.tsx` | `handleSave()` не валидировал ИНН перед отправкой → бэкенд возвращал «invalid INN checksum» без контекста | Добавлена `validateINN()` + проверка `name.trim()` перед PUT |
+| 4 | `portal-frontend/src/pages/companies/CompanyDetailPage.tsx` | Offer-компании (`is_offer=true`) показывали редактируемую форму со всеми полями | `isOffer` → информационный баннер + кнопка «Назад»/«Отвязать» без формы |
+| 5 | `portal-frontend/src/pages/companies/CompaniesPage.tsx` | Пустой список без сообщения → DataTable с нулями, непонятно что делать | Empty state с пояснением и кнопкой «Добавить первую компанию» |
+| 6 | `portal-frontend/src/pages/companies/CompanyDetailPage.tsx` | `success` state не очищался + нет кнопки «Отвязать компанию» в UI | `setTimeout 4000ms` для auto-clear; кнопка «Отвязать» (скрыта если is_default=true) |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| `GET /companies` → `ListCompanies` → gRPC `ListClientCompanies` | ✅ фильтр по client_id |
+| `POST /companies` → `CreateCompany` → gRPC `CreateCompany` | ✅ с AttachCompany + CreateForCompany |
+| `GET /companies/{id}` → `GetCompany` | ✅ исправлено — ownership check добавлен |
+| `PUT /companies/{id}` → `UpdateCompany` | ✅ исправлено — ownership check добавлен |
+| `POST /companies/{id}/set-default` → `SetDefaultCompany` | ✅ unique index обеспечивает constraint |
+| `DELETE /companies/{id}/detach` → `DetachCompany` | ✅ проверяет `ErrCannotDetachDefault` + `ErrCompanyHasSenderNames` |
+| `companies` + `client_companies` tables | ✅ migration 000091 |
+| Unique index `is_default` per client | ✅ `idx_client_companies_default WHERE is_default = TRUE` |
+| gRPC proto `companyv1`: все 7 RPC совпадают | ✅ |
+| Auth middleware: все маршруты в protected subrouter | ✅ |
+
+### Остаточные проблемы
+
+| Приоритет | Проблема | Комментарий |
+|---|---|---|
+| LOW | Frontend validateINN проверяет только длину (не контрольную сумму) | Бэкенд возвращает читаемую ошибку «invalid INN checksum». Полная реализация checksum на фронте — nice-to-have |
+| LOW | Агрегатор не видит компании суб-аккаунтов | По дизайну каждый клиент видит только свои компании. Для агрегатора нет отдельного интерфейса компаний суб-аккаунтов |
+
+## [DONE] Модуль: Рассылки (aggregator + sub-account, /campaigns, fix mode + QA full, 2026-04-16 повторный)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `CampaignDetailPage.tsx` | `stats?.sent ?? campaign.sent_count` → `??` не падает на 0, показывался `0` при `sent_count > 0` | `stats?.sent \|\| campaign.sent_count` → корректный fallback на 0 |
+| 2 | `CampaignWizardPage.tsx` | `estimated_cost` и `current_balance` → raw строки `"95752141.500000"` без форматирования | `parseFloat(...).toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2})` → `95 752 141,50 ₽` |
+| 3 | `CampaignWizardPage.tsx` | Хардкод `"контактов"` для любого числа (`"1 контактов"`) | `pluralContacts(n)` → `"1 контакт"`, `"2 контакта"`, `"5 контактов"` |
+| 4 | `CampaignsPage.tsx` | Пустое состояние без контекста (показывалось `"Рассылки не созданы"` даже при активном фильтре) | Условный рендер: при активном `statusFilter` → `"Рассылок с этим статусом нет"` + кнопка «Сбросить фильтр» |
+
+---
 
 ## Test Accounts
 
