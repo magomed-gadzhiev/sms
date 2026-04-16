@@ -352,7 +352,7 @@ export function CampaignDetailPage() {
             />
             <StatCard
               label="Отправлено"
-              value={stats?.sent ?? campaign.sent_count}
+              value={stats?.sent || campaign.sent_count}
               color="text-blue-600"
             />
             <StatCard
@@ -567,7 +567,7 @@ export function CampaignDetailPage() {
             />
             <StatCard
               label="Отправлено"
-              value={stats?.sent ?? campaign.sent_count}
+              value={stats?.sent || campaign.sent_count}
               color="text-blue-600"
             />
             <StatCard

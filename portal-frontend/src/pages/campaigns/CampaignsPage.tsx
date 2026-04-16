@@ -214,13 +214,25 @@ export function CampaignsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <p className="mb-2 font-medium">Рассылки не созданы</p>
-          <p className="text-sm mb-4">
-            Создайте первую рассылку для массовой отправки SMS
-          </p>
-          <Button variant="ghost" onClick={() => navigate('/campaigns/new')}>
-            Создать рассылку
-          </Button>
+          {statusFilter ? (
+            <>
+              <p className="mb-2 font-medium">Рассылок с этим статусом нет</p>
+              <p className="text-sm mb-4">Попробуйте выбрать другой статус или сбросить фильтр</p>
+              <Button variant="ghost" onClick={() => setStatusFilter('')}>
+                Сбросить фильтр
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="mb-2 font-medium">Рассылки не созданы</p>
+              <p className="text-sm mb-4">
+                Создайте первую рассылку для массовой отправки SMS
+              </p>
+              <Button variant="ghost" onClick={() => navigate('/campaigns/new')}>
+                Создать рассылку
+              </Button>
+            </>
+          )}
         </div>
       )}
 

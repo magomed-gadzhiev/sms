@@ -12,6 +12,14 @@ import { TemplatePicker } from '../../components/campaigns/TemplatePicker';
 import { StepIndicator } from '../../components/campaigns/StepIndicator';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
+function pluralContacts(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n.toLocaleString()} контакт`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n.toLocaleString()} контакта`;
+  return `${n.toLocaleString()} контактов`;
+}
+
 type WizardStep = 'message' | 'audience' | 'schedule' | 'confirm';
 
 const STEPS: WizardStep[] = ['message', 'audience', 'schedule', 'confirm'];
@@ -493,7 +501,7 @@ export function CampaignWizardPage() {
               }}
               options={contactLists.map((l) => ({
                 value: l.id,
-                label: `${l.name} (${(l.contacts_count ?? 0).toLocaleString()} контактов)`,
+                label: `${l.name} (${pluralContacts(l.contacts_count ?? 0)})`,
               }))}
               placeholder="-- Выберите базу контактов --"
             />
@@ -751,7 +759,7 @@ export function CampaignWizardPage() {
                   <dt className="text-gray-500 text-xs mb-1">Аудитория</dt>
                   <dd className="text-gray-900">
                     {contactLists.find((l) => l.id === contactListId)?.name ?? '—'} ·{' '}
-                    {(contactLists.find((l) => l.id === contactListId)?.contacts_count ?? 0).toLocaleString()} контактов
+                    {pluralContacts(contactLists.find((l) => l.id === contactListId)?.contacts_count ?? 0)}
                   </dd>
                   {(excludeCountries.length > 0 || excludeOperators.length > 0) && (
                     <dd className="text-gray-500 text-xs mt-0.5">
@@ -802,12 +810,14 @@ export function CampaignWizardPage() {
                   </div>
                   <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
                     <span className="text-gray-700 font-medium">Итого</span>
-                    <span className="font-bold text-base">{costEstimate.estimated_cost} ₽</span>
+                    <span className="font-bold text-base">
+                      {parseFloat(costEstimate.estimated_cost).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Баланс</span>
                     <span className={costEstimate.balance_sufficient ? 'text-green-600' : 'text-red-600'}>
-                      {costEstimate.current_balance} ₽{' '}
+                      {parseFloat(costEstimate.current_balance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽{' '}
                       {costEstimate.balance_sufficient ? '✓' : '⚠ Недостаточно'}
                     </span>
                   </div>
