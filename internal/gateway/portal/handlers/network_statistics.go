@@ -1,0 +1,399 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/rs/zerolog/log"
+
+	networkanalyticsv1 "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1"
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/shared"
+)
+
+const networkStatsTimeout = 10 * time.Second
+
+// NetworkStatisticsHandlers handles HTTP requests for network analytics endpoints.
+type NetworkStatisticsHandlers struct {
+	client networkanalyticsv1.NetworkAnalyticsServiceClient
+}
+
+// NewNetworkStatisticsHandlers creates a new NetworkStatisticsHandlers.
+func NewNetworkStatisticsHandlers(client networkanalyticsv1.NetworkAnalyticsServiceClient) *NetworkStatisticsHandlers {
+	return &NetworkStatisticsHandlers{client: client}
+}
+
+// parseSharedFilter reads all filter query params from the request.
+func parseSharedFilter(r *http.Request) *networkanalyticsv1.SharedFilter {
+	q := r.URL.Query()
+
+	var dateFrom, dateTo int64
+	if v := q.Get("date_from"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			dateFrom = n
+		}
+	}
+	if v := q.Get("date_to"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			dateTo = n
+		}
+	}
+
+	var page, pageSize int32
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+			page = int32(n)
+		}
+	}
+	if v := q.Get("page_size"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+			pageSize = int32(n)
+		}
+	}
+
+	international := false
+	if v := q.Get("international"); v != "" {
+		international, _ = strconv.ParseBool(v)
+	}
+
+	return &networkanalyticsv1.SharedFilter{
+		PeriodPreset: q.Get("period_preset"),
+		DateFrom:     dateFrom,
+		DateTo:       dateTo,
+		GroupBy:      q.Get("group_by"),
+		Login:        q.Get("login"),
+		ServiceType:  q.Get("service_type"),
+		Operator:     q.Get("operator"),
+		Channel:      q.Get("channel"),
+		SenderName:   q.Get("sender_name"),
+		SenderPaid:   q.Get("sender_paid"),
+		International: international,
+		TrafficType:  q.Get("traffic_type"),
+		Status:       q.Get("status"),
+		PriceRange:   q.Get("price_range"),
+		Method:       q.Get("method"),
+		Provider:     q.Get("provider"),
+		Country:      q.Get("country"),
+		Manager:      q.Get("manager"),
+		ErrorCode:    q.Get("error_code"),
+		Page:         page,
+		PageSize:     pageSize,
+		SortBy:       q.Get("sort_by"),
+		SortDir:      q.Get("sort_dir"),
+	}
+}
+
+// writeJSON sets Content-Type and encodes data as JSON.
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Error().Err(err).Msg("network_statistics: failed to encode JSON response")
+	}
+}
+
+// partnerIDFromContext returns partner_id from authenticated context as int64.
+// The portal uses UUID-based client IDs; for the network analytics service we
+// accept an optional `partner_id` query parameter and fall back to 0.
+func partnerIDFromRequest(r *http.Request) int64 {
+	if v := r.URL.Query().Get("partner_id"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
+// userIDFromContext returns the authenticated user's numeric id.
+// UUID is hashed to a stable int64 via its most-significant 64 bits.
+func userIDFromContext(r *http.Request) int64 {
+	userUUID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		return 0
+	}
+	// Use the first 8 bytes of the UUID as int64.
+	b := userUUID
+	return int64(b[0])<<56 | int64(b[1])<<48 | int64(b[2])<<40 | int64(b[3])<<32 |
+		int64(b[4])<<24 | int64(b[5])<<16 | int64(b[6])<<8 | int64(b[7])
+}
+
+// GetStatistics handles GET /network/statistics
+func (h *NetworkStatisticsHandlers) GetStatistics(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.GetStatistics(ctx, &networkanalyticsv1.StatisticsRequest{
+		PartnerId: partnerIDFromRequest(r),
+		Filter:    parseSharedFilter(r),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: GetStatistics failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// GetAnalytics handles GET /network/analytics
+func (h *NetworkStatisticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.GetAnalyticsSummary(ctx, &networkanalyticsv1.AnalyticsRequest{
+		PartnerId: partnerIDFromRequest(r),
+		Filter:    parseSharedFilter(r),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: GetAnalyticsSummary failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// GetMonitoring handles GET /network/monitoring
+func (h *NetworkStatisticsHandlers) GetMonitoring(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	hideHealthy := false
+	if v := r.URL.Query().Get("hide_healthy"); v != "" {
+		hideHealthy, _ = strconv.ParseBool(v)
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.GetMonitoringMetrics(ctx, &networkanalyticsv1.MonitoringRequest{
+		PartnerId:   partnerIDFromRequest(r),
+		Filter:      parseSharedFilter(r),
+		HideHealthy: hideHealthy,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: GetMonitoringMetrics failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// GetDrillDown handles GET /network/drilldown
+func (h *NetworkStatisticsHandlers) GetDrillDown(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	q := r.URL.Query()
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.GetDrillDown(ctx, &networkanalyticsv1.DrillDownRequest{
+		PartnerId:   partnerIDFromRequest(r),
+		Filter:      parseSharedFilter(r),
+		SliceType:   q.Get("slice_type"),
+		SliceValue:  q.Get("slice_value"),
+		DetailView:  q.Get("detail_view"),
+		ParentType:  q.Get("parent_type"),
+		ParentValue: q.Get("parent_value"),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: GetDrillDown failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// startExportBody is the expected JSON body for StartExport.
+type startExportBody struct {
+	Filter *networkanalyticsv1.SharedFilter `json:"filter"`
+	Mode   string                           `json:"mode"`
+	Format string                           `json:"format"`
+}
+
+// StartExport handles POST /network/export
+func (h *NetworkStatisticsHandlers) StartExport(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	var body startExportBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.StartExport(ctx, &networkanalyticsv1.ExportRequest{
+		PartnerId: partnerIDFromRequest(r),
+		Filter:    body.Filter,
+		Mode:      body.Mode,
+		Format:    body.Format,
+		UserId:    userIDFromContext(r),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: StartExport failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// GetExportStatus handles GET /network/export/{job_id}
+func (h *NetworkStatisticsHandlers) GetExportStatus(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	jobID := mux.Vars(r)["job_id"]
+	if jobID == "" {
+		respondError(w, shared.ErrInvalidInput("job_id обязателен"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.GetExportStatus(ctx, &networkanalyticsv1.ExportStatusRequest{
+		JobId: jobID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("job_id", jobID).Msg("network_statistics: GetExportStatus failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// ListViews handles GET /network/views
+func (h *NetworkStatisticsHandlers) ListViews(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.ListSavedViews(ctx, &networkanalyticsv1.ListViewsRequest{
+		PartnerId: partnerIDFromRequest(r),
+		UserId:    userIDFromContext(r),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: ListSavedViews failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// saveViewBody is the expected JSON body for SaveView.
+type saveViewBody struct {
+	View *networkanalyticsv1.SavedView `json:"view"`
+}
+
+// SaveView handles POST /network/views
+func (h *NetworkStatisticsHandlers) SaveView(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	var body saveViewBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if body.View == nil {
+		respondError(w, shared.ErrInvalidInput("Поле view обязательно"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.SaveView(ctx, &networkanalyticsv1.SaveViewRequest{
+		PartnerId: partnerIDFromRequest(r),
+		UserId:    userIDFromContext(r),
+		View:      body.View,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("network_statistics: SaveView failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
+// DeleteView handles DELETE /network/views/{id}
+func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	idStr := mux.Vars(r)["id"]
+	if idStr == "" {
+		respondError(w, shared.ErrInvalidInput("id обязателен"))
+		return
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат id"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	_, err = h.client.DeleteView(ctx, &networkanalyticsv1.DeleteViewRequest{
+		Id:        id,
+		PartnerId: partnerIDFromRequest(r),
+		UserId:    userIDFromContext(r),
+	})
+	if err != nil {
+		log.Error().Err(err).Int64("id", id).Msg("network_statistics: DeleteView failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
