@@ -1,0 +1,332 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { usePolling } from './usePolling';
+import {
+  networkStatsApi,
+  type SharedFilter,
+  type StatisticsResponse,
+  type AnalyticsResponse,
+  type MonitoringResponse,
+  type DrillDownResponse,
+  type SavedView,
+} from '../api/networkStats';
+
+type Mode = 'stats' | 'analytics' | 'monitoring';
+type AnyResponse = StatisticsResponse | AnalyticsResponse | MonitoringResponse;
+
+interface DrillDownLevel {
+  sliceType: string;
+  sliceValue: string;
+  label: string;
+}
+
+const FILTER_KEYS: (keyof SharedFilter)[] = [
+  'period_preset', 'date_from', 'date_to', 'group_by',
+  'login', 'service_type', 'operator', 'channel',
+  'sender_name', 'traffic_type', 'status', 'provider',
+  'country', 'manager', 'error_code',
+  'page', 'page_size', 'sort_by', 'sort_dir',
+];
+
+function parseFiltersFromURL(params: URLSearchParams): SharedFilter {
+  const f: SharedFilter = {};
+  for (const key of FILTER_KEYS) {
+    const val = params.get(key);
+    if (val) {
+      if (key === 'page' || key === 'page_size') {
+        (f as any)[key] = parseInt(val, 10) || undefined;
+      } else {
+        (f as any)[key] = val;
+      }
+    }
+  }
+  return f;
+}
+
+function filtersToParams(mode: Mode, filters: SharedFilter): Record<string, string> {
+  const params: Record<string, string> = { mode };
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== '' && v !== null) {
+      params[k] = String(v);
+    }
+  }
+  return params;
+}
+
+export function useNetworkStats() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialMode = (searchParams.get('mode') as Mode) || 'stats';
+  const [mode, setModeState] = useState<Mode>(initialMode);
+  const [filters, setFiltersState] = useState<SharedFilter>(() => parseFiltersFromURL(searchParams));
+  const [data, setData] = useState<AnyResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Drill-down
+  const [drillDown, setDrillDown] = useState<DrillDownResponse | null>(null);
+  const [drillDownStack, setDrillDownStack] = useState<DrillDownLevel[]>([]);
+  const [drillDownView, setDrillDownView] = useState('operators');
+  const [drillDownLoading, setDrillDownLoading] = useState(false);
+
+  // Saved views
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [activeViewId, setActiveViewId] = useState<number | null>(null);
+  const [isViewModified, setIsViewModified] = useState(false);
+
+  // Export
+  const [exportStatus, setExportStatus] = useState<{ status: string; job_id: string } | null>(null);
+
+  // Abort controller
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Fetch data based on current mode
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setLoading(true);
+    setError(null);
+    try {
+      let result: AnyResponse;
+      switch (mode) {
+        case 'analytics':
+          result = await networkStatsApi.getAnalytics(filters);
+          break;
+        case 'monitoring':
+          result = await networkStatsApi.getMonitoring(filters);
+          break;
+        default:
+          result = await networkStatsApi.getStatistics(filters);
+      }
+      if (!controller.signal.aborted) {
+        setData(result);
+      }
+    } catch (err: any) {
+      if (!controller.signal.aborted) {
+        setError(err?.message || 'Ошибка загрузки данных');
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [mode, filters]);
+
+  // Monitoring polling
+  const polling = usePolling(fetchData, 10000);
+  const isMonitoringMode = mode === 'monitoring';
+
+  // Pause polling when not in monitoring mode
+  useEffect(() => {
+    if (isMonitoringMode) {
+      polling.resume();
+    } else {
+      polling.pause();
+    }
+  }, [isMonitoringMode, polling]);
+
+  // --- Actions ---
+
+  const setMode = useCallback((newMode: Mode) => {
+    setModeState(newMode);
+    setSearchParams(filtersToParams(newMode, filters), { replace: true });
+    setDrillDown(null);
+    setDrillDownStack([]);
+  }, [filters, setSearchParams]);
+
+  const setFilters = useCallback((partial: Partial<SharedFilter>) => {
+    setFiltersState(prev => {
+      const next = { ...prev, ...partial };
+      setIsViewModified(true);
+      return next;
+    });
+  }, []);
+
+  const applyFilters = useCallback(() => {
+    setSearchParams(filtersToParams(mode, filters), { replace: true });
+    fetchData();
+  }, [mode, filters, setSearchParams, fetchData]);
+
+  // --- Drill-down ---
+
+  const openDrillDown = useCallback(async (sliceType: string, sliceValue: string, label: string) => {
+    setDrillDownLoading(true);
+    setDrillDownStack([{ sliceType, sliceValue, label }]);
+    setDrillDownView('operators');
+    try {
+      const result = await networkStatsApi.getDrillDown(filters, sliceType, sliceValue, 'operators');
+      setDrillDown(result);
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка загрузки детализации');
+    } finally {
+      setDrillDownLoading(false);
+    }
+  }, [filters]);
+
+  const drillDeeper = useCallback(async (sliceType: string, sliceValue: string, label: string) => {
+    setDrillDownLoading(true);
+    const parentLevel = drillDownStack[drillDownStack.length - 1];
+    setDrillDownStack(prev => [...prev, { sliceType, sliceValue, label }]);
+    try {
+      const result = await networkStatsApi.getDrillDown(
+        filters, sliceType, sliceValue, 'operators',
+        parentLevel?.sliceType, parentLevel?.sliceValue,
+      );
+      setDrillDown(result);
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка загрузки детализации');
+    } finally {
+      setDrillDownLoading(false);
+    }
+  }, [filters, drillDownStack]);
+
+  const navigateDrillDown = useCallback(async (level: number) => {
+    if (level <= 0) {
+      setDrillDown(null);
+      setDrillDownStack([]);
+      return;
+    }
+    const newStack = drillDownStack.slice(0, level);
+    setDrillDownStack(newStack);
+    setDrillDownLoading(true);
+    const target = newStack[newStack.length - 1];
+    const parent = newStack.length > 1 ? newStack[newStack.length - 2] : undefined;
+    try {
+      const result = await networkStatsApi.getDrillDown(
+        filters, target.sliceType, target.sliceValue, drillDownView,
+        parent?.sliceType, parent?.sliceValue,
+      );
+      setDrillDown(result);
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка');
+    } finally {
+      setDrillDownLoading(false);
+    }
+  }, [drillDownStack, filters, drillDownView]);
+
+  const closeDrillDown = useCallback(() => {
+    setDrillDown(null);
+    setDrillDownStack([]);
+  }, []);
+
+  // --- Export ---
+
+  const startExport = useCallback(async (format: 'csv' | 'xlsx') => {
+    try {
+      const resp = await networkStatsApi.startExport(filters, mode, format);
+      setExportStatus({ status: 'pending', job_id: resp.job_id });
+
+      const pollExport = async () => {
+        const status = await networkStatsApi.getExportStatus(resp.job_id);
+        setExportStatus({ status: status.status, job_id: resp.job_id });
+        if (status.status === 'done' && status.download_url) {
+          window.open(status.download_url, '_blank');
+        } else if (status.status !== 'failed') {
+          setTimeout(pollExport, 2000);
+        }
+      };
+      setTimeout(pollExport, 2000);
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка экспорта');
+    }
+  }, [filters, mode]);
+
+  // --- Saved views ---
+
+  const loadViews = useCallback(async () => {
+    try {
+      const resp = await networkStatsApi.listViews();
+      setSavedViews(resp.views || []);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { loadViews(); }, [loadViews]);
+
+  const loadView = useCallback((id: number) => {
+    const view = savedViews.find(v => v.id === id);
+    if (!view) return;
+    const parsedFilters: SharedFilter = view.filters_json ? JSON.parse(view.filters_json) : {};
+    if (view.group_by) parsedFilters.group_by = view.group_by;
+    if (view.sort_by) parsedFilters.sort_by = view.sort_by;
+    if (view.sort_dir) parsedFilters.sort_dir = view.sort_dir;
+    setFiltersState(parsedFilters);
+    setModeState(view.mode as Mode);
+    setActiveViewId(id);
+    setIsViewModified(false);
+    setSearchParams(filtersToParams(view.mode as Mode, parsedFilters), { replace: true });
+  }, [savedViews, setSearchParams]);
+
+  const saveCurrentView = useCallback(async (name: string) => {
+    try {
+      const resp = await networkStatsApi.saveView({
+        name,
+        mode,
+        filters_json: JSON.stringify(filters),
+        group_by: filters.group_by || '',
+        sort_by: filters.sort_by || '',
+        sort_dir: filters.sort_dir || 'desc',
+        columns: [],
+        is_default: false,
+      });
+      setActiveViewId(resp.view.id);
+      setIsViewModified(false);
+      await loadViews();
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка сохранения');
+    }
+  }, [mode, filters, loadViews]);
+
+  const deleteViewById = useCallback(async (id: number) => {
+    try {
+      await networkStatsApi.deleteView(id);
+      if (activeViewId === id) setActiveViewId(null);
+      await loadViews();
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка удаления');
+    }
+  }, [activeViewId, loadViews]);
+
+  return {
+    // State
+    mode,
+    filters,
+    data,
+    loading,
+    error,
+
+    // Actions
+    setMode,
+    setFilters,
+    applyFilters,
+
+    // Drill-down
+    drillDown,
+    drillDownStack,
+    drillDownView,
+    setDrillDownView,
+    drillDownLoading,
+    openDrillDown,
+    drillDeeper,
+    closeDrillDown,
+    navigateDrillDown,
+
+    // Saved views
+    savedViews,
+    activeViewId,
+    isViewModified,
+    loadView,
+    saveCurrentView,
+    deleteView: deleteViewById,
+
+    // Export
+    exportStatus,
+    startExport,
+
+    // Monitoring polling
+    isPaused: polling.isPaused,
+    togglePolling: polling.isPaused ? polling.resume : polling.pause,
+    lastUpdated: polling.lastUpdated,
+  };
+}
