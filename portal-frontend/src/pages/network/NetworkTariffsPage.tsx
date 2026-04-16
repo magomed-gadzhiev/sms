@@ -21,9 +21,23 @@ interface SubAccountOption {
   name: string;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  paid_registered: 'Платная регистрация',
+  free_registered: 'Бесплатная регистрация',
+  shared: 'Общая',
+  standard: 'Стандартная',
+};
+
+function formatPrice(raw: string): string {
+  const n = parseFloat(raw);
+  if (isNaN(n)) return raw;
+  return n.toFixed(2);
+}
+
 export function NetworkTariffsPage() {
   const toast = useToast();
   const [subAccounts, setSubAccounts] = useState<SubAccountOption[]>([]);
+  const [subAccountsError, setSubAccountsError] = useState(false);
   const [selectedSA, setSelectedSA] = useState('');
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,11 +56,16 @@ export function NetworkTariffsPage() {
   const [bulkPrice, setBulkPrice] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
 
-  useEffect(() => {
+  function loadSubAccounts() {
+    setSubAccountsError(false);
     subAccountsApi.list().then((r: any) => {
       const list = (r.sub_accounts || []).map((sa: any) => ({ id: sa.id, name: sa.name || sa.email }));
       setSubAccounts(list);
-    }).catch(() => {});
+    }).catch(() => setSubAccountsError(true));
+  }
+
+  useEffect(() => {
+    loadSubAccounts();
   }, []);
 
   useEffect(() => {
@@ -60,7 +79,7 @@ export function NetworkTariffsPage() {
         const items = r.tariffs as Tariff[];
         setTariffs(items);
         const prices: Record<string, string> = {};
-        items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
+        items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
         setEditingPrices(prices);
       })
       .catch(() => toast.error('Ошибка загрузки тарифов'))
@@ -81,6 +100,16 @@ export function NetworkTariffsPage() {
         .filter(Boolean) as { operator_id: string; sender_category: string; price_per_sms: string }[];
       if (tariffList.length === 0) {
         toast.error('Нет тарифов для сохранения');
+        setSaving(false);
+        return;
+      }
+      const invalidPrice = tariffList.find((t) => {
+        const n = parseFloat(t.price_per_sms);
+        return isNaN(n) || n < 0;
+      });
+      if (invalidPrice) {
+        toast.error('Цена должна быть неотрицательным числом');
+        setSaving(false);
         return;
       }
       await resellerApi.upsertTariffs({ sub_account_id: selectedSA, tariffs: tariffList });
@@ -90,7 +119,7 @@ export function NetworkTariffsPage() {
       const items = r.tariffs as Tariff[];
       setTariffs(items);
       const prices: Record<string, string> = {};
-      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
+      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
       setEditingPrices(prices);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка сохранения');
@@ -111,7 +140,7 @@ export function NetworkTariffsPage() {
       const items = r.tariffs as Tariff[];
       setTariffs(items);
       const prices: Record<string, string> = {};
-      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
+      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
       setEditingPrices(prices);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка копирования');
@@ -122,6 +151,11 @@ export function NetworkTariffsPage() {
 
   async function handleBulkPrice() {
     if (!selectedSA || !bulkPrice) return;
+    const n = parseFloat(bulkPrice);
+    if (isNaN(n) || n < 0) {
+      toast.error('Цена должна быть неотрицательным числом');
+      return;
+    }
     setBulkSaving(true);
     try {
       // Get all operators from references
@@ -140,7 +174,7 @@ export function NetworkTariffsPage() {
       const items = r.tariffs as Tariff[];
       setTariffs(items);
       const prices: Record<string, string> = {};
-      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = t.price_per_sms; });
+      items.forEach((t) => { prices[`${t.operator_id}_${t.sender_category}`] = formatPrice(t.price_per_sms); });
       setEditingPrices(prices);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка');
@@ -152,6 +186,13 @@ export function NetworkTariffsPage() {
   return (
     <div className="max-w-5xl">
       <PageHeader title="Тарифы субаккаунтов" />
+
+      {subAccountsError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-center gap-2">
+          Не удалось загрузить список субаккаунтов.
+          <button onClick={loadSubAccounts} className="underline font-medium">Повторить</button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mb-4">
         <select
@@ -196,7 +237,7 @@ export function NetworkTariffsPage() {
                 {tariffs.map((t) => (
                   <tr key={t.id} className="border-t border-gray-100">
                     <td className="p-3 font-medium">{t.operator_name}</td>
-                    <td className="p-3 text-gray-500">{t.sender_category}</td>
+                    <td className="p-3 text-gray-500">{CATEGORY_LABELS[t.sender_category] || t.sender_category}</td>
                     <td className="p-3">
                       <input
                         type="text"

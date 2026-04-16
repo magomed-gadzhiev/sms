@@ -45,21 +45,37 @@ func (h *ResellerTariffHandlers) ListTariffs(w http.ResponseWriter, r *http.Requ
 
 	subAccountID := r.URL.Query().Get("sub_account_id")
 
-	query := `SELECT at.id, at.sub_account_id, at.operator_id, o.name AS operator_name,
-	                 at.sender_category, at.price_per_segment::text, at.active,
-	                 at.created_at, at.updated_at
-	          FROM aggregator_tariffs at
-	          JOIN operators o ON o.id = at.operator_id
-	          WHERE at.aggregator_id = $1 AND at.active = true`
 	args := []interface{}{resellerID}
 
+	var query string
 	if subAccountID != "" {
-		query += " AND (at.sub_account_id = $2 OR at.sub_account_id IS NULL)"
+		// Sub-account specific tariff overrides global (NULL) tariff per operator+category
+		query = `SELECT t.id, t.sub_account_id, t.operator_id, t.operator_name,
+		                t.sender_category, t.price_per_segment, t.active,
+		                t.created_at, t.updated_at
+		         FROM (
+		           SELECT DISTINCT ON (at.operator_id, at.sender_category)
+		                  at.id, at.sub_account_id, at.operator_id, o.name AS operator_name,
+		                  at.sender_category, at.price_per_segment::text AS price_per_segment, at.active,
+		                  at.created_at, at.updated_at
+		           FROM aggregator_tariffs at
+		           JOIN operators o ON o.id = at.operator_id
+		           WHERE at.aggregator_id = $1 AND at.active = true
+		             AND (at.sub_account_id = $2 OR at.sub_account_id IS NULL)
+		           ORDER BY at.operator_id, at.sender_category, at.sub_account_id NULLS LAST
+		         ) t
+		         ORDER BY t.operator_name, t.sender_category`
 		args = append(args, subAccountID)
 	} else {
-		query += " AND at.sub_account_id IS NULL"
+		query = `SELECT at.id, at.sub_account_id, at.operator_id, o.name AS operator_name,
+		                at.sender_category, at.price_per_segment::text, at.active,
+		                at.created_at, at.updated_at
+		         FROM aggregator_tariffs at
+		         JOIN operators o ON o.id = at.operator_id
+		         WHERE at.aggregator_id = $1 AND at.active = true
+		           AND at.sub_account_id IS NULL
+		         ORDER BY o.name, at.sender_category`
 	}
-	query += " ORDER BY o.name, at.sender_category"
 
 	rows, err := h.pool.Query(r.Context(), query, args...)
 	if err != nil {
