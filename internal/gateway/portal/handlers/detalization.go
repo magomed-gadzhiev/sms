@@ -166,7 +166,25 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 		conditions += " AND m.id::text ILIKE " + nextArg("%"+messageID+"%")
 	}
 
-	joins := `
+	// Minimal joins for COUNT — only include tables referenced in filter conditions
+	countJoins := ""
+	if login != "" {
+		countJoins += "\n\t\tLEFT JOIN clients cli ON cli.id = m.client_id"
+	}
+	if operator != "" {
+		countJoins += "\n\t\tLEFT JOIN operators op ON op.id = m.operator_id"
+	}
+	if country != "" {
+		countJoins += "\n\t\tLEFT JOIN countries co ON co.id = m.country_id"
+	}
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM messages m` + countJoins + `
+		WHERE 1=1` + conditions
+
+	// Full joins for the list query (need all columns)
+	listJoins := `
 		LEFT JOIN providers p   ON p.id = m.provider_id
 		LEFT JOIN operators op  ON op.id = m.operator_id
 		LEFT JOIN countries co  ON co.id = m.country_id
@@ -177,11 +195,6 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 			WHERE message_id = m.id
 			ORDER BY created_at DESC LIMIT 1
 		) tl ON true`
-
-	countQuery := `
-		SELECT COUNT(*)
-		FROM messages m` + joins + `
-		WHERE 1=1` + conditions
 
 	listQuery := `
 		SELECT
@@ -202,7 +215,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 			COALESCE(m.send_method, '')      AS send_method,
 			COALESCE(cli.name, '')           AS login,
 			COALESCE(tl.total_amount::text, '') AS total_amount
-		FROM messages m` + joins + `
+		FROM messages m` + listJoins + `
 		WHERE 1=1` + conditions + `
 		ORDER BY ` + orderCol + ` ` + direction + `
 		LIMIT ` + strconv.Itoa(limit) + ` OFFSET ` + strconv.Itoa(offset)
