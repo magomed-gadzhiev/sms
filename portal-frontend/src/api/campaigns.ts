@@ -74,7 +74,7 @@ export const campaignsApi = {
     send_rate?: number;
     scheduled_at?: string;
     use_subscriber_timezone?: boolean;
-    segment_rules?: Record<string, unknown>;
+    segment_rules?: string;
   }) =>
     apiFetch<Campaign>('/campaigns', {
       method: 'POST',
