@@ -108,8 +108,25 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 		offset = v
 	}
 
-	args := []interface{}{clientID.String()}
-	conditions := ` AND (m.client_id = $1::uuid OR cli.parent_client_id = $1::uuid)`
+	ctx := r.Context()
+
+	// Pre-fetch all client IDs (self + children) to avoid OR on join that forces full table scan
+	clientIDs := []string{clientID.String()}
+	childRows, err := h.db.Query(ctx,
+		`SELECT id::text FROM clients WHERE parent_client_id = $1`, clientID.String())
+	if err == nil {
+		defer childRows.Close()
+		for childRows.Next() {
+			var cid string
+			if childRows.Scan(&cid) == nil {
+				clientIDs = append(clientIDs, cid)
+			}
+		}
+		childRows.Close()
+	}
+
+	args := []interface{}{clientIDs}
+	conditions := ` AND m.client_id = ANY($1::uuid[])`
 	nextArg := func(v interface{}) string {
 		args = append(args, v)
 		return fmt.Sprintf("$%d", len(args))
@@ -189,8 +206,6 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 		WHERE 1=1` + conditions + `
 		ORDER BY ` + orderCol + ` ` + direction + `
 		LIMIT ` + strconv.Itoa(limit) + ` OFFSET ` + strconv.Itoa(offset)
-
-	ctx := r.Context()
 
 	var total int64
 	if err := h.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
