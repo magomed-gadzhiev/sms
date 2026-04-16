@@ -57,6 +57,7 @@ export function TemplatesPage() {
 
   // Approved sender names for dropdown
   const [approvedSenderNames, setApprovedSenderNames] = useState<SenderNameInfo[]>([]);
+  const [sendersError, setSendersError] = useState(false);
 
   // Create / Edit modal
   const [showForm, setShowForm] = useState(false);
@@ -73,6 +74,9 @@ export function TemplatesPage() {
   const [previewResult, setPreviewResult] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState('');
+
+  // Submit for review loading
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -98,8 +102,15 @@ export function TemplatesPage() {
     fetchTemplates();
   }, [fetchTemplates]);
 
+  function loadSenderNames() {
+    setSendersError(false);
+    senderNamesApi.listApproved()
+      .then((res) => setApprovedSenderNames(res.sender_names || []))
+      .catch(() => setSendersError(true));
+  }
+
   useEffect(() => {
-    senderNamesApi.listApproved().then((res) => setApprovedSenderNames(res.sender_names || [])).catch(() => {});
+    loadSenderNames();
   }, []);
 
   // --- Create / Edit ---
@@ -205,12 +216,16 @@ export function TemplatesPage() {
   // --- Submit for review ---
 
   async function handleSubmitForReview(id: string) {
+    if (submittingId) return;
+    setSubmittingId(id);
     setError('');
     try {
       await templatesApi.submit(id);
       await fetchTemplates();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Не удалось отправить на модерацию');
+    } finally {
+      setSubmittingId(null);
     }
   }
 
@@ -254,9 +269,9 @@ export function TemplatesPage() {
       header: 'Тип трафика',
       render: (tpl) => {
         const labels: Record<string, string> = {
-          transactional: 'Transactional',
-          authorization: 'Authorization',
-          service: 'Service',
+          transactional: 'Транзакционный',
+          authorization: 'Авторизационный',
+          service: 'Сервисный',
         };
         const val = tpl.traffic_type || 'transactional';
         return <span className="text-sm text-gray-700">{labels[val] ?? val}</span>;
@@ -274,7 +289,7 @@ export function TemplatesPage() {
     {
       key: 'created_at',
       header: 'Создан',
-      render: (tpl) => new Date(tpl.created_at).toLocaleDateString(),
+      render: (tpl) => new Date(tpl.created_at).toLocaleDateString('ru-RU'),
     },
   ];
 
@@ -319,11 +334,16 @@ export function TemplatesPage() {
             )}
           </div>
 
-          {approvedSenderNames.length > 0 && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Имя отправителя
-              </label>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Имя отправителя
+            </label>
+            {sendersError ? (
+              <p className="text-xs text-red-600">
+                Не удалось загрузить имена отправителей.{' '}
+                <button type="button" className="underline" onClick={loadSenderNames}>Повторить</button>
+              </p>
+            ) : approvedSenderNames.length > 0 ? (
               <select
                 value={formSenderNameId}
                 onChange={(e) => setFormSenderNameId(e.target.value)}
@@ -334,8 +354,13 @@ export function TemplatesPage() {
                   <option key={sn.id} value={sn.id}>{sn.name}</option>
                 ))}
               </select>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-gray-500">
+                Нет одобренных имён отправителей.{' '}
+                <a href="/sender-names" className="text-primary underline">Зарегистрировать →</a>
+              </p>
+            )}
+          </div>
 
           <div className="mb-4">
             <Select
@@ -343,9 +368,9 @@ export function TemplatesPage() {
               value={formTrafficType}
               onChange={setFormTrafficType}
               options={[
-                { value: 'transactional', label: 'Transactional' },
-                { value: 'authorization', label: 'Authorization' },
-                { value: 'service', label: 'Service' },
+                { value: 'transactional', label: 'Транзакционный' },
+                { value: 'authorization', label: 'Авторизационный' },
+                { value: 'service', label: 'Сервисный' },
               ]}
             />
           </div>
@@ -520,9 +545,10 @@ export function TemplatesPage() {
                 variant="primary"
                 size="sm"
                 aria-label={`Отправить ${tpl.name} на модерацию`}
+                disabled={submittingId === tpl.id}
                 onClick={() => handleSubmitForReview(tpl.id)}
               >
-                На модерацию
+                {submittingId === tpl.id ? 'Отправка...' : 'На модерацию'}
               </Button>
             )}
 
