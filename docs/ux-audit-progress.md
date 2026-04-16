@@ -259,7 +259,43 @@
 
 
 
-## [IN_PROGRESS] Модуль: Отправить / Быстрая отправка — Повторный аудит (client, /quick-send, fix mode + инфраструктура + QA full, 2026-04-16)
+## [DONE] Модуль: Отправить / Быстрая отправка — Повторный аудит (client, /quick-send, fix mode + инфраструктура + QA full, 2026-04-16)
+
+### Итог (8 TC + BVA, 5 PASS, 2 PARTIAL, 1 FAIL)
+
+| TC | Тип | Описание | Вердикт |
+|---|---|---|---|
+| TC-1 | happy | Отправить 1 сообщение с валидными полями | FAIL — POST 201 ✅, но DB persist ❌ (Kafka pipeline broken: scheduler ошибка) |
+| TC-2 | edge | CharacterCounter BVA (0/140/159/160/161/306/307/320/765) | PARTIAL — логика сегментов правильная ✅; "лишних" → "сверх" исправлено и задеплоено |
+| TC-3 | negative | Пустая форма / только пробелы / нет номеров | PASS — все ошибки корректны ✅ |
+| TC-4 | negative | Некорректные номера / SQL / XSS / русские форматы | PARTIAL — SQL+XSS безопасны ✅; +7(900)123-45-67 отклонялся (parsePhones) → исправлено и задеплоено |
+| TC-5 | negative | Отмена ConfirmDialog | PASS — форма сохраняется, сообщение не отправлено ✅ |
+| TC-6 | edge | 1000+ получателей | PASS — добавлен MAX_RECIPIENTS=500 + streaming progress ✅ |
+| TC-7 | state | Polling: infinite 404 loop | PASS — MAX_POLL_ATTEMPTS=60, isMessageDone(err-) → исправлено и задеплоено ✅ |
+| TC-8 | infra | Endpoints / migrations / gRPC contracts | PASS — все маршруты, таблицы, proto совпадают ✅ |
+| BVA-A | — | text: 0/140/159/160/161/306/307/765 chars | PASS — логика верна; contacts: regex /^\+?[0-9]{10,15}$/ ✅ |
+
+### Исправлено в этом раунде (задеплоено)
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `allDone` не проверял `err-` prefix → infinite polling | `isMessageDone` проверяет `err-` prefix |
+| 2 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | Нет лимита polling → бесконечные 404 | `MAX_POLL_ATTEMPTS=60` (3 мин), статус → `expired` |
+| 3 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `parsePhones` убирал только пробелы → `+7(900)123-45-67` отклонялся | Убираем `[\s\-().]` — русский формат проходит |
+| 4 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | Silent catch при загрузке sender names | `sendersError` state + кнопка «Повторить» |
+| 5 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | "1 сообщений" неверная грамматика | `pluralMessages(n)` → "1 сообщение", "2 сообщения" |
+| 6 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | `setSentMessages` после всего цикла → нет прогресса | Streaming: `setSentMessages(prev => [...prev, msg])` внутри цикла |
+| 7 | `portal-frontend/src/pages/quick-send/QuickSendPage.tsx` | Нет лимита получателей → 10000+ номеров блокируют | `MAX_RECIPIENTS=500` с подсказкой про Кампании |
+| 8 | `portal-frontend/src/components/ui/CharacterCounter.tsx` | "40 лишних" → вводит в заблуждение | "+40 сверх · 2 SMS" |
+| 9 | `internal/gateway/portal/handlers/messages.go` | `GetMessage` → 404 для in-flight сообщений | При `pgx.ErrNoRows` + gRPC client → fallback на `getMessageViaGRPC` |
+
+### Остаточные проблемы (backend, не фронтенд)
+
+| Приоритет | Проблема | Комментарий |
+|---|---|---|
+| CRITICAL | Messaging scheduler: `"missing destination name channel in *[]*shared.Message"` | Постоянная ошибка — scheduler не может обработать pending/scheduled сообщения |
+| HIGH | Сообщения не сохраняются в БД | Kafka publisher работает (offset зафиксирован), но consumer не персистит → polling всегда 404 |
+| MED | REST polling вместо SSE | `/messages/stream` SSE уже существует; переход на SSE устранит 404-флуд полностью |
 
 ## [DONE] Модуль: Отправить / Быстрая отправка (client, /quick-send, fix mode + инфраструктура + QA full, 2026-04-16)
 
@@ -307,6 +343,8 @@
 | HIGH | Scheduler `"missing destination name channel in *[]*shared.Message"` | Постоянная ошибка в messaging-service logs — вероятно блокирует обработку сообщений через pipeline |
 | MED | QuickSendPage использует REST polling вместо SSE | `/messages/stream` уже существует. Переход на SSE устранит 404-флуд полностью |
 | LOW | Нет ограничения количества получателей в форме | Можно вставить 10000 номеров — последовательная отправка заблокирует UI надолго |
+
+## [IN_PROGRESS] Модуль: Рассылки (aggregator + sub-account, /campaigns, fix mode + инфраструктура + QA full, 2026-04-16)
 
 ## Test Accounts
 

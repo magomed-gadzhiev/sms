@@ -14,6 +14,8 @@ const STATUS_CONFIG: Record<
   { variant: 'default' | 'info' | 'warning' | 'success' | 'danger'; label: string }
 > = {
   draft: { variant: 'default', label: 'Черновик' },
+  scheduled: { variant: 'default', label: 'Запланирована' },
+  materializing: { variant: 'warning', label: 'Подготовка' },
   running: { variant: 'info', label: 'Запущена' },
   paused: { variant: 'warning', label: 'На паузе' },
   completed: { variant: 'success', label: 'Завершена' },
@@ -194,6 +196,8 @@ export function CampaignsPage() {
         >
           <option value="">Все</option>
           <option value="draft">Черновик</option>
+          <option value="scheduled">Запланирована</option>
+          <option value="materializing">Подготовка</option>
           <option value="running">Запущена</option>
           <option value="paused">На паузе</option>
           <option value="completed">Завершена</option>

@@ -38,10 +38,11 @@ export function CampaignWizardPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateInfo | null>(null);
   const [senderNameId, setSenderNameId] = useState('');
   const [senderNames, setSenderNames] = useState<SenderNameInfo[]>([]);
+  const [sendersError, setSendersError] = useState('');
+  const [contactListsError, setContactListsError] = useState('');
 
   // A/B тест (часть шага 1)
   const [abEnabled, setAbEnabled] = useState(false);
-  const [abTextB, setAbTextB] = useState('');
   const [abTemplateIdB, setAbTemplateIdB] = useState('');
   const [abTemplateB, setAbTemplateB] = useState<TemplateInfo | null>(null);
   const [abSplitPercent, setAbSplitPercent] = useState(20);
@@ -78,16 +79,22 @@ export function CampaignWizardPage() {
 
   // Загрузка sender names
   useEffect(() => {
+    setSendersError('');
     senderNamesApi.listApproved().then((res) => {
       const names = res.sender_names ?? [];
       setSenderNames(names);
       if (names.length > 0) setSenderNameId(names[0].id);
-    }).catch(() => {});
+    }).catch((err) => {
+      setSendersError(err instanceof ApiError ? err.message : 'Не удалось загрузить имена отправителей');
+    });
   }, []);
 
   // Загрузка контактных баз
   useEffect(() => {
-    contactListsApi.list(1, 100).then((res) => setContactLists(res.items ?? [])).catch(() => {});
+    setContactListsError('');
+    contactListsApi.list(1, 100).then((res) => setContactLists(res.items ?? [])).catch((err) => {
+      setContactListsError(err instanceof ApiError ? err.message : 'Не удалось загрузить контактные базы');
+    });
   }, []);
 
   // Загрузка сегментов при выборе базы
@@ -155,10 +162,10 @@ export function CampaignWizardPage() {
   function canProceed(): boolean {
     switch (step) {
       case 'message':
-        if (!templateId && !messageText.trim()) return false;
+        if (!templateId) return false;
         if (!senderNameId) return false;
         if (abEnabled) {
-          if (!abTemplateIdB && !abTextB.trim()) return false;
+          if (!abTemplateIdB) return false;
         }
         return true;
       case 'audience':
@@ -195,7 +202,7 @@ export function CampaignWizardPage() {
         scheduled_at: scheduledAt,
         use_subscriber_timezone: sendMode === 'later' ? useSubscriberTimezone : false,
         segment_rules: (excludeCountries.length > 0 || excludeOperators.length > 0)
-          ? { exclude_countries: excludeCountries, exclude_operators: excludeOperators }
+          ? JSON.stringify({ exclude_countries: excludeCountries, exclude_operators: excludeOperators })
           : undefined,
       });
 
@@ -282,25 +289,7 @@ export function CampaignWizardPage() {
           <div className="space-y-5 max-w-xl">
             <h3 className="text-lg font-medium text-gray-900">Сообщение</h3>
 
-            {/* Textarea */}
-            <div className="space-y-1">
-              <label htmlFor="msg-text" className="text-sm font-medium text-gray-700">
-                Текст сообщения
-              </label>
-              <textarea
-                id="msg-text"
-                value={messageText}
-                onChange={(e) => { setMessageText(e.target.value); if (e.target.value) { setTemplateId(''); setSelectedTemplate(null); } }}
-                rows={4}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
-                placeholder="Введите текст сообщения..."
-              />
-              <div className="flex justify-between items-center">
-                <CharacterCounter current={messageText.length} max={160} />
-              </div>
-            </div>
-
-            {/* Template picker */}
+            {/* Template picker — required */}
             <TemplatePicker
               value={templateId}
               selectedTemplate={selectedTemplate}
@@ -310,20 +299,66 @@ export function CampaignWizardPage() {
                 if (id) setMessageText('');
               }}
             />
+            {!templateId && (
+              <p className="text-xs text-amber-600">
+                Для рассылки необходим одобренный шаблон.{' '}
+                <a href="/templates" className="underline font-medium">Создать шаблон →</a>
+              </p>
+            )}
+
+            {/* Textarea — helper/draft only */}
+            <div className="space-y-1">
+              <label htmlFor="msg-text" className="text-sm font-medium text-gray-700">
+                Набросок текста <span className="text-gray-400 font-normal">(необязательно, для справки)</span>
+              </label>
+              <textarea
+                id="msg-text"
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                rows={3}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
+                placeholder="Введите текст, чтобы затем создать из него шаблон..."
+              />
+              <div className="flex justify-between items-center">
+                <CharacterCounter current={messageText.length} max={160} />
+              </div>
+            </div>
 
             {/* Sender name */}
-            <Select
-              label="Имя отправителя *"
-              value={senderNameId}
-              onChange={setSenderNameId}
-              options={senderNames.map((s) => ({ value: s.id, label: s.name }))}
-              placeholder="-- Выберите отправителя --"
-            />
-            {senderNames.length === 0 && (
-              <p className="text-xs text-amber-600 -mt-1">
-                У вас нет одобренных имён отправителей.{' '}
-                <a href="/sender-names" className="underline font-medium">Зарегистрировать →</a>
+            {sendersError ? (
+              <p className="text-xs text-red-600">
+                {sendersError}{' '}
+                <button
+                  type="button"
+                  className="underline font-medium"
+                  onClick={() => {
+                    setSendersError('');
+                    senderNamesApi.listApproved().then((res) => {
+                      const names = res.sender_names ?? [];
+                      setSenderNames(names);
+                      if (names.length > 0) setSenderNameId(names[0].id);
+                    }).catch((err) => setSendersError(err instanceof ApiError ? err.message : 'Ошибка'));
+                  }}
+                >
+                  Повторить
+                </button>
               </p>
+            ) : (
+              <>
+                <Select
+                  label="Имя отправителя *"
+                  value={senderNameId}
+                  onChange={setSenderNameId}
+                  options={senderNames.map((s) => ({ value: s.id, label: s.name }))}
+                  placeholder="-- Выберите отправителя --"
+                />
+                {senderNames.length === 0 && (
+                  <p className="text-xs text-amber-600 -mt-1">
+                    У вас нет одобренных имён отправителей.{' '}
+                    <a href="/sender-names" className="underline font-medium">Зарегистрировать →</a>
+                  </p>
+                )}
+              </>
             )}
 
             {/* A/B toggle */}
@@ -347,30 +382,20 @@ export function CampaignWizardPage() {
               <div className="space-y-4 pl-4 border-l-2 border-blue-200 bg-blue-50/30 rounded-r p-4">
                 <h4 className="text-sm font-semibold text-gray-800">Вариант B</h4>
 
-                <div className="space-y-1">
-                  <label htmlFor="msg-text-b" className="text-sm font-medium text-gray-700">
-                    Текст сообщения (Вариант B)
-                  </label>
-                  <textarea
-                    id="msg-text-b"
-                    value={abTextB}
-                    onChange={(e) => { setAbTextB(e.target.value); if (e.target.value) { setAbTemplateIdB(''); setAbTemplateB(null); } }}
-                    rows={3}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    placeholder="Введите альтернативный текст..."
-                  />
-                  <CharacterCounter current={abTextB.length} max={160} />
-                </div>
-
                 <TemplatePicker
                   value={abTemplateIdB}
                   selectedTemplate={abTemplateB}
                   onChange={(id, tpl) => {
                     setAbTemplateIdB(id);
                     setAbTemplateB(tpl);
-                    if (id) setAbTextB('');
                   }}
                 />
+                {!abTemplateIdB && (
+                  <p className="text-xs text-amber-600">
+                    Выберите шаблон для варианта B.{' '}
+                    <a href="/templates" className="underline font-medium">Создать шаблон →</a>
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
@@ -435,10 +460,12 @@ export function CampaignWizardPage() {
 
             {validationErrors.message && (
               <p className="text-sm text-red-600">
-                {(!messageText.trim() && !templateId) && !senderNameId
-                  ? 'Введите текст сообщения (или выберите шаблон) и укажите имя отправителя.'
-                  : (!messageText.trim() && !templateId)
-                  ? 'Введите текст сообщения или выберите шаблон.'
+                {!templateId && !senderNameId
+                  ? 'Выберите шаблон и укажите имя отправителя.'
+                  : !templateId
+                  ? 'Выберите одобренный шаблон для рассылки.'
+                  : abEnabled && !abTemplateIdB
+                  ? 'Выберите шаблон для варианта B.'
                   : senderNames.length === 0
                   ? 'Нет одобренных имён отправителей — сначала зарегистрируйте имя в разделе «Имена отправителей».'
                   : 'Выберите имя отправителя.'}
@@ -452,6 +479,9 @@ export function CampaignWizardPage() {
           <div className="space-y-5 max-w-xl">
             <h3 className="text-lg font-medium text-gray-900">Аудитория</h3>
 
+            {contactListsError && (
+              <p className="text-xs text-red-600">{contactListsError}</p>
+            )}
             <Select
               label="Контактная база *"
               value={contactListId}
@@ -616,23 +646,22 @@ export function CampaignWizardPage() {
                   </div>
                 </div>
 
-                <label className="flex items-start gap-3 cursor-pointer mt-2">
+                <div className="flex items-start gap-3 mt-2 opacity-50 cursor-not-allowed" title="Функционал в разработке">
                   <input
                     type="checkbox"
-                    checked={useSubscriberTimezone}
-                    onChange={(e) => setUseSubscriberTimezone(e.target.checked)}
+                    checked={false}
+                    disabled
                     className="rounded mt-0.5"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-gray-500">
                       По часовому поясу абонента
                     </span>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Каждый получатель получит SMS в указанное время по своему часовому поясу,
-                      определённому по номеру телефона
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Функционал в разработке
                     </p>
                   </div>
-                </label>
+                </div>
 
                 {scheduledDate && scheduledTime &&
                   new Date(`${scheduledDate}T${scheduledTime}`) <= new Date(Date.now() + 5 * 60 * 1000) && (
@@ -705,7 +734,7 @@ export function CampaignWizardPage() {
                   <div className="min-w-0">
                     <dt className="text-gray-500 text-xs mb-1">A/B тестирование</dt>
                     <dd className="text-gray-900 truncate">
-                      Вариант B: {(abTextB || abTemplateB?.body || '—').slice(0, 80)}
+                      Вариант B: {(abTemplateB?.body || '—').slice(0, 80)}
                     </dd>
                     <dd className="text-gray-500 text-xs mt-0.5">
                       Доля: {abSplitPercent}% · Время: {abDurationHours}ч ·{' '}

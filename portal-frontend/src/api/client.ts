@@ -235,7 +235,7 @@ export const subAccountsApi = {
   webhooks: (id: string) => apiFetch<unknown>(`/sub-accounts/${id}/webhooks`),
   campaigns: (id: string, params?: Record<string, string>) => {
     const qs = params ? new URLSearchParams(params).toString() : '';
-    return apiFetch<{ campaigns: Array<{ id: string; name: string; status: string; total_recipients: number; delivered: number; created_at: string }>; total: number }>(`/sub-accounts/${id}/campaigns${qs ? `?${qs}` : ''}`);
+    return apiFetch<{ campaigns: Array<{ id: string; name: string; status: string; total_recipients: number; delivered_count: number; created_at: string }>; total: number }>(`/sub-accounts/${id}/campaigns${qs ? `?${qs}` : ''}`);
   },
   transactions: (id: string, params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();

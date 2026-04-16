@@ -653,6 +653,8 @@ function TransactionsTab({ subAccountId }: { subAccountId: string }) {
 
 const CAMPAIGN_STATUS_CONFIG: Record<string, { variant: 'default' | 'info' | 'warning' | 'success' | 'danger'; label: string }> = {
   draft: { variant: 'default', label: 'Черновик' },
+  scheduled: { variant: 'default', label: 'Запланирована' },
+  materializing: { variant: 'warning', label: 'Подготовка' },
   running: { variant: 'info', label: 'Запущена' },
   paused: { variant: 'warning', label: 'На паузе' },
   completed: { variant: 'success', label: 'Завершена' },
@@ -664,7 +666,7 @@ interface CampaignItem {
   name: string;
   status: string;
   total_recipients: number;
-  delivered: number;
+  delivered_count: number;
   created_at: string;
 }
 
@@ -684,14 +686,14 @@ const campaignColumns: Column<CampaignItem>[] = [
     render: (c) => <>{c.total_recipients?.toLocaleString() ?? '—'}</>,
   },
   {
-    key: 'delivered',
+    key: 'delivered_count',
     header: 'Доставлено',
-    render: (c) => <>{c.delivered?.toLocaleString() ?? '—'}</>,
+    render: (c) => <>{c.delivered_count?.toLocaleString() ?? '—'}</>,
   },
   {
     key: 'created_at',
     header: 'Создана',
-    render: (c) => <>{new Date(c.created_at).toLocaleDateString()}</>,
+    render: (c) => <>{new Date(c.created_at).toLocaleDateString('ru-RU')}</>,
   },
 ];
 
