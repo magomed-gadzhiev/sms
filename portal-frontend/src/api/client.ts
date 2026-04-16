@@ -1348,7 +1348,7 @@ export interface ResellerTariffPlan {
 export interface ResellerTariffPeriod {
   id: string;
   start_date: string;
-  end_date: string;
+  end_date: string | null;
   created_at: string;
 }
 
@@ -1406,9 +1406,9 @@ export const resellerTariffApi = {
   // Periods
   listPeriods: (planId: string) =>
     apiFetch<{ periods: ResellerTariffPeriod[]; total: number }>(`/reseller/tariff-plans/${planId}/periods`),
-  createPeriod: (planId: string, data: { start_date: string; end_date: string }) =>
+  createPeriod: (planId: string, data: { start_date: string; end_date?: string | null }) =>
     apiFetch<{ id: string }>(`/reseller/tariff-plans/${planId}/periods`, { method: 'POST', body: JSON.stringify(data) }),
-  updatePeriod: (id: string, data: { start_date: string; end_date: string }) =>
+  updatePeriod: (id: string, data: { start_date: string; end_date?: string | null }) =>
     apiFetch<{ status: string }>(`/reseller/tariff-periods/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePeriod: (id: string) =>
     apiFetch<{ status: string }>(`/reseller/tariff-periods/${id}`, { method: 'DELETE' }),

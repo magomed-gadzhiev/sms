@@ -2,7 +2,9 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
@@ -550,4 +552,183 @@ func TestBillingService(t *testing.T) {
 			transactionRepo.AssertExpectations(t)
 		})
 	})
+}
+
+func TestFreezeAccount_HappyPath(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+	adminID := uuid.New()
+	frozenAt := time.Now().UTC().Truncate(time.Second)
+
+	accountRepo.On("FreezeAccount", ctx, clientID, adminID).Return(frozenAt, nil)
+
+	result, err := svc.FreezeAccount(ctx, clientID, adminID)
+
+	require.NoError(t, err)
+	assert.Equal(t, frozenAt, result)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestFreezeAccount_RepoError(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+	adminID := uuid.New()
+	dbErr := errors.New("db error")
+
+	accountRepo.On("FreezeAccount", ctx, clientID, adminID).Return(time.Time{}, dbErr)
+
+	_, err := svc.FreezeAccount(ctx, clientID, adminID)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, dbErr)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestUnfreezeAccount_HappyPath(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+
+	accountRepo.On("UnfreezeAccount", ctx, clientID).Return(nil)
+
+	err := svc.UnfreezeAccount(ctx, clientID)
+
+	require.NoError(t, err)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestUnfreezeAccount_RepoError(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+	dbErr := errors.New("db error")
+
+	accountRepo.On("UnfreezeAccount", ctx, clientID).Return(dbErr)
+
+	err := svc.UnfreezeAccount(ctx, clientID)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, dbErr)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestSetCreditLimit_HappyPath(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+
+	accountRepo.On("SetCreditLimit", ctx, clientID, "500.000000").Return(nil)
+
+	err := svc.SetCreditLimit(ctx, clientID, "500.000000")
+
+	require.NoError(t, err)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestSetCreditLimit_RepoError(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+	dbErr := errors.New("db error")
+
+	accountRepo.On("SetCreditLimit", ctx, clientID, "500.000000").Return(dbErr)
+
+	err := svc.SetCreditLimit(ctx, clientID, "500.000000")
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, dbErr)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestSetLowBalanceThreshold_HappyPath(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+
+	accountRepo.On("SetLowBalanceThreshold", ctx, clientID, "100.000000").Return(nil)
+
+	err := svc.SetLowBalanceThreshold(ctx, clientID, "100.000000")
+
+	require.NoError(t, err)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestSetLowBalanceThreshold_RepoError(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	clientID := uuid.New()
+	dbErr := errors.New("db error")
+
+	accountRepo.On("SetLowBalanceThreshold", ctx, clientID, "100.000000").Return(dbErr)
+
+	err := svc.SetLowBalanceThreshold(ctx, clientID, "100.000000")
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, dbErr)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestListBalances_ReturnsResults(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+
+	expected := []domain.BalanceInfo{
+		{ClientID: uuid.New(), ClientName: "Alice", Balance: "200.000000", Currency: "RUB", Frozen: false},
+		{ClientID: uuid.New(), ClientName: "Bob", Balance: "50.000000", Currency: "RUB", Frozen: true},
+	}
+
+	accountRepo.On("ListBalances", ctx, "Alice", "active", false, int32(10), int32(0)).
+		Return(expected, int32(2), nil)
+
+	results, total, err := svc.ListBalances(ctx, "Alice", "active", false, 10, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(2), total)
+	assert.Len(t, results, 2)
+	assert.Equal(t, expected[0].ClientName, results[0].ClientName)
+	assert.Equal(t, expected[1].ClientName, results[1].ClientName)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestListBalances_EmptyResults(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+
+	accountRepo.On("ListBalances", ctx, "", "", false, int32(10), int32(0)).
+		Return([]domain.BalanceInfo(nil), int32(0), nil)
+
+	results, total, err := svc.ListBalances(ctx, "", "", false, 10, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(0), total)
+	assert.Empty(t, results)
+
+	accountRepo.AssertExpectations(t)
+}
+
+func TestListBalances_RepoError(t *testing.T) {
+	svc, accountRepo, _, _, _ := newTestBillingService()
+	ctx := context.Background()
+	dbErr := errors.New("db error")
+
+	accountRepo.On("ListBalances", ctx, "", "", false, int32(10), int32(0)).
+		Return([]domain.BalanceInfo(nil), int32(0), dbErr)
+
+	_, _, err := svc.ListBalances(ctx, "", "", false, 10, 0)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, dbErr)
+
+	accountRepo.AssertExpectations(t)
 }

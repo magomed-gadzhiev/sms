@@ -124,11 +124,13 @@ func (h *Handler) handleBindReceiver(pdu *protocol.PDU) error {
 	
 	// Привязываем сессию
 	var clientID *uuid.UUID
+	rateLimit := 0
 	if client != nil {
 		clientID = &client.ID
+		rateLimit = client.RateLimitPerSecond
 	}
-	
-	if err := h.session.Bind("receiver", bind.SystemID, clientID, client.RateLimitPerSecond); err != nil {
+
+	if err := h.session.Bind("receiver", bind.SystemID, clientID, rateLimit); err != nil {
 		h.logger.Error().Err(err).Msg("ошибка привязки сессии")
 		return h.sendBindResp(pdu.SequenceNumber, protocol.BindReceiverResp, protocol.ESME_RINVBNDSTS, "")
 	}
@@ -162,11 +164,13 @@ func (h *Handler) handleBindTransmitter(pdu *protocol.PDU) error {
 	
 	// Привязываем сессию
 	var clientID *uuid.UUID
+	rateLimit := 0
 	if client != nil {
 		clientID = &client.ID
+		rateLimit = client.RateLimitPerSecond
 	}
-	
-	if err := h.session.Bind("transmitter", bind.SystemID, clientID, client.RateLimitPerSecond); err != nil {
+
+	if err := h.session.Bind("transmitter", bind.SystemID, clientID, rateLimit); err != nil {
 		h.logger.Error().Err(err).Msg("ошибка привязки сессии")
 		return h.sendBindResp(pdu.SequenceNumber, protocol.BindTransmitterResp, protocol.ESME_RINVBNDSTS, "")
 	}
@@ -200,11 +204,13 @@ func (h *Handler) handleBindTransceiver(pdu *protocol.PDU) error {
 	
 	// Привязываем сессию
 	var clientID *uuid.UUID
+	rateLimit := 0
 	if client != nil {
 		clientID = &client.ID
+		rateLimit = client.RateLimitPerSecond
 	}
-	
-	if err := h.session.Bind("transceiver", bind.SystemID, clientID, client.RateLimitPerSecond); err != nil {
+
+	if err := h.session.Bind("transceiver", bind.SystemID, clientID, rateLimit); err != nil {
 		h.logger.Error().Err(err).Msg("ошибка привязки сессии")
 		return h.sendBindResp(pdu.SequenceNumber, protocol.BindTransceiverResp, protocol.ESME_RINVBNDSTS, "")
 	}

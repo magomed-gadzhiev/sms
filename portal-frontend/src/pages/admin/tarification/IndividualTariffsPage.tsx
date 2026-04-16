@@ -61,7 +61,7 @@ export function IndividualTariffsPage() {
   const [showPeriodForm, setShowPeriodForm] = useState(false);
   const [deletePeriod, setDeletePeriod] = useState<HierarchicalPeriod | null>(null);
   const [savingPeriod, setSavingPeriod] = useState(false);
-  const [periodForm, setPeriodForm] = useState({ strategy: 'fixed', start_date: '', end_date: '' });
+  const [periodForm, setPeriodForm] = useState({ strategy: 'fixed', start_date: '' });
 
   const [tiers, setTiers] = useState<TariffTier[]>([]);
   const [tiersLoading, setTiersLoading] = useState(false);
@@ -122,7 +122,6 @@ export function IndividualTariffsPage() {
         client_id: selectedClientId,
         strategy: periodForm.strategy,
         start_date: periodForm.start_date,
-        end_date: periodForm.end_date || null,
       };
       const result = await tarificationApi.createPeriod(req);
       if (result.auto_close_warning) {
@@ -133,7 +132,7 @@ export function IndividualTariffsPage() {
         toast.success('Период создан');
       }
       setShowPeriodForm(false);
-      setPeriodForm({ strategy: 'fixed', start_date: '', end_date: '' });
+      setPeriodForm({ strategy: 'fixed', start_date: '' });
       fetchPeriods();
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Не удалось создать период'));
@@ -290,7 +289,7 @@ export function IndividualTariffsPage() {
 
             <Tabs.Content value="periods">
               <div className="mb-3 flex justify-end">
-                <Button onClick={() => { setPeriodForm({ strategy: 'fixed', start_date: '', end_date: '' }); setShowPeriodForm(true); }}>
+                <Button onClick={() => { setPeriodForm({ strategy: 'fixed', start_date: '' }); setShowPeriodForm(true); }}>
                   + Добавить период
                 </Button>
               </div>
@@ -359,25 +358,15 @@ export function IndividualTariffsPage() {
               options={STRATEGY_OPTIONS}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Дата начала *</label>
-              <Input
-                type="date"
-                min={todayISO()}
-                value={periodForm.start_date}
-                onChange={(e) => setPeriodForm((f) => ({ ...f, start_date: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Дата окончания</label>
-              <Input
-                type="date"
-                min={periodForm.start_date || todayISO()}
-                value={periodForm.end_date}
-                onChange={(e) => setPeriodForm((f) => ({ ...f, end_date: e.target.value }))}
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Дата начала *</label>
+            <Input
+              type="date"
+              min={todayISO()}
+              value={periodForm.start_date}
+              onChange={(e) => setPeriodForm((f) => ({ ...f, start_date: e.target.value }))}
+            />
+            <p className="text-xs text-gray-400 mt-1">Следующий период автоматически закроет текущий</p>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" onClick={() => setShowPeriodForm(false)}>Отмена</Button>

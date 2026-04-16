@@ -163,13 +163,13 @@ func TestTariffPeriodAndTiers(t *testing.T) {
 		startDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 		endDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
 
-		period, err := svc.CreatePeriod(ctx, plan.ID, startDate, endDate)
+		period, err := svc.CreatePeriod(ctx, plan.ID, startDate, &endDate)
 		require.NoError(t, err)
 		require.NotNil(t, period)
 
 		assert.Equal(t, plan.ID, period.TariffPlanID)
 		assert.Equal(t, startDate, period.StartDate)
-		assert.Equal(t, endDate, period.EndDate)
+		assert.Equal(t, &endDate, period.EndDate)
 
 		planRepo.AssertExpectations(t)
 		periodRepo.AssertExpectations(t)
@@ -184,7 +184,7 @@ func TestTariffPeriodAndTiers(t *testing.T) {
 		startDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
 		endDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 
-		_, err := svc.CreatePeriod(ctx, plan.ID, startDate, endDate)
+		_, err := svc.CreatePeriod(ctx, plan.ID, startDate, &endDate)
 		require.Error(t, err)
 
 		planRepo.AssertExpectations(t)
@@ -194,7 +194,7 @@ func TestTariffPeriodAndTiers(t *testing.T) {
 		// Period is in the future (not active).
 		futureStart := time.Now().AddDate(0, 1, 0)
 		futureEnd := time.Now().AddDate(0, 3, 0)
-		period := domain.NewTariffPeriod(uuid.New(), futureStart, futureEnd)
+		period := domain.NewTariffPeriod(uuid.New(), futureStart, &futureEnd)
 
 		periodRepo.On("GetByID", mock.Anything, period.ID).
 			Return(period, nil).Once()
@@ -215,9 +215,10 @@ func TestTariffPeriodAndTiers(t *testing.T) {
 
 	t.Run("CreateTierForActivePeriodFails", func(t *testing.T) {
 		// Period is currently active.
+		activeEnd := time.Now().AddDate(0, 0, 10)
 		activePeriod := domain.NewTariffPeriod(uuid.New(),
 			time.Now().AddDate(0, 0, -10),
-			time.Now().AddDate(0, 0, 10))
+			&activeEnd)
 
 		periodRepo.On("GetByID", mock.Anything, activePeriod.ID).
 			Return(activePeriod, nil).Once()
@@ -232,7 +233,7 @@ func TestTariffPeriodAndTiers(t *testing.T) {
 	t.Run("UpdateTierForFuturePeriod", func(t *testing.T) {
 		futureStart := time.Now().AddDate(0, 1, 0)
 		futureEnd := time.Now().AddDate(0, 3, 0)
-		period := domain.NewTariffPeriod(uuid.New(), futureStart, futureEnd)
+		period := domain.NewTariffPeriod(uuid.New(), futureStart, &futureEnd)
 
 		tier := domain.NewTariffTier(period.ID, 0, "0.050000")
 
@@ -253,9 +254,10 @@ func TestTariffPeriodAndTiers(t *testing.T) {
 	})
 
 	t.Run("UpdateTierForActivePeriodFails", func(t *testing.T) {
+		activeEnd := time.Now().AddDate(0, 0, 10)
 		activePeriod := domain.NewTariffPeriod(uuid.New(),
 			time.Now().AddDate(0, 0, -10),
-			time.Now().AddDate(0, 0, 10))
+			&activeEnd)
 
 		tier := domain.NewTariffTier(activePeriod.ID, 0, "0.050000")
 
@@ -289,7 +291,7 @@ func TestTariffPricingPeriod(t *testing.T) {
 	t.Run("CreatePricingPeriodWithinBounds", func(t *testing.T) {
 		tariffStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 		tariffEnd := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
-		tariffPeriod := domain.NewTariffPeriod(uuid.New(), tariffStart, tariffEnd)
+		tariffPeriod := domain.NewTariffPeriod(uuid.New(), tariffStart, &tariffEnd)
 
 		periodRepo.On("GetByID", mock.Anything, tariffPeriod.ID).
 			Return(tariffPeriod, nil).Once()
@@ -314,7 +316,7 @@ func TestTariffPricingPeriod(t *testing.T) {
 	t.Run("CreatePricingPeriodOutOfBoundsFails", func(t *testing.T) {
 		tariffStart := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 		tariffEnd := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
-		tariffPeriod := domain.NewTariffPeriod(uuid.New(), tariffStart, tariffEnd)
+		tariffPeriod := domain.NewTariffPeriod(uuid.New(), tariffStart, &tariffEnd)
 
 		periodRepo.On("GetByID", mock.Anything, tariffPeriod.ID).
 			Return(tariffPeriod, nil).Once()
@@ -347,9 +349,10 @@ func TestTariffPrepaidFee(t *testing.T) {
 	t.Run("CreatePrepaidFee", func(t *testing.T) {
 		operatorID := uuid.New()
 		plan := domain.NewTariffPlan(operatorID, domain.CategoryShared, domain.StrategyPrepaidThreshold)
+		prepaidEnd := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
 		period := domain.NewTariffPeriod(plan.ID,
 			time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
-			time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC))
+			&prepaidEnd)
 
 		planRepo.On("GetByID", mock.Anything, plan.ID).
 			Return(plan, nil).Once()

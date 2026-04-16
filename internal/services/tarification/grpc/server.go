@@ -266,9 +266,13 @@ func (s *Server) CreateTariffPeriod(ctx context.Context, req *tarificationv1.Cre
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid start_date format: %v", err)
 	}
-	endDate, err := time.Parse("2006-01-02", req.EndDate)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid end_date format: %v", err)
+	var endDate *time.Time
+	if req.EndDate != "" {
+		parsed, err := time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid end_date format: %v", err)
+		}
+		endDate = &parsed
 	}
 
 	period, err := s.tariffPlanService.CreatePeriod(ctx, planID, startDate, endDate)
@@ -461,13 +465,16 @@ func tariffPlanToProto(p *domain.TariffPlan) *tarificationv1.TariffPlan {
 }
 
 func tariffPeriodToProto(p *domain.TariffPeriod) *tarificationv1.TariffPeriod {
-	return &tarificationv1.TariffPeriod{
+	proto := &tarificationv1.TariffPeriod{
 		Id:           p.ID.String(),
 		TariffPlanId: p.TariffPlanID.String(),
 		StartDate:    p.StartDate.Format("2006-01-02"),
-		EndDate:      p.EndDate.Format("2006-01-02"),
 		CreatedAt:    timestamppb.New(p.CreatedAt),
 	}
+	if p.EndDate != nil {
+		proto.EndDate = p.EndDate.Format("2006-01-02")
+	}
+	return proto
 }
 
 func tariffTierToProto(t *domain.TariffTier) *tarificationv1.TariffTier {

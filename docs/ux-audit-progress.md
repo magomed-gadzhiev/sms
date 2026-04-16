@@ -498,6 +498,32 @@
 
 ---
 
+## [DONE] Модуль: Тарифы субаккаунтов (aggregator, /network/tariffs, fix mode + инфраструктура + QA full, 2026-04-16)
+
+### Итог (5 исправлений, все задеплоены и проверены в браузере)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `internal/gateway/portal/handlers/reseller_tariffs.go` | `ListTariffs` SQL при `sub_account_id` возвращал дубликаты: и глобальные (NULL), и sub-account-specific строки для одного оператора+категории → 17 строк вместо 13 | `DISTINCT ON (operator_id, sender_category)` с приоритетом sub-account (`NULLS LAST`) → 13 уникальных строк |
+| 2 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | Цена `3.200000` (6 знаков из `NUMERIC(10,6)`) | `formatPrice()` → `3.20` (2 знака) |
+| 3 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | Категории на английском: `paid_registered`, `free_registered`, `shared` | `CATEGORY_LABELS` → «Платная регистрация», «Бесплатная регистрация», «Общая», «Стандартная» |
+| 4 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | `.catch(() => {})` при загрузке субаккаунтов — silent failure, пустой dropdown без объяснения | `subAccountsError` state + баннер с кнопкой «Повторить» |
+| 5 | `portal-frontend/src/pages/network/NetworkTariffsPage.tsx` | `handleSave()` и `handleBulkPrice()` принимали любую строку включая отрицательные и нечисловые значения | Валидация `parseFloat` + проверка `n >= 0` перед отправкой |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| `GET /reseller/tariffs?sub_account_id=...` → `ListTariffs` | ✅ исправлен DISTINCT ON, ownership check через `checkReseller()` |
+| `PUT /reseller/tariffs` → `UpsertTariffs` | ✅ UPSERT с unique index, ownership check субаккаунта |
+| `POST /reseller/tariffs/copy` → `CopyTariffs` | ✅ ownership check обоих субаккаунтов |
+| `aggregator_tariffs` table | ✅ migration 000096 (unique index по aggregator+sub+operator+category) |
+| Auth middleware | ✅ все handlers вызывают `checkReseller()` → `is_reseller = true` |
+
+---
+
 ## Test Accounts
 
 | Email | Роль | Client | Назначение |

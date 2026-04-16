@@ -16,6 +16,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/tarification/mocks"
 )
 
+func timePtr(t time.Time) *time.Time { return &t }
+
 type planFixtures struct {
 	planRepo    *mocks.MockTariffPlanRepository
 	periodRepo  *mocks.MockTariffPeriodRepository
@@ -286,7 +288,7 @@ func TestTariffPlanService(t *testing.T) {
 			f.planRepo.On("GetByID", ctx, planID).Return(&domain.TariffPlan{ID: planID}, nil)
 			f.periodRepo.On("Create", ctx, mock.AnythingOfType("*domain.TariffPeriod")).Return(nil)
 
-			period, err := f.service.CreatePeriod(ctx, planID, start, end)
+			period, err := f.service.CreatePeriod(ctx, planID, start, &end)
 
 			require.NoError(t, err)
 			require.NotNil(t, period)
@@ -302,7 +304,8 @@ func TestTariffPlanService(t *testing.T) {
 
 			f.planRepo.On("GetByID", ctx, planID).Return(nil, domain.ErrTariffPlanNotFound)
 
-			period, err := f.service.CreatePeriod(ctx, planID, time.Now(), time.Now().AddDate(0, 1, 0))
+			endTime := time.Now().AddDate(0, 1, 0)
+			period, err := f.service.CreatePeriod(ctx, planID, time.Now(), &endTime)
 
 			assert.Nil(t, period)
 			assert.Error(t, err)
@@ -317,7 +320,8 @@ func TestTariffPlanService(t *testing.T) {
 			f.planRepo.On("GetByID", ctx, planID).Return(&domain.TariffPlan{ID: planID}, nil)
 
 			// end before start
-			period, err := f.service.CreatePeriod(ctx, planID, now, now.AddDate(0, -1, 0))
+			invalidEnd := now.AddDate(0, -1, 0)
+			period, err := f.service.CreatePeriod(ctx, planID, now, &invalidEnd)
 
 			assert.Nil(t, period)
 			assert.Error(t, err)
@@ -333,7 +337,7 @@ func TestTariffPlanService(t *testing.T) {
 			f.planRepo.On("GetByID", ctx, planID).Return(&domain.TariffPlan{ID: planID}, nil)
 			f.periodRepo.On("Create", ctx, mock.AnythingOfType("*domain.TariffPeriod")).Return(errors.New("db error"))
 
-			period, err := f.service.CreatePeriod(ctx, planID, start, end)
+			period, err := f.service.CreatePeriod(ctx, planID, start, &end)
 
 			assert.Nil(t, period)
 			assert.Error(t, err)
@@ -351,7 +355,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, 1, 0),
-				EndDate:   time.Now().AddDate(0, 2, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 2, 0)),
 			}
 			f.periodRepo.On("GetByID", ctx, periodID).Return(period, nil)
 			f.tierRepo.On("Create", ctx, mock.AnythingOfType("*domain.TariffTier")).Return(nil)
@@ -386,7 +390,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, -1, 0),
-				EndDate:   time.Now().AddDate(0, 1, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetByID", ctx, periodID).Return(period, nil)
 
@@ -404,7 +408,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, 1, 0),
-				EndDate:   time.Now().AddDate(0, 2, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 2, 0)),
 			}
 			f.periodRepo.On("GetByID", ctx, periodID).Return(period, nil)
 
@@ -423,7 +427,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, 1, 0),
-				EndDate:   time.Now().AddDate(0, 2, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 2, 0)),
 			}
 			f.periodRepo.On("GetByID", ctx, periodID).Return(period, nil)
 			f.tierRepo.On("Create", ctx, mock.AnythingOfType("*domain.TariffTier")).Return(errors.New("db error"))
@@ -452,7 +456,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, 1, 0),
-				EndDate:   time.Now().AddDate(0, 2, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 2, 0)),
 			}
 
 			f.tierRepo.On("GetByID", ctx, tierID).Return(existing, nil)
@@ -489,7 +493,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, -1, 0),
-				EndDate:   time.Now().AddDate(0, 1, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 1, 0)),
 			}
 
 			f.tierRepo.On("GetByID", ctx, tierID).Return(existing, nil)
@@ -527,7 +531,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, 1, 0),
-				EndDate:   time.Now().AddDate(0, 2, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 2, 0)),
 			}
 
 			f.tierRepo.On("GetByID", ctx, tierID).Return(existing, nil)
@@ -550,7 +554,7 @@ func TestTariffPlanService(t *testing.T) {
 			period := &domain.TariffPeriod{
 				ID:        periodID,
 				StartDate: time.Now().AddDate(0, 1, 0),
-				EndDate:   time.Now().AddDate(0, 2, 0),
+				EndDate:   timePtr(time.Now().AddDate(0, 2, 0)),
 			}
 
 			f.tierRepo.On("GetByID", ctx, tierID).Return(existing, nil)
@@ -574,7 +578,7 @@ func TestTariffPlanService(t *testing.T) {
 			tariffPeriod := &domain.TariffPeriod{
 				ID:        tariffPeriodID,
 				StartDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-				EndDate:   time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
+				EndDate:   timePtr(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)),
 			}
 			start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 			end := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
@@ -610,7 +614,7 @@ func TestTariffPlanService(t *testing.T) {
 			tariffPeriod := &domain.TariffPeriod{
 				ID:        tariffPeriodID,
 				StartDate: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-				EndDate:   time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC),
+				EndDate:   timePtr(time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)),
 			}
 			// Pricing period extends beyond tariff period
 			start := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
@@ -632,7 +636,7 @@ func TestTariffPlanService(t *testing.T) {
 			tariffPeriod := &domain.TariffPeriod{
 				ID:        tariffPeriodID,
 				StartDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-				EndDate:   time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
+				EndDate:   timePtr(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)),
 			}
 			start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 			end := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)

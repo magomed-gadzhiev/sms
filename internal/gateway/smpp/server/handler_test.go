@@ -573,6 +573,7 @@ func TestHandleBindTransceiver_Success(t *testing.T) {
 	assert.True(t, env.session.IsBound())
 	assert.True(t, env.session.CanSend())
 	assert.True(t, env.session.CanReceive())
+	env.authMock.AssertExpectations(t)
 }
 
 // --- HandlePDU: bind_transmitter auth failure ---
@@ -613,6 +614,7 @@ func TestHandleBindTransmitter_AuthFailure(t *testing.T) {
 	assert.Equal(t, uint32(protocol.BindTransmitterResp), resp.CommandID)
 	assert.Equal(t, uint32(protocol.ESME_RINVPASWD), resp.CommandStatus)
 	assert.False(t, env.session.IsBound())
+	env.authMock.AssertExpectations(t)
 }
 
 // --- HandlePDU: bind_receiver success ---
@@ -663,6 +665,7 @@ func TestHandleBindReceiver_Success(t *testing.T) {
 	assert.True(t, env.session.IsBound())
 	assert.True(t, env.session.CanReceive())
 	assert.False(t, env.session.CanSend())
+	env.authMock.AssertExpectations(t)
 }
 
 // --- HandlePDU: bind with bad body ---
@@ -966,4 +969,5 @@ func TestHandleBind_AlreadyBound(t *testing.T) {
 	assert.NoError(t, err)
 	resp2 := <-respCh
 	assert.Equal(t, uint32(protocol.ESME_RINVBNDSTS), resp2.CommandStatus)
+	env.authMock.AssertExpectations(t)
 }

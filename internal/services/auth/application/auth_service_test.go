@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"testing"
 	"time"
 
@@ -594,5 +595,453 @@ func TestAuthService(t *testing.T) {
 
 			apiKeyRepo.AssertExpectations(t)
 		})
+	})
+}
+
+// ---------- TestChangePassword ----------
+
+func TestChangePassword(t *testing.T) {
+	ctx := context.Background()
+
+	newSvc := func(userRepo *mocks.MockUserRepository, passwordHasher *mocks.MockPasswordHasher) *application.AuthService {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		refreshRepo := new(mocks.MockRefreshTokenRepository)
+		apiKeyGen := new(mocks.MockAPIKeyGenerator)
+		tokenService := newTestTokenService(t, refreshRepo)
+		return application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		userID := uuid.New()
+		user := activeUserWithRole(userID)
+		user.PasswordHash = "current-hash"
+
+		userRepo.On("GetByID", ctx, userID).Return(user, nil)
+		passwordHasher.On("CheckPassword", "current-pass", "current-hash").Return(true)
+		passwordHasher.On("HashPassword", "new-password-123").Return("new-hash", nil)
+		userRepo.On("Update", ctx, mock.AnythingOfType("*domain.User")).Return(nil)
+
+		err := svc.ChangePassword(ctx, userID, "current-pass", "new-password-123")
+
+		require.NoError(t, err)
+		userRepo.AssertExpectations(t)
+		passwordHasher.AssertExpectations(t)
+	})
+
+	t.Run("current password wrong returns ErrCurrentPasswordWrong", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		userID := uuid.New()
+		user := activeUserWithRole(userID)
+		user.PasswordHash = "current-hash"
+
+		userRepo.On("GetByID", ctx, userID).Return(user, nil)
+		passwordHasher.On("CheckPassword", "wrong-pass", "current-hash").Return(false)
+
+		err := svc.ChangePassword(ctx, userID, "wrong-pass", "new-password-123")
+
+		assert.ErrorIs(t, err, application.ErrCurrentPasswordWrong)
+		userRepo.AssertExpectations(t)
+		passwordHasher.AssertExpectations(t)
+	})
+
+	t.Run("new password too short returns ErrPasswordTooShort", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		userID := uuid.New()
+		user := activeUserWithRole(userID)
+		user.PasswordHash = "current-hash"
+
+		userRepo.On("GetByID", ctx, userID).Return(user, nil)
+		passwordHasher.On("CheckPassword", "current-pass", "current-hash").Return(true)
+
+		err := svc.ChangePassword(ctx, userID, "current-pass", "short")
+
+		assert.ErrorIs(t, err, application.ErrPasswordTooShort)
+		userRepo.AssertExpectations(t)
+		passwordHasher.AssertExpectations(t)
+	})
+
+	t.Run("new password same as old returns ErrPasswordSameAsOld", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		userID := uuid.New()
+		user := activeUserWithRole(userID)
+		user.PasswordHash = "current-hash"
+
+		userRepo.On("GetByID", ctx, userID).Return(user, nil)
+		passwordHasher.On("CheckPassword", "same-password", "current-hash").Return(true)
+
+		err := svc.ChangePassword(ctx, userID, "same-password", "same-password")
+
+		assert.ErrorIs(t, err, application.ErrPasswordSameAsOld)
+		userRepo.AssertExpectations(t)
+		passwordHasher.AssertExpectations(t)
+	})
+
+	t.Run("user not found returns error", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		userID := uuid.New()
+		userRepo.On("GetByID", ctx, userID).Return(nil, authrepo.ErrUserNotFound)
+
+		err := svc.ChangePassword(ctx, userID, "current-pass", "new-password-123")
+
+		assert.ErrorIs(t, err, authrepo.ErrUserNotFound)
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// ---------- TestCreateUser ----------
+
+func TestCreateUser(t *testing.T) {
+	ctx := context.Background()
+
+	newSvc := func(userRepo *mocks.MockUserRepository, passwordHasher *mocks.MockPasswordHasher) *application.AuthService {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		refreshRepo := new(mocks.MockRefreshTokenRepository)
+		apiKeyGen := new(mocks.MockAPIKeyGenerator)
+		tokenService := newTestTokenService(t, refreshRepo)
+		return application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+	}
+
+	t.Run("success returns user with role", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		roleID := uuid.New()
+		passwordHasher.On("HashPassword", "secure-pass").Return("hashed-pass", nil)
+		userRepo.On("Create", ctx, mock.AnythingOfType("*domain.User")).Return(nil)
+
+		expectedUser := &domain.User{
+			ID:       uuid.New(),
+			Username: "newuser",
+			Email:    "new@example.com",
+			RoleID:   roleID,
+			Active:   true,
+			Role:     &domain.Role{ID: roleID, Name: "client"},
+		}
+		userRepo.On("GetByIDWithRole", ctx, mock.AnythingOfType("uuid.UUID")).Return(expectedUser, nil)
+
+		user, err := svc.CreateUser(ctx, "newuser", "new@example.com", "secure-pass", roleID, true)
+
+		require.NoError(t, err)
+		assert.NotNil(t, user)
+		assert.Equal(t, "newuser", user.Username)
+		assert.NotNil(t, user.Role)
+
+		userRepo.AssertExpectations(t)
+		passwordHasher.AssertExpectations(t)
+	})
+
+	t.Run("hash error returns error", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		svc := newSvc(userRepo, passwordHasher)
+
+		roleID := uuid.New()
+		hashErr := errors.New("hash failure")
+		passwordHasher.On("HashPassword", "secure-pass").Return("", hashErr)
+
+		user, err := svc.CreateUser(ctx, "newuser", "new@example.com", "secure-pass", roleID, true)
+
+		assert.ErrorIs(t, err, hashErr)
+		assert.Nil(t, user)
+
+		userRepo.AssertExpectations(t)
+		passwordHasher.AssertExpectations(t)
+	})
+}
+
+// ---------- TestUpdateUser ----------
+
+func TestUpdateUser(t *testing.T) {
+	ctx := context.Background()
+
+	newSvc := func(userRepo *mocks.MockUserRepository) *application.AuthService {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		refreshRepo := new(mocks.MockRefreshTokenRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		apiKeyGen := new(mocks.MockAPIKeyGenerator)
+		tokenService := newTestTokenService(t, refreshRepo)
+		return application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		svc := newSvc(userRepo)
+
+		userID := uuid.New()
+		roleID := uuid.New()
+		existing := activeUserWithRole(userID)
+
+		updatedUser := &domain.User{
+			ID:       userID,
+			Username: existing.Username,
+			Email:    "updated@example.com",
+			RoleID:   roleID,
+			Active:   true,
+			Role:     &domain.Role{ID: roleID, Name: "operator"},
+		}
+
+		userRepo.On("GetByID", ctx, userID).Return(existing, nil)
+		userRepo.On("Update", ctx, mock.AnythingOfType("*domain.User")).Return(nil)
+		userRepo.On("GetByIDWithRole", ctx, userID).Return(updatedUser, nil)
+
+		user, err := svc.UpdateUser(ctx, userID, "updated@example.com", roleID, true, nil)
+
+		require.NoError(t, err)
+		assert.Equal(t, "updated@example.com", user.Email)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("user not found returns error", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		svc := newSvc(userRepo)
+
+		userID := uuid.New()
+		roleID := uuid.New()
+		userRepo.On("GetByID", ctx, userID).Return(nil, authrepo.ErrUserNotFound)
+
+		user, err := svc.UpdateUser(ctx, userID, "updated@example.com", roleID, true, nil)
+
+		assert.ErrorIs(t, err, authrepo.ErrUserNotFound)
+		assert.Nil(t, user)
+
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// ---------- TestDeactivateUser ----------
+
+func TestDeactivateUser(t *testing.T) {
+	ctx := context.Background()
+
+	newSvc := func(userRepo *mocks.MockUserRepository) *application.AuthService {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		refreshRepo := new(mocks.MockRefreshTokenRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		apiKeyGen := new(mocks.MockAPIKeyGenerator)
+		tokenService := newTestTokenService(t, refreshRepo)
+		return application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		svc := newSvc(userRepo)
+
+		userID := uuid.New()
+		userRepo.On("Deactivate", ctx, userID).Return(nil)
+
+		err := svc.DeactivateUser(ctx, userID)
+
+		require.NoError(t, err)
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("error propagated", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		svc := newSvc(userRepo)
+
+		userID := uuid.New()
+		deactivateErr := errors.New("db error")
+		userRepo.On("Deactivate", ctx, userID).Return(deactivateErr)
+
+		err := svc.DeactivateUser(ctx, userID)
+
+		assert.ErrorIs(t, err, deactivateErr)
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// ---------- TestUpdateAPIKey ----------
+
+func TestUpdateAPIKey(t *testing.T) {
+	ctx := context.Background()
+
+	newSvc := func(apiKeyRepo *mocks.MockAPIKeyRepository) *application.AuthService {
+		userRepo := new(mocks.MockUserRepository)
+		refreshRepo := new(mocks.MockRefreshTokenRepository)
+		passwordHasher := new(mocks.MockPasswordHasher)
+		apiKeyGen := new(mocks.MockAPIKeyGenerator)
+		tokenService := newTestTokenService(t, refreshRepo)
+		return application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		svc := newSvc(apiKeyRepo)
+
+		userID := uuid.New()
+		keyID := uuid.New()
+		existing := &domain.APIKey{
+			ID:     keyID,
+			UserID: userID,
+			Name:   "Old Name",
+			Active: true,
+		}
+
+		apiKeyRepo.On("GetByID", ctx, keyID).Return(existing, nil)
+		apiKeyRepo.On("Update", ctx, mock.AnythingOfType("*domain.APIKey")).Return(nil)
+
+		scopes := []string{"messages:send"}
+		allowedIPs := []string{"10.0.0.1"}
+		expiresAt := time.Now().Add(30 * 24 * time.Hour)
+
+		key, err := svc.UpdateAPIKey(ctx, keyID, userID, "New Name", scopes, allowedIPs, &expiresAt)
+
+		require.NoError(t, err)
+		assert.Equal(t, "New Name", key.Name)
+		assert.Equal(t, scopes, key.Scopes)
+		assert.Equal(t, allowedIPs, key.AllowedIPs)
+
+		apiKeyRepo.AssertExpectations(t)
+	})
+
+	t.Run("key not owned returns ErrAPIKeyNotOwned", func(t *testing.T) {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		svc := newSvc(apiKeyRepo)
+
+		userID := uuid.New()
+		otherUserID := uuid.New()
+		keyID := uuid.New()
+		existing := &domain.APIKey{
+			ID:     keyID,
+			UserID: otherUserID,
+			Name:   "Key",
+			Active: true,
+		}
+
+		apiKeyRepo.On("GetByID", ctx, keyID).Return(existing, nil)
+
+		key, err := svc.UpdateAPIKey(ctx, keyID, userID, "New Name", nil, nil, nil)
+
+		assert.ErrorIs(t, err, application.ErrAPIKeyNotOwned)
+		assert.Nil(t, key)
+
+		apiKeyRepo.AssertExpectations(t)
+	})
+
+	t.Run("key revoked returns ErrAPIKeyRevoked", func(t *testing.T) {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		svc := newSvc(apiKeyRepo)
+
+		userID := uuid.New()
+		keyID := uuid.New()
+		existing := &domain.APIKey{
+			ID:     keyID,
+			UserID: userID,
+			Name:   "Key",
+			Active: false, // revoked
+		}
+
+		apiKeyRepo.On("GetByID", ctx, keyID).Return(existing, nil)
+
+		key, err := svc.UpdateAPIKey(ctx, keyID, userID, "New Name", nil, nil, nil)
+
+		assert.ErrorIs(t, err, application.ErrAPIKeyRevoked)
+		assert.Nil(t, key)
+
+		apiKeyRepo.AssertExpectations(t)
+	})
+}
+
+// ---------- TestRoleManagement ----------
+
+func TestRoleManagement(t *testing.T) {
+	ctx := context.Background()
+
+	newSvc := func(userRepo *mocks.MockUserRepository, roleRepo *mocks.MockRoleRepository) *application.AuthService {
+		apiKeyRepo := new(mocks.MockAPIKeyRepository)
+		refreshRepo := new(mocks.MockRefreshTokenRepository)
+		tokenService := newTestTokenService(t, refreshRepo)
+		return application.NewAuthService(userRepo, apiKeyRepo, tokenService, roleRepo)
+	}
+
+	t.Run("CreateRole success", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		roleRepo := new(mocks.MockRoleRepository)
+		svc := newSvc(userRepo, roleRepo)
+
+		permID := uuid.New()
+		expectedRole := &domain.Role{
+			ID:          uuid.New(),
+			Name:        "editor",
+			Description: "Can edit content",
+		}
+
+		roleRepo.On("Create", ctx, "editor", "Can edit content", []uuid.UUID{permID}).Return(expectedRole, nil)
+
+		role, err := svc.CreateRole(ctx, "editor", "Can edit content", []uuid.UUID{permID})
+
+		require.NoError(t, err)
+		assert.Equal(t, "editor", role.Name)
+		assert.Equal(t, "Can edit content", role.Description)
+
+		roleRepo.AssertExpectations(t)
+	})
+
+	t.Run("ListRoles success", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		roleRepo := new(mocks.MockRoleRepository)
+		svc := newSvc(userRepo, roleRepo)
+
+		expectedRoles := []*domain.Role{
+			{ID: uuid.New(), Name: "admin"},
+			{ID: uuid.New(), Name: "client"},
+		}
+
+		roleRepo.On("List", ctx, int32(10), int32(0)).Return(expectedRoles, int32(2), nil)
+
+		roles, total, err := svc.ListRoles(ctx, 10, 0)
+
+		require.NoError(t, err)
+		assert.Len(t, roles, 2)
+		assert.Equal(t, int32(2), total)
+		assert.Equal(t, "admin", roles[0].Name)
+
+		roleRepo.AssertExpectations(t)
+	})
+
+	t.Run("GetRole success", func(t *testing.T) {
+		userRepo := new(mocks.MockUserRepository)
+		roleRepo := new(mocks.MockRoleRepository)
+		svc := newSvc(userRepo, roleRepo)
+
+		roleID := uuid.New()
+		expectedRole := &domain.Role{
+			ID:   roleID,
+			Name: "admin",
+			Permissions: []domain.Permission{
+				{ID: uuid.New(), Resource: "users", Action: "read"},
+			},
+		}
+
+		roleRepo.On("GetByIDWithPermissions", ctx, roleID).Return(expectedRole, nil)
+		roleRepo.On("GetUserCount", ctx, roleID).Return(int32(5), nil)
+
+		role, err := svc.GetRole(ctx, roleID)
+
+		require.NoError(t, err)
+		assert.Equal(t, roleID, role.ID)
+		assert.Equal(t, "admin", role.Name)
+		assert.Equal(t, int32(5), role.UserCount)
+		assert.Len(t, role.Permissions, 1)
+
+		roleRepo.AssertExpectations(t)
 	})
 }

@@ -73,7 +73,7 @@ func (r *TariffPeriodRepository) GetActiveByPlanID(ctx context.Context, planID u
 	query := `
 		SELECT id, tariff_plan_id, start_date, end_date, created_at
 		FROM tariff_periods
-		WHERE tariff_plan_id = $1 AND start_date <= $2 AND end_date >= $2
+		WHERE tariff_plan_id = $1 AND start_date <= $2 AND (end_date IS NULL OR end_date >= $2)
 	`
 
 	err := r.db.QueryRowContext(ctx, query, planID, now).Scan(
@@ -132,7 +132,7 @@ func (r *TariffPeriodRepository) HasActivePeriod(ctx context.Context, planID uui
 	query := `
 		SELECT COUNT(*)
 		FROM tariff_periods
-		WHERE tariff_plan_id = $1 AND start_date <= $2 AND end_date >= $2
+		WHERE tariff_plan_id = $1 AND start_date <= $2 AND (end_date IS NULL OR end_date >= $2)
 	`
 
 	err := r.db.QueryRowContext(ctx, query, planID, now).Scan(&count)

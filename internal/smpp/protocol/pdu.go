@@ -274,11 +274,15 @@ func ParseSMPPTime(s string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, fmt.Errorf("failed to parse SMPP time: %w", err)
 	}
-	// Если год меньше 50, считаем что это 20XX, иначе 19XX
-	if t.Year() < 50 {
-		t = t.AddDate(2000, 0, 0)
-	} else {
-		t = t.AddDate(1900, 0, 0)
+	// time.Parse уже возвращает 4-значный год (Go: 00-68→2000-2068, 69-99→1969-1999).
+	// Корректируем: если 2-значный год >= 50, считаем 19XX, иначе 20XX.
+	yy := t.Year() % 100
+	if yy >= 50 {
+		// Go вернул 19XX — это совпадает с нашим правилом, оставляем.
+		// Но Go для 50-68 возвращает 20XX, нужно поправить на 19XX.
+		if t.Year() >= 2050 {
+			t = t.AddDate(-100, 0, 0)
+		}
 	}
 	return t, nil
 }

@@ -607,19 +607,23 @@ func (h *ResellerTariffPlanHandlers) ListPeriods(w http.ResponseWriter, r *http.
 	type periodJSON struct {
 		ID        string    `json:"id"`
 		StartDate string    `json:"start_date"`
-		EndDate   string    `json:"end_date"`
+		EndDate   *string   `json:"end_date"`
 		CreatedAt time.Time `json:"created_at"`
 	}
 	items := make([]periodJSON, 0)
 	for rows.Next() {
 		var p periodJSON
-		var startDate, endDate time.Time
+		var startDate time.Time
+		var endDate *time.Time
 		if err := rows.Scan(&p.ID, &startDate, &endDate, &p.CreatedAt); err != nil {
 			respondError(w, shared.ErrInternalServer("ошибка чтения данных"))
 			return
 		}
 		p.StartDate = startDate.Format("2006-01-02")
-		p.EndDate = endDate.Format("2006-01-02")
+		if endDate != nil {
+			s := endDate.Format("2006-01-02")
+			p.EndDate = &s
+		}
 		items = append(items, p)
 	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{"periods": items, "total": len(items)})
@@ -637,30 +641,58 @@ func (h *ResellerTariffPlanHandlers) CreatePeriod(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		StartDate string `json:"start_date"`
-		EndDate   string `json:"end_date"`
+		StartDate string  `json:"start_date"`
+		EndDate   *string `json:"end_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
-	if req.StartDate == "" || req.EndDate == "" {
-		respondError(w, shared.ErrInvalidInput("start_date и end_date обязательны"))
+	if req.StartDate == "" {
+		respondError(w, shared.ErrInvalidInput("start_date обязателен"))
 		return
 	}
 	startDate, err1 := time.Parse("2006-01-02", req.StartDate)
-	endDate, err2 := time.Parse("2006-01-02", req.EndDate)
-	if err1 != nil || err2 != nil {
+	if err1 != nil {
 		respondError(w, shared.ErrInvalidInput("неверный формат даты (YYYY-MM-DD)"))
 		return
 	}
-	if !endDate.After(startDate) {
-		respondError(w, shared.ErrInvalidInput("end_date должен быть больше start_date"))
+	var endDate *time.Time
+	if req.EndDate != nil && *req.EndDate != "" {
+		parsed, err := time.Parse("2006-01-02", *req.EndDate)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("неверный формат даты окончания (YYYY-MM-DD)"))
+			return
+		}
+		if !parsed.After(startDate) {
+			respondError(w, shared.ErrInvalidInput("end_date должен быть больше start_date"))
+			return
+		}
+		endDate = &parsed
+	}
+
+	// Auto-close previous open-ended period: set its end_date to the day before the new period starts
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка начала транзакции"))
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	prevEndDate := startDate.AddDate(0, 0, -1)
+	_, err = tx.Exec(r.Context(),
+		`UPDATE reseller_tariff_periods SET end_date = $1
+		 WHERE tariff_plan_id = $2 AND end_date IS NULL AND start_date < $3`,
+		prevEndDate, planID, startDate,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка закрытия предыдущего периода")
+		respondError(w, shared.ErrInternalServer("ошибка создания"))
 		return
 	}
 
 	var id string
-	err := h.pool.QueryRow(r.Context(),
+	err = tx.QueryRow(r.Context(),
 		`INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
 		 VALUES ($1, $2, $3) RETURNING id`, planID, startDate, endDate,
 	).Scan(&id)
@@ -671,6 +703,11 @@ func (h *ResellerTariffPlanHandlers) CreatePeriod(w http.ResponseWriter, r *http
 		}
 		log.Error().Err(err).Msg("ошибка создания периода")
 		respondError(w, shared.ErrInternalServer("ошибка создания"))
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
 		return
 	}
 	respondJSON(w, http.StatusCreated, map[string]interface{}{"id": id})
@@ -690,26 +727,34 @@ func (h *ResellerTariffPlanHandlers) UpdatePeriod(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		StartDate string `json:"start_date"`
-		EndDate   string `json:"end_date"`
+		StartDate string  `json:"start_date"`
+		EndDate   *string `json:"end_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
-	if req.StartDate == "" || req.EndDate == "" {
-		respondError(w, shared.ErrInvalidInput("start_date и end_date обязательны"))
+	if req.StartDate == "" {
+		respondError(w, shared.ErrInvalidInput("start_date обязателен"))
 		return
 	}
 	startDate, err1 := time.Parse("2006-01-02", req.StartDate)
-	endDate, err2 := time.Parse("2006-01-02", req.EndDate)
-	if err1 != nil || err2 != nil {
+	if err1 != nil {
 		respondError(w, shared.ErrInvalidInput("неверный формат даты (YYYY-MM-DD)"))
 		return
 	}
-	if !endDate.After(startDate) {
-		respondError(w, shared.ErrInvalidInput("end_date должен быть больше start_date"))
-		return
+	var endDate *time.Time
+	if req.EndDate != nil && *req.EndDate != "" {
+		parsed, err := time.Parse("2006-01-02", *req.EndDate)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("неверный формат даты окончания (YYYY-MM-DD)"))
+			return
+		}
+		if !parsed.After(startDate) {
+			respondError(w, shared.ErrInvalidInput("end_date должен быть больше start_date"))
+			return
+		}
+		endDate = &parsed
 	}
 
 	ct, err := h.pool.Exec(r.Context(),
@@ -1042,7 +1087,7 @@ func (h *ResellerTariffPlanHandlers) overlayPlans(
 			FROM sub_account_template_assignments sta
 			JOIN reseller_tariff_plans p ON p.template_id = sta.template_id AND p.active = true
 			JOIN reseller_tariff_periods per ON per.tariff_plan_id = p.id
-			  AND per.start_date <= $2 AND per.end_date >= $2
+			  AND per.start_date <= $2 AND (per.end_date IS NULL OR per.end_date >= $2)
 			JOIN reseller_tariff_tiers t ON t.tariff_period_id = per.id AND t.from_count = 0
 			LEFT JOIN operators o ON o.id = p.operator_id
 			LEFT JOIN countries c ON c.id = p.country_id
@@ -1055,7 +1100,7 @@ func (h *ResellerTariffPlanHandlers) overlayPlans(
 			       t.price_per_segment::text, p.strategy, p.id::text
 			FROM reseller_tariff_plans p
 			JOIN reseller_tariff_periods per ON per.tariff_plan_id = p.id
-			  AND per.start_date <= $2 AND per.end_date >= $2
+			  AND per.start_date <= $2 AND (per.end_date IS NULL OR per.end_date >= $2)
 			JOIN reseller_tariff_tiers t ON t.tariff_period_id = per.id AND t.from_count = 0
 			LEFT JOIN operators o ON o.id = p.operator_id
 			LEFT JOIN countries c ON c.id = p.country_id
@@ -1266,7 +1311,8 @@ func (h *ResellerTariffPlanHandlers) CopyPlans(w http.ResponseWriter, r *http.Re
 		}
 		for periodRows.Next() {
 			var oldPeriodID string
-			var startDate, endDate time.Time
+			var startDate time.Time
+			var endDate *time.Time
 			if err := periodRows.Scan(&oldPeriodID, &startDate, &endDate); err != nil {
 				periodRows.Close()
 				respondError(w, shared.ErrInternalServer("ошибка чтения"))

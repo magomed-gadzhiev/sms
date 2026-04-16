@@ -210,6 +210,21 @@ func newTestRoutingServer(routeRepo *mockRouteRepo, providerRepo *mockProviderRe
 	return NewServer(routingService, countryRepo, operatorRepo, prefixRepo, operatorResolver)
 }
 
+// newTestRoutingServerFull creates a server with explicit country/operator/prefix repos so tests
+// that exercise those paths can set up expectations on the same instances.
+func newTestRoutingServerFull(
+	routeRepo *mockRouteRepo,
+	providerRepo *mockProviderRepo,
+	pub *mockRoutingEventPublisher,
+	countryRepo *mockCountryRepo,
+	operatorRepo *mockOperatorRepo,
+	prefixRepo *mockPrefixRepo,
+) *Server {
+	routingService := application.NewRoutingService(routeRepo, providerRepo, pub)
+	operatorResolver := application.NewOperatorResolver(prefixRepo, operatorRepo, countryRepo)
+	return NewServer(routingService, countryRepo, operatorRepo, prefixRepo, operatorResolver)
+}
+
 // --- Tests ---
 
 func TestRoutingServer_GetRoute(t *testing.T) {
@@ -408,5 +423,383 @@ func TestRoutingServer_SelectProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		assert.Equal(t, providerID.String(), resp.ProviderId)
+	})
+}
+
+// ==================== CreateRoute ====================
+
+func TestRoutingServer_CreateRoute(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		providerID := uuid.New()
+		routeRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Route")).Return(nil)
+
+		resp, err := srv.CreateRoute(context.Background(), &routingv1.CreateRouteRequest{
+			Name:        "Test Route",
+			Pattern:     "+7",
+			ProviderIds: []string{providerID.String()},
+			Priority:    1,
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.NotEmpty(t, resp.RouteId)
+	})
+
+	t.Run("missing_name_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.CreateRoute(context.Background(), &routingv1.CreateRouteRequest{
+			Pattern:     "+7",
+			ProviderIds: []string{uuid.New().String()},
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+
+	t.Run("missing_pattern_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.CreateRoute(context.Background(), &routingv1.CreateRouteRequest{
+			Name:        "Test Route",
+			ProviderIds: []string{uuid.New().String()},
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+
+	t.Run("missing_provider_ids_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.CreateRoute(context.Background(), &routingv1.CreateRouteRequest{
+			Name:        "Test Route",
+			Pattern:     "+7",
+			ProviderIds: []string{},
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+}
+
+// ==================== DeleteRoute ====================
+
+func TestRoutingServer_DeleteRoute(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		routeID := uuid.New()
+		routeRepo.On("Delete", mock.Anything, routeID).Return(nil)
+
+		resp, err := srv.DeleteRoute(context.Background(), &routingv1.DeleteRouteRequest{
+			RouteId: routeID.String(),
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.True(t, resp.Success)
+	})
+
+	t.Run("empty_route_id_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.DeleteRoute(context.Background(), &routingv1.DeleteRouteRequest{
+			RouteId: "",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+
+	t.Run("invalid_route_id_format_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.DeleteRoute(context.Background(), &routingv1.DeleteRouteRequest{
+			RouteId: "not-a-valid-uuid",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+}
+
+// ==================== ListRoutes ====================
+
+func TestRoutingServer_ListRoutes(t *testing.T) {
+	t.Run("success_with_defaults", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		providerID := uuid.New()
+		routes := []*domain.Route{
+			{
+				ID:                  uuid.New(),
+				Name:                "Route A",
+				Pattern:             "+7",
+				PatternType:         domain.PatternTypePrefix,
+				ProviderIDs:         []uuid.UUID{providerID},
+				Priority:            1,
+				Active:              true,
+				LoadBalanceStrategy: domain.LoadBalanceRoundRobin,
+				CreatedAt:           time.Now(),
+				UpdatedAt:           time.Now(),
+			},
+		}
+		// Default limit is 100, offset is 0
+		routeRepo.On("List", mock.Anything, false, 100, 0).Return(routes, 1, nil)
+
+		resp, err := srv.ListRoutes(context.Background(), &routingv1.ListRoutesRequest{})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Len(t, resp.Routes, 1)
+		assert.Equal(t, int32(1), resp.Total)
+		assert.Equal(t, "Route A", resp.Routes[0].Name)
+	})
+
+	t.Run("success_with_custom_limit_and_offset", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		routeRepo.On("List", mock.Anything, true, 10, 5).Return([]*domain.Route{}, 0, nil)
+
+		resp, err := srv.ListRoutes(context.Background(), &routingv1.ListRoutesRequest{
+			Limit:      10,
+			Offset:     5,
+			ActiveOnly: true,
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Empty(t, resp.Routes)
+		assert.Equal(t, int32(0), resp.Total)
+	})
+}
+
+// ==================== UpdateRoute ====================
+
+func TestRoutingServer_UpdateRoute(t *testing.T) {
+	t.Run("empty_route_id_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.UpdateRoute(context.Background(), &routingv1.UpdateRouteRequest{
+			RouteId: "",
+			Name:    "Updated Name",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+
+	t.Run("invalid_route_id_format_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.UpdateRoute(context.Background(), &routingv1.UpdateRouteRequest{
+			RouteId: "bad-uuid-format",
+			Name:    "Updated Name",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+}
+
+// ==================== CreateCountry ====================
+
+func TestRoutingServer_CreateCountry(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		countryRepo := new(mockCountryRepo)
+		operatorRepo := new(mockOperatorRepo)
+		prefixRepo := new(mockPrefixRepo)
+		srv := newTestRoutingServerFull(routeRepo, providerRepo, pub, countryRepo, operatorRepo, prefixRepo)
+
+		// GetByISOCode returns error meaning no existing country
+		countryRepo.On("GetByISOCode", mock.Anything, "RU").Return(nil, domain.ErrCountryNotFound)
+		countryRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Country")).Return(nil)
+
+		resp, err := srv.CreateCountry(context.Background(), &routingv1.CreateCountryRequest{
+			Name:      "Russia",
+			IsoCode:   "RU",
+			PhoneCode: "+7",
+			Currency:  "RUB",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "Russia", resp.Name)
+		assert.Equal(t, "RU", resp.IsoCode)
+	})
+
+	t.Run("missing_name_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		countryRepo := new(mockCountryRepo)
+		operatorRepo := new(mockOperatorRepo)
+		prefixRepo := new(mockPrefixRepo)
+		srv := newTestRoutingServerFull(routeRepo, providerRepo, pub, countryRepo, operatorRepo, prefixRepo)
+
+		resp, err := srv.CreateCountry(context.Background(), &routingv1.CreateCountryRequest{
+			IsoCode:   "RU",
+			PhoneCode: "+7",
+			Currency:  "RUB",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+
+	t.Run("missing_iso_code_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		countryRepo := new(mockCountryRepo)
+		operatorRepo := new(mockOperatorRepo)
+		prefixRepo := new(mockPrefixRepo)
+		srv := newTestRoutingServerFull(routeRepo, providerRepo, pub, countryRepo, operatorRepo, prefixRepo)
+
+		resp, err := srv.CreateCountry(context.Background(), &routingv1.CreateCountryRequest{
+			Name:      "Russia",
+			PhoneCode: "+7",
+			Currency:  "RUB",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	})
+}
+
+// ==================== ResolveOperator ====================
+
+func TestRoutingServer_ResolveOperator(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		countryRepo := new(mockCountryRepo)
+		operatorRepo := new(mockOperatorRepo)
+		prefixRepo := new(mockPrefixRepo)
+		srv := newTestRoutingServerFull(routeRepo, providerRepo, pub, countryRepo, operatorRepo, prefixRepo)
+
+		operatorID := uuid.New()
+		countryID := uuid.New()
+
+		prefix := &domain.OperatorPrefix{
+			ID:         uuid.New(),
+			OperatorID: operatorID,
+			Prefix:     "+7",
+			Priority:   1,
+		}
+		operator := &domain.Operator{
+			ID:        operatorID,
+			CountryID: countryID,
+			Name:      "MTS",
+			Code:      "RU-MTS",
+			Active:    true,
+		}
+		country := &domain.Country{
+			ID:        countryID,
+			Name:      "Russia",
+			ISOCode:   "RU",
+			PhoneCode: "+7",
+			Currency:  "RUB",
+		}
+
+		prefixRepo.On("FindByNumber", mock.Anything, "+79001234567").Return(prefix, nil)
+		operatorRepo.On("GetByID", mock.Anything, operatorID).Return(operator, nil)
+		countryRepo.On("GetByID", mock.Anything, countryID).Return(country, nil)
+
+		resp, err := srv.ResolveOperator(context.Background(), &routingv1.ResolveOperatorRequest{
+			PhoneNumber: "+79001234567",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, operatorID.String(), resp.OperatorId)
+		assert.Equal(t, countryID.String(), resp.CountryId)
+		assert.Equal(t, "RU-MTS", resp.OperatorCode)
+		assert.Equal(t, "RU", resp.CountryCode)
+		assert.Equal(t, "prefix", resp.ResolvedBy)
+	})
+
+	t.Run("empty_phone_number_returns_InvalidArgument", func(t *testing.T) {
+		routeRepo := new(mockRouteRepo)
+		providerRepo := new(mockProviderRepo)
+		pub := new(mockRoutingEventPublisher)
+		srv := newTestRoutingServer(routeRepo, providerRepo, pub)
+
+		resp, err := srv.ResolveOperator(context.Background(), &routingv1.ResolveOperatorRequest{
+			PhoneNumber: "",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.InvalidArgument, st.Code())
 	})
 }

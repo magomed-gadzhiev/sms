@@ -118,7 +118,7 @@ func (s *TariffPlanService) ListPlans(ctx context.Context, operatorID *uuid.UUID
 }
 
 // CreatePeriod создает новый тарифный период для плана
-func (s *TariffPlanService) CreatePeriod(ctx context.Context, planID uuid.UUID, startDate, endDate time.Time) (*domain.TariffPeriod, error) {
+func (s *TariffPlanService) CreatePeriod(ctx context.Context, planID uuid.UUID, startDate time.Time, endDate *time.Time) (*domain.TariffPeriod, error) {
 	// Проверяем существование плана
 	_, err := s.planRepo.GetByID(ctx, planID)
 	if err != nil {
@@ -134,12 +134,14 @@ func (s *TariffPlanService) CreatePeriod(ctx context.Context, planID uuid.UUID, 
 		return nil, fmt.Errorf("failed to create tariff period: %w", err)
 	}
 
-	s.logger.Info().
+	logEvent := s.logger.Info().
 		Str("period_id", period.ID.String()).
 		Str("plan_id", planID.String()).
-		Time("start_date", startDate).
-		Time("end_date", endDate).
-		Msg("tariff period created")
+		Time("start_date", startDate)
+	if endDate != nil {
+		logEvent = logEvent.Time("end_date", *endDate)
+	}
+	logEvent.Msg("tariff period created")
 
 	return period, nil
 }
@@ -221,7 +223,7 @@ func (s *TariffPlanService) CreatePricingPeriod(ctx context.Context, tariffPerio
 	}
 
 	// Проверяем, что pricing period входит в границы tariff period
-	if startDate.Before(tariffPeriod.StartDate) || endDate.After(tariffPeriod.EndDate) {
+	if startDate.Before(tariffPeriod.StartDate) || (tariffPeriod.EndDate != nil && endDate.After(*tariffPeriod.EndDate)) {
 		return nil, domain.ErrPricingPeriodOutOfBounds
 	}
 

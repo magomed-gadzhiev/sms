@@ -106,7 +106,7 @@ func NewTestTariffPeriod(tariffPlanID uuid.UUID) *tarifdomain.TariffPeriod {
 		ID:           uuid.New(),
 		TariffPlanID: tariffPlanID,
 		StartDate:    startDate,
-		EndDate:      endDate,
+		EndDate:      &endDate,
 		CreatedAt:    now,
 	}
 }

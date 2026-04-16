@@ -297,4 +297,194 @@ func TestSagaOrchestrator(t *testing.T) {
 			assert.Contains(t, err.Error(), "invalid recalc amount")
 		})
 	})
+
+	t.Run("ChargeDual", func(t *testing.T) {
+		t.Run("happy_path_charges_both", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			subAccountID := "sub-account-1"
+			aggregatorID := "aggregator-1"
+			messageID := "msg-dual-1"
+			subAmount := "1.500000"
+			aggAmount := "0.300000"
+			currency := "RUB"
+
+			// First call: sub-account charge
+			bc.On("ChargeMessage", mock.Anything, &billingv1.ChargeMessageRequest{
+				ClientId:    subAccountID,
+				MessageId:   messageID,
+				Amount:      subAmount,
+				Currency:    currency,
+				Description: "SMS субаккаунт: тариф агрегатора",
+			}).Return(&billingv1.ChargeMessageResponse{
+				TransactionId: "tx-sub-1",
+				NewBalance:    "98.500000",
+				Success:       true,
+			}, nil).Once()
+
+			// Second call: aggregator charge (deterministic UUID derived from messageID)
+			bc.On("ChargeMessage", mock.Anything, mock.MatchedBy(func(req *billingv1.ChargeMessageRequest) bool {
+				return req.ClientId == aggregatorID &&
+					req.Amount == aggAmount &&
+					req.Currency == currency &&
+					req.Description == "SMS агрегатор: платформенный тариф"
+			})).Return(&billingv1.ChargeMessageResponse{
+				TransactionId: "tx-agg-1",
+				NewBalance:    "199.700000",
+				Success:       true,
+			}, nil).Once()
+
+			result, err := saga.ChargeDual(context.Background(), subAccountID, aggregatorID, messageID, subAmount, aggAmount, currency)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.True(t, result.Success)
+			assert.NotNil(t, result.SubAccountCharge)
+			assert.True(t, result.SubAccountCharge.Success)
+			assert.Equal(t, "tx-sub-1", result.SubAccountCharge.TransactionID)
+			assert.NotNil(t, result.AggregatorCharge)
+			assert.Equal(t, "tx-agg-1", result.AggregatorCharge.TransactionID)
+			bc.AssertExpectations(t)
+		})
+
+		t.Run("sub_account_charge_fails_returns_failure", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			bc.On("ChargeMessage", mock.Anything, mock.MatchedBy(func(req *billingv1.ChargeMessageRequest) bool {
+				return req.ClientId == "sub-account-2"
+			})).Return(&billingv1.ChargeMessageResponse{
+				Success: false,
+				Error:   "insufficient balance",
+			}, nil).Once()
+
+			result, err := saga.ChargeDual(context.Background(), "sub-account-2", "aggregator-2", "msg-2", "999.000000", "0.300000", "RUB")
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.False(t, result.Success)
+			assert.Equal(t, "insufficient balance", result.Error)
+			assert.NotNil(t, result.SubAccountCharge)
+			assert.False(t, result.SubAccountCharge.Success)
+			// Aggregator charge must NOT be attempted
+			bc.AssertNumberOfCalls(t, "ChargeMessage", 1)
+		})
+
+		t.Run("sub_account_billing_error_returns_error", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			bc.On("ChargeMessage", mock.Anything, mock.MatchedBy(func(req *billingv1.ChargeMessageRequest) bool {
+				return req.ClientId == "sub-account-3"
+			})).Return(nil, errors.New("network timeout")).Once()
+
+			result, err := saga.ChargeDual(context.Background(), "sub-account-3", "aggregator-3", "msg-3", "1.000000", "0.200000", "RUB")
+
+			assert.Nil(t, result)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "sub-account billing charge failed")
+		})
+
+		t.Run("aggregator_charge_fails_compensates_sub_account", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			subAccountID := "sub-account-4"
+			subAmount := "1.000000"
+			currency := "RUB"
+
+			// Sub-account succeeds
+			bc.On("ChargeMessage", mock.Anything, mock.MatchedBy(func(req *billingv1.ChargeMessageRequest) bool {
+				return req.ClientId == subAccountID
+			})).Return(&billingv1.ChargeMessageResponse{
+				TransactionId: "tx-sub-4",
+				NewBalance:    "99.000000",
+				Success:       true,
+			}, nil).Once()
+
+			// Aggregator fails
+			bc.On("ChargeMessage", mock.Anything, mock.MatchedBy(func(req *billingv1.ChargeMessageRequest) bool {
+				return req.ClientId == "aggregator-4"
+			})).Return(nil, errors.New("aggregator unavailable")).Once()
+
+			// Compensation refund to sub-account
+			bc.On("AddCredits", mock.Anything, &billingv1.AddCreditsRequest{
+				ClientId:    subAccountID,
+				Amount:      subAmount,
+				Currency:    currency,
+				Description: "компенсация: ошибка списания агрегатора",
+			}).Return(&billingv1.AddCreditsResponse{
+				TransactionId: "tx-refund-4",
+				NewBalance:    "100.000000",
+				Success:       true,
+			}, nil).Once()
+
+			result, err := saga.ChargeDual(context.Background(), subAccountID, "aggregator-4", "msg-4", subAmount, "0.200000", currency)
+
+			assert.Nil(t, result)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "aggregator billing charge failed")
+			bc.AssertExpectations(t)
+		})
+	})
+
+	t.Run("DeductForRecalc", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			bc.On("DeductCredits", mock.Anything, &billingv1.DeductCreditsRequest{
+				ClientId:    "client-deduct-1",
+				Amount:      "3.000000",
+				Currency:    "RUB",
+				Description: "recalc additional charge",
+			}).Return(&billingv1.DeductCreditsResponse{
+				TransactionId: "tx-deduct-1",
+				NewBalance:    "97.000000",
+				Success:       true,
+			}, nil)
+
+			result, err := saga.DeductForRecalc(context.Background(), "client-deduct-1", "3.000000", "RUB", "recalc additional charge")
+
+			require.NoError(t, err)
+			assert.True(t, result.Success)
+			assert.Equal(t, "tx-deduct-1", result.TransactionID)
+			assert.Equal(t, "97.000000", result.NewBalance)
+			bc.AssertExpectations(t)
+		})
+
+		t.Run("billing_error_returns_error", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			bc.On("DeductCredits", mock.Anything, mock.Anything).
+				Return(nil, errors.New("billing service down"))
+
+			result, err := saga.DeductForRecalc(context.Background(), "client-deduct-2", "5.000000", "RUB", "recalc")
+
+			assert.Nil(t, result)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "billing deduct for recalc failed")
+			bc.AssertExpectations(t)
+		})
+
+		t.Run("insufficient_balance_returns_failure", func(t *testing.T) {
+			bc := new(mockBillingClient)
+			saga := NewSagaOrchestrator(bc)
+
+			bc.On("DeductCredits", mock.Anything, mock.Anything).
+				Return(&billingv1.DeductCreditsResponse{
+					Success: false,
+					Error:   "insufficient balance",
+				}, nil)
+
+			result, err := saga.DeductForRecalc(context.Background(), "client-deduct-3", "50.000000", "RUB", "recalc")
+
+			require.NoError(t, err)
+			assert.False(t, result.Success)
+			assert.Equal(t, "insufficient balance", result.Error)
+			bc.AssertExpectations(t)
+		})
+	})
 }

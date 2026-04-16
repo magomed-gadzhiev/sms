@@ -222,7 +222,7 @@ func TestTarificationService(t *testing.T) {
 				ID:           f.periodID,
 				TariffPlanID: f.planID,
 				StartDate:    now.AddDate(0, -1, 0),
-				EndDate:      now.AddDate(0, 1, 0),
+				EndDate:      timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).
 				Return(period, nil)
@@ -346,7 +346,7 @@ func TestTarificationService(t *testing.T) {
 				ID:           f.periodID,
 				TariffPlanID: f.planID,
 				StartDate:    now.AddDate(0, -1, 0),
-				EndDate:      now.AddDate(0, 1, 0),
+				EndDate:      timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).
 				Return(period, nil)
@@ -537,7 +537,7 @@ func TestTarificationService(t *testing.T) {
 				ID:           f.periodID,
 				TariffPlanID: f.planID,
 				StartDate:    now.AddDate(0, -1, 0),
-				EndDate:      now.AddDate(0, 1, 0),
+				EndDate:      timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).
 				Return(period, nil)
@@ -638,7 +638,7 @@ func TestTarificationService(t *testing.T) {
 			now := time.Now()
 			period := &domain.TariffPeriod{
 				ID: f.periodID, TariffPlanID: f.planID,
-				StartDate: now.AddDate(0, -1, 0), EndDate: now.AddDate(0, 1, 0),
+				StartDate: now.AddDate(0, -1, 0), EndDate: timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).Return(period, nil)
 
@@ -685,7 +685,7 @@ func TestTarificationService(t *testing.T) {
 			now := time.Now()
 			period := &domain.TariffPeriod{
 				ID: f.periodID, TariffPlanID: f.planID,
-				StartDate: now.AddDate(0, -1, 0), EndDate: now.AddDate(0, 1, 0),
+				StartDate: now.AddDate(0, -1, 0), EndDate: timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).Return(period, nil)
 
@@ -757,7 +757,7 @@ func TestTarificationService(t *testing.T) {
 			now := time.Now()
 			period := &domain.TariffPeriod{
 				ID: f.periodID, TariffPlanID: f.planID,
-				StartDate: now.AddDate(0, -1, 0), EndDate: now.AddDate(0, 1, 0),
+				StartDate: now.AddDate(0, -1, 0), EndDate: timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).Return(period, nil)
 			f.tierRepo.On("ListByPeriodID", ctx, f.periodID).Return(nil, errors.New("db error"))
@@ -789,7 +789,7 @@ func TestTarificationService(t *testing.T) {
 			now := time.Now()
 			period := &domain.TariffPeriod{
 				ID: f.periodID, TariffPlanID: f.planID,
-				StartDate: now.AddDate(0, -1, 0), EndDate: now.AddDate(0, 1, 0),
+				StartDate: now.AddDate(0, -1, 0), EndDate: timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).Return(period, nil)
 
@@ -827,7 +827,7 @@ func TestTarificationService(t *testing.T) {
 			now := time.Now()
 			period := &domain.TariffPeriod{
 				ID: f.periodID, TariffPlanID: f.planID,
-				StartDate: now.AddDate(0, -1, 0), EndDate: now.AddDate(0, 1, 0),
+				StartDate: now.AddDate(0, -1, 0), EndDate: timePtr(now.AddDate(0, 1, 0)),
 			}
 			f.periodRepo.On("GetActiveByPlanID", ctx, f.planID, mock.AnythingOfType("time.Time")).Return(period, nil)
 

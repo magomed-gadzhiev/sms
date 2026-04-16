@@ -217,11 +217,11 @@ func (h *TarificationHandler) ListTariffPeriods(w http.ResponseWriter, r *http.R
 	tariffPlanID := r.URL.Query().Get("tariff_plan_id")
 
 	type periodRow struct {
-		ID           string `json:"id"`
-		TariffPlanID string `json:"tariff_plan_id"`
-		StartDate    string `json:"start_date"`
-		EndDate      string `json:"end_date"`
-		CreatedAt    string `json:"created_at"`
+		ID           string  `json:"id"`
+		TariffPlanID string  `json:"tariff_plan_id"`
+		StartDate    string  `json:"start_date"`
+		EndDate      *string `json:"end_date"`
+		CreatedAt    string  `json:"created_at"`
 	}
 
 	var query string
@@ -306,20 +306,24 @@ func (h *TarificationHandler) ListTariffTiers(w http.ResponseWriter, r *http.Req
 // CreateTariffPeriod обрабатывает POST /admin/v1/tarification/tariff-periods
 func (h *TarificationHandler) CreateTariffPeriod(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		TariffPlanID string `json:"tariff_plan_id"`
-		StartDate    string `json:"start_date"`
-		EndDate      string `json:"end_date"`
+		TariffPlanID string  `json:"tariff_plan_id"`
+		StartDate    string  `json:"start_date"`
+		EndDate      *string `json:"end_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("неверный формат запроса"))
 		return
 	}
 
-	resp, err := h.tarificationClient.CreateTariffPeriod(r.Context(), &tarificationv1.CreateTariffPeriodRequest{
+	grpcReq := &tarificationv1.CreateTariffPeriodRequest{
 		TariffPlanId: req.TariffPlanID,
 		StartDate:    req.StartDate,
-		EndDate:      req.EndDate,
-	})
+	}
+	if req.EndDate != nil {
+		grpcReq.EndDate = *req.EndDate
+	}
+
+	resp, err := h.tarificationClient.CreateTariffPeriod(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

@@ -261,7 +261,6 @@ function PlanPeriodsSection({ planId, strategy }: { planId: string; strategy: st
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [newStart, setNewStart] = useState('');
-  const [newEnd, setNewEnd] = useState('');
   const [addingPeriod, setAddingPeriod] = useState(false);
 
   const loadPeriods = useCallback(() => {
@@ -278,20 +277,18 @@ function PlanPeriodsSection({ planId, strategy }: { planId: string; strategy: st
   }, [loadPeriods]);
 
   async function handleAddPeriod() {
-    if (!newStart || !newEnd) {
-      toast.error('Укажите даты начала и окончания');
+    if (!newStart) {
+      toast.error('Укажите дату начала');
       return;
     }
     setAddingPeriod(true);
     try {
       await resellerTariffApi.createPeriod(planId, {
         start_date: newStart,
-        end_date: newEnd,
       });
       toast.success('Период добавлен');
       setShowAddPeriod(false);
       setNewStart('');
-      setNewEnd('');
       loadPeriods();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка создания периода');
@@ -329,20 +326,11 @@ function PlanPeriodsSection({ planId, strategy }: { planId: string; strategy: st
       {showAddPeriod && (
         <div className="flex items-end gap-2 mb-3 p-3 bg-gray-50 rounded border border-gray-200">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Начало</label>
+            <label className="text-xs text-gray-500">Дата начала</label>
             <input
               type="date"
               value={newStart}
               onChange={(e) => setNewStart(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Окончание</label>
-            <input
-              type="date"
-              value={newEnd}
-              onChange={(e) => setNewEnd(e.target.value)}
               className="border border-gray-300 rounded px-2 py-1 text-sm"
             />
           </div>
@@ -371,7 +359,7 @@ function PlanPeriodsSection({ planId, strategy }: { planId: string; strategy: st
                   onClick={() => setExpandedPeriod(isExpanded ? null : period.id)}
                 >
                   <span className="text-sm">
-                    {period.start_date} — {period.end_date}
+                    {period.start_date} — {period.end_date ?? 'бессрочно'}
                   </span>
                   <div className="flex items-center gap-2">
                     <button

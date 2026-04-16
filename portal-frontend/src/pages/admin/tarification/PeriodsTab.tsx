@@ -101,7 +101,6 @@ interface FormState {
   client_id: string;
   strategy: string;
   start_date: string;
-  end_date: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -112,7 +111,6 @@ const EMPTY_FORM: FormState = {
   client_id: '',
   strategy: '',
   start_date: '',
-  end_date: '',
 };
 
 export function PeriodsTab() {
@@ -289,7 +287,6 @@ export function PeriodsTab() {
         client_id: form.client_id || null,
         strategy: form.strategy,
         start_date: form.start_date,
-        end_date: form.end_date || null,
       });
       if (res.auto_close_warning) {
         toast.info(`Период создан. Предыдущий открытый период автоматически закрыт — установлена дата окончания ${res.auto_close_warning.new_end_date}`);
@@ -496,12 +493,7 @@ export function PeriodsTab() {
             onChange={(e) => setForm({ ...form, start_date: e.target.value })}
             required
           />
-          <Input
-            label="Дата окончания (необязательно)"
-            type="date"
-            value={form.end_date}
-            onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-          />
+          <p className="text-xs text-gray-400 -mt-2">Следующий период автоматически закроет текущий</p>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>
               Отмена

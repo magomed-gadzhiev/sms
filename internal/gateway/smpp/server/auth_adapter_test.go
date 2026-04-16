@@ -54,6 +54,7 @@ func TestValidateToken_Success(t *testing.T) {
 	assert.Equal(t, userID, info.ClientID)
 	assert.Equal(t, 100, info.RateLimit)
 	assert.True(t, info.Active)
+	mockClient.AssertExpectations(t)
 }
 
 func TestValidateToken_InvalidToken(t *testing.T) {
@@ -69,6 +70,7 @@ func TestValidateToken_InvalidToken(t *testing.T) {
 	_, err := adapter.ValidateToken(context.Background(), "expired-token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "невалиден")
+	mockClient.AssertExpectations(t)
 }
 
 func TestValidateToken_NilUser(t *testing.T) {
@@ -84,6 +86,7 @@ func TestValidateToken_NilUser(t *testing.T) {
 	_, err := adapter.ValidateToken(context.Background(), "token-no-user")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "информация о пользователе отсутствует")
+	mockClient.AssertExpectations(t)
 }
 
 func TestValidateToken_GRPCUnauthenticated(t *testing.T) {
@@ -97,6 +100,7 @@ func TestValidateToken_GRPCUnauthenticated(t *testing.T) {
 	_, err := adapter.ValidateToken(context.Background(), "bad-token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "невалиден")
+	mockClient.AssertExpectations(t)
 }
 
 func TestValidateToken_GRPCPermissionDenied(t *testing.T) {
@@ -110,6 +114,7 @@ func TestValidateToken_GRPCPermissionDenied(t *testing.T) {
 	_, err := adapter.ValidateToken(context.Background(), "forbidden-token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "невалиден")
+	mockClient.AssertExpectations(t)
 }
 
 func TestValidateToken_GRPCInternalError(t *testing.T) {
@@ -123,6 +128,7 @@ func TestValidateToken_GRPCInternalError(t *testing.T) {
 	_, err := adapter.ValidateToken(context.Background(), "some-token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ошибка валидации токена")
+	mockClient.AssertExpectations(t)
 }
 
 // --- AuthenticateBySystemID ---
@@ -151,6 +157,7 @@ func TestAuthenticateBySystemID_Success(t *testing.T) {
 	assert.Equal(t, userID, info.ClientID)
 	assert.Equal(t, 100, info.RateLimit)
 	assert.True(t, info.Active)
+	mockClient.AssertExpectations(t)
 }
 
 func TestAuthenticateBySystemID_InactiveUser(t *testing.T) {
@@ -169,6 +176,7 @@ func TestAuthenticateBySystemID_InactiveUser(t *testing.T) {
 	_, err := adapter.AuthenticateBySystemID(context.Background(), "sys", "pass")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "неактивен")
+	mockClient.AssertExpectations(t)
 }
 
 func TestAuthenticateBySystemID_NilUser(t *testing.T) {
@@ -183,6 +191,7 @@ func TestAuthenticateBySystemID_NilUser(t *testing.T) {
 	_, err := adapter.AuthenticateBySystemID(context.Background(), "sys", "pass")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "информация о пользователе отсутствует")
+	mockClient.AssertExpectations(t)
 }
 
 func TestAuthenticateBySystemID_GRPCUnauthenticated(t *testing.T) {
@@ -196,6 +205,7 @@ func TestAuthenticateBySystemID_GRPCUnauthenticated(t *testing.T) {
 	_, err := adapter.AuthenticateBySystemID(context.Background(), "bad-sys", "bad-pass")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "неверный system_id")
+	mockClient.AssertExpectations(t)
 }
 
 func TestAuthenticateBySystemID_GRPCGenericError(t *testing.T) {
@@ -209,6 +219,7 @@ func TestAuthenticateBySystemID_GRPCGenericError(t *testing.T) {
 	_, err := adapter.AuthenticateBySystemID(context.Background(), "sys", "pass")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ошибка аутентификации")
+	mockClient.AssertExpectations(t)
 }
 
 // --- GetClientID ---
