@@ -110,6 +110,8 @@ type effectivePrice struct {
 	TrafficType    string  `json:"traffic_type"`
 	Price          string  `json:"price"`
 	Source         string  `json:"source"`
+	Strategy       string  `json:"strategy,omitempty"`
+	PlanID         *string `json:"plan_id,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -997,7 +999,26 @@ func (h *ResellerTariffPlanHandlers) TariffOverview(w http.ResponseWriter, r *ht
 		return items[i].SenderCategory < items[j].SenderCategory
 	})
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{"prices": items, "total": len(items)})
+	// Fetch assigned template name for this sub-account
+	var templateID, templateName *string
+	var tid, tname string
+	err = h.pool.QueryRow(r.Context(),
+		`SELECT sta.template_id::text, t.name
+		 FROM sub_account_template_assignments sta
+		 JOIN reseller_tariff_templates t ON t.id = sta.template_id
+		 WHERE sta.sub_account_id = $1`, subAccountID,
+	).Scan(&tid, &tname)
+	if err == nil {
+		templateID = &tid
+		templateName = &tname
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"tariffs":       items,
+		"total":         len(items),
+		"template_id":   templateID,
+		"template_name": templateName,
+	})
 }
 
 // overlayPlans queries plans+periods+tiers for today's date and overlays base tier prices.
@@ -1017,7 +1038,7 @@ func (h *ResellerTariffPlanHandlers) overlayPlans(
 		query = `
 			SELECT p.country_id::text, c.name, p.operator_id::text, o.name,
 			       p.sender_category, p.traffic_type,
-			       t.price_per_segment::text
+			       t.price_per_segment::text, p.strategy, p.id::text
 			FROM sub_account_template_assignments sta
 			JOIN reseller_tariff_plans p ON p.template_id = sta.template_id AND p.active = true
 			JOIN reseller_tariff_periods per ON per.tariff_plan_id = p.id
@@ -1031,7 +1052,7 @@ func (h *ResellerTariffPlanHandlers) overlayPlans(
 		query = `
 			SELECT p.country_id::text, c.name, p.operator_id::text, o.name,
 			       p.sender_category, p.traffic_type,
-			       t.price_per_segment::text
+			       t.price_per_segment::text, p.strategy, p.id::text
 			FROM reseller_tariff_plans p
 			JOIN reseller_tariff_periods per ON per.tariff_plan_id = p.id
 			  AND per.start_date <= $2 AND per.end_date >= $2
@@ -1050,9 +1071,9 @@ func (h *ResellerTariffPlanHandlers) overlayPlans(
 
 	for rows.Next() {
 		var countryID, countryName, operatorID, operatorName *string
-		var category, trafficType, price string
+		var category, trafficType, price, strategy, planID string
 		if err := rows.Scan(&countryID, &countryName, &operatorID, &operatorName,
-			&category, &trafficType, &price); err != nil {
+			&category, &trafficType, &price, &strategy, &planID); err != nil {
 			continue
 		}
 		cid := ""
@@ -1073,6 +1094,8 @@ func (h *ResellerTariffPlanHandlers) overlayPlans(
 			TrafficType:    trafficType,
 			Price:          price,
 			Source:         source,
+			Strategy:       strategy,
+			PlanID:         &planID,
 		}
 	}
 }
