@@ -1317,3 +1317,121 @@ export const resellerApi = {
     return apiFetch<unknown>(`/reseller/dashboard${qs}`);
   },
 };
+
+// --- Reseller Tariff Plans API (new system) ---
+
+export interface ResellerTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  assigned_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ResellerTariffPlan {
+  id: string;
+  template_id: string | null;
+  sub_account_id: string | null;
+  country_id: string | null;
+  operator_id: string | null;
+  sender_category: string;
+  traffic_type: string;
+  strategy: string;
+  active: boolean;
+  operator_name: string;
+  country_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ResellerTariffPeriod {
+  id: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
+export interface ResellerTariffTier {
+  id: string;
+  from_count: number;
+  price_per_segment: string;
+}
+
+export interface TariffOverviewItem {
+  operator_id: string;
+  operator_name: string;
+  sender_category: string;
+  price: string;
+  source: 'override' | 'template' | 'legacy';
+  strategy: string;
+  plan_id: string | null;
+}
+
+export const resellerTariffApi = {
+  // Templates
+  listTemplates: () =>
+    apiFetch<{ templates: ResellerTemplate[]; total: number }>('/reseller/tariff-templates'),
+  createTemplate: (data: { name: string; description?: string }) =>
+    apiFetch<{ id: string }>('/reseller/tariff-templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateTemplate: (id: string, data: { name?: string; description?: string }) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTemplate: (id: string) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-templates/${id}`, { method: 'DELETE' }),
+  assignTemplate: (templateId: string, subAccountIds: string[]) =>
+    apiFetch<{ assigned: number }>(`/reseller/tariff-templates/${templateId}/assign`, {
+      method: 'POST', body: JSON.stringify({ sub_account_ids: subAccountIds }),
+    }),
+  unassignTemplate: (templateId: string, subAccountId: string) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-templates/${templateId}/assign/${subAccountId}`, { method: 'DELETE' }),
+
+  // Plans
+  listPlans: (params?: { template_id?: string; sub_account_id?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.template_id) qs.set('template_id', params.template_id);
+    if (params?.sub_account_id) qs.set('sub_account_id', params.sub_account_id);
+    const q = qs.toString();
+    return apiFetch<{ plans: ResellerTariffPlan[]; total: number }>(`/reseller/tariff-plans${q ? '?' + q : ''}`);
+  },
+  createPlan: (data: {
+    template_id?: string; sub_account_id?: string;
+    country_id?: string; operator_id?: string;
+    sender_category: string; traffic_type: string; strategy: string;
+  }) => apiFetch<{ id: string }>('/reseller/tariff-plans', { method: 'POST', body: JSON.stringify(data) }),
+  updatePlan: (id: string, data: { strategy?: string; sender_category?: string; traffic_type?: string }) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePlan: (id: string) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-plans/${id}`, { method: 'DELETE' }),
+
+  // Periods
+  listPeriods: (planId: string) =>
+    apiFetch<{ periods: ResellerTariffPeriod[]; total: number }>(`/reseller/tariff-plans/${planId}/periods`),
+  createPeriod: (planId: string, data: { start_date: string; end_date: string }) =>
+    apiFetch<{ id: string }>(`/reseller/tariff-plans/${planId}/periods`, { method: 'POST', body: JSON.stringify(data) }),
+  updatePeriod: (id: string, data: { start_date: string; end_date: string }) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-periods/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePeriod: (id: string) =>
+    apiFetch<{ status: string }>(`/reseller/tariff-periods/${id}`, { method: 'DELETE' }),
+
+  // Tiers
+  listTiers: (periodId: string) =>
+    apiFetch<{ tiers: ResellerTariffTier[]; total: number }>(`/reseller/tariff-periods/${periodId}/tiers`),
+  upsertTiers: (periodId: string, tiers: { from_count: number; price_per_segment: string }[]) =>
+    apiFetch<{ saved: number }>(`/reseller/tariff-periods/${periodId}/tiers`, {
+      method: 'POST', body: JSON.stringify({ tiers }),
+    }),
+
+  // Overview
+  overview: (subAccountId: string) =>
+    apiFetch<{ tariffs: TariffOverviewItem[]; total: number; template_id: string | null; template_name: string | null }>(
+      `/reseller/tariff-overview?sub_account_id=${subAccountId}`
+    ),
+
+  // Copy
+  copyPlans: (data: {
+    from_template_id?: string; from_sub_account_id?: string;
+    to_template_id?: string; to_sub_account_id?: string;
+  }) => apiFetch<{ copied_plans: number }>('/reseller/tariff-plans/copy', {
+    method: 'POST', body: JSON.stringify(data),
+  }),
+};
