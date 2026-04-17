@@ -114,3 +114,6 @@ portal-frontend/.vite/
 
 # Git worktrees
 .worktrees/
+
+# Playwright MCP session debris
+.playwright-mcp/
