@@ -90,13 +90,13 @@ func buildStatKPIs(rows []domain.StatRow) []domain.KPI {
 	}
 
 	return []domain.KPI{
-		{Name: "total_messages", Value: float64(totalMsgs), Status: domain.HealthOK},
-		{Name: "dlr_rate", Value: dlrRate, Status: dlrStatus},
-		{Name: "error_rate", Value: errorRate, Status: errStatus},
-		{Name: "revenue", Value: revenue, Status: domain.HealthOK},
-		{Name: "cost", Value: cost, Status: domain.HealthOK},
-		{Name: "profit", Value: profit, Status: domain.HealthOK},
-		{Name: "pending", Value: float64(pending), Status: domain.HealthOK},
+		{Name: "Всего", Value: float64(totalMsgs), Status: domain.HealthOK},
+		{Name: "Доставляемость", Value: dlrRate, Status: dlrStatus},
+		{Name: "Ошибки", Value: errorRate, Status: errStatus},
+		{Name: "Выручка", Value: revenue, Status: domain.HealthOK},
+		{Name: "Себестоимость", Value: cost, Status: domain.HealthOK},
+		{Name: "Прибыль", Value: profit, Status: domain.HealthOK},
+		{Name: "Pending", Value: float64(pending), Status: domain.HealthOK},
 	}
 }
 

@@ -38,7 +38,7 @@ func NewAggregationWorker(
 // against NULL values in optional columns.
 const rawAggQuery = `
 SELECT
-    m.client_id                                             AS partner_id,
+    0                                                        AS partner_id,
     date_trunc('hour', m.created_at)                       AS hour,
     COALESCE(m.provider_id, 0)                             AS provider_id,
     COALESCE(m.operator, '')                               AS operator,

@@ -65,9 +65,14 @@ export default function NetworkStatisticsPage() {
             <StatisticsKPIStrip kpis={stats.data?.kpis ?? []} />
             <div className="flex items-center justify-between px-4 py-2">
               <span className="text-xs text-gray-400">
-                {(stats.data as any)?.pagination
-                  ? `Показано ${((stats.data as any).pagination.page - 1) * (stats.data as any).pagination.page_size + 1}–${Math.min((stats.data as any).pagination.page * (stats.data as any).pagination.page_size, (stats.data as any).pagination.total_rows)} из ${(stats.data as any).pagination.total_rows}`
-                  : ''}
+                {(() => {
+                  const p = (stats.data as any)?.pagination;
+                  if (!p || !p.page || !p.page_size || !p.total_rows) return '';
+                  const from = (p.page - 1) * p.page_size + 1;
+                  const to = Math.min(p.page * p.page_size, p.total_rows);
+                  if (isNaN(from) || isNaN(to) || isNaN(p.total_rows)) return '';
+                  return `Показано ${from}–${to} из ${p.total_rows}`;
+                })()}
               </span>
               <ExportButton onExport={stats.startExport} status={stats.exportStatus} />
             </div>

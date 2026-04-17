@@ -31,7 +31,7 @@ export function StatisticsKPIStrip({ kpis }: { kpis: KPI[] }) {
           <div className={`mt-1 text-xl font-bold ${valueColor(kpi)}`}>
             {formatValue(kpi)}
           </div>
-          {kpi.delta !== 0 && (
+          {kpi.delta != null && kpi.delta !== 0 && !isNaN(kpi.delta) && (
             <div className={`mt-1 text-[11px] flex items-center gap-0.5 ${kpi.delta > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
               {kpi.delta > 0 ? '↑' : '↓'} {Math.abs(kpi.delta * 100).toFixed(1)}%
             </div>
