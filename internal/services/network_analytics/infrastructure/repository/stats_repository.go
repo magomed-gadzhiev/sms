@@ -246,7 +246,7 @@ func computeKPIs(total, delivered, failed int64, revenue, cost float64) []domain
 	return []domain.KPI{
 		{Name: "Всего", Value: float64(total)},
 		{Name: "Доставлено", Value: float64(delivered)},
-		{Name: "Доставляемость", Value: dlrRate * 100, Status: dlrStatus},
+		{Name: "Доставляемость", Value: dlrRate, Status: dlrStatus},
 		{Name: "Ошибки", Value: float64(failed)},
 		{Name: "Прибыль", Value: profit},
 	}
