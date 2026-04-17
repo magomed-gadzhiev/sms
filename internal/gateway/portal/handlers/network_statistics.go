@@ -322,7 +322,12 @@ func (h *NetworkStatisticsHandlers) StartExport(w http.ResponseWriter, r *http.R
 
 // GetExportStatus handles GET /network/export/{job_id}
 func (h *NetworkStatisticsHandlers) GetExportStatus(w http.ResponseWriter, r *http.Request) {
-	log.Info().Str("path", r.URL.Path).Msg("network_statistics: GetExportStatus called")
+	// gorilla/mux subrouter routing bug: download URL sometimes matches this handler
+	if strings.HasSuffix(r.URL.Path, "/download") {
+		h.DownloadExport(w, r)
+		return
+	}
+
 	_, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
@@ -382,15 +387,12 @@ func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *htt
 		return
 	}
 
-	log.Info().Str("job_id", jobID).Str("status", resp.Status).Str("download_url", resp.DownloadUrl).Msg("network_statistics: DownloadExport check")
-
 	if resp.Status != "done" || resp.DownloadUrl == "" {
 		respondError(w, shared.ErrInvalidInput("Экспорт ещё не готов"))
 		return
 	}
 
 	filePath := resp.DownloadUrl // DownloadUrl contains the server-side file path
-	log.Info().Str("file_path", filePath).Msg("network_statistics: DownloadExport opening file")
 	f, err := os.Open(filePath)
 	if err != nil {
 		log.Error().Err(err).Str("path", filePath).Msg("network_statistics: cannot open export file")
@@ -409,8 +411,6 @@ func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *htt
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="export-%s%s"`, jobID, ext))
-	log.Info().Str("ext", ext).Msg("network_statistics: DownloadExport serving file")
-
 	http.ServeContent(w, r, filepath.Base(filePath), time.Now(), f)
 }
 
