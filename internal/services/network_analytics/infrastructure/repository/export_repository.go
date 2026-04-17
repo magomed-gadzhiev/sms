@@ -71,6 +71,38 @@ func (r *ExportRepo) GetJob(ctx context.Context, jobID string) (*domain.ExportJo
 	return &job, nil
 }
 
+// GetPendingJobs returns up to limit jobs with status "pending", oldest first.
+func (r *ExportRepo) GetPendingJobs(ctx context.Context, limit int) ([]domain.ExportJob, error) {
+	query := `
+		SELECT id, partner_id, user_id, mode, filters, format,
+			status, COALESCE(file_path, '') as file_path,
+			COALESCE(row_count, 0) as row_count, COALESCE(error, '') as error,
+			created_at, completed_at
+		FROM export_jobs
+		WHERE status = 'pending'
+		ORDER BY created_at
+		LIMIT $1`
+
+	rows, err := r.db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get pending export jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []domain.ExportJob
+	for rows.Next() {
+		var job domain.ExportJob
+		if err := rows.Scan(
+			&job.ID, &job.PartnerID, &job.UserID, &job.Mode, &job.Filters, &job.Format,
+			&job.Status, &job.FilePath, &job.RowCount, &job.Error, &job.CreatedAt, &job.CompletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan pending export job: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs, rows.Err()
+}
+
 // UpdateJob updates the mutable fields of an export job.
 func (r *ExportRepo) UpdateJob(ctx context.Context, job *domain.ExportJob) error {
 	query := `

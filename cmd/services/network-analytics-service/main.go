@@ -31,6 +31,7 @@ func main() {
 	viper.SetDefault("GRPC_PORT", "50060")
 	viper.SetDefault("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/sms?sslmode=disable")
 	viper.SetDefault("REDIS_URL", "redis://localhost:6379/0")
+	viper.SetDefault("EXPORT_DIR", "/exports")
 
 	// PostgreSQL
 	dbPool, err := pgxpool.New(context.Background(), viper.GetString("DATABASE_URL"))
@@ -70,6 +71,10 @@ func main() {
 	go worker.RunHourlyAggregation(ctx)
 	go worker.RunSnapshotCollection(ctx)
 	log.Info().Msg("Aggregation workers started")
+
+	exportWorker := application.NewExportWorker(service, exportRepo, viper.GetString("EXPORT_DIR"), log.Logger)
+	go exportWorker.Run(ctx)
+	log.Info().Str("dir", viper.GetString("EXPORT_DIR")).Msg("Export worker started")
 
 	// gRPC server
 	grpcServer := grpc.NewServer()

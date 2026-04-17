@@ -37,6 +37,7 @@ type ExportRepository interface {
 	CreateJob(ctx context.Context, job *ExportJob) error
 	GetJob(ctx context.Context, jobID string) (*ExportJob, error)
 	UpdateJob(ctx context.Context, job *ExportJob) error
+	GetPendingJobs(ctx context.Context, limit int) ([]ExportJob, error)
 }
 
 // ViewsRepository manages saved view configurations.

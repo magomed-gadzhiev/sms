@@ -766,6 +766,9 @@ services:
       - GRPC_PORT=50060
       - DATABASE_URL=postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
+      - EXPORT_DIR=/exports
+    volumes:
+      - network-exports:/exports
     networks:
       - smpp-network
     depends_on:
@@ -1073,6 +1076,7 @@ services:
       - "18084:8082"  # HTTP (internal)
     volumes:
       - contact-uploads:/app/uploads
+      - network-exports:/exports
     environment:
       - SERVICE_NAME=portal-gateway
       - SERVICE_ENV=development
@@ -1420,5 +1424,6 @@ volumes:
   grafana-data:
   loki_data:
   contact-uploads:
+  network-exports:
   directus-uploads:
   directus-extensions:
