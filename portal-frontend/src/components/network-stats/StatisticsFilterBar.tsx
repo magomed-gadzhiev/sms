@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, BarChart3, Search, Plus, Pause, Play } from 'lucide-react';
+import { Calendar, Plus, Pause, Play } from 'lucide-react';
 import type { SharedFilter } from '../../api/networkStats';
 
 type Mode = 'stats' | 'analytics' | 'monitoring';

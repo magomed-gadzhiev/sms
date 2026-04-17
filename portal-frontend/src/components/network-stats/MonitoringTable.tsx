@@ -52,7 +52,7 @@ const COLUMNS: { key: string; header: string; align: string; render: (r: Monitor
   { key: 'health', header: '', align: 'center', render: r => <span className={`inline-block w-2 h-2 rounded-full ${healthDot(r.health)}`} /> },
 ];
 
-export function MonitoringTable({ rows, pagination, filters, onFiltersChange, onApply, onRowClick, loading }: MonitoringTableProps) {
+export function MonitoringTable({ rows, filters, onFiltersChange, onApply, onRowClick, loading }: MonitoringTableProps) {
   function handleSort(key: string) {
     const newDir = filters.sort_by === key && filters.sort_dir === 'desc' ? 'asc' : 'desc';
     onFiltersChange({ sort_by: key, sort_dir: newDir });

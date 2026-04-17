@@ -1,6 +1,6 @@
 import { X, ChevronRight, Info } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
-import type { DrillDownResponse, StatRow } from '../../api/networkStats';
+import type { DrillDownResponse } from '../../api/networkStats';
 
 interface DrillDownLevel {
   sliceType: string;

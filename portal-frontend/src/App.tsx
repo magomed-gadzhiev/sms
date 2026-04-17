@@ -63,7 +63,6 @@ import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
 import { NetworkTariffsPage } from './pages/network/NetworkTariffsPage';
-import { NetworkAnalyticsPage } from './pages/network/NetworkAnalyticsPage';
 const NetworkStatisticsPage = lazy(() => import('./pages/network/NetworkStatisticsPage'));
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
