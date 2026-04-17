@@ -114,9 +114,9 @@ export function TemplatePicker({ value, selectedTemplate, onChange }: TemplatePi
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{t.body}</p>
-                        {t.variables.length > 0 && (
+                        {(t.variables?.length ?? 0) > 0 && (
                           <p className="text-xs text-blue-600 mt-1">
-                            Переменные: {t.variables.join(', ')}
+                            Переменные: {t.variables?.join(', ')}
                           </p>
                         )}
                       </div>
