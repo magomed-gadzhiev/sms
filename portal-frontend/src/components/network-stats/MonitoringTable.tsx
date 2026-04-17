@@ -38,7 +38,7 @@ function rowBg(row: MonitorRow): string {
 }
 
 const COLUMNS: { key: string; header: string; align: string; render: (r: MonitorRow) => React.ReactNode }[] = [
-  { key: 'slice', header: 'Провайдер', align: 'left', render: r => <span className="font-medium text-blue-600">{r.slice}</span> },
+  { key: 'slice', header: 'Провайдер', align: 'left', render: r => { const s = r.slice || ''; const display = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s; return <span className="font-medium text-blue-600">{display}</span>; } },
   { key: 'throughput', header: 'msg/s', align: 'right', render: r => (r.throughput ?? 0).toFixed(0) },
   { key: 'sent', header: 'Отпр.', align: 'right', render: r => fmt(r.sent) },
   { key: 'delivered', header: 'Достав.', align: 'right', render: r => fmt(r.delivered) },

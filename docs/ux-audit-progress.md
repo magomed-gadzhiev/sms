@@ -625,6 +625,53 @@
 | Interaction chain: sort/page → API (stale closure) | ✅ исправлено (ref pattern) |
 | Interaction chain: drill-down tab → re-fetch | ✅ исправлено (setDrillDownView with fetch) |
 
+## [IN_PROGRESS] Модуль: Сетевая статистика — 5-й раунд (aggregator, /network/statistics, fix mode + инфраструктура + QA full, 2026-04-17)
+
+### Исправлено
+
+| # | Файл / Сервис | Было | Стало |
+|---|---|---|---|
+| 1 | `internal/services/network_analytics/infrastructure/repository/export_repository.go` | `GetJob` сканировал NULL-колонки `file_path`, `row_count`, `error` в non-pointer Go типы → scan error | COALESCE для всех трёх nullable колонок |
+| 2 | `internal/services/network_analytics/grpc/server.go` | `GetExportStatus`: если job не найден, `job.Status` → nil dereference panic | nil guard: возвращает `codes.NotFound` |
+| 3 | `internal/gateway/portal/handlers/network_statistics.go` | `mux.Vars(r)["job_id"]` возвращал "" из-за бага gorilla/mux subrouter → `/export/{id}/status` отвечал 400 | `exportJobIDFromRequest` fallback: парсит UUID из `r.URL.Path` |
+| 4 | `internal/gateway/portal/handlers/network_statistics.go` | gorilla/mux маршрутизировал `/export/{id}/download` на `GetExportStatus` handler (baг subrouter) → download всегда возвращал status JSON | `GetExportStatus` проверяет `strings.HasSuffix(path, "/download")` и делегирует `DownloadExport` |
+| 5 | `internal/services/network_analytics/application/export_worker.go` | Отсутствовал background worker — jobs создавались, но никогда не обрабатывались (вечный `pending`) | Создан `ExportWorker`: poll pending jobs каждые 5s, генерирует CSV из `GetStatistics`/`GetMonitoringMetrics`, сохраняет в `/exports/{job_id}.csv` |
+| 6 | `deployments/docker-compose.yml` | network-analytics-service и portal-gateway не имели shared volume → portal-gateway не мог прочитать файлы экспорта | Добавлен named volume `network-exports:/exports` в оба сервиса |
+| 7 | `cmd/services/network-analytics-service/main.go` | ExportWorker не запускался в main | `go exportWorker.Run(ctx)` добавлен после AggregationWorker |
+
+### TC итог (раунд 5)
+
+| TC | Описание | Вердикт |
+|---|---|---|
+| TC-7 | Export CSV: POST /export → polling status → GET /download | PASS ✅ CSV скачивается, content-type: text/csv, данные корректны |
+
+## [DONE] Модуль: Сетевая статистика — 4-й раунд (aggregator, /network/statistics, fix mode + QA full, 2026-04-17)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/components/network-stats/StatisticsKPIStrip.tsx` | KPI полоса показывала английские имена с бэкенда: `Pending` → 8 616 052 (без перевода) | Добавлена `KPI_LABELS` карта переводов: `pending`→«Ожидание», `total`→«Всего», `delivered`→«Доставлено», `failed`/`errors`→«Ошибки», `timeout`→«Таймаут», `revenue`→«Выручка», `profit`→«Прибыль», `cost`→«Себестоимость», `margin`→«Маржа», `dlr_rate`→«Доставляемость» |
+| 2 | `portal-frontend/src/pages/network/NetworkStatisticsPage.tsx` | Вкладка Мониторинг: `Показано undefined провайдеров` когда `total_rows=0` (proto `omitempty` — нулевые int32 опускаются в JSON) | `(stats.data as any).pagination.total_rows ?? 0` — null-safe |
+| 3 | `portal-frontend/src/api/networkStats.ts` | `filterToParams` копировал все поля фильтра включая пустые строки (`date_from:""`, `date_to:""`, `operator:""`) → POST `/export` body содержал `"date_from":""` → Go `encoding/json` не может декодировать `""` в `int64` → 400 Bad Request | Итерация через `Object.entries(f)` с пропуском пустых строк/undefined/null — только ненулевые поля попадают в тело запроса |
+| 4 | `portal-frontend/src/hooks/useNetworkStats.ts` | `setFilters` → `setFiltersState(updater)` не обновлял `filtersRef.current` синхронно → вызов `applyFilters()` сразу после `setFilters` читал СТАРЫЕ значения фильтров из ref → сортировка и пагинация теряли новые значения | `filtersRef.current = next` внутри `setFiltersState` updater — ref обновляется синхронно до следующего рендера |
+
+### Верификация в браузере
+
+| Баг | До | После | Статус |
+|---|---|---|---|
+| BUG-1 KPI перевод | `Pending: 8 616 052` | `Ожидание: 8 616 052` | ✅ |
+| BUG-2 undefined total_rows | `Показано undefined провайдеров` | `Показано 0 провайдеров` | ✅ |
+| BUG-3 export 400 с пресетом | `POST /export → 400` (body: `date_from:""`) | `POST /export → 500` (body: `period_preset:"30d"` без date_from) | ✅ (фронтенд исправлен; 500 — отдельная проблема бэкенда экспорта) |
+| BUG-4 сортировка stale | Клик по "Всего" не добавлял `sort_by` к запросу | URL: `?sort_by=total&sort_dir=desc`, запрос: `GET /statistics?period_preset=30d&sort_by=total&sort_dir=desc` | ✅ |
+
+### TC итог
+
+| TC | Описание | Вердикт |
+|---|---|---|
+| TC-7 | DrillDown: открытие + вкладки (По статусам → `detail_view=statuses`) | PASS ✅ |
+| TC-9 | Экспорт CSV с пресетом | BUG-3 воспроизведён (400) → исправлен; после деплоя 500 от бэкенда экспорта (не фронтенд) |
+
 ---
 
 ## Test Accounts

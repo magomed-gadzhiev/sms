@@ -36,7 +36,7 @@ function rowBg(row: StatRow): string {
 }
 
 const COLUMNS: { key: string; header: string; align: string; render: (r: StatRow) => React.ReactNode }[] = [
-  { key: 'slice', header: 'Срез', align: 'left', render: r => <span className="font-medium text-blue-600">{r.slice}</span> },
+  { key: 'slice', header: 'Срез', align: 'left', render: r => { const s = r.slice || ''; const display = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s; return <span className="font-medium text-blue-600">{display}</span>; } },
   { key: 'total', header: 'Всего', align: 'right', render: r => fmt(r.total) },
   { key: 'delivered', header: 'Достав.', align: 'right', render: r => <span className="text-emerald-600">{fmt(r.delivered)}</span> },
   { key: 'failed', header: 'Не достав.', align: 'right', render: r => fmt(r.failed) },
