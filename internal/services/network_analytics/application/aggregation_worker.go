@@ -38,27 +38,26 @@ func NewAggregationWorker(
 // against NULL values in optional columns.
 const rawAggQuery = `
 SELECT
-    0                                                        AS partner_id,
-    date_trunc('hour', m.created_at)                       AS hour,
-    COALESCE(m.provider_id, 0)                             AS provider_id,
-    COALESCE(m.operator, '')                               AS operator,
-    COALESCE(m.country, '')                                AS country,
-    COALESCE(m.channel, '')                                AS channel,
-    COALESCE(a.login, '')                                  AS login,
-    COALESCE(m.sender_name, '')                            AS sender_name,
-    COALESCE(m.traffic_type, '')                           AS traffic_type,
-    COALESCE(m.method, '')                                 AS method,
-    COUNT(*)                                               AS total,
-    COUNT(*) FILTER (WHERE m.status = 'sent')              AS sent,
-    COUNT(*) FILTER (WHERE m.status = 'delivered')         AS delivered,
-    COUNT(*) FILTER (WHERE m.status = 'failed')            AS failed,
-    COUNT(*) FILTER (WHERE m.status = 'pending')           AS pending,
-    COUNT(*) FILTER (WHERE m.status = 'expired')           AS timeout,
-    COUNT(*) FILTER (WHERE m.status IN ('failed','rejected')) AS error,
-    COALESCE(SUM(m.price), 0)                              AS revenue,
-    COALESCE(SUM(m.cost), 0)                               AS cost
+    0                                                          AS partner_id,
+    date_trunc('hour', m.created_at)                           AS hour,
+    0                                                          AS provider_id,
+    COALESCE(m.operator_id::text, '')                          AS operator,
+    COALESCE(m.country_id::text, '')                           AS country,
+    COALESCE(m.channel, '')                                    AS channel,
+    ''                                                         AS login,
+    COALESCE(m.source, '')                                     AS sender_name,
+    COALESCE(m.service_type, '')                               AS traffic_type,
+    COALESCE(m.send_method, '')                                AS method,
+    COUNT(*)                                                   AS total,
+    COUNT(*) FILTER (WHERE m.status = 'sent')                  AS sent,
+    COUNT(*) FILTER (WHERE m.status = 'delivered')             AS delivered,
+    COUNT(*) FILTER (WHERE m.status = 'failed')                AS failed,
+    COUNT(*) FILTER (WHERE m.status = 'pending')               AS pending,
+    COUNT(*) FILTER (WHERE m.status = 'expired')               AS timeout,
+    COUNT(*) FILTER (WHERE m.status IN ('failed','rejected'))  AS error,
+    0                                                          AS revenue,
+    0                                                          AS cost
 FROM messages m
-LEFT JOIN accounts a ON a.id = m.client_id
 WHERE m.created_at >= $1 AND m.created_at < $2
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 `
