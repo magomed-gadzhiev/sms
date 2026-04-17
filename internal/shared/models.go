@@ -270,6 +270,10 @@ type Message struct {
 	ScheduledAt    *time.Time    `json:"scheduled_at,omitempty" db:"scheduled_at"`
 	ExpiredAt      *time.Time    `json:"expired_at,omitempty" db:"expired_at"`
 	SegmentCount   int           `json:"segment_count" db:"segment_count"`
+	Channel        NullString    `json:"channel,omitempty" db:"channel"`
+	OperatorID     *uuid.UUID    `json:"operator_id,omitempty" db:"operator_id"`
+	CountryID      *uuid.UUID    `json:"country_id,omitempty" db:"country_id"`
+	SendMethod     NullString    `json:"send_method,omitempty" db:"send_method"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }
