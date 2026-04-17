@@ -25,10 +25,6 @@ func NewServer(service *application.NetworkAnalyticsService) *Server {
 
 // GetStatistics returns aggregated statistics rows with KPIs and pagination.
 func (s *Server) GetStatistics(ctx context.Context, req *networkanalyticsv1.StatisticsRequest) (*networkanalyticsv1.StatisticsResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
-
 	filter := protoFilterToDomain(req.Filter)
 	filter.PartnerID = req.PartnerId
 	filter.Normalize()
@@ -47,10 +43,6 @@ func (s *Server) GetStatistics(ctx context.Context, req *networkanalyticsv1.Stat
 
 // GetAnalyticsSummary returns analytics KPIs, trends, signals and rows.
 func (s *Server) GetAnalyticsSummary(ctx context.Context, req *networkanalyticsv1.AnalyticsRequest) (*networkanalyticsv1.AnalyticsResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
-
 	filter := protoFilterToDomain(req.Filter)
 	filter.PartnerID = req.PartnerId
 	filter.Normalize()
@@ -72,10 +64,6 @@ func (s *Server) GetAnalyticsSummary(ctx context.Context, req *networkanalyticsv
 
 // GetMonitoringMetrics returns real-time monitoring data for network providers.
 func (s *Server) GetMonitoringMetrics(ctx context.Context, req *networkanalyticsv1.MonitoringRequest) (*networkanalyticsv1.MonitoringResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
-
 	filter := protoFilterToDomain(req.Filter)
 	filter.PartnerID = req.PartnerId
 	filter.Normalize()
@@ -103,9 +91,6 @@ func (s *Server) GetMonitoringMetrics(ctx context.Context, req *networkanalytics
 
 // GetDrillDown returns detailed breakdown for a specific slice value.
 func (s *Server) GetDrillDown(ctx context.Context, req *networkanalyticsv1.DrillDownRequest) (*networkanalyticsv1.DrillDownResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
 	if req.SliceType == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "slice_type is required")
 	}
@@ -139,9 +124,6 @@ func (s *Server) GetDrillDown(ctx context.Context, req *networkanalyticsv1.Drill
 
 // StartExport initiates an async export job and returns the job ID.
 func (s *Server) StartExport(ctx context.Context, req *networkanalyticsv1.ExportRequest) (*networkanalyticsv1.ExportResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
 	if req.Format == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "format is required")
 	}
@@ -193,10 +175,6 @@ func (s *Server) GetExportStatus(ctx context.Context, req *networkanalyticsv1.Ex
 
 // ListSavedViews returns all saved views for a partner/user combination.
 func (s *Server) ListSavedViews(ctx context.Context, req *networkanalyticsv1.ListViewsRequest) (*networkanalyticsv1.ListViewsResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
-
 	views, err := s.service.ListViews(ctx, req.PartnerId, req.UserId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list saved views: %v", err)
@@ -214,9 +192,6 @@ func (s *Server) ListSavedViews(ctx context.Context, req *networkanalyticsv1.Lis
 
 // SaveView creates or updates a saved view configuration.
 func (s *Server) SaveView(ctx context.Context, req *networkanalyticsv1.SaveViewRequest) (*networkanalyticsv1.SaveViewResponse, error) {
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
 	if req.View == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "view is required")
 	}
@@ -241,10 +216,6 @@ func (s *Server) DeleteView(ctx context.Context, req *networkanalyticsv1.DeleteV
 	if req.Id == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "id is required")
 	}
-	if req.PartnerId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-	}
-
 	if err := s.service.DeleteView(ctx, req.Id, req.PartnerId, req.UserId); err != nil {
 		return nil, status.Errorf(codes.Internal, "delete view: %v", err)
 	}
