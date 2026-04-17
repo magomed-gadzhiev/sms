@@ -93,7 +93,7 @@ function buildNetworkNavGroups(moderationCount: number): NavGroup[] {
         },
         { path: '/network/routing', label: 'Маршрутизация' },
         { path: '/network/tariffs', label: 'Тарифы' },
-        { path: '/network/analytics', label: 'Аналитика' },
+        { path: '/network/statistics', label: 'Статистика' },
       ],
     },
   ];
