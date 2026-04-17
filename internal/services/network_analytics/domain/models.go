@@ -23,12 +23,23 @@ const (
 	TimeoutRateDanger  = 0.10
 )
 
-// Allowed groupings and their max period in hours
+// Allowed groupings and their max period in hours (time-based groupings only)
 var GroupByMaxPeriodHours = map[string]int{
 	"5min":  24,
 	"15min": 24 * 7,
 	"hour":  24 * 30,
 	"day":   24 * 366,
+	"month": 24 * 365 * 5,  // up to 5 years
+	"year":  24 * 365 * 10, // up to 10 years
+}
+
+// GroupByDimensional lists non-time groupings that have no period limit
+var GroupByDimensional = map[string]bool{
+	"provider": true,
+	"operator": true,
+	"channel":  true,
+	"login":    true,
+	"country":  true,
 }
 
 // SharedFilter is the unified filter for all three modes.
@@ -69,7 +80,7 @@ type SharedFilter struct {
 const DefaultPageSize = 25
 const MaxPageSize = 100
 
-// Normalize sets defaults and clamps values.
+// Normalize sets defaults, resolves period presets to concrete dates and clamps values.
 func (f *SharedFilter) Normalize() {
 	if f.PageSize <= 0 {
 		f.PageSize = DefaultPageSize
@@ -82,6 +93,53 @@ func (f *SharedFilter) Normalize() {
 	}
 	if f.SortDir != "asc" {
 		f.SortDir = "desc"
+	}
+
+	// Resolve period preset to DateFrom/DateTo if dates are not explicitly set.
+	if f.PeriodPreset != "" && f.DateFrom.IsZero() && f.DateTo.IsZero() {
+		now := time.Now().UTC()
+		todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+		switch f.PeriodPreset {
+		case "today":
+			f.DateFrom = todayStart
+			f.DateTo = now
+		case "yesterday":
+			f.DateFrom = todayStart.AddDate(0, 0, -1)
+			f.DateTo = todayStart
+		case "7d":
+			f.DateFrom = todayStart.AddDate(0, 0, -7)
+			f.DateTo = now
+		case "30d":
+			f.DateFrom = todayStart.AddDate(0, 0, -30)
+			f.DateTo = now
+		case "month":
+			f.DateFrom = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+			f.DateTo = now
+		case "prev_month":
+			firstOfThisMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+			f.DateFrom = firstOfThisMonth.AddDate(0, -1, 0)
+			f.DateTo = firstOfThisMonth
+		case "year":
+			f.DateFrom = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+			f.DateTo = now
+		case "15m":
+			f.DateFrom = now.Add(-15 * time.Minute)
+			f.DateTo = now
+		case "60m":
+			f.DateFrom = now.Add(-60 * time.Minute)
+			f.DateTo = now
+		case "24h":
+			f.DateFrom = now.Add(-24 * time.Hour)
+			f.DateTo = now
+		}
+	}
+
+	// Default to 7 days if no dates at all
+	if f.DateFrom.IsZero() && f.DateTo.IsZero() {
+		now := time.Now().UTC()
+		f.DateFrom = now.AddDate(0, 0, -7)
+		f.DateTo = now
 	}
 }
 

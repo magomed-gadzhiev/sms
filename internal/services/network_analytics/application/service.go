@@ -36,9 +36,13 @@ func validateFilter(filter *domain.SharedFilter) error {
 	if filter.GroupBy == "" {
 		return nil
 	}
+	// Dimensional (non-time) groupings have no period limit
+	if domain.GroupByDimensional[filter.GroupBy] {
+		return nil
+	}
 	maxHours, ok := domain.GroupByMaxPeriodHours[filter.GroupBy]
 	if !ok {
-		return fmt.Errorf("invalid group_by value %q: allowed values are 5min, 15min, hour, day", filter.GroupBy)
+		return fmt.Errorf("invalid group_by value %q: allowed values are 5min, 15min, hour, day, provider, operator, channel, login, country", filter.GroupBy)
 	}
 	periodHours := filter.DateTo.Sub(filter.DateFrom).Hours()
 	if periodHours > float64(maxHours) {

@@ -67,7 +67,6 @@ const GROUPINGS = [
   { value: 'login', label: 'по логинам' },
   { value: 'operator', label: 'по операторам' },
   { value: 'country', label: 'по странам' },
-  { value: 'manager', label: 'по менеджерам' },
 ];
 
 export function StatisticsFilterBar({ mode, filters, onFiltersChange, onApply, loading, polling, operators = [] }: StatisticsFilterBarProps) {

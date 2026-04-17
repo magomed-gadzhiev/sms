@@ -20,9 +20,10 @@ func NewStatsRepo(db *pgxpool.Pool) *StatsRepo {
 	return &StatsRepo{db: db}
 }
 
-// sliceColumn maps a group_by value to the corresponding table column name.
+// sliceColumn maps a group_by value to the corresponding SQL expression.
 func sliceColumn(groupBy string) string {
 	switch groupBy {
+	// Dimensional groupings
 	case "provider":
 		return "provider_id::text"
 	case "operator":
@@ -39,6 +40,19 @@ func sliceColumn(groupBy string) string {
 		return "traffic_type"
 	case "method":
 		return "method"
+	// Time-based groupings
+	case "5min":
+		return "(date_trunc('hour', hour) + INTERVAL '5 min' * FLOOR(EXTRACT(MINUTE FROM hour) / 5))::text"
+	case "15min":
+		return "(date_trunc('hour', hour) + INTERVAL '15 min' * FLOOR(EXTRACT(MINUTE FROM hour) / 15))::text"
+	case "hour":
+		return "date_trunc('hour', hour)::text"
+	case "day":
+		return "date_trunc('day', hour)::text"
+	case "month":
+		return "date_trunc('month', hour)::text"
+	case "year":
+		return "date_trunc('year', hour)::text"
 	default:
 		return "operator"
 	}
