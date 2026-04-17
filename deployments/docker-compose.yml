@@ -522,6 +522,8 @@ services:
       - "2112:2112"  # Metrics (конфликт с client-service - требуется исправление в коде)
     environment:
       - SERVICE_NAME=auth-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
       - GRPC_PORT=9101
       - HTTP_PORT=2112
       - API_GRPC_HOST=0.0.0.0
@@ -565,6 +567,8 @@ services:
       - "2113:2113"  # Metrics
     environment:
       - SERVICE_NAME=messaging-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=128MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=pgbouncer
       - POSTGRES_PORT=6432
@@ -614,6 +618,8 @@ services:
       - "2114:2114"  # Metrics (конфликт с provider-service - требуется исправление в коде)
     environment:
       - SERVICE_NAME=routing-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=pgbouncer
       - POSTGRES_PORT=6432
@@ -655,6 +661,8 @@ services:
     environment:
       - SERVICE_NAME=provider-service
       # GRPC_PORT не поддерживается в текущем коде - требуется обновление
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -691,6 +699,8 @@ services:
       - "2116:2112"  # Metrics (host port changed to avoid conflict with auth-service)
     environment:
       - SERVICE_NAME=client-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
       - GRPC_PORT=9095
       - HTTP_PORT=2112
       - API_GRPC_HOST=0.0.0.0
@@ -730,6 +740,8 @@ services:
       - "2117:2117"  # Metrics
     environment:
       - SERVICE_NAME=analytics-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -763,6 +775,8 @@ services:
       - "50060:50060"  # gRPC
     environment:
       - SERVICE_NAME=network-analytics-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
       - GRPC_PORT=50060
       - DATABASE_URL=postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
@@ -792,6 +806,8 @@ services:
       - "2118:2118"  # Metrics
     environment:
       - SERVICE_NAME=billing-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -826,6 +842,8 @@ services:
       - "2119:2119"  # Metrics
     environment:
       - SERVICE_NAME=webhook-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -860,6 +878,8 @@ services:
       - "2120:2120"
     environment:
       - SERVICE_NAME=template-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=smpp
@@ -893,6 +913,8 @@ services:
       - contact-uploads:/root/uploads
     environment:
       - SERVICE_NAME=contact-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=smpp
@@ -924,6 +946,8 @@ services:
       - "2131:2131"
     environment:
       - SERVICE_NAME=campaign-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=smpp
@@ -962,6 +986,8 @@ services:
       - "2121:2121"  # Metrics
     environment:
       - SERVICE_NAME=tarification-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -999,6 +1025,8 @@ services:
       - "2132:2132"  # Metrics
     environment:
       - SERVICE_NAME=cascade-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - GRPC_PORT=9110
       - METRICS_PORT=2132
       - ROUTING_SERVICE_ADDR=routing-service:9093
@@ -1049,6 +1077,8 @@ services:
       - "2122:2122"  # Metrics
     environment:
       - SERVICE_NAME=audit-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=smpp
@@ -1079,6 +1109,8 @@ services:
       - network-exports:/exports
     environment:
       - SERVICE_NAME=portal-gateway
+      - GOMAXPROCS=2
+      - GOMEMLIMIT=256MiB
       - SERVICE_ENV=development
       - PORTAL_HTTP_PORT=8082
       - AUTH_SERVICE_ADDR=auth-service:9101
@@ -1172,6 +1204,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
       ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
+      ZOOKEEPER_SERVER_JVMFLAGS: "-Xmx128m -Xms64m"
     networks:
       - smpp-network
     volumes:
@@ -1193,6 +1226,7 @@ services:
       - "9092:29092"
     environment:
       KAFKA_BROKER_ID: 1
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://72.56.232.202:9092
