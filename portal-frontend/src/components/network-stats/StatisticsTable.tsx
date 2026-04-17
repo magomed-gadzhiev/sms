@@ -65,14 +65,14 @@ export function StatisticsTable({ rows, pagination, filters, onFiltersChange, on
   // Compute totals
   const totals = rows.reduce(
     (acc, r) => ({
-      total: acc.total + r.total,
-      delivered: acc.delivered + r.delivered,
-      failed: acc.failed + r.failed,
-      pending: acc.pending + r.pending,
-      timeout: acc.timeout + r.timeout,
-      error: acc.error + r.error,
-      revenue: acc.revenue + r.revenue,
-      profit: acc.profit + r.profit,
+      total: acc.total + (r.total ?? 0),
+      delivered: acc.delivered + (r.delivered ?? 0),
+      failed: acc.failed + (r.failed ?? 0),
+      pending: acc.pending + (r.pending ?? 0),
+      timeout: acc.timeout + (r.timeout ?? 0),
+      error: acc.error + (r.error ?? 0),
+      revenue: acc.revenue + (r.revenue ?? 0),
+      profit: acc.profit + (r.profit ?? 0),
     }),
     { total: 0, delivered: 0, failed: 0, pending: 0, timeout: 0, error: 0, revenue: 0, profit: 0 },
   );
