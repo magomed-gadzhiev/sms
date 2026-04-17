@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -28,6 +29,24 @@ type NetworkStatisticsHandlers struct {
 // NewNetworkStatisticsHandlers creates a new NetworkStatisticsHandlers.
 func NewNetworkStatisticsHandlers(client networkanalyticsv1.NetworkAnalyticsServiceClient) *NetworkStatisticsHandlers {
 	return &NetworkStatisticsHandlers{client: client}
+}
+
+// exportJobIDFromRequest extracts job_id from mux vars or URL path as fallback.
+// Path pattern: .../export/{job_id}/status or .../export/{job_id}/download
+func exportJobIDFromRequest(r *http.Request) string {
+	if id := mux.Vars(r)["job_id"]; id != "" {
+		return id
+	}
+	parts := strings.Split(r.URL.Path, "/")
+	for i, p := range parts {
+		if p == "export" && i+1 < len(parts) {
+			next := parts[i+1]
+			if next != "" && next != "status" && next != "download" {
+				return next
+			}
+		}
+	}
+	return ""
 }
 
 func (h *NetworkStatisticsHandlers) checkClient(w http.ResponseWriter) bool {
@@ -312,7 +331,7 @@ func (h *NetworkStatisticsHandlers) GetExportStatus(w http.ResponseWriter, r *ht
 		return
 	}
 
-	jobID := mux.Vars(r)["job_id"]
+	jobID := exportJobIDFromRequest(r)
 	if jobID == "" {
 		respondError(w, shared.ErrInvalidInput("job_id обязателен"))
 		return
@@ -344,7 +363,7 @@ func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *htt
 		return
 	}
 
-	jobID := mux.Vars(r)["job_id"]
+	jobID := exportJobIDFromRequest(r)
 	if jobID == "" {
 		respondError(w, shared.ErrInvalidInput("job_id обязателен"))
 		return
