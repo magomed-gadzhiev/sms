@@ -30,17 +30,17 @@ func (r *ExportRepo) CreateJob(ctx context.Context, job *domain.ExportJob) error
 
 	query := `
 		INSERT INTO export_jobs (
-			id, partner_id, user_id, mode, filters, format,
+			partner_id, user_id, mode, filters, format,
 			status, file_path, row_count, error, created_at, completed_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6,
-			$7, $8, $9, $10, $11, $12
-		)`
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9, $10, $11
+		) RETURNING id`
 
-	_, err := r.db.Exec(ctx, query,
-		job.ID, job.PartnerID, job.UserID, job.Mode, job.Filters, job.Format,
+	err := r.db.QueryRow(ctx, query,
+		job.PartnerID, job.UserID, job.Mode, job.Filters, job.Format,
 		job.Status, job.FilePath, job.RowCount, job.Error, job.CreatedAt, job.CompletedAt,
-	)
+	).Scan(&job.ID)
 	if err != nil {
 		return fmt.Errorf("create export job: %w", err)
 	}

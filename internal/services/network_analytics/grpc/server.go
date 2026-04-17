@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -132,10 +133,18 @@ func (s *Server) StartExport(ctx context.Context, req *networkanalyticsv1.Export
 	filter.PartnerID = req.PartnerId
 	filter.Normalize()
 
+	filtersJSON := "{}"
+	if req.Filter != nil {
+		if b, err := json.Marshal(req.Filter); err == nil {
+			filtersJSON = string(b)
+		}
+	}
+
 	job := &domain.ExportJob{
 		PartnerID: req.PartnerId,
 		UserID:    req.UserId,
 		Mode:      req.Mode,
+		Filters:   filtersJSON,
 		Format:    req.Format,
 		Status:    "pending",
 	}
