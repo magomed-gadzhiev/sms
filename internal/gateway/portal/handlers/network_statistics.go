@@ -27,6 +27,20 @@ func NewNetworkStatisticsHandlers(client networkanalyticsv1.NetworkAnalyticsServ
 	return &NetworkStatisticsHandlers{client: client}
 }
 
+func (h *NetworkStatisticsHandlers) checkClient(w http.ResponseWriter) bool {
+	if h.client == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"kpis": []interface{}{},
+			"rows": []interface{}{},
+			"pagination": map[string]int{"page": 1, "page_size": 25, "total_rows": 0, "total_pages": 0},
+		})
+		return false
+	}
+	return true
+}
+
 // parseSharedFilter reads all filter query params from the request.
 func parseSharedFilter(r *http.Request) *networkanalyticsv1.SharedFilter {
 	q := r.URL.Query()
@@ -127,6 +141,9 @@ func (h *NetworkStatisticsHandlers) GetStatistics(w http.ResponseWriter, r *http
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
+	if !h.checkClient(w) {
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
@@ -149,6 +166,9 @@ func (h *NetworkStatisticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.
 	_, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if !h.checkClient(w) {
 		return
 	}
 
@@ -303,6 +323,9 @@ func (h *NetworkStatisticsHandlers) ListViews(w http.ResponseWriter, r *http.Req
 	_, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if !h.checkClient(w) {
 		return
 	}
 
