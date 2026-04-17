@@ -381,12 +381,15 @@ func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *htt
 		return
 	}
 
+	log.Info().Str("job_id", jobID).Str("status", resp.Status).Str("download_url", resp.DownloadUrl).Msg("network_statistics: DownloadExport check")
+
 	if resp.Status != "done" || resp.DownloadUrl == "" {
 		respondError(w, shared.ErrInvalidInput("Экспорт ещё не готов"))
 		return
 	}
 
 	filePath := resp.DownloadUrl // DownloadUrl contains the server-side file path
+	log.Info().Str("file_path", filePath).Msg("network_statistics: DownloadExport opening file")
 	f, err := os.Open(filePath)
 	if err != nil {
 		log.Error().Err(err).Str("path", filePath).Msg("network_statistics: cannot open export file")
@@ -405,6 +408,7 @@ func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *htt
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="export-%s%s"`, jobID, ext))
+	log.Info().Str("ext", ext).Msg("network_statistics: DownloadExport serving file")
 
 	http.ServeContent(w, r, filepath.Base(filePath), time.Now(), f)
 }
