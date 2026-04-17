@@ -3,7 +3,6 @@ package portal
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -80,11 +79,9 @@ type ServiceAddresses struct {
 func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 	clients := &ServiceClients{}
 
-	// Настройки для gRPC подключений
+	// Настройки для gRPC подключений (lazy — не блокируем при недоступности сервиса)
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithTimeout(5 * time.Second),
 		grpc.WithUnaryInterceptor(grpcapi.TraceUnaryClientInterceptor()),
 	}
 
