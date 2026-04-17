@@ -111,7 +111,11 @@ export function StatisticsFilterBar({ mode, filters, onFiltersChange, onApply, l
         {presets.map(p => (
           <button
             key={p.value}
-            onClick={() => onFiltersChange({ period_preset: p.value })}
+            onClick={() => {
+              onFiltersChange({ period_preset: p.value, date_from: '', date_to: '' });
+              // Auto-apply when selecting a period preset
+              setTimeout(() => onApply(), 0);
+            }}
             className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
               activePreset === p.value
                 ? 'bg-blue-50 border-blue-200 text-blue-600'

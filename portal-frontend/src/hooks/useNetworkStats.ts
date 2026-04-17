@@ -66,7 +66,7 @@ export function useNetworkStats() {
   // Drill-down
   const [drillDown, setDrillDown] = useState<DrillDownResponse | null>(null);
   const [drillDownStack, setDrillDownStack] = useState<DrillDownLevel[]>([]);
-  const [drillDownView, setDrillDownView] = useState('operators');
+  const [drillDownView, setDrillDownViewState] = useState('operators');
   const [drillDownLoading, setDrillDownLoading] = useState(false);
 
   // Saved views
@@ -80,25 +80,34 @@ export function useNetworkStats() {
   // Abort controller
   const abortRef = useRef<AbortController | null>(null);
 
-  // Fetch data based on current mode
+  // Keep a ref to latest filters & mode so fetchData always reads fresh values
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  // Fetch data based on current mode (always reads latest filters via ref)
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const currentFilters = filtersRef.current;
+    const currentMode = modeRef.current;
+
     setLoading(true);
     setError(null);
     try {
       let result: AnyResponse;
-      switch (mode) {
+      switch (currentMode) {
         case 'analytics':
-          result = await networkStatsApi.getAnalytics(filters);
+          result = await networkStatsApi.getAnalytics(currentFilters);
           break;
         case 'monitoring':
-          result = await networkStatsApi.getMonitoring(filters);
+          result = await networkStatsApi.getMonitoring(currentFilters);
           break;
         default:
-          result = await networkStatsApi.getStatistics(filters);
+          result = await networkStatsApi.getStatistics(currentFilters);
       }
       if (!controller.signal.aborted) {
         setData(result);
@@ -112,7 +121,7 @@ export function useNetworkStats() {
         setLoading(false);
       }
     }
-  }, [mode, filters]);
+  }, []);
 
   // Monitoring polling
   const polling = usePolling(fetchData, 10000);
@@ -150,15 +159,20 @@ export function useNetworkStats() {
   const setFilters = useCallback((partial: Partial<SharedFilter>) => {
     setFiltersState(prev => {
       const next = { ...prev, ...partial };
+      // Reset page to 1 when non-pagination filters change
+      const nonPagKeys = Object.keys(partial).filter(k => k !== 'page' && k !== 'page_size');
+      if (nonPagKeys.length > 0 && !('page' in partial)) {
+        next.page = 1;
+      }
       setIsViewModified(true);
       return next;
     });
   }, []);
 
   const applyFilters = useCallback(() => {
-    setSearchParams(filtersToParams(mode, filters), { replace: true });
+    setSearchParams(filtersToParams(modeRef.current, filtersRef.current), { replace: true });
     fetchData();
-  }, [mode, filters, setSearchParams, fetchData]);
+  }, [setSearchParams, fetchData]);
 
   // --- Drill-down ---
 
@@ -216,6 +230,27 @@ export function useNetworkStats() {
       setDrillDownLoading(false);
     }
   }, [drillDownStack, filters, drillDownView]);
+
+  // Re-fetch drill-down data when the active tab (detail_view) changes
+  const setDrillDownView = useCallback((view: string) => {
+    setDrillDownViewState(view);
+    // Re-fetch if we have an active drill-down
+    const stack = drillDownStack;
+    if (stack.length === 0) return;
+    const target = stack[stack.length - 1];
+    const parent = stack.length > 1 ? stack[stack.length - 2] : undefined;
+    setDrillDownLoading(true);
+    networkStatsApi.getDrillDown(
+      filtersRef.current, target.sliceType, target.sliceValue, view,
+      parent?.sliceType, parent?.sliceValue,
+    ).then(result => {
+      setDrillDown(result);
+    }).catch((err: any) => {
+      setError(err?.message || 'Ошибка загрузки детализации');
+    }).finally(() => {
+      setDrillDownLoading(false);
+    });
+  }, [drillDownStack]);
 
   const closeDrillDown = useCallback(() => {
     setDrillDown(null);

@@ -3,7 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -195,6 +198,9 @@ func (h *NetworkStatisticsHandlers) GetMonitoring(w http.ResponseWriter, r *http
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
+	if !h.checkClient(w) {
+		return
+	}
 
 	hideHealthy := false
 	if v := r.URL.Query().Get("hide_healthy"); v != "" {
@@ -223,6 +229,9 @@ func (h *NetworkStatisticsHandlers) GetDrillDown(w http.ResponseWriter, r *http.
 	_, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if !h.checkClient(w) {
 		return
 	}
 
@@ -263,6 +272,9 @@ func (h *NetworkStatisticsHandlers) StartExport(w http.ResponseWriter, r *http.R
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
+	if !h.checkClient(w) {
+		return
+	}
 
 	var body startExportBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -296,6 +308,9 @@ func (h *NetworkStatisticsHandlers) GetExportStatus(w http.ResponseWriter, r *ht
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
+	if !h.checkClient(w) {
+		return
+	}
 
 	jobID := mux.Vars(r)["job_id"]
 	if jobID == "" {
@@ -316,6 +331,63 @@ func (h *NetworkStatisticsHandlers) GetExportStatus(w http.ResponseWriter, r *ht
 	}
 
 	writeJSON(w, resp)
+}
+
+// DownloadExport handles GET /network/export/{job_id}/download — streams the exported file.
+func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if !h.checkClient(w) {
+		return
+	}
+
+	jobID := mux.Vars(r)["job_id"]
+	if jobID == "" {
+		respondError(w, shared.ErrInvalidInput("job_id обязателен"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
+	defer cancel()
+
+	resp, err := h.client.GetExportStatus(ctx, &networkanalyticsv1.ExportStatusRequest{
+		JobId: jobID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("job_id", jobID).Msg("network_statistics: DownloadExport status check failed")
+		respondGRPCError(w, err)
+		return
+	}
+
+	if resp.Status != "done" || resp.DownloadUrl == "" {
+		respondError(w, shared.ErrInvalidInput("Экспорт ещё не готов"))
+		return
+	}
+
+	filePath := resp.DownloadUrl // DownloadUrl contains the server-side file path
+	f, err := os.Open(filePath)
+	if err != nil {
+		log.Error().Err(err).Str("path", filePath).Msg("network_statistics: cannot open export file")
+		respondError(w, shared.ErrInternalServer("Файл экспорта не найден"))
+		return
+	}
+	defer f.Close()
+
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".csv":
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	case ".xlsx":
+		w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	default:
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="export-%s%s"`, jobID, ext))
+
+	http.ServeContent(w, r, filepath.Base(filePath), time.Now(), f)
 }
 
 // ListViews handles GET /network/views
@@ -357,6 +429,9 @@ func (h *NetworkStatisticsHandlers) SaveView(w http.ResponseWriter, r *http.Requ
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
+	if !h.checkClient(w) {
+		return
+	}
 
 	var body saveViewBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -390,6 +465,9 @@ func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Re
 	_, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	if !h.checkClient(w) {
 		return
 	}
 

@@ -598,6 +598,35 @@
 
 ---
 
+## [DONE] Модуль: Сетевая статистика — 3-й раунд (aggregator, /network/statistics, fix mode + инфраструктура + QA full, 2026-04-17)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/components/network-stats/StatisticsFilterBar.tsx` | Клик по пресету периода (`7 дней`, `30 дней` и т.д.) вызывал `onFiltersChange({ period_preset: p.value })` без очистки `date_from`/`date_to` → бэкенд `Normalize()` проверяет `DateFrom.IsZero() && DateTo.IsZero()` и игнорировал пресет если были старые кастомные даты | `onFiltersChange({ period_preset: p.value, date_from: '', date_to: '' })` — старые даты очищаются |
+| 2 | `portal-frontend/src/hooks/useNetworkStats.ts` | `handleSort` и `handlePageChange` в таблицах вызывали `onFiltersChange` + `onApply` в одном event handler → `applyFilters` использовал stale closure `filters` → сортировка и пагинация отправляли запрос со СТАРЫМИ значениями | `filtersRef` + `modeRef` — `fetchData` и `applyFilters` всегда читают актуальные значения через ref |
+| 3 | `portal-frontend/src/hooks/useNetworkStats.ts` | Изменение фильтров (оператор, канал, статус) не сбрасывало `page` на 1 → на высоких страницах пользователь видел пустую таблицу | `setFilters` автоматически сбрасывает `page=1` при изменении не-пагинационных фильтров |
+| 4 | `internal/gateway/portal/handlers/network_statistics.go` | 6 handlers без `checkClient()`: `GetDrillDown`, `StartExport`, `GetExportStatus`, `DownloadExport`, `SaveView`, `DeleteView` → nil dereference panic при отсутствии gRPC-клиента | Добавлен `h.checkClient(w)` во все 6 handlers — graceful 503 вместо паники |
+| 5 | `portal-frontend/src/hooks/useNetworkStats.ts` | Смена вкладки в drill-down drawer (По операторам → По статусам → По ошибкам) вызывала `setDrillDownView` без перезапроса → все вкладки показывали одинаковые данные | `setDrillDownView` теперь вызывает `getDrillDown(filters, ..., view)` с новым `detail_view` |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| 10 маршрутов (statistics/analytics-summary/monitoring/drilldown/export/views) | ✅ все совпадают frontend ↔ backend |
+| `checkClient()` во всех 10 handlers | ✅ исправлено в этом раунде |
+| Proto `networkanalyticsv1`: 9 RPC ↔ 10 handlers | ✅ |
+| Миграция 000102: 4 таблицы + индексы + seed | ✅ |
+| Auth: все handlers проверяют `GetClientID` | ✅ |
+| TypeScript build: `tsc --noEmit` OK | ✅ |
+| Go build: `go build ./internal/gateway/portal/...` OK | ✅ |
+| Interaction chain: period preset → API → SQL | ✅ исправлено (date_from/date_to очищаются) |
+| Interaction chain: sort/page → API (stale closure) | ✅ исправлено (ref pattern) |
+| Interaction chain: drill-down tab → re-fetch | ✅ исправлено (setDrillDownView with fetch) |
+
+---
+
 ## Test Accounts
 
 | Email | Роль | Client | Назначение |
