@@ -19,15 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NetworkAnalyticsService_GetStatistics_FullMethodName      = "/network_analytics.v1.NetworkAnalyticsService/GetStatistics"
-	NetworkAnalyticsService_GetAnalyticsSummary_FullMethodName = "/network_analytics.v1.NetworkAnalyticsService/GetAnalyticsSummary"
+	NetworkAnalyticsService_GetStatistics_FullMethodName        = "/network_analytics.v1.NetworkAnalyticsService/GetStatistics"
+	NetworkAnalyticsService_GetAnalyticsSummary_FullMethodName  = "/network_analytics.v1.NetworkAnalyticsService/GetAnalyticsSummary"
 	NetworkAnalyticsService_GetMonitoringMetrics_FullMethodName = "/network_analytics.v1.NetworkAnalyticsService/GetMonitoringMetrics"
-	NetworkAnalyticsService_GetDrillDown_FullMethodName        = "/network_analytics.v1.NetworkAnalyticsService/GetDrillDown"
-	NetworkAnalyticsService_StartExport_FullMethodName         = "/network_analytics.v1.NetworkAnalyticsService/StartExport"
-	NetworkAnalyticsService_GetExportStatus_FullMethodName     = "/network_analytics.v1.NetworkAnalyticsService/GetExportStatus"
-	NetworkAnalyticsService_ListSavedViews_FullMethodName      = "/network_analytics.v1.NetworkAnalyticsService/ListSavedViews"
-	NetworkAnalyticsService_SaveView_FullMethodName            = "/network_analytics.v1.NetworkAnalyticsService/SaveView"
-	NetworkAnalyticsService_DeleteView_FullMethodName          = "/network_analytics.v1.NetworkAnalyticsService/DeleteView"
+	NetworkAnalyticsService_GetDrillDown_FullMethodName         = "/network_analytics.v1.NetworkAnalyticsService/GetDrillDown"
+	NetworkAnalyticsService_StartExport_FullMethodName          = "/network_analytics.v1.NetworkAnalyticsService/StartExport"
+	NetworkAnalyticsService_GetExportStatus_FullMethodName      = "/network_analytics.v1.NetworkAnalyticsService/GetExportStatus"
+	NetworkAnalyticsService_ListSavedViews_FullMethodName       = "/network_analytics.v1.NetworkAnalyticsService/ListSavedViews"
+	NetworkAnalyticsService_SaveView_FullMethodName             = "/network_analytics.v1.NetworkAnalyticsService/SaveView"
+	NetworkAnalyticsService_DeleteView_FullMethodName           = "/network_analytics.v1.NetworkAnalyticsService/DeleteView"
 )
 
 // NetworkAnalyticsServiceClient is the client API for NetworkAnalyticsService service.

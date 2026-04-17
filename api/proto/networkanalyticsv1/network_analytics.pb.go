@@ -15,11 +15,12 @@ import (
 )
 
 const (
+	// Verify that this generated code is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SharedFilter contains common filter fields used across analytics requests
 type SharedFilter struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PeriodPreset  string                 `protobuf:"bytes,1,opt,name=period_preset,json=periodPreset,proto3" json:"period_preset,omitempty"`
@@ -74,6 +75,7 @@ func (x *SharedFilter) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use SharedFilter.ProtoReflect.Descriptor instead.
 func (*SharedFilter) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{0}
 }
@@ -239,7 +241,6 @@ func (x *SharedFilter) GetSortDir() string {
 	return ""
 }
 
-// KPI represents a key performance indicator
 type KPI struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -275,6 +276,7 @@ func (x *KPI) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use KPI.ProtoReflect.Descriptor instead.
 func (*KPI) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{1}
 }
@@ -307,7 +309,6 @@ func (x *KPI) GetStatus() string {
 	return ""
 }
 
-// StatRow represents a row of statistics data
 type StatRow struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Slice         string                 `protobuf:"bytes,1,opt,name=slice,proto3" json:"slice,omitempty"`
@@ -354,6 +355,7 @@ func (x *StatRow) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use StatRow.ProtoReflect.Descriptor instead.
 func (*StatRow) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{2}
 }
@@ -463,23 +465,22 @@ func (x *StatRow) GetAlerts() map[string]string {
 	return nil
 }
 
-// MonitorRow represents a row of monitoring data
 type MonitorRow struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Slice          string                 `protobuf:"bytes,1,opt,name=slice,proto3" json:"slice,omitempty"`
-	Throughput     float64                `protobuf:"fixed64,2,opt,name=throughput,proto3" json:"throughput,omitempty"`
-	Sent           int64                  `protobuf:"varint,3,opt,name=sent,proto3" json:"sent,omitempty"`
-	Delivered      int64                  `protobuf:"varint,4,opt,name=delivered,proto3" json:"delivered,omitempty"`
-	Pending        int64                  `protobuf:"varint,5,opt,name=pending,proto3" json:"pending,omitempty"`
-	Timeout        int64                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	Error          int64                  `protobuf:"varint,7,opt,name=error,proto3" json:"error,omitempty"`
-	DlrLatencyP50  float64                `protobuf:"fixed64,8,opt,name=dlr_latency_p50,json=dlrLatencyP50,proto3" json:"dlr_latency_p50,omitempty"`
-	DlrLatencyP95  float64                `protobuf:"fixed64,9,opt,name=dlr_latency_p95,json=dlrLatencyP95,proto3" json:"dlr_latency_p95,omitempty"`
-	DlrRate        float64                `protobuf:"fixed64,10,opt,name=dlr_rate,json=dlrRate,proto3" json:"dlr_rate,omitempty"`
-	TopError       string                 `protobuf:"bytes,11,opt,name=top_error,json=topError,proto3" json:"top_error,omitempty"`
-	Health         string                 `protobuf:"bytes,12,opt,name=health,proto3" json:"health,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slice         string                 `protobuf:"bytes,1,opt,name=slice,proto3" json:"slice,omitempty"`
+	Throughput    float64                `protobuf:"fixed64,2,opt,name=throughput,proto3" json:"throughput,omitempty"`
+	Sent          int64                  `protobuf:"varint,3,opt,name=sent,proto3" json:"sent,omitempty"`
+	Delivered     int64                  `protobuf:"varint,4,opt,name=delivered,proto3" json:"delivered,omitempty"`
+	Pending       int64                  `protobuf:"varint,5,opt,name=pending,proto3" json:"pending,omitempty"`
+	Timeout       int64                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	Error         int64                  `protobuf:"varint,7,opt,name=error,proto3" json:"error,omitempty"`
+	DlrLatencyP50 float64                `protobuf:"fixed64,8,opt,name=dlr_latency_p50,json=dlrLatencyP50,proto3" json:"dlr_latency_p50,omitempty"`
+	DlrLatencyP95 float64                `protobuf:"fixed64,9,opt,name=dlr_latency_p95,json=dlrLatencyP95,proto3" json:"dlr_latency_p95,omitempty"`
+	DlrRate       float64                `protobuf:"fixed64,10,opt,name=dlr_rate,json=dlrRate,proto3" json:"dlr_rate,omitempty"`
+	TopError      string                 `protobuf:"bytes,11,opt,name=top_error,json=topError,proto3" json:"top_error,omitempty"`
+	Health        string                 `protobuf:"bytes,12,opt,name=health,proto3" json:"health,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MonitorRow) Reset() {
@@ -507,6 +508,7 @@ func (x *MonitorRow) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use MonitorRow.ProtoReflect.Descriptor instead.
 func (*MonitorRow) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{3}
 }
@@ -595,7 +597,6 @@ func (x *MonitorRow) GetHealth() string {
 	return ""
 }
 
-// Trend represents a metric trend over time
 type Trend struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Metric        string                 `protobuf:"bytes,1,opt,name=metric,proto3" json:"metric,omitempty"`
@@ -629,6 +630,7 @@ func (x *Trend) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use Trend.ProtoReflect.Descriptor instead.
 func (*Trend) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{4}
 }
@@ -647,7 +649,6 @@ func (x *Trend) GetPoints() []*MetricPoint {
 	return nil
 }
 
-// MetricPoint represents a single data point in a time series
 type MetricPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
@@ -681,6 +682,7 @@ func (x *MetricPoint) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use MetricPoint.ProtoReflect.Descriptor instead.
 func (*MetricPoint) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{5}
 }
@@ -699,7 +701,6 @@ func (x *MetricPoint) GetValue() float64 {
 	return 0
 }
 
-// Signal represents an alert or notification signal
 type Signal struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Severity      string                 `protobuf:"bytes,1,opt,name=severity,proto3" json:"severity,omitempty"`
@@ -735,6 +736,7 @@ func (x *Signal) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use Signal.ProtoReflect.Descriptor instead.
 func (*Signal) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{6}
 }
@@ -767,7 +769,6 @@ func (x *Signal) GetLinkValue() string {
 	return ""
 }
 
-// Pagination represents pagination metadata
 type Pagination struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
@@ -803,6 +804,7 @@ func (x *Pagination) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use Pagination.ProtoReflect.Descriptor instead.
 func (*Pagination) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{7}
 }
@@ -835,7 +837,6 @@ func (x *Pagination) GetTotalPages() int32 {
 	return 0
 }
 
-// StatisticsRequest is the request for GetStatistics
 type StatisticsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -869,6 +870,7 @@ func (x *StatisticsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use StatisticsRequest.ProtoReflect.Descriptor instead.
 func (*StatisticsRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{8}
 }
@@ -887,7 +889,6 @@ func (x *StatisticsRequest) GetFilter() *SharedFilter {
 	return nil
 }
 
-// StatisticsResponse is the response for GetStatistics
 type StatisticsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kpis          []*KPI                 `protobuf:"bytes,1,rep,name=kpis,proto3" json:"kpis,omitempty"`
@@ -922,6 +923,7 @@ func (x *StatisticsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use StatisticsResponse.ProtoReflect.Descriptor instead.
 func (*StatisticsResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{9}
 }
@@ -947,7 +949,6 @@ func (x *StatisticsResponse) GetPagination() *Pagination {
 	return nil
 }
 
-// AnalyticsRequest is the request for GetAnalyticsSummary
 type AnalyticsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -981,6 +982,7 @@ func (x *AnalyticsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use AnalyticsRequest.ProtoReflect.Descriptor instead.
 func (*AnalyticsRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{10}
 }
@@ -999,7 +1001,6 @@ func (x *AnalyticsRequest) GetFilter() *SharedFilter {
 	return nil
 }
 
-// AnalyticsResponse is the response for GetAnalyticsSummary
 type AnalyticsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kpis          []*KPI                 `protobuf:"bytes,1,rep,name=kpis,proto3" json:"kpis,omitempty"`
@@ -1037,6 +1038,7 @@ func (x *AnalyticsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use AnalyticsResponse.ProtoReflect.Descriptor instead.
 func (*AnalyticsResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{11}
 }
@@ -1083,7 +1085,6 @@ func (x *AnalyticsResponse) GetPagination() *Pagination {
 	return nil
 }
 
-// MonitoringRequest is the request for GetMonitoringMetrics
 type MonitoringRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -1118,6 +1119,7 @@ func (x *MonitoringRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use MonitoringRequest.ProtoReflect.Descriptor instead.
 func (*MonitoringRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{12}
 }
@@ -1143,7 +1145,6 @@ func (x *MonitoringRequest) GetHideHealthy() bool {
 	return false
 }
 
-// MonitoringResponse is the response for GetMonitoringMetrics
 type MonitoringResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kpis          []*KPI                 `protobuf:"bytes,1,rep,name=kpis,proto3" json:"kpis,omitempty"`
@@ -1179,6 +1180,7 @@ func (x *MonitoringResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use MonitoringResponse.ProtoReflect.Descriptor instead.
 func (*MonitoringResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{13}
 }
@@ -1211,7 +1213,6 @@ func (x *MonitoringResponse) GetPagination() *Pagination {
 	return nil
 }
 
-// DrillDownRequest is the request for GetDrillDown
 type DrillDownRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -1250,6 +1251,7 @@ func (x *DrillDownRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use DrillDownRequest.ProtoReflect.Descriptor instead.
 func (*DrillDownRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{14}
 }
@@ -1303,7 +1305,6 @@ func (x *DrillDownRequest) GetParentValue() string {
 	return ""
 }
 
-// DrillDownResponse is the response for GetDrillDown
 type DrillDownResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Summary       []*KPI                 `protobuf:"bytes,1,rep,name=summary,proto3" json:"summary,omitempty"`
@@ -1339,6 +1340,7 @@ func (x *DrillDownResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use DrillDownResponse.ProtoReflect.Descriptor instead.
 func (*DrillDownResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{15}
 }
@@ -1371,7 +1373,6 @@ func (x *DrillDownResponse) GetHealth() string {
 	return ""
 }
 
-// ExportRequest is the request for StartExport
 type ExportRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -1408,6 +1409,7 @@ func (x *ExportRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use ExportRequest.ProtoReflect.Descriptor instead.
 func (*ExportRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{16}
 }
@@ -1447,7 +1449,6 @@ func (x *ExportRequest) GetUserId() int64 {
 	return 0
 }
 
-// ExportResponse is the response for StartExport
 type ExportResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -1480,6 +1481,7 @@ func (x *ExportResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use ExportResponse.ProtoReflect.Descriptor instead.
 func (*ExportResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{17}
 }
@@ -1491,7 +1493,6 @@ func (x *ExportResponse) GetJobId() string {
 	return ""
 }
 
-// ExportStatusRequest is the request for GetExportStatus
 type ExportStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -1524,6 +1525,7 @@ func (x *ExportStatusRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use ExportStatusRequest.ProtoReflect.Descriptor instead.
 func (*ExportStatusRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{18}
 }
@@ -1535,7 +1537,6 @@ func (x *ExportStatusRequest) GetJobId() string {
 	return ""
 }
 
-// ExportStatusResponse is the response for GetExportStatus
 type ExportStatusResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
@@ -1571,6 +1572,7 @@ func (x *ExportStatusResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use ExportStatusResponse.ProtoReflect.Descriptor instead.
 func (*ExportStatusResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{19}
 }
@@ -1603,7 +1605,6 @@ func (x *ExportStatusResponse) GetDownloadUrl() string {
 	return ""
 }
 
-// SavedView represents a saved analytics view configuration
 type SavedView struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1645,6 +1646,7 @@ func (x *SavedView) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use SavedView.ProtoReflect.Descriptor instead.
 func (*SavedView) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{20}
 }
@@ -1719,7 +1721,6 @@ func (x *SavedView) GetIsTemplate() bool {
 	return false
 }
 
-// ListViewsRequest is the request for ListSavedViews
 type ListViewsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -1753,6 +1754,7 @@ func (x *ListViewsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use ListViewsRequest.ProtoReflect.Descriptor instead.
 func (*ListViewsRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{21}
 }
@@ -1771,7 +1773,6 @@ func (x *ListViewsRequest) GetUserId() int64 {
 	return 0
 }
 
-// ListViewsResponse is the response for ListSavedViews
 type ListViewsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Views         []*SavedView           `protobuf:"bytes,1,rep,name=views,proto3" json:"views,omitempty"`
@@ -1804,6 +1805,7 @@ func (x *ListViewsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use ListViewsResponse.ProtoReflect.Descriptor instead.
 func (*ListViewsResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{22}
 }
@@ -1815,7 +1817,6 @@ func (x *ListViewsResponse) GetViews() []*SavedView {
 	return nil
 }
 
-// SaveViewRequest is the request for SaveView
 type SaveViewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     int64                  `protobuf:"varint,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -1850,6 +1851,7 @@ func (x *SaveViewRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use SaveViewRequest.ProtoReflect.Descriptor instead.
 func (*SaveViewRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{23}
 }
@@ -1875,7 +1877,6 @@ func (x *SaveViewRequest) GetView() *SavedView {
 	return nil
 }
 
-// SaveViewResponse is the response for SaveView
 type SaveViewResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	View          *SavedView             `protobuf:"bytes,1,opt,name=view,proto3" json:"view,omitempty"`
@@ -1908,6 +1909,7 @@ func (x *SaveViewResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use SaveViewResponse.ProtoReflect.Descriptor instead.
 func (*SaveViewResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{24}
 }
@@ -1919,7 +1921,6 @@ func (x *SaveViewResponse) GetView() *SavedView {
 	return nil
 }
 
-// DeleteViewRequest is the request for DeleteView
 type DeleteViewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1954,6 +1955,7 @@ func (x *DeleteViewRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use DeleteViewRequest.ProtoReflect.Descriptor instead.
 func (*DeleteViewRequest) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{25}
 }
@@ -1979,7 +1981,6 @@ func (x *DeleteViewRequest) GetUserId() int64 {
 	return 0
 }
 
-// DeleteViewResponse is the response for DeleteView
 type DeleteViewResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2011,6 +2012,7 @@ func (x *DeleteViewResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+// Deprecated: Use DeleteViewResponse.ProtoReflect.Descriptor instead.
 func (*DeleteViewResponse) Descriptor() ([]byte, []int) {
 	return file_network_analytics_network_analytics_proto_rawDescGZIP(), []int{26}
 }
@@ -2019,8 +2021,211 @@ var File_network_analytics_network_analytics_proto protoreflect.FileDescriptor
 
 const file_network_analytics_network_analytics_proto_rawDesc = "" +
 	"\n" +
-	")network_analytics/network_analytics.proto\x12\x14network_analytics.v1\x1a\x1fgoogle/protobuf/timestamp.proto" +
-	"BNZLgithub.com/smpp-server/smpp-server/api/proto/networkanalyticsv1b\x06proto3"
+	")network_analytics/network_analytics.proto\x12\x14network_analytics.v1\"\xa3\x05\n" +
+	"\fSharedFilter\x12#\n" +
+	"\rperiod_preset\x18\x01 \x01(\tR\fperiodPreset\x12\x1b\n" +
+	"\tdate_from\x18\x02 \x01(\x03R\bdateFrom\x12\x17\n" +
+	"\adate_to\x18\x03 \x01(\x03R\x06dateTo\x12\x19\n" +
+	"\bgroup_by\x18\x04 \x01(\tR\agroupBy\x12\x14\n" +
+	"\x05login\x18\x05 \x01(\tR\x05login\x12!\n" +
+	"\fservice_type\x18\x06 \x01(\tR\vserviceType\x12\x1a\n" +
+	"\boperator\x18\a \x01(\tR\boperator\x12\x18\n" +
+	"\achannel\x18\b \x01(\tR\achannel\x12\x1f\n" +
+	"\vsender_name\x18\t \x01(\tR\n" +
+	"senderName\x12\x1f\n" +
+	"\vsender_paid\x18\n" +
+	" \x01(\tR\n" +
+	"senderPaid\x12$\n" +
+	"\rinternational\x18\v \x01(\bR\rinternational\x12!\n" +
+	"\ftraffic_type\x18\f \x01(\tR\vtrafficType\x12\x16\n" +
+	"\x06status\x18\r \x01(\tR\x06status\x12\x1f\n" +
+	"\vprice_range\x18\x0e \x01(\tR\n" +
+	"priceRange\x12\x16\n" +
+	"\x06method\x18\x0f \x01(\tR\x06method\x12\x1a\n" +
+	"\bprovider\x18\x10 \x01(\tR\bprovider\x12\x18\n" +
+	"\acountry\x18\x11 \x01(\tR\acountry\x12\x18\n" +
+	"\amanager\x18\x12 \x01(\tR\amanager\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\x13 \x01(\tR\terrorCode\x12\x12\n" +
+	"\x04page\x18\x14 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x15 \x01(\x05R\bpageSize\x12\x17\n" +
+	"\asort_by\x18\x16 \x01(\tR\x06sortBy\x12\x19\n" +
+	"\bsort_dir\x18\x17 \x01(\tR\asortDir\"]\n" +
+	"\x03KPI\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value\x12\x14\n" +
+	"\x05delta\x18\x03 \x01(\x01R\x05delta\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\"\xd8\x03\n" +
+	"\aStatRow\x12\x14\n" +
+	"\x05slice\x18\x01 \x01(\tR\x05slice\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x12\n" +
+	"\x04sent\x18\x03 \x01(\x03R\x04sent\x12\x1c\n" +
+	"\tdelivered\x18\x04 \x01(\x03R\tdelivered\x12\x16\n" +
+	"\x06failed\x18\x05 \x01(\x03R\x06failed\x12\x18\n" +
+	"\apending\x18\x06 \x01(\x03R\apending\x12\x18\n" +
+	"\atimeout\x18\a \x01(\x03R\atimeout\x12\x14\n" +
+	"\x05error\x18\b \x01(\x03R\x05error\x12\x19\n" +
+	"\bdlr_rate\x18\t \x01(\x01R\adlrRate\x12\x18\n" +
+	"\arevenue\x18\n" +
+	" \x01(\x01R\arevenue\x12\x12\n" +
+	"\x04cost\x18\v \x01(\x01R\x04cost\x12\x16\n" +
+	"\x06profit\x18\f \x01(\x01R\x06profit\x12\x16\n" +
+	"\x06margin\x18\r \x01(\x01R\x06margin\x12\x16\n" +
+	"\x06health\x18\x0e \x01(\tR\x06health\x12A\n" +
+	"\x06alerts\x18\x0f \x03(\v2).network_analytics.v1.StatRow.AlertsEntryR\x06alerts\x1a9\n" +
+	"\vAlertsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x02\n" +
+	"\n" +
+	"MonitorRow\x12\x14\n" +
+	"\x05slice\x18\x01 \x01(\tR\x05slice\x12\x1e\n" +
+	"\n" +
+	"throughput\x18\x02 \x01(\x01R\n" +
+	"throughput\x12\x12\n" +
+	"\x04sent\x18\x03 \x01(\x03R\x04sent\x12\x1c\n" +
+	"\tdelivered\x18\x04 \x01(\x03R\tdelivered\x12\x18\n" +
+	"\apending\x18\x05 \x01(\x03R\apending\x12\x18\n" +
+	"\atimeout\x18\x06 \x01(\x03R\atimeout\x12\x14\n" +
+	"\x05error\x18\a \x01(\x03R\x05error\x12&\n" +
+	"\x0fdlr_latency_p50\x18\b \x01(\x01R\rdlrLatencyP50\x12&\n" +
+	"\x0fdlr_latency_p95\x18\t \x01(\x01R\rdlrLatencyP95\x12\x19\n" +
+	"\bdlr_rate\x18\n" +
+	" \x01(\x01R\adlrRate\x12\x1b\n" +
+	"\ttop_error\x18\v \x01(\tR\btopError\x12\x16\n" +
+	"\x06health\x18\f \x01(\tR\x06health\"Z\n" +
+	"\x05Trend\x12\x16\n" +
+	"\x06metric\x18\x01 \x01(\tR\x06metric\x129\n" +
+	"\x06points\x18\x02 \x03(\v2!.network_analytics.v1.MetricPointR\x06points\"A\n" +
+	"\vMetricPoint\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value\"t\n" +
+	"\x06Signal\x12\x1a\n" +
+	"\bseverity\x18\x01 \x01(\tR\bseverity\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x1b\n" +
+	"\tlink_type\x18\x03 \x01(\tR\blinkType\x12\x1d\n" +
+	"\n" +
+	"link_value\x18\x04 \x01(\tR\tlinkValue\"}\n" +
+	"\n" +
+	"Pagination\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"total_rows\x18\x03 \x01(\x05R\ttotalRows\x12\x1f\n" +
+	"\vtotal_pages\x18\x04 \x01(\x05R\n" +
+	"totalPages\"n\n" +
+	"\x11StatisticsRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12:\n" +
+	"\x06filter\x18\x02 \x01(\v2\".network_analytics.v1.SharedFilterR\x06filter\"\xb8\x01\n" +
+	"\x12StatisticsResponse\x12-\n" +
+	"\x04kpis\x18\x01 \x03(\v2\x19.network_analytics.v1.KPIR\x04kpis\x121\n" +
+	"\x04rows\x18\x02 \x03(\v2\x1d.network_analytics.v1.StatRowR\x04rows\x12@\n" +
+	"\n" +
+	"pagination\x18\x03 \x01(\v2 .network_analytics.v1.PaginationR\n" +
+	"pagination\"m\n" +
+	"\x10AnalyticsRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12:\n" +
+	"\x06filter\x18\x02 \x01(\v2\".network_analytics.v1.SharedFilterR\x06filter\"\xe4\x02\n" +
+	"\x11AnalyticsResponse\x12-\n" +
+	"\x04kpis\x18\x01 \x03(\v2\x19.network_analytics.v1.KPIR\x04kpis\x12>\n" +
+	"\rprevious_kpis\x18\x02 \x03(\v2\x19.network_analytics.v1.KPIR\fpreviousKpis\x123\n" +
+	"\x06trends\x18\x03 \x03(\v2\x1b.network_analytics.v1.TrendR\x06trends\x126\n" +
+	"\asignals\x18\x04 \x03(\v2\x1c.network_analytics.v1.SignalR\asignals\x121\n" +
+	"\x04rows\x18\x05 \x03(\v2\x1d.network_analytics.v1.StatRowR\x04rows\x12@\n" +
+	"\n" +
+	"pagination\x18\x06 \x01(\v2 .network_analytics.v1.PaginationR\n" +
+	"pagination\"\x91\x01\n" +
+	"\x11MonitoringRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12:\n" +
+	"\x06filter\x18\x02 \x01(\v2\".network_analytics.v1.SharedFilterR\x06filter\x12!\n" +
+	"\fhide_healthy\x18\x03 \x01(\bR\vhideHealthy\"\xf4\x01\n" +
+	"\x12MonitoringResponse\x12-\n" +
+	"\x04kpis\x18\x01 \x03(\v2\x19.network_analytics.v1.KPIR\x04kpis\x124\n" +
+	"\x04rows\x18\x02 \x03(\v2 .network_analytics.v1.MonitorRowR\x04rows\x127\n" +
+	"\x05chart\x18\x03 \x03(\v2!.network_analytics.v1.MetricPointR\x05chart\x12@\n" +
+	"\n" +
+	"pagination\x18\x04 \x01(\v2 .network_analytics.v1.PaginationR\n" +
+	"pagination\"\x92\x02\n" +
+	"\x10DrillDownRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12:\n" +
+	"\x06filter\x18\x02 \x01(\v2\".network_analytics.v1.SharedFilterR\x06filter\x12\x1d\n" +
+	"\n" +
+	"slice_type\x18\x03 \x01(\tR\tsliceType\x12\x1f\n" +
+	"\vslice_value\x18\x04 \x01(\tR\n" +
+	"sliceValue\x12\x1f\n" +
+	"\vdetail_view\x18\x05 \x01(\tR\n" +
+	"detailView\x12\x1f\n" +
+	"\vparent_type\x18\x06 \x01(\tR\n" +
+	"parentType\x12!\n" +
+	"\fparent_value\x18\a \x01(\tR\vparentValue\"\xc8\x01\n" +
+	"\x11DrillDownResponse\x123\n" +
+	"\asummary\x18\x01 \x03(\v2\x19.network_analytics.v1.KPIR\asummary\x121\n" +
+	"\x04rows\x18\x02 \x03(\v2\x1d.network_analytics.v1.StatRowR\x04rows\x123\n" +
+	"\x06trends\x18\x03 \x03(\v2\x1b.network_analytics.v1.TrendR\x06trends\x12\x16\n" +
+	"\x06health\x18\x04 \x01(\tR\x06health\"\xaf\x01\n" +
+	"\rExportRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12:\n" +
+	"\x06filter\x18\x02 \x01(\v2\".network_analytics.v1.SharedFilterR\x06filter\x12\x12\n" +
+	"\x04mode\x18\x03 \x01(\tR\x04mode\x12\x16\n" +
+	"\x06format\x18\x04 \x01(\tR\x06format\x12\x17\n" +
+	"\auser_id\x18\x05 \x01(\x03R\x06userId\"'\n" +
+	"\x0eExportResponse\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\",\n" +
+	"\x13ExportStatusRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"\x84\x01\n" +
+	"\x14ExportStatusResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x1b\n" +
+	"\trow_count\x18\x02 \x01(\x05R\browCount\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12!\n" +
+	"\fdownload_url\x18\x04 \x01(\tR\vdownloadUrl\"\x8f\x02\n" +
+	"\tSavedView\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04mode\x18\x03 \x01(\tR\x04mode\x12!\n" +
+	"\ffilters_json\x18\x04 \x01(\tR\vfiltersJson\x12\x19\n" +
+	"\bgroup_by\x18\x05 \x01(\tR\agroupBy\x12\x17\n" +
+	"\asort_by\x18\x06 \x01(\tR\x06sortBy\x12\x19\n" +
+	"\bsort_dir\x18\a \x01(\tR\asortDir\x12\x18\n" +
+	"\acolumns\x18\b \x03(\tR\acolumns\x12\x1d\n" +
+	"\n" +
+	"is_default\x18\t \x01(\bR\tisDefault\x12\x1f\n" +
+	"\vis_template\x18\n" +
+	" \x01(\bR\n" +
+	"isTemplate\"J\n" +
+	"\x10ListViewsRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\"J\n" +
+	"\x11ListViewsResponse\x125\n" +
+	"\x05views\x18\x01 \x03(\v2\x1f.network_analytics.v1.SavedViewR\x05views\"~\n" +
+	"\x0fSaveViewRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\x03R\tpartnerId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\x123\n" +
+	"\x04view\x18\x03 \x01(\v2\x1f.network_analytics.v1.SavedViewR\x04view\"G\n" +
+	"\x10SaveViewResponse\x123\n" +
+	"\x04view\x18\x01 \x01(\v2\x1f.network_analytics.v1.SavedViewR\x04view\"[\n" +
+	"\x11DeleteViewRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x02 \x01(\x03R\tpartnerId\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\x03R\x06userId\"\x14\n" +
+	"\x12DeleteViewResponse2\x94\a\n" +
+	"\x17NetworkAnalyticsService\x12b\n" +
+	"\rGetStatistics\x12'.network_analytics.v1.StatisticsRequest\x1a(.network_analytics.v1.StatisticsResponse\x12f\n" +
+	"\x13GetAnalyticsSummary\x12&.network_analytics.v1.AnalyticsRequest\x1a'.network_analytics.v1.AnalyticsResponse\x12i\n" +
+	"\x14GetMonitoringMetrics\x12'.network_analytics.v1.MonitoringRequest\x1a(.network_analytics.v1.MonitoringResponse\x12_\n" +
+	"\fGetDrillDown\x12&.network_analytics.v1.DrillDownRequest\x1a'.network_analytics.v1.DrillDownResponse\x12X\n" +
+	"\vStartExport\x12#.network_analytics.v1.ExportRequest\x1a$.network_analytics.v1.ExportResponse\x12h\n" +
+	"\x0fGetExportStatus\x12).network_analytics.v1.ExportStatusRequest\x1a*.network_analytics.v1.ExportStatusResponse\x12a\n" +
+	"\x0eListSavedViews\x12&.network_analytics.v1.ListViewsRequest\x1a'.network_analytics.v1.ListViewsResponse\x12Y\n" +
+	"\bSaveView\x12%.network_analytics.v1.SaveViewRequest\x1a&.network_analytics.v1.SaveViewResponse\x12_\n" +
+	"\n" +
+	"DeleteView\x12'.network_analytics.v1.DeleteViewRequest\x1a(.network_analytics.v1.DeleteViewResponseBAZ?github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1b\x06proto3"
 
 var (
 	file_network_analytics_network_analytics_proto_rawDescOnce sync.Once
@@ -2065,6 +2270,57 @@ var file_network_analytics_network_analytics_proto_goTypes = []any{
 	(*DeleteViewResponse)(nil),   // 26: network_analytics.v1.DeleteViewResponse
 	nil,                          // 27: network_analytics.v1.StatRow.AlertsEntry
 }
+var file_network_analytics_network_analytics_proto_depIdxs = []int32{
+	27, // 0: network_analytics.v1.StatRow.alerts:type_name -> network_analytics.v1.StatRow.AlertsEntry
+	5,  // 1: network_analytics.v1.Trend.points:type_name -> network_analytics.v1.MetricPoint
+	0,  // 2: network_analytics.v1.StatisticsRequest.filter:type_name -> network_analytics.v1.SharedFilter
+	1,  // 3: network_analytics.v1.StatisticsResponse.kpis:type_name -> network_analytics.v1.KPI
+	2,  // 4: network_analytics.v1.StatisticsResponse.rows:type_name -> network_analytics.v1.StatRow
+	7,  // 5: network_analytics.v1.StatisticsResponse.pagination:type_name -> network_analytics.v1.Pagination
+	0,  // 6: network_analytics.v1.AnalyticsRequest.filter:type_name -> network_analytics.v1.SharedFilter
+	1,  // 7: network_analytics.v1.AnalyticsResponse.kpis:type_name -> network_analytics.v1.KPI
+	1,  // 8: network_analytics.v1.AnalyticsResponse.previous_kpis:type_name -> network_analytics.v1.KPI
+	4,  // 9: network_analytics.v1.AnalyticsResponse.trends:type_name -> network_analytics.v1.Trend
+	6,  // 10: network_analytics.v1.AnalyticsResponse.signals:type_name -> network_analytics.v1.Signal
+	2,  // 11: network_analytics.v1.AnalyticsResponse.rows:type_name -> network_analytics.v1.StatRow
+	7,  // 12: network_analytics.v1.AnalyticsResponse.pagination:type_name -> network_analytics.v1.Pagination
+	0,  // 13: network_analytics.v1.MonitoringRequest.filter:type_name -> network_analytics.v1.SharedFilter
+	1,  // 14: network_analytics.v1.MonitoringResponse.kpis:type_name -> network_analytics.v1.KPI
+	3,  // 15: network_analytics.v1.MonitoringResponse.rows:type_name -> network_analytics.v1.MonitorRow
+	5,  // 16: network_analytics.v1.MonitoringResponse.chart:type_name -> network_analytics.v1.MetricPoint
+	7,  // 17: network_analytics.v1.MonitoringResponse.pagination:type_name -> network_analytics.v1.Pagination
+	0,  // 18: network_analytics.v1.DrillDownRequest.filter:type_name -> network_analytics.v1.SharedFilter
+	1,  // 19: network_analytics.v1.DrillDownResponse.summary:type_name -> network_analytics.v1.KPI
+	2,  // 20: network_analytics.v1.DrillDownResponse.rows:type_name -> network_analytics.v1.StatRow
+	4,  // 21: network_analytics.v1.DrillDownResponse.trends:type_name -> network_analytics.v1.Trend
+	0,  // 22: network_analytics.v1.ExportRequest.filter:type_name -> network_analytics.v1.SharedFilter
+	20, // 23: network_analytics.v1.ListViewsResponse.views:type_name -> network_analytics.v1.SavedView
+	20, // 24: network_analytics.v1.SaveViewRequest.view:type_name -> network_analytics.v1.SavedView
+	20, // 25: network_analytics.v1.SaveViewResponse.view:type_name -> network_analytics.v1.SavedView
+	8,  // 26: network_analytics.v1.NetworkAnalyticsService.GetStatistics:input_type -> network_analytics.v1.StatisticsRequest
+	10, // 27: network_analytics.v1.NetworkAnalyticsService.GetAnalyticsSummary:input_type -> network_analytics.v1.AnalyticsRequest
+	12, // 28: network_analytics.v1.NetworkAnalyticsService.GetMonitoringMetrics:input_type -> network_analytics.v1.MonitoringRequest
+	14, // 29: network_analytics.v1.NetworkAnalyticsService.GetDrillDown:input_type -> network_analytics.v1.DrillDownRequest
+	16, // 30: network_analytics.v1.NetworkAnalyticsService.StartExport:input_type -> network_analytics.v1.ExportRequest
+	18, // 31: network_analytics.v1.NetworkAnalyticsService.GetExportStatus:input_type -> network_analytics.v1.ExportStatusRequest
+	21, // 32: network_analytics.v1.NetworkAnalyticsService.ListSavedViews:input_type -> network_analytics.v1.ListViewsRequest
+	23, // 33: network_analytics.v1.NetworkAnalyticsService.SaveView:input_type -> network_analytics.v1.SaveViewRequest
+	25, // 34: network_analytics.v1.NetworkAnalyticsService.DeleteView:input_type -> network_analytics.v1.DeleteViewRequest
+	9,  // 35: network_analytics.v1.NetworkAnalyticsService.GetStatistics:output_type -> network_analytics.v1.StatisticsResponse
+	11, // 36: network_analytics.v1.NetworkAnalyticsService.GetAnalyticsSummary:output_type -> network_analytics.v1.AnalyticsResponse
+	13, // 37: network_analytics.v1.NetworkAnalyticsService.GetMonitoringMetrics:output_type -> network_analytics.v1.MonitoringResponse
+	15, // 38: network_analytics.v1.NetworkAnalyticsService.GetDrillDown:output_type -> network_analytics.v1.DrillDownResponse
+	17, // 39: network_analytics.v1.NetworkAnalyticsService.StartExport:output_type -> network_analytics.v1.ExportResponse
+	19, // 40: network_analytics.v1.NetworkAnalyticsService.GetExportStatus:output_type -> network_analytics.v1.ExportStatusResponse
+	22, // 41: network_analytics.v1.NetworkAnalyticsService.ListSavedViews:output_type -> network_analytics.v1.ListViewsResponse
+	24, // 42: network_analytics.v1.NetworkAnalyticsService.SaveView:output_type -> network_analytics.v1.SaveViewResponse
+	26, // 43: network_analytics.v1.NetworkAnalyticsService.DeleteView:output_type -> network_analytics.v1.DeleteViewResponse
+	35, // [35:44] is the sub-list for method output_type
+	26, // [26:35] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
+}
 
 func init() { file_network_analytics_network_analytics_proto_init() }
 func file_network_analytics_network_analytics_proto_init() {
@@ -2081,9 +2337,11 @@ func file_network_analytics_network_analytics_proto_init() {
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:      file_network_analytics_network_analytics_proto_goTypes,
-		MessageInfos: file_network_analytics_network_analytics_proto_msgTypes,
+		GoTypes:           file_network_analytics_network_analytics_proto_goTypes,
+		DependencyIndexes: file_network_analytics_network_analytics_proto_depIdxs,
+		MessageInfos:      file_network_analytics_network_analytics_proto_msgTypes,
 	}.Build()
 	File_network_analytics_network_analytics_proto = out.File
 	file_network_analytics_network_analytics_proto_goTypes = nil
+	file_network_analytics_network_analytics_proto_depIdxs = nil
 }
