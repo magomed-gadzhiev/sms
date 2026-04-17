@@ -25,7 +25,7 @@ func NewViewsRepo(db *pgxpool.Pool) *ViewsRepo {
 func (r *ViewsRepo) List(ctx context.Context, partnerID, userID int64) ([]domain.SavedView, error) {
 	query := `
 		SELECT id, partner_id, user_id, name, is_default, mode,
-			filters, group_by, sort_by, sort_dir, columns, created_at, updated_at
+			COALESCE(filters, '{}'), COALESCE(group_by, ''), COALESCE(sort_by, ''), COALESCE(sort_dir, 'desc'), COALESCE(columns, '{}'), created_at, updated_at
 		FROM saved_views
 		WHERE (partner_id = $1 AND user_id = $2) OR (user_id IS NULL)
 		ORDER BY is_default DESC, updated_at DESC`
@@ -79,7 +79,7 @@ func (r *ViewsRepo) Save(ctx context.Context, view *domain.SavedView) (*domain.S
 			columns    = EXCLUDED.columns,
 			updated_at = EXCLUDED.updated_at
 		RETURNING id, partner_id, user_id, name, is_default, mode,
-			filters, group_by, sort_by, sort_dir, columns, created_at, updated_at`
+			COALESCE(filters, '{}'), COALESCE(group_by, ''), COALESCE(sort_by, ''), COALESCE(sort_dir, 'desc'), COALESCE(columns, '{}'), created_at, updated_at`
 
 	row := r.db.QueryRow(ctx, query,
 		view.PartnerID, view.UserID, view.Name, view.IsDefault, view.Mode,
