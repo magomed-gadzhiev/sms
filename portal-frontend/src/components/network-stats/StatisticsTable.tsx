@@ -11,9 +11,9 @@ interface StatisticsTableProps {
   loading: boolean;
 }
 
-function fmt(n: number): string { return n.toLocaleString('ru-RU'); }
-function fmtMoney(n: number): string { return `${n.toLocaleString('ru-RU')} ₽`; }
-function fmtPct(n: number): string { return `${(n * 100).toFixed(1)}%`; }
+function fmt(n: number): string { return (n ?? 0).toLocaleString('ru-RU'); }
+function fmtMoney(n: number): string { return `${(n ?? 0).toLocaleString('ru-RU')} ₽`; }
+function fmtPct(n: number): string { return `${((n ?? 0) * 100).toFixed(1)}%`; }
 
 function dlrColor(rate: number): string {
   if (rate < 0.80) return 'text-red-600 font-medium';

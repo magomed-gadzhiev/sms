@@ -11,9 +11,9 @@ interface MonitoringTableProps {
   loading: boolean;
 }
 
-function fmt(n: number): string { return n.toLocaleString('ru-RU'); }
-function fmtLatency(ms: number): string { return `${(ms / 1000).toFixed(1)}с`; }
-function fmtPct(n: number): string { return `${(n * 100).toFixed(1)}%`; }
+function fmt(n: number): string { return (n ?? 0).toLocaleString('ru-RU'); }
+function fmtLatency(ms: number): string { return `${((ms ?? 0) / 1000).toFixed(1)}с`; }
+function fmtPct(n: number): string { return `${((n ?? 0) * 100).toFixed(1)}%`; }
 
 function latencyColor(ms: number): string {
   if (ms > 30000) return 'text-red-600 font-medium';
