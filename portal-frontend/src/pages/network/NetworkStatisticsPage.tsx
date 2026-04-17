@@ -163,6 +163,36 @@ export default function NetworkStatisticsPage() {
         />
       </Suspense>
 
+      {/* Saved views panel */}
+      {(stats.savedViews.length > 0 || stats.isViewModified) && (
+        <div className="fixed bottom-4 left-48 flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 shadow-md text-sm z-20">
+          <span className="text-gray-500 text-xs">Виды:</span>
+          {stats.savedViews.map(v => (
+            <button
+              key={v.id}
+              onClick={() => stats.loadView(v.id)}
+              className={`px-2 py-0.5 rounded text-xs border transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-blue-400'}`}
+            >
+              {v.name}
+            </button>
+          ))}
+          {stats.isViewModified && (
+            <button
+              onClick={() => {
+                const name = prompt('Название вида:');
+                if (name?.trim()) stats.saveCurrentView(name.trim());
+              }}
+              className="px-2 py-0.5 rounded text-xs border border-blue-400 text-blue-600 hover:bg-blue-50"
+            >
+              + Сохранить
+            </button>
+          )}
+          {stats.viewsError && (
+            <span className="text-xs text-red-500">{stats.viewsError}</span>
+          )}
+        </div>
+      )}
+
       {/* Error toast */}
       {stats.error && (
         <div className="fixed bottom-4 right-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 shadow-lg">

@@ -40,6 +40,8 @@ function parseFiltersFromURL(params: URLSearchParams): SharedFilter {
       }
     }
   }
+  if (!f.period_preset && !f.date_from && !f.date_to) f.period_preset = '7d';
+  if (!f.group_by) f.group_by = 'day';
   return f;
 }
 
