@@ -477,7 +477,7 @@ export function TariffPlanEditor({ plans, ownerId, ownerType, onRefresh }: Tarif
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="text-sm text-gray-500">
-          {plans.length} {plans.length === 1 ? 'план' : plans.length < 5 ? 'плана' : 'планов'}
+          {plans.length} {plans.length % 10 === 1 && plans.length % 100 !== 11 ? 'план' : plans.length % 10 >= 2 && plans.length % 10 <= 4 && (plans.length % 100 < 10 || plans.length % 100 >= 20) ? 'плана' : 'планов'}
         </div>
         <Button size="sm" onClick={() => setShowAddPlan(true)}>
           Добавить план

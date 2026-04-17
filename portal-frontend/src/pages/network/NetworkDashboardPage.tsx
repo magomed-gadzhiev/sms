@@ -157,7 +157,7 @@ export function NetworkDashboardPage() {
             <div className="text-sm text-gray-400">Нет ожидающих заявок</div>
           ) : (
             <Link to="/network/moderation" className="block">
-              <div className="text-2xl font-bold text-amber-600 mb-2">{moderationTotal} заявок</div>
+              <div className="text-2xl font-bold text-amber-600 mb-2">{moderationTotal} {moderationTotal % 10 === 1 && moderationTotal % 100 !== 11 ? 'заявка' : moderationTotal % 10 >= 2 && moderationTotal % 10 <= 4 && (moderationTotal % 100 < 10 || moderationTotal % 100 >= 20) ? 'заявки' : 'заявок'}</div>
               <div className="flex gap-4 text-sm text-gray-600">
                 {data.moderation_counts.sender_names > 0 && <span>Имена: {data.moderation_counts.sender_names}</span>}
                 {data.moderation_counts.templates > 0 && <span>Шаблоны: {data.moderation_counts.templates}</span>}

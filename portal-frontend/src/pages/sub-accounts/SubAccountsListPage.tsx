@@ -46,7 +46,7 @@ const columns: Column<SubAccount>[] = [
   {
     key: 'balance',
     header: 'Баланс',
-    render: (sa) => `${parseFloat(sa.balance).toFixed(2)} ₽`,
+    render: (sa) => `${parseFloat(sa.balance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`,
   },
   { key: 'daily_limit', header: 'Дневной лимит' },
   { key: 'monthly_limit', header: 'Месячный лимит' },
@@ -253,7 +253,7 @@ export function SubAccountsListPage() {
             )}
             {parentBalance !== null && !loadingBalance && (
               <p className="mt-1 text-xs text-gray-500">
-                Доступный баланс: {parseFloat(parentBalance).toFixed(2)} ₽
+                Доступный баланс: {parseFloat(parentBalance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
               </p>
             )}
             {parentBalance !== null &&

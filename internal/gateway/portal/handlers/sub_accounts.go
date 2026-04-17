@@ -491,8 +491,34 @@ func (h *SubAccountHandlers) GetSubAccountMessages(w http.ResponseWriter, r *htt
 		return
 	}
 
+	type msgDTO struct {
+		MessageID    string  `json:"message_id"`
+		Source       string  `json:"source"`
+		Destination  string  `json:"destination"`
+		Text         string  `json:"text"`
+		Status       string  `json:"status"`
+		SegmentCount int32   `json:"segment_count"`
+		CreatedAt    *string `json:"created_at"`
+	}
+	messages := make([]msgDTO, len(resp.Messages))
+	for i, m := range resp.Messages {
+		dto := msgDTO{
+			MessageID:    m.MessageId,
+			Source:       m.Source,
+			Destination:  m.Destination,
+			Text:         m.Text,
+			Status:       m.Status,
+			SegmentCount: m.SegmentCount,
+		}
+		if m.CreatedAt != nil && m.CreatedAt.IsValid() {
+			s := m.CreatedAt.AsTime().Format(time.RFC3339)
+			dto.CreatedAt = &s
+		}
+		messages[i] = dto
+	}
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"messages": resp.Messages,
+		"messages": messages,
 		"total":    resp.Total,
 		"page":     page,
 		"per_page": perPage,

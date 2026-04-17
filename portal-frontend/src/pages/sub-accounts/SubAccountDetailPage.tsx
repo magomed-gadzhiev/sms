@@ -141,7 +141,7 @@ export function SubAccountDetailPage() {
     <div className="max-w-5xl">
       <PageHeader
         title={detail.name}
-        breadcrumbs={[{ label: 'Суб-аккаунты', href: '/sub-accounts' }, { label: detail.name }]}
+        breadcrumbs={[{ label: 'Суб-аккаунты', href: '/network/sub-accounts' }, { label: detail.name }]}
         actions={<StatusBadge status={detail.active ? 'active' : 'inactive'} />}
       />
 
@@ -163,7 +163,7 @@ export function SubAccountDetailPage() {
       </div>
 
       {activeTab === 'overview' && (
-        <OverviewTab detail={detail} onUpdate={loadDetail} onDeleted={() => navigate('/sub-accounts')} />
+        <OverviewTab detail={detail} onUpdate={loadDetail} onDeleted={() => navigate('/network/sub-accounts')} />
       )}
       {activeTab === 'messages' && id && <MessagesTab subAccountId={id} />}
       {activeTab === 'campaigns' && <CampaignsTab subAccountId={id!} />}
@@ -450,7 +450,7 @@ function MessagesTab({ subAccountId }: { subAccountId: string }) {
 const PERIOD_OPTIONS = ['7d', '30d', '90d'] as const;
 
 const timelineColumns: Column<TimelineEntry>[] = [
-  { key: 'period', header: 'Период' },
+  { key: 'period', header: 'Период', render: (row) => <>{new Date(row.period).toLocaleDateString('ru-RU')}</> },
   { key: 'sent', header: 'Отправлено' },
   { key: 'delivered', header: 'Доставлено' },
   { key: 'failed', header: 'Ошибки' },

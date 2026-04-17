@@ -49,7 +49,7 @@ func (h *ResellerRoutingHandlers) ListNetworkProviders(w http.ResponseWriter, r 
 
 	query := `SELECT cp.id, cp.client_id, c.name AS sub_account_name,
 	                 cp.provider_id, p.name AS provider_name,
-	                 cp.active, cp.priority
+	                 cp.active, cp.shared_priority
 	          FROM client_providers cp
 	          JOIN clients c ON c.id = cp.client_id
 	          JOIN providers p ON p.id = cp.provider_id
