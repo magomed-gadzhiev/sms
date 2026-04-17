@@ -4,8 +4,6 @@ package network_analytics.v1;
 
 option go_package = "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1";
 
-import "google/protobuf/timestamp.proto";
-
 // NetworkAnalyticsService provides statistics, analytics and monitoring for network partners
 service NetworkAnalyticsService {
   rpc GetStatistics(StatisticsRequest) returns (StatisticsResponse);
