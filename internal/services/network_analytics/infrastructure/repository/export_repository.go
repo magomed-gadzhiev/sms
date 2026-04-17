@@ -51,7 +51,9 @@ func (r *ExportRepo) CreateJob(ctx context.Context, job *domain.ExportJob) error
 func (r *ExportRepo) GetJob(ctx context.Context, jobID string) (*domain.ExportJob, error) {
 	query := `
 		SELECT id, partner_id, user_id, mode, filters, format,
-			status, file_path, row_count, error, created_at, completed_at
+			status, COALESCE(file_path, '') as file_path,
+			COALESCE(row_count, 0) as row_count, COALESCE(error, '') as error,
+			created_at, completed_at
 		FROM export_jobs
 		WHERE id = $1`
 

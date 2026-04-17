@@ -169,6 +169,9 @@ func (s *Server) GetExportStatus(ctx context.Context, req *networkanalyticsv1.Ex
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "get export status: %v", err)
 	}
+	if job == nil {
+		return nil, status.Errorf(codes.NotFound, "export job %s not found", req.JobId)
+	}
 
 	resp := &networkanalyticsv1.ExportStatusResponse{
 		Status:   job.Status,
