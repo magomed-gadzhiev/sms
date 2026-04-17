@@ -1,8 +1,9 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Table2, TrendingUp, Activity } from 'lucide-react';
 import { useNetworkStats } from '../../hooks/useNetworkStats';
 import { StatisticsFilterBar } from '../../components/network-stats/StatisticsFilterBar';
+import { referencesApi } from '../../api/client';
 
 // Lazy-load heavy components
 const StatisticsKPIStrip = lazy(() => import('../../components/network-stats/StatisticsKPIStrip').then(m => ({ default: m.StatisticsKPIStrip })));
@@ -14,6 +15,19 @@ const ExportButton = lazy(() => import('../../components/network-stats/ExportBut
 
 export default function NetworkStatisticsPage() {
   const stats = useNetworkStats();
+  const [operators, setOperators] = useState<{ id: string; name: string }[]>([]);
+  const [operatorsError, setOperatorsError] = useState(false);
+
+  useEffect(() => {
+    loadOperators();
+  }, []);
+
+  function loadOperators() {
+    setOperatorsError(false);
+    referencesApi.operators()
+      .then(r => setOperators(r.operators || []))
+      .catch(() => setOperatorsError(true));
+  }
 
   return (
     <div className="min-h-screen">
@@ -45,6 +59,14 @@ export default function NetworkStatisticsPage() {
           </Tabs.List>
         </div>
 
+        {/* Operators loading error */}
+        {operatorsError && (
+          <div className="mx-4 mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-700 flex items-center gap-2">
+            Не удалось загрузить список операторов.
+            <button onClick={loadOperators} className="underline font-medium hover:text-amber-900">Повторить</button>
+          </div>
+        )}
+
         {/* Filter bar — same for all modes */}
         <StatisticsFilterBar
           mode={stats.mode}
@@ -57,6 +79,7 @@ export default function NetworkStatisticsPage() {
             toggle: stats.togglePolling,
             lastUpdated: stats.lastUpdated,
           } : undefined}
+          operators={operators}
         />
 
         <Suspense fallback={<div className="p-8 text-center text-gray-400">Загрузка...</div>}>

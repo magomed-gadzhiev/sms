@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import { getCookie } from '../utils/cookies';
 
 // --- Types ---
 
@@ -137,7 +138,17 @@ function qs(params: Record<string, string | number | boolean | undefined>): stri
 }
 
 function filterToParams(f: SharedFilter): Record<string, string | number | boolean | undefined> {
-  return { ...f } as Record<string, string | number | boolean | undefined>;
+  const params = { ...f } as Record<string, string | number | boolean | undefined>;
+  // Convert ISO date strings to Unix timestamps for backend
+  if (f.date_from && typeof f.date_from === 'string') {
+    const ts = Math.floor(new Date(f.date_from).getTime() / 1000);
+    if (!isNaN(ts)) params.date_from = ts;
+  }
+  if (f.date_to && typeof f.date_to === 'string') {
+    const ts = Math.floor(new Date(f.date_to).getTime() / 1000);
+    if (!isNaN(ts)) params.date_to = ts;
+  }
+  return params;
 }
 
 // --- API ---
@@ -176,7 +187,7 @@ export const networkStatsApi = {
   startExport: (filter: SharedFilter, mode: string, format: 'csv' | 'xlsx') =>
     apiFetch<{ job_id: string }>('/reseller/export', {
       method: 'POST',
-      body: JSON.stringify({ filter, mode, format }),
+      body: JSON.stringify({ filter: filterToParams(filter), mode, format }),
     }),
 
   getExportStatus: (jobId: string) =>
@@ -184,12 +195,20 @@ export const networkStatsApi = {
       `/reseller/export/${jobId}/status`,
     ),
 
+  downloadExport: (jobId: string) => {
+    const csrfToken = getCookie('csrf_token');
+    return fetch(`/portal/v1/reseller/export/${jobId}/download`, {
+      credentials: 'include',
+      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+    });
+  },
+
   listViews: () => apiFetch<{ views: SavedView[] }>('/reseller/views'),
 
   saveView: (view: Omit<SavedView, 'id' | 'is_template'>) =>
     apiFetch<{ view: SavedView }>('/reseller/views', {
       method: 'POST',
-      body: JSON.stringify(view),
+      body: JSON.stringify({ view }),
     }),
 
   deleteView: (id: number) => apiFetch<void>(`/reseller/views/${id}`, { method: 'DELETE' }),

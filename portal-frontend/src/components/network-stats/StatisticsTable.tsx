@@ -40,7 +40,7 @@ const COLUMNS: { key: string; header: string; align: string; render: (r: StatRow
   { key: 'total', header: 'Всего', align: 'right', render: r => fmt(r.total) },
   { key: 'delivered', header: 'Достав.', align: 'right', render: r => <span className="text-emerald-600">{fmt(r.delivered)}</span> },
   { key: 'failed', header: 'Не достав.', align: 'right', render: r => fmt(r.failed) },
-  { key: 'pending', header: 'Pending', align: 'right', render: r => r.pending > 0 ? <span className={r.pending > 100 ? 'text-amber-600' : ''}>{fmt(r.pending)}</span> : '0' },
+  { key: 'pending', header: 'Ожидание', align: 'right', render: r => r.pending > 0 ? <span className={r.pending > 100 ? 'text-amber-600' : ''}>{fmt(r.pending)}</span> : '0' },
   { key: 'timeout', header: 'Таймаут', align: 'right', render: r => fmt(r.timeout) },
   { key: 'error', header: 'Ошибки', align: 'right', render: r => r.error > 0 ? <span className={r.error > 500 ? 'text-red-600' : 'text-amber-600'}>{fmt(r.error)}</span> : '0' },
   { key: 'dlr_rate', header: 'DLR%', align: 'right', render: r => <span className={dlrColor(r.dlr_rate)}>{fmtPct(r.dlr_rate)}</span> },

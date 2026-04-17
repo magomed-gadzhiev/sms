@@ -20,8 +20,16 @@ interface DrillDownDrawerProps {
   loading: boolean;
 }
 
-function fmt(n: number): string { return n.toLocaleString('ru-RU'); }
-function fmtPct(n: number): string { return `${(n * 100).toFixed(1)}%`; }
+function fmt(n: number): string { return (n ?? 0).toLocaleString('ru-RU'); }
+function fmtMoney(n: number): string { return `${(n ?? 0).toLocaleString('ru-RU')} ₽`; }
+function fmtPct(n: number): string { return `${((n ?? 0) * 100).toFixed(1)}%`; }
+
+function fmtKPI(kpi: { name: string; value: number }): string {
+  const name = (kpi.name ?? '').toLowerCase();
+  if (name.includes('rate') || name.includes('маржа') || name.includes('margin') || name.includes('доставляемость')) return fmtPct(kpi.value);
+  if (name.includes('revenue') || name.includes('profit') || name.includes('cost') || name.includes('выручка') || name.includes('прибыль') || name.includes('себестоимость')) return fmtMoney(kpi.value);
+  return fmt(kpi.value);
+}
 
 function dlrColor(rate: number): string {
   if (rate < 0.80) return 'text-red-600 font-medium';
@@ -82,7 +90,7 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
             {data.summary.map(kpi => (
               <div key={kpi.name} className="text-center">
                 <div className="text-[10px] uppercase text-gray-400">{kpi.name}</div>
-                <div className="text-lg font-bold text-slate-900">{fmt(kpi.value)}</div>
+                <div className="text-lg font-bold text-slate-900">{fmtKPI(kpi)}</div>
               </div>
             ))}
           </div>

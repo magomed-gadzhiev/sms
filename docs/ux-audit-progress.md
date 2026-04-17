@@ -524,6 +524,80 @@
 
 ---
 
+## [DONE] Модуль: Сетевая статистика (aggregator, /network/statistics, fix mode + инфраструктура + QA full, 2026-04-17)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `internal/services/network_analytics/domain/models.go` | `Normalize()` не разрешал `period_preset` в `DateFrom`/`DateTo` → период-фильтры (`Сегодня`, `7 дней`, `30 дней` и т.д.) полностью не работали — бэкенд возвращал ВСЕ данные без фильтрации по дате | `Normalize()` разрешает все пресеты (`today`, `yesterday`, `7d`, `30d`, `month`, `prev_month`, `year`, `15m`, `60m`, `24h`) в конкретные `DateFrom`/`DateTo`; fallback на 7 дней если даты не указаны |
+| 2 | `internal/gateway/portal/router/router.go` | `/export/{id}/status` и `/export/{id}/download` — path param `{id}`, но handler читает `mux.Vars(r)["job_id"]` → экспорт статуса ВСЕГДА возвращал ошибку `"job_id обязателен"` | Исправлено на `/export/{job_id}/status` и `/export/{job_id}/download` |
+| 3 | `portal-frontend/src/api/networkStats.ts` | `saveView()` отправлял `body: JSON.stringify(view)` (flat), но бэкенд ожидал `{ "view": {...} }` (wrapped) → сохранение видов ВСЕГДА возвращало `"Поле view обязательно"` | `body: JSON.stringify({ view })` |
+| 4 | `internal/gateway/portal/handlers/network_statistics.go` | `GetMonitoring` не вызывал `checkClient()` → при отсутствии gRPC-клиента — nil dereference / паника | Добавлен `h.checkClient(w)` — возвращает graceful 503 с пустыми данными |
+| 5 | `portal-frontend/src/components/network-stats/DrillDownDrawer.tsx` | `fmt(n)` и `fmtPct(n)` без null-safety → крэш при null/undefined из API | `(n ?? 0)` — null-safe |
+| 6 | `portal-frontend/src/components/network-stats/MonitoringKPIGrid.tsx` | `kpi.value / 1000`, `kpi.value.toFixed(0)`, `kpi.name.toLowerCase()` без null-safety → крэш при null | `const v = kpi.value ?? 0`, `(kpi.name ?? '').toLowerCase()` |
+| 7 | `portal-frontend/src/components/network-stats/MonitoringKPIGrid.tsx` | KPI-карточки мониторинга показывали английские имена: `throughput`, `dlr_rate`, `errors`, `timeouts`, `unhealthy_providers` | Локализовано: «Пропускная способность», «Доставляемость», «Ошибки», «Таймауты», «Проблемные провайдеры»; `dlr_rate` форматируется как процент |
+| 8 | `portal-frontend/src/hooks/useNetworkStats.ts` | Переключение вкладки (Статистика→Аналитика→Мониторинг) не загружало данные — пользователь видел stale данные и должен был нажать «Применить» | `useEffect` по `mode` запускает `fetchData()` автоматически при смене вкладки |
+| 9 | `portal-frontend/src/hooks/useNetworkStats.ts` | `loadViews` — `.catch { /* silent */ }` → при ошибке загрузки видов пользователь не получал обратной связи | `viewsError` state + expose через return для отображения ошибки |
+| 10 | `portal-frontend/src/api/networkStats.ts` | `date_from`/`date_to` отправлялись как ISO-строки, но бэкенд `parseSharedFilter` ожидал Unix timestamp (int64) → даты парсились как 0 | `filterToParams()` конвертирует ISO-строки в Unix timestamp (секунды) перед отправкой |
+
+### Инфраструктура (провер��а)
+
+| Компонент | Статус |
+|---|---|
+| `GET /reseller/statistics` → `GetStatistics` gRPC | ✅ |
+| `GET /reseller/analytics-summary` ��� `GetAnalyticsSummary` gRPC | ✅ |
+| `GET /reseller/monitoring` → `GetMonitoringMetrics` gRPC | ✅ исправлено (checkClient) |
+| `GET /reseller/drilldown` → `GetDrillDown` gRPC | ✅ |
+| `POST /reseller/export` → `StartExport` gRPC | ✅ |
+| `GET /reseller/export/{job_id}/status` → `GetExportStatus` gRPC | ✅ исправлено (path param) |
+| `GET /reseller/views` → `ListSavedViews` gRPC | ✅ |
+| `POST /reseller/views` → `SaveView` gRPC | ✅ исправлено (body format) |
+| `DELETE /reseller/views/{id}` → `DeleteView` gRPC | ✅ |
+| `network_stats_hourly` table (partitioned, migration 000102) | ��� |
+| `network_monitoring_snapshot` table (migration 000102) | ✅ |
+| `saved_views` table + UNIQUE(partner_id, user_id, name) (migration 000102) | ✅ |
+| `export_jobs` table + UUID PK (migration 000102) | ✅ |
+| Proto `networkanalyticsv1`: все 9 RPC соответствуют handler-вызовам | ✅ |
+| Auth middleware: все handlers проверяют `GetClientID` | ✅ |
+| Seed views: 3 глобальных шаблона (Владелец, Техподдержка, Менеджер) | ��� |
+
+### Остаточные проблемы
+
+| Приоритет | Проблема | Комментарий |
+|---|---|---|
+| LOW | Кнопка «Произвольный период» (Calendar icon) — date picker работает, но визуально неочевидна | Пресеты покрывают основные сценарии |
+
+---
+
+## [DONE] Модуль: Сетевая статистика — повторный аудит (aggregator, /network/statistics, fix mode + инфраструктура + QA full, 2026-04-17)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/api/networkStats.ts` | `startExport` POST body отправлял `{ filter, mode, format }` с ISO-строками в `date_from`/`date_to` → Go-хендлер парсил даты как 0 → экспорт без фильтрации по дате | `filterToParams(filter)` конвертирует ISO → Unix timestamps перед JSON.stringify |
+| 2 | `portal-frontend/src/components/network-stats/MonitoringTable.tsx` | `r.throughput.toFixed(0)` без null-safety → крэш при null/undefined throughput из API | `(r.throughput ?? 0).toFixed(0)` |
+| 3 | `portal-frontend/src/pages/network/NetworkStatisticsPage.tsx` | `referencesApi.operators().catch(() => {})` — silent failure → пустой dropdown операторов без объяснения | `operatorsError` state + баннер «Не удалось загрузить список операторов» + кнопка «Повторить» |
+| 4 | `portal-frontend/src/components/network-stats/MonitoringTable.tsx` | Нет pagination controls — компонент принимает `pagination` prop но не рендерит кнопки | Добавлены кнопки ←/→ + «Страница N из M» (аналогично StatisticsTable) |
+| 5 | `portal-frontend/src/components/network-stats/DrillDownDrawer.tsx` | Summary KPI показывались через `fmt(kpi.value)` (plain число) → DLR rate 0.95 вместо 95.0%, revenue без ₽ | `fmtKPI()` — type-aware: rate/margin → %, revenue/profit/cost → ₽, остальные → число |
+| 6 | `portal-frontend/src/components/network-stats/StatisticsTable.tsx`, `MonitoringTable.tsx`, `MonitoringKPIGrid.tsx` | Заголовок «Pending» на английском в трёх местах | «Ожидание» — русский |
+| 7 | `portal-frontend/src/hooks/useNetworkStats.ts` | Export polling без max retry limit → бесконечный `setTimeout(pollExport, 2000)` при зависшем экспорте | `MAX_EXPORT_POLLS=90` (3 мин), error handling для отдельных poll-запросов, показ `status.error` при failed |
+| 8 | `portal-frontend/src/components/network-stats/StatisticsKPIStrip.tsx` | `formatValue` и `valueColor` не распознавали английские KPI имена (`revenue`, `profit`, `margin`, `dlr_rate`, `failed`, `delivered`) → деньги без ₽, проценты как десятичные | Добавлены английские варианты имён в условия форматирования |
+
+### Инфраструктура (проверка)
+
+| Компонент | Статус |
+|---|---|
+| 10 маршрутов (GET statistics/analytics-summary/monitoring/drilldown/views, POST export/views, GET export/{job_id}/status/download, DELETE views/{id}) | ✅ все совпадают frontend ↔ backend |
+| Proto `networkanalyticsv1`: 9 RPC ↔ 10 handlers (DownloadExport отдельный) | ✅ |
+| Миграция 000102: 4 таблицы + индексы + seed data | ✅ |
+| Auth: все handlers проверяют `GetClientID` | ✅ |
+| TypeScript build: `tsc --noEmit` OK | ✅ |
+| Go build: `go build ./internal/gateway/portal/...` OK | ✅ |
+
+---
+
 ## Test Accounts
 
 | Email | Роль | Client | Назначение |

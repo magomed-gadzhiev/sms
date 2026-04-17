@@ -134,7 +134,18 @@ export function useNetworkStats() {
     setSearchParams(filtersToParams(newMode, filters), { replace: true });
     setDrillDown(null);
     setDrillDownStack([]);
+    // Auto-fetch data for the new mode
+    setData(null);
   }, [filters, setSearchParams]);
+
+  // Re-fetch when mode changes
+  const prevModeRef = useRef(mode);
+  useEffect(() => {
+    if (prevModeRef.current !== mode) {
+      prevModeRef.current = mode;
+      fetchData();
+    }
+  }, [mode, fetchData]);
 
   const setFilters = useCallback((partial: Partial<SharedFilter>) => {
     setFiltersState(prev => {
@@ -218,13 +229,42 @@ export function useNetworkStats() {
       const resp = await networkStatsApi.startExport(filters, mode, format);
       setExportStatus({ status: 'pending', job_id: resp.job_id });
 
+      const MAX_EXPORT_POLLS = 90; // 3 минуты при интервале 2с
+      let pollCount = 0;
+
       const pollExport = async () => {
-        const status = await networkStatsApi.getExportStatus(resp.job_id);
-        setExportStatus({ status: status.status, job_id: resp.job_id });
-        if (status.status === 'done' && status.download_url) {
-          window.open(status.download_url, '_blank');
-        } else if (status.status !== 'failed') {
-          setTimeout(pollExport, 2000);
+        pollCount++;
+        if (pollCount > MAX_EXPORT_POLLS) {
+          setExportStatus({ status: 'failed', job_id: resp.job_id });
+          setError('Превышено время ожидания экспорта');
+          return;
+        }
+        try {
+          const status = await networkStatsApi.getExportStatus(resp.job_id);
+          setExportStatus({ status: status.status, job_id: resp.job_id });
+          if (status.status === 'done') {
+            const res = await networkStatsApi.downloadExport(resp.job_id);
+            if (res.ok) {
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              const disposition = res.headers.get('Content-Disposition');
+              const match = disposition?.match(/filename="?([^"]+)"?/);
+              a.download = match?.[1] || `export-${resp.job_id}`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }
+          } else if (status.status === 'failed') {
+            setError(status.error || 'Ошибка экспорта');
+          } else {
+            setTimeout(pollExport, 2000);
+          }
+        } catch {
+          setExportStatus({ status: 'failed', job_id: resp.job_id });
+          setError('Ошибка при проверке статуса экспорта');
         }
       };
       setTimeout(pollExport, 2000);
@@ -235,11 +275,16 @@ export function useNetworkStats() {
 
   // --- Saved views ---
 
+  const [viewsError, setViewsError] = useState<string | null>(null);
+
   const loadViews = useCallback(async () => {
+    setViewsError(null);
     try {
       const resp = await networkStatsApi.listViews();
       setSavedViews(resp.views || []);
-    } catch { /* silent */ }
+    } catch (err: any) {
+      setViewsError(err?.message || 'Ошибка загрузки сохранённых видов');
+    }
   }, []);
 
   useEffect(() => { loadViews(); }, [loadViews]);
@@ -316,7 +361,9 @@ export function useNetworkStats() {
     savedViews,
     activeViewId,
     isViewModified,
+    viewsError,
     loadView,
+    loadViews,
     saveCurrentView,
     deleteView: deleteViewById,
 

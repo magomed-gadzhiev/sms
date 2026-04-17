@@ -39,10 +39,10 @@ function rowBg(row: MonitorRow): string {
 
 const COLUMNS: { key: string; header: string; align: string; render: (r: MonitorRow) => React.ReactNode }[] = [
   { key: 'slice', header: 'Провайдер', align: 'left', render: r => <span className="font-medium text-blue-600">{r.slice}</span> },
-  { key: 'throughput', header: 'msg/s', align: 'right', render: r => r.throughput.toFixed(0) },
+  { key: 'throughput', header: 'msg/s', align: 'right', render: r => (r.throughput ?? 0).toFixed(0) },
   { key: 'sent', header: 'Отпр.', align: 'right', render: r => fmt(r.sent) },
   { key: 'delivered', header: 'Достав.', align: 'right', render: r => fmt(r.delivered) },
-  { key: 'pending', header: 'Pending', align: 'right', render: r => r.pending > 0 ? <span className={r.pending > 100 ? 'text-amber-600 font-medium' : ''}>{fmt(r.pending)}</span> : '0' },
+  { key: 'pending', header: 'Ожидание', align: 'right', render: r => r.pending > 0 ? <span className={r.pending > 100 ? 'text-amber-600 font-medium' : ''}>{fmt(r.pending)}</span> : '0' },
   { key: 'timeout', header: 'Таймаут', align: 'right', render: r => r.timeout > 0 ? <span className="text-amber-600">{fmt(r.timeout)}</span> : '0' },
   { key: 'error', header: 'Ошибки', align: 'right', render: r => r.error > 0 ? <span className="text-red-600 font-medium">{fmt(r.error)}</span> : '0' },
   { key: 'dlr_latency_p50', header: 'p50', align: 'right', render: r => fmtLatency(r.dlr_latency_p50) },
@@ -52,10 +52,15 @@ const COLUMNS: { key: string; header: string; align: string; render: (r: Monitor
   { key: 'health', header: '', align: 'center', render: r => <span className={`inline-block w-2 h-2 rounded-full ${healthDot(r.health)}`} /> },
 ];
 
-export function MonitoringTable({ rows, filters, onFiltersChange, onApply, onRowClick, loading }: MonitoringTableProps) {
+export function MonitoringTable({ rows, pagination, filters, onFiltersChange, onApply, onRowClick, loading }: MonitoringTableProps) {
   function handleSort(key: string) {
     const newDir = filters.sort_by === key && filters.sort_dir === 'desc' ? 'asc' : 'desc';
     onFiltersChange({ sort_by: key, sort_dir: newDir });
+    onApply();
+  }
+
+  function handlePageChange(page: number) {
+    onFiltersChange({ page });
     onApply();
   }
 
@@ -102,6 +107,15 @@ export function MonitoringTable({ rows, filters, onFiltersChange, onApply, onRow
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {pagination && pagination.total_pages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-3">
+          <button disabled={pagination.page <= 1} onClick={() => handlePageChange(pagination.page - 1)} className="px-3 py-1 rounded border border-gray-200 text-xs text-gray-500 disabled:opacity-40">←</button>
+          <span className="text-xs text-gray-500">Страница {pagination.page} из {pagination.total_pages}</span>
+          <button disabled={pagination.page >= pagination.total_pages} onClick={() => handlePageChange(pagination.page + 1)} className="px-3 py-1 rounded border border-gray-200 text-xs text-gray-500 disabled:opacity-40">→</button>
+        </div>
+      )}
     </div>
   );
 }
