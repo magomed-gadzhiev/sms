@@ -196,7 +196,7 @@ export function App() {
           <Route path="moderation" element={<ModerationPage />} />
           <Route path="routing" element={<NetworkRoutingPage />} />
           <Route path="tariffs" element={<NetworkTariffsPage />} />
-          <Route path="statistics" element={<NetworkStatisticsPage />} />
+          <Route path="statistics" element={<Suspense fallback={null}><NetworkStatisticsPage /></Suspense>} />
         </Route>
 
         {/* Backward compat redirects */}
