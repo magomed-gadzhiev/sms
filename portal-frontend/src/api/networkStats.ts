@@ -138,14 +138,19 @@ function qs(params: Record<string, string | number | boolean | undefined>): stri
 }
 
 function filterToParams(f: SharedFilter): Record<string, string | number | boolean | undefined> {
-  const params = { ...f } as Record<string, string | number | boolean | undefined>;
+  const params: Record<string, string | number | boolean | undefined> = {};
+  for (const [k, v] of Object.entries(f)) {
+    if (v !== '' && v !== undefined && v !== null) {
+      params[k] = v as string | number | boolean;
+    }
+  }
   // Convert ISO date strings to Unix timestamps for backend
-  if (f.date_from && typeof f.date_from === 'string') {
-    const ts = Math.floor(new Date(f.date_from).getTime() / 1000);
+  if (typeof params.date_from === 'string') {
+    const ts = Math.floor(new Date(params.date_from).getTime() / 1000);
     if (!isNaN(ts)) params.date_from = ts;
   }
-  if (f.date_to && typeof f.date_to === 'string') {
-    const ts = Math.floor(new Date(f.date_to).getTime() / 1000);
+  if (typeof params.date_to === 'string') {
+    const ts = Math.floor(new Date(params.date_to).getTime() / 1000);
     if (!isNaN(ts)) params.date_to = ts;
   }
   return params;

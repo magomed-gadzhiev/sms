@@ -164,6 +164,8 @@ export function useNetworkStats() {
       if (nonPagKeys.length > 0 && !('page' in partial)) {
         next.page = 1;
       }
+      // Synchronously update ref so applyFilters() called immediately after reads fresh filters
+      filtersRef.current = next;
       setIsViewModified(true);
       return next;
     });

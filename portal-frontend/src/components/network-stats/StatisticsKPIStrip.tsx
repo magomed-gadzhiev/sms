@@ -1,5 +1,28 @@
 import type { KPI } from '../../api/networkStats';
 
+const KPI_LABELS: Record<string, string> = {
+  total: 'Всего',
+  delivered: 'Доставлено',
+  failed: 'Ошибки',
+  pending: 'Ожидание',
+  timeout: 'Таймаут',
+  timeouts: 'Таймауты',
+  errors: 'Ошибки',
+  error: 'Ошибки',
+  dlr_rate: 'Доставляемость',
+  'delivery rate': 'Доставляемость',
+  delivery_rate: 'Доставляемость',
+  revenue: 'Выручка',
+  cost: 'Себестоимость',
+  profit: 'Прибыль',
+  margin: 'Маржа',
+};
+
+function kpiLabel(kpi: KPI): string {
+  const key = (kpi.name ?? '').toLowerCase().trim();
+  return KPI_LABELS[key] ?? kpi.name ?? '';
+}
+
 function formatValue(kpi: KPI): string {
   const v = kpi.value ?? 0;
   const name = (kpi.name ?? '').toLowerCase();
@@ -27,7 +50,7 @@ export function StatisticsKPIStrip({ kpis }: { kpis: KPI[] }) {
     <div className="flex gap-3 px-4 py-3">
       {kpis.map((kpi) => (
         <div key={kpi.name} className="flex-1 rounded-lg border border-gray-200 bg-white p-3">
-          <div className="text-[11px] uppercase tracking-wide text-gray-400">{kpi.name}</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-400">{kpiLabel(kpi)}</div>
           <div className={`mt-1 text-xl font-bold ${valueColor(kpi)}`}>
             {formatValue(kpi)}
           </div>

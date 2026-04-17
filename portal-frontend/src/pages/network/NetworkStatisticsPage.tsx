@@ -130,7 +130,7 @@ export default function NetworkStatisticsPage() {
             <div className="flex items-center justify-between px-4 py-2">
               <span className="text-xs text-gray-400">
                 {(stats.data as any)?.pagination
-                  ? `Показано ${(stats.data as any).pagination.total_rows} провайдеров`
+                  ? `Показано ${(stats.data as any).pagination.total_rows ?? 0} провайдеров`
                   : ''}
               </span>
               <ExportButton onExport={stats.startExport} status={stats.exportStatus} />
