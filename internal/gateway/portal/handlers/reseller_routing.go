@@ -62,7 +62,7 @@ func (h *ResellerRoutingHandlers) ListNetworkProviders(w http.ResponseWriter, r 
 		args = append(args, subAccountFilter)
 		i++
 	}
-	query += " ORDER BY c.name, cp.priority"
+	query += " ORDER BY c.name, cp.shared_priority"
 
 	rows, err := h.pool.Query(r.Context(), query, args...)
 	if err != nil {
