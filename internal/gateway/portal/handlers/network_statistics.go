@@ -322,6 +322,7 @@ func (h *NetworkStatisticsHandlers) StartExport(w http.ResponseWriter, r *http.R
 
 // GetExportStatus handles GET /network/export/{job_id}
 func (h *NetworkStatisticsHandlers) GetExportStatus(w http.ResponseWriter, r *http.Request) {
+	log.Info().Str("path", r.URL.Path).Msg("network_statistics: GetExportStatus called")
 	_, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
