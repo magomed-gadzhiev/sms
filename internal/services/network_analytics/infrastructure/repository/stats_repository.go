@@ -142,7 +142,7 @@ func buildStatsQuery(filter *domain.SharedFilter, whereClause string, argCount i
 			SUM(failed) AS failed,
 			SUM(pending) AS pending,
 			SUM(timeout) AS timeout,
-			SUM(error_count) AS error,
+			SUM(error) AS error,
 			CASE WHEN SUM(total) > 0 THEN SUM(delivered)::float / SUM(total)::float ELSE 0 END AS dlr_rate,
 			COALESCE(SUM(revenue), 0) AS revenue,
 			COALESCE(SUM(cost), 0) AS cost,
@@ -437,7 +437,7 @@ func (r *StatsRepo) GetDrillDown(ctx context.Context, params *domain.DrillDownPa
 	case "statuses":
 		childDim = "channel"
 	case "errors":
-		childDim = "error_count"
+		childDim = "error"
 	case "timeline":
 		childDim = "hour"
 	case "money":
@@ -464,7 +464,7 @@ func (r *StatsRepo) GetDrillDown(ctx context.Context, params *domain.DrillDownPa
 			SUM(failed) AS failed,
 			SUM(pending) AS pending,
 			SUM(timeout) AS timeout,
-			SUM(error_count) AS error,
+			SUM(error) AS error,
 			CASE WHEN SUM(total) > 0 THEN SUM(delivered)::float / SUM(total)::float ELSE 0 END AS dlr_rate,
 			COALESCE(SUM(revenue), 0) AS revenue,
 			COALESCE(SUM(cost), 0) AS cost,
@@ -552,7 +552,7 @@ func (r *StatsRepo) UpsertHourlyStats(ctx context.Context, rows []domain.HourlyS
 		INSERT INTO network_stats_hourly (
 			partner_id, hour, provider_id, operator, country, channel,
 			login, sender_name, traffic_type, method,
-			total, sent, delivered, failed, pending, timeout, error_count,
+			total, sent, delivered, failed, pending, timeout, error,
 			revenue, cost,
 			dlr_latency_sum, dlr_latency_cnt, dlr_latency_p50, dlr_latency_p95,
 			throughput_max
@@ -572,7 +572,7 @@ func (r *StatsRepo) UpsertHourlyStats(ctx context.Context, rows []domain.HourlyS
 			failed         = network_stats_hourly.failed + EXCLUDED.failed,
 			pending        = EXCLUDED.pending,
 			timeout        = network_stats_hourly.timeout + EXCLUDED.timeout,
-			error_count    = network_stats_hourly.error_count + EXCLUDED.error_count,
+			error    = network_stats_hourly.error + EXCLUDED.error,
 			revenue        = network_stats_hourly.revenue + EXCLUDED.revenue,
 			cost           = network_stats_hourly.cost + EXCLUDED.cost,
 			dlr_latency_sum = network_stats_hourly.dlr_latency_sum + EXCLUDED.dlr_latency_sum,
