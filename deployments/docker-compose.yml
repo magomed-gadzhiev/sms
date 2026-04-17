@@ -750,6 +750,31 @@ services:
       timeout: 5s
       retries: 3
 
+  # Network Analytics Service
+  network-analytics-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: network-analytics-service
+        SERVICE_PATH: cmd/services/network-analytics-service
+    container_name: network-analytics-service
+    ports:
+      - "50060:50060"  # gRPC
+    environment:
+      - SERVICE_NAME=network-analytics-service
+      - GRPC_PORT=50060
+      - DATABASE_URL=postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Billing Service
   billing-service:
     build:
@@ -1067,6 +1092,7 @@ services:
       - CAMPAIGN_SERVICE_ADDR=campaign-service:5013
       - LINK_SERVICE_ADDR=link-service:9103
       - CASCADE_SERVICE_ADDR=cascade-service:9110
+      - NETWORK_ANALYTICS_GRPC_ADDR=network-analytics-service:50060
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432

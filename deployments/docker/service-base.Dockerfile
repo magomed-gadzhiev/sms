@@ -118,6 +118,17 @@ RUN mkdir -p api/proto/templatev1 && \
     mv api/proto/templatev1/template/* api/proto/templatev1/ 2>/dev/null || true && \
     rm -rf api/proto/templatev1/template || true
 
+RUN mkdir -p api/proto/networkanalyticsv1 && \
+    protoc \
+    --go_out=api/proto/networkanalyticsv1 \
+    --go_opt=paths=source_relative \
+    --go-grpc_out=api/proto/networkanalyticsv1 \
+    --go-grpc_opt=paths=source_relative \
+    --proto_path=api/proto \
+    api/proto/network_analytics/network_analytics.proto && \
+    mv api/proto/networkanalyticsv1/network_analytics/* api/proto/networkanalyticsv1/ 2>/dev/null || true && \
+    rm -rf api/proto/networkanalyticsv1/network_analytics || true
+
 # Обновление кеша пакетов после генерации proto файлов
 RUN go list -e ./api/proto/... > /dev/null 2>&1 || true
 
