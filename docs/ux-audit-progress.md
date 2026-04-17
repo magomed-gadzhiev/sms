@@ -625,7 +625,7 @@
 | Interaction chain: sort/page → API (stale closure) | ✅ исправлено (ref pattern) |
 | Interaction chain: drill-down tab → re-fetch | ✅ исправлено (setDrillDownView with fetch) |
 
-## [IN_PROGRESS] Модуль: Сетевая статистика — 5-й раунд (aggregator, /network/statistics, fix mode + инфраструктура + QA full, 2026-04-17)
+## [DONE] Модуль: Сетевая статистика — 5-й раунд (aggregator, /network/statistics, fix mode + инфраструктура + QA full, 2026-04-17)
 
 ### Исправлено
 
@@ -638,12 +638,16 @@
 | 5 | `internal/services/network_analytics/application/export_worker.go` | Отсутствовал background worker — jobs создавались, но никогда не обрабатывались (вечный `pending`) | Создан `ExportWorker`: poll pending jobs каждые 5s, генерирует CSV из `GetStatistics`/`GetMonitoringMetrics`, сохраняет в `/exports/{job_id}.csv` |
 | 6 | `deployments/docker-compose.yml` | network-analytics-service и portal-gateway не имели shared volume → portal-gateway не мог прочитать файлы экспорта | Добавлен named volume `network-exports:/exports` в оба сервиса |
 | 7 | `cmd/services/network-analytics-service/main.go` | ExportWorker не запускался в main | `go exportWorker.Run(ctx)` добавлен после AggregationWorker |
+| 8 | `portal-frontend/src/hooks/useNetworkStats.ts` | `parseFiltersFromURL` не задавал дефолты → при первом открытии `period_preset` и `group_by` были undefined → API запрос без фильтров → backend GROUP BY operator → пустой Срез | `if (!f.period_preset) f.period_preset = '7d'`; `if (!f.group_by) f.group_by = 'day'` — корректная инициализация состояния |
+| 9 | `portal-frontend/src/pages/network/NetworkStatisticsPage.tsx` | Панель saved views отсутствовала в UI — хук `useNetworkStats` полностью поддерживал виды, но компонент не рендерил кнопки | Добавлена фиксированная bottom-bar панель с кнопками загруженных видов и кнопкой «+ Сохранить» при наличии изменений |
 
 ### TC итог (раунд 5)
 
 | TC | Описание | Вердикт |
 |---|---|---|
 | TC-7 | Export CSV: POST /export → polling status → GET /download | PASS ✅ CSV скачивается, content-type: text/csv, данные корректны |
+| TC-8 | Начальная загрузка: Срез содержит даты (group_by=day, period_preset=7d) | PASS ✅ API: `?period_preset=7d&group_by=day`, таблица: строки 2026-04-10..17 |
+| TC-9 | Saved views panel: кнопки видов отображаются, кнопка «+ Сохранить» при изменении фильтров | PASS ✅ Панель показывает 3 сохранённых вида |
 
 ## [DONE] Модуль: Сетевая статистика — 4-й раунд (aggregator, /network/statistics, fix mode + QA full, 2026-04-17)
 
@@ -673,6 +677,43 @@
 | TC-9 | Экспорт CSV с пресетом | BUG-3 воспроизведён (400) → исправлен; после деплоя 500 от бэкенда экспорта (не фронтенд) |
 
 ---
+
+## [DONE] Модуль: Агрегатор — полный аудит (aggregator, все страницы, fix mode + инфраструктура + QA full, 2026-04-17)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/pages/network/NetworkDashboardPage.tsx` | `{moderationTotal} заявок` — всегда "заявок" | Правильное склонение: 1 заявка / 2-4 заявки / 5+ заявок |
+| 2 | `portal-frontend/src/pages/sub-accounts/SubAccountsListPage.tsx` | `parseFloat(sa.balance).toFixed(2) ₽` — без разделителей | `toLocaleString('ru-RU')` → "49 987,50 ₽" |
+| 3 | `portal-frontend/src/pages/sub-accounts/SubAccountsListPage.tsx` | Подсказка баланса в форме создания: `parseFloat(parentBalance).toFixed(2)` | `toLocaleString('ru-RU')` — консистентный формат |
+| 4 | `portal-frontend/src/pages/sub-accounts/SubAccountDetailPage.tsx` | Breadcrumb `href: '/sub-accounts'` — неправильный путь | `href: '/network/sub-accounts'` |
+| 5 | `internal/gateway/portal/handlers/sub_accounts.go` | `GetSubAccountMessages` возвращал raw proto `[]*messagingv1.MessageInfo` → `created_at` сериализовался как `{"seconds":N}` → "Invalid Date" на фронте | DTO-маппинг с `m.CreatedAt.AsTime().Format(time.RFC3339)` → корректная ISO-строка |
+| 6 | `portal-frontend/src/pages/sub-accounts/SubAccountDetailPage.tsx` | Колонка "Период" в Analytics tab: нет render — показывалась ISO-строка "2026-04-15" | `toLocaleDateString('ru-RU')` → "15.04.2026" |
+| 7 | `internal/gateway/portal/handlers/reseller_routing.go` | SQL `cp.priority` (SELECT + ORDER BY) — колонка не существует → 500 | Исправлено на `cp.shared_priority` |
+| 8 | `portal-frontend/src/pages/network/components/TariffPlanEditor.tsx` | `plans.length < 5 ? 'плана' : 'планов'` — "0 плана" неверно | Правильное склонение: 0 планов / 1 план / 2-4 плана / 5+ планов |
+
+### Проверенные страницы (все OK после исправлений)
+
+| Страница | URL | Статус |
+|---|---|---|
+| Network Dashboard | `/network/dashboard` | ✅ "1 заявка" — правильное склонение |
+| Sub-accounts List | `/network/sub-accounts` | ✅ "49 987,50 ₽" — ru-RU форматирование |
+| Sub-account Detail — Messages | `/network/sub-accounts/:id` → Сообщения | ✅ даты "15.04.2026, 12:43:41" вместо "Invalid Date" |
+| Sub-account Detail — Analytics | `/network/sub-accounts/:id` → Аналитика | ✅ период "15.04.2026" вместо ISO |
+| Sub-account Detail — Breadcrumb | `/network/sub-accounts/:id` | ✅ breadcrumb ведёт на `/network/sub-accounts` |
+| Network Moderation | `/network/moderation` | ✅ данные загружаются |
+| Network Routing | `/network/routing` | ✅ нет 500 после исправления `cp.shared_priority` |
+| Network Tariffs — Обзор | `/network/tariffs` | ✅ тарифы по операторам загружаются |
+| Network Tariffs — Шаблоны | `/network/tariffs` → Шаблоны | ✅ "1 шаблон" |
+| Network Tariffs — Переопределения | `/network/tariffs` → Переопределения | ✅ "0 планов" вместо "0 плана" |
+| Network Statistics | `/network/statistics` | ✅ данные, фильтры, экспорт работают |
+
+### Инфраструктурная проблема
+
+| Компонент | Статус |
+|---|---|
+| Docker build cache (96 ГБ) | ⚠️ Заполнял диск, блокировал сборку. Очищен `docker builder prune -af` |
 
 ## Test Accounts
 
