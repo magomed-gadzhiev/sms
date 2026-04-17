@@ -87,7 +87,7 @@ func main() {
 		Tarification: config.EnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
 		Link:         config.EnvOrDefault("LINK_SERVICE_ADDR", "localhost:9103"),
 		Cascade:          config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9110"),
-		NetworkAnalytics: config.EnvOrDefault("NETWORK_ANALYTICS_GRPC_ADDR", "localhost:50060"),
+		NetworkAnalytics: config.EnvOrDefault("NETWORK_ANALYTICS_GRPC_ADDR", ""),
 	}
 
 	// Инициализация gRPC клиентов
