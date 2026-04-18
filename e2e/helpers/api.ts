@@ -189,6 +189,101 @@ export class ApiHelper {
     const res = await this.fetch('/routes/providers');
     return res.json();
   }
+
+  // --- Sub-Accounts ---
+  async listSubAccounts() {
+    const res = await this.fetch('/sub-accounts');
+    return res.json();
+  }
+
+  async createSubAccount(data: {
+    name: string;
+    email: string;
+    contact_person?: string;
+    initial_balance?: string;
+    daily_limit?: number;
+    monthly_limit?: number;
+  }) {
+    const res = await this.fetch('/sub-accounts', { method: 'POST', data });
+    return res.json();
+  }
+
+  async getSubAccount(id: string) {
+    const res = await this.fetch(`/sub-accounts/${id}`);
+    return res.json();
+  }
+
+  async updateSubAccountLimits(id: string, data: { daily_limit: number; monthly_limit: number }) {
+    const res = await this.fetch(`/sub-accounts/${id}/limits`, { method: 'PUT', data });
+    return res.json();
+  }
+
+  async transferToSubAccount(id: string, amount: string) {
+    const res = await this.fetch(`/sub-accounts/${id}/transfer`, { method: 'POST', data: { amount } });
+    return res.json();
+  }
+
+  async deleteSubAccount(id: string) {
+    return this.fetch(`/sub-accounts/${id}`, { method: 'DELETE' });
+  }
+
+  async getSubAccountMessages(id: string, params: Record<string, string> = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const res = await this.fetch(`/sub-accounts/${id}/messages?${qs}`);
+    return res.json();
+  }
+
+  async getSubAccountAnalytics(id: string, params: Record<string, string> = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const res = await this.fetch(`/sub-accounts/${id}/analytics?${qs}`);
+    return res.json();
+  }
+
+  async getSubAccountTransactions(id: string, params: Record<string, string> = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const res = await this.fetch(`/sub-accounts/${id}/transactions?${qs}`);
+    return res.json();
+  }
+
+  // --- Reseller Dashboard ---
+  async getResellerDashboard(period = 'today') {
+    const res = await this.fetch(`/reseller/dashboard?period=${period}`);
+    return res.json();
+  }
+
+  // --- Reseller Moderation ---
+  async getModerationCounts() {
+    const res = await this.fetch('/reseller/moderation/counts');
+    return res.json();
+  }
+
+  async listResellerSenderNames(params: Record<string, string> = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const res = await this.fetch(`/reseller/sender-names?${qs}`);
+    return res.json();
+  }
+
+  async approveResellerSenderName(id: string) {
+    return this.fetch(`/reseller/sender-names/${id}/approve`, { method: 'POST' });
+  }
+
+  async rejectResellerSenderName(id: string, reason: string) {
+    return this.fetch(`/reseller/sender-names/${id}/reject`, { method: 'POST', data: { reason } });
+  }
+
+  async listResellerTemplates(params: Record<string, string> = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const res = await this.fetch(`/reseller/templates?${qs}`);
+    return res.json();
+  }
+
+  async approveResellerTemplate(id: string) {
+    return this.fetch(`/reseller/templates/${id}/approve`, { method: 'POST' });
+  }
+
+  async rejectResellerTemplate(id: string, reason: string) {
+    return this.fetch(`/reseller/templates/${id}/reject`, { method: 'POST', data: { reason } });
+  }
 }
 
 // Admin API helper (uses /admin/v1 base)
