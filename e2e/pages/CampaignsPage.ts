@@ -348,6 +348,78 @@ export class CampaignWizardPage {
   async isTimezoneCheckboxChecked(): Promise<boolean> {
     return this.timezoneCheckbox().isChecked();
   }
+
+  // === AC helpers (batch 3: Step 2 Audience) ===
+
+  /**
+   * Navigate wizard Step 1 → Step 2 (stop there; do not advance).
+   * Seed: 1 approved sender_name.
+   */
+  async reachStep2() {
+    await this.goto();
+    await this.expectActiveStep('Сообщение');
+
+    const senderValue = await this.getSenderValue();
+    if (!senderValue) {
+      throw new Error(
+        'reachStep2 failed at Step 1: no sender preselected. ' +
+        'Seed missing — test user has no approved sender_name.',
+      );
+    }
+
+    await this.fillMessageText('Test message for audience AC tests');
+    await this.nextButton().click();
+    await this.expectActiveStep('Аудитория');
+  }
+
+  contactListSelect() {
+    // Select component rendered as native <select>, label "Контактная база *".
+    // Unique among selects on Step 2 — has placeholder "-- Выберите базу контактов --".
+    return this.page.locator('select').filter({
+      has: this.page.locator('option', { hasText: '-- Выберите базу контактов --' }),
+    });
+  }
+
+  filtersToggleButton() {
+    // "+ Добавить фильтры исключения" or "− Скрыть фильтры"
+    return this.page.getByRole('button', {
+      name: /(Добавить фильтры исключения|Скрыть фильтры)/,
+    });
+  }
+
+  summaryBlock() {
+    // Summary has exact text "Контактов к отправке:" — unique on Step 2
+    return this.page.locator('text=/^Контактов к отправке:/');
+  }
+
+  async selectContactListByValue(value: string) {
+    await this.contactListSelect().selectOption(value);
+  }
+
+  async getContactListOptions() {
+    const options = await this.contactListSelect().locator('option').all();
+    const result: Array<{ value: string; label: string }> = [];
+    for (const opt of options) {
+      const value = (await opt.getAttribute('value')) ?? '';
+      const label = (await opt.textContent()) ?? '';
+      result.push({ value, label: label.trim() });
+    }
+    return result;
+  }
+
+  async clickFiltersToggle() {
+    await this.filtersToggleButton().click();
+  }
+
+  firstCountryCheckbox() {
+    // Checkbox inside label whose text is a country name — scoped to the
+    // "Исключить страны" section (the block that has "Исключить страны" label)
+    return this.page
+      .locator('div', { has: this.page.locator('text=Исключить страны') })
+      .last()
+      .locator('input[type="checkbox"]')
+      .first();
+  }
 }
 
 export class CampaignDetailPage {
