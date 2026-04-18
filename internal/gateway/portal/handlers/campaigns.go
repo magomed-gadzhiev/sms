@@ -2,14 +2,30 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	campaignv1 "github.com/smpp-server/smpp-server/api/proto/campaignv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// decodeProto reads the request body and decodes it into the provided proto
+// message using protojson. Required for fields like google.protobuf.Timestamp
+// which stdlib encoding/json cannot parse from ISO-8601 strings (drift D-09).
+// Use for direct proto-struct decodes only; local JSON wrapper structs should
+// continue to use stdlib json.
+func decodeProto(r io.Reader, msg proto.Message) error {
+	body, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return protojson.Unmarshal(body, msg)
+}
 
 // CampaignHandlers содержит HTTP обработчики для кампаний
 type CampaignHandlers struct {
@@ -30,7 +46,7 @@ func (h *CampaignHandlers) CreateCampaign(w http.ResponseWriter, r *http.Request
 	}
 
 	var req campaignv1.CreateCampaignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeProto(r.Body, &req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
@@ -107,7 +123,7 @@ func (h *CampaignHandlers) UpdateCampaign(w http.ResponseWriter, r *http.Request
 	}
 
 	var req campaignv1.UpdateCampaignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeProto(r.Body, &req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
@@ -341,7 +357,7 @@ func (h *CampaignHandlers) SetRetryConfig(w http.ResponseWriter, r *http.Request
 	id := mux.Vars(r)["id"]
 
 	var config campaignv1.RetryConfig
-	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+	if err := decodeProto(r.Body, &config); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
@@ -397,7 +413,7 @@ func (h *CampaignHandlers) PreviewTemplate(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req campaignv1.PreviewTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeProto(r.Body, &req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}

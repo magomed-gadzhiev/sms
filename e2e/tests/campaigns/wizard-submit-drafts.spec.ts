@@ -70,16 +70,15 @@ test.describe('Campaign Wizard — Submit & Drafts Phase B', () => {
     await expect(page).toHaveURL(new RegExp(`/campaigns/${created.id}(\\?|$)`));
   });
 
-  test.fail('AC-CW-C-13: Submit "Позже" — currently breaks due to D-09 (ISO Timestamp drift)', async ({ page }) => {
+  test('AC-CW-C-13: Submit "Позже" creates scheduled campaign + redirects (D-09 closure)', async ({ page }) => {
     const wizard = new CampaignWizardPage(page);
 
     // Tomorrow noon — safely in the future
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const date = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
-    // If D-09 is fixed: POST succeeds, navigation happens, we capture ID for cleanup.
-    // If D-09 is live: POST returns 400, no navigation, assertions below fail (which
-    // is what test.fail() expects — passing the test in drift-state).
+    // Response listener pushes id for cleanup BEFORE assertions, so if any
+    // step throws after POST succeeded, afterEach still deletes.
     page.on('response', async (res) => {
       if (
         res.request().method() === 'POST' &&
@@ -93,12 +92,21 @@ test.describe('Campaign Wizard — Submit & Drafts Phase B', () => {
       }
     });
 
+    // /launch should NOT be called for later mode (campaign is scheduled, not launched)
+    let launchCalled = 0;
+    await page.route('**/portal/v1/campaigns/*/launch', (route) => {
+      launchCalled++;
+      route.fulfill({ status: 200, body: '{}' });
+    });
+
     await wizard.reachStep4Later(date, '12:00');
     await wizard.submitButton().click();
 
-    // These assertions describe the SPEC-CORRECT behavior.
-    // They currently fail due to D-09 — which is why this test is `test.fail()`.
-    await expect(page).toHaveURL(/\/campaigns\/[a-f0-9-]{36}/, { timeout: 15_000 });
+    // Redirect to /campaigns/{id} — D-09 was fixed (protojson in handler)
+    await expect(page).toHaveURL(/\/campaigns\/[a-f0-9-]{36}(\?|$)/, { timeout: 15_000 });
+
+    // Confirm launch was not triggered for "Позже" mode
+    expect(launchCalled, '/launch must NOT be called for later mode').toBe(0);
   });
 
   test('AC-CW-N-10: Save as draft from cancel dialog → POST + navigate to /campaigns', async ({ page, request }) => {

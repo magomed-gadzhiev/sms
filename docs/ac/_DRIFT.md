@@ -355,7 +355,7 @@ if err := protojson.Unmarshal(body, &req); err != nil { ... }
 
 **Scope фикса (уточнение):** в [handlers/campaigns.go](../../internal/gateway/portal/handlers/campaigns.go) **8 мест** используют stdlib `json.NewDecoder().Decode`: строки 33, 110, 249, 282, 315, 344, 376, 400. Не все принимают Timestamp-поля, но для Create/Update/SetABConfig/SetRetryConfig — точно проблема. Минимальный фикс — заменить `json.Decode` на `protojson.Unmarshal` для `CreateCampaign` (строка 33). Полный фикс — все 8 мест для консистентности.
 
-**Статус:** 🔴 OPEN-HIGH. AC-CW-C-13 использует `test.fail()` — зелёный пока drift живёт, станет красным после фикса (сигнал "пора убрать test.fail()").
+**Статус:** 🟢 RESOLVED (2026-04-18). Заменён `json.NewDecoder().Decode` на helper `decodeProto` (используется `protojson.Unmarshal`) в 4 proto-direct-decode сайтах: `CreateCampaign` (33), `UpdateCampaign` (110), `SetRetryConfig` (344), `PreviewTemplate` (400). Остальные 4 сайта остались на stdlib json (они декодят local wrapper structs, не proto). AC-CW-C-13 переведён с `test.fail()` в обычный тест.
 
 ---
 
