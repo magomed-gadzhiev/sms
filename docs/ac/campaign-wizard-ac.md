@@ -621,3 +621,98 @@
 - **11 AC** покрывают: автоимя, inline-edit trigger, 4 summary-блока, cost estimate (вызов + render), submit button text (2 mode), edit-link navigation
 - **Seed:** тот же что в batch 2/3 (sender + contact list)
 - **Скоуп-ограничение:** реальная отправка и /launch — Phase B (создание кампаний с cleanup, требует аккуратной балансировки)
+
+---
+
+## Batch 5: Navigation + Drafts — Phase A (без создания кампаний)
+
+**Скоуп:** behavior кнопок `Отмена` (открывает dialog), dialog buttons, `Назад`, клики по StepIndicator.
+
+**НЕ в Phase A:** save-as-draft (создаёт campaign), загрузка через `?draft={id}` (требует существующий draft). Phase B отдельно.
+
+**Связанный drift:** D-08 (dialog discard button text: "Отмена" vs спека "Не сохранять"). Тесты проверяют поведение, не текст.
+
+### AC-CW-N-01: "Отмена" в wizard nav открывает confirm dialog
+
+**ДАНО:** пользователь на любом шаге wizard (например Step 1)
+
+**КОГДА:** кликает кнопку "Отмена" в navigation bar
+
+**ТОГДА:**
+- Появляется `<div role="dialog">` с `title="Отменить создание рассылки?"`
+- Видно описание: `"Хотите сохранить текущий прогресс как черновик или выйти без сохранения?"`
+
+### AC-CW-N-02: Dialog содержит 2 кнопки действия
+
+**ДАНО:** dialog открыт (по AC-N-01)
+
+**КОГДА:** рендер завершён
+
+**ТОГДА:** внутри dialog:
+- Присутствует кнопка с текстом `"Сохранить как черновик"`
+- Присутствует кнопка с текстом `"Отмена"` (discard — см. D-08)
+
+### AC-CW-N-03: Dialog "Отмена" (discard) закрывает диалог + navigate на /campaigns, без POST
+
+**ДАНО:** dialog открыт, нет pending requests
+
+**КОГДА:** пользователь кликает кнопку "Отмена" внутри dialog
+
+**ТОГДА:**
+- Dialog исчезает из DOM (`role="dialog"` invisible)
+- URL становится `/campaigns` (wizard покинут)
+- **Не** отправляется POST на `/portal/v1/campaigns` (интерцепт не ловит)
+
+### AC-CW-N-04: "Назад" не виден на Step 1
+
+**ДАНО:** Step 1 активен (default)
+
+**КОГДА:** рендер
+
+**ТОГДА:** кнопка `"Назад"` отсутствует в DOM
+
+### AC-CW-N-05: "Назад" на Step 2 возвращает на Step 1
+
+**ДАНО:** пользователь прошёл Step 1 → Step 2 (reachStep2)
+
+**КОГДА:** кликает "Назад"
+
+**ТОГДА:** active step = "Сообщение"
+
+### AC-CW-N-06: "Назад" на Step 3 возвращает на Step 2
+
+**ДАНО:** пользователь на Step 3 (reachStep3)
+
+**КОГДА:** кликает "Назад"
+
+**ТОГДА:** active step = "Аудитория"
+
+### AC-CW-N-07: "Назад" на Step 4 возвращает на Step 3
+
+**ДАНО:** пользователь на Step 4 (reachStep4Now)
+
+**КОГДА:** кликает "Назад"
+
+**ТОГДА:** active step = "Расписание"
+
+### AC-CW-N-08: StepIndicator клик по пройденному шагу возвращает туда
+
+**ДАНО:** пользователь на Step 3, maxReachedIndex=2 (Step 1, 2 пройдены)
+
+**КОГДА:** кликает кнопку StepIndicator с названием "1. Сообщение"
+
+**ТОГДА:** active step = "Сообщение", maxReachedIndex всё ещё 2 (не сбрасывается)
+
+### AC-CW-N-09: StepIndicator кнопка будущего шага disabled
+
+**ДАНО:** пользователь на Step 1 (maxReachedIndex=0)
+
+**КОГДА:** рендер
+
+**ТОГДА:** кнопка StepIndicator "4. Подтверждение" имеет attribute `disabled` (не кликабельна)
+
+## Итого в Batch 5 Phase A
+
+- **9 AC** покрывают: открытие cancel dialog, 2 кнопки dialog, behavior discard-кнопки (без POST), видимость Назад, Назад с 3 шагов, StepIndicator jump назад, StepIndicator disabled вперёд
+- **Seed:** тот же что в batch 2/3 (sender + contact list)
+- **Drift:** D-08 (dialog discard label) задокументирован

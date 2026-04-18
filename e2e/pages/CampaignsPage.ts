@@ -497,6 +497,39 @@ export class CampaignWizardPage {
       .locator('#main-content')
       .getByRole('button', { name: /^(Отправить|Запланировать)$/ });
   }
+
+  // === AC helpers (batch 5: Navigation + Drafts Phase A) ===
+
+  cancelButton() {
+    // Wizard-level "Отмена" in nav bar. Scoped to #main-content to avoid
+    // matching the dialog's "Отмена" button (which appears after click).
+    return this.page.locator('#main-content').getByRole('button', { name: 'Отмена', exact: true });
+  }
+
+  backButton() {
+    // Only rendered on steps 2-4.
+    return this.page.locator('#main-content').getByRole('button', { name: 'Назад', exact: true });
+  }
+
+  cancelDialog() {
+    return this.page.getByRole('dialog');
+  }
+
+  dialogSaveDraftButton() {
+    return this.cancelDialog().getByRole('button', { name: 'Сохранить как черновик' });
+  }
+
+  dialogDiscardButton() {
+    // See D-08: spec says "Не сохранять", code uses "Отмена"
+    return this.cancelDialog().getByRole('button', { name: 'Отмена', exact: true });
+  }
+
+  stepIndicatorButton(label: string) {
+    // StepIndicator renders <button> with aria-label like "1. Сообщение — текущий"
+    // (status suffix). Partial match on the label text.
+    return this.page.locator('nav[aria-label="Шаги создания рассылки"]')
+      .getByRole('button', { name: new RegExp(label) });
+  }
 }
 
 export class CampaignDetailPage {
