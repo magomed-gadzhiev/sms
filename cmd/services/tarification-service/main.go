@@ -164,6 +164,51 @@ func main() {
 	aggMarginLogRepo := tarificationrepo.NewAggregatorMarginLogRepository(dbx)
 	tarificationService.SetAggregatorRepos(clientInfoRepo, aggTariffRepo, aggMarginLogRepo)
 
+	// Phase 1 unified pricing model. Под фича-флагом. Горячий путь по-прежнему
+	// использует legacy пока флаг OFF; этот блок только инициализирует компоненты
+	// и проверяет инварианты. См. docs/superpowers/specs/2026-04-18-unified-pricing-model-design.md
+	if cfg.Tarification.UnifiedEnabled {
+		unifiedCtx, unifiedCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		priceRuleRepo := tarificationrepo.NewPriceRuleRepository(dbx)
+
+		hasCatchAll, err := priceRuleRepo.HasPlatformCatchAll(unifiedCtx)
+		unifiedCancel()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("проверка platform catch-all правила")
+		}
+		if !hasCatchAll {
+			logger.Fatal().Msg("unified tarification включена, но platform catch-all price_rule отсутствует — сервис не может стартовать")
+		}
+
+		resolvedRepo := tarificationrepo.NewResolvedRulesRepository(dbx)
+		versionRepo := tarificationrepo.NewPriceRulesVersionRepository(dbx)
+		// usageRepo и outboxRepo будут использованы горячим путём в Phase 3.
+		_ = tarificationrepo.NewSubaccountUsageCounterRepository(dbx)
+		outboxRepo := tarificationrepo.NewInvalidationOutboxRepository(dbx)
+
+		tiersCache, err := application.NewTiersCache(cfg.Tarification.TiersCacheSize)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("инициализация tiers cache")
+		}
+		_ = application.NewCostCalculator(tiersCache)
+
+		// AggregatorResolver без Redis (для Phase 1 запуска без ещё не
+		// подключенного Redis). DB-только режим — каждый cache miss идёт в БД.
+		// В Phase 3 подключаем Redis.
+		aggResolver := infrastructure.NewAggregatorResolver(dbx, nil, cfg.Tarification.AggregatorCacheTTLSec)
+		_ = application.NewPriceResolver(priceRuleRepo, resolvedRepo, versionRepo, aggResolver)
+
+		janitor := application.NewResolvedRulesJanitor(outboxRepo, resolvedRepo, 100, logger)
+		janitorCtx, janitorCancel := context.WithCancel(context.Background())
+		go janitor.Run(janitorCtx, time.Duration(cfg.Tarification.JanitorIntervalSeconds)*time.Second)
+		defer janitorCancel()
+
+		logger.Info().
+			Int("tiers_cache_size", cfg.Tarification.TiersCacheSize).
+			Int("janitor_interval_seconds", cfg.Tarification.JanitorIntervalSeconds).
+			Msg("unified tarification инициализирована (read-only; горячий путь всё ещё legacy)")
+	}
+
 	// Создание health checker
 	healthChecker := monitoring.NewHealthChecker("tarification-service", cfg.Service.Version)
 	healthChecker.SetDatabase(dbConn.DB)

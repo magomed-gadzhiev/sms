@@ -21,6 +21,17 @@ type Config struct {
 	Worker    WorkerConfig    `mapstructure:"worker"`
 	Pipeline  PipelineConfig  `mapstructure:"pipeline"`
 	Monitoring MonitoringConfig `mapstructure:"monitoring"`
+	Tarification TarificationConfig `mapstructure:"tarification"`
+}
+
+// TarificationConfig — настройки tarification-service, в т.ч. фича-флаг
+// единой модели ценообразования (Phase 1). По умолчанию отключено — старый
+// горячий путь не затронут.
+type TarificationConfig struct {
+	UnifiedEnabled         bool `mapstructure:"unified_enabled"`
+	TiersCacheSize         int  `mapstructure:"tiers_cache_size"`
+	JanitorIntervalSeconds int  `mapstructure:"janitor_interval_seconds"`
+	AggregatorCacheTTLSec  int  `mapstructure:"aggregator_cache_ttl_sec"`
 }
 
 // ServiceConfig представляет конфигурацию сервиса
@@ -387,6 +398,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("monitoring.prometheus.enabled", true)
 	v.SetDefault("monitoring.prometheus.path", "/metrics")
 	v.SetDefault("monitoring.metrics_port", 2112)
+
+	// Tarification — Phase 1 unified pricing model (feature-flagged off).
+	v.SetDefault("tarification.unified_enabled", false)
+	v.SetDefault("tarification.tiers_cache_size", 1024)
+	v.SetDefault("tarification.janitor_interval_seconds", 30)
+	v.SetDefault("tarification.aggregator_cache_ttl_sec", 300)
 }
 
 // validate валидирует конфигурацию
