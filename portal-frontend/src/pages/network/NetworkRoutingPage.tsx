@@ -253,7 +253,11 @@ export function NetworkRoutingPage() {
                     checked={bulkSelected.has(sa.id)}
                     onChange={(e) => {
                       const next = new Set(bulkSelected);
-                      e.target.checked ? next.add(sa.id) : next.delete(sa.id);
+                      if (e.target.checked) {
+                        next.add(sa.id);
+                      } else {
+                        next.delete(sa.id);
+                      }
                       setBulkSelected(next);
                     }}
                   />

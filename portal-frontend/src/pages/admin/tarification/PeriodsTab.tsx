@@ -69,7 +69,7 @@ function buildScopeLabel(
   clientMap: Record<string, string>,
 ): string {
   const base = period.scope_priority % 100;
-  let parts: string[] = [];
+  const parts: string[] = [];
 
   if (base === 0) {
     parts.push('Глобальный');

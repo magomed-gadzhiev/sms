@@ -109,8 +109,9 @@ export function AnalyticsPage() {
       if (currentRequestId !== requestIdRef.current) return;
       setError(err instanceof ApiError ? err.message : 'Не удалось загрузить аналитику');
     } finally {
-      if (currentRequestId !== requestIdRef.current) return;
-      setLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [period, dateFrom, dateTo, groupBy, useCustomDates, compare]);
 
