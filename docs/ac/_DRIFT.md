@@ -95,3 +95,103 @@ AC-CW-SCH-XX: Флаг use_subscriber_timezone персистится
 
 **Статус:** 🟢 IN PROGRESS — AC пишутся по спеке, код-изменения следующим шагом.
 
+---
+
+## D-03: CharacterCounter формат "N осталось" vs "символы"
+
+**Обнаружено:** 2026-04-18 при прогоне 1 batch 1 wizard AC, через ложное assertion в AC-M-05.
+
+**Спека:** [2026-04-13-campaign-wizard-redesign.md](../superpowers/specs/2026-04-13-campaign-wizard-redesign.md), §"Шаг 1":
+> CharacterCounter под textarea: **символы + количество частей SMS** (GSM7: 160/153 на часть, Unicode: 70/67)
+
+Ожидается compound-формат: "12 символов · 1 SMS" или эквивалентный.
+
+**Что в коде:** [CharacterCounter.tsx](../../portal-frontend/src/components/ui/CharacterCounter.tsx):
+```tsx
+{remaining >= 0 ? `${remaining} осталось` : `+${Math.abs(remaining)} сверх`}
+{segments > 1 && ` · ${segments} SMS`}
+```
+
+Показывает **remaining** (сколько осталось до лимита), не **current** (сколько введено). Часть "количество SMS" появляется только когда segments > 1.
+
+**Последствие:** низкое. UX функционально работает, пользователь понимает, сколько ещё можно ввести. Это формулировка, не фундамент.
+
+**Разрешение:** LOW-priority. По правилу spec=truth, следовало бы подтянуть формат к спеке ("12 символов · 1 SMS"). Но реальная польза спорна — "осталось" более практично для пользователя. Возможно, следующий brainstorm по wizard должен обновить спеку: явно выбрать формат и задокументировать.
+
+**Статус:** 🟡 OPEN-LOW. AC-M-05 сформулирован по реальному выводу ("148 осталось"), не по спеке. При переходе D-02 → fix формат counter не меняется.
+
+---
+
+## D-04: Timezone checkbox в Step 3 wizard — disabled placeholder
+
+**Обнаружено:** 2026-04-18 при подготовке batch 2 AC для wizard Step 3.
+
+**Спека:** [2026-04-13-campaign-wizard-redesign.md](../superpowers/specs/2026-04-13-campaign-wizard-redesign.md), §"Шаг 3":
+> Checkbox: "Доставить в указанное время по часовому поясу абонента"
+> Активен только при выборе "Позже"; при "Сейчас" — неактивен и снят
+
+**Что в коде** ([CampaignWizardPage.tsx:665-680](../../portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx#L665-L680)):
+```tsx
+<div className="... opacity-50 cursor-not-allowed" title="Функционал в разработке">
+  <input type="checkbox" checked={false} disabled ... />
+  <div>
+    <span>По часовому поясу абонента</span>
+    <p>Функционал в разработке</p>
+  </div>
+</div>
+```
+
+- `checked={false}` жёстко — игнорирует state `useSubscriberTimezone`
+- `disabled` — пользователь физически не может включить
+- Надпись "Функционал в разработке"
+
+**Последствие:**
+1. Фича **видима** юзерам как плейсхолдер — они видят опцию, пробуют, не работает
+2. Поскольку пользователь не может включить — `useSubscriberTimezone` state всегда false → отправляется `use_subscriber_timezone: false` на бэк
+3. Бэк (D-01) это поле и не знает, но даже если бы знал — всегда получает false
+4. Результат: фича существует в 3 местах (спека + UI + API) и **ни в одном не работает**
+
+**Связь с D-01:** D-01 про бэкенд без этого поля. D-04 про UI-checkbox disabled. **Оба надо чинить вместе**, иначе фронт пошлёт true, бэк его проигнорирует (или наоборот — бэк сохранит, а UI не пошлёт).
+
+**Разрешение по Пути A (spec = truth):**
+1. Frontend: включить checkbox, связать с `useSubscriberTimezone` state, убрать надпись "в разработке"
+2. Backend (параллельно): D-01 fix — миграция + proto + handler + repository
+3. Оба в одном PR, чтобы не было промежуточного состояния silent loss
+
+**Альтернатива:** убрать checkbox из UI совсем (признать недоступность функционала). Требует обновления спеки.
+
+**Статус:** 🔴 OPEN. Блокирует AC-тесты для timezone в batch 2. Связан с D-01. Планируется Phase B **после закрытия Phase A** (определение: все 8 AC Batch 2 Phase A — CW-S-01..08 — зелёные на master после деплоя).
+
+---
+
+## D-05: Date picker `min` — date-only, а спека требует datetime
+
+**Обнаружено:** 2026-04-18 при code review Batch 2 AC (боевой тест wrapper'а `execute-with-review.md`).
+
+**Спека:** [2026-04-13-campaign-wizard-redesign.md](../superpowers/specs/2026-04-13-campaign-wizard-redesign.md), §"Шаг 3":
+> Минимальное значение: текущее время + 5 минут
+
+Спека подразумевает декларативное ограничение на **datetime** (дата + время).
+
+**Что в коде** ([CampaignWizardPage.tsx:652](../../portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx#L652)):
+```tsx
+<Input type="date" min={new Date().toISOString().split('T')[0]} />
+```
+
+`<input type="date">` HTML-элемент может ограничивать **только дату**, не время. Плюс runtime-проверка (строка 682-687):
+```tsx
+{scheduledDate && scheduledTime &&
+  new Date(`${scheduledDate}T${scheduledTime}`) <= new Date(Date.now() + 5*60*1000) && ...}
+```
+
+**Последствие:**
+AC-CW-S-04 корректно описывает **код** (`min=today`), но не **спеку** (`min=now+5min`). Пользователь может выбрать сегодняшнюю дату + время в прошлом → картинка разрешает, inline-ошибка появляется только после ввода. Этот gap — результат HTML-ограничения, не баг разработчика.
+
+**Возможные разрешения:**
+- **A (низкий приоритет):** заменить `<input type="date" + input type="time">` на custom datetime-picker, который умеет min datetime. Сложно, UX может стать хуже.
+- **B (прагматичный):** обновить спеку — "min=today для date + inline-ошибка для time < now+5min". Признаём HTML-ограничение в спеке.
+
+**Приоритет:** LOW. Inline-ошибка ловит попытку отправки в прошлое на Next-клике. Пользователь не может отправить кампанию с невалидным временем. Просто UX-трение в момент ввода.
+
+**Статус:** 🟡 OPEN-LOW. AC-CW-S-04 остаётся по коду. При ревизии спеки (следующий brainstorm по wizard) предложить Вариант B.
+

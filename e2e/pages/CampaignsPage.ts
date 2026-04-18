@@ -246,6 +246,80 @@ export class CampaignWizardPage {
   async fillVariantBText(text: string) {
     await this.variantBTextarea().fill(text);
   }
+
+  // === AC helpers (batch 2: Step 3 Schedule) ===
+
+  /**
+   * Navigate wizard Step 1 → Step 2 → Step 3 with minimal valid data.
+   * Seed required: 1 approved sender_name + 1 contact list for test user.
+   * Throws with specific message if seed missing, rather than a generic
+   * Playwright timeout on step transition.
+   */
+  async reachStep3() {
+    await this.goto();
+    await this.expectActiveStep('Сообщение');
+
+    // Seed check: sender must be preselected (AC-M-02 invariant)
+    const senderValue = await this.getSenderValue();
+    if (!senderValue) {
+      throw new Error(
+        'reachStep3 failed at Step 1: no sender preselected. ' +
+        'Seed missing — test user has no approved sender_name. ' +
+        'Create one before running Batch 2 tests.',
+      );
+    }
+
+    await this.fillMessageText('Test message for schedule AC tests');
+    await this.nextButton().click();
+    await this.expectActiveStep('Аудитория');
+
+    // Seed check: at least one contact list must exist
+    const contactListSelect = this.page.locator('select').filter({
+      has: this.page.locator('option').filter({ hasText: /Контактная|выбер/i }),
+    }).first();
+    const optionsCount = await contactListSelect.locator('option').count();
+    if (optionsCount <= 1) {
+      // Only placeholder, no real options
+      throw new Error(
+        'reachStep3 failed at Step 2: no contact lists. ' +
+        'Seed missing — test user has no contact lists. ' +
+        'Create at least one before running Batch 2 tests.',
+      );
+    }
+
+    await this.selectContactListByIndex(0);
+    await this.nextButton().click();
+    await this.expectActiveStep('Расписание');
+  }
+
+  scheduleModeRadio(mode: 'now' | 'later') {
+    return this.page.locator(`input[name="sendMode"][value="${mode}"]`);
+  }
+
+  async expectScheduleModeChecked(mode: 'now' | 'later') {
+    await expect(this.scheduleModeRadio(mode)).toBeChecked();
+  }
+
+  async expectScheduleModeNotChecked(mode: 'now' | 'later') {
+    await expect(this.scheduleModeRadio(mode)).not.toBeChecked();
+  }
+
+  async clickScheduleModeRadio(mode: 'now' | 'later') {
+    await this.scheduleModeRadio(mode).click();
+  }
+
+  scheduleDateInput() {
+    return this.page.locator('input[type="date"]');
+  }
+
+  scheduleTimeInput() {
+    return this.page.locator('input[type="time"]');
+  }
+
+  async fillScheduledDateTime(date: string, time: string) {
+    await this.scheduleDateInput().fill(date);
+    await this.scheduleTimeInput().fill(time);
+  }
 }
 
 export class CampaignDetailPage {
