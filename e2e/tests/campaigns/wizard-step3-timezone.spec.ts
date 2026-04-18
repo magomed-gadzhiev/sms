@@ -74,7 +74,9 @@ test.describe('Campaign Wizard — Step 3 Phase B (Timezone checkbox)', () => {
     await wizard.expectActiveStep('Подтверждение');
 
     // Click final submit
-    await page.getByRole('button', { name: /Запланировать|Отправить/ }).click();
+    // Exact match — "Отправить" also appears in an accordion header elsewhere on the page.
+    // Tests always use "Позже" → submit button text is "Запланировать".
+    await page.getByRole('button', { name: 'Запланировать', exact: true }).click();
 
     const req = await postPromise;
     const body = req.postDataJSON();
@@ -99,7 +101,9 @@ test.describe('Campaign Wizard — Step 3 Phase B (Timezone checkbox)', () => {
 
     await wizard.nextButton().click();
     await wizard.expectActiveStep('Подтверждение');
-    await page.getByRole('button', { name: /Запланировать|Отправить/ }).click();
+    // Exact match — "Отправить" also appears in an accordion header elsewhere on the page.
+    // Tests always use "Позже" → submit button text is "Запланировать".
+    await page.getByRole('button', { name: 'Запланировать', exact: true }).click();
 
     const req = await postPromise;
     const body = req.postDataJSON();
