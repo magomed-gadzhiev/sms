@@ -51,6 +51,7 @@ export function CampaignWizardPage() {
 
   // A/B тест (часть шага 1)
   const [abEnabled, setAbEnabled] = useState(false);
+  const [abMessageTextB, setAbMessageTextB] = useState('');
   const [abTemplateIdB, setAbTemplateIdB] = useState('');
   const [abTemplateB, setAbTemplateB] = useState<TemplateInfo | null>(null);
   const [abSplitPercent, setAbSplitPercent] = useState(20);
@@ -170,10 +171,10 @@ export function CampaignWizardPage() {
   function canProceed(): boolean {
     switch (step) {
       case 'message':
-        if (!templateId) return false;
+        if (!messageText.trim()) return false;
         if (!senderNameId) return false;
         if (abEnabled) {
-          if (!abTemplateIdB) return false;
+          if (!abMessageTextB.trim()) return false;
         }
         return true;
       case 'audience':
@@ -298,26 +299,10 @@ export function CampaignWizardPage() {
             <h3 className="text-lg font-medium text-gray-900">Сообщение</h3>
 
             {/* Template picker — required */}
-            <TemplatePicker
-              value={templateId}
-              selectedTemplate={selectedTemplate}
-              onChange={(id, tpl) => {
-                setTemplateId(id);
-                setSelectedTemplate(tpl);
-                if (id) setMessageText('');
-              }}
-            />
-            {!templateId && (
-              <p className="text-xs text-amber-600">
-                Для рассылки необходим одобренный шаблон.{' '}
-                <a href="/templates" className="underline font-medium">Создать шаблон →</a>
-              </p>
-            )}
-
-            {/* Textarea — helper/draft only */}
+            {/* Textarea — primary input per spec */}
             <div className="space-y-1">
               <label htmlFor="msg-text" className="text-sm font-medium text-gray-700">
-                Набросок текста <span className="text-gray-400 font-normal">(необязательно, для справки)</span>
+                Текст сообщения *
               </label>
               <textarea
                 id="msg-text"
@@ -325,12 +310,23 @@ export function CampaignWizardPage() {
                 onChange={(e) => setMessageText(e.target.value)}
                 rows={3}
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
-                placeholder="Введите текст, чтобы затем создать из него шаблон..."
+                placeholder="Введите текст сообщения..."
               />
               <div className="flex justify-between items-center">
                 <CharacterCounter current={messageText.length} max={160} />
               </div>
             </div>
+
+            {/* Template picker — optional, used to pre-fill textarea */}
+            <TemplatePicker
+              value={templateId}
+              selectedTemplate={selectedTemplate}
+              onChange={(id, tpl) => {
+                setTemplateId(id);
+                setSelectedTemplate(tpl);
+                if (id && tpl?.body) setMessageText(tpl.body);
+              }}
+            />
 
             {/* Sender name */}
             {sendersError ? (
@@ -390,20 +386,32 @@ export function CampaignWizardPage() {
               <div className="space-y-4 pl-4 border-l-2 border-blue-200 bg-blue-50/30 rounded-r p-4">
                 <h4 className="text-sm font-semibold text-gray-800">Вариант B</h4>
 
+                {/* Textarea — primary input for variant B */}
+                <div className="space-y-1">
+                  <label htmlFor="msg-text-b" className="text-sm font-medium text-gray-700">
+                    Текст варианта B *
+                  </label>
+                  <textarea
+                    id="msg-text-b"
+                    value={abMessageTextB}
+                    onChange={(e) => setAbMessageTextB(e.target.value)}
+                    rows={3}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary"
+                    placeholder="Введите текст варианта B..."
+                  />
+                  <CharacterCounter current={abMessageTextB.length} max={160} />
+                </div>
+
+                {/* Template picker — optional, pre-fills variant B textarea */}
                 <TemplatePicker
                   value={abTemplateIdB}
                   selectedTemplate={abTemplateB}
                   onChange={(id, tpl) => {
                     setAbTemplateIdB(id);
                     setAbTemplateB(tpl);
+                    if (id && tpl?.body) setAbMessageTextB(tpl.body);
                   }}
                 />
-                {!abTemplateIdB && (
-                  <p className="text-xs text-amber-600">
-                    Выберите шаблон для варианта B.{' '}
-                    <a href="/templates" className="underline font-medium">Создать шаблон →</a>
-                  </p>
-                )}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
@@ -468,12 +476,12 @@ export function CampaignWizardPage() {
 
             {validationErrors.message && (
               <p className="text-sm text-red-600">
-                {!templateId && !senderNameId
-                  ? 'Выберите шаблон и укажите имя отправителя.'
-                  : !templateId
-                  ? 'Выберите одобренный шаблон для рассылки.'
-                  : abEnabled && !abTemplateIdB
-                  ? 'Выберите шаблон для варианта B.'
+                {!messageText.trim() && !senderNameId
+                  ? 'Введите текст сообщения и укажите имя отправителя.'
+                  : !messageText.trim()
+                  ? 'Введите текст сообщения.'
+                  : abEnabled && !abMessageTextB.trim()
+                  ? 'Введите текст варианта B.'
                   : senderNames.length === 0
                   ? 'Нет одобренных имён отправителей — сначала зарегистрируйте имя в разделе «Имена отправителей».'
                   : 'Выберите имя отправителя.'}
