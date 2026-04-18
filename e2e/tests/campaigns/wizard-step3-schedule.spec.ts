@@ -53,9 +53,11 @@ test.describe('Campaign Wizard — Step 3 (Schedule)', () => {
 
     await wizard.expectScheduleModeChecked('later');
     await wizard.expectScheduleModeNotChecked('now');
-    // Verify label association as per AC — inputs accessible via their labels
-    await expect(page.getByLabel('Дата')).toBeVisible();
-    await expect(page.getByLabel('Время')).toBeVisible();
+    // Verify label association as per AC — inputs accessible via their labels.
+    // `{ exact: true }` required: legend "Время отправки" wraps the sendMode
+    // radio group, so substring "Время" would match the radios too.
+    await expect(page.getByLabel('Дата', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Время', { exact: true })).toBeVisible();
   });
 
   test('AC-CW-S-03: Switching back to "Сейчас" hides date/time pickers', async ({ page }) => {
@@ -64,13 +66,13 @@ test.describe('Campaign Wizard — Step 3 (Schedule)', () => {
 
     // First go to "later" to reveal fields
     await wizard.clickScheduleModeRadio('later');
-    await expect(page.getByLabel('Дата')).toBeVisible();
+    await expect(page.getByLabel('Дата', { exact: true })).toBeVisible();
 
     // Then back to "now"
     await wizard.clickScheduleModeRadio('now');
     await wizard.expectScheduleModeChecked('now');
-    await expect(page.getByLabel('Дата')).toBeHidden();
-    await expect(page.getByLabel('Время')).toBeHidden();
+    await expect(page.getByLabel('Дата', { exact: true })).toBeHidden();
+    await expect(page.getByLabel('Время', { exact: true })).toBeHidden();
   });
 
   test('AC-CW-S-04: Date picker has `min` attribute set to today', async ({ page }) => {
