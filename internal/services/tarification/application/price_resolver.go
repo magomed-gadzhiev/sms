@@ -55,6 +55,10 @@ func (r *PriceResolver) Resolve(ctx context.Context, in domain.ResolveInput) (*d
 	if err != nil {
 		return nil, fmt.Errorf("get resolved: %w", err)
 	}
+	// Phase 3 TODO: обернуть GetVersion короткоживущим in-process кешем (~1s TTL).
+	// Сейчас это DB round-trip на каждый hot-path запрос. В Phase 1 hot path
+	// по-прежнему legacy, так что последствий нет; но до включения unified_enabled
+	// в прод это обязательный оптимизатор — иначе unified mode деградирует throughput.
 	currentVersion, err := r.versionRepo.GetVersion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get version: %w", err)

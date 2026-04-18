@@ -186,16 +186,13 @@ func main() {
 		_ = tarificationrepo.NewSubaccountUsageCounterRepository(dbx)
 		outboxRepo := tarificationrepo.NewInvalidationOutboxRepository(dbx)
 
-		tiersCache, err := application.NewTiersCache(cfg.Tarification.TiersCacheSize)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("инициализация tiers cache")
-		}
+		tiersCache := application.NewTiersCache(cfg.Tarification.TiersCacheSize)
 		_ = application.NewCostCalculator(tiersCache)
 
 		// AggregatorResolver без Redis (для Phase 1 запуска без ещё не
 		// подключенного Redis). DB-только режим — каждый cache miss идёт в БД.
 		// В Phase 3 подключаем Redis.
-		aggResolver := infrastructure.NewAggregatorResolver(dbx, nil, cfg.Tarification.AggregatorCacheTTLSec)
+		aggResolver := infrastructure.NewAggregatorResolver(dbx, nil, cfg.Tarification.AggregatorCacheTTLSec, logger)
 		_ = application.NewPriceResolver(priceRuleRepo, resolvedRepo, versionRepo, aggResolver)
 
 		janitor := application.NewResolvedRulesJanitor(outboxRepo, resolvedRepo, 100, logger)

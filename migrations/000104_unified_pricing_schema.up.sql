@@ -83,7 +83,7 @@ CREATE TABLE resolved_rules (
     price_model      price_model_type NOT NULL,
     price_value      NUMERIC(12,6) NULL,
     tiers_json       JSONB NULL,
-    source_rule_id   UUID NOT NULL REFERENCES price_rules(id),
+    source_rule_id   UUID NOT NULL REFERENCES price_rules(id) ON DELETE CASCADE,
     source_level     price_owner_type NOT NULL,
     aggregator_id    UUID NOT NULL,
     resolved_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

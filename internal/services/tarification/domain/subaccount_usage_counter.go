@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// PeriodType — тип периода аггрегации для usage counter.
-// Извлекается из tiers_json.period в moderls (tiered, prepaid_threshold).
+// PeriodType — тип периода агрегации для usage counter.
+// Извлекается из tiers_json.period в моделях (tiered, prepaid_threshold).
 // Для fixed модели периода нет, используется calendar_month как дефолт (см.
 // ComputePeriodKey с пустым period).
 type PeriodType string

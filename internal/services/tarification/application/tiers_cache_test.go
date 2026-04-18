@@ -8,8 +8,7 @@ import (
 )
 
 func TestTiersCache_GetOrParseTiered_CachesSameVersion(t *testing.T) {
-	cache, err := NewTiersCache(128)
-	require.NoError(t, err)
+	cache := NewTiersCache(128)
 
 	ruleID := uuid.New()
 	raw := []byte(`{"period":"calendar_month","tiers":[{"up_to":10000,"price":1.0},{"up_to":null,"price":0.5}]}`)
@@ -25,8 +24,7 @@ func TestTiersCache_GetOrParseTiered_CachesSameVersion(t *testing.T) {
 }
 
 func TestTiersCache_GetOrParseTiered_DifferentVersionRepars(t *testing.T) {
-	cache, err := NewTiersCache(128)
-	require.NoError(t, err)
+	cache := NewTiersCache(128)
 
 	ruleID := uuid.New()
 	rawV1 := []byte(`{"period":"calendar_month","tiers":[{"up_to":null,"price":1.0}]}`)
@@ -42,8 +40,7 @@ func TestTiersCache_GetOrParseTiered_DifferentVersionRepars(t *testing.T) {
 }
 
 func TestTiersCache_GetOrParsePrepaid(t *testing.T) {
-	cache, err := NewTiersCache(128)
-	require.NoError(t, err)
+	cache := NewTiersCache(128)
 
 	ruleID := uuid.New()
 	raw := []byte(`{"period":"calendar_month","prepaid_amount":1000,"included_segments":5000,"overage_price":0.5}`)
@@ -62,7 +59,7 @@ func TestTiersCache_InvalidJSON(t *testing.T) {
 }
 
 func TestTiersCache_BulkClearOnOverflow(t *testing.T) {
-	cache, _ := NewTiersCache(2)
+	cache := NewTiersCache(2)
 	raw := []byte(`{"period":"calendar_month","tiers":[{"up_to":null,"price":1.0}]}`)
 
 	_, _ = cache.GetOrParseTiered(uuid.New(), 1, raw)

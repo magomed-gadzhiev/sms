@@ -8,7 +8,7 @@ import (
 )
 
 // CostCalculator считает стоимость batch-а сегментов по разрешённому правилу.
-// Использует TiersCache для snimания стоимости парсинга JSONB.
+// Использует TiersCache для снятия стоимости парсинга JSONB.
 type CostCalculator struct {
 	cache *TiersCache
 }

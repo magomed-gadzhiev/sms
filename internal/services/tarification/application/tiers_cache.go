@@ -53,7 +53,8 @@ type TiersCache struct {
 // NewTiersCache создаёт кеш. maxSize — soft limit: при превышении очищаются ВСЕ
 // entries (bulk clear). Это грубо, но безопасно: после clear первые несколько
 // сообщений парсят заново, дальше всё кешируется. Phase D добавит LRU.
-func NewTiersCache(maxSize int) (*TiersCache, error) {
+// maxSize <= 0 заменяется на 1024.
+func NewTiersCache(maxSize int) *TiersCache {
 	if maxSize <= 0 {
 		maxSize = 1024
 	}
@@ -61,7 +62,7 @@ func NewTiersCache(maxSize int) (*TiersCache, error) {
 		tiered:  make(map[cacheKey]*TieredSpec),
 		prepaid: make(map[cacheKey]*PrepaidThresholdSpec),
 		maxSize: maxSize,
-	}, nil
+	}
 }
 
 func (c *TiersCache) GetOrParseTiered(ruleID uuid.UUID, version int64, raw []byte) (*TieredSpec, error) {

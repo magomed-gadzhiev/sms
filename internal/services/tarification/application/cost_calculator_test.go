@@ -13,9 +13,7 @@ func strPtr(s string) *string { return &s }
 
 func newCalc(t *testing.T) *CostCalculator {
 	t.Helper()
-	cache, err := NewTiersCache(128)
-	require.NoError(t, err)
-	return NewCostCalculator(cache)
+	return NewCostCalculator(NewTiersCache(128))
 }
 
 func TestCostCalculator_Fixed(t *testing.T) {
