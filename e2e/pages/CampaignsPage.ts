@@ -482,16 +482,20 @@ export class CampaignWizardPage {
   }
 
   costEstimateBlock() {
-    return this.page.locator('div', {
-      has: this.page.locator('h4', { hasText: 'Предварительная стоимость' }),
-    });
+    // Parent of the heading — direct scope (immediate parent), not any ancestor.
+    // The broader `div, { has: h4 }` matches every ancestor containing the h4.
+    return this.page
+      .locator('h4:has-text("Предварительная стоимость")')
+      .locator('..');
   }
 
   submitButton() {
     // "Отправить" or "Запланировать" button — primary submit on Step 4.
-    // Regex anchored (^..$) avoids matching accordion headers that contain
-    // "Отправить" as substring (e.g., from other batches' tests).
-    return this.page.getByRole('button', { name: /^(Отправить|Запланировать)$/ });
+    // Scoped to #main-content to exclude sidebar navigation entry "Отправить"
+    // (which is a menu-group button with same accessible name).
+    return this.page
+      .locator('#main-content')
+      .getByRole('button', { name: /^(Отправить|Запланировать)$/ });
   }
 }
 
