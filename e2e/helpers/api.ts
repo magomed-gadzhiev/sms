@@ -89,6 +89,8 @@ export class ApiHelper {
     template_id?: string;
     source?: string;
     send_rate?: number;
+    scheduled_at?: string;
+    use_subscriber_timezone?: boolean;
   }) {
     const res = await this.fetch('/campaigns', { method: 'POST', data });
     return res.json();

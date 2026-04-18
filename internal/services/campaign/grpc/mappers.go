@@ -25,12 +25,13 @@ func campaignToProto(c *domain.Campaign) *campaignv1.Campaign {
 		SegmentRules:    c.SegmentRules,
 		SegmentTags:     c.SegmentTags,
 		SendRate:        c.SendRate,
-		TotalRecipients: c.TotalRecipients,
-		SentCount:       c.SentCount,
-		DeliveredCount:  c.DeliveredCount,
-		FailedCount:     c.FailedCount,
-		CreatedAt:       timestamppb.New(c.CreatedAt),
-		UpdatedAt:       timestamppb.New(c.UpdatedAt),
+		TotalRecipients:       c.TotalRecipients,
+		SentCount:             c.SentCount,
+		DeliveredCount:        c.DeliveredCount,
+		FailedCount:           c.FailedCount,
+		CreatedAt:             timestamppb.New(c.CreatedAt),
+		UpdatedAt:             timestamppb.New(c.UpdatedAt),
+		UseSubscriberTimezone: c.UseSubscriberTimezone,
 	}
 
 	if c.TemplateID != nil {

@@ -21,7 +21,7 @@ import (
 // CampaignServicer defines the business-logic interface that the gRPC server
 // depends on. *application.CampaignService satisfies this interface.
 type CampaignServicer interface {
-	CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error)
+	CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time, useSubscriberTimezone bool) (*domain.Campaign, error)
 	GetCampaign(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
 	ListCampaigns(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Campaign, int, error)
 	UpdateCampaign(ctx context.Context, id, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error)
@@ -83,6 +83,7 @@ func (s *Server) CreateCampaign(ctx context.Context, req *campaignv1.CreateCampa
 		req.GetName(), req.GetContactListId(), req.GetTemplateId(),
 		req.GetSource(), req.GetSegmentRules(), req.GetSegmentTags(),
 		req.GetSendRate(), scheduledAt,
+		req.GetUseSubscriberTimezone(),
 	)
 	if err != nil {
 		return nil, s.mapError(err)

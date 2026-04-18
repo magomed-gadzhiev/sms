@@ -55,7 +55,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("CreateAndGetCampaign", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "Test Campaign",
-			contactListID.String(), "", "TestSender", "", nil, 100, nil)
+			contactListID.String(), "", "TestSender", "", nil, 100, nil, false)
 		require.NoError(t, err)
 		require.NotNil(t, campaign)
 
@@ -76,7 +76,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("CreateCampaignEmptyNameFails", func(t *testing.T) {
 		_, err := svc.CreateCampaign(ctx, clientID, "",
-			contactListID.String(), "", "Sender", "", nil, 100, nil)
+			contactListID.String(), "", "Sender", "", nil, 100, nil, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "name is required")
 	})
@@ -84,11 +84,11 @@ func TestCampaignChain(t *testing.T) {
 	t.Run("ListCampaigns", func(t *testing.T) {
 		// Create two campaigns.
 		_, err := svc.CreateCampaign(ctx, clientID, "List Campaign A",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		_, err = svc.CreateCampaign(ctx, clientID, "List Campaign B",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		campaigns, total, err := svc.ListCampaigns(ctx, clientID, "", 100, 0)
@@ -107,7 +107,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("UpdateCampaign", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "To Update",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		updated, err := svc.UpdateCampaign(ctx, campaign.ID, clientID,
@@ -120,7 +120,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("DeleteCampaignDraft", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "To Delete",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		err = svc.DeleteCampaign(ctx, campaign.ID, clientID)
@@ -132,7 +132,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("LaunchCampaign", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "To Launch",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusDraft, campaign.Status)
 
@@ -149,7 +149,7 @@ func TestCampaignChain(t *testing.T) {
 	t.Run("ScheduledCampaign", func(t *testing.T) {
 		future := time.Now().Add(24 * time.Hour)
 		campaign, err := svc.CreateCampaign(ctx, clientID, "Scheduled",
-			contactListID.String(), "", "Sender", "", nil, 50, &future)
+			contactListID.String(), "", "Sender", "", nil, 50, &future, false)
 		require.NoError(t, err)
 		require.NotNil(t, campaign.ScheduledAt)
 		assert.WithinDuration(t, future, *campaign.ScheduledAt, time.Second)
@@ -162,7 +162,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("CancelCampaign", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "To Cancel",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		// Launch to materializing.
@@ -179,7 +179,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("CancelDraftFails", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "Draft Cancel Fail",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		_, err = svc.CancelCampaign(ctx, campaign.ID, clientID)
@@ -188,7 +188,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("UpdateNonDraftFails", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "No Update After Launch",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		_, err = svc.LaunchCampaign(ctx, campaign.ID, clientID)
@@ -201,7 +201,7 @@ func TestCampaignChain(t *testing.T) {
 
 	t.Run("CampaignNotFoundForOtherClient", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "Ownership Check",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		otherClient := uuid.New()
@@ -246,7 +246,7 @@ func TestCampaignABTesting(t *testing.T) {
 
 	t.Run("SetVariants", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "AB Test Campaign",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		variants := []domain.Variant{
@@ -264,7 +264,7 @@ func TestCampaignABTesting(t *testing.T) {
 
 	t.Run("VariantPercentageMustSum100", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "Bad Percentage",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		variants := []domain.Variant{
@@ -278,7 +278,7 @@ func TestCampaignABTesting(t *testing.T) {
 
 	t.Run("TooFewVariantsFails", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "One Variant",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		variants := []domain.Variant{
@@ -291,7 +291,7 @@ func TestCampaignABTesting(t *testing.T) {
 
 	t.Run("SetABConfigAndSelectWinner", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "AB Config Test",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		variants := []domain.Variant{
@@ -357,7 +357,7 @@ func TestCampaignRetryConfig(t *testing.T) {
 
 	t.Run("SetAndGetRetryConfig", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "Retry Test",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		rc := &domain.RetryConfig{
@@ -382,7 +382,7 @@ func TestCampaignRetryConfig(t *testing.T) {
 
 	t.Run("RetryFailedWithNoRecipientsFails", func(t *testing.T) {
 		campaign, err := svc.CreateCampaign(ctx, clientID, "No Failed",
-			contactListID.String(), "", "Sender", "", nil, 50, nil)
+			contactListID.String(), "", "Sender", "", nil, 50, nil, false)
 		require.NoError(t, err)
 
 		_, err = svc.RetryFailed(ctx, campaign.ID, clientID, "")

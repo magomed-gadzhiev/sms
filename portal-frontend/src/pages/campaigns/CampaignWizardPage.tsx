@@ -662,22 +662,23 @@ export function CampaignWizardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 mt-2 opacity-50 cursor-not-allowed" title="Функционал в разработке">
+                <label className="flex items-start gap-3 mt-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={false}
-                    disabled
+                    checked={useSubscriberTimezone}
+                    onChange={(e) => setUseSubscriberTimezone(e.target.checked)}
                     className="rounded mt-0.5"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-gray-700">
                       По часовому поясу абонента
                     </span>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Функционал в разработке
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Каждый получатель получит SMS в указанное время по своему часовому поясу,
+                      определённому по номеру телефона.
                     </p>
                   </div>
-                </div>
+                </label>
 
                 {scheduledDate && scheduledTime &&
                   new Date(`${scheduledDate}T${scheduledTime}`) <= new Date(Date.now() + 5 * 60 * 1000) && (

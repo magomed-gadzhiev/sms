@@ -146,14 +146,15 @@ func (s *Scheduler) executeSchedule(ctx context.Context, sched scheduleRow) {
 	// 2. Create a new campaign copying the template's settings.
 	newName := fmt.Sprintf("%s (%s)", sched.Name, time.Now().UTC().Format("2006-01-02 15:04 UTC"))
 	created, err := s.campaignClient.CreateCampaign(ctx, &campaignv1.CreateCampaignRequest{
-		ClientId:      sched.ClientID,
-		Name:          newName,
-		ContactListId: tmpl.ContactListId,
-		TemplateId:    tmpl.TemplateId,
-		Source:        tmpl.Source,
-		SegmentRules:  tmpl.SegmentRules,
-		SegmentTags:   tmpl.SegmentTags,
-		SendRate:      tmpl.SendRate,
+		ClientId:              sched.ClientID,
+		Name:                  newName,
+		ContactListId:         tmpl.ContactListId,
+		TemplateId:            tmpl.TemplateId,
+		Source:                tmpl.Source,
+		SegmentRules:          tmpl.SegmentRules,
+		SegmentTags:           tmpl.SegmentTags,
+		SendRate:              tmpl.SendRate,
+		UseSubscriberTimezone: tmpl.UseSubscriberTimezone,
 	})
 	if err != nil {
 		log.Error().Err(err).

@@ -57,6 +57,7 @@ message Campaign {
   google.protobuf.Timestamp updated_at = 20;
   repeated Variant variants = 21;
   ABConfig ab_config = 22;
+  bool use_subscriber_timezone = 23;
 }
 
 message CreateCampaignRequest {
@@ -69,6 +70,7 @@ message CreateCampaignRequest {
   repeated string segment_tags = 7;
   int32 send_rate = 8;
   google.protobuf.Timestamp scheduled_at = 9;
+  bool use_subscriber_timezone = 10;
 }
 
 message GetCampaignRequest {

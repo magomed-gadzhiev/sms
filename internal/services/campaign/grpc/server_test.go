@@ -41,7 +41,7 @@ func newCampaign(clientID uuid.UUID) *domain.Campaign {
 func TestCreateCampaign_Success(t *testing.T) {
 	clientID := uuid.New()
 	svc := &mocks.MockCampaignServicer{
-		CreateCampaignFunc: func(_ context.Context, cid uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error) {
+		CreateCampaignFunc: func(_ context.Context, cid uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time, useSubscriberTimezone bool) (*domain.Campaign, error) {
 			c := newCampaign(cid)
 			c.Name = name
 			return c, nil

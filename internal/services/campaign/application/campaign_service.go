@@ -39,7 +39,7 @@ func NewCampaignService(
 // --- Campaign CRUD ---
 
 // CreateCampaign creates a new campaign in draft status.
-func (s *CampaignService) CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error) {
+func (s *CampaignService) CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time, useSubscriberTimezone bool) (*domain.Campaign, error) {
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
@@ -50,16 +50,17 @@ func (s *CampaignService) CreateCampaign(ctx context.Context, clientID uuid.UUID
 	}
 
 	c := &domain.Campaign{
-		ID:            uuid.New(),
-		ClientID:      clientID,
-		Name:          name,
-		Status:        domain.StatusDraft,
-		ContactListID: clID,
-		Source:        source,
-		SegmentRules:  segmentRules,
-		SegmentTags:   segmentTags,
-		SendRate:      sendRate,
-		ScheduledAt:   scheduledAt,
+		ID:                    uuid.New(),
+		ClientID:              clientID,
+		Name:                  name,
+		Status:                domain.StatusDraft,
+		ContactListID:         clID,
+		Source:                source,
+		SegmentRules:          segmentRules,
+		SegmentTags:           segmentTags,
+		SendRate:              sendRate,
+		ScheduledAt:           scheduledAt,
+		UseSubscriberTimezone: useSubscriberTimezone,
 	}
 
 	if templateID != "" {

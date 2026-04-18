@@ -45,7 +45,7 @@ AC-CW-SCH-XX: Флаг use_subscriber_timezone персистится
     - БД campaigns.use_subscriber_timezone = true для этой кампании
 ```
 
-**Статус:** 🔴 OPEN. Назначен на batch 2 AC (Step 3: Schedule) для поимки тестом. Фикс бэка отдельным PR.
+**Статус:** 🟢 RESOLVED (2026-04-18, Batch 2 Phase B). Backend миграция 000103 + обновление domain/repo/service/grpc-mapper. AC-CW-S-14 round-trip тест проверяет persistence.
 
 ---
 
@@ -160,7 +160,7 @@ AC-CW-SCH-XX: Флаг use_subscriber_timezone персистится
 
 **Альтернатива:** убрать checkbox из UI совсем (признать недоступность функционала). Требует обновления спеки.
 
-**Статус:** 🔴 OPEN. Блокирует AC-тесты для timezone в batch 2. Связан с D-01. Планируется Phase B **после закрытия Phase A** (определение: все 8 AC Batch 2 Phase A — CW-S-01..08 — зелёные на master после деплоя).
+**Статус:** 🟢 RESOLVED (2026-04-18, Batch 2 Phase B). UI checkbox включён, связан с `useSubscriberTimezone` state, убрана надпись "Функционал в разработке". AC-CW-S-10 проверяет, что checkbox `enabled` при mode="Позже"; AC-CW-S-11/S-12 — что значение доходит до POST; AC-CW-S-13 — сброс при переключении.
 
 ---
 

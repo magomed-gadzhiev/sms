@@ -11,7 +11,7 @@ import (
 
 // MockCampaignServicer is a hand-written mock for grpc.CampaignServicer.
 type MockCampaignServicer struct {
-	CreateCampaignFunc      func(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error)
+	CreateCampaignFunc      func(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time, useSubscriberTimezone bool) (*domain.Campaign, error)
 	GetCampaignFunc         func(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error)
 	ListCampaignsFunc       func(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.Campaign, int, error)
 	UpdateCampaignFunc      func(ctx context.Context, id, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error)
@@ -34,9 +34,9 @@ type MockCampaignServicer struct {
 	PreviewTemplateFunc     func(ctx context.Context, input application.TemplatePreviewInput) ([]application.TemplatePreviewResult, error)
 }
 
-func (m *MockCampaignServicer) CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time) (*domain.Campaign, error) {
+func (m *MockCampaignServicer) CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time, useSubscriberTimezone bool) (*domain.Campaign, error) {
 	if m.CreateCampaignFunc != nil {
-		return m.CreateCampaignFunc(ctx, clientID, name, contactListID, templateID, source, segmentRules, segmentTags, sendRate, scheduledAt)
+		return m.CreateCampaignFunc(ctx, clientID, name, contactListID, templateID, source, segmentRules, segmentTags, sendRate, scheduledAt, useSubscriberTimezone)
 	}
 	return nil, nil
 }

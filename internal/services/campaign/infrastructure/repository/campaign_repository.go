@@ -40,28 +40,30 @@ type campaignRow struct {
 	StartedAt       sql.NullTime   `db:"started_at"`
 	CompletedAt     sql.NullTime   `db:"completed_at"`
 	RetryConfig     sql.NullString `db:"retry_config"`
-	TotalRecipients int32          `db:"total_recipients"`
-	SentCount       int32          `db:"sent_count"`
-	DeliveredCount  int32          `db:"delivered_count"`
-	FailedCount     int32          `db:"failed_count"`
-	CreatedAt       sql.NullTime   `db:"created_at"`
-	UpdatedAt       sql.NullTime   `db:"updated_at"`
+	TotalRecipients       int32          `db:"total_recipients"`
+	SentCount             int32          `db:"sent_count"`
+	DeliveredCount        int32          `db:"delivered_count"`
+	FailedCount           int32          `db:"failed_count"`
+	CreatedAt             sql.NullTime   `db:"created_at"`
+	UpdatedAt             sql.NullTime   `db:"updated_at"`
+	UseSubscriberTimezone bool           `db:"use_subscriber_timezone"`
 }
 
 func (r *campaignRow) toDomain() *domain.Campaign {
 	c := &domain.Campaign{
-		ID:              r.ID,
-		ClientID:        r.ClientID,
-		Name:            r.Name,
-		Status:          r.Status,
-		ContactListID:   r.ContactListID,
-		Source:          r.Source,
-		SegmentTags:     []string(r.SegmentTags),
-		SendRate:        r.SendRate,
-		TotalRecipients: r.TotalRecipients,
-		SentCount:       r.SentCount,
-		DeliveredCount:  r.DeliveredCount,
-		FailedCount:     r.FailedCount,
+		ID:                    r.ID,
+		ClientID:              r.ClientID,
+		Name:                  r.Name,
+		Status:                r.Status,
+		ContactListID:         r.ContactListID,
+		Source:                r.Source,
+		SegmentTags:           []string(r.SegmentTags),
+		SendRate:              r.SendRate,
+		TotalRecipients:       r.TotalRecipients,
+		SentCount:             r.SentCount,
+		DeliveredCount:        r.DeliveredCount,
+		FailedCount:           r.FailedCount,
+		UseSubscriberTimezone: r.UseSubscriberTimezone,
 	}
 	if r.TemplateID.Valid {
 		id, err := uuid.Parse(r.TemplateID.String)
@@ -169,13 +171,14 @@ func (r *abConfigRow) toDomain() *domain.ABConfig {
 
 const campaignColumns = `id, client_id, name, status, contact_list_id, template_id, source,
 	segment_rules, segment_tags, send_rate, scheduled_at, started_at, completed_at,
-	retry_config, total_recipients, sent_count, delivered_count, failed_count, created_at, updated_at`
+	retry_config, total_recipients, sent_count, delivered_count, failed_count, created_at, updated_at,
+	use_subscriber_timezone`
 
 // Create inserts a new campaign.
 func (r *CampaignRepository) Create(ctx context.Context, c *domain.Campaign) (*domain.Campaign, error) {
 	query := fmt.Sprintf(`INSERT INTO campaigns (id, client_id, name, status, contact_list_id, template_id, source,
-		segment_rules, segment_tags, send_rate, scheduled_at, retry_config)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		segment_rules, segment_tags, send_rate, scheduled_at, retry_config, use_subscriber_timezone)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING %s`, campaignColumns)
 
 	var templateID sql.NullString
@@ -210,7 +213,7 @@ func (r *CampaignRepository) Create(ctx context.Context, c *domain.Campaign) (*d
 	var row campaignRow
 	err := r.db.QueryRowxContext(ctx, query,
 		c.ID, c.ClientID, c.Name, c.Status, c.ContactListID, templateID, c.Source,
-		segmentRules, tags, c.SendRate, scheduledAt, retryConfigJSON,
+		segmentRules, tags, c.SendRate, scheduledAt, retryConfigJSON, c.UseSubscriberTimezone,
 	).StructScan(&row)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create campaign: %w", err)
@@ -279,8 +282,9 @@ func (r *CampaignRepository) Update(ctx context.Context, c *domain.Campaign) (*d
 	query := fmt.Sprintf(`UPDATE campaigns SET
 		name = $1, contact_list_id = $2, template_id = $3, source = $4,
 		segment_rules = $5, segment_tags = $6, send_rate = $7, scheduled_at = $8,
+		use_subscriber_timezone = $9,
 		updated_at = now()
-		WHERE id = $9 AND client_id = $10
+		WHERE id = $10 AND client_id = $11
 		RETURNING %s`, campaignColumns)
 
 	var templateID sql.NullString
@@ -307,6 +311,7 @@ func (r *CampaignRepository) Update(ctx context.Context, c *domain.Campaign) (*d
 	err := r.db.QueryRowxContext(ctx, query,
 		c.Name, c.ContactListID, templateID, c.Source,
 		segmentRules, tags, c.SendRate, scheduledAt,
+		c.UseSubscriberTimezone,
 		c.ID, c.ClientID,
 	).StructScan(&row)
 	if err == sql.ErrNoRows {

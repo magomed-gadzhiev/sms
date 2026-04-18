@@ -299,4 +299,94 @@
 
 - **8 AC** покрывают: дефолт, переключение режимов, видимость полей, min date, inline "< 5 минут", валидация Next, "Сейчас" без доп. полей
 - **Seed:** 1 approved sender + 1 contact list
-- **Не покрыто:** timezone checkbox (D-04) — откладывается в Phase B вместе с D-01 backend fix
+- **Phase B (ниже):** timezone checkbox + backend D-01 fix
+
+---
+
+## Batch 2: Step 3 (Расписание) — Phase B (timezone checkbox + backend)
+
+**Скоуп:** активация checkbox "По часовому поясу абонента" в UI + полная backend-поддержка (миграция + proto + domain + repo + handler).
+
+**Закрывает drift:** D-01 (backend без поля), D-04 (UI checkbox disabled).
+
+### AC-CW-S-09: Checkbox не рендерится в DOM при mode = "Сейчас"
+
+**ДАНО:** пользователь на Step 3, default mode "Сейчас"
+
+**КОГДА:** страница отрендерена
+
+**ТОГДА:**
+- Checkbox "По часовому поясу абонента" отсутствует в DOM (блок внутри `{sendMode === 'later' && ...}`)
+- Label "По часовому поясу абонента" не виден пользователю
+
+### AC-CW-S-10: Checkbox появляется и enabled при mode = "Позже"
+
+**ДАНО:** Step 3, mode = "Сейчас" (checkbox скрыт)
+
+**КОГДА:** пользователь переключает на "Позже"
+
+**ТОГДА:**
+- Checkbox появляется в DOM с label "По часовому поясу абонента"
+- Checkbox **НЕ disabled** (не имеет attribute `disabled`)
+- Checkbox по умолчанию НЕ checked
+
+### AC-CW-S-11: Клик по checkbox + создание → POST содержит use_subscriber_timezone=true
+
+**ДАНО:**
+- Step 3 с "Позже", checkbox виден и unchecked
+- Заполнены валидная date+time
+- Пользователь проходит на Step 4 и нажимает "Запланировать"
+
+**КОГДА:** до клика "Запланировать" — пользователь ставит галочку на checkbox
+
+**ТОГДА:**
+- POST /portal/v1/campaigns содержит в body `"use_subscriber_timezone": true`
+- Ответ сервера HTTP 201
+
+### AC-CW-S-12: Без галочки → POST содержит use_subscriber_timezone=false
+
+**ДАНО:**
+- Step 3 с "Позже", checkbox unchecked
+- Заполнены валидная date+time
+- Пользователь проходит на Step 4 и нажимает "Запланировать"
+
+**КОГДА:** отправка без включения checkbox
+
+**ТОГДА:**
+- POST /portal/v1/campaigns содержит `"use_subscriber_timezone": false`
+
+### AC-CW-S-13: Переключение "Позже" → "Сейчас" сбрасывает state
+
+**ДАНО:**
+- Step 3 с "Позже", checkbox checked
+- Пользователь включил timezone
+
+**КОГДА:** пользователь кликает radio "Сейчас"
+
+**ТОГДА:**
+- Checkbox исчезает из DOM
+- Внутреннее `useSubscriberTimezone` state установлено в false (onChange handler радио "now")
+- Следующий переход обратно на "Позже": checkbox unchecked (не restored из предыдущего состояния)
+
+### AC-CW-S-14 (API round-trip): Backend сохраняет и возвращает флаг
+
+**ДАНО:** валидный reseller/client auth, доступ к Portal API
+
+**КОГДА:**
+1. POST /portal/v1/campaigns с body, содержащим `use_subscriber_timezone: true` + все обязательные поля + `scheduled_at` в будущем
+2. Сервер возвращает HTTP 201 с `{id, ...}`
+3. GET /portal/v1/campaigns/{id}
+4. DELETE /portal/v1/campaigns/{id} (cleanup)
+
+**ТОГДА:**
+- Ответ step 2: `use_subscriber_timezone == true`
+- Ответ step 3: `use_subscriber_timezone == true`
+- Ответ step 4: HTTP 204 (удаление успешно)
+
+**Обоснование:** закрывает D-01. Без этого AC backend-изменение не верифицируется.
+
+## Итого в Batch 2 Phase B
+
+- **6 AC** (S-09..S-14) покрывают: conditional rendering checkbox'а, enabled state, POST-отправка флага (two states), state reset при смене режима, API round-trip.
+- **Seed:** тот же что в Phase A (sender + contact list). API round-trip дополнительно создаёт и удаляет тестовую кампанию.
+- **Drift:** D-01 и D-04 закрываются этим batch'ем.

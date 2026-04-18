@@ -320,6 +320,34 @@ export class CampaignWizardPage {
     await this.scheduleDateInput().fill(date);
     await this.scheduleTimeInput().fill(time);
   }
+
+  // === AC helpers (batch 2 Phase B: timezone checkbox) ===
+
+  timezoneCheckbox() {
+    // Checkbox is rendered inside <label> containing text "По часовому поясу абонента".
+    // Visible only when sendMode === 'later'.
+    return this.page.getByLabel('По часовому поясу абонента');
+  }
+
+  async expectTimezoneCheckboxHidden() {
+    await expect(this.timezoneCheckbox()).toBeHidden();
+  }
+
+  async expectTimezoneCheckboxVisible() {
+    await expect(this.timezoneCheckbox()).toBeVisible();
+  }
+
+  async expectTimezoneCheckboxEnabled() {
+    await expect(this.timezoneCheckbox()).toBeEnabled();
+  }
+
+  async toggleTimezoneCheckbox() {
+    await this.timezoneCheckbox().click();
+  }
+
+  async isTimezoneCheckboxChecked(): Promise<boolean> {
+    return this.timezoneCheckbox().isChecked();
+  }
 }
 
 export class CampaignDetailPage {

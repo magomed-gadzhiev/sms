@@ -62,6 +62,9 @@ type Campaign struct {
 	StartedAt       *time.Time
 	CompletedAt     *time.Time
 	RetryConfig     *RetryConfig
+	// UseSubscriberTimezone — deliver at scheduled time in subscriber's local timezone.
+	// Only meaningful when ScheduledAt is set. See spec 2026-04-13-campaign-wizard-redesign.md §"Шаг 3".
+	UseSubscriberTimezone bool
 	TotalRecipients int32
 	SentCount       int32
 	DeliveredCount  int32
