@@ -1,6 +1,6 @@
 # sms Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-01
+Auto-generated from all feature plans. Last updated: 2026-04-18
 
 ## Active Technologies
 - Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), prometheus/client_golang (metrics), stretchr/testify (testing) (002-operator-tarification)
@@ -134,6 +134,25 @@ Baseline 2026-04-18: 69 warnings (в основном `no-explicit-any`, `exhaus
 Если `go vet` / `go build` падают с "заблокирован политикой Device Guard" при запуске из-под Claude Code CLI — это ограничение целостности процесса. `scripts/check.sh` это обнаруживает и пропускает Go-чеки с `[SKIP]` warning. **CI (GitHub Actions, Linux) не затронут** — там Go валидируется строго.
 
 Для локальной проверки Go вручную — запусти `./scripts/check.sh` из обычного git-bash или PowerShell.
+
+### Mandatory code review для любой работы с кодом
+
+Deliverable 2 Phase 1. Lint/CI ловят синтаксис и типы. Review ловит семантику, архитектуру и spec-drift.
+
+**Правило:** для любой задачи, меняющей код приложения, используй `/execute-with-review` (см. `skills/execute-with-review.md`), НЕ `/executing-plans` напрямую.
+
+Алгоритм:
+1. Реализация через `superpowers:executing-plans` (внутри wrapper'а)
+2. **Обязательный** субагент-ревьюер (`superpowers:code-reviewer`) проверяет diff
+3. APPROVED → коммит; CHANGES_REQUESTED → фикс-итерация (макс 3 раза)
+4. После 3-й неуспешной итерации — эскалация пользователю
+
+**Исключения** (можно `/executing-plans` напрямую):
+- Работа только с документами (AC, specs, README) без кода
+- Исследование без коммита
+- Срочный hotfix — review post-factum
+
+**Обход через `--no-verify`** — табу, всегда через wrapper. Любой обход ставит под сомнение всю Фазу 1.
 
 ## Communication Style
 
