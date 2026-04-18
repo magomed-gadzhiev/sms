@@ -420,6 +420,79 @@ export class CampaignWizardPage {
       .locator('input[type="checkbox"]')
       .first();
   }
+
+  // === AC helpers (batch 4: Step 4 Confirm) ===
+
+  /**
+   * Navigate Step 1 → 2 → 3 → 4 with default mode="Сейчас".
+   * Seed: 1 approved sender + 1 contact list.
+   */
+  async reachStep4Now() {
+    await this.reachStep3();
+    // Step 3 default is "Сейчас" — just click Next
+    await this.expectScheduleModeChecked('now');
+    await this.nextButton().click();
+    await this.expectActiveStep('Подтверждение');
+  }
+
+  /**
+   * Navigate to Step 4 with mode="Позже" + provided date/time.
+   */
+  async reachStep4Later(date: string, time: string) {
+    await this.reachStep3();
+    await this.clickScheduleModeRadio('later');
+    await this.fillScheduledDateTime(date, time);
+    await this.nextButton().click();
+    await this.expectActiveStep('Подтверждение');
+  }
+
+  campaignNameDisplay() {
+    // The displayed name (not the input) — scoped to the label "Название рассылки"
+    return this.page
+      .locator('div', { has: this.page.locator('text=Название рассылки') })
+      .locator('span.text-sm.text-gray-900')
+      .first();
+  }
+
+  editNameButton() {
+    return this.page.getByRole('button', { name: 'Редактировать название' });
+  }
+
+  campaignNameInput() {
+    // Appears only after editNameButton click
+    return this.page
+      .locator('div', { has: this.page.locator('text=Название рассылки') })
+      .locator('input[type="text"]');
+  }
+
+  summarySection(dtText: 'Сообщение' | 'A/B тестирование' | 'Аудитория' | 'Расписание') {
+    // Each section is a <div> containing a <dt> with the given text.
+    // The filter excludes the outer wrapper <div> that contains <h3>Подтверждение</h3>
+    // (which would otherwise match because it contains ALL dts as descendants).
+    // Filter is load-bearing — without it, section-specific assertions pass coincidentally
+    // but "equals exactly" assertions (e.g., dd='Сейчас') fail.
+    return this.page.locator('div', {
+      has: this.page.locator(`dt`, { hasText: dtText }),
+    }).filter({ hasNotText: 'Подтверждение' });
+  }
+
+  summaryEditLink(dtText: 'Сообщение' | 'Аудитория' | 'Расписание' | 'A/B тестирование') {
+    // The "изменить" button adjacent to the dt
+    return this.summarySection(dtText).getByRole('button', { name: 'изменить', exact: true });
+  }
+
+  costEstimateBlock() {
+    return this.page.locator('div', {
+      has: this.page.locator('h4', { hasText: 'Предварительная стоимость' }),
+    });
+  }
+
+  submitButton() {
+    // "Отправить" or "Запланировать" button — primary submit on Step 4.
+    // Regex anchored (^..$) avoids matching accordion headers that contain
+    // "Отправить" as substring (e.g., from other batches' tests).
+    return this.page.getByRole('button', { name: /^(Отправить|Запланировать)$/ });
+  }
 }
 
 export class CampaignDetailPage {
