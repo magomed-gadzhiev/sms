@@ -291,3 +291,113 @@ label: `${l.name} (${pluralContacts(l.contacts_count ?? 0)})`,
 
 **Статус:** 🟡 OPEN-LOW. Решение — следующий brainstorm.
 
+---
+
+## D-09: POST /campaigns со `scheduled_at` в ISO-строке возвращает 400
+
+**Обнаружено:** 2026-04-18 при AC-S-14 (Phase B) и повторно при проработке AC-C-13.
+
+**Спека:** неявно — через backend proto schema. `CreateCampaignRequest.scheduled_at` имеет тип `google.protobuf.Timestamp`.
+
+**Что в коде** ([campaigns.go handlers](../../internal/gateway/portal/handlers/campaigns.go)):
+```go
+var req campaignv1.CreateCampaignRequest
+if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+    respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+    return
+}
+```
+
+Используется **stdlib `encoding/json`**. Он НЕ знает про специальную обработку protobuf-типа `Timestamp` (которая ожидает либо `{seconds, nanos}`, либо требует `protojson` для парсинга ISO-строк).
+
+**Frontend-поведение** ([CampaignWizardPage.tsx:200-213](../../portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx#L200-L213)):
+```tsx
+const scheduledAt = sendMode === 'later' && scheduledDate && scheduledTime
+  ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+  : undefined;
+
+await campaignsApi.create({ ..., scheduled_at: scheduledAt });
+```
+
+Фронт отправляет ISO-string (`"2026-04-19T12:00:00Z"`). Бэк пытается json-decode в `Timestamp` struct → **ошибка парсинга** → `400 "Неверный формат запроса"`.
+
+**Последствие:**
+**КРИТИЧНО.** Пользователь не может создать кампанию "Позже" через UI — любая попытка планирования падает с generic ошибкой "Неверный формат запроса". Silent data loss в обратную сторону: кампания НЕ создаётся, пользователь теряет весь введённый прогресс.
+
+Воспроизведено через curl:
+```bash
+POST /portal/v1/campaigns с body {scheduled_at: "2026-04-19T12:00:00Z", ...}
+→ {"error":{"code":"INVALID_INPUT","message":"Неверный формат запроса"}}
+```
+
+**Почему это не поймали раньше:**
+- Существующие campaign-wizard.spec.ts тесты ВСЕ skipped через `test.skip(true, 'Missing prerequisites')`
+- AC-CW-S-14 (API round-trip в Batch 2 Phase B) уже обошёл эту проблему, отправив без scheduled_at
+- UI-тесты Phase A для wizard не делали реальный submit
+- Ручного тестирования "Позже" в недавних релизах, видимо, не проводилось
+
+**Разрешение:**
+**A (spec/intent = truth):** Backend handler должен использовать `protojson.Unmarshal` вместо stdlib `json.Decode`. Это корректно парсит ISO-строки в Timestamp и другие proto-специфичные типы. Изменение в всех `campaigns.go` handlers.
+
+```go
+import "google.golang.org/protobuf/encoding/protojson"
+
+body, err := io.ReadAll(r.Body)
+if err != nil { ... }
+if err := protojson.Unmarshal(body, &req); err != nil { ... }
+```
+
+**B (frontend workaround):** Отправлять scheduled_at как `{seconds: unixTs}` вместо ISO. Но это нарушает web-convention (ISO-8601 стандарт) и требует особого знания у разработчика.
+
+**Рекомендация:** A — фикс на бэке, стандартный паттерн для proto-HTTP gateway.
+
+**Приоритет:** 🔴 HIGH. Это ломает основной user flow (планирование кампаний). Не LOW.
+
+**Scope фикса (уточнение):** в [handlers/campaigns.go](../../internal/gateway/portal/handlers/campaigns.go) **8 мест** используют stdlib `json.NewDecoder().Decode`: строки 33, 110, 249, 282, 315, 344, 376, 400. Не все принимают Timestamp-поля, но для Create/Update/SetABConfig/SetRetryConfig — точно проблема. Минимальный фикс — заменить `json.Decode` на `protojson.Unmarshal` для `CreateCampaign` (строка 33). Полный фикс — все 8 мест для консистентности.
+
+**Статус:** 🔴 OPEN-HIGH. AC-CW-C-13 использует `test.fail()` — зелёный пока drift живёт, станет красным после фикса (сигнал "пора убрать test.fail()").
+
+---
+
+## D-10: `?draft={id}` URL-параметр не реализован во фронтенде
+
+**Обнаружено:** 2026-04-18 при code review Phase B AC (AC-CW-N-11).
+
+**Спека:** [2026-04-13-campaign-wizard-redesign.md](../superpowers/specs/2026-04-13-campaign-wizard-redesign.md), §"Открытие черновика":
+> При переходе на `/campaigns/new?draft={id}` — загружаем черновик через `GET /campaigns/{id}` и заполняем стейт визарда. Переходим сразу на шаг 1.
+
+**Что в коде:** [CampaignWizardPage.tsx](../../portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx) — **ноль упоминаний** `draft`, `useSearchParams`, или парсинга URL query. Компонент игнорирует `?draft=` при открытии.
+
+**Как проверено:**
+```bash
+$ grep -E "draft|useSearchParams|\?draft" CampaignWizardPage.tsx
+# No matches found
+```
+
+**Последствие:**
+Пользователь сохраняет черновик → возвращается в список `/campaigns` → кликает "Редактировать" на черновике (если кнопка есть) → URL `/campaigns/new?draft=<id>` → wizard открывается **ПУСТЫМ**, все введённые данные потеряны. User-visible data loss.
+
+Возможно, в `CampaignsPage` даже нет edit-кнопки для черновиков, поэтому bug не всплывает. Но функционально — черновики создаются без возможности вернуться к ним.
+
+**Разрешение (A=spec=truth):**
+Добавить в `CampaignWizardPage`:
+```tsx
+const [searchParams] = useSearchParams();
+const draftId = searchParams.get('draft');
+
+useEffect(() => {
+  if (!draftId) return;
+  campaignsApi.get(draftId).then((c) => {
+    setCampaignName(c.name);
+    setContactListId(c.contact_list_id);
+    setTemplateId(c.template_id || '');
+    setSenderNameId(/* find by source */);
+    // ... load all fields
+  });
+}, [draftId]);
+```
+
+**Приоритет:** 🟡 MEDIUM. Drafts сейчас создаются, но redemption broken. Пользователь может восстановить контекст только переcozда́в вручную.
+
+**Статус:** 🟡 OPEN-MEDIUM. AC-CW-N-11 помечен `test.fixme()` — скипается до фикса фронтенда. Когда реализуется — убрать fixme, тест должен стать зелёным.
+

@@ -716,3 +716,80 @@
 - **9 AC** покрывают: открытие cancel dialog, 2 кнопки dialog, behavior discard-кнопки (без POST), видимость Назад, Назад с 3 шагов, StepIndicator jump назад, StepIndicator disabled вперёд
 - **Seed:** тот же что в batch 2/3 (sender + contact list)
 - **Drift:** D-08 (dialog discard label) задокументирован
+
+---
+
+## Batch 4 Phase B + Batch 5 Phase B (Submit + Drafts с cleanup)
+
+**Скоуп:** финальные 4 AC с реальным созданием кампаний через UI/API + обязательный cleanup в `finally`.
+
+**Новый drift D-09** (CRITICAL, см. `_DRIFT.md`): POST /campaigns с `scheduled_at` как ISO-строкой возвращает 400. Backend handler использует stdlib `json.Decode` вместо `protojson.Unmarshal`. **Пользователи сейчас НЕ могут запланировать кампанию через UI**.
+
+### AC-CW-C-12: Submit "Сейчас" создаёт кампанию + /launch + redirect
+
+**ДАНО:**
+- Пользователь на Step 4 с mode="Сейчас"
+- Баланс достаточен для estimate-cost
+
+**КОГДА:** пользователь кликает "Отправить"
+
+**ТОГДА:**
+- POST `/portal/v1/campaigns` → возвращается `{id, ...}` (200 или 201)
+- POST `/portal/v1/campaigns/{id}/launch` вызывается (может быть intercept-stub для избежания реальной рассылки в sandbox)
+- URL становится `/campaigns/{id}` (navigate на detail-page)
+- `afterEach` DELETE кампании для cleanup
+
+### AC-CW-C-13: Submit "Позже" — DRIFT D-09 (ожидаемо ломается)
+
+**ДАНО:**
+- Пользователь на Step 4 с mode="Позже"
+- Date/time = завтра 12:00 (валидный будущий момент)
+
+**КОГДА:** пользователь кликает "Запланировать"
+
+**ТОГДА (по спеке, сейчас нарушено):**
+- POST `/portal/v1/campaigns` с `scheduled_at: "ISO-string"` → должно вернуться `{id}`
+- navigate на `/campaigns/{id}`
+
+**Что фактически происходит (D-09):**
+- POST возвращает 400 `{"error":{"code":"INVALID_INPUT","message":"Неверный формат запроса"}}`
+- navigate НЕ происходит, остаётся на Step 4
+- В UI показывается ошибка
+
+**Тест-дизайн:** использовать `test.fail()` — инвертирует ожидание. Тест зелёный пока drift D-09 жив. Когда бэкенд починят (protojson), тест станет красным — сигнал "убрать test.fail()".
+
+### AC-CW-N-10: Save as draft из cancel dialog
+
+**ДАНО:**
+- Пользователь на Step 1 (или любом, после выбора контактной базы или с пустым текстом)
+- Cancel dialog открыт
+
+**КОГДА:** пользователь кликает "Сохранить как черновик" внутри dialog
+
+**ТОГДА:**
+- POST `/portal/v1/campaigns` уходит с body содержащим `name`, `contact_list_id`, возможно пустой `template_id`
+- Ответ 200/201 `{id, ...}`
+- URL становится `/campaigns`
+- `afterEach` DELETE кампании
+
+### AC-CW-N-11: Загрузка черновика через `?draft={id}` — BLOCKED BY D-10
+
+**Статус:** `test.fixme()` — функциональность `?draft=` отсутствует в коде фронтенда. См. [D-10](_DRIFT.md). Тест станет активным после фикса, assertions описывают spec-корректное поведение.
+
+**ДАНО:**
+- В БД существует кампания со status=draft и известным name
+
+**КОГДА:** пользователь открывает `/campaigns/new?draft={id}`
+
+**ТОГДА (после фикса D-10):**
+- Wizard загружается на Step 1 "Сообщение"
+- `campaignName` state загружен с именем черновика
+- На Step 4 видно имя в display-элементе
+- `afterEach` DELETE черновика
+
+## Итого Phase B
+
+- **4 AC** (C-12, C-13, N-10, N-11)
+- **Seed:** тот же + возможность создавать и удалять кампании через API
+- **Drift найден:** D-09 (CRITICAL) — планирование "Позже" сломано на бэкенде
+- **Cleanup:** try/finally в каждом тесте, DELETE по captured ID
