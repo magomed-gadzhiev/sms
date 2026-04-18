@@ -245,6 +245,37 @@ export class ApiHelper {
     return res.json();
   }
 
+  // --- Companies ---
+  async listCompanies(): Promise<{ companies: Array<{ id: string; name: string; is_default: boolean; is_offer: boolean; inn?: string }> }> {
+    const res = await this.fetch('/companies');
+    return res.json();
+  }
+
+  async setDefaultCompany(id: string) {
+    return this.fetch(`/companies/${id}/set-default`, { method: 'POST' });
+  }
+
+  async detachCompany(id: string) {
+    return this.fetch(`/companies/${id}/detach`, { method: 'DELETE' });
+  }
+
+  /**
+   * Cleanup helper: detaches all non-default non-offer companies matching name prefix.
+   * If a test-created company is currently default, first restores Оферта as default.
+   */
+  async cleanupTestCompanies(namePrefix: string) {
+    const { companies } = await this.listCompanies();
+    const offer = companies.find((c) => c.is_offer);
+    const testComps = companies.filter((c) => c.name.startsWith(namePrefix));
+    const hasDefaultTest = testComps.some((c) => c.is_default);
+    if (hasDefaultTest && offer) {
+      await this.setDefaultCompany(offer.id);
+    }
+    for (const c of testComps) {
+      await this.detachCompany(c.id);
+    }
+  }
+
   // --- Reseller Dashboard ---
   async getResellerDashboard(period = 'today') {
     const res = await this.fetch(`/reseller/dashboard?period=${period}`);
