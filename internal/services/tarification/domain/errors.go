@@ -47,4 +47,10 @@ var (
 	ErrIdempotencyKeyExists         = errors.New("tarification already processed for this idempotency key")
 	ErrUnknownOperator              = errors.New("operator not determined for destination number")
 	ErrDebtBlocking                 = errors.New("client has outstanding debt, sending blocked")
+
+	// Unified pricing model (Phase 1)
+	ErrNoApplicableRule  = errors.New("no applicable price rule found")
+	ErrOwnerIDMismatch   = errors.New("owner_id must be NULL iff owner_type=platform")
+	ErrPriceSpecMismatch = errors.New("price_value/tiers_json does not match price_model")
+	ErrInvalidPeriod     = errors.New("valid_to must be after valid_from")
 )
