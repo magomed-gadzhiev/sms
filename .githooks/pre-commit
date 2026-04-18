@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Pre-commit hook: run fast quality gates (no tests).
+# To enable: git config core.hooksPath .githooks
+# To bypass in an emergency: git commit --no-verify (document why in commit body).
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+"$PROJECT_ROOT/scripts/check.sh"

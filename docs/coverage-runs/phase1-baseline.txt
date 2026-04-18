@@ -1,0 +1,144 @@
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CHECK] go vet
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+./scripts/check.sh: line 25: /c/Program Files/Go/bin/go: Permission denied
+[FAIL] go vet
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CHECK] go build
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+./scripts/check.sh: line 25: /c/Program Files/Go/bin/go: Permission denied
+[FAIL] go build
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CHECK] tsc --noEmit
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[OK] tsc --noEmit
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CHECK] eslint
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+C:\projects\sms\portal-frontend\src\api\contacts.ts
+  8:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\sms\portal-frontend\src\components\campaigns\ABStatusPanel.tsx
+  37:113  warning  React Hook useEffect has a missing dependency: 'fetchStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\hooks\useNetworkStats.ts
+   37:15  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+   39:15  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  117:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  190:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  195:6   warning  React Hook useCallback has a missing dependency: 'setDrillDownView'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  207:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  231:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  252:20  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  310:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  324:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  360:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  370:19  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+
+C:\projects\sms\portal-frontend\src\pages\admin\tarification\PeriodsTab.tsx
+   72:7   error    'parts' is never reassigned. Use 'const' instead                                                                     prefer-const
+  155:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  169:6   warning  React Hook useEffect has a missing dependency: 'form.operator_id'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  332:30  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\projects\sms\portal-frontend\src\pages\analytics\AnalyticsPage.tsx
+  112:54  error    Unsafe usage of ReturnStatement                                                                                                                                                                           no-unsafe-finally
+  124:9   warning  The 'timeline' logical expression could make the dependencies of useMemo Hook (at line 138) change on every render. To fix this, wrap the initialization of 'timeline' in its own useMemo() Hook          react-hooks/exhaustive-deps
+  125:9   warning  The 'prevTimeline' logical expression could make the dependencies of useMemo Hook (at line 138) change on every render. To fix this, wrap the initialization of 'prevTimeline' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\campaigns\CampaignDetailPage.tsx
+  112:6  warning  React Hook useEffect has a missing dependency: 'campaign'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\campaigns\CampaignWizardPage.tsx
+  127:6  warning  React Hook useEffect has missing dependencies: 'scheduledDate', 'scheduledTime', and 'sendMode'. Either include them or remove the dependency array                                                                                     react-hooks/exhaustive-deps
+  142:6  warning  React Hook useEffect has missing dependencies: 'contactListId', 'excludeCountries', 'excludeOperators', 'messageText', 'selectedTemplate?.body', 'senderNameId', and 'senderNames'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\campaigns\CampaignsPage.tsx
+  149:47  warning  Unexpected any. Specify a different type                                                        @typescript-eslint/no-explicit-any
+  159:3   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\projects\sms\portal-frontend\src\pages\contacts\ContactListsPage.tsx
+  123:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\sms\portal-frontend\src\pages\contacts\OptOutListPage.tsx
+  233:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\sms\portal-frontend\src\pages\network\ModerationPage.tsx
+   90:6  warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  101:6  warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  112:6  warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\NetworkAnalyticsPage.tsx
+  33:36  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  34:54  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  48:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\NetworkQuotaPage.tsx
+  187:6  warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\NetworkRoutingPage.tsx
+   57:36  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   58:54  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+   89:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  100:37  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  100:55  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  256:23  error    Expected an assignment or function call and instead saw an expression                                     @typescript-eslint/no-unused-expressions
+
+C:\projects\sms\portal-frontend\src\pages\network\NetworkStatisticsPage.tsx
+   34:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  122:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  144:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\sms\portal-frontend\src\pages\network\components\TariffOverridesTab.tsx
+  27:17  warning  Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  28:54  warning  Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  36:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+  49:5   warning  React Hook useCallback has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\components\TariffOverviewTab.tsx
+  65:17  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  66:54  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  74:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  93:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\components\TariffPlanEditor.tsx
+   90:6  warning  React Hook useCallback has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  273:6  warning  React Hook useCallback has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  425:6  warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\components\TariffTemplatesTab.tsx
+  41:6  warning  React Hook useCallback has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  54:6  warning  React Hook useCallback has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\network\components\TemplateAssignModal.tsx
+  39:17  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  40:54  warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  48:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\sms\portal-frontend\src\pages\sub-accounts\SubAccountDetailPage.tsx
+  121:6  warning  React Hook useEffect has a missing dependency: 'loadDetail'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 72 problems (3 errors, 69 warnings)
+  1 error and 2 warnings potentially fixable with the `--fix` option.
+
+[FAIL] eslint
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUALITY GATES: FAILED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

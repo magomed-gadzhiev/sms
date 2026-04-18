@@ -78,6 +78,63 @@ Go 1.24.0: Follow standard conventions
 
 <!-- MANUAL ADDITIONS START -->
 
+## Quality Gates
+
+Автоматические проверки запускаются локально (pre-commit hook) и на сервере (GitHub Actions CI).
+
+### Первый запуск (установка)
+
+```bash
+# 1. Установить новые frontend-зависимости
+cd portal-frontend && npm install && cd ..
+
+# 2. Включить pre-commit hook (hooks живут в .githooks/, не в .git/hooks/)
+git config core.hooksPath .githooks
+
+# 3. Прогнать проверки локально вручную
+./scripts/check.sh
+```
+
+### Что проверяется
+
+| Чек | Где | Когда |
+|---|---|---|
+| `go vet ./...` | корень | pre-commit + CI |
+| `go build ./...` | корень | pre-commit + CI |
+| `go test -short ./...` | корень | CI only |
+| `tsc --noEmit` | portal-frontend | pre-commit + CI |
+| `eslint .` | portal-frontend | pre-commit + CI |
+
+### Основная команда
+
+- `./scripts/check.sh` — быстрые проверки (без тестов)
+- `./scripts/check.sh --with-tests` — полный режим (как в CI)
+
+### Обход в экстренной ситуации
+
+Только если сломано что-то внешнее (не твой код):
+```bash
+git commit --no-verify -m "<сообщение>
+
+<описание, почему обходим hook>"
+```
+
+Каждый `--no-verify` должен быть обоснован в теле коммита. Злоупотребление = инфра мёртвая.
+
+### Ratchet на ESLint warnings
+
+Baseline 2026-04-18: 69 warnings (в основном `no-explicit-any`, `exhaustive-deps`).
+
+Гейт в `package.json` lint-команде и в `scripts/check.sh` настроен на `--max-warnings=69`.
+
+**Правило:** любой новый PR может только **уменьшить** число warnings, не увеличить. При устранении warnings обновляй цифру вниз (и в package.json, и в check.sh). Новые warnings не добавляются.
+
+### Go-чеки на Windows под Device Guard
+
+Если `go vet` / `go build` падают с "заблокирован политикой Device Guard" при запуске из-под Claude Code CLI — это ограничение целостности процесса. `scripts/check.sh` это обнаруживает и пропускает Go-чеки с `[SKIP]` warning. **CI (GitHub Actions, Linux) не затронут** — там Go валидируется строго.
+
+Для локальной проверки Go вручную — запусти `./scripts/check.sh` из обычного git-bash или PowerShell.
+
 ## Communication Style
 
 Максимальная критика. Пользователь — соло-разработчик, полагается на тебя как на советника, а не как на согласителя. Согласие без критики здесь вредно.
