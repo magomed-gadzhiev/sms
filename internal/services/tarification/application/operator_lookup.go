@@ -6,51 +6,54 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
+	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
 
-// OperatorCodeLookup — абстракция резолва UUID → operators.code.
-type OperatorCodeLookup interface {
-	Code(ctx context.Context, operatorID uuid.UUID) (string, error)
+// OperatorMetaLookup — абстракция резолва UUID → domain.OperatorMeta.
+type OperatorMetaLookup interface {
+	Meta(ctx context.Context, operatorID uuid.UUID) (domain.OperatorMeta, error)
 }
 
-// operatorCodeSource — минимальный интерфейс, нужный кешу.
-type operatorCodeSource interface {
-	GetCodeByID(ctx context.Context, id uuid.UUID) (string, error)
+// operatorMetaSource — минимальный интерфейс, нужный кешу.
+type operatorMetaSource interface {
+	GetMetaByID(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error)
 }
 
 // CachedOperatorLookup — in-memory map без TTL. Операторы — справочник
-// (десятки записей), код иммутабелен, инвалидация через рестарт сервиса.
+// (десятки записей), код/страна иммутабельны в пределах инстанса, инвалидация
+// через рестарт сервиса.
 type CachedOperatorLookup struct {
-	inner operatorCodeSource
+	inner operatorMetaSource
 	mu    sync.RWMutex
-	cache map[uuid.UUID]string
+	cache map[uuid.UUID]domain.OperatorMeta
 }
 
 // NewCachedOperatorLookup создаёт lookup с пустым кешем.
-func NewCachedOperatorLookup(inner operatorCodeSource) *CachedOperatorLookup {
+func NewCachedOperatorLookup(inner operatorMetaSource) *CachedOperatorLookup {
 	return &CachedOperatorLookup{
 		inner: inner,
-		cache: make(map[uuid.UUID]string),
+		cache: make(map[uuid.UUID]domain.OperatorMeta),
 	}
 }
 
-// Code возвращает operators.code для заданного UUID.
+// Meta возвращает domain.OperatorMeta для заданного UUID.
 // При кеш-хите — возвращает без обращения к БД.
 // При ошибке inner — НЕ кеширует результат, следующий вызов повторит запрос.
-func (c *CachedOperatorLookup) Code(ctx context.Context, id uuid.UUID) (string, error) {
+func (c *CachedOperatorLookup) Meta(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error) {
 	c.mu.RLock()
-	if code, ok := c.cache[id]; ok {
+	if meta, ok := c.cache[id]; ok {
 		c.mu.RUnlock()
-		return code, nil
+		return meta, nil
 	}
 	c.mu.RUnlock()
 
-	code, err := c.inner.GetCodeByID(ctx, id)
+	meta, err := c.inner.GetMetaByID(ctx, id)
 	if err != nil {
-		return "", err
+		return domain.OperatorMeta{}, err
 	}
 	c.mu.Lock()
-	c.cache[id] = code
+	c.cache[id] = meta
 	c.mu.Unlock()
-	return code, nil
+	return meta, nil
 }

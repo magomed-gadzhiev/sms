@@ -6,9 +6,20 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
+
+// uuidPtrString returns the string form of a nullable UUID or an empty
+// string when the pointer is nil. Used when publishing events that carry
+// tariff_plan/period IDs — unified hot path leaves them nil.
+func uuidPtrString(u *uuid.UUID) string {
+	if u == nil {
+		return ""
+	}
+	return u.String()
+}
 
 // EventPublisher публикует события тарификации в Kafka
 type EventPublisher struct {
@@ -53,8 +64,9 @@ func (p *EventPublisher) PublishTarificationResult(_ context.Context, log *domai
 		"segment_count":    log.SegmentCount,
 		"price_per_segment": log.PricePerSegment,
 		"total_amount":     log.TotalAmount,
-		"tariff_plan_id":   log.TariffPlanID.String(),
-		"tariff_period_id": log.TariffPeriodID.String(),
+		"tariff_plan_id":   uuidPtrString(log.TariffPlanID),
+		"tariff_period_id": uuidPtrString(log.TariffPeriodID),
+		"source_rule_id":   uuidPtrString(log.SourceRuleID),
 		"timestamp":        time.Now().UTC().Format(time.RFC3339),
 	}
 

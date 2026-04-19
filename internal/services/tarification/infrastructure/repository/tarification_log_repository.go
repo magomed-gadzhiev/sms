@@ -24,17 +24,18 @@ func (r *TarificationLogRepository) Create(ctx context.Context, log *domain.Tari
 	query := `
 		INSERT INTO tarification_log (
 			id, client_id, message_id, operator_id, sender_category, strategy,
-			tariff_plan_id, tariff_period_id, segment_count, price_per_segment,
+			tariff_plan_id, tariff_period_id, source_rule_id,
+			segment_count, price_per_segment,
 			total_amount, recalc_amount, idempotency_key, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 		)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		log.ID, log.ClientID, log.MessageID, log.OperatorID,
 		log.SenderCategory, log.Strategy,
-		log.TariffPlanID, log.TariffPeriodID,
+		log.TariffPlanID, log.TariffPeriodID, log.SourceRuleID,
 		log.SegmentCount, log.PricePerSegment,
 		log.TotalAmount, log.RecalcAmount,
 		log.IdempotencyKey, log.CreatedAt,
@@ -48,7 +49,8 @@ func (r *TarificationLogRepository) GetByIdempotencyKey(ctx context.Context, key
 	var log domain.TarificationLog
 	query := `
 		SELECT id, client_id, message_id, operator_id, sender_category, strategy,
-			tariff_plan_id, tariff_period_id, segment_count, price_per_segment,
+			tariff_plan_id, tariff_period_id, source_rule_id,
+			segment_count, price_per_segment,
 			total_amount, recalc_amount, idempotency_key, created_at
 		FROM tarification_log
 		WHERE idempotency_key = $1
@@ -57,7 +59,7 @@ func (r *TarificationLogRepository) GetByIdempotencyKey(ctx context.Context, key
 	err := r.db.QueryRowContext(ctx, query, key).Scan(
 		&log.ID, &log.ClientID, &log.MessageID, &log.OperatorID,
 		&log.SenderCategory, &log.Strategy,
-		&log.TariffPlanID, &log.TariffPeriodID,
+		&log.TariffPlanID, &log.TariffPeriodID, &log.SourceRuleID,
 		&log.SegmentCount, &log.PricePerSegment,
 		&log.TotalAmount, &log.RecalcAmount,
 		&log.IdempotencyKey, &log.CreatedAt,
@@ -77,7 +79,8 @@ func (r *TarificationLogRepository) GetByMessageID(ctx context.Context, messageI
 	var log domain.TarificationLog
 	query := `
 		SELECT id, client_id, message_id, operator_id, sender_category, strategy,
-			tariff_plan_id, tariff_period_id, segment_count, price_per_segment,
+			tariff_plan_id, tariff_period_id, source_rule_id,
+			segment_count, price_per_segment,
 			total_amount, recalc_amount, idempotency_key, created_at
 		FROM tarification_log
 		WHERE message_id = $1
@@ -86,7 +89,7 @@ func (r *TarificationLogRepository) GetByMessageID(ctx context.Context, messageI
 	err := r.db.QueryRowContext(ctx, query, messageID).Scan(
 		&log.ID, &log.ClientID, &log.MessageID, &log.OperatorID,
 		&log.SenderCategory, &log.Strategy,
-		&log.TariffPlanID, &log.TariffPeriodID,
+		&log.TariffPlanID, &log.TariffPeriodID, &log.SourceRuleID,
 		&log.SegmentCount, &log.PricePerSegment,
 		&log.TotalAmount, &log.RecalcAmount,
 		&log.IdempotencyKey, &log.CreatedAt,

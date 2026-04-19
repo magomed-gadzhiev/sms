@@ -411,27 +411,32 @@ LIMIT 1`
 	// Query 3 — tarification log
 	const billingQuery = `
 SELECT segment_count, price_per_segment, total_amount,
-       tariff_plan_id::text, created_at
+       tariff_plan_id::text, source_rule_id::text, created_at
 FROM tarification_log
 WHERE message_id = $1::uuid
 ORDER BY created_at DESC
 LIMIT 1`
 
 	var (
-		billSegmentCount     int32
-		billPricePerSegment  float64
-		billTotalAmount      float64
-		billTariffPlanID     string
-		billCreatedAt        *time.Time
+		billSegmentCount    int32
+		billPricePerSegment float64
+		billTotalAmount     float64
+		billTariffPlanID    *string
+		billSourceRuleID    *string
+		billCreatedAt       *time.Time
 	)
 	billRow := h.db.QueryRow(ctx, billingQuery, id)
-	billScanErr := billRow.Scan(&billSegmentCount, &billPricePerSegment, &billTotalAmount, &billTariffPlanID, &billCreatedAt)
+	billScanErr := billRow.Scan(
+		&billSegmentCount, &billPricePerSegment, &billTotalAmount,
+		&billTariffPlanID, &billSourceRuleID, &billCreatedAt,
+	)
 	if billScanErr == nil {
 		billing := map[string]interface{}{
 			"segment_count":     billSegmentCount,
 			"price_per_segment": billPricePerSegment,
 			"total_amount":      billTotalAmount,
-			"tariff_plan_id":    billTariffPlanID,
+			"tariff_plan_id":    billTariffPlanID, // *string → nil serialises as JSON null (unified rows)
+			"source_rule_id":    billSourceRuleID, // new; set for unified-tarified messages
 		}
 		if billCreatedAt != nil {
 			billing["billed_at"] = *billCreatedAt

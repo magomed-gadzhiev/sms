@@ -104,7 +104,7 @@ func (s *TarificationService) SetUnifiedDependencies(
 	calc *CostCalculator,
 	ruleRepo domain.PriceRuleRepository,
 	subUsageRepo domain.SubaccountUsageCounterRepository,
-	operatorLookup OperatorCodeLookup,
+	operatorLookup OperatorMetaLookup,
 ) {
 	s.unifiedEnabled = enabled
 	s.rollout = rollout
@@ -151,17 +151,33 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 		return nil, fmt.Errorf("idempotency check failed: %w", err)
 	}
 	if existing != nil {
-		existingPlan, planErr := s.planRepo.GetByID(ctx, existing.TariffPlanID)
-		existingCurrency := ""
-		if planErr == nil && existingPlan != nil {
-			existingCurrency = existingPlan.Currency
+		var existingCurrency, tariffPlanID string
+		switch {
+		case existing.TariffPlanID != nil:
+			if existingPlan, planErr := s.planRepo.GetByID(ctx, *existing.TariffPlanID); planErr == nil && existingPlan != nil {
+				existingCurrency = existingPlan.Currency
+			}
+			tariffPlanID = existing.TariffPlanID.String()
+		case existing.SourceRuleID != nil:
+			// Unified replay: резолвим currency через тот же cached lookup,
+			// что использовался при первом вызове; fallback на RUB если lookup
+			// недоступен (response-only, billing перевалидирует).
+			existingCurrency = "RUB"
+			// Invariant: SetUnifiedDependencies always populates operatorLookup non-nil,
+			// но гард на nil-deps защищает от вызова из legacy-only деплоя, где setter не вызывался.
+			if s.unifiedDeps != nil && s.unifiedDeps.operatorLookup != nil {
+				if meta, metaErr := s.unifiedDeps.operatorLookup.Meta(ctx, existing.OperatorID); metaErr == nil && meta.Currency != "" {
+					existingCurrency = meta.Currency
+				}
+			}
+			tariffPlanID = existing.SourceRuleID.String()
 		}
 		return &TarifyMessageResponse{
 			Approved:     true,
 			TotalAmount:  existing.TotalAmount,
 			Currency:     existingCurrency,
 			Strategy:     string(existing.Strategy),
-			TariffPlanID: existing.TariffPlanID.String(),
+			TariffPlanID: tariffPlanID,
 		}, nil
 	}
 
