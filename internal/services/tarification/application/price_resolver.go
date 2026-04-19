@@ -22,6 +22,21 @@ type versionSource interface {
 	GetVersion(ctx context.Context) (int64, error)
 }
 
+type resolverBranchKey struct{}
+
+// WithResolverBranch — помечает context этикеткой branch для метрик
+// (subaccount|margin). Если не задано — branch="unknown".
+func WithResolverBranch(ctx context.Context, branch string) context.Context {
+	return context.WithValue(ctx, resolverBranchKey{}, branch)
+}
+
+func branchFromCtx(ctx context.Context) string {
+	if v, ok := ctx.Value(resolverBranchKey{}).(string); ok && v != "" {
+		return v
+	}
+	return "unknown"
+}
+
 // PriceResolver — горячий путь: ищет применимое правило, используя
 // денормализованный resolved_rules кеш (стадия 1) с fallback на полный lookup
 // по price_rules (стадия 2) при cache miss или устаревшей версии.
@@ -65,9 +80,12 @@ func (r *PriceResolver) Resolve(ctx context.Context, in domain.ResolveInput) (*d
 	if err != nil {
 		return nil, fmt.Errorf("get version: %w", err)
 	}
+	branch := branchFromCtx(ctx)
 	if cached != nil && cached.RulesVersion == currentVersion {
+		unifiedResolveTotal.WithLabelValues("hit", branch).Inc()
 		return cached, nil
 	}
+	unifiedResolveTotal.WithLabelValues("miss", branch).Inc()
 
 	// Стадия 2 — lookup + materialize.
 	// ВАЖНО: захватываем версию ДО lookup, а не на момент write. Если price_rules
