@@ -204,11 +204,17 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 	}
 
 	// 10. Tarification log (for future idempotency).
+	// Защита от деления на 0: req.SegmentCount валидируется gRPC-контрактом,
+	// но хранить NaN в price_per_segment недопустимо (совместимость с десериализаторами).
+	pricePerSegment := cost
+	if req.SegmentCount > 0 {
+		pricePerSegment = cost / float64(req.SegmentCount)
+	}
 	tarLog := domain.NewUnifiedTarificationLog(
 		req.ClientID, req.MessageID, req.OperatorID, rr.SourceRuleID,
 		category,
 		req.SegmentCount,
-		strconv.FormatFloat(cost/float64(req.SegmentCount), 'f', 6, 64),
+		strconv.FormatFloat(pricePerSegment, 'f', 6, 64),
 		costStr,
 		req.IdempotencyKey,
 	)

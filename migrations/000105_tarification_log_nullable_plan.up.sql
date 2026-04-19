@@ -4,6 +4,12 @@
 -- nullable, добавляется новая колонка. FK на price_rules не ставим —
 -- правила могут удаляться, нельзя терять исторические log-строки.
 -- См. docs/superpowers/specs/2026-04-19-tarification-log-nullable-plan-design.md.
+--
+-- LOCK NOTE: ALTER TABLE на partitioned parent в PG 12+ каскадно применяется
+-- к дочерним partitions. DROP NOT NULL/ADD COLUMN без default — только
+-- metadata change, без rewrite строк. Ожидаемый AccessExclusive lock — sub-second
+-- на каждую партицию, в пике ~2k writes/sec приостанавливается суммарно <1s.
+-- Планировать применение миграции вне пиков записи (не обязательно, но аккуратнее).
 
 BEGIN;
 
