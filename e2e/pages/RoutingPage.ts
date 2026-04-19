@@ -77,27 +77,41 @@ export class RoutingPagePO {
 
   async selectProvider(providerName: string) {
     const dialog = this.page.getByRole('dialog');
-    // SearchableSelect — click to open, then select option
-    await dialog.locator('label:has-text("Провайдер")').locator('..').click();
-    await this.page.getByText(providerName, { exact: false }).first().click();
+    await dialog.getByLabel('Провайдер').click();
+    await this.page.getByRole('option', { name: providerName, exact: false }).first().click();
   }
 
   async selectFirstProvider() {
     const dialog = this.page.getByRole('dialog');
-    const searchableSelect = dialog.locator('text=Провайдер').locator('..');
-    const input = searchableSelect.locator('input');
-    await input.click();
-    // Wait for options to appear and click first one
-    const option = this.page.locator('[role="option"]').first();
-    if (await option.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await option.click();
-    } else {
-      // Fallback: try listbox items
-      const listItem = this.page.locator('[role="listbox"] > *').first();
-      if (await listItem.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await listItem.click();
-      }
+    await dialog.getByLabel('Провайдер').click();
+    await this.page.locator('[role="option"]').first().click();
+  }
+
+  async fillComment(text: string) {
+    await this.page.getByRole('dialog').locator('textarea').fill(text);
+  }
+
+  async expectRouteTypeActive(type: 'SMS' | 'HLR' | 'MAX') {
+    const btn = this.page.getByRole('dialog').getByRole('button', { name: type, exact: true });
+    await expect(btn).toHaveClass(/bg-primary/);
+  }
+
+  async expectRouteRow(name: string, assertions: { priority?: number; share?: number; statusLabel?: string }) {
+    const row = this.routeTable.locator('tr', { hasText: name });
+    await expect(row).toBeVisible();
+    if (assertions.priority !== undefined) {
+      await expect(row.locator('td').nth(2)).toContainText(String(assertions.priority));
     }
+    if (assertions.share !== undefined) {
+      await expect(row.locator('td').nth(3)).toContainText(`${assertions.share}%`);
+    }
+    if (assertions.statusLabel !== undefined) {
+      await expect(row.locator('td').nth(4)).toContainText(assertions.statusLabel);
+    }
+  }
+
+  async expectConfirmDialogFor(routeName: string) {
+    await expect(this.confirmDialog()).toContainText(routeName);
   }
 
   async saveAsDraft() {
@@ -122,12 +136,16 @@ export class RoutingPagePO {
     await row.getByRole('button', { name: 'Удалить' }).click();
   }
 
+  private confirmDialog() {
+    return this.page.getByRole('dialog').filter({ hasText: 'Удалить маршрут' });
+  }
+
   async confirmDelete() {
-    await this.page.getByRole('dialog').getByRole('button', { name: 'Удалить' }).click();
+    await this.confirmDialog().getByRole('button', { name: 'Удалить' }).click();
   }
 
   async cancelDelete() {
-    await this.page.getByRole('dialog').getByRole('button', { name: 'Отмена' }).click();
+    await this.confirmDialog().getByRole('button', { name: 'Отмена' }).click();
   }
 
   async expectRouteInTable(name: string) {
