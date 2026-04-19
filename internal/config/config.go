@@ -28,10 +28,11 @@ type Config struct {
 // единой модели ценообразования (Phase 1). По умолчанию отключено — старый
 // горячий путь не затронут.
 type TarificationConfig struct {
-	UnifiedEnabled         bool `mapstructure:"unified_enabled"`
-	TiersCacheSize         int  `mapstructure:"tiers_cache_size"`
-	JanitorIntervalSeconds int  `mapstructure:"janitor_interval_seconds"`
-	AggregatorCacheTTLSec  int  `mapstructure:"aggregator_cache_ttl_sec"`
+	UnifiedEnabled           bool `mapstructure:"unified_enabled"`
+	UnifiedRolloutPercentage int  `mapstructure:"unified_rollout_percentage"`
+	TiersCacheSize           int  `mapstructure:"tiers_cache_size"`
+	JanitorIntervalSeconds   int  `mapstructure:"janitor_interval_seconds"`
+	AggregatorCacheTTLSec    int  `mapstructure:"aggregator_cache_ttl_sec"`
 }
 
 // ServiceConfig представляет конфигурацию сервиса
@@ -401,6 +402,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Tarification — Phase 1 unified pricing model (feature-flagged off).
 	v.SetDefault("tarification.unified_enabled", false)
+	v.SetDefault("tarification.unified_rollout_percentage", 0)
 	v.SetDefault("tarification.tiers_cache_size", 1024)
 	v.SetDefault("tarification.janitor_interval_seconds", 30)
 	v.SetDefault("tarification.aggregator_cache_ttl_sec", 300)

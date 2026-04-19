@@ -48,6 +48,9 @@ var (
 	ErrUnknownOperator              = errors.New("operator not determined for destination number")
 	ErrDebtBlocking                 = errors.New("client has outstanding debt, sending blocked")
 
+	// Operator errors
+	ErrOperatorNotFound = errors.New("operator not found")
+
 	// Unified pricing model (Phase 1)
 	ErrNoApplicableRule  = errors.New("no applicable price rule found")
 	ErrOwnerIDMismatch   = errors.New("owner_id must be NULL iff owner_type=platform")

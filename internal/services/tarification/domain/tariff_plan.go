@@ -13,6 +13,7 @@ const (
 	StrategyThreshold        TarificationStrategy = "threshold"
 	StrategyThresholdRecalc  TarificationStrategy = "threshold_recalc"
 	StrategyPrepaidThreshold TarificationStrategy = "prepaid_threshold"
+	StrategyUnified          TarificationStrategy = "unified"
 )
 
 type TariffPlan struct {

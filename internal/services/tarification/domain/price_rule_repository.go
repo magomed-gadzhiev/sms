@@ -18,6 +18,10 @@ type ResolveInput struct {
 	SenderCategory string
 	TrafficType    string
 	Now            time.Time
+	// ExcludeSubaccount=true disables the subaccount level in lookup.
+	// Used by the margin-path resolver to get the aggregator baseline
+	// independently of any subaccount-level override.
+	ExcludeSubaccount bool
 }
 
 // PriceRuleRepository — CRUD + применимый lookup по price_rules.

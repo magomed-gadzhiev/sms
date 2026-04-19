@@ -177,23 +177,46 @@ func main() {
 			logger.Fatal().Err(err).Msg("проверка platform catch-all правила")
 		}
 		if !hasCatchAll {
-			logger.Fatal().Msg("unified tarification включена, но platform catch-all price_rule отсутствует — сервис не может стартовать")
+			logger.Fatal().Msg("unified tarification включена, но platform catch-all price_rule отсутствует — сервис не может стартовать. См. docs/superpowers/plans/2026-04-19-phase3-unified-pricing-hot-path.md — раздел Operator runbook")
 		}
 
+		// Phase 3: unified hot path пока hardcoded на RUB (см. unified_path.go).
+		// Non-RUB аккаунты получат CHARGE currency-mismatch → fallback на legacy.
+		// Warn'им на старте если есть не-RUB тарифы.
+		currencyCtx, currencyCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		var distinctCurrencies []string
+		if err := dbx.SelectContext(currencyCtx, &distinctCurrencies, `SELECT DISTINCT currency FROM tariff_plans WHERE currency IS NOT NULL`); err == nil {
+			for _, c := range distinctCurrencies {
+				if c != "" && c != "RUB" {
+					logger.Warn().Str("currency", c).Int("rollout_percentage", cfg.Tarification.UnifiedRolloutPercentage).
+						Msg("найден не-RUB тариф — unified hot path будет проваливаться в legacy для этих аккаунтов")
+				}
+			}
+		}
+		currencyCancel()
+
 		resolvedRepo := tarificationrepo.NewResolvedRulesRepository(dbx)
-		versionRepo := tarificationrepo.NewPriceRulesVersionRepository(dbx)
-		// usageRepo и outboxRepo будут использованы горячим путём в Phase 3.
-		_ = tarificationrepo.NewSubaccountUsageCounterRepository(dbx)
+		versionRepoRaw := tarificationrepo.NewPriceRulesVersionRepository(dbx)
+		versionCache := application.NewVersionCache(versionRepoRaw, 1*time.Second)
+		subUsageRepo := tarificationrepo.NewSubaccountUsageCounterRepository(dbx)
 		outboxRepo := tarificationrepo.NewInvalidationOutboxRepository(dbx)
 
 		tiersCache := application.NewTiersCache(cfg.Tarification.TiersCacheSize)
-		_ = application.NewCostCalculator(tiersCache)
+		costCalc := application.NewCostCalculator(tiersCache)
 
 		// AggregatorResolver без Redis (для Phase 1 запуска без ещё не
 		// подключенного Redis). DB-только режим — каждый cache miss идёт в БД.
 		// В Phase 3 подключаем Redis.
 		aggResolver := infrastructure.NewAggregatorResolver(dbx, nil, cfg.Tarification.AggregatorCacheTTLSec, logger)
-		_ = application.NewPriceResolver(priceRuleRepo, resolvedRepo, versionRepo, aggResolver)
+		priceResolver := application.NewPriceResolver(priceRuleRepo, resolvedRepo, versionCache, aggResolver)
+
+		rollout := application.NewRollout(cfg.Tarification.UnifiedRolloutPercentage)
+		operatorRepo := tarificationrepo.NewOperatorRepository(dbx)
+		operatorLookup := application.NewCachedOperatorLookup(operatorRepo)
+		tarificationService.SetUnifiedDependencies(
+			true, rollout, priceResolver, costCalc,
+			priceRuleRepo, subUsageRepo, operatorLookup,
+		)
 
 		janitor := application.NewResolvedRulesJanitor(outboxRepo, resolvedRepo, 100, logger)
 		janitorCtx, janitorCancel := context.WithCancel(context.Background())
@@ -203,7 +226,8 @@ func main() {
 		logger.Info().
 			Int("tiers_cache_size", cfg.Tarification.TiersCacheSize).
 			Int("janitor_interval_seconds", cfg.Tarification.JanitorIntervalSeconds).
-			Msg("unified tarification инициализирована (read-only; горячий путь всё ещё legacy)")
+			Int("rollout_percentage", cfg.Tarification.UnifiedRolloutPercentage).
+			Msg("unified tarification инициализирована (hot path активен для пропущенных rollout'ом субаккаунтов)")
 	}
 
 	// Создание health checker

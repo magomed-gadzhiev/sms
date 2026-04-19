@@ -34,6 +34,11 @@ type TarificationService struct {
 
 	// Aggregator quota
 	quotaService *QuotaService
+
+	// Phase 3 unified pricing — optional; nil until SetUnifiedDependencies.
+	unifiedEnabled bool
+	rollout        *Rollout
+	unifiedDeps    *unifiedDeps
 }
 
 // NewTarificationService создает новый сервис тарификации
@@ -89,6 +94,33 @@ func (s *TarificationService) SetQuotaService(qs *QuotaService) {
 	s.quotaService = qs
 }
 
+// SetUnifiedDependencies wires Phase 3 unified pricing components. Called
+// from tarification-service main.go under cfg.Tarification.UnifiedEnabled.
+// If rollout is nil, the unified path stays inert.
+func (s *TarificationService) SetUnifiedDependencies(
+	enabled bool,
+	rollout *Rollout,
+	resolver *PriceResolver,
+	calc *CostCalculator,
+	ruleRepo domain.PriceRuleRepository,
+	subUsageRepo domain.SubaccountUsageCounterRepository,
+	operatorLookup OperatorCodeLookup,
+) {
+	s.unifiedEnabled = enabled
+	s.rollout = rollout
+	s.unifiedDeps = &unifiedDeps{
+		resolver:       resolver,
+		calc:           calc,
+		ruleRepo:       ruleRepo,
+		subUsageRepo:   subUsageRepo,
+		marginLogRepo:  s.aggMarginLogRepo,
+		saga:           s.saga,
+		logRepo:        s.logRepo,
+		senderRepo:     s.senderRepo,
+		operatorLookup: operatorLookup,
+	}
+}
+
 // TarifyMessageRequest запрос на тарификацию сообщения
 type TarifyMessageRequest struct {
 	ClientID       uuid.UUID
@@ -131,6 +163,20 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 			Strategy:     string(existing.Strategy),
 			TariffPlanID: existing.TariffPlanID.String(),
 		}, nil
+	}
+
+	// Phase 3 unified gate. Active only if unified_enabled=true AND rollout
+	// selects this subaccount. On non-fatal failure (fallbackReason != "")
+	// execution falls through to the legacy branch below.
+	if s.unifiedEnabled && s.rollout != nil && s.rollout.Enabled(req.ClientID) && s.unifiedDeps != nil {
+		resp, fallbackReason, err := tarifyUnified(ctx, req, s.unifiedDeps)
+		if err != nil {
+			return nil, err
+		}
+		if fallbackReason == "" {
+			return resp, nil
+		}
+		// else: fall through to legacy.
 	}
 
 	// 2. Определение категории имени отправителя

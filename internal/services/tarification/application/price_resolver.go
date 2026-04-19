@@ -16,20 +16,41 @@ type AggregatorResolver interface {
 	AggregatorFor(ctx context.Context, subaccountID uuid.UUID) (uuid.UUID, error)
 }
 
+// versionSource — минимальный интерфейс для чтения версии price_rules.
+// Совместим и с domain.PriceRulesVersionRepository (raw), и с VersionCache.
+type versionSource interface {
+	GetVersion(ctx context.Context) (int64, error)
+}
+
+type resolverBranchKey struct{}
+
+// WithResolverBranch — помечает context этикеткой branch для метрик
+// (subaccount|margin). Если не задано — branch="unknown".
+func WithResolverBranch(ctx context.Context, branch string) context.Context {
+	return context.WithValue(ctx, resolverBranchKey{}, branch)
+}
+
+func branchFromCtx(ctx context.Context) string {
+	if v, ok := ctx.Value(resolverBranchKey{}).(string); ok && v != "" {
+		return v
+	}
+	return "unknown"
+}
+
 // PriceResolver — горячий путь: ищет применимое правило, используя
 // денормализованный resolved_rules кеш (стадия 1) с fallback на полный lookup
 // по price_rules (стадия 2) при cache miss или устаревшей версии.
 type PriceResolver struct {
 	ruleRepo     domain.PriceRuleRepository
 	resolvedRepo domain.ResolvedRulesRepository
-	versionRepo  domain.PriceRulesVersionRepository
+	versionRepo  versionSource
 	aggResolver  AggregatorResolver
 }
 
 func NewPriceResolver(
 	ruleRepo domain.PriceRuleRepository,
 	resolvedRepo domain.ResolvedRulesRepository,
-	versionRepo domain.PriceRulesVersionRepository,
+	versionRepo versionSource,
 	aggResolver AggregatorResolver,
 ) *PriceResolver {
 	return &PriceResolver{
@@ -55,17 +76,16 @@ func (r *PriceResolver) Resolve(ctx context.Context, in domain.ResolveInput) (*d
 	if err != nil {
 		return nil, fmt.Errorf("get resolved: %w", err)
 	}
-	// Phase 3 TODO: обернуть GetVersion короткоживущим in-process кешем (~1s TTL).
-	// Сейчас это DB round-trip на каждый hot-path запрос. В Phase 1 hot path
-	// по-прежнему legacy, так что последствий нет; но до включения unified_enabled
-	// в прод это обязательный оптимизатор — иначе unified mode деградирует throughput.
 	currentVersion, err := r.versionRepo.GetVersion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get version: %w", err)
 	}
+	branch := branchFromCtx(ctx)
 	if cached != nil && cached.RulesVersion == currentVersion {
+		unifiedResolveTotal.WithLabelValues("hit", branch).Inc()
 		return cached, nil
 	}
+	unifiedResolveTotal.WithLabelValues("miss", branch).Inc()
 
 	// Стадия 2 — lookup + materialize.
 	// ВАЖНО: захватываем версию ДО lookup, а не на момент write. Если price_rules
