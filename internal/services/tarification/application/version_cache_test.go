@@ -56,19 +56,24 @@ func TestVersionCache_ExpiredRefetches(t *testing.T) {
 }
 
 func TestVersionCache_SingleflightCoalesces(t *testing.T) {
-	inner := &countingVersionRepo{v: 9, delay: 20 * time.Millisecond}
+	inner := &countingVersionRepo{v: 9, delay: 100 * time.Millisecond}
 	c := NewVersionCache(inner, 100*time.Millisecond)
 
+	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			<-start
 			v, err := c.GetVersion(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, int64(9), v)
 		}()
 	}
+	// Give goroutines a moment to reach the barrier, then release.
+	time.Sleep(5 * time.Millisecond)
+	close(start)
 	wg.Wait()
 	require.Equal(t, int64(1), atomic.LoadInt64(&inner.calls))
 }

@@ -16,6 +16,7 @@ import (
 // деградирует throughput. TTL=1s достаточно: инвалидация видна в течение
 // секунды, при этом 99% запросов берут значение из памяти.
 // singleflight защищает от thundering herd на истечении TTL или на cold start.
+// GetVersion decouples the singleflight call from any one caller's ctx to prevent a single cancellation from failing coalesced readers.
 type VersionCache struct {
 	inner domain.PriceRulesVersionRepository
 	ttl   time.Duration
@@ -50,7 +51,13 @@ func (c *VersionCache) GetVersion(ctx context.Context) (int64, error) {
 		}
 		c.mu.RUnlock()
 
-		fresh, err := c.inner.GetVersion(ctx)
+		// Decouple the shared singleflight call from any one caller's
+		// cancellation — the first caller's ctx.Cancel() must not
+		// fail every coalesced reader. Bound at 5*ttl to avoid a
+		// truly stuck inner call holding the group forever.
+		sfCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*c.ttl)
+		defer cancel()
+		fresh, err := c.inner.GetVersion(sfCtx)
 		if err != nil {
 			return int64(0), err
 		}
