@@ -1,46 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { RoutingPagePO } from '../../pages/RoutingPage';
 import { ApiHelper } from '../../helpers/api';
+import { pickProviderId, seedRoute, cleanupRoutesByPrefix } from '../../helpers/routing';
 
 test.use({ storageState: './auth-state.json' });
 
 const TEST_PREFIX = 'E2E D';
-
-async function pickProviderId(api: ApiHelper): Promise<string | null> {
-  const resp = await api.listRouteProviders();
-  return resp.providers?.[0]?.id ?? null;
-}
-
-async function seedRoute(api: ApiHelper, providerId: string, name: string): Promise<{ id: string; name: string }> {
-  const created = await api.createRoute({
-    name,
-    route_type: 'sms',
-    provider_id: providerId,
-    priority: 50,
-    share: 100,
-    status: 'draft',
-    comment: 'seeded by routing-validation.spec',
-    condition_groups: [{ logic_op: 'IF', conditions: [{ type: 'operator', value: '' }] }],
-  });
-  const id = created.id || created.route_id;
-  if (!id) throw new Error(`seedRoute failed: ${JSON.stringify(created)}`);
-  return { id, name };
-}
-
-async function cleanupByPrefix(api: ApiHelper, prefix: string) {
-  const resp = await api.listRoutes();
-  const matches = (resp.routes ?? []).filter((r: { name: string }) => r.name.startsWith(prefix));
-  for (const r of matches as Array<{ id: string }>) {
-    await api.deleteRoute(r.id).catch(() => undefined);
-  }
-}
 
 let activePrefix = '';
 
 test.afterEach(async ({ request }) => {
   if (!activePrefix) return;
   const api = new ApiHelper(request);
-  await cleanupByPrefix(api, activePrefix);
+  await cleanupRoutesByPrefix(api, activePrefix);
   activePrefix = '';
 });
 
@@ -221,7 +193,7 @@ test.describe('Маршрутизация — Валидация и edge-cases',
     const name = `${prefix} duplicate`;
 
     // Seed первый маршрут через API
-    await seedRoute(api, providerId!, name);
+    await seedRoute(api, providerId!, { name, status: 'draft' });
 
     const routing = new RoutingPagePO(page);
     await routing.goto();

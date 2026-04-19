@@ -1,46 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { RoutingPagePO } from '../../pages/RoutingPage';
 import { ApiHelper } from '../../helpers/api';
+import { pickProviderId, seedRoute, cleanupRoutesByPrefix } from '../../helpers/routing';
 
 test.use({ storageState: './auth-state.json' });
 
 const TEST_PREFIX = 'E2E B';
-
-async function pickProviderId(api: ApiHelper): Promise<string | null> {
-  const resp = await api.listRouteProviders();
-  return resp.providers?.[0]?.id ?? null;
-}
-
-async function seedRoute(api: ApiHelper, providerId: string, overrides: Partial<{
-  name: string;
-  route_type: string;
-  priority: number;
-  share: number;
-  status: string;
-}> = {}): Promise<{ id: string; name: string }> {
-  const name = overrides.name ?? `${TEST_PREFIX} Seed ${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const created = await api.createRoute({
-    name,
-    route_type: overrides.route_type ?? 'sms',
-    provider_id: providerId,
-    priority: overrides.priority ?? 50,
-    share: overrides.share ?? 100,
-    status: overrides.status ?? 'active',
-    comment: 'seeded by routing-types-status.spec',
-    condition_groups: [{ logic_op: 'IF', conditions: [{ type: 'operator', value: '' }] }],
-  });
-  const id = created.id || created.route_id;
-  if (!id) throw new Error(`seedRoute failed: ${JSON.stringify(created)}`);
-  return { id, name };
-}
-
-async function cleanupByPrefix(api: ApiHelper, prefix: string) {
-  const resp = await api.listRoutes();
-  const matches = (resp.routes ?? []).filter((r: { name: string }) => r.name.startsWith(prefix));
-  for (const r of matches as Array<{ id: string }>) {
-    await api.deleteRoute(r.id).catch(() => undefined);
-  }
-}
 
 // Tests run serially within this file (Playwright default), so a module-level
 // activePrefix is safe. Switching to parallel mode would require per-test state.
@@ -49,7 +14,7 @@ let activePrefix = '';
 test.afterEach(async ({ request }) => {
   if (!activePrefix) return;
   const api = new ApiHelper(request);
-  await cleanupByPrefix(api, activePrefix);
+  await cleanupRoutesByPrefix(api, activePrefix);
   activePrefix = '';
 });
 

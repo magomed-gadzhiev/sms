@@ -1,30 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
 import { RoutingPagePO } from '../../pages/RoutingPage';
 import { ApiHelper } from '../../helpers/api';
+import { pickProviderId, cleanupRoutesByPrefix } from '../../helpers/routing';
 
 test.use({ storageState: './auth-state.json' });
 
 const TEST_PREFIX = 'E2E C';
-
-async function pickProviderId(api: ApiHelper): Promise<string | null> {
-  const resp = await api.listRouteProviders();
-  return resp.providers?.[0]?.id ?? null;
-}
-
-async function cleanupByPrefix(api: ApiHelper, prefix: string) {
-  const resp = await api.listRoutes();
-  const matches = (resp.routes ?? []).filter((r: { name: string }) => r.name.startsWith(prefix));
-  for (const r of matches as Array<{ id: string }>) {
-    await api.deleteRoute(r.id).catch(() => undefined);
-  }
-}
 
 let activePrefix = '';
 
 test.afterEach(async ({ request }) => {
   if (!activePrefix) return;
   const api = new ApiHelper(request);
-  await cleanupByPrefix(api, activePrefix);
+  await cleanupRoutesByPrefix(api, activePrefix);
   activePrefix = '';
 });
 
