@@ -335,12 +335,14 @@ func TestTarifyUnified_ChargeFailReturnsRejection(t *testing.T) {
 }
 
 func TestTarifyUnified_IdempotencyShortCircuits(t *testing.T) {
-	existingPlanID := uuid.New()
+	// Unified replay scenario: TariffPlanID is nil, SourceRuleID is set.
+	existingRuleID := uuid.New()
 	existing := &domain.TarificationLog{
-		ID:           uuid.New(),
-		TotalAmount:  "7.000000",
-		Strategy:     domain.StrategyUnified,
-		TariffPlanID: existingPlanID,
+		ID:          uuid.New(),
+		TotalAmount: "7.000000",
+		Strategy:    domain.StrategyUnified,
+		SourceRuleID: &existingRuleID,
+		// TariffPlanID intentionally nil — unified path does not set it.
 	}
 
 	logRepo := &stubLogRepo{existing: existing}
@@ -378,6 +380,8 @@ func TestTarifyUnified_IdempotencyShortCircuits(t *testing.T) {
 	require.Equal(t, "7.000000", resp.TotalAmount)
 	require.Equal(t, "RUB", resp.Currency)
 	require.Equal(t, string(domain.StrategyUnified), resp.Strategy)
+	// Idempotency short-circuit returns SourceRuleID for unified replays.
+	require.Equal(t, existingRuleID.String(), resp.TariffPlanID)
 
 	require.False(t, subUsage.incCalled, "usage counter must not be incremented on idempotency hit")
 	require.Nil(t, marginLog.created, "margin log must not be created on idempotency hit")

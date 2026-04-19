@@ -47,12 +47,22 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 	if existing, err := d.logRepo.GetByIdempotencyKey(ctx, req.IdempotencyKey); err != nil {
 		return nil, "", fmt.Errorf("idempotency check: %w", err)
 	} else if existing != nil {
+		// Unified-лог имеет nil TariffPlanID и заполненный SourceRuleID;
+		// legacy-лог — наоборот. Возвращаем идентификатор, которым строка
+		// была затарифицирована.
+		tariffPlanID := ""
+		switch {
+		case existing.TariffPlanID != nil:
+			tariffPlanID = existing.TariffPlanID.String()
+		case existing.SourceRuleID != nil:
+			tariffPlanID = existing.SourceRuleID.String()
+		}
 		return &TarifyMessageResponse{
 			Approved:     true,
 			TotalAmount:  existing.TotalAmount,
 			Currency:     "RUB",
 			Strategy:     string(existing.Strategy),
-			TariffPlanID: existing.TariffPlanID.String(),
+			TariffPlanID: tariffPlanID,
 		}, "", nil
 	}
 
@@ -194,9 +204,9 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 	}
 
 	// 10. Tarification log (for future idempotency).
-	tarLog := domain.NewTarificationLog(
-		req.ClientID, req.MessageID, req.OperatorID, uuid.Nil, uuid.Nil,
-		category, domain.StrategyUnified,
+	tarLog := domain.NewUnifiedTarificationLog(
+		req.ClientID, req.MessageID, req.OperatorID, rr.SourceRuleID,
+		category,
 		req.SegmentCount,
 		strconv.FormatFloat(cost/float64(req.SegmentCount), 'f', 6, 64),
 		costStr,
