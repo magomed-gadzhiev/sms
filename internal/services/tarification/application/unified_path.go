@@ -120,7 +120,13 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 	costStr := strconv.FormatFloat(cost, 'f', 6, 64)
 
 	// 7. Charge — after this point fallback is unsafe.
-	currency := "RUB" // unified model does not denormalize currency per rule; platform default
+	// NOTE: double-charge on retry is prevented by billing-service idempotency
+	// on message_id (see billing_service.go:425, GetByMessageID short-circuit).
+	// If step 10 (tarification_log Create) later fails, a client retry with
+	// the same idempotency key will miss step 1's short-circuit, re-enter
+	// tarifyUnified, and billing will return the existing transaction
+	// instead of charging twice.
+	currency := "RUB" // unified model does not denormalize currency per rule; platform default. Non-RUB accounts will receive billing currency-mismatch errors → fallback to legacy. Resolve via resolved_rule in a follow-up.
 	chargeResult, err := d.saga.Charge(ctx,
 		req.ClientID.String(), req.MessageID.String(),
 		costStr, currency,

@@ -177,8 +177,23 @@ func main() {
 			logger.Fatal().Err(err).Msg("проверка platform catch-all правила")
 		}
 		if !hasCatchAll {
-			logger.Fatal().Msg("unified tarification включена, но platform catch-all price_rule отсутствует — сервис не может стартовать")
+			logger.Fatal().Msg("unified tarification включена, но platform catch-all price_rule отсутствует — сервис не может стартовать. См. docs/superpowers/plans/2026-04-19-phase3-unified-pricing-hot-path.md — раздел Operator runbook")
 		}
+
+		// Phase 3: unified hot path пока hardcoded на RUB (см. unified_path.go).
+		// Non-RUB аккаунты получат CHARGE currency-mismatch → fallback на legacy.
+		// Warn'им на старте если есть не-RUB тарифы.
+		currencyCtx, currencyCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		var distinctCurrencies []string
+		if err := dbx.SelectContext(currencyCtx, &distinctCurrencies, `SELECT DISTINCT currency FROM tariff_plans WHERE currency IS NOT NULL`); err == nil {
+			for _, c := range distinctCurrencies {
+				if c != "" && c != "RUB" {
+					logger.Warn().Str("currency", c).Int("rollout_percentage", cfg.Tarification.UnifiedRolloutPercentage).
+						Msg("найден не-RUB тариф — unified hot path будет проваливаться в legacy для этих аккаунтов")
+				}
+			}
+		}
+		currencyCancel()
 
 		resolvedRepo := tarificationrepo.NewResolvedRulesRepository(dbx)
 		versionRepoRaw := tarificationrepo.NewPriceRulesVersionRepository(dbx)

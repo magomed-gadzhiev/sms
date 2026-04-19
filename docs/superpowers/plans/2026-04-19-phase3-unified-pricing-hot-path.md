@@ -1690,3 +1690,64 @@ Reviewed: superpowers:code-reviewer (APPROVED)"
 **2. Inline Execution** — batch в текущей сессии через executing-plans с чекпоинтами.
 
 Из-за обязательного `/execute-with-review` wrapper'а каждый коммит обязан пройти code-reviewer субагента. Практически это делает подход №1 естественным (reviewer как раз субагент). Рекомендую **Subagent-Driven**.
+
+---
+
+## Operator runbook (post-implementation, 2026-04-19)
+
+Финальный code-review выявил набор эксплуатационных требований. Они МЕНЕЕ формальны, чем tasks выше, но без них `unified_enabled=true` даст инцидент.
+
+### Перед включением `unified_enabled=true`
+
+1. **Platform catch-all seed.** Сервис fatal'ит на startup, если в `price_rules` нет строки с `owner_type='platform'` и всеми измерениями NULL. Seed-миграция не создаётся автоматически — вставить руками **до** деплоя:
+   ```sql
+   INSERT INTO price_rules (id, owner_type, owner_id, country, operator, sender_category,
+                            traffic_type, valid_from, valid_to, price_model, price_value, tiers_json, created_by)
+   VALUES (gen_random_uuid(), 'platform', NULL, NULL, NULL, NULL, NULL,
+           NOW(), NULL, 'fixed', <agreed-default-price>::numeric, NULL, NULL);
+   ```
+   Значение `<agreed-default-price>` должно быть согласовано — это fallback-цена, когда нет более специфичного правила.
+
+2. **Currency inventory.** Unified hot path в Phase 3 hardcoded на `"RUB"`. Перед увеличением rollout percentage:
+   ```sql
+   SELECT DISTINCT currency FROM tariff_plans WHERE currency IS NOT NULL;
+   ```
+   Если есть валюты ≠ RUB — эти аккаунты получат `currency mismatch` ошибку в billing и провалятся на legacy (safe, но бесполезная unified-ветка). На старте сервис WARN'ит в лог про это (см. main.go).
+
+3. **Seed `price_rules` для конкретных операторов.** Phase 3 резолвит operator→`operators.code` через lookup. Если для реального оператора (`mts-ru`, `beeline-ru`, etc.) нет правил — всё свалится в platform catch-all. Это safe, но не тестирует owner-rank logic. Для полноценного теста на staging — seed хотя бы одно правило с `operator = 'mts-ru'`, `owner_type='platform'`.
+
+### Staged rollout procedure
+
+```
+prod deploy 1: unified_enabled=true, unified_rollout_percentage=0
+  → unified код инициализирован, hot path бездействует
+  → убедиться: no startup fatals, WARN про не-RUB (если применимо) корректен
+prod deploy 2: unified_rollout_percentage=1
+  → 48h: наблюдать tarification_unified_price_not_found_total == 0
+  → наблюдать tarification_unified_fallback_total{reason} — все метки < 1% rps
+  → balance ledger без аномалий (сверить с legacy метриками)
+prod deploy 3: rollout_percentage=10
+prod deploy 4: rollout_percentage=50
+prod deploy 5: rollout_percentage=100 (1-2 недели prod, затем Phase 4 cleanup)
+```
+
+### Rollback
+
+Любая из двух операций (требует редеплой config, не hot-reload):
+- `tarification.unified_rollout_percentage=0` — hot path становится inert (rollout gate short-circuits).
+- `tarification.unified_enabled=false` — весь unified init-блок пропускается.
+
+Обе безопасны: legacy ветка TarifyMessage продолжает работать независимо.
+
+### Алерт-рецепты (Prometheus)
+
+- `tarification_unified_price_not_found_total > 0` — critical. Означает что при существующем платформенном catch-all правило не применилось. Должно быть инвариант-нарушение.
+- `rate(tarification_unified_fallback_total[5m]) / rate(tarification_unified_tarify_total[5m]) > 0.05` — warning. Fallback > 5% при процентаже >0 означает что unified путь ломается для значимой доли трафика.
+- `rate(tarification_unified_resolve_duration_seconds_bucket{branch="subaccount",le="0.05"}[5m]) / rate(tarification_unified_resolve_duration_seconds_count{branch="subaccount"}[5m]) < 0.95` — warning. P95 subaccount resolve > 50ms говорит о деградации (cache miss shower).
+
+### Известные блокеры до 100% rollout (Phase 3 follow-up)
+
+- **`tarification_log.tariff_plan_id/tariff_period_id`** — unified путь пишет `uuid.Nil`. На 1% rollout — 1% "грязных" строк для аналитики. На 100% — полностью сломанные JOIN'ы в отчётах. Решение: миграция делает колонки nullable + добавить `source_rule_id UUID`. Требует отдельного brainstorm по schema.
+- **Multi-currency.** Hardcoded "RUB" → fallback на legacy для не-RUB. Решение: денормализовать currency в `price_rules` или резолвить через operator→country→currency lookup. Отдельный таск.
+- **`resolveCategory` дублирует `determineSenderCategory`.** Drift risk. Сегодня логика идентичная — убедиться при изменениях category-модели.
+
