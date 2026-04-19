@@ -39,7 +39,7 @@ WITH ranked AS (
     (CASE WHEN country         IS NOT NULL THEN 1 ELSE 0 END) AS specificity_rank
   FROM price_rules
   WHERE (
-         (owner_type='subaccount' AND owner_id = $1)
+         (NOT $8 AND owner_type='subaccount' AND owner_id = $1)
       OR (owner_type='aggregator' AND owner_id = $2)
       OR (owner_type='platform')
   )
@@ -64,6 +64,7 @@ func (r *PriceRuleRepository) FindApplicable(ctx context.Context, in domain.Reso
 		nullableString(in.Country), nullableString(in.Operator),
 		nullableString(in.SenderCategory), nullableString(in.TrafficType),
 		in.Now,
+		in.ExcludeSubaccount,
 	)
 	rule, err := scanPriceRule(row)
 	if errors.Is(err, sql.ErrNoRows) {
