@@ -151,17 +151,25 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 		return nil, fmt.Errorf("idempotency check failed: %w", err)
 	}
 	if existing != nil {
-		existingPlan, planErr := s.planRepo.GetByID(ctx, existing.TariffPlanID)
-		existingCurrency := ""
-		if planErr == nil && existingPlan != nil {
-			existingCurrency = existingPlan.Currency
+		var existingCurrency, tariffPlanID string
+		switch {
+		case existing.TariffPlanID != nil:
+			if existingPlan, planErr := s.planRepo.GetByID(ctx, *existing.TariffPlanID); planErr == nil && existingPlan != nil {
+				existingCurrency = existingPlan.Currency
+			}
+			tariffPlanID = existing.TariffPlanID.String()
+		case existing.SourceRuleID != nil:
+			// Unified replay: currency следует дефолту платформы; rule id
+			// возвращаем как tariff_plan_id для совместимости клиента.
+			existingCurrency = "RUB"
+			tariffPlanID = existing.SourceRuleID.String()
 		}
 		return &TarifyMessageResponse{
 			Approved:     true,
 			TotalAmount:  existing.TotalAmount,
 			Currency:     existingCurrency,
 			Strategy:     string(existing.Strategy),
-			TariffPlanID: existing.TariffPlanID.String(),
+			TariffPlanID: tariffPlanID,
 		}, nil
 	}
 
