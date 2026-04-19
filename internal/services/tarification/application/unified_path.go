@@ -14,6 +14,12 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
 
+// chargeRunner is the minimal interface for billing charge used by tarifyUnified.
+// *SagaOrchestrator satisfies this interface. Extracted to allow test stubs.
+type chargeRunner interface {
+	Charge(ctx context.Context, clientID, messageID, amount, currency, description string, segments int32) (*ChargeResult, error)
+}
+
 // unifiedDeps bundles everything tarifyUnified needs. Populated by
 // TarificationService.SetUnifiedDependencies (Task 9).
 type unifiedDeps struct {
@@ -22,7 +28,7 @@ type unifiedDeps struct {
 	ruleRepo      domain.PriceRuleRepository // margin-path direct lookup
 	subUsageRepo  domain.SubaccountUsageCounterRepository
 	marginLogRepo domain.AggregatorMarginLogRepository
-	saga          *SagaOrchestrator
+	saga          chargeRunner
 	logRepo       domain.TarificationLogRepository
 	senderRepo    domain.SenderRegistrationRepository
 	operatorLookup OperatorCodeLookup
@@ -44,6 +50,7 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 		return &TarifyMessageResponse{
 			Approved:     true,
 			TotalAmount:  existing.TotalAmount,
+			Currency:     "RUB",
 			Strategy:     string(existing.Strategy),
 			TariffPlanID: existing.TariffPlanID.String(),
 		}, "", nil
