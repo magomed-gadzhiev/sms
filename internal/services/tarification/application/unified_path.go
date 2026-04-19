@@ -31,7 +31,7 @@ type unifiedDeps struct {
 	saga          chargeRunner
 	logRepo       domain.TarificationLogRepository
 	senderRepo    domain.SenderRegistrationRepository
-	operatorLookup OperatorCodeLookup
+	operatorLookup OperatorMetaLookup
 }
 
 // tarifyUnified is the Phase 3 unified hot path: resolve → calculate →
@@ -57,10 +57,16 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 		case existing.SourceRuleID != nil:
 			tariffPlanID = existing.SourceRuleID.String()
 		}
+		// Currency для replay: cached lookup. Fallback на RUB если падает —
+		// replay-ответ не money-критичен, billing валидирует независимо.
+		replayCurrency := "RUB"
+		if replayMeta, metaErr := d.operatorLookup.Meta(ctx, existing.OperatorID); metaErr == nil && replayMeta.Currency != "" {
+			replayCurrency = replayMeta.Currency
+		}
 		return &TarifyMessageResponse{
 			Approved:     true,
 			TotalAmount:  existing.TotalAmount,
-			Currency:     "RUB",
+			Currency:     replayCurrency,
 			Strategy:     string(existing.Strategy),
 			TariffPlanID: tariffPlanID,
 		}, "", nil
@@ -72,14 +78,21 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 		return nil, "", fmt.Errorf("resolve category: %w", err)
 	}
 
-	// 3. operator_id → operators.code (Task 0).
-	operatorCode, err := d.operatorLookup.Code(ctx, req.OperatorID)
+	// 3. operator_id → OperatorMeta (code + currency from operators→countries JOIN).
+	meta, err := d.operatorLookup.Meta(ctx, req.OperatorID)
 	if err != nil {
 		unifiedFallbackTotal.WithLabelValues("operator_lookup_error").Inc()
 		log.Warn().Err(err).Str("operator_id", req.OperatorID.String()).
-			Msg("unified: operator code lookup failed — fallback")
+			Msg("unified: operator meta lookup failed — fallback")
 		return nil, "operator_lookup_error", nil
 	}
+	if meta.Currency == "" {
+		unifiedFallbackTotal.WithLabelValues("currency_resolve_error").Inc()
+		log.Warn().Str("operator_id", req.OperatorID.String()).
+			Msg("unified: operator has no currency (orphan country) — fallback")
+		return nil, "currency_resolve_error", nil
+	}
+	operatorCode := meta.Code
 
 	// 4. Subaccount-path resolve.
 	in := domain.ResolveInput{
@@ -136,7 +149,7 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 	// the same idempotency key will miss step 1's short-circuit, re-enter
 	// tarifyUnified, and billing will return the existing transaction
 	// instead of charging twice.
-	currency := "RUB" // unified model does not denormalize currency per rule; platform default. Non-RUB accounts will receive billing currency-mismatch errors → fallback to legacy. Resolve via resolved_rule in a follow-up.
+	currency := meta.Currency
 	chargeResult, err := d.saga.Charge(ctx,
 		req.ClientID.String(), req.MessageID.String(),
 		costStr, currency,
