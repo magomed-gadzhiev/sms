@@ -116,23 +116,20 @@ test.describe('Маршрутизация — Валидация и edge-cases',
     const section = page
       .getByRole('dialog')
       .locator('section', { has: page.getByRole('heading', { name: 'Условия срабатывания' }) });
-    const conditionRow = section
-      .locator('div.border.rounded-lg.p-4.bg-gray-50 >> div.flex.items-center.gap-2')
-      .first();
-    await conditionRow.getByRole('combobox').first().selectOption({ label: 'Regex' });
+    await section.getByRole('combobox').first().selectOption({ label: 'Regex' });
     // value оставляем пустым
 
     await routing.saveAsDraft();
 
-    const dialogStillOpen = await page.getByRole('dialog').isVisible().catch(() => false);
-    if (dialogStillOpen) {
-      // Ожидаем видимую ошибку внутри модалки
-      const errorVisible = await page
-        .getByRole('dialog')
-        .locator('.text-red-600')
-        .isVisible()
-        .catch(() => false);
-      expect(errorVisible).toBeTruthy();
+    // Ждём: либо закроется, либо появится ошибка (timeout 5s)
+    const dialogClosed = await page
+      .getByRole('dialog')
+      .waitFor({ state: 'hidden', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!dialogClosed) {
+      const errorLocator = page.getByRole('dialog').locator('.text-red-600, p[role="alert"]').first();
+      await expect(errorLocator).toBeVisible({ timeout: 5000 });
       return;
     }
 
@@ -166,14 +163,14 @@ test.describe('Маршрутизация — Валидация и edge-cases',
     await routing.selectFirstProvider();
     await routing.saveAsDraft();
 
-    const dialogStillOpen = await page.getByRole('dialog').isVisible().catch(() => false);
-    if (dialogStillOpen) {
-      const errorVisible = await page
-        .getByRole('dialog')
-        .locator('.text-red-600')
-        .isVisible()
-        .catch(() => false);
-      expect(errorVisible).toBeTruthy();
+    const dialogClosed = await page
+      .getByRole('dialog')
+      .waitFor({ state: 'hidden', timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!dialogClosed) {
+      const errorLocator = page.getByRole('dialog').locator('.text-red-600, p[role="alert"]').first();
+      await expect(errorLocator).toBeVisible({ timeout: 5000 });
       return;
     }
 
@@ -205,15 +202,15 @@ test.describe('Маршрутизация — Валидация и edge-cases',
     await routing.selectFirstProvider();
     await routing.saveAsDraft();
 
-    const dialogStillOpen = await page.getByRole('dialog').isVisible().catch(() => false);
-    if (dialogStillOpen) {
+    const dialogClosed = await page
+      .getByRole('dialog')
+      .waitFor({ state: 'hidden', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!dialogClosed) {
       // Ожидаемый сценарий: backend отклонил, модалка показывает ошибку
-      const errorVisible = await page
-        .getByRole('dialog')
-        .locator('.text-red-600')
-        .isVisible()
-        .catch(() => false);
-      expect(errorVisible).toBeTruthy();
+      const errorLocator = page.getByRole('dialog').locator('.text-red-600, p[role="alert"]').first();
+      await expect(errorLocator).toBeVisible({ timeout: 5000 });
       return;
     }
 

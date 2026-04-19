@@ -104,16 +104,15 @@ test.describe('Маршрутизация — ConditionEditor', () => {
     await routing.expectModalOpen('Новый маршрут');
 
     const section = conditionsSection(page);
-    const conditionRow = section.locator('div.border.rounded-lg.p-4.bg-gray-50 >> div.flex.items-center.gap-2').first();
 
     // Исходно: operator → SearchableSelect (есть button с aria-haspopup="listbox")
-    await expect(conditionRow.locator('button[aria-haspopup="listbox"]')).toHaveCount(1);
-    await expect(conditionRow.locator('input[placeholder="Значение"]')).toHaveCount(0);
+    await expect(section.locator('button[aria-haspopup="listbox"]')).toHaveCount(1);
+    await expect(section.locator('input[placeholder="Значение"]')).toHaveCount(0);
 
-    await conditionRow.getByRole('combobox').first().selectOption({ label: 'Страна' });
+    await section.getByRole('combobox').first().selectOption({ label: 'Страна' });
 
-    await expect(conditionRow.locator('input[placeholder="Значение"]')).toHaveCount(1);
-    await expect(conditionRow.locator('button[aria-haspopup="listbox"]')).toHaveCount(0);
+    await expect(section.locator('input[placeholder="Значение"]')).toHaveCount(1);
+    await expect(section.locator('button[aria-haspopup="listbox"]')).toHaveCount(0);
   });
 
   test('AC-C6: тип «Тип трафика» предоставляет фиксированный список', async ({ page }) => {
@@ -123,12 +122,10 @@ test.describe('Маршрутизация — ConditionEditor', () => {
     await routing.expectModalOpen('Новый маршрут');
 
     const section = conditionsSection(page);
-    const conditionRow = section.locator('div.border.rounded-lg.p-4.bg-gray-50 >> div.flex.items-center.gap-2').first();
+    await section.getByRole('combobox').first().selectOption({ label: 'Тип трафика' });
 
-    await conditionRow.getByRole('combobox').first().selectOption({ label: 'Тип трафика' });
-
-    // Второй combobox в строке — select значения traffic_type
-    const valueSelect = conditionRow.getByRole('combobox').nth(1);
+    // Второй combobox в секции — select значения traffic_type (первой группы)
+    const valueSelect = section.getByRole('combobox').nth(1);
     const options = await valueSelect.locator('option').allTextContents();
     expect(options).toContain('Авторизация');
     expect(options).toContain('Транзакционный');
@@ -153,9 +150,8 @@ test.describe('Маршрутизация — ConditionEditor', () => {
     await routing.selectFirstProvider();
 
     const section = conditionsSection(page);
-    const conditionRow = section.locator('div.border.rounded-lg.p-4.bg-gray-50 >> div.flex.items-center.gap-2').first();
-    await conditionRow.getByRole('combobox').first().selectOption({ label: 'Regex' });
-    await conditionRow.locator('input[placeholder="Значение"]').fill('^7999.*');
+    await section.getByRole('combobox').first().selectOption({ label: 'Regex' });
+    await section.locator('input[placeholder="Значение"]').first().fill('^7999.*');
 
     await routing.saveAsDraft();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -258,8 +254,9 @@ test.describe('Маршрутизация — ScheduleEditor', () => {
     const sch = full.schedules?.[0];
     expect(sch).toBeTruthy();
     expect(sch.timezone).toBe('UTC');
-    expect(sch.time_from).toBe('09:00');
-    expect(sch.time_to).toBe('18:00');
+    // Бэкенд сериализует время как HH:MM:SS, UI отдаёт HH:MM — round-trip не симметричен
+    expect(sch.time_from).toMatch(/^09:00(:00)?$/);
+    expect(sch.time_to).toMatch(/^18:00(:00)?$/);
     // Пн|Вт|Ср|Чт|Пт = 1+2+4+8+16 = 31
     expect(sch.weekdays).toBe(31);
   });
