@@ -475,7 +475,7 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 	// Billing from tarification_log
 	const billingQuery = `
 		SELECT segment_count, price_per_segment, total_amount,
-		       tariff_plan_id::text, created_at
+		       tariff_plan_id::text, source_rule_id::text, created_at
 		FROM tarification_log
 		WHERE message_id = $1::uuid
 		ORDER BY created_at DESC
@@ -485,18 +485,21 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 		billSegmentCount    int32
 		billPricePerSegment float64
 		billTotalAmount     float64
-		billTariffPlanID    string
+		billTariffPlanID    *string
+		billSourceRuleID    *string
 		billCreatedAt       *time.Time
 	)
 	billScanErr := h.db.QueryRow(ctx, billingQuery, id).Scan(
-		&billSegmentCount, &billPricePerSegment, &billTotalAmount, &billTariffPlanID, &billCreatedAt,
+		&billSegmentCount, &billPricePerSegment, &billTotalAmount,
+		&billTariffPlanID, &billSourceRuleID, &billCreatedAt,
 	)
 	if billScanErr == nil {
 		billing := map[string]interface{}{
 			"segment_count":     billSegmentCount,
 			"price_per_segment": billPricePerSegment,
 			"total_amount":      billTotalAmount,
-			"tariff_plan_id":    billTariffPlanID,
+			"tariff_plan_id":    billTariffPlanID, // *string → nil serialises as JSON null
+			"source_rule_id":    billSourceRuleID, // new; client shows "Unified (rule: …)" when plan_id is null
 		}
 		if billCreatedAt != nil {
 			billing["billed_at"] = *billCreatedAt

@@ -312,22 +312,25 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 	// Billing
 	const billingQuery = `
 		SELECT segment_count, price_per_segment::text, total_amount::text,
-		       tariff_plan_id::text, created_at
+		       tariff_plan_id::text, source_rule_id::text, created_at
 		FROM tarification_log
 		WHERE message_id = $1::uuid
 		LIMIT 1
 	`
 	var bSegments int
-	var bPricePerSeg, bTotal, bPlanID string
+	var bPricePerSeg, bTotal string
+	var bPlanID, bSourceRuleID *string
 	var bCreatedAt time.Time
 	if err := h.db.QueryRowContext(ctx, billingQuery, id).Scan(
-		&bSegments, &bPricePerSeg, &bTotal, &bPlanID, &bCreatedAt,
+		&bSegments, &bPricePerSeg, &bTotal,
+		&bPlanID, &bSourceRuleID, &bCreatedAt,
 	); err == nil {
 		result["billing"] = map[string]interface{}{
 			"segment_count":     bSegments,
 			"price_per_segment": bPricePerSeg,
 			"total_amount":      bTotal,
-			"tariff_plan_id":    bPlanID,
+			"tariff_plan_id":    bPlanID,    // *string → nil serialises as JSON null
+			"source_rule_id":    bSourceRuleID, // new; client shows "Unified (rule: …)" when plan_id is null
 			"billed_at":         bCreatedAt,
 		}
 	}
