@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smpp-server/smpp-server/internal/services/tarification/application"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
 
@@ -37,11 +36,11 @@ const getOperatorMetaSQL = `
 // country.currency=NULL вернётся с Currency="" — невыход в ошибку, чтобы
 // вызывающий мог отдельно решить fallback-стратегию.
 // Возвращает domain.ErrOperatorNotFound, если оператор вовсе не найден.
-func (r *OperatorRepository) GetMetaByID(ctx context.Context, id uuid.UUID) (application.OperatorMeta, error) {
-	var m application.OperatorMeta
+func (r *OperatorRepository) GetMetaByID(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error) {
+	var m domain.OperatorMeta
 	err := r.db.QueryRowxContext(ctx, getOperatorMetaSQL, id).Scan(&m.Code, &m.Currency)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.OperatorMeta{}, domain.ErrOperatorNotFound
+		return domain.OperatorMeta{}, domain.ErrOperatorNotFound
 	}
 	return m, err
 }

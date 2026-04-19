@@ -6,23 +6,18 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
+	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
 
-// OperatorMeta — метаданные оператора, необходимые tarification hot path.
-// Currency источник — countries.currency по operator.country_id.
-type OperatorMeta struct {
-	Code     string
-	Currency string
-}
-
-// OperatorMetaLookup — абстракция резолва UUID → OperatorMeta.
+// OperatorMetaLookup — абстракция резолва UUID → domain.OperatorMeta.
 type OperatorMetaLookup interface {
-	Meta(ctx context.Context, operatorID uuid.UUID) (OperatorMeta, error)
+	Meta(ctx context.Context, operatorID uuid.UUID) (domain.OperatorMeta, error)
 }
 
 // operatorMetaSource — минимальный интерфейс, нужный кешу.
 type operatorMetaSource interface {
-	GetMetaByID(ctx context.Context, id uuid.UUID) (OperatorMeta, error)
+	GetMetaByID(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error)
 }
 
 // CachedOperatorLookup — in-memory map без TTL. Операторы — справочник
@@ -31,21 +26,21 @@ type operatorMetaSource interface {
 type CachedOperatorLookup struct {
 	inner operatorMetaSource
 	mu    sync.RWMutex
-	cache map[uuid.UUID]OperatorMeta
+	cache map[uuid.UUID]domain.OperatorMeta
 }
 
 // NewCachedOperatorLookup создаёт lookup с пустым кешем.
 func NewCachedOperatorLookup(inner operatorMetaSource) *CachedOperatorLookup {
 	return &CachedOperatorLookup{
 		inner: inner,
-		cache: make(map[uuid.UUID]OperatorMeta),
+		cache: make(map[uuid.UUID]domain.OperatorMeta),
 	}
 }
 
-// Meta возвращает OperatorMeta для заданного UUID.
+// Meta возвращает domain.OperatorMeta для заданного UUID.
 // При кеш-хите — возвращает без обращения к БД.
 // При ошибке inner — НЕ кеширует результат, следующий вызов повторит запрос.
-func (c *CachedOperatorLookup) Meta(ctx context.Context, id uuid.UUID) (OperatorMeta, error) {
+func (c *CachedOperatorLookup) Meta(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error) {
 	c.mu.RLock()
 	if meta, ok := c.cache[id]; ok {
 		c.mu.RUnlock()
@@ -55,7 +50,7 @@ func (c *CachedOperatorLookup) Meta(ctx context.Context, id uuid.UUID) (Operator
 
 	meta, err := c.inner.GetMetaByID(ctx, id)
 	if err != nil {
-		return OperatorMeta{}, err
+		return domain.OperatorMeta{}, err
 	}
 	c.mu.Lock()
 	c.cache[id] = meta

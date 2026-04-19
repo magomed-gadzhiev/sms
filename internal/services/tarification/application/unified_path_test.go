@@ -63,12 +63,12 @@ func (s *stubSaga) Charge(_ context.Context, _, _, _, _, _ string, _ int32) (*Ch
 }
 
 type stubOperatorLookup struct {
-	meta  OperatorMeta
+	meta  domain.OperatorMeta
 	err   error
 	calls int
 }
 
-func (s *stubOperatorLookup) Meta(_ context.Context, _ uuid.UUID) (OperatorMeta, error) {
+func (s *stubOperatorLookup) Meta(_ context.Context, _ uuid.UUID) (domain.OperatorMeta, error) {
 	s.calls++
 	return s.meta, s.err
 }
@@ -155,7 +155,7 @@ func buildHappyDeps(
 	subUsage := &stubSubUsage{get: nil}
 	logRepo := &stubLogRepo{existing: nil}
 	marginLog := &stubMarginLog{}
-	opLookup := &stubOperatorLookup{meta: OperatorMeta{Code: "mts-ru", Currency: "RUB"}}
+	opLookup := &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}}
 	saga := &stubSaga{result: sagaResult}
 
 	deps := &unifiedDeps{
@@ -231,7 +231,7 @@ func TestTarifyUnified_FallbackOnNotFound(t *testing.T) {
 		saga:          &stubSaga{result: &ChargeResult{Success: true}},
 		logRepo:       &stubLogRepo{},
 		senderRepo:    &stubSenderRepo{},
-		operatorLookup: &stubOperatorLookup{meta: OperatorMeta{Code: "mts-ru", Currency: "RUB"}},
+		operatorLookup: &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}},
 	}
 
 	req := &TarifyMessageRequest{
@@ -283,7 +283,7 @@ func TestTarifyUnified_FallbackOnCalcError(t *testing.T) {
 		saga:          &stubSaga{result: &ChargeResult{Success: true}},
 		logRepo:       &stubLogRepo{},
 		senderRepo:    &stubSenderRepo{},
-		operatorLookup: &stubOperatorLookup{meta: OperatorMeta{Code: "mts-ru", Currency: "RUB"}},
+		operatorLookup: &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}},
 	}
 
 	req := &TarifyMessageRequest{
@@ -348,7 +348,7 @@ func TestTarifyUnified_IdempotencyShortCircuits(t *testing.T) {
 	logRepo := &stubLogRepo{existing: existing}
 	subUsage := &stubSubUsage{}
 	marginLog := &stubMarginLog{}
-	opLookup := &stubOperatorLookup{meta: OperatorMeta{Code: "mts-ru", Currency: "RUB"}}
+	opLookup := &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}}
 
 	deps := &unifiedDeps{
 		resolver:      nil, // should not be reached
@@ -438,7 +438,7 @@ func TestTarifyUnified_EmptyCurrency_Fallback(t *testing.T) {
 	before := testutil.ToFloat64(unifiedFallbackTotal.WithLabelValues("currency_resolve_error"))
 
 	// Operator found but country.currency=NULL → empty Currency.
-	opLookup := &stubOperatorLookup{meta: OperatorMeta{Code: "orphan", Currency: ""}}
+	opLookup := &stubOperatorLookup{meta: domain.OperatorMeta{Code: "orphan", Currency: ""}}
 	ruleRepo := &callCountingRuleRepo{}
 
 	resolvedRepo := &fakeResolvedRepo{cached: nil}

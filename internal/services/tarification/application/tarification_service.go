@@ -163,6 +163,8 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 			// что использовался при первом вызове; fallback на RUB если lookup
 			// недоступен (response-only, billing перевалидирует).
 			existingCurrency = "RUB"
+			// Invariant: SetUnifiedDependencies always populates operatorLookup non-nil,
+			// но гард на nil-deps защищает от вызова из legacy-only деплоя, где setter не вызывался.
 			if s.unifiedDeps != nil && s.unifiedDeps.operatorLookup != nil {
 				if meta, metaErr := s.unifiedDeps.operatorLookup.Meta(ctx, existing.OperatorID); metaErr == nil && meta.Currency != "" {
 					existingCurrency = meta.Currency
