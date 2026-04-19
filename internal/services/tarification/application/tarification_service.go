@@ -104,7 +104,7 @@ func (s *TarificationService) SetUnifiedDependencies(
 	calc *CostCalculator,
 	ruleRepo domain.PriceRuleRepository,
 	subUsageRepo domain.SubaccountUsageCounterRepository,
-	operatorLookup OperatorCodeLookup,
+	operatorLookup OperatorMetaLookup,
 ) {
 	s.unifiedEnabled = enabled
 	s.rollout = rollout
@@ -159,9 +159,15 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 			}
 			tariffPlanID = existing.TariffPlanID.String()
 		case existing.SourceRuleID != nil:
-			// Unified replay: currency следует дефолту платформы; rule id
-			// возвращаем как tariff_plan_id для совместимости клиента.
+			// Unified replay: резолвим currency через тот же cached lookup,
+			// что использовался при первом вызове; fallback на RUB если lookup
+			// недоступен (response-only, billing перевалидирует).
 			existingCurrency = "RUB"
+			if s.unifiedDeps != nil && s.unifiedDeps.operatorLookup != nil {
+				if meta, metaErr := s.unifiedDeps.operatorLookup.Meta(ctx, existing.OperatorID); metaErr == nil && meta.Currency != "" {
+					existingCurrency = meta.Currency
+				}
+			}
 			tariffPlanID = existing.SourceRuleID.String()
 		}
 		return &TarifyMessageResponse{
