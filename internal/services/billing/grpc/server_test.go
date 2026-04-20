@@ -211,7 +211,7 @@ func newTestBillingServer(
 ) *Server {
 	billingService := application.NewBillingService(accountRepo, transactionRepo, pub)
 	pricingService := application.NewPricingService(pricingRepo)
-	return NewServer(billingService, pricingService)
+	return NewServer(billingService, pricingService, application.DualChargeDeps{})
 }
 
 // --- Tests ---

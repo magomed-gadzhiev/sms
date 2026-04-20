@@ -24,6 +24,7 @@ import (
 	billinggrpc "github.com/smpp-server/smpp-server/internal/services/billing/grpc"
 	billingrepo "github.com/smpp-server/smpp-server/internal/services/billing/infrastructure/repository"
 	billingqueue "github.com/smpp-server/smpp-server/internal/services/billing/infrastructure/queue"
+	tarrepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/database"
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -80,6 +81,10 @@ func main() {
 	transactionRepo := billingrepo.NewTransactionRepository(dbx)
 	pricingRepo := billingrepo.NewPricingRuleRepository(dbx)
 
+	// Репозитории тарификации, нужные для атомарного dual-charge flow (квота + margin log).
+	quotaRepo := tarrepo.NewAggregatorQuotaRepository(dbx)
+	marginLogRepo := tarrepo.NewAggregatorMarginLogRepository(dbx)
+
 	// Инициализация Kafka producer для публикации событий биллинга
 	// Используем дефолтные топики или создаем новые для billing событий
 	balanceTopic := "billing.balance"
@@ -94,6 +99,16 @@ func main() {
 	// Инициализация сервисов
 	billingService := application.NewBillingService(accountRepo, transactionRepo, billingEventPublisher)
 	pricingService := application.NewPricingService(pricingRepo)
+
+	// Зависимости для атомарного ChargeMessageDual (dual-списание + квота + margin log в одной tx).
+	dualDeps := application.DualChargeDeps{
+		DB:              dbx,
+		QuotaRepo:       quotaRepo,
+		MarginLogRepo:   marginLogRepo,
+		AccountRepo:     accountRepo,
+		TransactionRepo: transactionRepo,
+		EventPublisher:  billingEventPublisher,
+	}
 
 	// Инициализация Kafka consumer
 	// Используем уникальный consumer group для billing service
@@ -197,7 +212,7 @@ func main() {
 	)
 
 	// Регистрация gRPC сервиса
-	billingGrpcServer := billinggrpc.NewServer(billingService, pricingService)
+	billingGrpcServer := billinggrpc.NewServer(billingService, pricingService, dualDeps)
 	billingv1.RegisterBillingServiceServer(grpcServer, billingGrpcServer)
 
 	// Включение reflection для разработки

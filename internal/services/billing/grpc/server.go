@@ -21,6 +21,7 @@ type Server struct {
 	billingv1.UnimplementedBillingServiceServer
 	billingService *application.BillingService
 	pricingService *application.PricingService
+	dualDeps       application.DualChargeDeps
 	logger         zerolog.Logger
 }
 
@@ -28,10 +29,12 @@ type Server struct {
 func NewServer(
 	billingService *application.BillingService,
 	pricingService *application.PricingService,
+	dualDeps application.DualChargeDeps,
 ) *Server {
 	return &Server{
 		billingService: billingService,
 		pricingService: pricingService,
+		dualDeps:       dualDeps,
 		logger:         log.With().Str("component", "billing-grpc-server").Logger(),
 	}
 }
@@ -550,4 +553,75 @@ func (s *Server) ListBalances(ctx context.Context, req *billingv1.ListBalancesRe
 		Limit:    limit,
 		Offset:   offset,
 	}, nil
+}
+
+// ChargeMessageDual — gRPC обёртка над application.ChargeMessageDual.
+// Атомарно списывает средства с субаккаунта и агрегатора, инкрементит квоту,
+// пишет margin log. Идемпотентно по message_id (через idempotency_key margin_log).
+func (s *Server) ChargeMessageDual(ctx context.Context, req *billingv1.ChargeMessageDualRequest) (*billingv1.ChargeMessageDualResponse, error) {
+	if req.MessageId == "" || req.SubAccountId == "" || req.AggregatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "message_id, sub_account_id, aggregator_id required")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid message_id: %v", err)
+	}
+	subAccountID, err := uuid.Parse(req.SubAccountId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid sub_account_id: %v", err)
+	}
+	aggregatorID, err := uuid.Parse(req.AggregatorId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid aggregator_id: %v", err)
+	}
+	operatorID, err := uuid.Parse(req.OperatorId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+	}
+
+	result, err := application.ChargeMessageDual(ctx, s.dualDeps, application.ChargeMessageDualInput{
+		MessageID:       messageID,
+		SubAccountID:    subAccountID,
+		AggregatorID:    aggregatorID,
+		OperatorID:      operatorID,
+		SubAccountPrice: req.SubAccountPrice,
+		AggregatorPrice: req.AggregatorPrice,
+		SubAccountTotal: req.SubAccountTotal,
+		AggregatorTotal: req.AggregatorTotal,
+		Currency:        req.Currency,
+		SegmentCount:    int(req.SegmentCount),
+		PoolSegments:    int(req.PoolSegments),
+		OverageSegments: int(req.OverageSegments),
+		ChargeMode:      req.ChargeMode,
+	})
+	if err != nil {
+		s.logger.Error().Err(err).
+			Str("message_id", req.MessageId).
+			Str("sub_account_id", req.SubAccountId).
+			Str("aggregator_id", req.AggregatorId).
+			Msg("charge message dual failed")
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	resp := &billingv1.ChargeMessageDualResponse{
+		Committed:      result.Committed,
+		SubAccountTxId: result.SubTxID.String(),
+		AggregatorTxId: result.AggTxID.String(),
+		MarginLogId:    result.MarginLogID.String(),
+	}
+	switch {
+	case result.AlreadyCommitted:
+		// Идемпотентный re-entry: для клиента это успех — запись уже была закоммичена.
+		// Committed=true сохраняет семантику "заряд есть", error=ALREADY_COMMITTED информирует.
+		resp.Committed = true
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_ALREADY_COMMITTED
+	case result.QuotaMissing:
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_QUOTA_NOT_CONFIGURED
+	case result.SubInsufficient:
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT
+	case result.AggInsufficient:
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR
+	}
+	return resp, nil
 }
