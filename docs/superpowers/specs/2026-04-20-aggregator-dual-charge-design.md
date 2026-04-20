@@ -1,286 +1,215 @@
-# Aggregator Dual-Charge & Quota Regulator — Design
+# Aggregator Dual-Charge: Atomicity & Commit-on-Submit — Design
 
-**Date:** 2026-04-20
+**Date:** 2026-04-20 (обновлено после проверки реального состояния кода)
 **Status:** Draft (awaiting user review)
-**Supersedes in part:** `docs/superpowers/plans/2026-04-14-aggregator-phase2-tarification.md` (та же цель, уточнённая архитектура)
+**Related prior work:**
+- Спек `2026-04-15-aggregator-billing-quotas-design.md` — схема и CRUD квот (реализовано).
+- Планы `2026-04-14-aggregator-phase*` — черновики Phase 1-4 (Phase 2 реализована частично, Phase 3/4 закрыты).
+- Миграции `000096_aggregator_tariffs`, `000097_aggregator_quotas` — применены.
 
-## Контекст и мотивация
+Этот спек **не создаёт агрегаторскую инфраструктуру с нуля** — она уже есть. Спек сужает фокус до четырёх оставшихся разрывов и фиксирует решения, принятые в брейншторме 2026-04-20.
 
-В SMS-проекте существует двухуровневая клиентская модель: **агрегатор** (`clients.is_reseller = true`, `parent_client_id IS NULL`) и его **субаккаунты** (`parent_client_id = aggregator.id`). Агрегатор настраивает субаккаунтам свои тарифы (`aggregator_tariffs`, миграция 000097), при этом сам имеет контракт с платформой со своими ценами (`price_rule` как у обычного direct-клиента).
+## Контекст
 
-Текущая реализация `TarifyMessage` делает каскадный lookup тарифа субаккаунта и **одно** списание — с субаккаунта. При этом агрегатор не платит платформе ничего, и маржа (разница между ценой субаккаунта и ценой агрегатора) нигде не фиксируется. Это искажает биллинг: либо субаккаунт платит платформе цену агрегатора (и агрегатор не получает наценку), либо субаккаунт платит цену агрегатора (и платформа не получает свои деньги). Экономическая модель не согласована с кодом.
+За период 2026-04-14 … 2026-04-15 реализована основная инфраструктура агрегаторской модели:
 
-Вторая проблема — `AggregatorQuota` как доменная модель существует, но не регулирует ничего: таблицы `aggregator_quotas` нет, в hot-path не проверяется.
+- Таблицы `aggregator_tariffs`, `aggregator_margin_log`, `aggregator_quotas` (миграции 000096, 000097).
+- Поля `billing_mode`, `spending_limit_monthly`, `spending_limit_daily` на `clients`; `attributed_sub_account_id` на `transactions` (миграция 000097).
+- Repository-слой: `aggregator_margin_log_repository.go`, `aggregator_quota_repository.go`, `aggregator_tariff_repository.go`.
+- Application-слой: `QuotaService` (ConsumeQuota, CRUD), интеграция в `tarification_service`.
+- Admin API: `internal/gateway/admin/handlers/aggregator_quotas.go` (CRUD).
+- Portal API для агрегатора: `internal/gateway/portal/handlers/aggregator_quotas.go` (read-only + billing_mode на субаккаунте).
+- Frontend: TariffsPage, AnalyticsPage, SimulatorPage, админ-страницы агрегаторов.
+- Phase 3 (routing) и Phase 4 (analytics) — завершены.
 
-Цель спека — завершить Phase 2: ввести атомарное dual-списание, регулятор пула квоты, корректный refund-contract. Сделать это без трогания `is_reseller` (решение 2026-04-20: дискриминатор остаётся булевым).
+**Что именно не работает или сделано неправильно (и это фокус текущего спека):**
 
-## Решения, принятые в брейншторме
+1. **Dual-charge не атомарен.** `saga.ChargeDual()` делает два отдельных RPC-вызова в billing-service (`ChargeMessage` для субаккаунта, затем для агрегатора) и компенсирует первый при падении второго. Между первым и вторым списанием существует окно несогласованности. При высоком темпе или временных ошибках возможны: двойной refund, пропущенный refund, зависшее списание субаккаунта без парного у агрегатора.
+2. **`TarifyMessage` не read-only.** В текущей реализации он может вызывать `ConsumeQuota` (пишет в БД). По решению брейншторма (Q9=D1) списание должно происходить **после успешного SUBMIT к провайдеру**, не при tarify. Сейчас мы списываем за попытку, даже если SUBMIT не состоялся.
+3. **`aggregator_margin_log` не различает pool/overage/split.** Для аналитики маржи этого недостаточно: агрегатор не видит, сколько из его трафика прошло по пакетной цене, сколько по overage. Данные об этом есть на уровне квоты (`segments_used`), но не по конкретному сообщению.
+4. **Message ID использует UUID v4.** Для партиционирования `aggregator_margin_log` в будущем (когда объём потребует) нужна sortable форма — UUID v7.
+
+## Решения, зафиксированные в брейншторме 2026-04-20
 
 | # | Вопрос | Решение |
 |---|--------|---------|
-| 1 | Атомарность dual-списания | Одна PG-транзакция, две записи в `transactions` |
+| 1 | Атомарность dual-списания | Одна PG-транзакция внутри billing-service (новый метод/RPC, не два отдельных вызова) |
 | 2 | Источник цены агрегатора | Обычный `price_rule` агрегатора (аггрегатор как клиент) |
 | 3 | Отрицательная маржа | Разрешена, логируется, метрика в Prometheus |
-| 4 | Модель квоты | Пул сегментов на агрегатора (не бюджет, не только баланс) |
-| 5 | Overage-поведение | Soft-overage всегда — списание по `overage_rate` с баланса агрегатора |
-| 6 | Период сброса | Календарный месяц UTC |
-| 7 | Multi-part SMS | Списание по сегментам (не по сообщениям) |
-| 8 | Порядок в hot-path | Atomic `UPDATE ... RETURNING` на квоте, без отдельного `SELECT FOR UPDATE` |
-| 9 | Refund | Списание при успешном SUBMIT к провайдеру (не при tarify); pre-submit failure = не списано; post-submit delivery fail = не возвращается |
-| 10 | Initial seed квоты | Admin-RPC явный; нет row — `QUOTA_NOT_CONFIGURED` |
+| 4 | Модель квоты | Пул сегментов на агрегатора (реализовано) |
+| 5 | Overage-поведение | Soft-overage всегда — списание по `overage_rate` с баланса агрегатора (частично реализовано) |
+| 6 | Период сброса | Календарный месяц UTC (в существующей схеме — через `period_start`/`period_end`, согласовано) |
+| 7 | Multi-part SMS | Списание по сегментам (реализовано) |
+| 8 | Порядок в hot-path | Atomic `UPDATE ... RETURNING` на квоте внутри одной транзакции |
+| 9 | Refund и момент списания | Списание **после успешного SUBMIT к провайдеру**; pre-submit failure = не списано; post-submit delivery fail = не возвращается |
+| 10 | Initial seed квоты | `auto_renew=true` (уже в схеме) + lazy-create при первой отправке в новом периоде: наследует `segment_limit`/`overage_rate` из предыдущего периода; `auto_renew=false` = hard-stop с `QUOTA_NOT_CONFIGURED`. Admin-RPC остаётся для setup/override. **Изменено относительно исходной версии Q10=A в пользу совместимости с применённой схемой.** |
 
 ## Scope
 
-**В scope:**
-- Миграция `000098_aggregator_dual_charge` — две новые таблицы.
-- Новый RPC `CommitCharge` в tarification-service; существующий `TarifyMessage` переводится в read-only (dry-run).
-- Новый внутренний RPC `ChargeDual` в billing-service.
-- Admin-RPC для CRUD квот.
-- Read-only endpoint для агрегатора "моя квота".
-- Prometheus-метрики, Grafana-дашборд, алерты.
-- Cron-мониторинг агрегаторов без настроенной квоты на текущий месяц.
-- Unit/integration/E2E тесты.
+**В scope (четыре оставшихся разрыва):**
+
+1. Атомизация dual-charge: один SQL-круг внутри billing-service, охватывающий обе записи в `transactions`, `UPDATE balance` на субаккаунт и агрегатор, `UPDATE aggregator_quotas` (инкремент), `INSERT aggregator_margin_log` как идемпотентный guard.
+2. Разделение `TarifyMessage` (read-only расчёт) и `CommitCharge` (атомарное списание), вызов последнего из pipeline после успешного SUBMIT_SM_RESP. `ConsumeQuota` переносится из tarify в commit.
+3. Расширение `aggregator_margin_log`: миграция 000106 добавляет `charge_mode VARCHAR(16)`, `pool_segments INT`, `overage_segments INT`. Существующие записи получают `charge_mode='pool'` (дефолт — для исторических данных это приемлемая аппроксимация).
+4. Lazy-create квоты через `auto_renew`: если на текущий период нет row'а и у последнего row предыдущего периода `auto_renew=true` — в первой транзакции `CommitCharge` текущего периода создать новый row с параметрами предыдущего. Если `auto_renew=false` или предыдущего периода нет — `QUOTA_NOT_CONFIGURED`.
 
 **Out of scope:**
-- Изменения схемы клиентов (`is_reseller` → `account_type`) — решение закрыто.
-- Bulk-операции админа (копирование квот на следующий месяц) — отдельный мини-спек.
-- Sharding `aggregator_quotas` для случая >100 msg/sec per aggregator.
-- Ретроспективный refund по delivery outcome.
-- UI-редизайн `/network/quota`.
-- Переименование reseller → aggregator в API/UI (тех-долг).
+
+- Переделка схемы `aggregator_quotas` с `period_start`/`period_end` на `period_month` (несовместимо с существующим кодом; диапазон более гибкий, код уже работает с ним).
+- Уведомления агрегатора при 80%/100% пула (поля `notified_80pct`, `notified_100pct` уже в схеме, фича закладывалась, реализуется отдельно).
+- Bulk-операции админа (копирование квот на всех агрегаторов).
+- Sharding `aggregator_quotas` для высокого contention.
+- Изменения UI (текущие страницы функциональны).
+- Переименование reseller → aggregator в API/URL.
+- Изменения `is_reseller` флага.
 
 ## Архитектура
 
-### Изменения в модели данных (миграция 000098)
+### Миграция 000106 (ALTER aggregator_margin_log)
 
-**Таблица `aggregator_margin_log`** — один row на одно commit-списание, помесячное партиционирование по `created_at` (аналогично существующим `messages` и `tarification_log`).
+Добавляет три поля:
+- `charge_mode VARCHAR(16) NOT NULL DEFAULT 'pool'` — `pool` | `overage` | `split`.
+- `pool_segments INT NOT NULL DEFAULT 0` — сколько из `segment_count` прошло по pool-цене.
+- `overage_segments INT NOT NULL DEFAULT 0` — сколько по overage-цене.
 
-Поля:
-- `id UUID PK`
-- `message_id UUID NOT NULL` — **UNIQUE** (идемпотентность retry)
-- `aggregator_id UUID NOT NULL REFERENCES clients(id)`
-- `sub_account_id UUID NOT NULL REFERENCES clients(id)`
-- `operator_id UUID NOT NULL REFERENCES operators(id)`
-- `segments INTEGER NOT NULL`
-- `subaccount_price NUMERIC(12,6) NOT NULL`
-- `aggregator_price NUMERIC(12,6) NOT NULL`
-- `margin NUMERIC(12,6) NOT NULL` (может быть < 0)
-- `charge_mode VARCHAR(16) NOT NULL` — `'pool'` | `'overage'` | `'split'`
-- `pool_segments INTEGER NOT NULL DEFAULT 0` — сколько из N сегментов прошло по pool-цене
-- `overage_segments INTEGER NOT NULL DEFAULT 0` — сколько по overage-цене
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+`CHECK (pool_segments + overage_segments = segment_count)` — инвариант, который кодекс обеспечивает при вставке.
 
-Индексы:
-- `UNIQUE(message_id)` — идемпотентность
-- `(aggregator_id, created_at DESC)` — для отчётов по агрегатору
-- `(sub_account_id, created_at DESC)` — для отчётов по субаккаунту
+Down-миграция: `ALTER TABLE aggregator_margin_log DROP COLUMN charge_mode, DROP COLUMN pool_segments, DROP COLUMN overage_segments;`.
 
-**Таблица `aggregator_quotas`** — один row на (aggregator_id, period_month), без партиционирования (таблица маленькая: N_агрегаторов × 12 месяцев).
+### Атомарный `ChargeMessageDual` в billing-service
 
-Поля:
-- `aggregator_id UUID NOT NULL REFERENCES clients(id)`
-- `period_month DATE NOT NULL` — первое число месяца UTC (`date_trunc('month', NOW() AT TIME ZONE 'UTC')::date`)
-- `segment_limit BIGINT NOT NULL CHECK (segment_limit >= 0)`
-- `segments_used BIGINT NOT NULL DEFAULT 0`
-- `overage_segments BIGINT NOT NULL DEFAULT 0`
-- `overage_rate NUMERIC(12,6) NOT NULL CHECK (overage_rate >= 0)`
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-- `PRIMARY KEY (aggregator_id, period_month)`
+**Proto:** добавить в `api/proto/billing/billing.proto` новый RPC:
 
-Индексы: PK покрывает типичные запросы; `(period_month)` для джоба мониторинга.
+```
+rpc ChargeMessageDual(ChargeMessageDualRequest) returns (ChargeMessageDualResponse);
+```
 
-**Что НЕ меняется:**
-- `clients`, `accounts`, `transactions`, `price_rule`, `aggregator_tariffs` — остаются.
-- `AggregatorTariff` (000097) уже описывает тариф субаккаунта у агрегатора — используем как есть.
+Вход включает: `message_id` (UUID v7 как string, используется как `idempotency_key`), `subaccount_id`, `aggregator_id`, `subaccount_price`, `aggregator_price`, `segments`, `pool_segments`, `overage_segments`, `operator_id`, `charge_mode`.
 
-### RPC-контракты
+Выход: `committed bool`, `subaccount_tx_id`, `aggregator_tx_id`, `margin_log_id`, `error enum` (`ALREADY_COMMITTED`, `INSUFFICIENT_BALANCE_SUBACCOUNT`, `INSUFFICIENT_BALANCE_AGGREGATOR`, `QUOTA_NOT_CONFIGURED`).
 
-**`tarification.TarifyMessage`** — переводится в read-only.
+**Реализация в billing-service.** Один handler, одна PG-транзакция `READ COMMITTED`, шаги:
 
-Вход: как сейчас (`subaccount_id`, `operator_id`, `text`, `sender_category`, ...).
-Выход:
-- `message_id` (новый UUID v7 — sortable, чтобы партиции margin_log росли монотонно)
-- `segments`
-- `subaccount_price`, `aggregator_price` (оба NUMERIC as string)
-- `charge_mode` enum: `POOL` | `OVERAGE` | `SPLIT`
-- `sufficient_balance bool`
-- `error` enum: `QUOTA_NOT_CONFIGURED` | `INSUFFICIENT_BALANCE_SUBACCOUNT` | `INSUFFICIENT_BALANCE_AGGREGATOR` | `NO_TARIFF_SUBACCOUNT` | `NO_TARIFF_AGGREGATOR`
+1. `INSERT INTO aggregator_margin_log (..., idempotency_key = message_id) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id`. Если 0 rows → `ROLLBACK`, `ALREADY_COMMITTED`. Быстрый выход до трогания балансов.
+2. Убедиться, что row `aggregator_quotas` существует для текущего периода — либо найти через `GetActive(aggregator_id)`, либо lazy-create (см. ниже).
+3. `UPDATE aggregator_quotas SET segments_used = segments_used + $1 WHERE id = $2 RETURNING segments_used, segment_limit`. Если 0 rows → `ROLLBACK`, `QUOTA_NOT_CONFIGURED`.
+4. `UPDATE accounts SET balance = balance - $subaccount_price WHERE client_id = $subaccount_id AND balance >= $subaccount_price RETURNING balance`. Если 0 rows → `ROLLBACK`, `INSUFFICIENT_BALANCE_SUBACCOUNT`.
+5. `UPDATE accounts SET balance = balance - $aggregator_price WHERE client_id = $aggregator_id AND balance >= $aggregator_price RETURNING balance`. Если 0 rows → `ROLLBACK`, `INSUFFICIENT_BALANCE_AGGREGATOR`.
+6. `INSERT INTO transactions` — две записи (subaccount -subaccount_price, aggregator -aggregator_price), обе со `reference = message_id`, у aggregator-записи `attributed_sub_account_id = subaccount_id` (колонка уже существует в схеме).
+7. `COMMIT`.
 
-Никаких UPDATE/INSERT. Только SELECT.
+Порядок: margin_log первым — идемпотентность-guard до UPDATE балансов. UPDATE `aggregator_quotas` перед UPDATE balances — контеншн-точка сериализуется первой, балансы попадают в уже сериализованный поток.
 
-**`tarification.CommitCharge`** — новый RPC, вызывается SMPP-клиентом после `SUBMIT_SM_RESP = OK`.
+**Старый `saga.ChargeDual()` удаляется.** Вызывающий код (tarification commit-path) переводится на `billing.ChargeMessageDual`.
 
-Вход:
-- `message_id` (тот же UUID, что вернул `TarifyMessage`)
+### Lazy-create квоты через `auto_renew`
 
-Tarification-service **не доверяет** параметрам из tarify — расчёт повторяется непосредственно перед вызовом `billing.ChargeDual`. Это защита от drift, если админ поменял тариф между tarify и commit. Строго атомарной согласованности "расчёт+списание" не достичь при межсервисном вызове, но окно drift сокращается до миллисекунд между повторным SELECT и транзакцией billing.
+Внутри `ChargeMessageDual`, перед инкрементом квоты:
 
-Выход:
-- `committed bool`
-- `subaccount_tx_id`, `aggregator_tx_id`, `margin_log_id` (UUID строки)
-- `error` enum: `ALREADY_COMMITTED` | `INSUFFICIENT_BALANCE_SUBACCOUNT` | `INSUFFICIENT_BALANCE_AGGREGATOR` | `QUOTA_NOT_CONFIGURED` | `NO_TARIFF_*`
+1. `SELECT id, period_end, segment_limit, overage_rate, auto_renew FROM aggregator_quotas WHERE aggregator_id = $1 AND period_start <= CURRENT_DATE AND period_end >= CURRENT_DATE LIMIT 1` — ищем активный row.
+2. Если row есть → используем, идём дальше.
+3. Если row нет → ищем последний row агрегатора: `SELECT ... ORDER BY period_end DESC LIMIT 1`. Если предыдущий row есть и `auto_renew=true`: `INSERT INTO aggregator_quotas (aggregator_id, period_start, period_end, segment_limit, overage_rate, auto_renew, currency) VALUES (...)` — период `[date_trunc('month', NOW() UTC), date_trunc('month', NOW() UTC) + interval '1 month' - interval '1 day']`, остальные поля из предыдущего row. Row становится новым активным.
+4. Если предыдущего row нет или `auto_renew=false` → `QUOTA_NOT_CONFIGURED`.
 
-**`billing.ChargeDual`** — новый внутренний RPC, вызывается только tarification-service в рамках `CommitCharge`. Не экспонируется наружу.
+Lazy-create встроен в ту же транзакцию, что и dual-charge. Race condition на INSERT решается `ON CONFLICT (aggregator_id, period_start) DO NOTHING` с последующим `SELECT` (другой concurrent call мог вставить первым).
 
-Вход:
-- `message_id` (idempotency key)
-- `subaccount_id`, `aggregator_id`
-- `subaccount_price`, `aggregator_price`
-- `segments`, `pool_segments`, `overage_segments`
-- `operator_id`
-- `charge_mode`
+### `TarifyMessage` → read-only
 
-Выход:
-- `committed bool`
-- `subaccount_tx_id`, `aggregator_tx_id`, `margin_log_id`
-- `error` enum: `ALREADY_COMMITTED` | `INSUFFICIENT_BALANCE_SUBACCOUNT` | `INSUFFICIENT_BALANCE_AGGREGATOR` | `QUOTA_NOT_CONFIGURED`
+Изменения в `internal/services/tarification/application/tarification_service.go`:
 
-Атомарность — внутри `billing.ChargeDual` (одна PG-транзакция).
+- Удалить вызов `ConsumeQuota` из tarify-флоу (если он там есть).
+- Tarify выполняет: сегментацию, каскадный lookup тарифа субаккаунта (`aggregator_tariff_repository`), lookup тарифа агрегатора (`price_rule`), SELECT квоты (без инкремента), расчёт `charge_mode`/`pool_segments`/`overage_segments`, SELECT балансов для валидации.
+- В ответе `TarifyMessageResponse` добавляются поля: `message_id` (UUID v7, сгенерирован здесь), `subaccount_price`, `aggregator_price`, `charge_mode`, `pool_segments`, `overage_segments`.
+- БД: только SELECT, никаких UPDATE/INSERT.
 
-**`billing.Charge`** (single-charge для direct-клиентов) — остаётся, не трогаем.
+### `CommitCharge` — новый RPC в tarification-service
 
-### Hot-path: TarifyMessage (read-only)
+Proto: добавить в `api/proto/tarification/tarification.proto` новый RPC `CommitCharge`.
 
-1. Загрузить клиента. Если `parent_client_id IS NULL` — это direct-клиент, идём в legacy-путь single-charge (вне этого спека). Дальше — только субаккаунты.
-2. `aggregator_id = client.parent_client_id`.
-3. Сегментация: N сегментов.
-4. Цена субаккаунта — каскадный lookup `aggregator_tariffs`:
-   - `(aggregator_id, subaccount_id, operator_id, sender_category)` — специфичный
-   - `(aggregator_id, NULL, operator_id, sender_category)` — дефолт для всех субаккаунтов агрегатора
-   - Иначе — `NO_TARIFF_SUBACCOUNT`.
-   `subaccount_price = tariff_price * N`.
-5. Цена агрегатора — обычный `price_rule(aggregator_id, operator_id, sender_category)`. Если нет — `NO_TARIFF_AGGREGATOR`. Это **pool-цена** агрегатора.
-6. Загрузить квоту: `SELECT segment_limit, segments_used, overage_rate FROM aggregator_quotas WHERE aggregator_id = $1 AND period_month = date_trunc('month', NOW() AT TIME ZONE 'UTC')::date`. Если нет — `QUOTA_NOT_CONFIGURED`.
-7. Определить `charge_mode` и `aggregator_price`:
-   - `segments_used + N ≤ segment_limit` → `POOL`, `aggregator_price = pool_rate * N`
-   - `segments_used ≥ segment_limit` → `OVERAGE`, `aggregator_price = overage_rate * N`
-   - Иначе (частично пересечение границы) → `SPLIT`: `pool_part = segment_limit - segments_used`, `overage_part = N - pool_part`, `aggregator_price = pool_rate * pool_part + overage_rate * overage_part`.
-8. Проверить балансы (SELECT без локов): `subaccount.balance >= subaccount_price`, `aggregator.balance >= aggregator_price`.
-9. Сгенерировать `message_id = uuid_v7()`.
-10. Вернуть расчёт вызывающему.
+Вход: `message_id` (только).
+Выход: `committed bool`, `error enum` (`ALREADY_COMMITTED`, `INSUFFICIENT_BALANCE_SUBACCOUNT`, `INSUFFICIENT_BALANCE_AGGREGATOR`, `QUOTA_NOT_CONFIGURED`, `NO_TARIFF`).
 
-БД: только SELECT. Время ответа — несколько ms.
+Реализация:
+1. Повторный расчёт (переиспользование кода из TarifyMessage — вынести в отдельный метод `calculate()` в `tarification_service`). Причина повторного расчёта — защита от drift тарифа/квоты между tarify и commit (обычно миллисекунды, но при долгих SUBMIT к провайдеру — секунды).
+2. Вызов `billing.ChargeMessageDual` с параметрами из расчёта.
+3. Возврат результата вызывающему.
 
-### Hot-path: CommitCharge (atomic)
+### Pipeline integration (SMPP sender)
 
-Вызывается SMPP-клиентом после `SUBMIT_SM_RESP = OK` с `message_id` из tarify-ответа.
+В `internal/pipeline/sender/stage.go` (или его аналоге — точное место уточнить при плане):
+- На начале обработки сообщения вызывается `TarifyMessage` — получаем `message_id`, валидируем балансы. Если валидация не прошла — сообщение помечается `failed`, CommitCharge не вызывается.
+- Отправляем SUBMIT_SM к провайдеру.
+- Если `SUBMIT_SM_RESP = OK` (или эквивалент для не-SMPP каналов) → `CommitCharge(message_id)`. При `ALREADY_COMMITTED` продолжаем как обычно (retry-безопасно). При любой другой ошибке — логируем, сообщение помечается `charge_failed` (уже ушло провайдеру, но у нас финансы не зафиксированы — это окно решается повтором `CommitCharge`).
+- Если SUBMIT упал (pre-submit failure) → `CommitCharge` не вызывается. Деньги на месте.
 
-1. Tarification-service повторно выполняет шаги 1–7 TarifyMessage (расчёт — несколько SELECT'ов на тарифы и квоту).
-2. Tarification-service вызывает `billing.ChargeDual` с готовыми параметрами. **Всё дальнейшее — внутри одной PG-транзакции в billing-service.**
-3. Начало транзакции `READ COMMITTED`.
-4. **Первой операцией** — `INSERT INTO aggregator_margin_log (...) VALUES (...) ON CONFLICT (message_id) DO NOTHING RETURNING id`. Если вернуло 0 rows — retry уже закоммиченного сообщения → `ROLLBACK`, return `ALREADY_COMMITTED`. Быстрый выход, никакие балансы не тронуты.
-5. `UPDATE aggregator_quotas SET segments_used = segments_used + $N, overage_segments = overage_segments + $N_overage, updated_at = NOW() WHERE aggregator_id = $1 AND period_month = $2 RETURNING segments_used`. Если 0 rows (админ удалил квоту между tarify и commit) — `ROLLBACK`, `QUOTA_NOT_CONFIGURED`.
-6. `UPDATE accounts SET balance = balance - $subaccount_price WHERE client_id = $subaccount_id AND balance >= $subaccount_price RETURNING balance`. Если 0 rows — `ROLLBACK`, `INSUFFICIENT_BALANCE_SUBACCOUNT`.
-7. `UPDATE accounts SET balance = balance - $aggregator_price WHERE client_id = $aggregator_id AND balance >= $aggregator_price RETURNING balance`. Если 0 rows — `ROLLBACK`, `INSUFFICIENT_BALANCE_AGGREGATOR`.
-8. `INSERT INTO transactions` — две записи (sub -subaccount_price, aggregator -aggregator_price), обе со `reference = message_id`.
-9. `COMMIT`.
+Retry commit: существующий механизм retry в pipeline (если есть) или новый — отдельный lightweight worker, который ищет сообщения со статусом `charge_failed` и повторяет `CommitCharge` по их `message_id`.
 
-Порядок важен: `INSERT margin_log` первым — если идемпотентность-guard сработал, мы выходим до UPDATE баланса.
+### UUID v7 для message_id
 
-Почему `UPDATE ... WHERE balance >= amount`, а не `SELECT FOR UPDATE + UPDATE`: Postgres сам берёт row-lock при UPDATE, проверка `balance >= amount` в `WHERE` атомарна. Экономим один round-trip и удерживаем лок меньше времени.
+В `saga.go` (или в `tarification_service.calculate()`) замена `uuid.New()` на UUID v7 generator. Использовать существующий пакет, если есть (проверить `go.mod` на `github.com/google/uuid` версию с v7 поддержкой, или добавить `github.com/gofrs/uuid/v5`).
 
-Контеншн — на row `aggregator_quotas` для данного агрегатора. Все сообщения одного агрегатора сериализуются на этой строке. Типичное время транзакции — 5–15 мс, предел — ~100 msg/sec per aggregator. Если конкретный агрегатор превысит — решается sharding'ом счётчика (N партиций по hash(message_id)), но это вне scope.
+### Метрики
 
-### Pre-submit failure: просто не вызываем CommitCharge
+Расширить существующие метрики (не писать с нуля) следующими:
+- `commit_charge_duration_seconds` — histogram, время от начала `CommitCharge` до commit в БД.
+- `commit_charge_result_total{result}` — counter: `committed`, `already_committed`, `insufficient_balance_subaccount`, `insufficient_balance_aggregator`, `quota_not_configured`, `no_tariff`.
+- `aggregator_margin_by_mode_total{aggregator_id, charge_mode}` — counter, суммарная маржа по режимам.
 
-SMPP-клиент получает ошибку на SUBMIT (провайдер отклонил, таймаут, разрыв соединения до ответа) → `CommitCharge` не вызывается. Деньги и квота не тронуты. Сообщение помечается `failed_presubmit` в pipeline.
-
-Retry-сценарии:
-- **Retry SUBMIT** (до получения окончательного ответа) — политика SMPP-клиента, не влияет на биллинг.
-- **Окончательный SUBMIT-fail** — `CommitCharge` не вызван, всё.
-- **SUBMIT OK, но `CommitCharge` упал/не дошёл** — SMPP-клиент повторяет `CommitCharge` с тем же `message_id`. UNIQUE-guard на `aggregator_margin_log.message_id` делает второй вызов no-op (`ALREADY_COMMITTED`). Никогда не списываем дважды.
-
-Delivery outcome (delivered/failed после SUBMIT OK) **не влияет** на биллинг. Списание при успешном SUBMIT — финальное.
-
-### Admin-RPC для квот
-
-Новые RPC в admin-proto (путь уточним при реализации — либо расширение существующего admin.proto, либо новый `api/proto/admin/aggregator_admin.proto`):
-
-- `SetAggregatorQuota(aggregator_id, period_month, segment_limit, overage_rate)` — UPSERT.
-- `GetAggregatorQuota(aggregator_id, period_month)` — возвращает row + derived поля (`segments_remaining`, `usage_ratio`).
-- `ListAggregatorQuotas(period_month?, aggregator_id?)` — список с фильтрами.
-- `DeleteAggregatorQuota(aggregator_id, period_month)` — удаление (редкий кейс).
-
-HTTP-endpoints на портале — под префиксом `/admin/aggregators/*/quotas`, роль `admin`. Обычный агрегатор не видит admin-endpoints.
-
-**Read-only для агрегатора** — `GET /network/quota/current` и `GET /network/quota/history?months=6`. Возвращает свою квоту без возможности редактирования. Использует `auth.ClientID` из контекста.
-
-### UI
-
-- Admin-страница `/admin/aggregators/{id}/quotas` — таблица квот, кнопка "Установить на следующий месяц". Минимум для MVP: форма ввода `segment_limit` и `overage_rate`, submit на `SetAggregatorQuota`. Bulk-операции — отдельно.
-- Агрегатор-дашборд `/network/` — на текущей странице добавить блок "Квота месяца" (used / limit + overage_used). Расширяет существующий `NetworkDashboardPage.tsx`.
-
-### Метрики и алерты
-
-Prometheus:
-- `aggregator_margin_total{aggregator_id, charge_mode}` counter — сумма маржи (может быть отрицательной).
-- `aggregator_negative_margin_messages_total{aggregator_id}` counter.
-- `aggregator_quota_segments_used{aggregator_id}` gauge.
-- `aggregator_quota_segment_limit{aggregator_id}` gauge.
-- `aggregator_overage_segments_total{aggregator_id}` counter.
-- `aggregators_without_quota_current_month` gauge (cron-джоб).
-- `commit_charge_duration_seconds` histogram.
-- `commit_charge_retry_total{error}` counter.
-
-Grafana-дашборд `aggregator-billing`: маржа по агрегаторам (timeseries), top-5 с отрицательной маржой (table), использование пула (gauges), overage trend.
-
-Алерты:
-- `AggregatorNegativeMarginSustained` — `rate(aggregator_margin_total) < 0` 30 мин → warning.
-- `AggregatorsWithoutQuotaExist` — `aggregators_without_quota_current_month > 0` 5 мин → critical.
-- `CommitChargeP99LatencyHigh` — `histogram_quantile(0.99, commit_charge_duration_seconds) > 0.5` 10 мин → warning (контеншн на квоте).
-
-Cron-джоб (раз в час): `SELECT COUNT(*) FROM clients c WHERE c.is_reseller AND NOT EXISTS (SELECT 1 FROM aggregator_quotas q WHERE q.aggregator_id = c.id AND q.period_month = date_trunc('month', NOW() AT TIME ZONE 'UTC')::date)`. Выставляет gauge.
+Если в проекте уже есть метрика `aggregator_margin_total` — добавить лейбл `charge_mode` или оставить неразмеченной и создать новую. Уточнить при реализации.
 
 ## Тестирование
 
-**Unit:**
-- `billing.ChargeDual` — happy path, insufficient subaccount balance, insufficient aggregator balance, quota not configured, drift-сценарий (квота удалена между tarify и commit), SPLIT-граница, concurrent double-call (идемпотентность).
-- `tarification.CommitCharge` — расчёт-drift (тариф изменился между tarify и commit — commit берёт актуальный), ALREADY_COMMITTED.
-- Сегментация — если существующих тестов нет, добавить; если есть — переиспользовать.
+Фокус — на новой логике, не на существующей.
 
-**Integration (реальный Postgres через testcontainers):**
-- Параллельные `CommitCharge` на одного агрегатора (10–50 goroutines) — проверка atomicity квоты: `segments_used` в конце == сумма N всех успешных.
-- E2E-флоу: create aggregator → create subaccount → set quota → set tariffs (aggregator_tariffs + price_rule) → tarify → commit → assert balances, transactions, margin_log.
-- Идемпотентность: вызов `CommitCharge` с одним `message_id` дважды — второй раз `ALREADY_COMMITTED`, balance не изменился.
+**Unit (billing-service):**
+- `ChargeMessageDual` happy path с разными `charge_mode` (pool, overage, split).
+- `ALREADY_COMMITTED` при повторе с тем же `message_id` (баланс не меняется).
+- `INSUFFICIENT_BALANCE_SUBACCOUNT` — сабакаунт пустой, ROLLBACK полный.
+- `INSUFFICIENT_BALANCE_AGGREGATOR` — агрегатор пустой, субаккаунт не списан.
+- Lazy-create: `auto_renew=true` → новый row создан; `auto_renew=false` → `QUOTA_NOT_CONFIGURED`.
+- Конкурентные вызовы `ChargeMessageDual` с разными `message_id` на одного агрегатора — квота инкрементится корректно (нет lost updates).
+- Конкурентный двойной вызов с одинаковым `message_id` — только один commit (второй `ALREADY_COMMITTED`).
 
-**E2E (Playwright) — `e2e/tests/reseller/dual-charge.spec.ts`:**
-- Один happy-path: агрегатор настроен, субаккаунт шлёт SMS, проверяем что оба баланса уменьшились на корректные суммы и в `aggregator_margin_log` есть row.
+**Integration (реальный Postgres):**
+- Полный flow `TarifyMessage` → (моковый SUBMIT) → `CommitCharge` → проверка балансов, transactions, margin_log, quota.
+- Pre-submit failure flow: `TarifyMessage` ok, SUBMIT отменён → balance не изменён, margin_log пуст.
+- Retry flow: `CommitCharge` вызван дважды с одним `message_id` → результат идентичен одному вызову.
+
+**E2E (Playwright) `e2e/tests/reseller/dual-charge.spec.ts`** (новый тест):
+- Создать агрегатора, субаккаунт, настроить тарифы и квоту (через admin API).
+- Отправить SMS от субаккаунта.
+- Проверить: баланс субаккаунта уменьшился на `subaccount_price`, баланс агрегатора на `aggregator_price`, в `aggregator_margin_log` есть row с корректным `charge_mode`.
 
 ## План выкатки
 
-1. Применить миграцию `000098_aggregator_dual_charge.up.sql`.
-2. Deploy tarification-service с новыми `TarifyMessage` (dry-run) и `CommitCharge`. Фиче-флаг `DUAL_CHARGE_ENABLED` по умолчанию **off** — старый single-charge продолжает работать для субаккаунтов.
-3. Deploy billing-service с `ChargeDual`.
-4. Deploy SMPP-клиента с новым flow (`if parent_client_id != NULL && DUAL_CHARGE_ENABLED → CommitCharge; else → legacy Charge at tarify`).
-5. Включить флаг для одного тестового агрегатора. Верификация 1–2 дня: `aggregator_margin_log` содержит корректные записи, балансы сходятся, квота инкрементится.
-6. Включить для всех агрегаторов.
-7. (После стабилизации) удалить legacy-флаг и код single-charge для субаккаунтов. Direct-клиенты остаются на single-charge как были.
+1. **Миграция 000106** применяется — добавляет `charge_mode`, `pool_segments`, `overage_segments` в `aggregator_margin_log`. Старый код, записывающий в эту таблицу без новых полей, падает на NOT NULL → **миграция должна применяться синхронно с деплоем нового saga/billing-кода**, поэтому дефолт `'pool'` критичен.
+2. **Deploy billing-service с `ChargeMessageDual`**. Старый `ChargeMessage` остаётся — используется direct-клиентами и (временно) старым saga.
+3. **Deploy tarification-service с read-only `TarifyMessage` и новым `CommitCharge`**. Фиче-флаг `COMMIT_ON_SUBMIT_ENABLED` (default off): при off — старая логика (списание при tarify через `saga.ChargeDual`), при on — новая (tarify read-only + CommitCharge).
+4. **Deploy pipeline/sender с разветвлением**: если флаг on и у сообщения есть `parent_client_id` у клиента — новый flow; иначе старый.
+5. Включить флаг для одного тестового агрегатора. Верификация: маржа и балансы сходятся, `charge_mode` в лог записывается корректно.
+6. Включить флаг для всех агрегаторов.
+7. После стабилизации — удалить старый `saga.ChargeDual` и legacy-путь.
 
-**Rollback:** выключение `DUAL_CHARGE_ENABLED` возвращает single-charge. Данные в `aggregator_margin_log` остаются как history. Down-миграцию не катим в проде (таблицы не мешают).
+**Rollback:** выключение флага возвращает старую (неатомарную, но работающую) логику. Миграцию 000106 не откатываем — новые поля при старой логике заполняются дефолтами.
 
 ## Риски и компромиссы
 
-- **Контеншн на `aggregator_quotas`** — сериализует все commit'ы одного агрегатора. Предел ~100 msg/sec per aggregator. Sharding — вне scope, при необходимости в отдельной задаче.
-- **Drift между tarify и commit** — защищены повторным расчётом в транзакции, но клиент увидит цену из tarify-ответа и спишут актуальную. Для UX: разница обычно копеечная (тариф меняется редко), при несовпадении — commit-ответ содержит фактические цены, и клиент может их логировать.
-- **Забытая квота** — hard-stop для агрегатора. Смягчается алертом `AggregatorsWithoutQuotaExist`. В будущем возможен bulk-инструмент для админа.
-- **Отрицательная маржа** — по решению разрешена. Метрика + алерт даёт админу видимость. Агрегатор сам принимает бизнес-решение.
-- **Окно между SUBMIT OK и CommitCharge** — секунды. В это время сообщение уже ушло оператору, финансы не зафиксированы. Для отчётности "за минуту" — минорный drift. Обрабатывается retry'ем CommitCharge (идемпотентный).
+- **Drift между tarify и commit.** Решение — повторный расчёт в commit. Разница обычно копеечная. Клиент в tarify-ответе получает оценку, в commit — актуальное списание. Если критично для UI — возвращать обе цены в commit-ответе.
+- **Контеншн на `aggregator_quotas` row.** Сериализует все commit'ы одного агрегатора. ~100 msg/sec per aggregator. Решается sharding'ом row по hash(message_id) — вне scope.
+- **Окно между SUBMIT OK и CommitCharge.** Секунды. Существующий retry-механизм или новый lightweight worker покрывает. Метрика `commit_charge_retry_total` отслеживает аномалии.
+- **Отрицательная маржа.** По решению разрешена. Метрика + алерт — отдельная задача, не блокирует основной feature.
+- **Lazy-create гонка.** Два concurrent первых commit'а в новом периоде → оба пытаются INSERT. `ON CONFLICT (aggregator_id, period_start) DO NOTHING` + последующий SELECT решает.
 
-## Зависимости
+## Открытые вопросы
 
-- Миграция 000097 (`aggregator_tariffs`) — должна быть применена. Если нет — сначала катим её.
-- Существующий джоб создания партиций (если есть для `tarification_log` / `messages`) — переиспользовать для `aggregator_margin_log`. Если нет — добавить.
-- Proto-generation pipeline — потребуется регенерация stubs после изменений в `tarification.proto` и `billing.proto`.
-
-## Открытые вопросы (на момент реализации)
-
-- Точное расположение admin-proto (существующий файл vs новый) — решить при старте плана.
-- Необходимость `DeleteAggregatorQuota` в MVP — возможно можно отложить.
-- Формат period_month в RPC (`"2026-05-01"` string vs `int32 year / int32 month`) — уточнить при написании proto.
+- Где именно в pipeline (точный файл и функция) вставляется вызов `CommitCharge` после SUBMIT_SM_RESP — уточнить при написании плана.
+- Есть ли уже retry-механизм для failed-commit'ов или создавать новый worker — уточнить при написании плана.
+- Версия `github.com/google/uuid` в go.mod — проверить UUID v7 support, или добавить альтернативный пакет.
 
 ## Ссылки
 
 - Решения от 2026-04-20: `memory/project_aggregator_decisions.md`.
-- Предыдущий план Phase 2: `docs/superpowers/plans/2026-04-14-aggregator-phase2-tarification.md` (superseded в части дизайна этим спеком).
-- Существующая модель: [aggregator_tariff.go](../../../internal/services/tarification/domain/aggregator_tariff.go), [aggregator_resolver.go](../../../internal/services/tarification/infrastructure/aggregator_resolver.go).
+- Предыдущий спек (реализован): `docs/superpowers/specs/2026-04-15-aggregator-billing-quotas-design.md`.
+- Планы Phase 1-4: `docs/superpowers/plans/2026-04-14-aggregator-phase*.md`.
+- Существующие репозитории: [aggregator_margin_log_repository.go](../../../internal/services/tarification/infrastructure/repository/aggregator_margin_log_repository.go), [aggregator_quota_repository.go](../../../internal/services/tarification/infrastructure/repository/aggregator_quota_repository.go).
+- Существующий `saga.ChargeDual`: [saga.go](../../../internal/services/tarification/application/saga.go) (подлежит удалению).
