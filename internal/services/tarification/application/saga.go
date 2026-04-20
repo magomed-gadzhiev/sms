@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/google/uuid"
 	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
@@ -86,70 +85,6 @@ func (s *SagaOrchestrator) DeductForRecalc(ctx context.Context, clientID, amount
 		NewBalance:    resp.NewBalance,
 		Success:       resp.Success,
 		Error:         resp.Error,
-	}, nil
-}
-
-// DualChargeResult результат двойного списания (субаккаунт + агрегатор)
-type DualChargeResult struct {
-	SubAccountCharge *ChargeResult
-	AggregatorCharge *ChargeResult
-	Success          bool
-	Error            string
-}
-
-// ChargeDual списывает средства с субаккаунта (по тарифу агрегатора) и с агрегатора (по платформенному тарифу)
-func (s *SagaOrchestrator) ChargeDual(
-	ctx context.Context,
-	subAccountID, aggregatorID, messageID string,
-	subAccountAmount, aggregatorAmount, currency string,
-) (*DualChargeResult, error) {
-	// Сначала списываем с субаккаунта по тарифу агрегатора
-	subResp, err := s.billingClient.ChargeMessage(ctx, &billingv1.ChargeMessageRequest{
-		ClientId:    subAccountID,
-		MessageId:   messageID,
-		Amount:      subAccountAmount,
-		Currency:    currency,
-		Description: "SMS субаккаунт: тариф агрегатора",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("sub-account billing charge failed: %w", err)
-	}
-	if !subResp.Success {
-		return &DualChargeResult{
-			SubAccountCharge: &ChargeResult{Success: false, Error: subResp.Error},
-			Success:          false,
-			Error:            subResp.Error,
-		}, nil
-	}
-
-	// Затем списываем с агрегатора по платформенному тарифу
-	// Генерируем уникальный UUID для транзакции агрегатора (детерминированно от messageID)
-	aggMessageID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(messageID+"_agg")).String()
-	aggResp, err := s.billingClient.ChargeMessage(ctx, &billingv1.ChargeMessageRequest{
-		ClientId:    aggregatorID,
-		MessageId:   aggMessageID,
-		Amount:      aggregatorAmount,
-		Currency:    currency,
-		Description: "SMS агрегатор: платформенный тариф",
-	})
-	if err != nil {
-		// Компенсация: возвращаем средства субаккаунту
-		_, _ = s.Refund(ctx, subAccountID, subAccountAmount, currency, "компенсация: ошибка списания агрегатора")
-		return nil, fmt.Errorf("aggregator billing charge failed: %w", err)
-	}
-
-	return &DualChargeResult{
-		SubAccountCharge: &ChargeResult{
-			TransactionID: subResp.TransactionId,
-			NewBalance:    subResp.NewBalance,
-			Success:       true,
-		},
-		AggregatorCharge: &ChargeResult{
-			TransactionID: aggResp.TransactionId,
-			NewBalance:    aggResp.NewBalance,
-			Success:       aggResp.Success,
-		},
-		Success: aggResp.Success,
 	}, nil
 }
 
