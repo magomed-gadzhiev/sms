@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -160,6 +162,99 @@ func (r *AggregatorQuotaRepository) SetNotified100(ctx context.Context, quotaID 
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE aggregator_quotas SET notified_100pct = true WHERE id = $1`, quotaID)
 	return err
+}
+
+// GetActiveTx — аналог GetActive, но в рамках переданной транзакции, с FOR UPDATE.
+// Используется billing-service для атомарного dual-charge: блокируем строку квоты
+// до INSERT margin_log → INCREMENT segments_used.
+func (r *AggregatorQuotaRepository) GetActiveTx(ctx context.Context, tx *sqlx.Tx, aggregatorID uuid.UUID, now time.Time) (*domain.AggregatorQuota, error) {
+	var q domain.AggregatorQuota
+	query := `
+		SELECT id, aggregator_id, period_start, period_end, segment_limit, segments_used,
+			overage_rate, currency, auto_renew, notified_80pct, notified_100pct, created_at, updated_at
+		FROM aggregator_quotas
+		WHERE aggregator_id = $1 AND period_start <= $2 AND period_end > $2
+		ORDER BY period_start DESC
+		LIMIT 1
+		FOR UPDATE
+	`
+	err := tx.QueryRowxContext(ctx, query, aggregatorID, now).Scan(
+		&q.ID, &q.AggregatorID, &q.PeriodStart, &q.PeriodEnd, &q.SegmentLimit, &q.SegmentsUsed,
+		&q.OverageRate, &q.Currency, &q.AutoRenew, &q.Notified80Pct, &q.Notified100Pct,
+		&q.CreatedAt, &q.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("aggregator_quotas get active tx: %w", err)
+	}
+	return &q, nil
+}
+
+// GetLatestTx — последняя квота агрегатора (для lazy-create): возвращает самую свежую
+// по period_end, нужна чтобы унаследовать параметры (segment_limit, overage_rate, auto_renew).
+func (r *AggregatorQuotaRepository) GetLatestTx(ctx context.Context, tx *sqlx.Tx, aggregatorID uuid.UUID) (*domain.AggregatorQuota, error) {
+	var q domain.AggregatorQuota
+	query := `
+		SELECT id, aggregator_id, period_start, period_end, segment_limit, segments_used,
+			overage_rate, currency, auto_renew, notified_80pct, notified_100pct, created_at, updated_at
+		FROM aggregator_quotas
+		WHERE aggregator_id = $1
+		ORDER BY period_end DESC
+		LIMIT 1
+	`
+	err := tx.QueryRowxContext(ctx, query, aggregatorID).Scan(
+		&q.ID, &q.AggregatorID, &q.PeriodStart, &q.PeriodEnd, &q.SegmentLimit, &q.SegmentsUsed,
+		&q.OverageRate, &q.Currency, &q.AutoRenew, &q.Notified80Pct, &q.Notified100Pct,
+		&q.CreatedAt, &q.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("aggregator_quotas get latest tx: %w", err)
+	}
+	return &q, nil
+}
+
+// CreateTx — вставка квоты в рамках транзакции. ON CONFLICT DO NOTHING делает lazy-create
+// идемпотентным относительно concurrent first-call на одном и том же (aggregator_id, period_start).
+func (r *AggregatorQuotaRepository) CreateTx(ctx context.Context, tx *sqlx.Tx, q *domain.AggregatorQuota) error {
+	query := `
+		INSERT INTO aggregator_quotas
+			(id, aggregator_id, period_start, period_end, segment_limit, segments_used,
+			 overage_rate, currency, auto_renew, notified_80pct, notified_100pct,
+			 created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		ON CONFLICT (aggregator_id, period_start) DO NOTHING
+	`
+	_, err := tx.ExecContext(ctx, query,
+		q.ID, q.AggregatorID, q.PeriodStart, q.PeriodEnd, q.SegmentLimit, q.SegmentsUsed,
+		q.OverageRate, q.Currency, q.AutoRenew, q.Notified80Pct, q.Notified100Pct,
+		q.CreatedAt, q.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("aggregator_quotas create tx: %w", err)
+	}
+	return nil
+}
+
+// IncrementUsageTx атомарно инкрементит segments_used и возвращает (segments_used, segment_limit).
+// Упрощённый аналог IncrementUsage для use-case dual-charge: детализация
+// (WasWithinQuota, OverageCount) не нужна, т.к. режим уже определён tarify-расчётом.
+func (r *AggregatorQuotaRepository) IncrementUsageTx(ctx context.Context, tx *sqlx.Tx, quotaID uuid.UUID, segments int) (int64, int64, error) {
+	var used, segmentLimit int64
+	query := `
+		UPDATE aggregator_quotas
+		SET segments_used = segments_used + $2, updated_at = NOW()
+		WHERE id = $1
+		RETURNING segments_used, segment_limit
+	`
+	if err := tx.QueryRowxContext(ctx, query, quotaID, segments).Scan(&used, &segmentLimit); err != nil {
+		return 0, 0, fmt.Errorf("aggregator_quotas increment tx: %w", err)
+	}
+	return used, segmentLimit, nil
 }
 
 func (r *AggregatorQuotaRepository) ListAutoRenewable(ctx context.Context, beforeDate time.Time) ([]*domain.AggregatorQuota, error) {
