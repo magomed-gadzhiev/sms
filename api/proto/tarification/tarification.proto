@@ -11,6 +11,10 @@ service TarificationService {
   // TarifyMessage выполняет основной вызов тарификации сообщения
   rpc TarifyMessage(TarifyMessageRequest) returns (TarifyMessageResponse);
 
+  // CommitCharge применяет ранее рассчитанное списание после успешной отправки
+  // к провайдеру. Идемпотентно по message_id.
+  rpc CommitCharge(CommitChargeRequest) returns (CommitChargeResponse);
+
   // CreateSenderRegistration создает регистрацию отправителя
   rpc CreateSenderRegistration(CreateSenderRegistrationRequest) returns (SenderRegistration);
 
@@ -94,6 +98,43 @@ message TarifyMessageResponse {
   string rejection_reason = 6;      // Причина отклонения (если не одобрено)
   bool threshold_crossed = 7;       // Пересечён ли порог
   string recalc_amount = 8;         // Сумма пересчёта
+  // Добавлены для commit-on-submit flow:
+  string aggregator_id = 9;             // UUID если субаккаунт; пусто если direct-клиент
+  string sub_account_price = 10;        // NUMERIC per segment
+  string aggregator_price = 11;         // NUMERIC per segment
+  string sub_account_total = 12;        // итого с субаккаунта
+  string aggregator_total = 13;         // итого с агрегатора
+  int32 segment_count = 14;             // дубль запроса — для удобства CommitCharge
+  int32 pool_segments = 15;
+  int32 overage_segments = 16;
+  string charge_mode = 17;              // "pool"|"overage"|"split"; пусто для direct
+  string operator_id = 18;              // дубль запроса
+}
+
+message CommitChargeRequest {
+  string message_id = 1;
+  string client_id = 2;           // субаккаунт
+  string operator_id = 3;
+  string sender_name = 4;
+  int32 segment_count = 5;
+  string idempotency_key = 6;
+}
+
+message CommitChargeResponse {
+  bool committed = 1;
+  string sub_account_tx_id = 2;
+  string aggregator_tx_id = 3;
+  string margin_log_id = 4;
+  CommitChargeError error = 5;
+}
+
+enum CommitChargeError {
+  COMMIT_CHARGE_ERROR_UNSPECIFIED = 0;
+  COMMIT_CHARGE_ERROR_ALREADY_COMMITTED = 1;
+  COMMIT_CHARGE_ERROR_QUOTA_NOT_CONFIGURED = 2;
+  COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT = 3;
+  COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR = 4;
+  COMMIT_CHARGE_ERROR_NO_TARIFF = 5;
 }
 
 // TarifyLookupRequest представляет запрос на тарификацию lookup-запроса

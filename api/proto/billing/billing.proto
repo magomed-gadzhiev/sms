@@ -13,6 +13,11 @@ service BillingService {
   
   // ChargeMessage списывает средства за сообщение
   rpc ChargeMessage(ChargeMessageRequest) returns (ChargeMessageResponse);
+
+  // ChargeMessageDual атомарно списывает средства с субаккаунта и агрегатора
+  // за одно SMS, инкрементит квоту агрегатора, пишет margin log.
+  // Идемпотентно по idempotency_key.
+  rpc ChargeMessageDual(ChargeMessageDualRequest) returns (ChargeMessageDualResponse);
   
   // AddCredits добавляет средства на счет клиента
   rpc AddCredits(AddCreditsRequest) returns (AddCreditsResponse);
@@ -79,6 +84,38 @@ message ChargeMessageResponse {
   string new_balance = 2;         // Новый баланс
   bool success = 3;               // Успешность операции
   string error = 4;               // Ошибка (если неуспешно)
+}
+
+message ChargeMessageDualRequest {
+  string message_id = 1;              // UUID v7; также используется как idempotency_key
+  string sub_account_id = 2;
+  string aggregator_id = 3;
+  string sub_account_price = 4;       // NUMERIC per segment
+  string aggregator_price = 5;        // NUMERIC per segment (pool or effective for split)
+  string sub_account_total = 6;       // итого с субаккаунта
+  string aggregator_total = 7;        // итого с агрегатора
+  string currency = 8;                // ISO, пустое → "RUB"
+  string operator_id = 9;
+  int32 segment_count = 10;
+  int32 pool_segments = 11;
+  int32 overage_segments = 12;
+  string charge_mode = 13;            // "pool" | "overage" | "split"
+}
+
+message ChargeMessageDualResponse {
+  bool committed = 1;
+  string sub_account_tx_id = 2;
+  string aggregator_tx_id = 3;
+  string margin_log_id = 4;
+  ChargeMessageDualError error = 5;
+}
+
+enum ChargeMessageDualError {
+  CHARGE_DUAL_ERROR_UNSPECIFIED = 0;
+  CHARGE_DUAL_ERROR_ALREADY_COMMITTED = 1;
+  CHARGE_DUAL_ERROR_QUOTA_NOT_CONFIGURED = 2;
+  CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT = 3;
+  CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR = 4;
 }
 
 // AddCreditsRequest представляет запрос на добавление средств
