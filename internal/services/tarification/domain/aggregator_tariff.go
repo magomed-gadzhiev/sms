@@ -20,6 +20,13 @@ type AggregatorTariff struct {
 	UpdatedAt       time.Time
 }
 
+// ChargeMode режим списания с агрегатора для конкретного сообщения.
+const (
+	ChargeModePool    = "pool"    // весь объём в пределах пакета
+	ChargeModeOverage = "overage" // весь объём сверх пакета
+	ChargeModeSplit   = "split"   // часть в пакете, часть в overage
+)
+
 // AggregatorMarginLog запись о марже агрегатора по сообщению
 type AggregatorMarginLog struct {
 	ID              uuid.UUID
@@ -35,6 +42,9 @@ type AggregatorMarginLog struct {
 	Margin          string // маржа = SubAccountTotal - AggregatorTotal
 	IdempotencyKey  string
 	CreatedAt       time.Time
+	ChargeMode      string // "pool" | "overage" | "split" — режим списания с агрегатора
+	PoolSegments    int    // сколько сегментов ушло по pool-цене
+	OverageSegments int    // сколько сегментов ушло по overage-цене
 }
 
 // AggregatorTariffRepository репозиторий тарифов агрегатора

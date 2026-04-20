@@ -535,6 +535,12 @@ func (s *TarificationService) logAggregatorMargin(
 		Margin:          margin,
 		IdempotencyKey:  idempotencyKey + "_margin",
 		CreatedAt:       time.Now(),
+		// Legacy-путь (до commit-on-submit) не различает pool/overage на уровне лога —
+		// записываем всё как pool, чтобы не нарушать CHECK chk_segments_sum.
+		// Phase 2 (CommitCharge) будет заполнять поля фактическим распределением.
+		ChargeMode:      domain.ChargeModePool,
+		PoolSegments:    segmentCount,
+		OverageSegments: 0,
 	}
 
 	if err := s.aggMarginLogRepo.Create(ctx, entry); err != nil {

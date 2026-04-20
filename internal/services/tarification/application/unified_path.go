@@ -205,6 +205,10 @@ func tarifyUnified(ctx context.Context, req *TarifyMessageRequest, d *unifiedDep
 					Margin:          marginStr,
 					IdempotencyKey:  req.IdempotencyKey + "_margin",
 					CreatedAt:       time.Now(),
+					// Legacy-путь (unified до commit-on-submit): всё в pool.
+					ChargeMode:      domain.ChargeModePool,
+					PoolSegments:    req.SegmentCount,
+					OverageSegments: 0,
 				}
 				if err := d.marginLogRepo.Create(ctx, entry); err != nil {
 					log.Error().Err(err).Msg("unified: margin log create failed")
