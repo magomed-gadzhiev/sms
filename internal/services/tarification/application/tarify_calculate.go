@@ -11,11 +11,26 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
 
+// RejectionCode — устойчивый к wording enum для маппинга approved=false в
+// CommitChargeResult. Предпочитается substring-матчингу по RejectionReason.
+type RejectionCode string
+
+const (
+	RejectionCodeNone                RejectionCode = ""
+	RejectionCodeNoTariffPlan        RejectionCode = "no_tariff_plan"
+	RejectionCodeNoPeriod            RejectionCode = "no_period"
+	RejectionCodeNoTiers             RejectionCode = "no_tiers"
+	RejectionCodeQuotaServiceMissing RejectionCode = "quota_service_missing"
+	RejectionCodeQuotaNotConfigured  RejectionCode = "quota_not_configured"
+	RejectionCodeInsufficientBalance RejectionCode = "insufficient_balance"
+)
+
 // CalculateResult содержит всё, что нужно для CommitCharge и отдачи клиенту.
 // Заполняется read-only методом Calculate — никаких UPDATE/INSERT в БД.
 type CalculateResult struct {
 	Approved        bool
 	RejectionReason string
+	RejectionCode   RejectionCode
 
 	// Для direct-клиента (IsDirect=true):
 	IsDirect       bool
@@ -34,9 +49,12 @@ type CalculateResult struct {
 	OverageSegments int
 	ChargeMode      string // ChargeModePool | ChargeModeOverage | ChargeModeSplit
 
-	// Общее:
+	// Общее (необходимо для CommitCharge: tarification_log, usage counter, recalc):
 	Strategy         string
 	TariffPlanID     string
+	PeriodID         uuid.UUID
+	Category         domain.SenderCategory
+	PricePerSegment  string // платформенный effective price per segment (для tarification_log)
 	ThresholdCrossed bool
 	RecalcAmount     string
 }
@@ -106,6 +124,7 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 	if err != nil {
 		return &CalculateResult{
 			Approved:        false,
+			RejectionCode:   RejectionCodeNoTariffPlan,
 			RejectionReason: domain.ErrNoActiveTariffPlan.Error(),
 		}, nil
 	}
@@ -116,6 +135,7 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 	if err != nil {
 		return &CalculateResult{
 			Approved:        false,
+			RejectionCode:   RejectionCodeNoPeriod,
 			RejectionReason: domain.ErrNoActivePeriod.Error(),
 		}, nil
 	}
@@ -128,6 +148,7 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 	if len(tiers) == 0 {
 		return &CalculateResult{
 			Approved:        false,
+			RejectionCode:   RejectionCodeNoTiers,
 			RejectionReason: "no tiers configured for active period",
 		}, nil
 	}
@@ -172,6 +193,9 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 			SegmentCount:     req.SegmentCount,
 			Strategy:         string(plan.Strategy),
 			TariffPlanID:     plan.ID.String(),
+			PeriodID:         period.ID,
+			Category:         category,
+			PricePerSegment:  result.PricePerSegment,
 			ThresholdCrossed: result.ThresholdCrossed,
 			RecalcAmount:     result.RecalcAmount,
 		}, nil
@@ -181,6 +205,7 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 	if s.quotaService == nil {
 		return &CalculateResult{
 			Approved:        false,
+			RejectionCode:   RejectionCodeQuotaServiceMissing,
 			RejectionReason: "quota service not configured",
 		}, nil
 	}
@@ -192,6 +217,7 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 		// В commit-on-submit flow это эквивалент QUOTA_NOT_CONFIGURED.
 		return &CalculateResult{
 			Approved:        false,
+			RejectionCode:   RejectionCodeQuotaNotConfigured,
 			RejectionReason: "quota not configured",
 			AggregatorID:    aggregatorID,
 			OperatorID:      req.OperatorID,
@@ -247,6 +273,9 @@ func (s *TarificationService) Calculate(ctx context.Context, req *TarifyMessageR
 		ChargeMode:       chargeMode,
 		Strategy:         string(plan.Strategy),
 		TariffPlanID:     plan.ID.String(),
+		PeriodID:         period.ID,
+		Category:         category,
+		PricePerSegment:  result.PricePerSegment,
 		ThresholdCrossed: result.ThresholdCrossed,
 		RecalcAmount:     result.RecalcAmount,
 	}, nil

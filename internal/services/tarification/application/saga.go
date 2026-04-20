@@ -153,6 +153,35 @@ func (s *SagaOrchestrator) ChargeDual(
 	}, nil
 }
 
+// DualChargeAtomicResult результат атомарного двойного списания через billing.ChargeMessageDual.
+type DualChargeAtomicResult struct {
+	Committed      bool
+	SubAccountTxID string
+	AggregatorTxID string
+	MarginLogID    string
+	Error          billingv1.ChargeMessageDualError
+}
+
+// ChargeDualAtomic вызывает billing.ChargeMessageDual — атомарная транзакция
+// (списание с субаккаунта + агрегатора + запись margin_log в одной БД-транзакции).
+// Используется CommitCharge в commit-on-submit flow.
+func (s *SagaOrchestrator) ChargeDualAtomic(
+	ctx context.Context,
+	req *billingv1.ChargeMessageDualRequest,
+) (*DualChargeAtomicResult, error) {
+	resp, err := s.billingClient.ChargeMessageDual(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("billing ChargeMessageDual failed: %w", err)
+	}
+	return &DualChargeAtomicResult{
+		Committed:      resp.Committed,
+		SubAccountTxID: resp.SubAccountTxId,
+		AggregatorTxID: resp.AggregatorTxId,
+		MarginLogID:    resp.MarginLogId,
+		Error:          resp.Error,
+	}, nil
+}
+
 // HandleRecalc обрабатывает пересчёт при переходе порога
 func (s *SagaOrchestrator) HandleRecalc(ctx context.Context, clientID, recalcAmount, currency string) (*ChargeResult, error) {
 	amount, _, err := big.ParseFloat(recalcAmount, 10, 128, big.ToNearestEven)
