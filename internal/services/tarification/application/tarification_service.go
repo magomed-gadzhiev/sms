@@ -39,6 +39,17 @@ type TarificationService struct {
 	unifiedEnabled bool
 	rollout        *Rollout
 	unifiedDeps    *unifiedDeps
+
+	// Phase 2 commit-on-submit feature flag. При true TarifyMessage делегирует
+	// в read-only Calculate (фактическое списание — в CommitCharge). False —
+	// legacy путь со списанием внутри TarifyMessage.
+	commitOnSubmitEnabled bool
+}
+
+// SetCommitOnSubmitEnabled включает/выключает commit-on-submit flow.
+// Вызывается из main.go при инициализации под cfg.Tarification.CommitOnSubmitEnabled.
+func (s *TarificationService) SetCommitOnSubmitEnabled(enabled bool) {
+	s.commitOnSubmitEnabled = enabled
 }
 
 // NewTarificationService создает новый сервис тарификации
@@ -141,6 +152,54 @@ type TarifyMessageResponse struct {
 	RejectionReason  string
 	ThresholdCrossed bool
 	RecalcAmount     string
+
+	// Phase 2 dual-charge поля — заполняются при commit_on_submit_enabled=true
+	// через Calculate. В legacy flow остаются пустыми.
+	AggregatorID    string
+	OperatorID      string
+	SubAccountPrice string
+	AggregatorPrice string
+	SubAccountTotal string
+	AggregatorTotal string
+	SegmentCount    int32
+	PoolSegments    int32
+	OverageSegments int32
+	ChargeMode      string
+}
+
+// calcResultToResponse маппит read-only CalculateResult в TarifyMessageResponse.
+// TotalAmount выбирается по типу клиента: PlatformAmount для direct, SubAccountTotal
+// для субаккаунта (это то, что списывалось бы с клиентского баланса в legacy flow).
+func calcResultToResponse(c *CalculateResult) *TarifyMessageResponse {
+	resp := &TarifyMessageResponse{
+		Approved:         c.Approved,
+		Currency:         c.Currency,
+		Strategy:         c.Strategy,
+		TariffPlanID:     c.TariffPlanID,
+		RejectionReason:  c.RejectionReason,
+		ThresholdCrossed: c.ThresholdCrossed,
+		RecalcAmount:     c.RecalcAmount,
+		SubAccountPrice:  c.SubAccountPrice,
+		AggregatorPrice:  c.AggregatorPrice,
+		SubAccountTotal:  c.SubAccountTotal,
+		AggregatorTotal:  c.AggregatorTotal,
+		SegmentCount:     int32(c.SegmentCount),
+		PoolSegments:     int32(c.PoolSegments),
+		OverageSegments:  int32(c.OverageSegments),
+		ChargeMode:       c.ChargeMode,
+	}
+	if c.AggregatorID != uuid.Nil {
+		resp.AggregatorID = c.AggregatorID.String()
+	}
+	if c.OperatorID != uuid.Nil {
+		resp.OperatorID = c.OperatorID.String()
+	}
+	if c.IsDirect {
+		resp.TotalAmount = c.PlatformAmount
+	} else {
+		resp.TotalAmount = c.SubAccountTotal
+	}
+	return resp
 }
 
 // TarifyMessage тарифицирует сообщение при отправке
@@ -179,6 +238,19 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 			Strategy:     string(existing.Strategy),
 			TariffPlanID: tariffPlanID,
 		}, nil
+	}
+
+	// Phase 2 commit-on-submit gate. При включённом флаге TarifyMessage
+	// делегирует read-only Calculate — без списания с баланса и без записи
+	// в tarification_log. Фактический charge выполняется в CommitCharge на
+	// следующем этапе pipeline. Legacy flow (unified + main branch) не
+	// затрагивается — при false поведение идентично прежнему.
+	if s.commitOnSubmitEnabled {
+		calc, err := s.Calculate(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return calcResultToResponse(calc), nil
 	}
 
 	// Phase 3 unified gate. Active only if unified_enabled=true AND rollout

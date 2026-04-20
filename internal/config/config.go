@@ -33,6 +33,10 @@ type TarificationConfig struct {
 	TiersCacheSize           int  `mapstructure:"tiers_cache_size"`
 	JanitorIntervalSeconds   int  `mapstructure:"janitor_interval_seconds"`
 	AggregatorCacheTTLSec    int  `mapstructure:"aggregator_cache_ttl_sec"`
+	// CommitOnSubmitEnabled — Phase 2 dual-charge feature flag. При true
+	// TarifyMessage делегирует read-only Calculate (без списания), фактическое
+	// списание происходит в CommitCharge. По умолчанию false — legacy flow.
+	CommitOnSubmitEnabled bool `mapstructure:"commit_on_submit_enabled"`
 }
 
 // ServiceConfig представляет конфигурацию сервиса
@@ -406,6 +410,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("tarification.tiers_cache_size", 1024)
 	v.SetDefault("tarification.janitor_interval_seconds", 30)
 	v.SetDefault("tarification.aggregator_cache_ttl_sec", 300)
+	v.SetDefault("tarification.commit_on_submit_enabled", false)
 }
 
 // validate валидирует конфигурацию

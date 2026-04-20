@@ -164,6 +164,10 @@ func main() {
 	aggMarginLogRepo := tarificationrepo.NewAggregatorMarginLogRepository(dbx)
 	tarificationService.SetAggregatorRepos(clientInfoRepo, aggTariffRepo, aggMarginLogRepo)
 
+	// Phase 2 commit-on-submit флаг. При false — legacy flow (списание в TarifyMessage).
+	// При true — TarifyMessage только считает (read-only), списание в CommitCharge.
+	tarificationService.SetCommitOnSubmitEnabled(cfg.Tarification.CommitOnSubmitEnabled)
+
 	// Phase 1 unified pricing model. Под фича-флагом. Горячий путь по-прежнему
 	// использует legacy пока флаг OFF; этот блок только инициализирует компоненты
 	// и проверяет инварианты. См. docs/superpowers/specs/2026-04-18-unified-pricing-model-design.md

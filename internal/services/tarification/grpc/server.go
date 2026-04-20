@@ -96,6 +96,18 @@ func (s *Server) TarifyMessage(ctx context.Context, req *tarificationv1.TarifyMe
 		RejectionReason:  result.RejectionReason,
 		ThresholdCrossed: result.ThresholdCrossed,
 		RecalcAmount:     result.RecalcAmount,
+		// Phase 2 dual-charge поля — пустые/нулевые в legacy flow,
+		// заполняются когда commit_on_submit_enabled=true.
+		AggregatorId:    result.AggregatorID,
+		OperatorId:      result.OperatorID,
+		SubAccountPrice: result.SubAccountPrice,
+		AggregatorPrice: result.AggregatorPrice,
+		SubAccountTotal: result.SubAccountTotal,
+		AggregatorTotal: result.AggregatorTotal,
+		SegmentCount:    result.SegmentCount,
+		PoolSegments:    result.PoolSegments,
+		OverageSegments: result.OverageSegments,
+		ChargeMode:      result.ChargeMode,
 	}, nil
 }
 
