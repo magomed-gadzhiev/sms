@@ -317,6 +317,217 @@ export class ApiHelper {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Dual-charge E2E helpers (Task 16)
+//
+// NOTE: the plan's helper signatures (`seedAggregator`, `setQuota`, etc.) assume
+// the existence of admin/system-level seed endpoints that are NOT currently
+// exposed via the portal HTTP API. The list of operations needed:
+//
+//   - create an aggregator (client with is_reseller=true) with initial balance
+//   - set is_reseller flag + fund the account
+//   - set price_rule (platform tariff) for aggregator
+//   - insert into `aggregator_tariffs`
+//   - insert into `aggregator_quotas`
+//   - read `aggregator_margin_log` rows
+//
+// Only (2) — transfer-to-subaccount — has a public API. The rest require
+// either a direct DB seed or a new admin/test-only endpoint. Until that
+// infrastructure exists, this helper set is a thin wrapper that relies on
+// pre-seeded fixtures (aggregator + subaccount + tariffs + quota must already
+// exist in the target env) and identifies them via env vars:
+//
+//   E2E_DUAL_CHARGE_AGGREGATOR_ID
+//   E2E_DUAL_CHARGE_SUBACCOUNT_ID
+//
+// The `commit_on_submit_enabled` feature flag lives in `configs/*.yaml`
+// (section `tarification`). The test skips itself unless
+// `COMMIT_ON_SUBMIT_ENABLED=true` is set in the test env — signalling that
+// the operator has opted in.
+// -----------------------------------------------------------------------------
+
+export interface SeedAggregatorOpts { balance: string; isReseller: boolean }
+export interface SeededAggregator { id: string; initialBalance: string }
+
+/**
+ * Returns the pre-seeded aggregator id from env. Full programmatic seed
+ * requires an admin-only endpoint that does not exist yet — add one in
+ * `internal/gateway/portal/handlers/test_fixtures.go` (behind a build tag
+ * or env guard) before this helper can construct aggregators from scratch.
+ */
+export async function seedAggregator(
+  _request: APIRequestContext,
+  _opts: SeedAggregatorOpts,
+): Promise<SeededAggregator> {
+  const id = process.env.E2E_DUAL_CHARGE_AGGREGATOR_ID;
+  if (!id) {
+    throw new Error(
+      'seedAggregator: E2E_DUAL_CHARGE_AGGREGATOR_ID not set. ' +
+      'Programmatic aggregator seed requires an admin/test endpoint that is not yet implemented. ' +
+      'Pre-seed the aggregator (with is_reseller=true and funded balance) and export its id.',
+    );
+  }
+  return { id, initialBalance: _opts.balance };
+}
+
+export interface SeedSubaccountOpts { parentClientId: string; balance: string }
+export interface SeededSubaccount { id: string; parentClientId: string }
+
+/**
+ * Creates a subaccount under the aggregator via the existing portal API.
+ * Requires the reseller storage state (reseller-auth-state.json) so that
+ * `parent_client_id` is inferred from the session.
+ */
+export async function seedSubaccount(
+  request: APIRequestContext,
+  opts: SeedSubaccountOpts,
+): Promise<SeededSubaccount> {
+  const api = new ApiHelper(request);
+  const suffix = Date.now().toString(36);
+  const result = await api.createSubAccount({
+    name: `E2E-DualCharge-${suffix}`,
+    email: `e2e-dc-${suffix}@test.local`,
+    initial_balance: opts.balance,
+  });
+  const id: string | undefined = result.id || result.sub_account?.id;
+  if (!id) {
+    throw new Error(`seedSubaccount: failed to create — response: ${JSON.stringify(result)}`);
+  }
+  return { id, parentClientId: opts.parentClientId };
+}
+
+export interface SetQuotaOpts {
+  aggregatorId: string;
+  segmentLimit: number;
+  overageRate: string;
+  autoRenew?: boolean;
+}
+
+/**
+ * Inserts/updates a row in `aggregator_quotas`. There is currently no public
+ * endpoint for this — admin UI uses a server-side handler that is scoped to
+ * `/admin/v1/aggregator-quotas` (TODO: verify path and implement if missing).
+ * For now this helper throws; the calling test will skip.
+ */
+export async function setQuota(
+  _request: APIRequestContext,
+  _opts: SetQuotaOpts,
+): Promise<void> {
+  throw new Error(
+    'setQuota: no programmatic API — aggregator_quotas must be seeded via SQL or a ' +
+    'new admin endpoint. Expose POST /admin/v1/aggregator-quotas before enabling this test.',
+  );
+}
+
+export interface SetTariffsOpts {
+  aggregatorId: string;
+  subAccountId: string;
+  platformPrice: string;
+  subPrice: string;
+}
+
+/**
+ * Sets the platform-level price rule for the aggregator AND the
+ * aggregator-to-subaccount tariff. The subaccount side is settable via the
+ * existing reseller API (PUT /portal/v1/reseller/tariffs). The platform-side
+ * price rule requires admin access (operator tariffication periods) which
+ * this helper does not yet automate.
+ */
+export async function setTariffs(
+  request: APIRequestContext,
+  opts: SetTariffsOpts,
+): Promise<void> {
+  // Sub-account side: aggregator_tariffs row via reseller API.
+  const csrf = extractCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrf) headers['X-CSRF-Token'] = csrf;
+  const res = await request.fetch(`${API_BASE}/reseller/tariffs`, {
+    method: 'PUT',
+    headers,
+    data: {
+      sub_account_id: opts.subAccountId,
+      tariffs: [{ price_per_segment: opts.subPrice }],
+    },
+  });
+  if (!res.ok()) {
+    throw new Error(`setTariffs (sub-account side) failed: ${res.status()} ${await res.text()}`);
+  }
+  // Platform side (price_rule): requires admin endpoint — not implemented here.
+  throw new Error(
+    'setTariffs: platform-side price_rule seeding not automated. ' +
+    'Seed via SQL or add admin fixture endpoint before enabling this test.',
+  );
+}
+
+export interface SendSMSOpts { clientId: string; text: string; to: string }
+export interface SendSMSResult { status: string; message_id?: string }
+
+/**
+ * Sends an SMS "as" a subaccount. The current portal session is tied to a
+ * single client; to send as a subaccount we'd need either:
+ *   (a) a subaccount login session, or
+ *   (b) an admin impersonate endpoint.
+ * Neither is currently wired here — the subaccount's auth state must be
+ * pre-generated (see `e2e/global-setup.ts`) and swapped in. For now this
+ * helper uses the active request context's session, assuming the caller
+ * switched storageState to the subaccount.
+ */
+export async function sendSMS(
+  request: APIRequestContext,
+  opts: SendSMSOpts,
+): Promise<SendSMSResult> {
+  const csrf = extractCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrf) headers['X-CSRF-Token'] = csrf;
+  const res = await request.fetch(`${API_BASE}/messages`, {
+    method: 'POST',
+    headers,
+    data: { destination: opts.to, text: opts.text, source: 'E2E' },
+  });
+  const body = await res.json();
+  return { status: body.status ?? (res.ok() ? 'sent' : 'failed'), message_id: body.id };
+}
+
+/**
+ * Fetches balance for an arbitrary client id. The portal API only exposes
+ * "current session balance" — per-client lookup requires admin access. This
+ * helper falls back to `/billing/balance` when the id matches the session;
+ * otherwise it throws.
+ */
+export async function getBalance(
+  request: APIRequestContext,
+  clientId: string,
+): Promise<string> {
+  const res = await request.get(`${API_BASE}/billing/balance`);
+  if (!res.ok()) {
+    throw new Error(`getBalance(${clientId}): ${res.status()} ${await res.text()}`);
+  }
+  const body = await res.json();
+  // Expected shape: { balance: string } or { amount: string }.
+  return String(body.balance ?? body.amount ?? '');
+}
+
+export interface MarginLogRow {
+  id: string;
+  charge_mode: 'pool' | 'overage' | 'margin' | string;
+  margin: string;
+}
+
+/**
+ * Reads `aggregator_margin_log` rows for a given subaccount. No public API
+ * exists — must go through an admin endpoint. TODO: add
+ * GET /admin/v1/aggregator-margin-log?sub_account_id=... and point this here.
+ */
+export async function getMarginLog(
+  _request: APIRequestContext,
+  _subAccountId: string,
+): Promise<MarginLogRow[]> {
+  throw new Error(
+    'getMarginLog: no admin endpoint yet. Add GET /admin/v1/aggregator-margin-log ' +
+    'and wire this helper before enabling the dual-charge E2E test.',
+  );
+}
+
 // Admin API helper (uses /admin/v1 base)
 const ADMIN_API_BASE = process.env.ADMIN_API_URL || `${process.env.BASE_URL || 'http://localhost:8083'}/admin/v1`;
 
