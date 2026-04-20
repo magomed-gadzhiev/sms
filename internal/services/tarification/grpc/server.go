@@ -111,6 +111,60 @@ func (s *Server) TarifyMessage(ctx context.Context, req *tarificationv1.TarifyMe
 	}, nil
 }
 
+// CommitCharge применяет ранее рассчитанное списание после успешного SUBMIT к провайдеру.
+// Идемпотентно по message_id / idempotency_key. Вызывается pipeline'ом при
+// commit_on_submit_enabled=true.
+func (s *Server) CommitCharge(ctx context.Context, req *tarificationv1.CommitChargeRequest) (*tarificationv1.CommitChargeResponse, error) {
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid message_id: %v", err)
+	}
+	clientID, err := uuid.Parse(req.ClientId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+	operatorID, err := uuid.Parse(req.OperatorId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
+	}
+
+	result, err := s.tarificationService.CommitCharge(ctx, &application.CommitChargeRequest{
+		MessageID:      messageID,
+		ClientID:       clientID,
+		OperatorID:     operatorID,
+		SenderName:     req.SenderName,
+		SegmentCount:   int(req.SegmentCount),
+		IdempotencyKey: req.IdempotencyKey,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("commit charge failed")
+		return nil, status.Errorf(codes.Internal, "commit charge failed: %v", err)
+	}
+
+	resp := &tarificationv1.CommitChargeResponse{
+		Committed:      result.Committed,
+		SubAccountTxId: result.SubAccountTxID,
+		AggregatorTxId: result.AggregatorTxID,
+		MarginLogId:    result.MarginLogID,
+	}
+	switch {
+	case result.AlreadyCommitted:
+		// Идемпотентный re-entry: для клиента это успех, такой же контракт
+		// как в billing.ChargeMessageDual handler — см. billing/grpc/server.go.
+		resp.Committed = true
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_ALREADY_COMMITTED
+	case result.QuotaMissing:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_QUOTA_NOT_CONFIGURED
+	case result.SubInsufficient:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT
+	case result.AggInsufficient:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR
+	case result.NoTariff:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_NO_TARIFF
+	}
+	return resp, nil
+}
+
 // CreateSenderRegistration создает регистрацию имени отправителя
 func (s *Server) CreateSenderRegistration(ctx context.Context, req *tarificationv1.CreateSenderRegistrationRequest) (*tarificationv1.SenderRegistration, error) {
 	clientID, err := uuid.Parse(req.ClientId)
