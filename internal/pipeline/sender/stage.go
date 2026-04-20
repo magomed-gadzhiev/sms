@@ -48,6 +48,11 @@ type Stage struct {
 	clientRepo         *storage.ClientRepository
 	cfg                *config.Config
 	logger             zerolog.Logger
+	// commitOnSubmitEnabled — Phase 2 dual-charge flag. При true TarifyMessage
+	// работает read-only, фактическое списание делается через CommitCharge RPC
+	// после успешного SUBMIT на провайдер. При false — legacy flow (списание
+	// в TarifyMessage, рефанд при окончательном провале).
+	commitOnSubmitEnabled bool
 }
 
 // NewStage создает новый Sender stage pipeline.
@@ -231,21 +236,22 @@ func NewStage(cfg *config.Config, db *storage.DB, rdb *redis.Client) (*Stage, er
 	}
 
 	return &Stage{
-		consumer:           consumer,
-		producer:           producer,
-		pool:               pool,
-		senderFactory:      senderFactory,
-		bpManager:          bpManager,
-		providerRepo:       providerRepo,
-		limitResolver:      limitResolver,
-		tarificationClient: tarificationClient,
-		billingClient:      billingClient,
-		tarificationConn:   tarificationGRPCConn,
-		billingConn:        billingGRPCConn,
-		defaultOperatorID:  defaultOperatorID,
-		clientRepo:         clientRepo,
-		cfg:                cfg,
-		logger:             logger,
+		consumer:              consumer,
+		producer:              producer,
+		pool:                  pool,
+		senderFactory:         senderFactory,
+		bpManager:             bpManager,
+		providerRepo:          providerRepo,
+		limitResolver:         limitResolver,
+		tarificationClient:    tarificationClient,
+		billingClient:         billingClient,
+		tarificationConn:      tarificationGRPCConn,
+		billingConn:           billingGRPCConn,
+		defaultOperatorID:     defaultOperatorID,
+		clientRepo:            clientRepo,
+		cfg:                   cfg,
+		logger:                logger,
+		commitOnSubmitEnabled: cfg.Tarification.CommitOnSubmitEnabled,
 	}, nil
 }
 
@@ -325,6 +331,9 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	}
 
 	var chargedAmount, chargedCurrency string
+	// tarifyReq сохраняется для последующего вызова CommitCharge (Phase 2 dual-charge).
+	var tarifyReq *tarificationv1.TarifyMessageRequest
+	var tarifyApproved bool
 	if s.tarificationClient != nil && routedMsg.ClientID != nil {
 		segments := shared.SplitMessage(routedMsg.Text)
 		segCount := int32(len(segments))
@@ -335,15 +344,16 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		if routedMsg.OperatorID != nil {
 			operatorID = routedMsg.OperatorID.String()
 		}
-		tarifyCtx, tarifyCancel := context.WithTimeout(ctx, 5*time.Second)
-		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(tarifyCtx, &tarificationv1.TarifyMessageRequest{
+		tarifyReq = &tarificationv1.TarifyMessageRequest{
 			ClientId:       routedMsg.ClientID.String(),
 			MessageId:      routedMsg.MessageID.String(),
 			OperatorId:     operatorID,
 			SenderName:     routedMsg.Source,
 			SegmentCount:   segCount,
 			IdempotencyKey: routedMsg.MessageID.String(),
-		})
+		}
+		tarifyCtx, tarifyCancel := context.WithTimeout(ctx, 5*time.Second)
+		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(tarifyCtx, tarifyReq)
 		tarifyCancel()
 		if tarifyErr != nil {
 			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "error").
@@ -362,12 +372,14 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 			return nil
 		}
 		if tarifyResp != nil {
+			tarifyApproved = true
 			chargedAmount = tarifyResp.TotalAmount
 			chargedCurrency = tarifyResp.Currency
 			trace.Debug(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "approved").
 				Str("amount", chargedAmount).
 				Str("currency", chargedCurrency).
 				Int32("segments", segCount).
+				Bool("commit_on_submit", s.commitOnSubmitEnabled).
 				Msg("tarification approved")
 		}
 
@@ -421,8 +433,44 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		usedConnID = conn.ID
 	}
 
-	// 6b. Рефанд при окончательном провале (все retry исчерпаны).
-	if sendErr != nil && routedMsg.RetryCount >= routedMsg.MaxRetries {
+	// 6a. Phase 2 dual-charge: CommitCharge после успешной отправки.
+	// При флаге ON TarifyMessage работал read-only — списания ещё не было.
+	// CommitCharge идемпотентен (по MessageId): повторные вызовы при retry
+	// безопасны. Ошибка CommitCharge не прерывает pipeline — сообщение уже
+	// ушло, финансы синхронизируются retry-worker'ом (вне scope Task 14).
+	if s.commitOnSubmitEnabled && sendErr == nil && tarifyApproved && tarifyReq != nil && s.tarificationClient != nil {
+		commitCtx, commitCancel := context.WithTimeout(ctx, 10*time.Second)
+		_, commitErr := s.tarificationClient.CommitCharge(commitCtx, &tarificationv1.CommitChargeRequest{
+			MessageId:      tarifyReq.MessageId,
+			ClientId:       tarifyReq.ClientId,
+			OperatorId:     tarifyReq.OperatorId,
+			SenderName:     tarifyReq.SenderName,
+			SegmentCount:   tarifyReq.SegmentCount,
+			IdempotencyKey: tarifyReq.IdempotencyKey,
+		})
+		commitCancel()
+		if commitErr != nil {
+			s.logger.Error().Err(commitErr).
+				Str("message_id", routedMsg.MessageID.String()).
+				Str("client_id", tarifyReq.ClientId).
+				Str("operator_id", tarifyReq.OperatorId).
+				Int32("segments", tarifyReq.SegmentCount).
+				Msg("CommitCharge failed after successful send — message uncharged pending retry")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "commit_charge_error").Inc()
+		} else {
+			trace.Debug(s.logger, traceID, routedMsg.MessageID.String(), "sender.commit", "ok").
+				Str("client_id", tarifyReq.ClientId).
+				Str("amount", chargedAmount).
+				Str("currency", chargedCurrency).
+				Msg("CommitCharge applied")
+		}
+	}
+
+	// 6b. Legacy refund при окончательном провале (все retry исчерпаны).
+	// При commitOnSubmitEnabled=true рефанд НЕ нужен: TarifyMessage был
+	// read-only, CommitCharge при sendErr != nil не вызывался, ничего не
+	// списано.
+	if sendErr != nil && routedMsg.RetryCount >= routedMsg.MaxRetries && !s.commitOnSubmitEnabled {
 		if s.billingClient != nil && routedMsg.ClientID != nil && chargedAmount != "" {
 			refundCtx, refundCancel := context.WithTimeout(ctx, 5*time.Second)
 			_, refundErr := s.billingClient.AddCredits(refundCtx, &billingv1.AddCreditsRequest{
