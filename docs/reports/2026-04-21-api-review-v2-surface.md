@@ -205,7 +205,30 @@ All five services use **request-field transport** for tenant context (`client_id
 
 ### F1. R1 — cmd/api legacy status
 
-_TODO: Task 6_
+**Deployment signals:**
+- docker-compose: `deployments/docker-compose.yml` has NO service referencing `cmd/api` or `api.Dockerfile`. All gateways deployed are `client-gateway` (×2), `admin-gateway` (×2), `portal-gateway`, plus `smpp-gateway`, `worker`, `pipeline-*`, and domain microservices. `cmd/api` is absent.
+- deploy/k8s/helm: no such directories exist in the repo.
+- scripts/server.sh: no reference to `cmd/api` or `api-gateway` binary.
+- Dockerfile: `deployments/docker/api.Dockerfile` exists and builds `./cmd/api` into binary `api` — but this Dockerfile is **not referenced by docker-compose.yml** and thus never executed in any known deployment.
+
+**CI signals:**
+`.github/workflows/ci.yml` runs `go build ./...` (compiles all packages including `cmd/api`) and `go test -count=1 -short ./...`. There are **no service-specific build/push steps** — CI is a monorepo build, not a per-binary Docker publish. No image is built or pushed for `cmd/api` in CI; same applies to `cmd/client-gateway`.
+
+**Git activity (last ~2.5 months, since 2026-02-01):**
+- cmd/api: 2 commits
+- cmd/client-gateway: 11 commits
+- internal/api: 22 commits
+- internal/gateway/client: 31 commits
+
+**Code signals in cmd/api:**
+`cmd/api/main.go` (224 lines) is a fully functional server — initialises DB, Redis, Kafka, registers HTTP and gRPC handlers, runs graceful shutdown. There are **no TODO/FIXME/deprecated comments** anywhere in the file. The binary calls itself `api-gateway` in logging. It uses `internal/api/` packages (the monolith API layer), not `internal/gateway/client/` (the microservice layer).
+
+The 2 recent commits to `cmd/api` (0678d9b, 1c0c2e8) added gRPC tracing and tenant-aware logging middleware — active feature work, not removal or deprecation notices.
+
+**Verdict:** legacy NOT confirmed with full certainty. `cmd/api` is absent from all deployment configs and `scripts/server.sh`, which is strong evidence it is not running in the current production stack. However it is receiving active feature commits (2 in last 2.5 months vs 11 for `cmd/client-gateway`), has no deprecation markers, and its Dockerfile exists and is buildable. It looks like a parallel/legacy binary that is no longer deployed but has not been formally retired or marked deprecated.
+
+**Impact on review scope:**
+The umbrella scope (Cycle 1 = `cmd/client-gateway` + `internal/gateway/client/`; Cycle 2 = `cmd/admin-gateway` + `internal/gateway/admin/`) stands because `cmd/api` is not deployed. However the existence of active commits to `cmd/api` and `internal/api/` (22 commits) without a deprecation notice is a latent risk: a future developer could deploy the old binary by mistake, or the `internal/api/` layer could silently diverge. Recommended follow-up (out of scope for Cycle 1/2): add a `//go:build ignore` or `// Deprecated:` comment to `cmd/api/main.go` and remove `deployments/docker/api.Dockerfile` to prevent accidental deployment.
 
 ### F2. B1 — Integration test infrastructure
 
