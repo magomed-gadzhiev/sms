@@ -2,7 +2,7 @@
 
 **Snapshot date:** 2026-04-21
 **Spec:** `docs/superpowers/specs/2026-04-21-api-review-v2-umbrella.md`
-**Revision (master HEAD):** <ХЭШ> — заполнить в Task 8
+**Revision:** branch `review/api-v2-phase-0`, последний inventory-коммит `df64b30` (B1/B2/B3 re-check). База от master — коммит `189a305` (план Phase 0).
 
 ## 1. HTTP Endpoints (cmd/client-gateway)
 
@@ -320,4 +320,47 @@ The conflation is present in both `ValidateToken` (line 56: `clientID = resp.Use
 
 ## 6. Go/no-go для циклов 1/2/3
 
-_TODO: Task 8_
+### Cycle 1 (Contract: A1, A1-grpc, A2, A3) — **GO**
+
+**Обоснование:**
+- R1 закрыт (F1): `cmd/api` не deployed (docker-compose не ссылается), скоуп ревью стоит.
+- Latent risk: `internal/api/` получил 22 коммита за 2.5 месяца без деплоя. Formal retirement — рекомендуется отдельным планом, но Cycle 1 не блокирует.
+- B1-B3 не влияют на контрактный цикл.
+
+**Предупредительные находки для Cycle 1:**
+- **A1-grpc:** `CancelMessage` и `ListScheduledMessages` есть в HTTP, gRPC возвращает `codes.Unimplemented`. Методы `GetBalance`/`GetStatistics` в `server.go` используют чужие proto-типы, нигде не зарегистрированы — мёртвый код.
+- **A1/A1-grpc:** Нет `.proto` source files для `messagingv1` — только сгенерированные `.pb.go`. Контракт де-факто нельзя эволюционировать вручную.
+- **A2:** Cascade-хендлеры возвращают proto-response напрямую через `respondJSON`, остальные — собранный `inline map`. Консистентность envelope'а отсутствует.
+- **A3:** Idempotency-Key middleware не обнаружен по inventory. Проверить Phase 1 Cycle 1.
+
+### Cycle 2 (SMPP + tenant-glue: A6, A7) — **GO с оговоркой**
+
+**Обоснование:**
+- R1 закрыт.
+- B2 (AuthAdapter kludge) формально OPEN, но это сам предмет Cycle 2 (ось A7). Закрывается внутри цикла, не внешний блокер.
+
+**Критические находки для Cycle 2:**
+- **A6-auth (CRITICAL):** SMPP password полностью игнорируется в `AuthenticateBySystemID` — авторизация только по `system_id` как API-ключу. Кто знает валидный system_id — биндится с любым паролем. Severity=critical. Требует отдельного security-fix плана, не inline-фикса.
+- **A6-dlr:** `deliver_sm` не различает MO и DLR (`esm_class & 0x04` не проверяется, `receipted_message_id` не читается). DLR, приходящие по SMPP-линку, тихо роутятся как MO.
+- **A6-tlv:** **Zero Tag-констант** в `internal/smpp/protocol/`. TLV обрабатываются как `map[uint16][]byte`, из submit_sm никогда не читаются. Массовая дыра контракта.
+- **A6-submit-ext:** `submit_multi_sm` и `data_sm` объявлены, но падают в `generic_nack`.
+- **A6-ops:** `query_sm`/`cancel_sm`/`replace_sm` — null-guard на `messageRepo`: если БД не подключена, silent failure вместо startup-error.
+- **A7:** Нет ни одного metadata-based client_id в топ-5 gRPC. Все через request field.
+- **A7:** `cascadev1.ChannelAdminService` и `StrategyAdminService` содержат 12 RPC без client_id. Должны быть защищены gateway-уровнем — проверить.
+- **A7:** `tarificationv1` (27 RPC) смешивает hot-path / client-facing / admin-global в одном сервисе. Риск неправильного gateway-gating.
+- **A7:** `billingv1.ChargeMessageDual` использует `sub_account_id`/`aggregator_id` вместо `client_id` — корректно для dual-charge, но требует документации.
+
+### Cycle 3 (Subaccount e2e: C) — **NO-GO**
+
+**Блокеры (все OPEN по F2/F3/F4):**
+
+1. **B1** (F2): CI без postgres/redis, `-tags=integration` не запускается, 0 integration-tagged .go файлов в проекте. C-билинг/visibility/DLR-routing требуют реальных БД-проверок.
+2. **B2** (F3): 3 точки конфлации `ClientID == UserID` в `auth_adapter.go`. SMPP subaccount не получает реальный client_id. Любой тест C-visibility для SMPP субаккаунта будет ложноположительным.
+3. **B3** (F4): Feature flag `tarification.commit_on_submit_enabled = false` по умолчанию. Dual-charge в проде не выполняется. Тесты C-billing/subaccount_parent должны явно включать флаг.
+
+**Требуемые действия до старта Cycle 3:**
+- Мини-план B1-fix: добавить postgres+redis service containers в CI, jobs для `-tags=integration`. Или явный downscope Cycle 3 до unit+fakes (потеря coverage).
+- Дождаться закрытия B2 в рамках Cycle 2 A7 (фактически там же и правится).
+- Решение по B3: либо включить флаг по дефолту (отдельный план), либо зафиксировать в Cycle 3 спеке test setup expectations.
+
+**Status:** NO-GO до закрытия B1 + B2 (через Cycle 2) + явного решения по B3.
