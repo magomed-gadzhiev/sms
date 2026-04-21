@@ -41,7 +41,7 @@ func TestGetTemplateAudit_OwnershipCheck_AllowsOwnTemplate(t *testing.T) {
 		Id:       templateID,
 		ClientId: clientID.String(),
 	}).Return(&templatev1.GetTemplateResponse{
-		Template: &templatev1.Template{Id: templateID, ClientId: clientID.String()},
+		Template: &templatev1.TemplateInfo{Id: templateID, ClientId: clientID.String()},
 	}, nil)
 	client.On("GetTemplateAuditLog", mock.Anything, &templatev1.GetTemplateAuditLogRequest{
 		TemplateId: templateID,
