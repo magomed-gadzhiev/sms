@@ -264,7 +264,7 @@ export function RouteModal({ open, onClose, onSaved, routeId }: RouteModalProps)
           {/* Right: Sidebar preview */}
           <div className="w-56 shrink-0 hidden md:block">
             <div className="sticky top-0 bg-gray-50 rounded-lg p-4 border">
-              <RouteSummary data={form} providerName={providerName} />
+              <RouteSummary data={form} providerName={providerName} operators={operators} />
             </div>
           </div>
         </div>
