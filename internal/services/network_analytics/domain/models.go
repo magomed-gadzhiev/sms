@@ -1,6 +1,29 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// ValidationError marks an error as user-input validation failure, which the gRPC layer
+// translates to codes.InvalidArgument (HTTP 400) rather than codes.Internal (HTTP 500).
+// Used for period × group_by combination checks and similar boundary validations (D-12).
+type ValidationError struct {
+	Msg string
+}
+
+func (e *ValidationError) Error() string { return e.Msg }
+
+// NewValidationError creates a new ValidationError with the given message.
+func NewValidationError(msg string) error {
+	return &ValidationError{Msg: msg}
+}
+
+// IsValidationError reports whether err is (or wraps) a *ValidationError.
+func IsValidationError(err error) bool {
+	var v *ValidationError
+	return errors.As(err, &v)
+}
 
 // Health status constants
 const (

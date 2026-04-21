@@ -241,9 +241,9 @@ test.describe('Network Statistics — Filter Core Behavior', () => {
     await expect(stats.periodPreset('7 дней')).toHaveClass(/bg-blue-50|text-blue-600/);
   });
 
-  test('AC-14 (current code): group_by=5min + 7d period → HTTP 500 Internal (D-12)', async ({ page }) => {
-    // AC-14 правка 2026-04-21 (D-12): validateFilter error обёрнут в codes.Internal,
-    // клиент получает 500 с raw-message, UI показывает generic toast.
+  test('AC-14: group_by=5min + 7d period → HTTP 400 InvalidArgument + localized toast', async ({ page }) => {
+    // D-12 fixed: validateFilter wraps input errors as *domain.ValidationError,
+    // grpc server maps to codes.InvalidArgument → HTTP 400. Message is in Russian.
     const stats = new NetworkStatisticsPage(page);
 
     const statsResponses: number[] = [];
@@ -259,15 +259,13 @@ test.describe('Network Statistics — Filter Core Behavior', () => {
     await stats.groupingSelect().selectOption('5min');
     await stats.applyButton().click();
 
-    // Error toast must appear
     await expect(stats.errorToast()).toBeVisible({ timeout: 5_000 });
 
-    // Last response: 500 (Internal) per D-12. Not 400.
     const lastStatus = statsResponses[statsResponses.length - 1];
-    expect(
-      lastStatus,
-      `Per D-12: validateFilter error → codes.Internal → HTTP 500. Got ${lastStatus}. Fix D-12 to turn this into 400.`,
-    ).toBe(500);
+    expect(lastStatus, `Expected HTTP 400 for validation error after D-12 fix. Got ${lastStatus}.`).toBe(400);
+
+    // Toast contains user-readable Russian message (from ValidationError)
+    await expect(stats.errorToast()).toContainText(/Группировка|период|допустима/i);
   });
 
   test('AC-16: Deep-link with filters applies them on first render', async ({ page }) => {

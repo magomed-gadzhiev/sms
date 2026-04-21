@@ -32,6 +32,9 @@ func (s *Server) GetStatistics(ctx context.Context, req *networkanalyticsv1.Stat
 
 	result, err := s.service.GetStatistics(ctx, filter)
 	if err != nil {
+		if domain.IsValidationError(err) {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
 		return nil, status.Errorf(codes.Internal, "get statistics: %v", err)
 	}
 
@@ -50,6 +53,9 @@ func (s *Server) GetAnalyticsSummary(ctx context.Context, req *networkanalyticsv
 
 	result, err := s.service.GetAnalyticsSummary(ctx, filter)
 	if err != nil {
+		if domain.IsValidationError(err) {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
 		return nil, status.Errorf(codes.Internal, "get analytics summary: %v", err)
 	}
 
@@ -71,6 +77,9 @@ func (s *Server) GetMonitoringMetrics(ctx context.Context, req *networkanalytics
 
 	result, err := s.service.GetMonitoringMetrics(ctx, filter, req.HideHealthy)
 	if err != nil {
+		if domain.IsValidationError(err) {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
 		return nil, status.Errorf(codes.Internal, "get monitoring metrics: %v", err)
 	}
 
