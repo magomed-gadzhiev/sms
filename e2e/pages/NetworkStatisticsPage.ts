@@ -153,4 +153,34 @@ export class NetworkStatisticsPage {
     // The pagination div is the flex with "Страница X из Y" text
     return this.page.locator('div.flex').filter({ hasText: /^Страница\s+\d+\s+из\s+\d+$/ });
   }
+
+  // --- Monitoring mode ---
+
+  // MonitoringKPIGrid: grid-cols-4 container
+  monitoringKpiGrid(): Locator {
+    return this.page.locator('div.grid.grid-cols-4');
+  }
+
+  // MonitoringTable: <table> containing <th>Провайдер</th>
+  monitoringTable(): Locator {
+    return this.page.locator('table').filter({ has: this.page.locator('th', { hasText: 'Провайдер' }) });
+  }
+
+  monitoringTableHeaders(): Locator {
+    return this.monitoringTable().locator('thead th');
+  }
+
+  // Live indicator block (shown only in monitoring mode with pulse dot)
+  liveIndicator(): Locator {
+    return this.page.locator('span', { hasText: /Обновлено\s+\d+\s+сек\.\s+назад/ });
+  }
+
+  // Pause / Resume toggle button (in filter bar, monitoring mode only)
+  pauseButton(): Locator {
+    return this.page.getByRole('button', { name: 'Пауза', exact: true });
+  }
+
+  resumeButton(): Locator {
+    return this.page.getByRole('button', { name: 'Продолжить', exact: true });
+  }
 }
