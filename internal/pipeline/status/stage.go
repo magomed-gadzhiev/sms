@@ -31,6 +31,7 @@ type statusRecord struct {
 	ProviderID    *uuid.UUID
 	OperatorID    *uuid.UUID
 	RouteID       *uuid.UUID
+	Channel       string
 	SubmittedAt   *time.Time
 	UpdatedAt     time.Time
 	SegmentCount  int
@@ -206,6 +207,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 			ProviderID:    providerID,
 			OperatorID:    sent.OperatorID,
 			RouteID:       sent.RouteID,
+			Channel:       sent.Channel,
 			SubmittedAt:   &sent.SentAt,
 			UpdatedAt:     time.Now(),
 			SegmentCount:  sent.SegmentsCount,
@@ -265,6 +267,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 			provider_id UUID,
 			operator_id UUID,
 			route_id UUID,
+			channel TEXT,
 			submitted_at TIMESTAMPTZ,
 			updated_at TIMESTAMPTZ,
 			segment_count INT
@@ -278,7 +281,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"status_batch"},
-		[]string{"id", "status", "smpp_message_id", "provider_id", "operator_id", "route_id", "submitted_at", "updated_at", "segment_count"},
+		[]string{"id", "status", "smpp_message_id", "provider_id", "operator_id", "route_id", "channel", "submitted_at", "updated_at", "segment_count"},
 		pgx.CopyFromSlice(len(records), func(i int) ([]any, error) {
 			r := records[i]
 			return []any{
@@ -288,6 +291,12 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 				r.ProviderID,
 				r.OperatorID,
 				r.RouteID,
+				func() any {
+					if r.Channel == "" {
+						return nil
+					}
+					return r.Channel
+				}(),
 				r.SubmittedAt,
 				r.UpdatedAt,
 				r.SegmentCount,
@@ -306,6 +315,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 			provider_id = COALESCE(s.provider_id, messages.provider_id),
 			operator_id = COALESCE(s.operator_id, messages.operator_id),
 			route_id = COALESCE(s.route_id, messages.route_id),
+			channel = COALESCE(s.channel, messages.channel),
 			submitted_at = COALESCE(s.submitted_at, messages.submitted_at),
 			updated_at = s.updated_at,
 			segment_count = COALESCE(s.segment_count, messages.segment_count)
