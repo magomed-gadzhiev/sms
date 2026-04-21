@@ -597,3 +597,36 @@ Frontend независимо вводит свои пороги для визу
 
 **Статус:** 🟡 OPEN-LOW. Решение — при следующем brainstorm'е по разделу (вместе с Analytics Phase 2).
 
+---
+
+## D-17: Удаление сохранённого view — бэкенд и хук готовы, UI отсутствует
+
+**Обнаружено:** 2026-04-21 при Batch 5 (Saved Views) AC.
+
+**Что в инфраструктуре (готово):**
+- API: [`DELETE /portal/v1/reseller/views/:id`](../../portal-frontend/src/api/networkStats.ts#L219) реализован ([`networkStatsApi.deleteView`](../../portal-frontend/src/api/networkStats.ts#L219)).
+- Backend: [`DeleteView` gRPC handler](../../internal/services/network_analytics/grpc/server.go#L226-L233), `views_repository.Delete`, SQL-миграция присутствуют.
+- Хук: [`deleteViewById`](../../portal-frontend/src/hooks/useNetworkStats.ts#L365-L373) реализован, экспортируется как `deleteView` в возвращаемом объекте хука ([useNetworkStats.ts:407](../../portal-frontend/src/hooks/useNetworkStats.ts#L407)).
+
+**Что в UI (отсутствует):**
+- В [NetworkStatisticsPage.tsx:166-194](../../portal-frontend/src/pages/network/NetworkStatisticsPage.tsx#L166-L194) (блок saved views) — **ни одной кнопки / жеста / контекстного меню**, вызывающих `stats.deleteView(id)`.
+- Каждый view-chip имеет только `onClick={() => stats.loadView(v.id)}`. Ни `onContextMenu`, ни long-press, ни иконки корзины.
+
+**Последствие:**
+- Пользователь может **создавать** виды неограниченно, но **не может их удалять** через UI.
+- Накопление ненужных/устаревших views со временем — визуальный мусор в нижней панели.
+- Единственный способ удалить — прямой API-вызов (DevTools / curl) или доступ к БД.
+
+**Как могло появиться:** фича "saved views" была реализована end-to-end (backend→API→hook), но финальная итерация UI не включила destructive action — возможно по причине "не решили UX" (нативный confirm? модальный диалог? hover + корзина?).
+
+**Разрешение:**
+- **A (рекомендуется):** добавить иконку корзины на hover chip'а, с modal-confirm перед DELETE. Минимум изменений — один `onMouseEnter/Leave` handler + одна иконка + модалка через Radix AlertDialog.
+- **B:** dropdown-меню на chip'е (три точки) с действиями "Переименовать" / "Удалить" / "По умолчанию". Более расширяемо, но больше кода.
+- **C:** отложить фичу до brainstorm'а по UX.
+
+**Связанные AC:** Batch 5 (AC-67..AC-74) **намеренно** не включает AC на удаление — AC описывают существующий код, а код не имеет UI-удаления.
+
+**Приоритет:** 🟡 MEDIUM. Функциональный gap для пользователя, не блокер. Обходится через API, но обычный пользователь не знает про DevTools.
+
+**Статус:** 🟡 OPEN-MEDIUM. До разрешения — пользователь может создавать виды, но не удалять. После фикса — добавить AC-75+ в Batch 5 на удаление.
+

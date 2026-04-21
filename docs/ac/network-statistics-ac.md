@@ -1295,3 +1295,202 @@
 4. **D-16 (dead fields) — не блокер, но архитектурно-важный сигнал.** Backend DeveloperX отправляет `chart`/`trends`/`previous_kpis`, фронтенд забыл реализовать графики. На wire — лишний трафик, в UX — отсутствующая функциональность. При следующей ревизии дизайна: либо добавить Recharts-графики (план упоминает Recharts 3.8.1), либо убрать поля из proto.
 
 5. **Tabs.Content один для всех 5 tabs.** Radix-паттерн нестандартен: обычно делают 5 отдельных Tabs.Content с разной разметкой. Здесь — одна Content, `activeView` меняет запрос, а UI одинаков. Работает, но тестировщик может подумать "как поймать, что 5-й tab активен?" — поймать можно только по `data-state="active"` на Tabs.Trigger, не по Content.
+
+---
+
+## Batch 5: Saved Views
+
+**Scope batch'а:** панель сохранённых представлений фильтров в нижней части экрана. Содержит: условный рендер панели, список view-chip'ов, active/inactive стили, клик → load, кнопка "+ Сохранить" через `window.prompt`, POST создания, индикатор `isViewModified` и его сброс, отображение ошибок.
+
+**Источники истины (верифицировано 2026-04-21):**
+- [portal-frontend/src/pages/network/NetworkStatisticsPage.tsx:166-194](../../portal-frontend/src/pages/network/NetworkStatisticsPage.tsx#L166-L194) (saved views panel)
+- [portal-frontend/src/hooks/useNetworkStats.ts:315-373](../../portal-frontend/src/hooks/useNetworkStats.ts#L315-L373) (loadViews, loadView, saveCurrentView, deleteViewById)
+- [portal-frontend/src/hooks/useNetworkStats.ts:161-174](../../portal-frontend/src/hooks/useNetworkStats.ts#L161-L174) (setFilters: isViewModified=true)
+- [portal-frontend/src/api/networkStats.ts:211-219](../../portal-frontend/src/api/networkStats.ts#L211-L219) (listViews/saveView/deleteView API)
+
+### Группа W: Видимость панели
+
+#### AC-67: Панель скрыта при `savedViews=[] && !isViewModified`
+
+**ДАНО:**
+- Mode=stats, пользователь только что открыл страницу
+- `GET /portal/v1/reseller/views` вернул `{views: []}` — список пуст
+- Фильтры дефолтные, пользователь ничего не менял → `isViewModified=false`
+
+**КОГДА:** страница отрендерилась
+
+**ТОГДА:**
+- Блок saved views (`<div class="fixed bottom-4 left-48 ...">`) НЕ рендерится в DOM
+- Условие `savedViews.length > 0 || isViewModified` = `false || false` = `false`
+
+**Источник:** [NetworkStatisticsPage.tsx:167](../../portal-frontend/src/pages/network/NetworkStatisticsPage.tsx#L167).
+
+---
+
+#### AC-68: Панель появляется при первом изменении фильтра
+
+**ДАНО:**
+- Mode=stats, `savedViews=[]`, панель скрыта (AC-67)
+
+**КОГДА:** пользователь меняет значение любого фильтра (например, ввод "demo" в Логин)
+
+**ТОГДА:**
+- `setFilters` → `setIsViewModified(true)` ([useNetworkStats.ts:171](../../portal-frontend/src/hooks/useNetworkStats.ts#L171))
+- Блок saved views появляется в нижней левой части экрана
+- В блоке видна только кнопка "+ Сохранить" (в синей рамке), т.к. `savedViews=[]`
+- Клик "Применить" не влияет на видимость блока (условие завязано на `isViewModified`, не на URL-state)
+
+---
+
+#### AC-69: Панель видна при `savedViews.length > 0`, даже если нет изменений
+
+**ДАНО:**
+- При загрузке страницы `GET /views` вернул 2 сохранённых вида
+- Пользователь ничего не менял → `isViewModified=false`
+
+**КОГДА:** страница отрендерилась
+
+**ТОГДА:**
+- Блок saved views виден
+- Содержит: текст "Виды:", 2 кнопки-chip'а с именами видов, без кнопки "+ Сохранить" (условие `isViewModified=false`)
+- Ни один chip не имеет active-стилей (`activeViewId=null` дефолт)
+
+---
+
+### Группа X: Загрузка view
+
+#### AC-70: Клик по chip'у загружает фильтры и переключает режим
+
+**ДАНО:**
+- Сохранённый вид V1: `{id: 5, name: "Мой MTS", mode: "stats", filters_json: '{"operator":"mts","period_preset":"30d"}', group_by: "day", sort_by: "dlr_rate", sort_dir: "asc"}`
+- Текущее состояние: mode=monitoring, фильтры другие
+
+**КОГДА:** клик по chip'у "Мой MTS"
+
+**ТОГДА:**
+- Mode становится "stats" (возврат к tab "Статистика"), URL получает `?mode=stats`
+- Filter state: `{operator: "mts", period_preset: "30d", group_by: "day", sort_by: "dlr_rate", sort_dir: "asc"}` — фильтры **заменяются целиком**, не merge'атся с предыдущими ([useNetworkStats.ts:338](../../portal-frontend/src/hooks/useNetworkStats.ts#L338) `setFiltersState(parsedFilters)` без spread)
+- URL обновлён: `/network/statistics?mode=stats&operator=mts&period_preset=30d&group_by=day&sort_by=dlr_rate&sort_dir=asc`
+- Chip получает active-стиль: `bg-blue-600 text-white border-blue-600`
+- `isViewModified=false` → кнопка "+ Сохранить" исчезает
+- `activeViewId=5`
+
+**Источник:** [useNetworkStats.ts:331-343](../../portal-frontend/src/hooks/useNetworkStats.ts#L331-L343).
+
+---
+
+#### AC-71: Loaded view становится modified при изменении фильтра
+
+**ДАНО:**
+- Chip "Мой MTS" активен (AC-70), `activeViewId=5`, `isViewModified=false`
+
+**КОГДА:** пользователь меняет фильтр (выбирает другой канал)
+
+**ТОГДА:**
+- `setIsViewModified(true)`
+- Кнопка "+ Сохранить" появляется
+- Chip "Мой MTS" остаётся с active-стилем (`activeViewId` не сбрасывается до загрузки другого view)
+- **Важно:** текущее изменение не связано с активным view — если пользователь нажмёт "+ Сохранить", это создаст **новый** view, не обновит существующий
+
+**Drift note:** в UI нет функции "обновить текущий view" — только "создать новый". Это ограничение, не bug — но стоит отметить.
+
+---
+
+### Группа Y: Создание view
+
+#### AC-72: Кнопка "+ Сохранить" вызывает window.prompt
+
+**ДАНО:**
+- `isViewModified=true`, кнопка "+ Сохранить" видна
+
+**КОГДА:** клик по кнопке
+
+**ТОГДА:**
+- Вызывается нативный `window.prompt('Название вида:')` ([NetworkStatisticsPage.tsx:182](../../portal-frontend/src/pages/network/NetworkStatisticsPage.tsx#L182))
+- Если пользователь ввёл непустое имя (после trim) — `saveCurrentView(name.trim())` → POST `/portal/v1/reseller/views`
+- Если пользователь нажал Cancel или ввёл пустую строку — никаких действий
+
+**Drift note:** использование `window.prompt` — UX-антипаттерн (не стилизуется, плохо на мобильных, стиль не соответствует остальному UI с Radix Dialog'ами). Кандидат на замену модальным диалогом. Не влияет на функциональность — AC фиксирует текущее поведение.
+
+---
+
+#### AC-73: POST saveView содержит текущее состояние фильтров и mode
+
+**ДАНО:**
+- Пользователь в mode=monitoring, активные фильтры: `{channel: "sms", period_preset: "7d", group_by: "hour", sort_by: "throughput", sort_dir: "desc"}`
+- Пользователь кликнул "+ Сохранить", ввёл "MTS Monitoring"
+
+**КОГДА:** выполняется saveCurrentView
+
+**ТОГДА:**
+- Отправлен POST `/portal/v1/reseller/views` с телом:
+  ```json
+  {
+    "view": {
+      "name": "MTS Monitoring",
+      "mode": "monitoring",
+      "filters_json": "{\"channel\":\"sms\",\"period_preset\":\"7d\",...}",
+      "group_by": "hour",
+      "sort_by": "throughput",
+      "sort_dir": "desc",
+      "columns": [],
+      "is_default": false
+    }
+  }
+  ```
+- После успешного ответа: `activeViewId = <id нового view>`, `isViewModified=false`, запрос `GET /views` повторяется → в панели появляется новый chip
+
+**Источник:** [useNetworkStats.ts:345-363](../../portal-frontend/src/hooks/useNetworkStats.ts#L345-L363).
+
+---
+
+### Группа Z: Ошибки
+
+#### AC-74: Ошибка загрузки списка показывается в панели
+
+**ДАНО:**
+- `GET /portal/v1/reseller/views` вернул 500 при startup
+
+**КОГДА:** страница отрендерилась
+
+**ТОГДА:**
+- `viewsError` установлен в сообщение ошибки
+- **Ограничение видимости:** панель всё равно рендерится только при `savedViews.length > 0 || isViewModified`. Если list-call упал, `savedViews=[]`, `isViewModified=false` → панель скрыта, ошибка пользователю **не видна**
+- Это gap: пользователь получит ошибку только если вручную изменит фильтр (тогда `isViewModified=true`, панель появится, текст ошибки `{stats.viewsError}` рядом с кнопкой "+ Сохранить")
+
+**Drift note:** silent failure при GET /views. Пользователь не узнает, что его сохранённые виды не загрузились, до тех пор пока сам не попытается работать с ними. Кандидат на улучшение — global toast или всегда видимый error-баннер в панели.
+
+---
+
+## Итого в Batch 5
+
+- **8 AC (AC-67..AC-74)** покрывают: видимость панели (AC-67..AC-69), загрузка view и смена режима (AC-70..AC-71), создание через window.prompt и POST (AC-72..AC-73), отображение ошибок (AC-74).
+- **Зафиксированные drift'ы / gap'ы:**
+  - Нет UI-кнопки удаления view (хук `deleteView` экспортирован, API есть, но ни одна кнопка/жест в NetworkStatisticsPage не вызывает его) — **D-17** в `_DRIFT.md`
+  - `window.prompt` вместо модального диалога (AC-72 drift note)
+  - Нет функции "обновить существующий view" — только "создать новый" (AC-71 drift note)
+  - Silent failure при GET /views (AC-74 drift note)
+
+## Итого по Phase 0 (все 5 batch'ей)
+
+- **74 AC** (AC-01..AC-74), покрывающие весь функциональный scope раздела Network Statistics / Analytics / Monitoring без export
+- **Batch 1** (18 AC): filter behavior — уже существовало, частично уточнено в первом коммите сессии (AC-08, AC-10, AC-14)
+- **Batch 2** (21 AC): Statistics table — коммит `41ee100`
+- **Batch 3** (14 AC): Monitoring mode — коммит `3820311`
+- **Batch 4** (13 AC): Drill-down drawer — коммит `d262ec5`
+- **Batch 5** (8 AC): Saved views — текущий коммит
+- **16 drift-записей в `_DRIFT.md`** (ID D-01..D-17; D-13 отозван после fake-diagnosis на устаревшем кеше). Из них **новых в этой сессии — 6**: D-11 (routes prefix), D-12 (validateFilter wrap), D-14 (openDrillDown hardcoded sliceType), D-15 (FE-пороги без SoT), D-16 (dead API fields), D-17 (отсутствующий delete UI).
+
+**Analytics Phase 2** не покрыт отдельно: в коде сам tab существует ("Phase 2 — same table for now"), AC работают через тот же Statistics table AC (Batch 2). Когда Analytics реализуется полностью (KPI с delta, trends, signals) — потребуется отдельный Batch 6.
+
+## Критика по Phase 0 целиком
+
+1. **Объём drift'ов (7 новых) — сам по себе результат.** Это не кризис — это то, что обещал coverage-run отчёт (82 features без оракула → ожидаемое количество скрытых проблем). Каждый из D-11..D-17 был бы поймать на 23-м fix-коммите, но нашёлся раньше.
+
+2. **bug-first AC (D-14 в AC-30/AC-52/AC-63).** Три AC сейчас тестируют текущий bug (hardcoded sliceType). Когда D-14 чинится, все три переформулируются одновременно. Это координационная нагрузка — не забыть.
+
+3. **Selectors и a11y опущены во всех batch'ах.** Единый подход: AC описывает поведение, селекторы в тесте. Для a11y (ARIA, keyboard) нужен отдельный Batch A — возможно как Phase 0.5.
+
+4. **Ни один AC не покрывает interaction между режимами.** Например: открыт drawer в mode=stats, пользователь переключается на Analytics — что происходит? (По коду setMode сбрасывает drillDown, но AC-03 это проверяет только для monitoring→stats).
+
+5. **Phase 1 (тесты) не предопределён по числу.** 74 AC ≠ 74 теста: многие можно объединить в один Playwright spec с параметризацией (seed-free vs seed-dependent группы). Оценка на этапе написания — 40-50 test-файлов, не 74.
