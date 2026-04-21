@@ -114,8 +114,11 @@ func (f *SharedFilter) Normalize() {
 	if f.Page <= 0 {
 		f.Page = 1
 	}
-	if f.SortDir != "asc" {
-		f.SortDir = "desc"
+	// SortDir is not defaulted here: repository picks it per group_by
+	// (time buckets get ASC, dimensional slices get DESC). Keep caller's
+	// value, but normalise unknown inputs to empty so the default wins.
+	if f.SortDir != "asc" && f.SortDir != "desc" {
+		f.SortDir = ""
 	}
 
 	// Resolve period preset to DateFrom/DateTo if dates are not explicitly set.
