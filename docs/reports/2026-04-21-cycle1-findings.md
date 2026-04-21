@@ -281,7 +281,83 @@ Combined fix-plan stub candidate: `docs/superpowers/plans/2026-04-21-fix-error-c
 
 ## A3 — idempotency of write operations
 
-_TODO: Task 5_
+**Severity:** critical — HTTP middleware absent; retry of `POST /sms/send` produces a new message every time, leading to double-charge and duplicate delivery.
+
+### A3.1 — HTTP Idempotency-Key middleware
+
+**Middleware existence:** absent. Searched `internal/gateway/client/middleware/` (3 files: `auth.go`, `auth_test.go`, `tenant_logger.go`) and `internal/api/middleware/` (10 files: `auth`, `cors`, `interfaces`, `logging`, `quota`, `ratelimit`, `recovery`, `tenant_logger` + tests). No `idempotency` file or `Idempotency-Key` header string found in either directory.
+
+**Storage backend:** none — no `idempotency_keys` Postgres table in migrations, no Redis TTL store for HTTP idempotency keys.
+
+**Middleware wiring:** none — `internal/gateway/client/router/router.go` middleware chain is `recovery → logging → cors → auth → tenantLogger → rateLimit → quota`. No idempotency step anywhere.
+
+**Per-endpoint status:**
+
+| Endpoint | Protected by middleware? | Handler-level check? | Downstream dedup? |
+|---|---|---|---|
+| POST /api/v1/sms/send | No | No | No — messaging service calls `uuid.New()` for every request; `external_id` has a plain index, not UNIQUE |
+| POST /api/v1/sms/batch | No | No | No — same path, batch loop calls service per message |
+| POST /api/v1/webhooks | No | No | No — no UNIQUE constraint on webhook URL+client |
+| POST /api/v1/lookup | No | No | Partial — lookup results are read-only side-effect (HLR query); write to `lookup_log` has no dedup guard |
+| POST /api/v1/lookup/bulk | No | No | Same as single lookup |
+| POST /api/v1/templates | No | No | Partial — `idx_templates_client_name` is UNIQUE on `(client_id, name)`, so duplicate template name for same client will fail with 409/500, but only on exact name collision — not idempotency |
+| POST /api/v1/cascade/deliveries | No | No | Partial — tarification layer has `commit_idempotency_guard` (PK=message_id), but this protects billing double-charge downstream, not cascade delivery creation |
+
+### A3.2 — gRPC idempotency
+
+`internal/gateway/client/grpc/interceptor.go` handles only authentication (dummy hardcoded UUID in load-test mode). No `idempotency-key` metadata is read in the interceptor or in any of the 5 implemented RPC methods (`SendMessage`, `SendBatch`, `GetMessageStatus`, `GetMessageHistory`, `GetBalance`-dead, `GetStatistics`-dead).
+
+`messagingv1.SendMessageRequest` and `SendBatchRequest` proto messages have no `idempotency_key` or `client_msg_id` field (`api/proto/messaging/messaging.proto` verified line by line). The only field that could serve as a correlation ID is `external_id` (field 5 in `SendMessageRequest`), but: (a) it is optional, (b) it has a plain index — not UNIQUE — on the `messages` table, and (c) the messaging service does not check `external_id` before inserting.
+
+The tarification proto (`api/proto/tarification/tarification.pb.go`) does have `idempotency_key` on `TarifyMessageRequest` and `TarifyLookupRequest`, but this is an internal service-to-service contract, not the external gRPC surface exposed to clients.
+
+**Summary:** no gRPC-level idempotency mechanism exists for any externally-exposed write RPC.
+
+### A3.3 — SMPP dedup
+
+`handleSubmitSM` (`internal/gateway/smpp/server/handler.go:276–398`) generates `msgID := uuid.New()` unconditionally for every `submit_sm` PDU. The SMPP PDU field `user_message_reference` (TLV 0x0204) is never read — the `protocol.SubmitSMPDU` struct does not include it and the decode path ignores it. There is no correlation between SMPP sequence number and a dedup store: `messageID` is constructed as `fmt.Sprintf("%s-%d", h.session.ID, pdu.SequenceNumber)` and is only used as the `message_id` in the `submit_sm_resp` body. The real internal `msgID` (uuid.New()) is what flows to Kafka.
+
+No Redis key is checked before Kafka publish to detect duplicate sequence numbers within a session. Redis `SaveMessageMapping` stores a DLR routing mapping per `msgID`, but this is write-only and is never queried for dedup purposes.
+
+### A3.4 — Downstream dedup snapshot
+
+**Tarification layer (internal, not external-facing):** has genuine idempotency.
+
+- `tarification_log` table: `UNIQUE INDEX idx_tarification_log_idempotency ON tarification_log(idempotency_key, created_at)` — partitioned-table composite unique (`migrations/000013`).
+- `provider_tarification_log` table: same pattern (`migrations/000039`).
+- `commit_idempotency_guard` table: non-partitioned, `PK = message_id`, used by `billing/application/charge_dual.go` via `ClaimTx` (`ON CONFLICT (message_id) DO NOTHING`) — prevents billing double-charge within a single transaction.
+- `commit_retry_queue` table: `ON CONFLICT DO NOTHING` on `message_id` PK (noted in `migrations/000109`).
+
+These guards protect the **billing + tarification** path from duplicate charges when the pipeline retries internally. They do NOT protect against a client submitting two separate HTTP/gRPC/SMPP requests with identical payloads — because each request gets a fresh `uuid.New()` before reaching the tarification layer.
+
+**Messaging layer:** no dedup. `messages` table has `external_id` indexed but not UNIQUE. `message_service.go:SendMessage` does not query by `external_id` before inserting. Each call creates a new message row unconditionally.
+
+**messagingv1 proto:** no `client_msg_id` field — confirmed by reading `api/proto/messaging/messaging.proto` in full.
+
+### Cross-transport safety analysis
+
+**Scenario:** client retries `POST /api/v1/sms/send` with the same payload due to network timeout (client never received the 200 response).
+
+- Current behavior: **double send + double charge**. The gateway handler calls the messaging gRPC service, which calls `uuid.New()` for a new message ID, publishes to Kafka, and the pipeline charges the client via tarification. The first request (which succeeded at the server) and the retry both complete independently. The client gets two distinct `message_id` values in responses (if they ever get the second response). The recipient receives two SMS. The client account is debited twice. The `commit_idempotency_guard` does NOT help here because the two requests have different `message_id` UUIDs.
+
+**Scenario:** SMPP client retries `submit_sm` with the same `user_message_reference` (same sequence number) due to network timeout.
+
+- Current behavior: **double send + double charge**, same mechanism. `user_message_reference` TLV is ignored entirely. The handler generates `uuid.New()` on each `submit_sm` received, publishes to Kafka immediately. Even if the client retries with the same SMPP sequence number, the handler treats it as a new message.
+
+**Boundary condition:** the only partial protection exists if the retry happens at the billing commit stage for the exact same `message_id` UUID — which can only happen in pipeline-internal retries (Kafka consumer reprocessing with the same Kafka message), not in client-driven HTTP/gRPC/SMPP retries.
+
+### Decisions
+
+- **A3 overall: critical.** Client-facing retries on all three transports (HTTP, gRPC, SMPP) produce duplicate messages and duplicate billing charges. The downstream billing guard (`commit_idempotency_guard`) mitigates pipeline-internal retries only.
+
+- Proposed fix plan: `docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md` — НЕ создаём сейчас, флагаем.
+
+  Minimum viable fix requires:
+  1. HTTP middleware: read `Idempotency-Key` header, store `(client_id + key) → response` in Redis with TTL (e.g., 24h); replay cached response on duplicate.
+  2. gRPC interceptor: read `idempotency-key` metadata, same Redis store.
+  3. SMPP handler: read TLV 0x0204 (`user_message_reference`), store `(session_id + ref) → msgID` in Redis, return cached `submit_sm_resp` on duplicate.
+  4. messaging proto: add `idempotency_key` field to `SendMessageRequest` / `SendBatchRequest` so the gateway can pass the client-supplied key downstream for auditing.
+  5. `messages` table: add UNIQUE constraint on `(client_id, external_id)` WHERE `external_id IS NOT NULL` — or equivalent — so even if middleware is bypassed, duplicate inserts are blocked at DB level.
 
 ## Summary of critical / major findings
 

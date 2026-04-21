@@ -77,6 +77,17 @@ One row per HTTP endpoint (not per role) for the A1 axis. OpenAPI is a single do
 | grpc-external (server.go) | grpc | client | A2 | DRIFT | — | Uses status.Error(codes.X, msg) consistently; no status.WithDetails(); downstream errors pass through unmapped — leaks backend codes | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
 | SMPP handler | smpp | client | A2 | DRIFT | — | ESME codes scattered inline; no centralized bizError→ESME table; validation errors and decode errors both return ESME_RINVCMDLEN (semantically incorrect for validation) | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
 
+| POST /api/v1/sms/send | http | client | A3 | BROKEN | — | No Idempotency-Key middleware; no handler-level check; no downstream dedup — retry = double send + double charge | critical | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| POST /api/v1/sms/batch | http | client | A3 | BROKEN | — | Same as /sms/send — no dedup at any layer | critical | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| POST /api/v1/webhooks | http | client | A3 | BROKEN | — | No idempotency; duplicate POST creates duplicate webhook subscription | major | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| POST /api/v1/lookup | http | client | A3 | BROKEN | — | No idempotency; retry creates duplicate lookup_log entry | major | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| POST /api/v1/lookup/bulk | http | client | A3 | BROKEN | — | Same as single lookup | major | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| POST /api/v1/templates | http | client | A3 | DRIFT | — | Partial protection: UNIQUE(client_id, name) prevents exact-name duplicate; not idempotency (different request = same name → 409, not replay) | minor | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| POST /api/v1/cascade/deliveries | http | client | A3 | BROKEN | — | No idempotency at gateway; downstream billing guard protects billing only for pipeline retries, not client retries | critical | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| MessagingService/SendMessage | grpc | client | A3 | BROKEN | — | No idempotency-key metadata; no field in proto; retry = double message + double charge | critical | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| MessagingService/SendBatch | grpc | client | A3 | BROKEN | — | Same as SendMessage — no dedup at any layer | critical | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+| SMPP submit_sm | smpp | client | A3 | BROKEN | — | user_message_reference TLV 0x0204 not read; uuid.New() per PDU; no Redis dedup on sequence; retry = double send + double charge | critical | plan:docs/superpowers/plans/2026-04-21-fix-idempotency-middleware.md |
+
 ## Machine-readable
 
 См. `2026-04-21-cycle1-contract-matrix.csv`.
