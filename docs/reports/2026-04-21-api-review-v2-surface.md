@@ -120,7 +120,86 @@ No mTLS, no auth interceptor — internal network trust only.
 
 ## 4. gRPC Internal (top-5 hot-path services)
 
-_TODO: Task 5_
+All five services use **request-field transport** for tenant context (`client_id` string field in the protobuf message). No service reads `client_id` from gRPC metadata (`metadata.FromIncomingContext`). No service has a health/reflection RPC registered.
+
+| Service | RPC | client_id transport | Caller(s) | Notes |
+|---|---|---|---|---|
+| **messagingv1** | SendMessage | req field `client_id` | internal/gateway/client/grpc/server.go, internal/gateway/client/handlers/sms.go | — |
+| **messagingv1** | SendBatch | req field `client_id` | internal/gateway/client/grpc/server.go, internal/gateway/client/handlers/sms.go | — |
+| **messagingv1** | GetMessageStatus | req field `client_id` | internal/gateway/client/grpc/server.go, internal/gateway/client/handlers/sms.go | — |
+| **messagingv1** | GetMessageHistory | req field `client_id` | internal/gateway/client/grpc/server.go, internal/gateway/portal/handlers/messages.go | — |
+| **messagingv1** | ProcessDLR | — | internal/gateway/client/grpc/server.go | **TENANT-MISSING** — no client_id in ProcessDLRRequest; DLR is provider-internal event identified by message_id only |
+| **messagingv1** | CancelMessage | req field `client_id` | internal/gateway/client/handlers/sms.go | — |
+| **messagingv1** | ListScheduledMessages | req field `client_id` | internal/gateway/client/handlers/sms.go | — |
+| **billingv1** | GetBalance | req field `client_id` | internal/gateway/client/grpc/server.go, internal/gateway/client/handlers/account.go, internal/gateway/portal/handlers/billing.go | — |
+| **billingv1** | ChargeMessage | req field `client_id` | internal/pipeline/sender/stage.go, internal/services/tarification/application/saga.go | — |
+| **billingv1** | ChargeMessageDual | req fields `sub_account_id` + `aggregator_id` (no `client_id`) | internal/services/cascade/application/billing_integration.go, internal/pipeline/sender/stage.go | **TENANT-MISSING** — uses `sub_account_id`/`aggregator_id` pair instead of canonical `client_id`; semantics differ |
+| **billingv1** | AddCredits | req field `client_id` | internal/gateway/admin/handlers/billing.go, internal/gateway/portal/handlers/billing.go | — |
+| **billingv1** | DeductCredits | req field `client_id` | internal/gateway/admin/handlers/billing.go | — |
+| **billingv1** | GetTransactionHistory | req field `client_id` | internal/gateway/portal/handlers/billing.go | — |
+| **billingv1** | GetPricingRules | req field `client_id` | internal/gateway/portal/handlers/tariffs.go | — |
+| **billingv1** | CreatePricingRule | req field `client_id` (optional — empty = global rule) | internal/gateway/admin/handlers/billing.go | `client_id` is optional; empty means global rule |
+| **billingv1** | TransferBalance | req fields `from_client_id` + `to_client_id` | internal/gateway/portal/handlers/sub_accounts.go | Uses `from_client_id`/`to_client_id` pair — consistent naming but different from other RPCs |
+| **billingv1** | FreezeAccount | req field `client_id` | internal/gateway/admin/handlers/billing.go | — |
+| **billingv1** | UnfreezeAccount | req field `client_id` | internal/gateway/admin/handlers/billing.go | — |
+| **billingv1** | SetCreditLimit | req field `client_id` | internal/gateway/admin/handlers/billing.go | — |
+| **billingv1** | SetLowBalanceThreshold | req field `client_id` | internal/gateway/portal/handlers/alerts.go | — |
+| **billingv1** | ListBalances | — | internal/gateway/admin/handlers/billing.go | **TENANT-MISSING** — ListBalancesRequest has no client_id; admin-only, returns all tenants with filter by `search`/`status`/`below_threshold` |
+| **tarificationv1** | TarifyMessage | req field `client_id` | internal/pipeline/sender/stage.go, internal/services/tarification/grpc/server.go | hot-path; also quota gating for resellers |
+| **tarificationv1** | CommitCharge | req field `client_id` | internal/services/tarification/application/commit_retry_worker.go | `client_id` is sub-account here per comment in struct |
+| **tarificationv1** | CreateSenderRegistration | req field `client_id` | internal/gateway/admin/handlers/tarification.go | — |
+| **tarificationv1** | ListSenderRegistrations | req field `client_id` | internal/gateway/admin/handlers/tarification.go, internal/gateway/portal/handlers/tariffs.go | — |
+| **tarificationv1** | UpdateSenderRegistration | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — UpdateSenderRegistrationRequest has only `id`, `status`, `type`; no client_id; authorization is by registration id only |
+| **tarificationv1** | CreateTariffPlan | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — request has `operator_id`, `sender_category`, `strategy`; no client_id; operator-scoped, not tenant-scoped |
+| **tarificationv1** | GetTariffPlan | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — request has only `id` |
+| **tarificationv1** | ListTariffPlans | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — filtered by `operator_id` only |
+| **tarificationv1** | UpdateTariffPlan | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — request has only `id`, `active` |
+| **tarificationv1** | CreateTariffPeriod | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — child of tariff_plan, no client_id |
+| **tarificationv1** | CreateTariffTier | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — child of tariff_period, no client_id |
+| **tarificationv1** | UpdateTariffTier | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — request has only `id`, `from_count`, `price_per_segment` |
+| **tarificationv1** | CreatePricingPeriod | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — child of tariff_period, no client_id |
+| **tarificationv1** | CreatePrepaidFee | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — keyed by tariff_plan_id/tariff_period_id only |
+| **tarificationv1** | TarifyLookup | req field `client_id` | internal/gateway/admin/handlers/client_routing.go | — |
+| **tarificationv1** | GetUsageCounter | req field `client_id` | internal/services/tarification/grpc/server.go | — |
+| **tarificationv1** | ListUsageCounters | req field `client_id` | internal/services/tarification/grpc/server.go | — |
+| **tarificationv1** | CreateProviderTariffPlan | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — provider/operator scoped; no client_id |
+| **tarificationv1** | GetProviderTariffPlan | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — keyed by `id` only |
+| **tarificationv1** | ListProviderTariffPlans | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — filtered by `provider_id` only |
+| **tarificationv1** | UpdateProviderTariffPlan | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — keyed by `id` only |
+| **tarificationv1** | CreateProviderTariffPeriod | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — child of provider tariff plan |
+| **tarificationv1** | CreateProviderTariffTier | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — child of provider tariff period |
+| **tarificationv1** | UpdateProviderTariffTier | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — keyed by `id` only |
+| **tarificationv1** | GetMarginReport | req field `client_id` | internal/gateway/portal/handlers/tariffs.go | — |
+| **tarificationv1** | CreateSenderBillingRecord | req field `client_id` | internal/gateway/admin/handlers/tarification.go | — |
+| **tarificationv1** | ListSenderBillingRecords | — | internal/gateway/admin/handlers/tarification.go | **TENANT-MISSING** — filtered by `sender_registration_id` only; client_id not in request |
+| **cascadev1 / CascadeService** | CreateDelivery | req field `client_id` | internal/gateway/client/handlers/cascade.go | — |
+| **cascadev1 / CascadeService** | GetDelivery | req field `client_id` | internal/gateway/client/handlers/cascade.go | — |
+| **cascadev1 / CascadeService** | ListDeliveries | req field `client_id` | internal/gateway/client/handlers/cascade.go | — |
+| **cascadev1 / CascadeService** | GetDeliveryStats | req field `client_id` | internal/gateway/client/handlers/cascade.go | — |
+| **cascadev1 / ChannelAdminService** | ListChannels | — | internal/gateway/portal/handlers/cascade_channels.go | **TENANT-MISSING** — ListChannelsRequest is empty; returns global channel list |
+| **cascadev1 / ChannelAdminService** | GetChannel | — | internal/gateway/portal/handlers/cascade_channels.go | **TENANT-MISSING** — keyed by `channel_id` only |
+| **cascadev1 / ChannelAdminService** | CreateChannel | — | internal/gateway/portal/handlers/cascade_channels.go | **TENANT-MISSING** — no client_id in CreateChannelRequest |
+| **cascadev1 / ChannelAdminService** | UpdateChannel | — | internal/gateway/portal/handlers/cascade_channels.go | **TENANT-MISSING** — no client_id in UpdateChannelRequest |
+| **cascadev1 / ChannelAdminService** | ToggleChannel | — | internal/gateway/portal/handlers/cascade_channels.go | **TENANT-MISSING** — no client_id in ToggleChannelRequest |
+| **cascadev1 / StrategyAdminService** | ListStrategies | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — no client_id in ListStrategiesRequest |
+| **cascadev1 / StrategyAdminService** | GetStrategy | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — keyed by `id` only |
+| **cascadev1 / StrategyAdminService** | CreateStrategy | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — no client_id in CreateStrategyRequest |
+| **cascadev1 / StrategyAdminService** | UpdateStrategy | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — no client_id in UpdateStrategyRequest |
+| **cascadev1 / StrategyAdminService** | DeleteStrategy | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — no client_id in DeleteStrategyRequest |
+| **cascadev1 / StrategyAdminService** | GetOperatorChannelSupport | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — no client_id in GetOCSRequest |
+| **cascadev1 / StrategyAdminService** | UpdateOperatorChannelSupport | — | internal/gateway/portal/handlers/cascade_strategies.go | **TENANT-MISSING** — no client_id in UpdateOCSRequest |
+| **webhookv1** | CreateSubscription | req field `client_id` | internal/gateway/client/handlers/webhooks.go, internal/gateway/portal/handlers/webhooks.go | — |
+| **webhookv1** | UpdateSubscription | req field `client_id` | internal/gateway/client/handlers/webhooks.go, internal/gateway/portal/handlers/webhooks.go | — |
+| **webhookv1** | DeleteSubscription | req field `client_id` | internal/gateway/client/handlers/webhooks.go, internal/gateway/portal/handlers/webhooks.go | — |
+| **webhookv1** | GetSubscription | req field `client_id` | internal/gateway/client/handlers/webhooks.go, internal/gateway/portal/handlers/webhooks.go | — |
+| **webhookv1** | ListSubscriptions | req field `client_id` | internal/gateway/client/handlers/webhooks.go, internal/gateway/portal/handlers/webhooks.go | — |
+
+**Notes on mixed semantics within billingv1:**
+- `ChargeMessageDual` uses `sub_account_id` + `aggregator_id` instead of canonical `client_id`.
+- `TransferBalance` uses `from_client_id` + `to_client_id` pair (consistent semantics, different field names).
+- `CreatePricingRule` has an optional `client_id` (empty = global rule); only RPC in the entire surface where client_id is intentionally absent for a valid tenant-agnostic case.
+
+**Pattern for tarificationv1 admin RPCs:** The operator-tariff management RPCs (CreateTariffPlan through UpdateProviderTariffTier) are all TENANT-MISSING by design — they manage operator-level pricing structures shared across tenants. The concern is whether the admin gateway properly gates access to these by internal auth rather than relying on the absence of client_id to "be safe".
 
 ## 5. Findings
 
