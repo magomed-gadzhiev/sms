@@ -31,8 +31,9 @@ func TestBackoffFor(t *testing.T) {
 		{attempt: 2, want: 2 * time.Second},        // 2s
 		{attempt: 3, want: 4 * time.Second},        // 4s
 		{attempt: 6, want: 32 * time.Second},       // 32s
-		{attempt: 10, want: 512 * time.Second},     // 512s < 1h
-		{attempt: 12, want: time.Hour},             // 4096s > 3600s → cap
+		{attempt: 10, want: 512 * time.Second},     // 1<<9 = 512s
+		{attempt: 12, want: 2048 * time.Second},    // 1<<11 = 2048s < 3600s
+		{attempt: 13, want: time.Hour},             // 1<<12 = 4096s > cap → 1h
 		{attempt: 20, want: time.Hour},             // cap
 		{attempt: 100, want: time.Hour},            // cap после overflow protection
 		{attempt: -1, want: time.Second},           // защита от отрицательных
