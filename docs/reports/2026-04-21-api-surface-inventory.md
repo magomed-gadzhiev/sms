@@ -68,9 +68,12 @@
 
 ## SMPP Supported TLVs
 
-| Tag (hex) | Symbolic name | Used in (submit/deliver) | Mapped to field |
-|---|---|---|---|
-| _TODO: заполнить в Task 4_ | | | |
+| Tag (hex) | Symbolic name | Declared in | Used in submit_sm | Used in deliver_sm | Mapped to field | Notes |
+|---|---|---|---|---|---|---|
+| 0x001E | receipted_message_id | no constant — magic number in `internal/smsc/pool_async.go:343` | no | yes | `DeliverSMData.SMPPMessageID` | Fallback path: used only when short_message body does not match DLR regex; tag not declared in constants.go |
+| 0x0427 | message_state | no constant — magic number in `internal/smsc/pool_async.go:352` | no | yes | `DeliverSMData.Stat` (via `mapMessageState()`) | Fallback path alongside 0x001E; numeric state mapped to textual status (DELIVRD, UNDELIV, etc.); tag not declared in constants.go |
+
+**Scope note:** The TLV map (`map[uint16][]byte`) is parsed generically by `decoder.go:readTLV()` and encoded generically by `encoder.go:writeTLV()` — all tag-type-length wire work is tag-agnostic. No TLV tag constants exist anywhere in the codebase. The only two places in production code that key into the TLV map by a specific hex value are in `internal/smsc/pool_async.go` (the provider-facing DLR receive path), both as unguarded magic numbers.
 
 ## Auth entry points
 
