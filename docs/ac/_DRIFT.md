@@ -473,7 +473,7 @@ CRUD /portal/v1/network/views
 
 **Приоритет:** 🟡 MEDIUM. UX-плохо, но не блокирует основной flow. Фикс небольшой, стандартный паттерн для gRPC-сервисов.
 
-**Статус:** 🟡 OPEN-MEDIUM. AC-14 переписан по коду. После фикса — вернуть AC-14 к формулировке "HTTP 400 + локализованный toast" и закрыть drift.
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `4f0e7d8`. Введён `domain.ValidationError` sentinel; `grpc/server.go` в GetStatistics/GetAnalyticsSummary/GetMonitoringMetrics проверяет `errors.As(err, *ValidationError)` → `codes.InvalidArgument`. Сообщения локализованы на русский. AC-14 обновлён, тест зелёный (HTTP 400 + localized toast).
 
 ---
 
@@ -516,7 +516,7 @@ function groupByToSliceType(gb: string): string {
 
 **Приоритет:** 🟡 MEDIUM. Функционально ломает drill-down для 4 из 5 dimensional-группировок (operator, channel, login, country), но пользователь, возможно, до сих пор не заметил, если практически использует только group_by=provider.
 
-**Статус:** 🟡 OPEN-MEDIUM. AC-30 фиксирует текущее поведение. Фикс — одно изменение в 3 callsites + 1 utility.
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e`. Введён `groupByToSliceType()` mapper в `NetworkStatisticsPage.tsx`; все 3 callsite'а `openDrillDown` в top-level tabs используют его вместо литерала `'provider'`. Drawer's `onDrillDeeper('operator', ...)` оставлен hardcoded — это отдельная UX-проблема (клик по не-operators tab'у бессмыслен), выделяется в отдельный подкейс при будущем brainstorm'е.
 
 ---
 
@@ -628,7 +628,7 @@ Frontend независимо вводит свои пороги для визу
 
 **Приоритет:** 🟡 MEDIUM. Функциональный gap для пользователя, не блокер. Обходится через API, но обычный пользователь не знает про DevTools.
 
-**Статус:** 🟡 OPEN-MEDIUM. До разрешения — пользователь может создавать виды, но не удалять. После фикса — добавить AC-75+ в Batch 5 на удаление.
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e` + `c68e162`. Добавлена кнопка "×" для каждого saved-view chip с `window.confirm` перед DELETE. AC-75 в `saved-views.spec.ts` проверяет flow. UI: два button'а рядом с `gap-0.5`.
 
 ---
 
@@ -673,7 +673,7 @@ useEffect(() => {
 
 **Приоритет:** 🟡 MEDIUM. Функция "Пауза" видна пользователю как работающая, на деле не работает. UX-confusing, но не data-loss.
 
-**Статус:** 🟡 OPEN-MEDIUM. Тесты AC-42/AC-43 помечены `test.fail()` — они *должны* упасть на текущем коде и позеленеют после фикса (expected-fail инверсия).
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e`. Убрал `polling` из deps useEffect — теперь effect fire только при смене `isMonitoringMode`, `polling.pause/resume` остаются стабильными useCallback'ами. AC-42/AC-43 тесты зелёные на фактическом прогоне в Docker.
 
 ---
 
@@ -713,7 +713,7 @@ fetchData();
 
 **Приоритет:** 🟡 MEDIUM. Фактическое применение view происходит только после следующего "Применить" (вручную) или смены mode. Пользователь может не понять почему view "не работает".
 
-**Статус:** 🟡 OPEN-MEDIUM.
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e`. `loadView` теперь синхронно обновляет `filtersRef.current`, `modeRef.current` и явно вызывает `fetchData()` после `setSearchParams`. AC-70 зелёный.
 
 ---
 
@@ -758,5 +758,5 @@ const toggleSort = useCallback((key: string) => {
 
 **Приоритет:** 🟡 LOW. Edge-case (быстрые двойные клики), но мешает e2e. Фикс — небольшой рефакторинг: +одна функция в хуке, -onFiltersChange+onApply в handleSort.
 
-**Статус:** 🟡 OPEN-LOW. AC-28 `test.fixme()` до фикса.
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `9c355f3` + `811f040`. Введён `toggleSort(key)` в `useNetworkStats`, читает свежий state из `filtersRef.current` и синхронно обновляет его перед `applyFilters()`. `StatisticsTable` / `MonitoringTable` принимают `onToggleSort` prop вместо inline handleSort. AC-28 зелёный в Docker прогоне.
 
