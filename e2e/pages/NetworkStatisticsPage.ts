@@ -65,4 +65,51 @@ export class NetworkStatisticsPage {
   datePickerApply(): Locator {
     return this.datePickerPopup().getByRole('button', { name: 'Применить' });
   }
+
+  // Quick filters (row 2)
+  loginInput(): Locator {
+    return this.page.getByPlaceholder('Логин');
+  }
+
+  operatorSelect(): Locator {
+    return this.page.locator('select').filter({ has: this.page.locator('option', { hasText: /^Оператор$/ }) });
+  }
+
+  channelSelect(): Locator {
+    return this.page.locator('select').filter({ has: this.page.locator('option', { hasText: /^Канал$/ }) });
+  }
+
+  serviceTypeSelect(): Locator {
+    return this.page.locator('select').filter({ has: this.page.locator('option', { hasText: /^Тип услуги$/ }) });
+  }
+
+  // Advanced filters (7 fields under "Ещё фильтры")
+  trafficTypeSelect(): Locator {
+    return this.page.locator('select').filter({ has: this.page.locator('option', { hasText: /^Тип трафика$/ }) });
+  }
+
+  statusSelect(): Locator {
+    return this.page.locator('select').filter({ has: this.page.locator('option', { hasText: /^Статус$/ }) });
+  }
+
+  providerInput(): Locator {
+    return this.page.getByPlaceholder('Провайдер');
+  }
+
+  countryInput(): Locator {
+    return this.page.getByPlaceholder('Страна');
+  }
+
+  managerInput(): Locator {
+    return this.page.getByPlaceholder('Менеджер');
+  }
+
+  errorCodeInput(): Locator {
+    return this.page.getByPlaceholder('Код ошибки');
+  }
+
+  // Error toast (fixed bottom-right, red)
+  errorToast(): Locator {
+    return this.page.locator('.fixed.bottom-4.right-4.bg-red-50');
+  }
 }
