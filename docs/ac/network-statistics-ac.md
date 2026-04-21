@@ -157,9 +157,12 @@
 **КОГДА:** пользователь нажимает кнопку "Ещё фильтры"
 
 **ТОГДА:**
-- Появляется блок с полями: Имя отправителя, Платность, Международное, Тип трафика, Статус, Цена, Способ, Провайдер, Страна, Менеджер, Ошибка (11 полей)
-- Кнопка меняет иконку на `Minus`/`X` (или текст на "Свернуть")
+- Появляется блок с полями: Имя отправителя, Тип трафика, Статус, Провайдер, Страна, Менеджер, Код ошибки (7 полей)
 - URL НЕ меняется (раскрытие чисто UI, не state)
+
+**Источник истины:** [StatisticsFilterBar.tsx:278-301](../../portal-frontend/src/components/network-stats/StatisticsFilterBar.tsx#L278-L301).
+
+**Правка 2026-04-21:** Изначальная формулировка (11 полей: Платность, Международное, Цена, Способ, Ошибка) — по черновику спеки. Фактически в коде 7 полей, иконка кнопки `Plus` не меняется (StatisticsFilterBar.tsx:262-267 — `<Plus>` рендерится безусловно).
 
 ---
 
@@ -187,11 +190,12 @@
 **КОГДА:** пользователь открывает `/network/statistics` без query-параметров
 
 **ТОГДА:**
-- URL автоматически становится `/network/statistics?mode=stats&period_preset=7d` (default 7 дней согласно спеке, §1 URL params)
-- В Filter Bar активен preset "7 дней" (visual highlight)
+- URL **остаётся** `/network/statistics` без query — `setSearchParams` не вызывается при первичном render (useNetworkStats.ts:59-63 — только `useSearchParams()`, без записи)
+- В Filter Bar активен preset "7 дней" (visual highlight на основе state-дефолта из `parseFiltersFromURL`, useNetworkStats.ts:43-45)
+- Ушёл `GET /portal/v1/reseller/statistics?period_preset=7d&group_by=day&...` (дефолты в запросе есть, хотя в URL их нет)
 - Таблица содержит строки за последние 7 дней (≥ 25 строк в нашем примере)
 
-**Примечание:** Если дефолтный preset в спеке будет изменён с 7d на today — AC надо обновить, но формат остаётся.
+**Правка 2026-04-21:** Исходная формулировка "URL автоматически становится `?mode=stats&period_preset=7d`" — неверна. По коду [useNetworkStats.ts:145,177,342](../../portal-frontend/src/hooks/useNetworkStats.ts#L145) `setSearchParams` вызывается только при `setMode()`, `applyFilters()` и `loadView()` — не при init. URL наполняется query только после первого действия пользователя. Эта разница важна: deep-link без query не идентичен `?period_preset=7d` после применения.
 
 ---
 
@@ -248,10 +252,13 @@
 **КОГДА:** пользователь выбирает в dropdown группировки "по 5 минут" и нажимает "Применить"
 
 **ТОГДА:**
-- Сетевой запрос возвращает HTTP 400 с ошибкой `INVALID_ARGUMENT` (поле group_by)
-- В UI появляется toast с сообщением "Группировка «по 5 минут» доступна только для периода до 24 часов"
-- URL НЕ меняется (остаётся старый)
-- Таблица показывает предыдущие данные (не обновилась)
+- Сетевой запрос возвращает HTTP **500** (не 400) с gRPC-кодом `Internal` (см. D-12 в `_DRIFT.md`)
+- Тело ответа содержит message вида `rpc error: code = Internal desc = get statistics: period of 168 hours exceeds the maximum of 24 hours allowed for group_by="5min"`
+- В UI появляется красный toast в правом нижнем углу с generic текстом (как правило, message из ответа — useNetworkStats.ts:118-120). Русского локализованного сообщения "доступна только для периода до 24 часов" сейчас нет
+- URL **меняется** на новый (`applyFilters()` вызывается до запроса — useNetworkStats.ts:176-178), то есть `?group_by=5min` записывается даже при фейле
+- Таблица пустеет или показывает спиннер до ошибки, затем остаётся пустой
+
+**Правка 2026-04-21 + drift D-12:** Исходная формулировка "HTTP 400 INVALID_ARGUMENT + локализованный toast" описывала **желаемое** поведение, не фактическое. Validation существует ([service.go:34-55](../../internal/services/network_analytics/application/service.go#L34-L55)), но [grpc/server.go:35](../../internal/services/network_analytics/grpc/server.go#L35) оборачивает любую ошибку в `codes.Internal`, поэтому клиент не различает validation vs infra-ошибку. Фикс: sentinel-error в validateFilter + маппинг в `codes.InvalidArgument`, отдельная ветка в HTTP-хендлере + русский toast.
 
 ---
 

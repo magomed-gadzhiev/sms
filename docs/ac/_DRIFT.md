@@ -401,3 +401,77 @@ useEffect(() => {
 
 **Статус:** 🟡 OPEN-MEDIUM. AC-CW-N-11 помечен `test.fixme()` — скипается до фикса фронтенда. Когда реализуется — убрать fixme, тест должен стать зелёным.
 
+---
+
+## D-11: Network routes в спеке vs `/reseller/*` в коде
+
+**Обнаружено:** 2026-04-21 при аудите network-statistics AC перед расширением Batch 2.
+
+**Спека:** [2026-04-17-network-statistics-analytics-monitoring-design.md](../superpowers/specs/2026-04-17-network-statistics-analytics-monitoring-design.md), §1 Architecture:
+```
+GET  /portal/v1/network/statistics
+GET  /portal/v1/network/analytics
+GET  /portal/v1/network/monitoring
+GET  /portal/v1/network/drilldown
+POST /portal/v1/network/export
+CRUD /portal/v1/network/views
+```
+
+**Что в коде:**
+- Router ([router.go:466](../../internal/gateway/portal/router/router.go#L466)): handler'ы из пакета `network_statistics` смонтированы под prefix `reseller.HandleFunc("/statistics", ...)`, т.е. итоговый путь — `/portal/v1/reseller/statistics`.
+- Frontend ([networkStats.ts:161-219](../../portal-frontend/src/api/networkStats.ts#L161-L219)): все API-вызовы идут на `/reseller/statistics`, `/reseller/analytics-summary`, `/reseller/monitoring`, `/reseller/drilldown`, `/reseller/export`, `/reseller/views`.
+- Комментарии в handler'ах ([network_statistics.go:159,186,213](../../internal/gateway/portal/handlers/network_statistics.go#L159)) дезинформируют: `// GetStatistics handles GET /network/statistics` — фактически роута `/network/statistics` не существует.
+- AC-18 в [network-statistics-ac.md](network-statistics-ac.md) уже фиксирует реальный `/reseller/*` контракт, но это не было явно проведено как drift.
+
+**Последствие:**
+1. Любой новый AC, написанный дословно по спеке (как черновик D1 в ходе работы 2026-04-21), использует несуществующие endpoint'ы и ломает тесты.
+2. Внешняя документация/клиенты, следующие спеке, получают 404.
+3. Название "reseller" концептуально неверно в этом месте: раздел для **network-partners** (партнёров-агрегаторов), а не для reseller'ов — это отдельная роль. Использование prefix `/reseller` — легаси из ранней архитектуры, когда аггрегаторы обрабатывались как частный случай reseller.
+
+**Разрешение:**
+- **A (spec=truth, рекомендуется):** переименовать prefix в router'е на `/network/*`, обновить `networkStats.ts` на фронте, обновить комментарии handler'ов. Фронт и бэк в одном PR. Цена: потенциально ломает существующие e2e-тесты, которые ссылаются на `/reseller/*` (проверить `e2e/tests/`). Плюс: название соответствует доменной модели.
+- **B (reasoned deviation):** обновить спеку — заменить `/portal/v1/network/*` на `/portal/v1/reseller/*`, признать исторический prefix. Цена: увековечить confused naming. Новые внешние клиенты будут спотыкаться о "я партнёр сети, почему endpoint называется reseller".
+
+**Приоритет:** 🟡 MEDIUM. Не блокирует работающий flow (фронт и бэк договорились), но блокирует следование спеке при расширении AC и понимании новичками.
+
+**Статус:** 🟡 OPEN-MEDIUM. До разрешения — все новые AC пишутся по фактическому `/reseller/*` (как AC-18). Drift явно отмечен для следующего brainstorm по разделу.
+
+---
+
+## D-12: `validateFilter` возвращает `Internal` вместо `InvalidArgument`
+
+**Обнаружено:** 2026-04-21 при верификации AC-14 (валидация `group_by=5min` на period > 24h).
+
+**Спека:** неявно через §2.5 спеки network-analytics:
+> Валидация комбинации period × group_by возвращает `INVALID_ARGUMENT` с описанием лимита.
+
+**Что в коде:**
+- Validation-логика есть: [service.go:34-55](../../internal/services/network_analytics/application/service.go#L34-L55) — корректно проверяет `GroupByMaxPeriodHours["5min"] = 24`, возвращает `fmt.Errorf("period of %.0f hours exceeds the maximum of %d hours allowed for group_by=%q", ...)`.
+- gRPC wrap не разделяет ошибки: [grpc/server.go:34-36](../../internal/services/network_analytics/grpc/server.go#L34-L36):
+  ```go
+  result, err := s.service.GetStatistics(ctx, filter)
+  if err != nil {
+      return nil, status.Errorf(codes.Internal, "get statistics: %v", err)
+  }
+  ```
+- Любая ошибка — и validation, и БД, и нижележащий infra-сбой — маппится в `codes.Internal`, который HTTP-gateway превращает в **HTTP 500**.
+- UI на выходе получает generic error, пишется в toast без различения (useNetworkStats.ts:118-120): `setError(err?.message || 'Ошибка загрузки данных')`. Никакого распознавания типа ошибки нет.
+
+**Последствие:**
+1. Пользователь, выбравший заведомо невалидную комбинацию (например 5min на 7 днях), видит сообщение вида `rpc error: code = Internal desc = get statistics: period of 168 hours exceeds...`. Это raw-сообщение, без локализации.
+2. Мониторинг/alerting склеивает валидационные отказы с реальными авариями сервиса — невозможно построить SLO на "только infra errors".
+3. AC-14 в документе описывает "HTTP 400 + локализованный toast" — это желаемое состояние, которое код не обеспечивает. На 2026-04-21 AC-14 обновлён под реальное поведение, чтобы тест мог быть зелёным сейчас; после фикса — AC вернуть к изначальной формулировке.
+
+**Разрешение (A = spec=truth):**
+1. Завести sentinel-тип в domain: `var ErrInvalidFilter = errors.New("invalid filter")` или `type ValidationError struct { Msg string }`.
+2. `validateFilter` возвращает ошибку-обёртку этого типа с читаемым русским сообщением.
+3. gRPC server: `errors.As(err, &ValidationError{})` → `codes.InvalidArgument`; иначе — `codes.Internal`.
+4. HTTP handler ([network_statistics.go:177-180](../../internal/gateway/portal/handlers/network_statistics.go#L177-L180)): `respondGRPCError` уже маппит `codes.InvalidArgument` в `ErrInvalidInput` / HTTP 400 ([response.go:72-73](../../internal/api/http/response/response.go#L72-L73)) — дополнительных изменений в HTTP-слое не требуется.
+5. Frontend: в useNetworkStats.ts ловить 400 отдельно и показывать локализованный toast из response.
+
+**Связанные AC:** AC-14 (обновлён в текущем коммите, связан с этим drift), AC-B3-* (новые AC по валидации, которые будут в Batch 2/3).
+
+**Приоритет:** 🟡 MEDIUM. UX-плохо, но не блокирует основной flow. Фикс небольшой, стандартный паттерн для gRPC-сервисов.
+
+**Статус:** 🟡 OPEN-MEDIUM. AC-14 переписан по коду. После фикса — вернуть AC-14 к формулировке "HTTP 400 + локализованный toast" и закрыть drift.
+
