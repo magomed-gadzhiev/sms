@@ -361,4 +361,20 @@ These guards protect the **billing + tarification** path from duplicate charges 
 
 ## Summary of critical / major findings
 
-_TODO: Task 6_
+| # | Axis | Severity | Finding | Action |
+|---|---|---|---|---|
+| 1 | A3 | critical | Нет Idempotency-Key middleware. Retry `POST /sms/send` / SMPP `submit_sm` / `gRPC.SendMessage` → двойное сообщение + двойное списание. Downstream billing-guard keyed by gateway-minted UUID — бесполезен для client retries. | plan:[2026-04-21-fix-idempotency-middleware.md](../superpowers/plans/2026-04-21-fix-idempotency-middleware.md) |
+| 2 | A1 | major | 22 из 33 HTTP-роутов не задокументированы в OpenAPI (webhooks, lookup, templates, cascade). `GET /account/stats` schema — полностью несовпадающая. Status code mismatches (202 vs 200). | plan:[2026-04-21-fix-openapi-drift.md](../superpowers/plans/2026-04-21-fix-openapi-drift.md) |
+| 3 | A1-grpc | major | 2 RPC Unimplemented (`CancelMessage`, `ListScheduledMessages`), HTTP-эквиваленты работают. Dead methods `GetBalance`/`GetStatistics` — с тестами, но нигде не зарегистрированы. Нет .proto source для всех v1 пакетов. | plan:TBD (proto source recovery + unimplemented decisions) |
+| 4 | A2 | major | Cascade outlier: plain-text errors vs JSON envelope в остальных. Envelope shape не соответствует umbrella spec (`{"error":{...}}` nested vs flat). `request_id` отсутствует везде. gRPC `status.Error` без `WithDetails`. SMPP: `ESME_RINVCMDLEN` для validation errors (wrong code). | plan:TBD (canonical error contract across 3 transports) |
+| 5 | A1-grpc | minor | gRPC health service отсутствует (только HTTP). | inline-fix-candidate (~20 строк в main.go, register grpc_health_v1) |
+| 6 | A2 (SMPP) | minor | Валидационные ошибки возвращают `ESME_RINVCMDLEN` — применяется везде одинаково. | inline-fix-candidate как часть plan#4 |
+
+**Мета-вывод:**
+
+Cycle 1 подтверждает картину Phase 0: внешний gRPC surface де-факто не протестирован в проде (dead methods с тестами + Unimplemented + отсутствие .proto source = код никто не перегенерировал, потому что никто не использует этот gRPC через контракт). Приоритет фиксов:
+
+1. **A3 Idempotency** — critical, финансовый риск в проде немедленно.
+2. **A2 error contract** — major, integrator-DX блокер.
+3. **A1 OpenAPI drift** — major, партнёрский онбординг блокер.
+4. **A1-grpc** — major, но может уехать дальше по приоритету если gRPC realno не используется (подтвердить отдельно).
