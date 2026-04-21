@@ -10,6 +10,8 @@
 
 **Execution wrapper:** все кодовые таски выполняются через `/execute-with-review` (проектное правило в `CLAUDE.md`).
 
+> **URL prefix (schema reality):** в тексте плана эндпоинты показаны как `/api/network/*` для краткости; реальный service prefix — `/portal/v1/network/*`. Frontend `portal-frontend/src/api/client.ts` использует базовый путь `/portal/v1`. Router-регистрации и примеры запросов должны использовать `/portal/v1/network/*`.
+
 **Phases:**
 - **Phase 1** — Backend API (tasks 1–6)
 - **Phase 2** — Frontend skeleton + routing + list page (tasks 7–10)
@@ -46,7 +48,7 @@ func TestSubaccountsSummary_ReturnsOwnReseller(t *testing.T) {
 
   h := handlers.NewNetworkTariffsSummaryHandler(pool)
   req := httptest.NewRequest("GET", "/api/network/tariffs/subaccounts-summary", nil).
-    WithContext(authCtx(ctx, resellerID, "reseller_admin"))
+    WithContext(authCtx(ctx, resellerID)) // is_reseller=true flag seeded by seedReseller()
   rr := httptest.NewRecorder()
   h.List(rr, req)
 
@@ -104,13 +106,13 @@ func (h *NetworkTariffsSummaryHandler) List(w http.ResponseWriter, r *http.Reque
            (SELECT COUNT(*) FROM reseller_tariff_plans p
               WHERE p.sub_account_id = c.id AND p.active),
            NULL::numeric, -- avg_price_per_sms: computed in follow-up task
-           COALESCE(c.currency, 'RUB')
+           'RUB'::text    -- clients.currency не существует; hardcode до мультивалютности
     FROM clients c
-    LEFT JOIN reseller_tariff_template_bindings b
-           ON b.sub_account_id = c.id AND b.active
+    LEFT JOIN sub_account_template_assignments b
+           ON b.sub_account_id = c.id
     LEFT JOIN reseller_tariff_templates tpl
            ON tpl.id = b.template_id AND tpl.active
-    WHERE c.parent_reseller_id = $1
+    WHERE c.parent_client_id = $1
     ORDER BY c.name
   `, resellerID)
   if err != nil { http.Error(w, err.Error(), 500); return }
@@ -137,8 +139,9 @@ Edit `internal/gateway/portal/router.go` — добавить рядом с су
 
 ```go
 summaryH := handlers.NewNetworkTariffsSummaryHandler(pool)
-r.HandleFunc("/portal/v1/network/tariffs/subaccounts-summary",
-  requireRole("reseller_admin", summaryH.List)).Methods("GET")
+// Mounted on `protected` subrouter; is_reseller=true проверяется в handler'е
+// (см. authReseller в handlers — consistent с `reseller_*` эндпоинтами).
+protected.HandleFunc("/network/tariffs/subaccounts-summary", summaryH.List).Methods("GET")
 ```
 
 - [ ] **Step 5: Run test — expect PASS**
@@ -220,14 +223,14 @@ git commit -am "feat(tariffs): compute avg_price_per_sms + redis cache"
 ```sql
 SELECT tpl.id, tpl.name, tpl.description,
        (SELECT COUNT(*) FROM reseller_tariff_plans WHERE template_id = tpl.id AND active),
-       (SELECT COUNT(*) FROM reseller_tariff_template_bindings WHERE template_id = tpl.id AND active),
+       (SELECT COUNT(*) FROM sub_account_template_assignments WHERE template_id = tpl.id),
        tpl.created_at
 FROM reseller_tariff_templates tpl
 WHERE tpl.reseller_id = $1 AND tpl.active
 ORDER BY tpl.name
 ```
 
-- [ ] **Step 4: Register route** `GET /portal/v1/network/tariff-templates` с `requireRole("reseller_admin")`.
+- [ ] **Step 4: Register route** `GET /portal/v1/network/tariff-templates` на `protected` subrouter; `is_reseller=true` проверяется в handler'е (consistent с `reseller_*` handlers).
 
 - [ ] **Step 5: Run — PASS**
 
@@ -263,7 +266,7 @@ func TestBindTemplate_ReplacesExisting(t *testing.T) {
 
 `Create(w, r)` — POST body `{name, description, copy_from_id?}`. Транзакция: INSERT в `reseller_tariff_templates`; если `copy_from_id` — CTE-копирование `plans → periods → tiers`.
 
-`Bind(w, r)` — URL `/portal/v1/network/tariff-templates/{id}/bind`, body `{sub_account_ids}`. В транзакции: `UPDATE reseller_tariff_template_bindings SET active=false WHERE sub_account_id = ANY($1)` + `INSERT` новых строк.
+`Bind(w, r)` — URL `/portal/v1/network/tariff-templates/{id}/bind`, body `{sub_account_ids}`. В транзакции: `DELETE FROM sub_account_template_assignments WHERE sub_account_id = ANY($1)` + `INSERT` новых строк (unique index на `sub_account_id` гарантирует one-template-per-subaccount).
 
 `Duplicate(w, r)` — URL `/portal/v1/network/tariff-templates/{id}/duplicate`, body `{name}`. Тот же copy-CTE что в `Create`.
 
@@ -1140,8 +1143,9 @@ git commit -m "docs(tariffs): redesign smoke-test report"
 **Type consistency:** `TariffEditorData`, `TariffEditorCell`, `SubAccountTariffSummary`, `TariffTemplateSummary` — определены в Task 7, используются в Tasks 9–23 без переименований.
 
 **Потенциальные пробелы (вынесены в open questions, не блокируют):**
-- Точное имя таблицы `reseller_tariff_template_bindings` — в спеке 2026-04-16 она упомянута, но стоит на шаге 1 проверить миграцию.
-- Имя и структура поля `parent_reseller_id` в `clients` — проверить в миграциях перед Task 1.
+- ~~Точное имя таблицы `reseller_tariff_template_bindings`~~ — resolved: реальная таблица `sub_account_template_assignments` (колонки `sub_account_id`, `template_id`, `assigned_at`; unique index на `sub_account_id`). План и спека обновлены 2026-04-22.
+- ~~Имя и структура поля `parent_reseller_id` в `clients`~~ — resolved: реальная колонка `clients.parent_client_id`. План и спека обновлены 2026-04-22.
+- `clients.currency` не существует — response'ы hardcode'ят `"RUB"` до отдельной инициативы по мультивалютности.
 - Legacy-бейдж и взаимодействие с `aggregator_tariffs` — текущий UI показывает «Legacy» в обзоре; матрица должна уметь его отобразить. В плане явно не адресовано; вопрос: сохранять ли legacy-колонку в новом UI? Рекомендация — показывать `legacy`-бейдж в строке оператора, если источник — `aggregator_tariffs`, без возможности править.
 
 Эти open questions решаются на Task 1 (handler увидит, как данные реально устроены) — если данные расходятся с предположением, план адаптируется.

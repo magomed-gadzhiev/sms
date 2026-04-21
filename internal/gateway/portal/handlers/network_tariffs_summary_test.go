@@ -273,6 +273,40 @@ func TestSubaccountsSummary_Unauthorized(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestSubaccountsSummary_EmptyForResellerWithNoSubs(t *testing.T) {
+	pool := getTestPool(t)
+	ctx := context.Background()
+
+	var planID uuid.UUID
+	err := pool.QueryRow(ctx, `SELECT id FROM subscription_plans ORDER BY monthly_price_rub LIMIT 1`).Scan(&planID)
+	require.NoError(t, err, "need at least one subscription plan seeded")
+
+	resellerID := uuid.New()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, true, $5)`,
+		resellerID,
+		fmt.Sprintf("reseller-empty-%s", uuid.NewString()[:8]),
+		fmt.Sprintf("apikey-reseller-empty-%s", resellerID),
+		fmt.Sprintf("reseller-empty-%s@t.local", uuid.NewString()[:8]),
+		planID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM clients WHERE id = $1`, resellerID)
+	})
+
+	h := NewNetworkTariffsSummaryHandler(pool)
+
+	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.ClientIDKey, resellerID))
+
+	w := httptest.NewRecorder()
+	h.List(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+	assert.Equal(t, "[]\n", w.Body.String(), "expected JSON empty array, not null")
+}
+
 func TestSubaccountsSummary_NotReseller(t *testing.T) {
 	pool := getTestPool(t)
 	ctx := context.Background()
