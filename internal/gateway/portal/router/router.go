@@ -63,6 +63,7 @@ func SetupRouter(
 	resellerRoutingHandlers *handlers.ResellerRoutingHandlers,
 	resellerTariffHandlers *handlers.ResellerTariffHandlers,
 	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
+	networkTariffsSummaryHandler *handlers.NetworkTariffsSummaryHandler,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	networkStatsHandlers *handlers.NetworkStatisticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
@@ -391,6 +392,14 @@ func SetupRouter(
 	routes.HandleFunc("/{id}", routeHandlers.GetRoute).Methods("GET")
 	routes.HandleFunc("/{id}", routeHandlers.UpdateRoute).Methods("PUT")
 	routes.HandleFunc("/{id}", routeHandlers.DeleteRoute).Methods("DELETE")
+
+	// Network tariffs — reseller-admin facing /network/tariffs page (spec 2026-04-22).
+	// Path lives at the top of the authenticated portal tree (not under /reseller/)
+	// because the frontend route is /network/tariffs. The handler enforces the
+	// is_reseller check itself — there is no distinct "reseller_admin" role in this
+	// project; the reseller flag on clients is the gate.
+	networkTariffs := protected.PathPrefix("/network/tariffs").Subrouter()
+	networkTariffs.HandleFunc("/subaccounts-summary", networkTariffsSummaryHandler.List).Methods("GET")
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()
