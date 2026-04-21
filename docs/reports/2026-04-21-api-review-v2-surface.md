@@ -44,7 +44,26 @@
 
 ## 2. gRPC External (cmd/client-gateway CLIENT_GRPC_PORT)
 
-_TODO: Task 3_
+One service registered: `messagingv1.RegisterMessagingServiceServer` (default port 9090, overridable via `CLIENT_GRPC_PORT`).
+Auth: unary interceptor `clientgrpc.AuthInterceptor` applied to all RPCs.
+Reflection: enabled only when `SMPP_SERVICE_ENV=development`.
+
+| Service | RPC | Handler file:line | Downstream internal gRPC | Notes |
+|---|---|---|---|---|
+| MessagingService | SendMessage | internal/gateway/client/grpc/server.go:38 | messagingv1.SendMessage | Forces req.ClientId from auth context; rejects mismatched client_id |
+| MessagingService | SendBatch | internal/gateway/client/grpc/server.go:62 | messagingv1.SendBatch | Forces req.ClientId + all per-message ClientId from auth context |
+| MessagingService | GetMessageStatus | internal/gateway/client/grpc/server.go:98 | messagingv1.GetMessageStatus | Forces req.ClientId from auth context |
+| MessagingService | GetMessageHistory | internal/gateway/client/grpc/server.go:122 | messagingv1.GetMessageHistory | Forces req.ClientId from auth context |
+| MessagingService | ProcessDLR | internal/gateway/client/grpc/server.go:172 | messagingv1.ProcessDLR | No client_id scoping — proxies directly; comment notes Messaging Service will check rights |
+| MessagingService | CancelMessage | not implemented | — | Falls through to UnimplementedMessagingServiceServer (codes.Unimplemented) |
+| MessagingService | ListScheduledMessages | not implemented | — | Falls through to UnimplementedMessagingServiceServer (codes.Unimplemented) |
+
+**Surprises / anomalies:**
+
+1. `CancelMessage` and `ListScheduledMessages` are declared in the proto and have HTTP equivalents (Task 1 table rows), but are **not implemented** in the external gRPC server. Callers on the gRPC channel get `codes.Unimplemented`.
+2. `server.go` contains two methods outside the `MessagingServiceServer` interface — `GetBalance` (line 146, calls `billingClient.GetBalance`) and `GetStatistics` (line 192, calls `analyticsClient.GetStatistics`). These are **unreachable via gRPC** because they are not part of the registered service descriptor. They are dead code on the external gRPC port.
+3. No `.proto` source files exist in `api/proto/messagingv1/` — only generated `.pb.go` files. The proto source is `messaging/messaging.proto` per the generated file header but is absent from the repository.
+4. No mTLS is configured — `grpc.NewServer` uses only a `UnaryInterceptor`; no `grpc.Creds` option is passed.
 
 ## 3. SMPP (cmd/smpp-gateway)
 
