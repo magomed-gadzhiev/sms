@@ -76,25 +76,27 @@ func NewStage(cfg *config.Config, db *storage.DB, rdb *redis.Client) (*Stage, er
 
 	pool := smsc.NewPool(&cfg.Worker)
 
+	// messageRepo нужен для резолва internal message UUID по SMPP message_id
+	// провайдера. Без этого DLRMessage.MessageID остаётся uuid.Nil и HandleDLR
+	// в webhook/delivery_service пропускает запись, а status-stage upsert не
+	// матчит строки в messages — DLR-фича фактически не работает (см.
+	// docs/superpowers/plans/2026-04-21-fix-dlr-webhook-delivery.md).
+	dlrMessageRepo := storage.NewMessageRepository(db)
+
 	// Устанавливаем DLR callback для обработки deliver_sm от провайдеров
 	dlrTopic := cfg.Kafka.TopicDLR
 	pool.SetDLRCallback(func(data *smsc.DeliverSMData) {
-		dlrMsg := &queue.DLRMessage{
-			SMPPMessageID:      data.SMPPMessageID,
-			ProviderID:         &data.ProviderID,
-			ReceiptedMessageID: data.SMPPMessageID,
-			Stat:               data.Stat,
-			Source:             data.Source,
-			Destination:        data.Destination,
-			Text:               data.Text,
-			CreatedAt:          time.Now(),
+		lookupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		dlrMsg, ok := buildDLRMessage(lookupCtx, dlrMessageRepo, data, time.Now())
+		if !ok {
+			return
 		}
-		now := time.Now()
-		dlrMsg.DoneDate = &now
 		if dlrData, serErr := dlrMsg.Serialize(); serErr == nil {
 			producer.PublishAsync(dlrTopic, data.SMPPMessageID, dlrData, nil)
 			log.Info().
 				Str("smpp_message_id", data.SMPPMessageID).
+				Str("message_id", dlrMsg.MessageID.String()).
 				Str("stat", data.Stat).
 				Str("provider_id", data.ProviderID.String()).
 				Msg("DLR опубликован в Kafka")
@@ -598,6 +600,48 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	session.MarkMessage(msg, "")
 
 	return nil
+}
+
+// dlrMessageLookup описывает минимальный контракт, нужный для резолва
+// SMPP message_id провайдера → internal message UUID при построении
+// DLRMessage. Вынесен отдельно чтобы buildDLRMessage был юнит-тестируемым
+// без реального *storage.MessageRepository.
+type dlrMessageLookup interface {
+	GetBySMPPMessageID(ctx context.Context, smppMessageID string) (*shared.Message, error)
+}
+
+// buildDLRMessage конвертирует DeliverSMData из провайдера в DLRMessage
+// для публикации в Kafka. Возвращает (msg, true) если lookup внутреннего
+// message UUID успешен; (nil, false) если SMPP message_id неизвестен —
+// callback должен skip publish, иначе DLR уйдёт в очередь с uuid.Nil и
+// downstream потребители его silently дропнут (см. docs/superpowers/plans/2026-04-21-fix-dlr-webhook-delivery.md).
+func buildDLRMessage(ctx context.Context, repo dlrMessageLookup, data *smsc.DeliverSMData, now time.Time) (*queue.DLRMessage, bool) {
+	msg, err := repo.GetBySMPPMessageID(ctx, data.SMPPMessageID)
+	if err != nil || msg == nil {
+		log.Warn().
+			Err(err).
+			Str("smpp_message_id", data.SMPPMessageID).
+			Str("provider_id", data.ProviderID.String()).
+			Msg("DLR для неизвестного SMPP message_id — skipping publish")
+		return nil, false
+	}
+	dlrMsg := &queue.DLRMessage{
+		MessageID:          msg.ID,
+		ClientID:           msg.ClientID,
+		SMPPMessageID:      data.SMPPMessageID,
+		ProviderID:         &data.ProviderID,
+		ReceiptedMessageID: data.SMPPMessageID,
+		Stat:               data.Stat,
+		Source:             data.Source,
+		Destination:        data.Destination,
+		Text:               data.Text,
+		DoneDate:           &now,
+		CreatedAt:          now,
+	}
+	if msg.SubmittedAt != nil {
+		dlrMsg.SubmitDate = msg.SubmittedAt
+	}
+	return dlrMsg, true
 }
 
 // routedToSharedMessage конвертирует pipeline.RoutedMessage в shared.Message

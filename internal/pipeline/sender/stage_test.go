@@ -1,6 +1,8 @@
 package sender
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,7 +12,120 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/queue"
+	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/smsc"
 )
+
+// ---------------------------------------------------------------------------
+// buildDLRMessage — регрессия на F-D1/F-D2 (docs/.../2026-04-21-fix-dlr-webhook-delivery.md)
+// ---------------------------------------------------------------------------
+
+// stubDLRLookup реализует dlrMessageLookup для юнит-теста без реального DB.
+type stubDLRLookup struct {
+	msg *shared.Message
+	err error
+}
+
+func (s *stubDLRLookup) GetBySMPPMessageID(_ context.Context, _ string) (*shared.Message, error) {
+	return s.msg, s.err
+}
+
+func TestBuildDLRMessage_PopulatesMessageIDAndClientID(t *testing.T) {
+	t.Parallel()
+
+	msgID := uuid.New()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	submittedAt := time.Now().Add(-5 * time.Minute)
+	now := time.Now()
+
+	repo := &stubDLRLookup{
+		msg: &shared.Message{
+			ID:          msgID,
+			ClientID:    &clientID,
+			SubmittedAt: &submittedAt,
+		},
+	}
+	data := &smsc.DeliverSMData{
+		SMPPMessageID: "provider-msg-xyz",
+		ProviderID:    providerID,
+		Stat:          "DELIVRD",
+		Source:        "Sender",
+		Destination:   "+79001234567",
+		Text:          "id:provider-msg-xyz stat:DELIVRD",
+	}
+
+	dlrMsg, ok := buildDLRMessage(context.Background(), repo, data, now)
+
+	require.True(t, ok, "должны успешно построить DLR когда message найден")
+	require.NotNil(t, dlrMsg)
+	assert.Equal(t, msgID, dlrMsg.MessageID, "MessageID должен быть populated из lookup")
+	require.NotNil(t, dlrMsg.ClientID)
+	assert.Equal(t, clientID, *dlrMsg.ClientID, "ClientID должен скопироваться из найденного message")
+	assert.Equal(t, "provider-msg-xyz", dlrMsg.SMPPMessageID)
+	assert.Equal(t, &providerID, dlrMsg.ProviderID)
+	assert.Equal(t, "DELIVRD", dlrMsg.Stat)
+	require.NotNil(t, dlrMsg.SubmitDate)
+	assert.Equal(t, submittedAt, *dlrMsg.SubmitDate)
+	require.NotNil(t, dlrMsg.DoneDate)
+	assert.Equal(t, now, *dlrMsg.DoneDate)
+}
+
+func TestBuildDLRMessage_SkipsWhenMessageNotFound(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubDLRLookup{msg: nil, err: nil}
+	data := &smsc.DeliverSMData{
+		SMPPMessageID: "unknown-smpp-id",
+		ProviderID:    uuid.New(),
+		Stat:          "DELIVRD",
+	}
+
+	dlrMsg, ok := buildDLRMessage(context.Background(), repo, data, time.Now())
+
+	assert.False(t, ok, "должны skip publish когда сообщение не найдено")
+	assert.Nil(t, dlrMsg)
+}
+
+func TestBuildDLRMessage_SkipsOnLookupError(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubDLRLookup{msg: nil, err: errors.New("db connection lost")}
+	data := &smsc.DeliverSMData{
+		SMPPMessageID: "some-smpp-id",
+		ProviderID:    uuid.New(),
+		Stat:          "UNDELIV",
+	}
+
+	dlrMsg, ok := buildDLRMessage(context.Background(), repo, data, time.Now())
+
+	assert.False(t, ok, "должны skip publish на lookup error")
+	assert.Nil(t, dlrMsg)
+}
+
+func TestBuildDLRMessage_NilSubmittedAt(t *testing.T) {
+	t.Parallel()
+
+	clientID := uuid.New()
+	repo := &stubDLRLookup{
+		msg: &shared.Message{
+			ID:          uuid.New(),
+			ClientID:    &clientID,
+			SubmittedAt: nil, // message ещё не submitted / поле пустое
+		},
+	}
+	data := &smsc.DeliverSMData{
+		SMPPMessageID: "some-id",
+		ProviderID:    uuid.New(),
+		Stat:          "ENROUTE",
+	}
+
+	dlrMsg, ok := buildDLRMessage(context.Background(), repo, data, time.Now())
+
+	require.True(t, ok)
+	require.NotNil(t, dlrMsg)
+	assert.Nil(t, dlrMsg.SubmitDate, "SubmitDate должен остаться nil если message.SubmittedAt nil")
+}
 
 // ---------------------------------------------------------------------------
 // routedToSharedMessage
