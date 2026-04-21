@@ -190,7 +190,94 @@ In production (`cfg.Service.Env != "development"`), reflection is disabled. This
 
 ## A2 — error format consistency
 
-_TODO: Task 4_
+**Severity:** major (inconsistent formats break integrator error handling)
+
+### A2.1 — HTTP envelope consistency
+
+| Handler file | Error pattern | Has helper? | request_id present? | Notes |
+|---|---|---|---|---|
+| account.go | `respondError(w, shared.ErrUnauthorized(...))` + `respondGRPCError(w, err)` | Yes — `respondError` / `respondGRPCError` | No | Fully consistent |
+| sms.go | `respondError(w, shared.ErrInvalidInput(...))` + `respondGRPCError(w, err)`, `w.WriteHeader(http.StatusNoContent)` for 204 | Yes | No | Fully consistent; `CancelSMS` returns 204 with no body (correct) |
+| lookup.go | `respondError(w, shared.ErrInvalidInput(...))` + `respondGRPCError(w, err)` | Yes | No | Fully consistent |
+| templates.go | `respondError(w, shared.ErrUnauthorized(...))` + `respondGRPCError(w, err)`, `w.WriteHeader(http.StatusNoContent)` for 204 | Yes | No | Fully consistent |
+| webhooks.go | `respondError(w, shared.ErrUnauthorized(...))` + `respondGRPCError(w, err)`, `w.WriteHeader(http.StatusNoContent)` for 204 | Yes | No | Fully consistent |
+| cascade.go | Auth errors → `http.Error(w, "unauthorized", http.StatusUnauthorized)` (plain text); downstream gRPC errors → `respondGRPCError(w, err)` | **Partially** — auth uses raw `http.Error`, not helper | No | **DRIFT: auth errors are plain-text, not JSON envelope** |
+| common.go (helpers) | Defines `respondError = response.Error`, `respondGRPCError = response.GRPCError`, `respondJSON = response.JSON` | N/A — IS the helper | No | Delegates to `internal/api/http/response` package |
+
+**Actual envelope shape** (from `internal/api/http/response/response.go:41–57`):
+
+```
+{"error": {"code": "INVALID_INPUT", "message": "...", "details": "..."}}
+```
+
+**Canonical envelope target (per umbrella spec §2):** `{code, message, details?, request_id}`.
+
+**Current reality:** partially followed. There are two structural gaps:
+
+1. **Nesting mismatch.** The actual envelope wraps the error fields under an `"error"` key: `{"error": {"code", "message", "details"}}`. The umbrella spec §2 prescribes a flat top-level object: `{code, message, details?, request_id}`. The nesting is consistent across all 5 well-behaved handlers — but it diverges from spec.
+
+2. **`request_id` absent.** `response.Error()` never includes a `request_id` field. The `request_id` concept exists in the codebase (lookup handlers generate UUIDs for internal routing, but these are request-IDs passed to downstream services, not returned to callers). No middleware attaches a request-ID to the context or to error responses.
+
+3. **`cascade.go` auth divergence.** All 4 auth-check paths in `cascade.go` use `http.Error(w, "unauthorized", http.StatusUnauthorized)` — returning plain text `unauthorized\n` with `Content-Type: text/plain`. The other 5 handler files use `respondError(w, shared.ErrUnauthorized(...))` which returns JSON. An integrator using the cascade API gets a different error format on auth failure than on any other endpoint.
+
+### A2.2 — gRPC error mapping
+
+`internal/gateway/client/grpc/server.go` uses `status.Error(codes.X, "message")` consistently for all 7 methods. Code coverage:
+
+- `codes.Unauthenticated` — used for missing clientID (5 call sites)
+- `codes.PermissionDenied` — used for cross-client access attempts (5 call sites)
+- All calls pass a human-readable Russian-language string as the status message
+
+**Gaps:**
+
+1. **No `status.WithDetails()` usage.** Details (e.g., structured error fields, field violations) are never populated. Callers receive only a code + plain string. gRPC conventions for richer errors (e.g., `google.rpc.BadRequest.FieldViolation`) are not used anywhere.
+
+2. **No downstream error mapping.** When the proxy methods call `s.messagingClient.SendMessage(ctx, req)` and the downstream returns an error, it is returned as-is to the caller without re-mapping. If the messaging service returns an `INTERNAL` code with a backend-internal message, that leaks through verbatim to the external caller. This is a minor information-leakage risk and means the external gRPC error surface is partially defined by the downstream services, not by a gateway contract.
+
+3. **gRPC interceptor** (`internal/gateway/client/grpc/interceptor.go`) — exists but only handles auth, not error transformation.
+
+### A2.3 — SMPP ESME mapping
+
+No centralized bizError→ESME_* table exists. All ESME codes are assigned inline, scattered across `handler.go`. Inventory of actual mappings:
+
+| Business condition | ESME code returned | Correct? |
+|---|---|---|
+| Invalid command length / bad decode | `ESME_RINVCMDLEN` | Correct for length errors |
+| Validation failure (bind/submit) | `ESME_RINVCMDLEN` | **Wrong** — validation failure is not a length error; should be `ESME_RINVSRCADR` / `ESME_RINVDSTADR` / `ESME_RINVMSGLEN` depending on the field |
+| Wrong password on bind | `ESME_RINVPASWD` | Correct |
+| Invalid bind state (session not bound) | `ESME_RINVBNDSTS` | Correct |
+| Kafka publish failure | `ESME_RSYSERR` | Correct |
+| Rate limit exceeded | `ESME_RTHROTTLED` | Correct |
+| Query SM — message not found | `ESME_RQUERYFAIL` | Correct |
+| Cancel SM — cancel failure | `ESME_RCANCELFAIL` | Correct |
+| Replace SM — replace failure | `ESME_RREPLACEFAIL` | Correct |
+| Unsupported command ID | `ESME_RINVCMDID` | Correct |
+| Unbind while session error | `ESME_RSYSERR` | Correct |
+
+**Summary:** ESME mapping is scattered (no single lookup table), but most codes are semantically correct. The one real error: both decode errors and validation errors of `bind`/`submit` return `ESME_RINVCMDLEN`. A validation failure (e.g., empty `source_addr`) is not a command-length error. This misrepresents the failure to the client.
+
+There is a `gwMapMessageStatusToSMPP()` helper at line 612 for message-state mapping — this is the only centralized SMPP mapping and covers message states only, not error conditions.
+
+### Cross-transport consistency
+
+Example: business error "client not found / not authenticated":
+
+- **HTTP** (account, sms, lookup, templates, webhooks): `{"error": {"code": "UNAUTHORIZED", "message": "Клиент не найден"}}`, HTTP 401
+- **HTTP** (cascade): plain text `unauthorized\n`, HTTP 401
+- **gRPC**: `status.Error(codes.Unauthenticated, "клиент не найден")` — gRPC Unauthenticated code, string message only
+- **SMPP** (bind): `ESME_RINVPASWD` (wrong password). Note: SMPP has no "session not found" concept — session state is managed at the transport level.
+
+**Cross-transport semantics verdict:** partially preserved. HTTP and gRPC both signal 401/Unauthenticated for the same auth failure, which is correct. The SMPP equivalent (`ESME_RINVPASWD`) is the correct SMPP semantic. The failure is the cascade.go outlier returning plain text instead of JSON, breaking HTTP consistency.
+
+The deeper issue is the envelope shape mismatch: HTTP callers see `{"error": {"code": ...}}` while the umbrella spec prescribes `{"code": ...}` at the top level. This is a consistent deviation, not a scattered one — which means a single fix in `response.Error()` would bring all 5 well-behaved handlers in line.
+
+### Decisions
+
+- **A2.1 (HTTP):** Two separate fixes needed. (a) `cascade.go` auth divergence is a 4-line inline fix — replace `http.Error(w, "unauthorized", http.StatusUnauthorized)` with `respondError(w, shared.ErrUnauthorized(""))`. (b) Envelope nesting + missing `request_id` require a change to `response.Error()` and request-ID middleware — this is a larger cross-cutting change. Propose `docs/superpowers/plans/2026-04-21-fix-error-contract.md`.
+- **A2.2 (gRPC):** Adding `status.WithDetails()` and downstream error re-mapping requires a policy decision: what structured error types to expose. Include in the same fix plan.
+- **A2.3 (SMPP):** The `ESME_RINVCMDLEN` overloading for validation errors is a real bug. A centralized mapping table would make this auditable. Include in fix plan. The cascade.go cascade fix is small enough to be inline.
+
+Combined fix-plan stub candidate: `docs/superpowers/plans/2026-04-21-fix-error-contract.md`. Not created in this task.
 
 ## A3 — idempotency of write operations
 

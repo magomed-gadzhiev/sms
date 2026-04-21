@@ -67,6 +67,16 @@ One row per HTTP endpoint (not per role) for the A1 axis. OpenAPI is a single do
 | proto source — all 21 v1 packages | grpc | client | A1-grpc | BROKEN | — | v1 dirs contain only .pb.go; no .proto source → codegen pipeline broken | major | plan:docs/superpowers/plans/2026-04-21-fix-missing-proto-sources.md |
 | grpc_health_v1 service | grpc | client | A1-grpc | MISSING | — | Standard gRPC health protocol not registered; only HTTP health endpoints exist | minor | inline fix in dead-methods removal PR |
 
+| account.go | http | client | A2 | DRIFT | — | Uses respondError helper; envelope is {"error":{code,message,details}} — nested, not flat; no request_id | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| sms.go | http | client | A2 | DRIFT | — | Uses respondError helper; same envelope nesting/request_id gaps; otherwise consistent | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| lookup.go | http | client | A2 | DRIFT | — | Uses respondError helper; same envelope nesting/request_id gaps | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| templates.go | http | client | A2 | DRIFT | — | Uses respondError helper; same envelope nesting/request_id gaps | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| webhooks.go | http | client | A2 | DRIFT | — | Uses respondError helper; same envelope nesting/request_id gaps | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| cascade.go | http | client | A2 | BROKEN | — | Auth errors use http.Error() — plain text, not JSON; downstream errors use respondGRPCError; split error format on same handler | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| common.go (helpers) | http | client | A2 | DRIFT | — | response.Error() produces {"error":{code,message,details}} — nested; no request_id field; single fix here propagates to all 5 consistent handlers | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| grpc-external (server.go) | grpc | client | A2 | DRIFT | — | Uses status.Error(codes.X, msg) consistently; no status.WithDetails(); downstream errors pass through unmapped — leaks backend codes | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+| SMPP handler | smpp | client | A2 | DRIFT | — | ESME codes scattered inline; no centralized bizError→ESME table; validation errors and decode errors both return ESME_RINVCMDLEN (semantically incorrect for validation) | major | plan:docs/superpowers/plans/2026-04-21-fix-error-contract.md |
+
 ## Machine-readable
 
 См. `2026-04-21-cycle1-contract-matrix.csv`.
