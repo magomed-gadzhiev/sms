@@ -176,6 +176,92 @@ func TestSubaccountsSummary_ReturnsOwnReseller(t *testing.T) {
 	assert.Equal(t, "RUB", overRow["currency"])
 }
 
+func TestSubaccountsSummary_CrossResellerIsolation(t *testing.T) {
+	pool := getTestPool(t)
+	ctx := context.Background()
+
+	var planID uuid.UUID
+	err := pool.QueryRow(ctx, `SELECT id FROM subscription_plans ORDER BY monthly_price_rub LIMIT 1`).Scan(&planID)
+	require.NoError(t, err, "need at least one subscription plan seeded")
+
+	resellerAID := uuid.New()
+	resellerBID := uuid.New()
+	subAID := uuid.New()
+	subBID := uuid.New()
+	subAName := fmt.Sprintf("A-child-%s", uuid.NewString()[:8])
+	subBName := fmt.Sprintf("B-child-%s", uuid.NewString()[:8])
+
+	// Reseller A
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, true, $5)`,
+		resellerAID,
+		fmt.Sprintf("reseller-A-%s", uuid.NewString()[:8]),
+		fmt.Sprintf("apikey-reseller-A-%s", resellerAID),
+		fmt.Sprintf("reseller-A-%s@t.local", uuid.NewString()[:8]),
+		planID)
+	require.NoError(t, err)
+
+	// Reseller B
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, true, $5)`,
+		resellerBID,
+		fmt.Sprintf("reseller-B-%s", uuid.NewString()[:8]),
+		fmt.Sprintf("apikey-reseller-B-%s", resellerBID),
+		fmt.Sprintf("reseller-B-%s@t.local", uuid.NewString()[:8]),
+		planID)
+	require.NoError(t, err)
+
+	// Sub-account under reseller A
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, parent_client_id, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, $5, $6)`,
+		subAID, subAName,
+		fmt.Sprintf("apikey-A-child-%s", subAID),
+		fmt.Sprintf("A-child-%s@t.local", uuid.NewString()[:8]),
+		resellerAID, planID)
+	require.NoError(t, err)
+
+	// Sub-account under reseller B
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, parent_client_id, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, $5, $6)`,
+		subBID, subBName,
+		fmt.Sprintf("apikey-B-child-%s", subBID),
+		fmt.Sprintf("B-child-%s@t.local", uuid.NewString()[:8]),
+		resellerBID, planID)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM clients WHERE id IN ($1, $2, $3, $4)`,
+			subAID, subBID, resellerAID, resellerBID)
+	})
+
+	h := NewNetworkTariffsSummaryHandler(pool)
+
+	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.ClientIDKey, resellerAID))
+
+	w := httptest.NewRecorder()
+	h.List(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+
+	var items []map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &items))
+	require.Len(t, items, 1, "expected exactly 1 sub-account for reseller A, got: %s", w.Body.String())
+
+	assert.Equal(t, subAID.String(), items[0]["sub_account_id"])
+	assert.Equal(t, subAName, items[0]["sub_account_name"])
+
+	for _, it := range items {
+		assert.NotEqual(t, subBName, it["sub_account_name"], "reseller B's sub-account leaked into reseller A's view")
+		assert.NotEqual(t, subBID.String(), it["sub_account_id"], "reseller B's sub-account id leaked into reseller A's view")
+	}
+}
+
 func TestSubaccountsSummary_Unauthorized(t *testing.T) {
 	pool := getTestPool(t)
 
