@@ -44,9 +44,27 @@
 
 ## SMPP Commands
 
-| PDU / Event | Handler file:line | Service call | DB tables written | Notes |
-|---|---|---|---|---|
-| _TODO: заполнить в Task 3_ | | | | |
+| PDU / Event | Layer | Handler file:line | Service call | DB tables written | Notes |
+|---|---|---|---|---|---|
+| bind_receiver | protocol | `internal/smpp/server/handler.go:103` | `clientRepo.GetByAPIKey` (local DB) | — (read-only auth check) | Auth: system_id matched against clients table via API key |
+| bind_receiver | gateway | `internal/gateway/smpp/server/handler.go:113` | `authAdapter.AuthenticateBySystemID` (Auth Service) | Redis: saves session binding key | Auth delegated to Auth Service via AuthAdapter; session binding persisted in Redis |
+| bind_transmitter | protocol | `internal/smpp/server/handler.go:143` | `clientRepo.GetByAPIKey` (local DB) | — (read-only auth check) | Same auth path as bind_receiver at protocol layer |
+| bind_transmitter | gateway | `internal/gateway/smpp/server/handler.go:161` | `authAdapter.AuthenticateBySystemID` (Auth Service) | Redis: saves session binding key | Same as bind_receiver at gateway layer |
+| bind_transceiver | protocol | `internal/smpp/server/handler.go:183` | `clientRepo.GetByAPIKey` (local DB) | — (read-only auth check) | Same auth path as bind_receiver at protocol layer |
+| bind_transceiver | gateway | `internal/gateway/smpp/server/handler.go:209` | `authAdapter.AuthenticateBySystemID` (Auth Service) | Redis: saves session binding key | Same as bind_receiver at gateway layer |
+| unbind | protocol | `internal/smpp/server/handler.go:223` | — (local session state) | — | Calls `session.Unbind()` only |
+| unbind | gateway | `internal/gateway/smpp/server/handler.go:257` | — (local session state) | Redis: deletes session binding key | Calls `session.Unbind()` + removes Redis session key |
+| submit_sm | protocol | `internal/smpp/server/handler.go:237` | Kafka `producer.PublishOutgoing` (outgoing topic) | — (Kafka publish only) | UDH not parsed; rate-limit enforced; message ID generated client-side |
+| submit_sm | gateway | `internal/gateway/smpp/server/handler.go:277` | Kafka `producer.PublishOutgoing` (outgoing topic) | Redis: saves message→session mapping for DLR routing | UDH parsed (ESM_CLASS bit 0x40); user_id added to Kafka metadata; Redis mapping saved for DLR delivery |
+| deliver_sm | gateway | `internal/gateway/smpp/server/handler.go:547` | `optOutRepo.Add` (conditional) | `opt_out_list` (if stop-keyword matched) | Not present in protocol layer. No MO/DLR split — handler treats all deliver_sm as MO only; no esm_class/receipted_message_id check. Stop-keywords: STOP, СТОП, ОТПИСАТЬСЯ, UNSUBSCRIBE |
+| enquire_link | protocol | `internal/smpp/server/handler.go:325` | — (local session state) | — | Updates session.EnquireLinkSent timestamp |
+| enquire_link | gateway | `internal/gateway/smpp/server/handler.go:401` | — (local session state) | Redis: refreshes session binding TTL | Calls `redisStore.RefreshSessionTTL` on each keepalive |
+| query_sm | protocol | `internal/smpp/server/handler.go:338` | `messageRepo.GetByMessageID` (local DB) | — (read-only) | Returns message state mapped to SMPP MSG_STATE_* constants |
+| query_sm | gateway | `internal/gateway/smpp/server/handler.go:418` | `messageRepo.GetByMessageID` (local DB) | — (read-only) | Identical logic to protocol layer; uses `gwMapMessageStatusToSMPP` |
+| cancel_sm | protocol | `internal/smpp/server/handler.go:385` | `messageRepo.UpdateStatusByMessageID` (local DB) | `messages` (status → cancelled) | Only updates status; no Kafka event emitted |
+| cancel_sm | gateway | `internal/gateway/smpp/server/handler.go:465` | `messageRepo.UpdateStatusByMessageID` (local DB) | `messages` (status → cancelled) | Identical logic to protocol layer |
+| replace_sm | protocol | `internal/smpp/server/handler.go:418` | `messageRepo.UpdateTextByMessageID` (local DB) | `messages` (text field) | Allowed only for pending/queued status; no Kafka event |
+| replace_sm | gateway | `internal/gateway/smpp/server/handler.go:498` | `messageRepo.UpdateTextByMessageID` (local DB) | `messages` (text field) | Identical logic to protocol layer |
 
 ## SMPP Supported TLVs
 
