@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -222,8 +223,8 @@ func TestStartCascade_HappyPath(t *testing.T) {
 	deliveries.On("Get", ctx, deliveryID).Return(delivery, nil)
 	// get strategy
 	strategies.On("Get", ctx, strategyID).Return(strategy, nil)
-	// update delivery status to in_progress
-	deliveries.On("UpdateStatus", ctx, deliveryID, domain.DeliveryInProgress, "").Return(nil)
+	// update delivery status to in_progress (CAS: Pending → InProgress)
+	deliveries.On("UpdateStatusCAS", ctx, deliveryID, domain.DeliveryPending, domain.DeliveryInProgress, "").Return(nil)
 	// executeNextStep: get channel config
 	channels.On("Get", ctx, channelID).Return(channelCfg, nil)
 	// create attempt
@@ -267,7 +268,7 @@ func TestStartCascade_IdempotentAlreadyInProgress(t *testing.T) {
 
 	deliveryID := uuid.New()
 
-	// delivery is already in_progress — should be a no-op
+	// delivery is already in_progress — CAS returns ErrDeliveryConflict → no-op
 	delivery := &domain.Delivery{
 		ID:     deliveryID,
 		Status: domain.DeliveryInProgress,
@@ -280,6 +281,7 @@ func TestStartCascade_IdempotentAlreadyInProgress(t *testing.T) {
 	producer := &mocks.MockCascadeProducer{}
 
 	deliveries.On("Get", ctx, deliveryID).Return(delivery, nil)
+	deliveries.On("UpdateStatusCAS", ctx, deliveryID, domain.DeliveryPending, domain.DeliveryInProgress, "").Return(domain.ErrDeliveryConflict)
 
 	svc := newTestService(deliveries, attempts, strategies, channels, producer, nil)
 
@@ -291,7 +293,6 @@ func TestStartCascade_IdempotentAlreadyInProgress(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Only Get should have been called; nothing else
 	deliveries.AssertExpectations(t)
 	strategies.AssertNotCalled(t, "Get", mock.Anything, mock.Anything)
 	attempts.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
@@ -345,4 +346,175 @@ func TestStartCascade_InvalidDeliveryID(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse delivery_id")
 
 	deliveries.AssertNotCalled(t, "Get", mock.Anything, mock.Anything)
+}
+
+// ─── CAS idempotency tests ────────────────────────────────────────────────────
+
+func TestStartCascade_CASConflict(t *testing.T) {
+	ctx := context.Background()
+
+	deliveryID := uuid.New()
+	strategyID := uuid.New()
+
+	delivery := &domain.Delivery{
+		ID:         deliveryID,
+		StrategyID: strategyID,
+		Status:     domain.DeliveryPending,
+	}
+
+	deliveries := &mocks.MockDeliveryRepository{}
+	attempts := &mocks.MockAttemptRepository{}
+	strategies := &mocks.MockStrategyRepository{}
+	channels := &mocks.MockChannelRepository{}
+	producer := &mocks.MockCascadeProducer{}
+
+	deliveries.On("Get", ctx, deliveryID).Return(delivery, nil)
+	// Simulates a second concurrent consumer winning the CAS race
+	deliveries.On("UpdateStatusCAS", ctx, deliveryID, domain.DeliveryPending, domain.DeliveryInProgress, "").Return(domain.ErrDeliveryConflict)
+
+	svc := newTestService(deliveries, attempts, strategies, channels, producer, nil)
+
+	evt := cascadekafka.CascadeStartEvent{DeliveryID: deliveryID.String()}
+	err := svc.StartCascade(ctx, evt)
+
+	require.NoError(t, err)
+	deliveries.AssertExpectations(t)
+	attempts.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	strategies.AssertNotCalled(t, "Get", mock.Anything, mock.Anything)
+}
+
+func TestStartCascade_AttemptAlreadyExists(t *testing.T) {
+	ctx := context.Background()
+
+	deliveryID := uuid.New()
+	strategyID := uuid.New()
+	channelID := uuid.New()
+	clientID := uuid.New()
+
+	strategy := &domain.DeliveryStrategy{
+		ID:     strategyID,
+		Name:   "sms-only",
+		Mode:   domain.ModeSequential,
+		Active: true,
+		Steps: []domain.StrategyStep{
+			{
+				ID:          uuid.New(),
+				StrategyID:  strategyID,
+				ChannelID:   channelID,
+				ChannelType: domain.ChannelSMS,
+				ChannelName: "sms",
+				StepOrder:   1,
+				TimeoutS:    30,
+				Billable:    true,
+			},
+		},
+	}
+
+	channelCfg := &domain.ChannelConfig{
+		ID:          channelID,
+		ChannelType: domain.ChannelSMS,
+		Name:        "SMS Provider",
+		Active:      true,
+		Config:      map[string]interface{}{},
+	}
+
+	delivery := &domain.Delivery{
+		ID:         deliveryID,
+		ClientID:   clientID,
+		StrategyID: strategyID,
+		Recipient:  "79001234567",
+		Text:       "Hello",
+		SenderName: "Sender",
+		Status:     domain.DeliveryPending,
+		Currency:   "RUB",
+		RequestID:  "req-200",
+	}
+
+	deliveries := &mocks.MockDeliveryRepository{}
+	attempts := &mocks.MockAttemptRepository{}
+	strategies := &mocks.MockStrategyRepository{}
+	channels := &mocks.MockChannelRepository{}
+	producer := &mocks.MockCascadeProducer{}
+
+	deliveries.On("Get", ctx, deliveryID).Return(delivery, nil)
+	deliveries.On("UpdateStatusCAS", ctx, deliveryID, domain.DeliveryPending, domain.DeliveryInProgress, "").Return(nil)
+	strategies.On("Get", ctx, strategyID).Return(strategy, nil)
+	channels.On("Get", ctx, channelID).Return(channelCfg, nil)
+	// Second consumer already inserted this attempt
+	attempts.On("Create", ctx, mock.AnythingOfType("*domain.DeliveryAttempt")).Return(domain.ErrAttemptAlreadyExists)
+
+	smsAdapter := &mockChannel{channelType: domain.ChannelSMS}
+	adapters := map[domain.ChannelType]domain.Channel{domain.ChannelSMS: smsAdapter}
+
+	svc := newTestService(deliveries, attempts, strategies, channels, producer, adapters)
+
+	evt := cascadekafka.CascadeStartEvent{
+		DeliveryID: deliveryID.String(),
+		ClientID:   clientID.String(),
+		StrategyID: strategyID.String(),
+		Recipient:  "79001234567",
+	}
+	err := svc.StartCascade(ctx, evt)
+
+	require.NoError(t, err)
+	deliveries.AssertExpectations(t)
+	attempts.AssertExpectations(t)
+	// adapter.Send must NOT be called — attempt was not created by us
+	smsAdapter.AssertNotCalled(t, "Send", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestProcessAttemptResult_DeliveredCASConflict(t *testing.T) {
+	ctx := context.Background()
+
+	deliveryID := uuid.New()
+	attemptID := uuid.New()
+	strategyID := uuid.New()
+	clientID := uuid.New()
+
+	now := time.Now()
+	attempt := &domain.DeliveryAttempt{
+		ID:          attemptID,
+		DeliveryID:  deliveryID,
+		ChannelType: "sms",
+		StepOrder:   1,
+		Status:      domain.AttemptSent,
+		SentAt:      &now,
+	}
+
+	delivery := &domain.Delivery{
+		ID:         deliveryID,
+		ClientID:   clientID,
+		StrategyID: strategyID,
+		Status:     domain.DeliveryInProgress,
+		Currency:   "RUB",
+	}
+
+	deliveries := &mocks.MockDeliveryRepository{}
+	attempts := &mocks.MockAttemptRepository{}
+	strategies := &mocks.MockStrategyRepository{}
+	channels := &mocks.MockChannelRepository{}
+	producer := &mocks.MockCascadeProducer{}
+
+	attempts.On("Get", ctx, attemptID).Return(attempt, nil)
+	deliveries.On("Get", ctx, deliveryID).Return(delivery, nil)
+	resultAt := mock.MatchedBy(func(t *time.Time) bool { return t != nil })
+	attempts.On("UpdateStatus", ctx, attemptID, domain.AttemptDelivered, "prov-ref", "", resultAt).Return(nil)
+	// Another consumer already finalized the delivery
+	deliveries.On("UpdateStatusCAS", ctx, deliveryID, domain.DeliveryInProgress, domain.DeliveryDelivered, "sms").Return(domain.ErrDeliveryConflict)
+
+	svc := newTestService(deliveries, attempts, strategies, channels, producer, nil)
+
+	evt := cascadekafka.CascadeAttemptResultEvent{
+		AttemptID:   attemptID.String(),
+		DeliveryID:  deliveryID.String(),
+		Status:      "delivered",
+		ProviderRef: "prov-ref",
+	}
+	err := svc.ProcessAttemptResult(ctx, evt)
+
+	require.NoError(t, err)
+	deliveries.AssertExpectations(t)
+	attempts.AssertExpectations(t)
+	// No billing published — delivery finalization was skipped
+	producer.AssertNotCalled(t, "PublishBilling", mock.Anything, mock.Anything)
 }
