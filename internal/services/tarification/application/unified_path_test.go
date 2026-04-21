@@ -385,7 +385,9 @@ func TestTarifyUnified_IdempotencyShortCircuits(t *testing.T) {
 
 	require.False(t, subUsage.incCalled, "usage counter must not be incremented on idempotency hit")
 	require.Nil(t, marginLog.created, "margin log must not be created on idempotency hit")
-	require.Equal(t, 0, opLookup.calls, "operator lookup must not be called on idempotency hit")
+	// operatorLookup вызывается один раз для получения currency на replay
+	// (tarification_log не хранит currency, а response-контракт требует её).
+	require.Equal(t, 1, opLookup.calls, "operator lookup called exactly once for replay currency")
 }
 
 func TestTarifyUnified_OperatorLookupError_Fallback(t *testing.T) {
