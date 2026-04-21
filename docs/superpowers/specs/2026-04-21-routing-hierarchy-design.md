@@ -61,8 +61,8 @@ CREATE TYPE route_owner_type AS ENUM ('platform','client','subaccount');
 
 - **General правило** уровня = правило с пустыми ключевыми полями (`operator_id IS NULL AND country_code IS NULL AND traffic_type IS NULL`). Срабатывает, если никакое специфичное правило того же уровня не подошло.
 - **Specific правила** — с хотя бы одним заполненным ключевым полем.
-- На уровне `platform` general **обязателен** и **singleton** на `route_type` (гарантирован миграцией + partial unique index).
-- На уровнях `client` / `subaccount` general опционален (0..1 на `(owner, route_type)`). Если отсутствует — наследуется с уровня выше.
+- На уровне `platform` general **обязателен**. Presence гарантируется seed'ом в миграции + защитой на DELETE в admin-хендлере (Task 18). Unique-индекс на `(route_type)` **не применяем**: cell идентифицируется ключевыми полями (все NULL для general), так что «один cell на уровень» — автоматическое свойство, а внутри cell допустимы несколько рядов с разными `provider_id` (failover-цепочка).
+- На уровнях `client` / `subaccount` general опционален. Если general-cell на уровне отсутствует — наследуется с уровня выше.
 
 ### 6. Тип маршрута (`route_type`)
 
@@ -131,21 +131,9 @@ ALTER TABLE client_routes ADD CONSTRAINT chk_owner_id CHECK (
   (owner_type <> 'platform' AND owner_id IS NOT NULL)
 );
 
--- Platform general — singleton на route_type
-CREATE UNIQUE INDEX uq_platform_general ON client_routes (route_type)
-  WHERE owner_type='platform'
-    AND operator_id IS NULL
-    AND country_code IS NULL
-    AND traffic_type IS NULL;
-
--- Client/subaccount general — 0..1 на (owner, route_type)
-CREATE UNIQUE INDEX uq_owner_general ON client_routes (owner_type, owner_id, route_type)
-  WHERE operator_id IS NULL
-    AND country_code IS NULL
-    AND traffic_type IS NULL
-    AND owner_type <> 'platform';
-
--- Уникальность (cell, provider) — один provider может быть в ячейке только один раз
+-- Уникальность (cell, provider) — один provider в ячейке только один раз.
+-- Cells уникальны по ключевым полям автоматически, отдельные singleton-индексы
+-- на general противоречили бы failover-цепочке (несколько провайдеров в ячейке).
 CREATE UNIQUE INDEX uq_cell_provider ON client_routes (
   owner_type,
   COALESCE(owner_id,     '00000000-0000-0000-0000-000000000000'),
