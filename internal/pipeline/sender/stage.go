@@ -53,6 +53,8 @@ type Stage struct {
 	// после успешного SUBMIT на провайдер. При false — legacy flow (списание
 	// в TarifyMessage, рефанд при окончательном провале).
 	commitOnSubmitEnabled bool
+	// testPublisher — override producer'а в юнит-тестах. В production всегда nil.
+	testPublisher messagePublisher
 }
 
 // NewStage создает новый Sender stage pipeline.
@@ -416,18 +418,33 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	}
 
 	// 5. Получаем соединение (nil для stub-провайдеров).
-	var conn *smsc.AsyncConnection
+	// Если провайдер active=true в БД, но SMPP backend unreachable —
+	// treat as sendErr (не early-return): проходим через refund/failover блоки
+	// и публикуем SentMessage{status=failed} в общем потоке ниже.
+	var (
+		conn      *smsc.AsyncConnection
+		sendErr   error
+		smppMsgID string
+	)
 	if !smsc.IsSimulator(provider) {
 		conn, err = s.pool.GetAsyncConnection(routedMsg.ProviderID)
 		if err != nil {
-			return fmt.Errorf("получение async соединения для провайдера %s: %w", routedMsg.ProviderID, err)
+			sendErr = fmt.Errorf("провайдер %s недоступен: %w", provider.Name, err)
+			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.connect", "unreachable").
+				Err(err).
+				Str("provider_id", routedMsg.ProviderID.String()).
+				Str("provider_name", provider.Name).
+				Msg("SMPP connection unavailable — surfacing as failed send")
+			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "provider_unreachable").Inc()
 		}
 	}
 
 	// 6. Конвертируем RoutedMessage в shared.Message и отправляем через SenderFactory.
-	sharedMsg := routedToSharedMessage(routedMsg)
-	sender := s.senderFactory.For(provider)
-	smppMsgID, sendErr := sender.SendMessageAsync(ctx, sharedMsg, provider, conn)
+	if sendErr == nil {
+		sharedMsg := routedToSharedMessage(routedMsg)
+		sender := s.senderFactory.For(provider)
+		smppMsgID, sendErr = sender.SendMessageAsync(ctx, sharedMsg, provider, conn)
+	}
 
 	usedProviderID := routedMsg.ProviderID
 	usedConnID := ""
@@ -468,117 +485,19 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		}
 	}
 
-	// 6b. Legacy refund при окончательном провале (все retry исчерпаны).
-	// При commitOnSubmitEnabled=true рефанд НЕ нужен: TarifyMessage был
-	// read-only, CommitCharge при sendErr != nil не вызывался, ничего не
-	// списано.
-	if sendErr != nil && routedMsg.RetryCount >= routedMsg.MaxRetries && !s.commitOnSubmitEnabled {
-		if s.billingClient != nil && routedMsg.ClientID != nil && chargedAmount != "" {
-			refundCtx, refundCancel := context.WithTimeout(ctx, 5*time.Second)
-			_, refundErr := s.billingClient.AddCredits(refundCtx, &billingv1.AddCreditsRequest{
-				ClientId:    routedMsg.ClientID.String(),
-				Amount:      chargedAmount,
-				Currency:    chargedCurrency,
-				Description: fmt.Sprintf("refund: send failed after %d retries, message %s", routedMsg.RetryCount, routedMsg.MessageID.String()),
-			})
-			refundCancel()
-			if refundErr != nil {
-				s.logger.Error().Err(refundErr).
-					Str("message_id", routedMsg.MessageID.String()).
-					Str("amount", chargedAmount).
-					Msg("ошибка рефанда после окончательного провала отправки")
-			} else {
-				s.logger.Info().
-					Str("message_id", routedMsg.MessageID.String()).
-					Str("amount", chargedAmount).
-					Msg("рефанд выполнен после окончательного провала отправки")
-			}
-		}
-	}
-
-	// 6c. Если оба провайдера failed и retry_count < max_retries — публикуем в sms.failed (R-007).
-	if sendErr != nil && routedMsg.RetryCount < routedMsg.MaxRetries {
-		failedMsg := &queue.FailedMessage{
-			MessageID:  routedMsg.MessageID,
-			TraceID:    traceID,
-			Error:      sendErr.Error(),
-			ErrorCode:  "send_failed",
-			RetryCount: routedMsg.RetryCount + 1,
-			FailedAt:   time.Now(),
-			KafkaMessage: &queue.KafkaMessage{
-				ID:          routedMsg.MessageID.String(),
-				MessageID:   routedMsg.MessageID,
-				TraceID:     traceID,
-				Source:      routedMsg.Source,
-				Destination: routedMsg.Destination,
-				Text:        routedMsg.Text,
-				ClientID:    routedMsg.ClientID,
-				Priority:    routedMsg.Priority,
-				RetryCount:  routedMsg.RetryCount + 1,
-				MaxRetries:  routedMsg.MaxRetries,
-				CreatedAt:   routedMsg.CreatedAt,
-				Metadata:    routedMsg.Metadata,
-			},
-		}
-		failedData, fErr := failedMsg.Serialize()
-		if fErr == nil {
-			s.producer.PublishAsync(
-				s.cfg.Kafka.TopicFailed,
-				routedMsg.MessageID.String(),
-				failedData,
-				[]sarama.RecordHeader{
-					{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
-					{Key: []byte("retry_count"), Value: []byte(fmt.Sprintf("%d", failedMsg.RetryCount))},
-				},
-			)
-			s.logger.Info().
-				Str("message_id", routedMsg.MessageID.String()).
-				Int("retry_count", failedMsg.RetryCount).
-				Msg("сообщение опубликовано в sms.failed для повторной маршрутизации")
-		}
-	}
-
-	segments := shared.SplitMessage(routedMsg.Text)
-
-	// 7. Формируем SentMessage.
-	sentMsg := &pipeline.SentMessage{
-		SchemaVersion: 1,
-		MessageID:     routedMsg.MessageID,
-		TraceID:       traceID,
-		ProviderID:    usedProviderID,
-		OperatorID:    routedMsg.OperatorID,
-		RouteID:       routedMsg.RouteID,
-		Channel:       "sms",
-		SentAt:        time.Now(),
-		ConnectionID:  usedConnID,
-		SegmentsCount: len(segments),
-	}
-
-	if sendErr != nil {
-		sentMsg.Status = "failed"
-		errMsg := sendErr.Error()
-		sentMsg.ErrorMessage = &errMsg
-	} else {
-		sentMsg.Status = "sent"
-		sentMsg.SMPPMessageID = smppMsgID
-	}
-
-	// 8. Сериализуем и публикуем в sms.sent.
-	data, err := sentMsg.Serialize()
+	sentMsg, err := s.handleSendOutcome(ctx, sendOutcomeInput{
+		routedMsg:       routedMsg,
+		traceID:         traceID,
+		sendErr:         sendErr,
+		smppMsgID:       smppMsgID,
+		usedProviderID:  usedProviderID,
+		usedConnID:      usedConnID,
+		chargedAmount:   chargedAmount,
+		chargedCurrency: chargedCurrency,
+	})
 	if err != nil {
-		return fmt.Errorf("сериализация SentMessage: %w", err)
+		return err
 	}
-
-	s.producer.PublishAsync(
-		s.cfg.Kafka.TopicSent,
-		routedMsg.ProviderID.String(),
-		data,
-		[]sarama.RecordHeader{
-			{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
-			{Key: []byte("provider_id"), Value: []byte(routedMsg.ProviderID.String())},
-			{Key: []byte("status"), Value: []byte(sentMsg.Status)},
-		},
-	)
 
 	// DLR для SIMULATOR-провайдеров теперь генерируется StubSender внутренне.
 
@@ -602,6 +521,160 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	session.MarkMessage(msg, "")
 
 	return nil
+}
+
+// messagePublisher описывает минимальный контракт producer'а для публикации
+// SentMessage / FailedMessage. Вынесен отдельно чтобы handleSendOutcome был
+// юнит-тестируемым без реального Kafka producer.
+type messagePublisher interface {
+	PublishAsync(topic string, key string, value []byte, headers []sarama.RecordHeader)
+}
+
+// sendOutcomeInput агрегирует входные параметры handleSendOutcome.
+// Отдельная структура чтобы избежать 8-аргументного вызова.
+type sendOutcomeInput struct {
+	routedMsg       *pipeline.RoutedMessage
+	traceID         string
+	sendErr         error
+	smppMsgID       string
+	usedProviderID  uuid.UUID
+	usedConnID      string
+	chargedAmount   string
+	chargedCurrency string
+}
+
+// handleSendOutcome обрабатывает результат попытки отправки:
+//  1. Legacy refund при исчерпании retries (commitOnSubmitEnabled=false).
+//  2. Publish в sms.failed если retry_count < max_retries (failover).
+//  3. Сериализация и publish SentMessage в sms.sent (всегда).
+//
+// Возвращает собранный SentMessage (для трассировки в caller) и ошибку
+// только при ошибке сериализации SentMessage — в остальных случаях nil.
+func (s *Stage) handleSendOutcome(ctx context.Context, in sendOutcomeInput) (*pipeline.SentMessage, error) {
+	routedMsg := in.routedMsg
+
+	// 6b. Legacy refund при окончательном провале (все retry исчерпаны).
+	// При commitOnSubmitEnabled=true рефанд НЕ нужен: TarifyMessage был
+	// read-only, CommitCharge при sendErr != nil не вызывался, ничего не
+	// списано.
+	if in.sendErr != nil && routedMsg.RetryCount >= routedMsg.MaxRetries && !s.commitOnSubmitEnabled {
+		if s.billingClient != nil && routedMsg.ClientID != nil && in.chargedAmount != "" {
+			refundCtx, refundCancel := context.WithTimeout(ctx, 5*time.Second)
+			_, refundErr := s.billingClient.AddCredits(refundCtx, &billingv1.AddCreditsRequest{
+				ClientId:    routedMsg.ClientID.String(),
+				Amount:      in.chargedAmount,
+				Currency:    in.chargedCurrency,
+				Description: fmt.Sprintf("refund: send failed after %d retries, message %s", routedMsg.RetryCount, routedMsg.MessageID.String()),
+			})
+			refundCancel()
+			if refundErr != nil {
+				s.logger.Error().Err(refundErr).
+					Str("message_id", routedMsg.MessageID.String()).
+					Str("amount", in.chargedAmount).
+					Msg("ошибка рефанда после окончательного провала отправки")
+			} else {
+				s.logger.Info().
+					Str("message_id", routedMsg.MessageID.String()).
+					Str("amount", in.chargedAmount).
+					Msg("рефанд выполнен после окончательного провала отправки")
+			}
+		}
+	}
+
+	// 6c. Если retry_count < max_retries — публикуем в sms.failed (R-007).
+	if in.sendErr != nil && routedMsg.RetryCount < routedMsg.MaxRetries {
+		failedMsg := &queue.FailedMessage{
+			MessageID:  routedMsg.MessageID,
+			TraceID:    in.traceID,
+			Error:      in.sendErr.Error(),
+			ErrorCode:  "send_failed",
+			RetryCount: routedMsg.RetryCount + 1,
+			FailedAt:   time.Now(),
+			KafkaMessage: &queue.KafkaMessage{
+				ID:          routedMsg.MessageID.String(),
+				MessageID:   routedMsg.MessageID,
+				TraceID:     in.traceID,
+				Source:      routedMsg.Source,
+				Destination: routedMsg.Destination,
+				Text:        routedMsg.Text,
+				ClientID:    routedMsg.ClientID,
+				Priority:    routedMsg.Priority,
+				RetryCount:  routedMsg.RetryCount + 1,
+				MaxRetries:  routedMsg.MaxRetries,
+				CreatedAt:   routedMsg.CreatedAt,
+				Metadata:    routedMsg.Metadata,
+			},
+		}
+		failedData, fErr := failedMsg.Serialize()
+		if fErr == nil {
+			s.publisher().PublishAsync(
+				s.cfg.Kafka.TopicFailed,
+				routedMsg.MessageID.String(),
+				failedData,
+				[]sarama.RecordHeader{
+					{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
+					{Key: []byte("retry_count"), Value: []byte(fmt.Sprintf("%d", failedMsg.RetryCount))},
+				},
+			)
+			s.logger.Info().
+				Str("message_id", routedMsg.MessageID.String()).
+				Int("retry_count", failedMsg.RetryCount).
+				Msg("сообщение опубликовано в sms.failed для повторной маршрутизации")
+		}
+	}
+
+	segments := shared.SplitMessage(routedMsg.Text)
+
+	// 7. Формируем SentMessage.
+	sentMsg := &pipeline.SentMessage{
+		SchemaVersion: 1,
+		MessageID:     routedMsg.MessageID,
+		TraceID:       in.traceID,
+		ProviderID:    in.usedProviderID,
+		OperatorID:    routedMsg.OperatorID,
+		RouteID:       routedMsg.RouteID,
+		Channel:       "sms",
+		SentAt:        time.Now(),
+		ConnectionID:  in.usedConnID,
+		SegmentsCount: len(segments),
+	}
+
+	if in.sendErr != nil {
+		sentMsg.Status = "failed"
+		errMsg := in.sendErr.Error()
+		sentMsg.ErrorMessage = &errMsg
+	} else {
+		sentMsg.Status = "sent"
+		sentMsg.SMPPMessageID = in.smppMsgID
+	}
+
+	// 8. Сериализуем и публикуем в sms.sent.
+	data, err := sentMsg.Serialize()
+	if err != nil {
+		return nil, fmt.Errorf("сериализация SentMessage: %w", err)
+	}
+
+	s.publisher().PublishAsync(
+		s.cfg.Kafka.TopicSent,
+		routedMsg.ProviderID.String(),
+		data,
+		[]sarama.RecordHeader{
+			{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
+			{Key: []byte("provider_id"), Value: []byte(routedMsg.ProviderID.String())},
+			{Key: []byte("status"), Value: []byte(sentMsg.Status)},
+		},
+	)
+
+	return sentMsg, nil
+}
+
+// publisher возвращает тестируемый publisher. По умолчанию — реальный
+// AsyncProducer. Юнит-тесты подменяют s.testPublisher напрямую.
+func (s *Stage) publisher() messagePublisher {
+	if s.testPublisher != nil {
+		return s.testPublisher
+	}
+	return s.producer
 }
 
 // dlrMessageLookup описывает минимальный контракт, нужный для резолва

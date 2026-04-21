@@ -75,20 +75,14 @@ func (r *HLRProviderRepository) Update(ctx context.Context, provider *domain.HLR
 			active = $12, updated_at = $13
 		WHERE id = $1`
 
-	var lastSuccess, lastFailure *int64
-	if provider.LastSuccessAt != nil {
-		ts := provider.LastSuccessAt.Unix()
-		lastSuccess = &ts
-	}
-	if provider.LastFailureAt != nil {
-		ts := provider.LastFailureAt.Unix()
-		lastFailure = &ts
-	}
-
+	// last_success_at и last_failure_at — TIMESTAMPTZ в БД. Передаём *time.Time
+	// напрямую (Unix-seconds через *int64 вызывает SQLSTATE 22P02, т.к. pq не
+	// приводит integer к timestamp without explicit ::to_timestamp каста).
 	_, err = r.db.ExecContext(ctx, query,
 		provider.ID, provider.Name, provider.AdapterType, configJSON,
 		provider.Priority, pq.Array(provider.SupportedRegions), provider.CostPerLookup,
-		string(provider.Status), provider.SuccessRate, lastSuccess, lastFailure,
+		string(provider.Status), provider.SuccessRate,
+		provider.LastSuccessAt, provider.LastFailureAt,
 		provider.Active, provider.UpdatedAt,
 	)
 	if err != nil {
