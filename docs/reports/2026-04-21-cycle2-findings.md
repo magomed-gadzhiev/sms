@@ -150,7 +150,36 @@ The gap is not in outbound delivery to clients — that works. The gap is specif
 
 ## A6-datacoding + A6-long-msg
 
-_TODO: Task 5_
+**Severity:** mixed (datacoding: major for body decoding, minor for propagation gap; long-msg UDH: minor quirk; SAR: already covered in A6-tlv)
+
+### A6-datacoding
+
+**Supported values (observed in code):** Constants defined for 0x00 (GSM7), 0x01 (IA5/ASCII), 0x02 (octet unspecified), 0x03 (Latin-1), 0x04 (octet unspecified common), 0x05 (JIS), 0x06 (Cyrillic ISO-8859-5), 0x07 (Hebrew ISO-8859-8), 0x08 (UCS-2), 0x09 (Pictogram), 0x0A (ISO-2022-JP), 0x0D (Kanji), 0x0E (KSC5601). Source: `internal/smpp/protocol/constants.go:121-133`.
+
+**Handling of unknown values:** accepted silently. `ValidateSubmitSM` (`internal/smpp/protocol/validator.go:77-133`) performs no validation against the data_coding byte — any value 0x00–0xFF passes. No ESME_RINVDCS is ever returned.
+
+**Body decoding:** bytes kept as-is via raw cast `string(submit.ShortMessage)` (`handler.go:312`). No encoding-aware conversion is performed. For data_coding=0x08 (UCS-2, big-endian UTF-16), the raw bytes are cast directly to a Go string — which interprets them as UTF-8. This produces mojibake for any non-ASCII UCS-2 content. For data_coding=0x06 (Cyrillic ISO-8859-5) and 0x07 (Hebrew ISO-8859-8), the Latin-1-range bytes that encode Cyrillic/Hebrew characters are cast to string without transcoding and will render incorrectly for any code path that assumes UTF-8. For data_coding=0x00 (GSM7), the bytes are passed as-is without GSM7 → UTF-8 unpacking — GSM7 characters above 0x7F (Greek letters, currency symbols) will be misread.
+
+**Propagation to downstream:** `data_coding` byte stored in `KafkaMessage.Metadata["data_coding"]` at `handler.go:337`. However, `KafkaMessage.ToMessage()` in `internal/queue/message.go:31-53` does not copy any Metadata keys to `shared.Message` fields. `msg.DataCoding` (used by `internal/smsc/sender.go:145,204,287` for the outbound provider submit_sm) will be the zero value (0x00 = GSM7) regardless of what the SMPP client sent. Both the encoding mismatch in the body string and the dropped data_coding on the outbound PDU compound each other: body bytes misinterpreted at gateway, then re-labelled as GSM7 to the provider.
+
+**Gap:** The project handles Russian-language traffic. data_coding=0x06 (Cyrillic ISO-8859-5) is commonly used by legacy Russian aggregators. data_coding=0x08 (UCS-2) is used for Russian and all non-Latin characters by modern clients. Neither is decoded correctly at the body level. Additionally, the DataCoding value is never forwarded to the provider — every outbound message is sent with DataCoding=0 to the provider regardless of the original encoding. If the provider trusts DataCoding to interpret the body, it will decode UCS-2 bytes as GSM7 and produce garbage. This is a real gap for the Russian market.
+
+### A6-long-msg
+
+**UDH path:** `handler.go:311-323` — `esm_class & 0x40` check correctly identifies UDHI flag. Header parsing: `udhLen = ShortMessage[0]`, then `ref = ShortMessage[3]`, `total = ShortMessage[4]`, `part = ShortMessage[5]`. Text extracted as `ShortMessage[udhLen+1:]`.
+
+**Caveat:** the parser assumes IE identifier at `ShortMessage[1]` is 0x00 (concatenated SM IE) without checking it. If a client sends a different first IE (e.g., 0x08 for 16-bit reference, or a proprietary IE), the offsets 3/4/5 will read from the wrong bytes and produce wrong ref/total/part values. The code is functional for standard single-IE UDH but not for multi-IE or 16-bit-reference UDH frames.
+
+**Storage:** UDH metadata stored in `KafkaMessage.Metadata` under keys `udh_ref_num`, `udh_total_parts`, `udh_part_num` (`handler.go:342-346`). The body text in `KafkaMessage.Text` contains only the payload after the UDH header (correctly stripped). ESMClass stored in Metadata under key `"esm_class"`.
+
+**Reassembly:** not at gateway level. Gateway forwards each segment independently as a separate KafkaMessage with UDH metadata in Metadata map. However — same problem as data_coding — `KafkaMessage.ToMessage()` does not copy Metadata to any field on `shared.Message`. The UDH segmentation keys (`udh_ref_num`, `udh_total_parts`, `udh_part_num`) are discarded when the consumer calls `ToMessage()`. Downstream does not know the message is a segment. Effectively: each segment arrives as an independent message with correct stripped body text but no assembly context.
+
+**SAR TLV path:** NOT supported (already documented in A6-tlv finding). Integrators using SAR TLV receive fragmented messages without reassembly metadata — each segment accepted with ESME_ROK and published as a standalone message.
+
+### Decisions
+
+- **A6-datacoding**: major. Three-part fix required: (1) encoding-aware body transcoding (UCS-2 → UTF-8, GSM7 unpacking, ISO-8859-5 → UTF-8 for Cyrillic) at the gateway handler level; (2) `KafkaMessage` needs a first-class `DataCoding int` field (not buried in Metadata) so `ToMessage()` can propagate it to `shared.Message.DataCoding`; (3) `ValidateSubmitSM` should return ESME_RINVDCS for unsupported encoding values. This is a крупное fix. Separate plan: `docs/superpowers/plans/2026-04-21-fix-smpp-datacoding.md` (not created in this task).
+- **A6-long-msg**: covered in A6-tlv for the SAR path. For the UDH path — the core problem is the same Metadata→ToMessage() gap that affects data_coding and registered_delivery. The UDH segmentation metadata is silently dropped. The fix is the same structural fix: add first-class fields to `KafkaMessage` (or stop using Metadata for structured data). No separate plan needed beyond the A6-tlv plan which should address the KafkaMessage model comprehensively.
 
 ## A7 — gRPC tenant propagation
 
