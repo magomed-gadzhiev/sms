@@ -26,6 +26,14 @@ type CommitRetryEntry struct {
 	UpdatedAt      time.Time
 }
 
+// Tx — минимальный interface, который нужен worker'у для lifecycle транзакции.
+// В prod реализуется *sqlx.Tx напрямую (у него есть Commit/Rollback методы с
+// той же сигнатурой). В тестах — stub без реальной БД.
+type Tx interface {
+	Commit() error
+	Rollback() error
+}
+
 // CommitRetryRepository — контракт persistent-очереди. Реализация в
 // infrastructure/repository/commit_retry_repository.go.
 type CommitRetryRepository interface {
@@ -52,6 +60,8 @@ type CommitRetryRepository interface {
 	// чтобы delete/update coexistовали атомарно с claim.
 	DeleteTx(ctx context.Context, tx *sqlx.Tx, messageID uuid.UUID) error
 
-	// BeginTx — хелпер для callers, которым нужна транзакция для ClaimBatch/UpdateAttempt.
-	BeginTx(ctx context.Context) (*sqlx.Tx, error)
+	// BeginTx — возвращает (sqlx.Tx для Claim/Update/Delete и Tx-handle для
+	// worker'а). Обычно это один и тот же объект *sqlx.Tx, но разделение
+	// даёт тестам возможность подменить commit/rollback lifecycle без DB.
+	BeginTx(ctx context.Context) (*sqlx.Tx, Tx, error)
 }
