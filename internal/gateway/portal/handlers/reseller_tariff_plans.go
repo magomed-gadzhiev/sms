@@ -701,11 +701,11 @@ func (h *ResellerTariffPlanHandlers) CreatePeriod(w http.ResponseWriter, r *http
 	}
 	defer tx.Rollback(r.Context())
 
-	prevEndDate := startDate.AddDate(0, 0, -1)
+	// Periods use half-open [start, end) semantics — previous period's end equals new period's start.
 	_, err = tx.Exec(r.Context(),
 		`UPDATE reseller_tariff_periods SET end_date = $1
 		 WHERE tariff_plan_id = $2 AND end_date IS NULL AND start_date < $3`,
-		prevEndDate, planID, startDate,
+		startDate, planID, startDate,
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка закрытия предыдущего периода")
