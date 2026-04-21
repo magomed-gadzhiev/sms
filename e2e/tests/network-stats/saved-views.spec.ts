@@ -191,6 +191,39 @@ test.describe('Network Statistics — Saved Views (mocked)', () => {
     expect(body.view.filters_json).toContain('"login":"demo"');
   });
 
+  test('AC-75: Delete button (×) removes view via DELETE + window.confirm (D-17 fix)', async ({ page }) => {
+    const stats = new NetworkStatisticsPage(page);
+    await mockViewsList(page, TWO_VIEWS);
+
+    // Answer confirm dialog with OK
+    page.once('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toContain('Удалить вид');
+      await dialog.accept();
+    });
+
+    // Capture DELETE request
+    let deleteCalled = false;
+    await page.route('**/reseller/views/*', async (route) => {
+      if (route.request().method() === 'DELETE') {
+        deleteCalled = true;
+        await route.fulfill({ status: 204, body: '' });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await stats.goto();
+    await stats.expectLoaded();
+    await page.waitForLoadState('networkidle');
+    await expect(stats.viewChip('Mts 30d')).toBeVisible();
+
+    await stats.viewDeleteButton('Mts 30d').click();
+    await page.waitForLoadState('networkidle');
+
+    expect(deleteCalled, 'DELETE /reseller/views/{id} must be called after confirm').toBe(true);
+  });
+
   test('AC-74: Silent failure of GET /views — error visible only when panel shows', async ({ page }) => {
     const stats = new NetworkStatisticsPage(page);
     // Mock GET /views to 500

@@ -13,6 +13,21 @@ const MonitoringTable = lazy(() => import('../../components/network-stats/Monito
 const DrillDownDrawer = lazy(() => import('../../components/network-stats/DrillDownDrawer').then(m => ({ default: m.DrillDownDrawer })));
 const ExportButton = lazy(() => import('../../components/network-stats/ExportButton').then(m => ({ default: m.ExportButton })));
 
+// D-14 fix: map current `group_by` to the corresponding drill-down slice_type.
+// Time-based groupings (5min/15min/hour/day/month/year) have no meaningful drill-slice,
+// so we fall back to 'provider' for them — preserves legacy behavior while enabling
+// proper drill-down for dimensional groupings (operator/channel/login/country).
+const DIMENSIONAL_GROUPBY_TO_SLICE: Record<string, string> = {
+  provider: 'provider',
+  operator: 'operator',
+  channel: 'channel',
+  login: 'login',
+  country: 'country',
+};
+function groupByToSliceType(groupBy: string | undefined): string {
+  return DIMENSIONAL_GROUPBY_TO_SLICE[groupBy ?? ''] ?? 'provider';
+}
+
 export default function NetworkStatisticsPage() {
   const stats = useNetworkStats();
   const [operators, setOperators] = useState<{ id: string; name: string }[]>([]);
@@ -105,7 +120,7 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
-              onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}
+              onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
           </Tabs.Content>
@@ -119,7 +134,7 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
-              onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}
+              onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
           </Tabs.Content>
@@ -141,7 +156,7 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
-              onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}
+              onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
           </Tabs.Content>
@@ -168,13 +183,25 @@ export default function NetworkStatisticsPage() {
         <div className="fixed bottom-4 left-48 flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 shadow-md text-sm z-20">
           <span className="text-gray-500 text-xs">Виды:</span>
           {stats.savedViews.map(v => (
-            <button
-              key={v.id}
-              onClick={() => stats.loadView(v.id)}
-              className={`px-2 py-0.5 rounded text-xs border transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-blue-400'}`}
-            >
-              {v.name}
-            </button>
+            // D-17 fix: chip is now a <span> wrapper with "load" button + "delete" button on the side.
+            <span key={v.id} className="inline-flex items-stretch rounded border border-gray-300 overflow-hidden hover:border-blue-400">
+              <button
+                onClick={() => stats.loadView(v.id)}
+                aria-label={`Загрузить вид ${v.name}`}
+                className={`px-2 py-0.5 text-xs transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}`}
+              >
+                {v.name}
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm(`Удалить вид «${v.name}»?`)) stats.deleteView(v.id);
+                }}
+                aria-label={`Удалить вид ${v.name}`}
+                className="px-1.5 border-l border-gray-300 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                ×
+              </button>
+            </span>
           ))}
           {stats.isViewModified && (
             <button

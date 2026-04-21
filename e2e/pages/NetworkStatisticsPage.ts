@@ -265,4 +265,9 @@ export class NetworkStatisticsPage {
   savedViewsError(): Locator {
     return this.savedViewsPanel().locator('span.text-red-500');
   }
+
+  // Delete ("×") button for a given view name (D-17 fix)
+  viewDeleteButton(name: string): Locator {
+    return this.savedViewsPanel().getByRole('button', { name: `Удалить вид ${name}`, exact: true });
+  }
 }
