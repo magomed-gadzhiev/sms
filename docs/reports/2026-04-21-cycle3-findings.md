@@ -171,6 +171,24 @@ Trade-off: this adds a DB roundtrip in the DLR hot path. Alternative: publish an
 
 | ID | Axis | Severity | Description | File |
 |---|---|---|---|---|
-| F-C1 | C-visibility | major | `GET /templates/{id}/audit` — no client_id enforcement; any authenticated client reads any template's audit log | `handlers/templates.go:184`, `audit_repository.go:89` |
-| F-D1 | C-dlr-routing | critical | Webhook DLR delivery dead — `DLRMessage.MessageID` never populated in DLR callback; always zero UUID; `HandleDLR` always skips | `pipeline/sender/stage.go:81-104`, `delivery_service.go:168-175` |
-| F-D2 | C-dlr-routing | major | DLR status upsert broken — same zero MessageID causes DB update to match no rows; DLR statuses never written to `messages` table via SMPP provider receipt path | `pipeline/status/stage.go:223`, `delivery_service.go:168-175` |
+| F-C1 | C-visibility | major | `GET /templates/{id}/audit` — no client_id enforcement; any authenticated client reads any template's audit log | `handlers/templates.go:184`, `audit_repository.go:89` | plan:[fix-template-audit-ownership.md](../superpowers/plans/2026-04-21-fix-template-audit-ownership.md) |
+| F-D1 | C-dlr-routing | critical | Webhook DLR delivery dead — `DLRMessage.MessageID` never populated in DLR callback; always zero UUID; `HandleDLR` always skips | `pipeline/sender/stage.go:81-104`, `delivery_service.go:168-175` | plan:[fix-dlr-webhook-delivery.md](../superpowers/plans/2026-04-21-fix-dlr-webhook-delivery.md) |
+| F-D2 | C-dlr-routing | major | DLR status upsert broken — same zero MessageID causes DB update to match no rows; DLR statuses never written to `messages` table via SMPP provider receipt path | `pipeline/status/stage.go:223`, `delivery_service.go:168-175` | plan:[fix-dlr-webhook-delivery.md](../superpowers/plans/2026-04-21-fix-dlr-webhook-delivery.md) (same root cause) |
+
+## Meta-verdict for review v2
+
+Cycle 3 — finalized. 3 новых findings (F-C1, F-D1, F-D2), 2 новых fix-плана. F-D1 — **самый срочный финальный результат всего ревью v2**: DLR webhook delivery feature полностью unreachable, не subaccount-specific. Фикс мелкий (~20-40 строк + тесты), impact — восстановление core feature.
+
+**Full priority queue фиксов (из всех 3 циклов + Phase 0):**
+
+| # | Plan | Severity | Why first |
+|---|---|---|---|
+| 1 | fix-dlr-webhook-delivery (F-D1+F-D2) | critical | Core feature полностью мёртв |
+| 2 | fix-idempotency-middleware (A3) | critical | Retry double-charge в проде |
+| 3 | fix-smpp-auth-password (A6-auth, B2) | critical | SMPP auth bypass |
+| 4 | fix-grpc-auth-interceptor (A7.3) | critical | gRPC tenant bypass |
+| 5 | fix-template-audit-ownership (F-C1) | major | Security gap ownership |
+| 6 | fix-openapi-drift (A1) | major | Партнёрский DX блокер |
+| 7 | KafkaMessage refactor (Cycle 2 meta) | major | 5 SMPP-осей разом |
+| 8 | dual-charge-default-enable (B3) | major | Required для production multi-tenant billing |
+| 9 | CI integration infra (B1) | infra | Prerequisite для integration-тестов |
