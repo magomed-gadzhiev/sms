@@ -182,12 +182,19 @@ test.describe('Network Statistics — Drill-down Drawer (mocked)', () => {
     expect(trimmed).toEqual(['Срез', 'Всего', 'Достав.', 'Ошибки', 'DLR%']);
   });
 
-  test('AC-64: Loading state "Загрузка..." appears during slow drill-down response', async ({ page }) => {
+  test('AC-64: Loading state "Загрузка..." appears on tab switch inside open drawer', async ({ page }) => {
     const stats = new NetworkStatisticsPage(page);
     await mockStatsRow(page);
+
+    // First drilldown call — instant response, drawer opens.
+    // Subsequent tab-change triggers another drilldown call — delay *that one* to observe loading.
+    let callCount = 0;
     await page.route('**/reseller/drilldown**', async (route) => {
-      // Delay long enough to reliably observe loading state under CI load
-      await new Promise(r => setTimeout(r, 2500));
+      callCount += 1;
+      if (callCount >= 2) {
+        // Delay tab-change drilldown to reliably catch loading inside mounted drawer
+        await new Promise(r => setTimeout(r, 2500));
+      }
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DRILLDOWN_RESPONSE) });
     });
 
@@ -195,13 +202,21 @@ test.describe('Network Statistics — Drill-down Drawer (mocked)', () => {
     await stats.expectLoaded();
     await page.waitForLoadState('networkidle');
     await stats.tableRows().first().click();
+    await page.waitForLoadState('networkidle');
 
-    // Before drill-down response arrives: drawer open, content shows "Загрузка..."
+    // Drawer open, table visible
+    await expect(stats.drawer()).toBeVisible();
+    await expect(stats.drawerTable()).toBeVisible();
+
+    // Switch tab → second drilldown request, delayed 2.5s
+    await stats.drawerTab('По статусам').click();
+
+    // While the delayed request is in flight, Tabs.Content shows "Загрузка..."
     await expect(stats.drawerLoadingCell()).toBeVisible({ timeout: 2_000 });
 
     await page.waitForLoadState('networkidle');
 
-    // After: loading gone, table visible
+    // After response: loading hidden, table back
     await expect(stats.drawerLoadingCell()).toBeHidden();
     await expect(stats.drawerTable()).toBeVisible();
   });

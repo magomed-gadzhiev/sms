@@ -630,3 +630,88 @@ Frontend независимо вводит свои пороги для визу
 
 **Статус:** 🟡 OPEN-MEDIUM. До разрешения — пользователь может создавать виды, но не удалять. После фикса — добавить AC-75+ в Batch 5 на удаление.
 
+---
+
+## D-18: `useEffect` в `useNetworkStats` обнуляет пользовательскую паузу polling'а
+
+**Обнаружено:** 2026-04-21 при фактическом прогоне e2e-тестов Phase 1 в Docker. Тесты AC-42 и AC-43 упали — кнопка `Продолжить` не появлялась после клика `Пауза`.
+
+**Что в коде:**
+[useNetworkStats.ts:129-139](../../portal-frontend/src/hooks/useNetworkStats.ts#L129-L139):
+```tsx
+const polling = usePolling(fetchData, 10000);
+const isMonitoringMode = mode === 'monitoring';
+
+useEffect(() => {
+  if (isMonitoringMode) {
+    polling.resume();
+  } else {
+    polling.pause();
+  }
+}, [isMonitoringMode, polling]);
+```
+
+`usePolling` ([usePolling.ts:33](../../portal-frontend/src/hooks/usePolling.ts#L33)) возвращает новый объект `{ pause, resume, isPaused, lastUpdated }` **на каждом render**. `polling` как dep useEffect — новая ссылка каждый цикл. В monitoring mode этот useEffect запускается на **каждом** render и безусловно вызывает `polling.resume()`, обнуляя пользовательскую паузу.
+
+**Воспроизведение (Playwright):**
+1. Открыть `/network/statistics?mode=monitoring` — polling запущен.
+2. Клик по кнопке "Пауза" → `polling.pause()` → `setIsPaused(true)` → re-render.
+3. На следующем render useEffect видит новую ссылку `polling`, dep меняется, effect firing.
+4. `if (isMonitoringMode) polling.resume()` — `setIsPaused(false)` → re-render.
+5. Кнопка остаётся "Пауза", polling не остановлен.
+
+**Последствие:**
+- UX: пользователь жмёт "Пауза", визуально ничего не меняется (кнопка не флипнулась на "Продолжить"). Может показаться что клик не сработал.
+- Функциональная: polling **нельзя** поставить на паузу в текущем коде. Функция видна в UI, но не работает.
+
+**Разрешение (A = spec=truth):**
+Убрать `polling` из deps или стабилизировать ссылку:
+- **A1:** `useEffect(..., [isMonitoringMode])` — достаточно, т.к. `polling.pause`/`polling.resume` стабильны через `useCallback` внутри `usePolling`.
+- **A2:** сохранить `polling` в `useRef` и использовать `pollingRef.current.pause()` внутри useEffect.
+
+**Связанные AC:** AC-42 (пауза), AC-43 (resume). Phase 1 тесты помечены `test.fail()` с ссылкой на D-18 до фикса.
+
+**Приоритет:** 🟡 MEDIUM. Функция "Пауза" видна пользователю как работающая, на деле не работает. UX-confusing, но не data-loss.
+
+**Статус:** 🟡 OPEN-MEDIUM. Тесты AC-42/AC-43 помечены `test.fail()` — они *должны* упасть на текущем коде и позеленеют после фикса (expected-fail инверсия).
+
+---
+
+## D-19: `loadView` не запускает новый fetch если `view.mode` совпадает с текущим
+
+**Обнаружено:** 2026-04-21 при прогоне AC-70 e2e-теста. Тест ожидал `GET /reseller/statistics` после клика по saved-view chip — запрос не ушёл.
+
+**Что в коде:**
+[useNetworkStats.ts:331-343](../../portal-frontend/src/hooks/useNetworkStats.ts#L331-L343) `loadView(id)`:
+- Устанавливает state: `setFiltersState`, `setModeState`, `setActiveViewId`, `setIsViewModified(false)`
+- Обновляет URL: `setSearchParams(filtersToParams(view.mode, parsedFilters))`
+- **НЕ вызывает `fetchData()` напрямую.**
+
+Re-fetch происходит через [useNetworkStats.ts:153-159](../../portal-frontend/src/hooks/useNetworkStats.ts#L153-L159):
+```tsx
+useEffect(() => {
+  if (prevModeRef.current !== mode) {
+    prevModeRef.current = mode;
+    fetchData();
+  }
+}, [mode, fetchData]);
+```
+Только при **смене mode**. Если пользователь на `mode=stats` загружает view с `view.mode='stats'` — mode не меняется, fetchData не запускается. Таблица остаётся со старыми данными несмотря на новые фильтры.
+
+**Последствие:**
+- Пользователь кликнул view "Mts 30d" на вкладке Статистика. Filter state и URL обновились (operator=mts, period=30d и т.д.), но таблица показывает **старые** строки.
+- Визуально фильтры подсвечены активными, результат не совпадает.
+
+**Разрешение (A):**
+Добавить явный `fetchData()` в конце `loadView` (после setSearchParams). Либо добавить фильтры в зависимости useEffect re-fetch'а. Простейший фикс — inline call:
+```tsx
+// В loadView, после setSearchParams:
+fetchData();
+```
+
+**Связанные AC:** AC-70 (клик по chip → filters+URL применяются). Сейчас тест проверяет URL + active chip + filter state — **не** fetch. AC-70 переформулирован 2026-04-21 под реальное поведение, ждёт D-19 фикс.
+
+**Приоритет:** 🟡 MEDIUM. Фактическое применение view происходит только после следующего "Применить" (вручную) или смены mode. Пользователь может не понять почему view "не работает".
+
+**Статус:** 🟡 OPEN-MEDIUM.
+
