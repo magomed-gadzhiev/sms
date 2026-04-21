@@ -237,4 +237,32 @@ export class NetworkStatisticsPage {
   drawerEmptyCell(): Locator {
     return this.drawer().getByText('Нет данных');
   }
+
+  // --- Saved views panel ---
+
+  // Panel container (fixed bottom-left)
+  savedViewsPanel(): Locator {
+    // Unique: fixed bottom-4 left-48 (vs error toast at bottom-4 right-4)
+    return this.page.locator('div.fixed.bottom-4.left-48');
+  }
+
+  // A single view-chip button by its display name
+  viewChip(name: string): Locator {
+    return this.savedViewsPanel().getByRole('button', { name, exact: true });
+  }
+
+  // Active view chip has bg-blue-600 background
+  activeViewChip(): Locator {
+    return this.savedViewsPanel().locator('button.bg-blue-600');
+  }
+
+  // "+ Сохранить" button (visible only when isViewModified)
+  saveViewButton(): Locator {
+    return this.savedViewsPanel().getByRole('button', { name: '+ Сохранить', exact: true });
+  }
+
+  // Saved views error text (red span inside panel)
+  savedViewsError(): Locator {
+    return this.savedViewsPanel().locator('span.text-red-500');
+  }
 }
