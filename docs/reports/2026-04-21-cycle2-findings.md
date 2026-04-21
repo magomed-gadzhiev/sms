@@ -108,7 +108,45 @@ Neither PDU type silently corrupts data — the client receives an explicit erro
 
 ## A6-dlr + A6-registered-delivery
 
-_TODO: Task 4_
+**Severity:** major
+
+### A6-registered-delivery (outbound submit_sm)
+
+**registered_delivery byte extraction:** yes. `handler.go:339` — `"registered_delivery": submit.RegisteredDelivery` is set into the `metadata` map of `queue.KafkaMessage`.
+
+**Where it's propagated:** into `KafkaMessage.Metadata` as a raw `interface{}` value under the key `"registered_delivery"`. It is NOT forwarded to the provider as part of outbound SMPP submit_sm. The metadata map is opaque — downstream consumers (the outbound worker, the SMSC pool `SubmitSM` call in `internal/smsc/`) receive the Kafka message but there is no evidence in the SMSC layer that this metadata key is read back and used to set `registered_delivery` on the outbound `submit_sm` PDU sent to the provider. In effect the byte is logged but dropped before provider transmission.
+
+**SMPP v3.4 semantics:** bits 0-1 = receipt request (00=never, 01=always, 10=on failure, 11=reserved); bits 2-3 = SME-originated acknowledgement; bits 4-5 = intermediate notification request.
+
+**Gap:** Bit-level semantics are entirely ignored. The byte is captured and placed in an opaque metadata map, but: (a) it is not used to condition whether the outbound submit_sm to the provider requests a receipt (bits 0-1), (b) bits 2-5 are never acted upon. The downstream consumer would need explicit code to extract `registered_delivery` from `KafkaMessage.Metadata`, coerce it to `byte`, and write it into the provider-bound submit_sm. That code does not exist. Result: every outbound message to providers behaves as if `registered_delivery=0x01` (or whatever is hardcoded in the SMSC pool `SubmitSM` builder) regardless of what the client requested.
+
+### A6-dlr (inbound via SMPP link vs gRPC)
+
+Two DLR delivery paths exist in the codebase:
+
+1. **Via SMPP deliver_sm from provider** (inbound via `handleDeliverSM` in gateway):
+   - Does handler check `esm_class & 0x04`? No. `handleDeliverSM` at `handler.go:547-591` decodes the PDU, reads only `deliver.ShortMessage`, trims it, checks for opt-out stop-keywords, and returns `ESME_ROK`. There is zero branching on `deliver.ESMClass`. A DLR arriving with `esm_class=0x04` is processed identically to a plain MO with `esm_class=0x00`.
+   - Does handler read `receipted_message_id` (0x001E) or `message_state` (0x0427) TLV? No. These TLVs exist in the protocol layer (`deliver.TLV`) but `handleDeliverSM` never accesses `deliver.TLV` at all.
+   - What happens to a real DLR arriving via deliver_sm on the gateway link? It is silently treated as a MO. The message text (the DLR receipt string such as `id:XXX sub:001 dlvrd:001 ... stat:DELIVRD`) is compared against opt-out keywords (`STOP`, `СТОП`, etc.) — it will not match — and then `ESME_ROK` is returned. The DLR data is discarded. It is never matched to the original message, never persisted as a delivery status update, and never forwarded to the sending client. Completely lost.
+   - Note: correct DLR parsing (regex + TLV fallback) exists in `internal/smsc/pool_async.go:322-363` — but this is the *outbound* SMPP connection to providers. Provider → gateway direction is handled. The *inbound* gateway direction (client → gateway, where client acts as a provider and pushes DLRs) is the broken path.
+
+2. **Via smppv1.DeliverDLR gRPC** (control-plane DLR injection):
+   - Handler file: `internal/gateway/smpp/server/grpc_server.go:45` — `func (g *GRPCServer) DeliverDLR(ctx context.Context, req *smppv1.DeliverDLRRequest) (*smppv1.DeliverDLRResponse, error)`.
+   - Caller: `internal/services/dlr/dispatcher.go:52` — `Dispatcher.Dispatch()` calls `d.client.DeliverDLR(ctx, req.SystemID, req.SourceAddr, req.DestAddr, req.Receipt)`. The dispatcher is the DLR service that processes provider-side DLRs (from pool_async `dlrCallback`) and routes them to clients.
+   - What it does: looks up the active SMPP session by `system_id`, checks `sess.CanReceive()` (receiver/transceiver only), builds a `deliver_sm` PDU with `ESMClass=0x04` and the DLR receipt text in `ShortMessage`, and writes it directly to the session's TCP connection (`grpc_server.go:129-176`). Has prometheus metrics (`SMPPDLRDelivered`, `SMPPDLRDeliveryFailed`) and retry logic in the dispatcher (3 retries with exponential backoff).
+   - This path is fully implemented and tested (`internal/gateway/smpp/server/grpc_server_test.go` — 4 test cases covering success, receiver bind, session not found, connection closed).
+
+**DLR → client flow (SMPP receiver bind):**
+
+Outbound deliver_sm to SMPP-bound clients is supported and implemented via the gRPC path. The flow is: provider delivers DLR → `pool_async.go` `dlrCallback` parses DLR data → DLR service invokes `Dispatcher.Dispatch()` → gRPC call to `GRPCServer.DeliverDLR()` → `sendDeliverSM()` writes `deliver_sm` with `esm_class=0x04` to the client's TCP connection. Clients bound as `receiver` or `transceiver` receive the DLR over their SMPP link.
+
+The gap is not in outbound delivery to clients — that works. The gap is specifically in the *inbound gateway handler* (`handleDeliverSM`), which is the path used when a connected SMPP peer (acting as a provider) pushes DLRs to the gateway via the gateway's listen port. This is a less common topology (gateway as ESME, not SMSC) but it is the path that `handleDeliverSM` exists to serve.
+
+### Decisions
+
+- **A6-registered-delivery:** partial support — byte is extracted and stashed in Kafka metadata but never read downstream to condition the outbound submit_sm to the provider. Fix is medium-sized: requires tracing `KafkaMessage.Metadata["registered_delivery"]` through the outbound worker and into the SMSC pool's `SubmitSM` call. Estimate ~50-80 lines across 2-3 files. Not an inline Cycle 2 PR fix; crупное — document and plan separately.
+- **A6-dlr inbound via SMPP:** крупное. The `handleDeliverSM` function needs `esm_class & 0x04` branching, TLV reading for `receipted_message_id` / `message_state`, and routing to the DLR service instead of the opt-out handler. Separate fix-plan needed: `docs/superpowers/plans/2026-04-21-fix-smpp-deliver-dlr-branching.md` — **не создаём сейчас**, помечаем в matrix.
+- **A6-dlr outbound к SMPP-клиенту:** fully supported via `smppv1.DeliverDLR` gRPC + `sendDeliverSM`. Not a gap. Matrix row: `OK`.
 
 ## A6-datacoding + A6-long-msg
 

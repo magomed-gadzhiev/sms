@@ -35,6 +35,15 @@
 | SMPP data_sm | SMPP | client | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no data_sm case in switch | minor | wontfix:low usage, recommend submit_sm |
 | SMPP data_sm | SMPP | subaccount_child | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no data_sm case in switch | minor | wontfix:low usage, recommend submit_sm |
 | SMPP data_sm | SMPP | subaccount_parent | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no data_sm case in switch | minor | wontfix:low usage, recommend submit_sm |
+| SMPP submit_sm | SMPP | client | A6-registered-delivery | BROKEN | | registered_delivery byte stashed in KafkaMessage.Metadata but never read by outbound worker; provider always uses hardcoded value | major | plan:TBD (Cycle 2 finale) |
+| SMPP submit_sm | SMPP | subaccount_child | A6-registered-delivery | BROKEN | | registered_delivery byte stashed in KafkaMessage.Metadata but never read by outbound worker; provider always uses hardcoded value | major | plan:TBD (Cycle 2 finale) |
+| SMPP submit_sm | SMPP | subaccount_parent | A6-registered-delivery | BROKEN | | registered_delivery byte stashed in KafkaMessage.Metadata but never read by outbound worker; provider always uses hardcoded value | major | plan:TBD (Cycle 2 finale) |
+| SMPP deliver_sm (DLR via provider link) | SMPP | client | A6-dlr | BROKEN | | handleDeliverSM never checks esm_class & 0x04; no TLV read; DLR silently treated as MO and discarded | major | plan:docs/superpowers/plans/2026-04-21-fix-smpp-deliver-dlr-branching.md |
+| SMPP deliver_sm (DLR via provider link) | SMPP | subaccount_child | A6-dlr | BROKEN | | handleDeliverSM never checks esm_class & 0x04; no TLV read; DLR silently treated as MO and discarded | major | plan:docs/superpowers/plans/2026-04-21-fix-smpp-deliver-dlr-branching.md |
+| SMPP deliver_sm (DLR via provider link) | SMPP | subaccount_parent | A6-dlr | BROKEN | | handleDeliverSM never checks esm_class & 0x04; no TLV read; DLR silently treated as MO and discarded | major | plan:docs/superpowers/plans/2026-04-21-fix-smpp-deliver-dlr-branching.md |
+| SMPP deliver_sm (outbound to client) | SMPP | client | A6-dlr | OK | internal/gateway/smpp/server/grpc_server_test.go | DLR forwarded via smppv1.DeliverDLR gRPC → sendDeliverSM with esm_class=0x04 | — | — |
+| SMPP deliver_sm (outbound to client) | SMPP | subaccount_child | A6-dlr | OK | internal/gateway/smpp/server/grpc_server_test.go | DLR forwarded via smppv1.DeliverDLR gRPC → sendDeliverSM with esm_class=0x04 | — | — |
+| SMPP deliver_sm (outbound to client) | SMPP | subaccount_parent | A6-dlr | OK | internal/gateway/smpp/server/grpc_server_test.go | DLR forwarded via smppv1.DeliverDLR gRPC → sendDeliverSM with esm_class=0x04 | — | — |
 
 ## Machine-readable
 
