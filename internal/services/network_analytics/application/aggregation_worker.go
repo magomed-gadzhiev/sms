@@ -40,11 +40,11 @@ const rawAggQuery = `
 SELECT
     0                                                          AS partner_id,
     date_trunc('hour', m.created_at)                           AS hour,
-    0                                                          AS provider_id,
-    COALESCE(m.operator_id::text, '')                          AS operator,
-    COALESCE(m.country_id::text, '')                           AS country,
-    COALESCE(m.channel, '')                                    AS channel,
-    ''                                                         AS login,
+    COALESCE(m.provider_id, '00000000-0000-0000-0000-000000000000'::uuid) AS provider_id,
+    COALESCE(op.name, '')                                      AS operator,
+    COALESCE(co.name, '')                                      AS country,
+    COALESCE(NULLIF(m.channel, ''), 'sms')                     AS channel,
+    COALESCE(c.name, c.email, '')                              AS login,
     COALESCE(m.source, '')                                     AS sender_name,
     COALESCE(m.service_type, '')                               AS traffic_type,
     COALESCE(m.send_method, '')                                AS method,
@@ -58,6 +58,9 @@ SELECT
     0                                                          AS revenue,
     0                                                          AS cost
 FROM messages m
+LEFT JOIN clients   c  ON c.id  = m.client_id
+LEFT JOIN operators op ON op.id = m.operator_id
+LEFT JOIN countries co ON co.id = m.country_id
 WHERE m.created_at >= $1 AND m.created_at < $2
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 `
@@ -83,6 +86,54 @@ func (w *AggregationWorker) RunHourlyAggregation(ctx context.Context) {
 			w.runHourlyAggregationOnce(ctx)
 		}
 	}
+}
+
+// BackfillWindow re-aggregates messages from `from` (inclusive) to `to`
+// (exclusive) hour by hour. Callers are expected to TRUNCATE
+// network_stats_hourly first if they want a clean recompute, because
+// UpsertHourlyStats adds to existing counters. Safe to call multiple
+// times only if the table is empty for the window.
+func (w *AggregationWorker) BackfillWindow(ctx context.Context, from, to time.Time) error {
+	from = from.UTC().Truncate(time.Hour)
+	to = to.UTC().Truncate(time.Hour)
+	w.logger.Info().Time("from", from).Time("to", to).Msg("hourly aggregation: backfill start")
+	for cursor := from; cursor.Before(to); cursor = cursor.Add(time.Hour) {
+		if err := w.aggregateHour(ctx, cursor, cursor.Add(time.Hour)); err != nil {
+			return err
+		}
+	}
+	w.logger.Info().Time("from", from).Time("to", to).Msg("hourly aggregation: backfill done")
+	return nil
+}
+
+// aggregateHour runs the raw aggregation query for [start, end) and upserts.
+func (w *AggregationWorker) aggregateHour(ctx context.Context, start, end time.Time) error {
+	rows, err := w.db.Query(ctx, rawAggQuery, start, end)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var batch []domain.HourlyStatsRow
+	for rows.Next() {
+		var r domain.HourlyStatsRow
+		if err := rows.Scan(
+			&r.PartnerID, &r.Hour, &r.ProviderID, &r.Operator, &r.Country,
+			&r.Channel, &r.Login, &r.SenderName, &r.TrafficType, &r.Method,
+			&r.Total, &r.Sent, &r.Delivered, &r.Failed, &r.Pending,
+			&r.Timeout, &r.Error, &r.Revenue, &r.Cost,
+		); err != nil {
+			return err
+		}
+		batch = append(batch, r)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(batch) == 0 {
+		return nil
+	}
+	return w.statsRepo.UpsertHourlyStats(ctx, batch)
 }
 
 func (w *AggregationWorker) runHourlyAggregationOnce(ctx context.Context) {

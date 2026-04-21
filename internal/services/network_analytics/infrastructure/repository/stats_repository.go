@@ -135,16 +135,36 @@ func buildWhereClause(filter *domain.SharedFilter) (string, []interface{}) {
 	return "WHERE " + strings.Join(conditions, " AND "), args
 }
 
+// isTimeGroup reports whether the group_by value is a time bucket.
+// For time buckets the natural default sort is by slice ASC, not by total DESC.
+func isTimeGroup(groupBy string) bool {
+	switch groupBy {
+	case "5min", "15min", "hour", "day", "month", "year":
+		return true
+	}
+	return false
+}
+
 // buildStatsQuery builds the full aggregation query for network_stats_hourly.
 func buildStatsQuery(filter *domain.SharedFilter, whereClause string, argCount int) string {
 	col := sliceColumn(filter.GroupBy)
+
+	// Default sort: time groupings get slice ASC (chronological); dimensional
+	// groupings get total DESC (biggest first). Explicit sort_by overrides.
 	sortCol := "total"
+	sortDir := "DESC"
+	if isTimeGroup(filter.GroupBy) {
+		sortCol = "slice"
+		sortDir = "ASC"
+	}
 	if sc, ok := allowedSortColumns[filter.SortBy]; ok {
 		sortCol = sc
+		sortDir = "DESC"
 	}
-	sortDir := "DESC"
 	if filter.SortDir == "asc" {
 		sortDir = "ASC"
+	} else if filter.SortDir == "desc" {
+		sortDir = "DESC"
 	}
 
 	return fmt.Sprintf(`
