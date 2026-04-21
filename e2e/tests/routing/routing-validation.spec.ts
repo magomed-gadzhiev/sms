@@ -96,6 +96,9 @@ test.describe('Маршрутизация — Валидация и edge-cases',
     expect(created.share).toBeLessThanOrEqual(100);
   });
 
+  // DRIFT-D2: regex condition удаляется спекой 2026-04-21-routing-hierarchy-design.md §3
+  // (YAGNI, 0 использований на проде). После Task 21 plan 2026-04-21-routing-hierarchy
+  // этот тест упадёт — переписать или удалить.
   test('AC-D3: regex-условие с пустым значением — либо ошибка, либо пустая строка persist', async ({ page, request }) => {
     const api = new ApiHelper(request);
     const providerId = await pickProviderId(api);

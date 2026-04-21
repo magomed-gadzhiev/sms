@@ -132,6 +132,10 @@ test.describe('Маршрутизация — ConditionEditor', () => {
     expect(options).toContain('Сервисный');
   });
 
+  // DRIFT-D1: regex condition удаляется спекой 2026-04-21-routing-hierarchy-design.md §3
+  // (YAGNI, 0 использований на проде; audit 2026-04-21). После Task 21 plan
+  // 2026-04-21-routing-hierarchy (drop route_conditions/route_condition_groups)
+  // этот тест упадёт — переписать под phone_range или удалить.
   test('AC-C7: сохранение маршрута с regex-условием и проверка через API', async ({ page, request }) => {
     const api = new ApiHelper(request);
     const providerId = await pickProviderId(api);

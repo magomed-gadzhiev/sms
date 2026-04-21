@@ -1,5 +1,8 @@
 import type { ApiHelper } from './api';
 
+// NOTE: routing-hierarchy.ts exports `pickAnyProviderId` — a stricter version
+// (throws on empty, no ApiHelper dependency). New hierarchy tests use that one.
+// This version stays for backward compat with the existing 62 tests.
 export async function pickProviderId(api: ApiHelper): Promise<string | null> {
   const resp = await api.listRouteProviders();
   return resp.providers?.[0]?.id ?? null;

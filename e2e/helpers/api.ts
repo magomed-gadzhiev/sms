@@ -4,9 +4,9 @@ import * as path from 'path';
 
 const API_BASE = process.env.API_URL || 'http://localhost:8083/portal/v1';
 
-function extractCsrfToken(): string {
+function extractCsrfToken(stateFile = 'auth-state.json'): string {
   try {
-    const statePath = path.resolve(__dirname, '..', 'auth-state.json');
+    const statePath = path.resolve(__dirname, '..', stateFile);
     const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
     const csrfCookie = state.cookies?.find((c: { name: string; value: string }) => c.name === 'csrf_token');
     return csrfCookie?.value || '';
@@ -18,8 +18,8 @@ function extractCsrfToken(): string {
 export class ApiHelper {
   private csrfToken: string;
 
-  constructor(private request: APIRequestContext) {
-    this.csrfToken = extractCsrfToken();
+  constructor(private request: APIRequestContext, storageStateFile?: string) {
+    this.csrfToken = extractCsrfToken(storageStateFile);
   }
 
   private async fetch(path: string, options?: {
@@ -534,8 +534,11 @@ const ADMIN_API_BASE = process.env.ADMIN_API_URL || `${process.env.BASE_URL || '
 export class AdminApiHelper {
   private csrfToken: string;
 
-  constructor(private request: import('@playwright/test').APIRequestContext) {
-    this.csrfToken = extractCsrfToken();
+  constructor(
+    private request: import('@playwright/test').APIRequestContext,
+    storageStateFile: string = 'admin-auth-state.json',
+  ) {
+    this.csrfToken = extractCsrfToken(storageStateFile);
   }
 
   private async fetch(path: string, options?: {
