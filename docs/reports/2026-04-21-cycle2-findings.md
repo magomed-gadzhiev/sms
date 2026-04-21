@@ -183,7 +183,78 @@ The gap is not in outbound delivery to clients — that works. The gap is specif
 
 ## A7 — gRPC tenant propagation
 
-_TODO: Task 6_
+**Severity:** critical (A7.2/A7.3) + safe (A7.1)
+
+### A7.1 — Admin RPC external exposure
+
+Checked 31 TENANT-MISSING RPCs for external exposure via `cmd/client-gateway` and `cmd/api`.
+
+Registration inventory:
+
+- `cmd/client-gateway/main.go:207` — only `messagingv1.RegisterMessagingServiceServer` registered. No cascade, tarification, or billing admin services.
+- `cmd/api/main.go:178` — only `smsv1.RegisterSMSServiceServer` registered. Legacy monolith gateway; no microservice admin RPCs.
+- `cmd/admin-gateway/main.go` — no gRPC service registrations at all (HTTP-only admin gateway).
+- `cmd/portal-gateway` — separate process; not audited for client-facing exposure (out of scope per task definition).
+
+Checked services:
+
+- cascadev1 ChannelAdminService — not exposed (no `RegisterChannelAdminServiceServer` anywhere in client-gateway or api).
+- cascadev1 StrategyAdminService — not exposed.
+- tarificationv1 admin RPCs — not exposed.
+- billingv1 ListBalances — not exposed.
+
+**Verdict:** safe. All 31 TENANT-MISSING admin RPCs are absent from externally facing gateways. They are only reachable via internal microservice-to-microservice gRPC (no external listener registers them).
+
+### A7.2 — Enforcement on tenant-carrying RPCs
+
+Sampled 5 key RPCs with `client_id` in request:
+
+| RPC | Uses req.ClientId | Validated vs authenticated | Blind trust? | Gap |
+|---|---|---|---|---|
+| messagingv1.SendMessage | yes — proxy overrides req.ClientId with ctx value; downstream parseClientID rejects empty | yes — proxy reads ctx injected by interceptor | no — proxy rejects req.ClientId != ctx.ClientId | interceptor is hardcoded dummy (see A7.3) |
+| messagingv1.GetMessageHistory | yes — same override pattern; parseClientID enforces non-empty | yes — via ctx | no | same interceptor gap |
+| billingv1.GetBalance | yes — proxy overrides; downstream requires non-empty, rejects on mismatch | yes — via ctx | no | same interceptor gap |
+| webhookv1.ListSubscriptions | yes — HTTP handler reads ctx, never req field; webhookv1.ListSubscriptions grpc server requires non-empty client_id | yes — via ctx | no | HTTP path correct; no direct gRPC exposure to clients for this RPC outside proxy |
+| templatev1.ListTemplates | yes — HTTP handler reads ctx, hardcodes clientID.String() into gRPC call; no req field accepted from caller | yes — via ctx | no | HTTP path correct |
+
+**Note on GetMessageStatus:** `internal/services/messaging/grpc/server.go:215-222` allows `clientID` to be nil (optional). If `req.ClientId` is empty the ownership check at `application/message_service.go:224` (`if clientID != nil && msg.ClientID != nil`) is skipped — any authenticated session can look up any message ID without scoping. The client-gateway proxy (`grpc/server.go:106-115`) does set `req.ClientId` from ctx before proxying, so this is only exploitable if the downstream service is called directly (bypassing the proxy), which is an internal network boundary issue rather than an external exposure. Flagged as minor.
+
+### A7.3 — Auth middleware tenant enforcement
+
+**HTTP path** (`internal/gateway/client/middleware/auth.go`):
+
+`ClientAuthMiddleware` calls `authClient.ValidateToken()`, extracts `resp.User.ClientId` from the validated token, parses it as UUID, and injects it into `ctx` as `ClientIDKey`. If `resp.User.ClientId` is empty it falls back to `user_id`. All HTTP handlers in `internal/gateway/client/handlers/` read exclusively from ctx (never from request body). This path is correct.
+
+**gRPC path** (`internal/gateway/client/grpc/interceptor.go` and `internal/api/grpc/interceptors.go`):
+
+Both interceptors are hardcoded stubs:
+
+```
+// interceptor.go:22-31 — comment says "LOAD TEST MODE: авторизация отключена"
+func AuthInterceptor(authClient authv1.AuthServiceClient) grpc.UnaryServerInterceptor {
+    dummyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+        ctx = context.WithValue(ctx, ClientIDKey, dummyID)
+        return handler(ctx, req)
+    }
+}
+```
+
+The `authClient` parameter is accepted but never called. The condition `LOAD_TEST_MODE` is not checked; auth is permanently bypassed. The `cmd/api/main.go:171` interceptor (`internal/api/grpc/interceptors.go`) is identical — same dummy ID `00000000-0000-0000-0000-000000000001`, same permanent bypass.
+
+**Critical check:** Can a client with API key A send a gRPC request with `client_id = B` and get B's data?
+
+Via gRPC to `cmd/client-gateway`: the interceptor overrides to dummy ID `00000000-0000-0000-0000-000000000001` regardless of API key. The proxy then overwrites `req.ClientId` with dummy ID and sends it downstream. Every gRPC caller gets the same dummy tenant. No real tenant isolation on the gRPC path at all — this is worse than "blind trust", it is "everyone is the same client".
+
+Via HTTP to `cmd/client-gateway`: NO. HTTP middleware correctly validates the token and injects the real client_id. Handlers use ctx value, not request field. Cross-tenant access via HTTP is not possible.
+
+**Verdict:** The gRPC interface of `cmd/client-gateway` and `cmd/api` has permanently disabled authentication — not a configuration flag but dead code that was never wired. This is a critical gap. In practice the system appears to be used primarily via HTTP REST (client-gateway HTTP router) and the gRPC exposure is limited, but the gRPC port (9090) is open and any caller can impersonate any tenant.
+
+### Decisions
+
+- **A7.1:** wontfix:verified gated. Admin RPCs not registered in external gateways. No action needed.
+- **A7.2:** mixed. HTTP enforcement is correct. GetMessageStatus optional-clientID gap is minor (internal boundary). No inline fix needed for enforcement per se; the root problem is A7.3.
+- **A7.3:** critical fix required. Both gRPC interceptors need to call `authClient.ValidateToken()` (matching the HTTP middleware logic) and extract the real `client_id`. The `LOAD_TEST_MODE` bypass should use the env-var check (like HTTP middleware does), not be hardcoded. Fix plan: `docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md` — document and plan separately (крупное: touches auth in two separate binaries).
 
 ## Сводная таблица critical / major находок
 

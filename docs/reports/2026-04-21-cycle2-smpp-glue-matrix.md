@@ -51,6 +51,28 @@
 | SMPP submit_sm (multipart UDH) | SMPP | subaccount_child | A6-long-msg | PARTIAL | | UDH esm_class & 0x40 parsed (handler.go:313-323), ref/total/part extracted; BUT metadata in KafkaMessage.Metadata dropped by ToMessage(); downstream receives segments as independent messages; SAR TLV path broken (see A6-tlv) | major | plan:covered by A6-tlv fix plan (KafkaMessage model) |
 | SMPP submit_sm (multipart UDH) | SMPP | subaccount_parent | A6-long-msg | PARTIAL | | UDH esm_class & 0x40 parsed (handler.go:313-323), ref/total/part extracted; BUT metadata in KafkaMessage.Metadata dropped by ToMessage(); downstream receives segments as independent messages; SAR TLV path broken (see A6-tlv) | major | plan:covered by A6-tlv fix plan (KafkaMessage model) |
 
+| admin RPCs (cascadev1 ChannelAdmin + StrategyAdmin + tarificationv1 + billingv1 ListBalances) | gRPC | client | A7-admin-exposure | OK | — | not registered in cmd/client-gateway or cmd/api; only reachable internally | — | wontfix:verified gated |
+| admin RPCs (cascadev1 ChannelAdmin + StrategyAdmin + tarificationv1 + billingv1 ListBalances) | gRPC | subaccount_child | A7-admin-exposure | OK | — | not registered in cmd/client-gateway or cmd/api; only reachable internally | — | wontfix:verified gated |
+| admin RPCs (cascadev1 ChannelAdmin + StrategyAdmin + tarificationv1 + billingv1 ListBalances) | gRPC | subaccount_parent | A7-admin-exposure | OK | — | not registered in cmd/client-gateway or cmd/api; only reachable internally | — | wontfix:verified gated |
+| messagingv1.SendMessage | gRPC | client | A7-enforcement | BROKEN | — | gRPC interceptor hardcoded dummy ID; auth permanently disabled; all callers get same tenant 00000000-0000-0000-0000-000000000001 | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.SendMessage | gRPC | subaccount_child | A7-enforcement | BROKEN | — | same hardcoded interceptor bypass | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.SendMessage | gRPC | subaccount_parent | A7-enforcement | BROKEN | — | same hardcoded interceptor bypass | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.GetMessageHistory | gRPC | client | A7-enforcement | BROKEN | — | gRPC interceptor hardcoded dummy ID; auth permanently disabled | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.GetMessageHistory | gRPC | subaccount_child | A7-enforcement | BROKEN | — | same hardcoded interceptor bypass | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.GetMessageHistory | gRPC | subaccount_parent | A7-enforcement | BROKEN | — | same hardcoded interceptor bypass | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| billingv1.GetBalance | gRPC | client | A7-enforcement | BROKEN | — | gRPC interceptor hardcoded dummy ID; auth permanently disabled | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| billingv1.GetBalance | gRPC | subaccount_child | A7-enforcement | BROKEN | — | same hardcoded interceptor bypass | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| billingv1.GetBalance | gRPC | subaccount_parent | A7-enforcement | BROKEN | — | same hardcoded interceptor bypass | critical | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| webhookv1.ListSubscriptions | HTTP | client | A7-enforcement | OK | — | HTTP middleware correctly validates token; ctx.ClientId injected; handler reads ctx only | — | — |
+| webhookv1.ListSubscriptions | HTTP | subaccount_child | A7-enforcement | OK | — | same | — | — |
+| webhookv1.ListSubscriptions | HTTP | subaccount_parent | A7-enforcement | OK | — | same | — | — |
+| templatev1.ListTemplates | HTTP | client | A7-enforcement | OK | — | HTTP middleware correctly validates token; ctx.ClientId injected; handler reads ctx only | — | — |
+| templatev1.ListTemplates | HTTP | subaccount_child | A7-enforcement | OK | — | same | — | — |
+| templatev1.ListTemplates | HTTP | subaccount_parent | A7-enforcement | OK | — | same | — | — |
+| messagingv1.GetMessageStatus | gRPC | client | A7-enforcement | DRIFT | — | downstream allows nil clientID (optional check); ownership enforcement skipped when clientID omitted; exploitable if service called directly bypassing proxy | minor | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.GetMessageStatus | gRPC | subaccount_child | A7-enforcement | DRIFT | — | same nil-clientID gap | minor | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+| messagingv1.GetMessageStatus | gRPC | subaccount_parent | A7-enforcement | DRIFT | — | same nil-clientID gap | minor | plan:docs/superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md |
+
 ## Machine-readable
 
 См. `2026-04-21-cycle2-smpp-glue-matrix.csv`.
