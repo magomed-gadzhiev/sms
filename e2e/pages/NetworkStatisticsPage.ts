@@ -183,4 +183,58 @@ export class NetworkStatisticsPage {
   resumeButton(): Locator {
     return this.page.getByRole('button', { name: 'Продолжить', exact: true });
   }
+
+  // --- Drill-down drawer ---
+
+  // Drawer container (fixed right, 480px)
+  drawer(): Locator {
+    return this.page.locator('div.fixed.top-0.right-0.h-full.w-\\[480px\\]');
+  }
+
+  // Overlay behind drawer
+  drawerOverlay(): Locator {
+    return this.page.locator('div.fixed.inset-0.bg-black\\/20');
+  }
+
+  // Close (X) button in drawer header
+  drawerCloseButton(): Locator {
+    return this.drawer().locator('button').filter({ has: this.page.locator('svg.lucide-x') });
+  }
+
+  // Breadcrumb — first button always "Статистика"
+  drawerBreadcrumbRoot(): Locator {
+    return this.drawer().getByRole('button', { name: 'Статистика', exact: true });
+  }
+
+  // Tabs inside drawer (5 tabs)
+  drawerTab(label: 'По операторам' | 'По статусам' | 'По ошибкам' | 'Динамика' | 'Деньги'): Locator {
+    return this.drawer().getByRole('tab', { name: label });
+  }
+
+  drawerTabs(): Locator {
+    return this.drawer().getByRole('tab');
+  }
+
+  // Drawer's internal 5-column table
+  drawerTable(): Locator {
+    return this.drawer().locator('table');
+  }
+
+  drawerTableHeaders(): Locator {
+    return this.drawerTable().locator('thead th');
+  }
+
+  // Hint banner at bottom of drawer
+  drawerHintBanner(): Locator {
+    // Regex for robustness against whitespace/punctuation drift in copy
+    return this.drawer().getByText(/Кликните по строке для перехода/);
+  }
+
+  drawerLoadingCell(): Locator {
+    return this.drawer().getByText('Загрузка...');
+  }
+
+  drawerEmptyCell(): Locator {
+    return this.drawer().getByText('Нет данных');
+  }
 }
