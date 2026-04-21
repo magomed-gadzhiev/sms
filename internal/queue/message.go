@@ -23,6 +23,11 @@ type KafkaMessage struct {
 	RetryCount  int                    `json:"retry_count"`
 	MaxRetries  int                    `json:"max_retries"`
 	TrafficType string                 `json:"traffic_type,omitempty"`
+	// TemplateID and SenderNameID carry the audit linkage from the send
+	// handler through Kafka into the persist stage. Both are optional and
+	// backwards-compatible (additive JSON fields).
+	TemplateID   *uuid.UUID             `json:"template_id,omitempty"`
+	SenderNameID *uuid.UUID             `json:"sender_name_id,omitempty"`
 	CreatedAt   time.Time              `json:"created_at"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -40,6 +45,8 @@ func (km *KafkaMessage) ToMessage() *shared.Message {
 		PriorityFlag: km.Priority,
 		RetryCount:  km.RetryCount,
 		MaxRetries:  km.MaxRetries,
+		TemplateID:   km.TemplateID,
+		SenderNameID: km.SenderNameID,
 		CreatedAt:   km.CreatedAt,
 		Status:      shared.MessageStatusQueued,
 	}
@@ -66,6 +73,8 @@ func FromMessage(msg *shared.Message) *KafkaMessage {
 		Priority:    msg.PriorityFlag,
 		RetryCount:  msg.RetryCount,
 		MaxRetries:  msg.MaxRetries,
+		TemplateID:   msg.TemplateID,
+		SenderNameID: msg.SenderNameID,
 		CreatedAt:   msg.CreatedAt,
 	}
 }

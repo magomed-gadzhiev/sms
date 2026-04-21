@@ -27,6 +27,10 @@ func NewMessageRepository(db *DB) *MessageRepository {
 
 // Create создает новое сообщение
 func (r *MessageRepository) Create(ctx context.Context, msg *shared.Message) error {
+	// template_id / sender_name_id plumb audit linkage on the non-Kafka paths
+	// (scheduled dispatch, sandbox fast-path) which call this repo directly.
+	// UpdateStatus is set-once elsewhere; these fields do not mutate after
+	// insert, so UPDATE paths don't need them.
 	query := `
 		INSERT INTO messages (
 			id, message_id, external_id, source, destination, text, encoding,
@@ -35,11 +39,12 @@ func (r *MessageRepository) Create(ctx context.Context, msg *shared.Message) err
 			source_addr_ton, source_addr_npi, dest_addr_ton, dest_addr_npi,
 			status, status_message, provider_id, route_id, client_id,
 			retry_count, max_retries, next_retry_at, smpp_message_id,
-			submitted_at, delivered_at, failed_at, created_at, updated_at, scheduled_at
+			submitted_at, delivered_at, failed_at, created_at, updated_at, scheduled_at,
+			template_id, sender_name_id
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
 			$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-			$29, $30, $31, $32, $33, $34
+			$29, $30, $31, $32, $33, $34, $35, $36
 		)
 	`
 
@@ -52,6 +57,7 @@ func (r *MessageRepository) Create(ctx context.Context, msg *shared.Message) err
 		msg.ProviderID, msg.RouteID, msg.ClientID, msg.RetryCount, msg.MaxRetries,
 		msg.NextRetryAt, msg.SMPPMessageID, msg.SubmittedAt, msg.DeliveredAt,
 		msg.FailedAt, msg.CreatedAt, msg.UpdatedAt, msg.ScheduledAt,
+		msg.TemplateID, msg.SenderNameID,
 	)
 
 	return err

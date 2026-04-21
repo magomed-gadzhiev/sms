@@ -21,23 +21,25 @@ import (
 
 // messageRow holds the data for a single row to be COPYed into the messages table.
 type messageRow struct {
-	id           uuid.UUID
-	traceID      string // not a DB column — used only for trace logging
-	messageID    string
-	source       string
-	destination  string
-	text         string
-	encoding     string
-	segmentCount int
-	status       string
-	priorityFlag int
-	providerID   *uuid.UUID
-	routeID      *uuid.UUID
-	clientID     *uuid.UUID
-	retryCount   int
-	maxRetries   int
-	createdAt    time.Time
-	updatedAt    time.Time
+	id             uuid.UUID
+	traceID        string // not a DB column — used only for trace logging
+	messageID      string
+	source         string
+	destination    string
+	text           string
+	encoding       string
+	segmentCount   int
+	status         string
+	priorityFlag   int
+	providerID     *uuid.UUID
+	routeID        *uuid.UUID
+	clientID       *uuid.UUID
+	templateID     *uuid.UUID
+	senderNameID   *uuid.UUID
+	retryCount     int
+	maxRetries     int
+	createdAt      time.Time
+	updatedAt      time.Time
 }
 
 // copyColumns lists the columns sent via COPY protocol. Order must match Values() below.
@@ -54,6 +56,8 @@ var copyColumns = []string{
 	"provider_id",
 	"route_id",
 	"client_id",
+	"template_id",
+	"sender_name_id",
 	"retry_count",
 	"max_retries",
 	"created_at",
@@ -165,6 +169,7 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 			id UUID, message_id VARCHAR(255), source VARCHAR(20), destination VARCHAR(20),
 			text TEXT, encoding VARCHAR(20), segment_count INT, status VARCHAR(50),
 			priority_flag INT, provider_id UUID, route_id UUID, client_id UUID,
+			template_id UUID, sender_name_id UUID,
 			retry_count INT, max_retries INT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
 		) ON COMMIT DELETE ROWS`)
 	if err != nil {
@@ -183,10 +188,12 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 		INSERT INTO messages (
 			id, message_id, source, destination, text, encoding, segment_count,
 			status, priority_flag, provider_id, route_id, client_id,
+			template_id, sender_name_id,
 			retry_count, max_retries, created_at, updated_at
 		)
 		SELECT id, message_id, source, destination, text, encoding, segment_count,
 			status, priority_flag, provider_id, route_id, client_id,
+			template_id, sender_name_id,
 			retry_count, max_retries, created_at, updated_at
 		FROM persist_batch
 		ON CONFLICT (id, created_at) DO NOTHING`)
@@ -255,6 +262,8 @@ func buildCopyRows(msgs []*sarama.ConsumerMessage) ([]messageRow, []error) {
 			providerID:   km.ProviderID,
 			routeID:      km.RouteID,
 			clientID:     km.ClientID,
+			templateID:   km.TemplateID,
+			senderNameID: km.SenderNameID,
 			retryCount:   km.RetryCount,
 			maxRetries:   km.MaxRetries,
 			createdAt:    createdAt,
@@ -295,22 +304,24 @@ func (cs *copySource) Values() ([]interface{}, error) {
 	cs.idx++
 
 	return []interface{}{
-		r.id,           // id
-		r.messageID,    // message_id
-		r.source,       // source
-		r.destination,  // destination
-		r.text,         // text
-		r.encoding,     // encoding
-		r.segmentCount, // segment_count
-		r.status,       // status
-		r.priorityFlag, // priority_flag
-		r.providerID,   // provider_id
-		r.routeID,      // route_id
-		r.clientID,     // client_id
-		r.retryCount,   // retry_count
-		r.maxRetries,   // max_retries
-		r.createdAt,    // created_at
-		r.updatedAt,    // updated_at
+		r.id,             // id
+		r.messageID,      // message_id
+		r.source,         // source
+		r.destination,    // destination
+		r.text,           // text
+		r.encoding,       // encoding
+		r.segmentCount,   // segment_count
+		r.status,         // status
+		r.priorityFlag,   // priority_flag
+		r.providerID,     // provider_id
+		r.routeID,        // route_id
+		r.clientID,       // client_id
+		r.templateID,     // template_id
+		r.senderNameID,   // sender_name_id
+		r.retryCount,     // retry_count
+		r.maxRetries,     // max_retries
+		r.createdAt,      // created_at
+		r.updatedAt,      // updated_at
 	}, nil
 }
 

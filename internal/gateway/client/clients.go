@@ -17,6 +17,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/api/proto/routingv1"
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
+	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	webhookv1 "github.com/smpp-server/smpp-server/api/proto/webhookv1"
 )
@@ -30,8 +31,9 @@ type ServiceClients struct {
 	WebhookClient   webhookv1.WebhookServiceClient
 	TemplateClient  templatev1.TemplateServiceClient
 	RoutingClient   routingv1.RoutingServiceClient
-	ClientClient    clientv1.ClientServiceClient
-	CascadeClient   cascadev1.CascadeServiceClient
+	ClientClient     clientv1.ClientServiceClient
+	CascadeClient    cascadev1.CascadeServiceClient
+	SenderNameClient sendernamev1.SenderNameServiceClient
 
 	conns []*grpc.ClientConn
 }
@@ -45,8 +47,9 @@ type ServiceAddresses struct {
 	Webhook   string
 	Template  string
 	Routing   string
-	Client    string
-	Cascade   string
+	Client     string
+	Cascade    string
+	SenderName string
 }
 
 // NewServiceClients создает подключения ко всем сервисам
@@ -160,7 +163,18 @@ func NewServiceClients(addresses ServiceAddresses) (*ServiceClients, error) {
 		clients.conns = append(clients.conns, conn)
 	}
 
-		return clients, nil
+	// Подключение к Sender Name Service (template-service hosts it).
+	if addresses.SenderName != "" {
+		conn, err := grpc.Dial(addresses.SenderName, opts...)
+		if err != nil {
+			clients.Close()
+			return nil, fmt.Errorf("не удалось подключиться к Sender Name Service: %w", err)
+		}
+		clients.SenderNameClient = sendernamev1.NewSenderNameServiceClient(conn)
+		clients.conns = append(clients.conns, conn)
+	}
+
+	return clients, nil
 }
 
 // Close закрывает все подключения

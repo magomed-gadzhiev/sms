@@ -15,10 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
 )
@@ -202,7 +204,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success with direct text", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -247,7 +249,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 for invalid JSON body", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/sms/send", bytes.NewReader([]byte("invalid json")))
 			req.Header.Set("Content-Type", "application/json")
@@ -266,7 +268,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 401 when client ID is missing from context", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			body, _ := json.Marshal(SendSMSRequest{
 				Source:      "MyApp",
@@ -287,7 +289,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 when source is empty", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -310,7 +312,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 when both text and template_id provided", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -334,7 +336,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 400 when neither text nor template_id provided", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -356,7 +358,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success with template_id", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -403,7 +405,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns error when messaging service fails", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -425,13 +427,105 @@ func TestSMSHandlers(t *testing.T) {
 
 			assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 		})
+
+		// Bug #7 integration: handler wires resolveSenderName into the SendSMS
+		// flow when a non-nil senderNameClient is present. The helper-level
+		// tests (sms_sender_auth_test.go) only cover resolveSenderName in
+		// isolation; these tests prove the handler actually calls it, honours
+		// the 403, and forwards the UUID via gRPC metadata to SendMessage.
+		t.Run("rejects unregistered sender name with 403 and no SendMessage call", func(t *testing.T) {
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			snClient := new(mockSenderNameClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, snClient)
+
+			clientID := uuid.New()
+
+			// approved-filter list: empty → sender not in approved set.
+			snClient.On("ListSenderNames", mock.Anything, mock.MatchedBy(func(in *sendernamev1.ListSenderNamesRequest) bool {
+				return in.ClientId == clientID.String() && in.Status == "approved"
+			})).Return(&sendernamev1.ListSenderNamesResponse{}, nil).Once()
+			// unfiltered list: also empty → truly unknown.
+			snClient.On("ListSenderNames", mock.Anything, mock.MatchedBy(func(in *sendernamev1.ListSenderNamesRequest) bool {
+				return in.ClientId == clientID.String() && in.Status == ""
+			})).Return(&sendernamev1.ListSenderNamesResponse{}, nil).Once()
+
+			body, _ := json.Marshal(SendSMSRequest{
+				Source:      "GHOST",
+				Destination: "+79001234567",
+				Text:        "Hello",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/sms/send", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = req.WithContext(contextWithClientID(req.Context(), clientID))
+
+			rr := httptest.NewRecorder()
+			handler.SendSMS(rr, req)
+
+			assert.Equal(t, http.StatusForbidden, rr.Code)
+			// Critical: SendMessage must NOT be invoked when sender is unregistered.
+			msgClient.AssertNotCalled(t, "SendMessage", mock.Anything, mock.Anything)
+			snClient.AssertExpectations(t)
+		})
+
+		t.Run("forwards sender_name_id via x-sms-sender-name-id metadata", func(t *testing.T) {
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			snClient := new(mockSenderNameClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, snClient)
+
+			clientID := uuid.New()
+			senderID := uuid.New().String()
+
+			snClient.On("ListSenderNames", mock.Anything, mock.MatchedBy(func(in *sendernamev1.ListSenderNamesRequest) bool {
+				return in.ClientId == clientID.String() && in.Status == "approved"
+			})).Return(&sendernamev1.ListSenderNamesResponse{
+				SenderNames: []*sendernamev1.SenderNameInfo{
+					{Id: senderID, Name: "MYBRAND", Status: "approved"},
+				},
+			}, nil).Once()
+
+			// Capture the ctx passed into SendMessage and assert metadata carries
+			// the resolved sender_name_id (Bug #7 audit linkage).
+			msgClient.On("SendMessage", mock.MatchedBy(func(ctx context.Context) bool {
+				md, ok := metadata.FromOutgoingContext(ctx)
+				if !ok {
+					return false
+				}
+				vals := md.Get("x-sms-sender-name-id")
+				return len(vals) == 1 && vals[0] == senderID
+			}), mock.Anything).Return(&messagingv1.SendMessageResponse{
+				MessageId:    "msg-sn-1",
+				Status:       "queued",
+				CreatedAt:    timestamppb.Now(),
+				SegmentCount: 1,
+			}, nil)
+
+			body, _ := json.Marshal(SendSMSRequest{
+				Source:      "MYBRAND",
+				Destination: "+79001234567",
+				Text:        "Hello",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/sms/send", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = req.WithContext(contextWithClientID(req.Context(), clientID))
+
+			rr := httptest.NewRecorder()
+			handler.SendSMS(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+			msgClient.AssertExpectations(t)
+			snClient.AssertExpectations(t)
+		})
 	})
 
 	t.Run("GetStatus", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -463,7 +557,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 401 when no client ID", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/msg-123", nil)
 			req = mux.SetURLVars(req, map[string]string{"id": "msg-123"})
@@ -479,7 +573,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -503,7 +597,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("success returns scheduled messages", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 			scheduledTs := timestamppb.Now()
@@ -564,7 +658,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns 401 when no client ID", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/sms/scheduled", nil)
 
@@ -577,7 +671,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("uses default limit and offset when not provided", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 
@@ -609,7 +703,7 @@ func TestSMSHandlers(t *testing.T) {
 		t.Run("returns error when messaging service fails", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
-			handler := NewSMSHandlers(msgClient, tmplClient, nil)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
 
 			clientID := uuid.New()
 

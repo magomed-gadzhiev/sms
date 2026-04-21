@@ -81,8 +81,13 @@ func main() {
 		Webhook:   config.EnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
 		Template:  config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Routing:   config.EnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
-		Client:    config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9091"),
-		Cascade:   config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9105"),
+		Client:     config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9091"),
+		Cascade:    config.EnvOrDefault("CASCADE_SERVICE_ADDR", "localhost:9105"),
+		// Sender Name Service is hosted inside the template-service process
+		// (template.proto file registers both services on the same port), so
+		// we share the template addr unless explicitly overridden.
+		SenderName: config.EnvOrDefault("SENDER_NAME_SERVICE_ADDR",
+			config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099")),
 	}
 
 	// Инициализация gRPC клиентов
@@ -98,7 +103,7 @@ func main() {
 	healthChecker := monitoring.NewHealthChecker("client-gateway", cfg.Service.Version)
 
 	// Создание handlers
-	smsHandlers := handlers.NewSMSHandlers(serviceClients.MessagingClient, serviceClients.TemplateClient, serviceClients.ClientClient)
+	smsHandlers := handlers.NewSMSHandlers(serviceClients.MessagingClient, serviceClients.TemplateClient, serviceClients.ClientClient, serviceClients.SenderNameClient)
 	accountHandlers := handlers.NewAccountHandlers(
 		serviceClients.BillingClient,
 		serviceClients.AnalyticsClient,

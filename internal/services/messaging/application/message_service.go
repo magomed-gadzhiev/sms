@@ -82,6 +82,12 @@ func (s *MessageService) SendMessage(
 		if options.MaxRetries > 0 {
 			msg.MaxRetries = options.MaxRetries
 		}
+		if options.TemplateID != nil {
+			msg.TemplateID = options.TemplateID
+		}
+		if options.SenderNameID != nil {
+			msg.SenderNameID = options.SenderNameID
+		}
 	}
 
 	// Определяем кодировку
@@ -185,6 +191,8 @@ func (s *MessageService) SendBatch(
 			DataCoding:         req.DataCoding,
 			MaxRetries:         req.MaxRetries,
 			ScheduledAt:        scheduledAt,
+			TemplateID:         req.TemplateID,
+			SenderNameID:       req.SenderNameID,
 		}
 
 		msg, err := s.SendMessage(ctx, clientID, req.Source, req.Destination, req.Text, options)
@@ -321,6 +329,11 @@ type SendMessageOptions struct {
 	MaxRetries         int
 	ScheduledAt        *time.Time
 	IsSandbox          bool
+	// Audit linkage: populated by the send handler after the sender/template
+	// have been validated. Propagated through Kafka → persist stage into
+	// messages.{template_id,sender_name_id}.
+	TemplateID   *uuid.UUID
+	SenderNameID *uuid.UUID
 }
 
 // SendMessageRequest представляет запрос на отправку сообщения
@@ -340,6 +353,8 @@ type SendMessageRequest struct {
 	DataCoding         int
 	MaxRetries         int
 	ScheduledAt        *time.Time
+	TemplateID         *uuid.UUID
+	SenderNameID       *uuid.UUID
 }
 
 // BatchResult представляет результат обработки одного сообщения в пакете
