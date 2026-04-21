@@ -19,6 +19,7 @@ import (
 // Собирается на уровне wiring'а (cmd/billing) из существующих репозиториев + *sqlx.DB.
 type DualChargeDeps struct {
 	DB              *sqlx.DB
+	Guard           billingDomain.CommitIdempotencyGuard // idempotency guard на message_id
 	QuotaRepo       AggregatorQuotaTxRepo
 	MarginLogRepo   AggregatorMarginLogTxRepo
 	AccountRepo     billingDomain.AccountRepository     // используется только для nil-checks
@@ -106,37 +107,18 @@ func ChargeMessageDual(
 
 	now := time.Now().UTC()
 
-	// 1. Margin log — первой операцией, как idempotency-guard.
-	margin, err := billingDomain.SubtractAmount(in.SubAccountTotal, in.AggregatorTotal)
+	// 1. Idempotency guard — non-partitioned таблица с PK=message_id.
+	// Причина: aggregator_margin_log partitioned by created_at, композитный
+	// unique (idempotency_key, created_at) не работает для solo ON CONFLICT.
+	// Отдельная guard-таблица с PK=message_id — чистый binary-guard до любых
+	// shifts балансов. Rollback при любом последующем error откатывает guard
+	// тоже — повторный вызов пройдёт заново.
+	claimed, err := deps.Guard.ClaimTx(ctx, tx, in.MessageID)
 	if err != nil {
-		return nil, fmt.Errorf("compute margin: %w", err)
+		return nil, fmt.Errorf("idempotency guard: %w", err)
 	}
-	marginID := uuid.New()
-	marginEntry := &tarDomain.AggregatorMarginLog{
-		ID:              marginID,
-		AggregatorID:    in.AggregatorID,
-		SubAccountID:    in.SubAccountID,
-		MessageID:       in.MessageID,
-		OperatorID:      in.OperatorID,
-		SegmentCount:    in.SegmentCount,
-		SubAccountPrice: in.SubAccountPrice,
-		AggregatorPrice: in.AggregatorPrice,
-		SubAccountTotal: in.SubAccountTotal,
-		AggregatorTotal: in.AggregatorTotal,
-		Margin:          margin,
-		IdempotencyKey:  in.MessageID.String(),
-		CreatedAt:       now,
-		ChargeMode:      in.ChargeMode,
-		PoolSegments:    in.PoolSegments,
-		OverageSegments: in.OverageSegments,
-	}
-	inserted, err := deps.MarginLogRepo.CreateTx(ctx, tx, marginEntry)
-	if err != nil {
-		return nil, fmt.Errorf("margin_log insert: %w", err)
-	}
-	if !inserted {
+	if !claimed {
 		// Уже закоммичено — быстрый выход, балансы не трогаем.
-		// ROLLBACK через defer — безопасно, ничего другого не делали.
 		return &ChargeMessageDualResult{AlreadyCommitted: true}, nil
 	}
 
@@ -205,6 +187,35 @@ func ChargeMessageDual(
 	}
 	if aggErr != nil {
 		return nil, fmt.Errorf("charge aggregator: %w", aggErr)
+	}
+
+	// 5a. Margin log — analytics запись, ON CONFLICT не нужен (guard уже
+	// отсёк дубли выше). Вставляется в той же tx — атомарно с балансами.
+	margin, err := billingDomain.SubtractAmount(in.SubAccountTotal, in.AggregatorTotal)
+	if err != nil {
+		return nil, fmt.Errorf("compute margin: %w", err)
+	}
+	marginID := uuid.New()
+	marginEntry := &tarDomain.AggregatorMarginLog{
+		ID:              marginID,
+		AggregatorID:    in.AggregatorID,
+		SubAccountID:    in.SubAccountID,
+		MessageID:       in.MessageID,
+		OperatorID:      in.OperatorID,
+		SegmentCount:    in.SegmentCount,
+		SubAccountPrice: in.SubAccountPrice,
+		AggregatorPrice: in.AggregatorPrice,
+		SubAccountTotal: in.SubAccountTotal,
+		AggregatorTotal: in.AggregatorTotal,
+		Margin:          margin,
+		IdempotencyKey:  in.MessageID.String(),
+		CreatedAt:       now,
+		ChargeMode:      in.ChargeMode,
+		PoolSegments:    in.PoolSegments,
+		OverageSegments: in.OverageSegments,
+	}
+	if _, err := deps.MarginLogRepo.CreateTx(ctx, tx, marginEntry); err != nil {
+		return nil, fmt.Errorf("margin_log insert: %w", err)
 	}
 
 	// 6. COMMIT.

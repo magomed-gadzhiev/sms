@@ -34,6 +34,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/services/billing/application"
 	tarDomain "github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+	billingRepo "github.com/smpp-server/smpp-server/internal/services/billing/infrastructure/repository"
 	tarRepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/testutil"
 )
@@ -63,6 +64,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 
 	quotaR := tarRepo.NewAggregatorQuotaRepository(db)
 	marginR := tarRepo.NewAggregatorMarginLogRepository(db)
+	guardR := billingRepo.NewCommitIdempotencyGuardRepository(db)
 
 	t.Cleanup(func() { _ = db.Close() })
 
@@ -72,6 +74,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 		marginR: marginR,
 		deps: application.DualChargeDeps{
 			DB:            db,
+			Guard:         guardR,
 			QuotaRepo:     quotaR,
 			MarginLogRepo: marginR,
 			// AccountRepo/TransactionRepo не читаются внутри ChargeMessageDual,
