@@ -41,10 +41,11 @@ test.describe('Контактные базы — список (/contact-lists)',
     await expect(
       page.locator('h1, [class*="PageHeader"]').filter({ hasText: name }).first(),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Контактные базы' })).toBeVisible();
+    const breadcrumbLink = page.getByLabel('Breadcrumb').getByRole('link', { name: 'Контактные базы' });
+    await expect(breadcrumbLink).toBeVisible();
 
     // Возвращаемся на список через breadcrumb
-    await page.getByRole('link', { name: 'Контактные базы' }).click();
+    await breadcrumbLink.click();
     await expect(page).toHaveURL(/\/contact-lists$/);
     await lists.expectRowVisible(name);
 

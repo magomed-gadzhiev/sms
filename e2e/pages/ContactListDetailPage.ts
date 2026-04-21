@@ -7,13 +7,15 @@ export class ContactListDetailPage {
     await expect(
       this.page.locator('h1, [class*="PageHeader"]').filter({ hasText: title }).first(),
     ).toBeVisible();
-    await expect(this.page.getByRole('link', { name: 'Контактные базы' })).toBeVisible();
+    await expect(
+      this.page.getByLabel('Breadcrumb').getByRole('link', { name: 'Контактные базы' }),
+    ).toBeVisible();
   }
 
   async expectActionButtons() {
-    await expect(this.page.locator('button:has-text("Настройки атрибутов")')).toBeVisible();
-    await expect(this.page.locator('button:has-text("Импорт")')).toBeVisible();
-    await expect(this.page.locator('button:has-text("+ Добавить контакт")')).toBeVisible();
+    await expect(this.page.getByRole('button', { name: 'Настройки атрибутов' })).toBeVisible();
+    await expect(this.page.getByRole('button', { name: 'Импорт', exact: true })).toBeVisible();
+    await expect(this.page.getByRole('button', { name: '+ Добавить контакт' })).toBeVisible();
   }
 
   async expectEmptyContacts() {
@@ -28,7 +30,9 @@ export class ContactListDetailPage {
 
   async openAddContact() {
     await this.page.locator('button:has-text("+ Добавить контакт")').click();
-    await expect(this.addDialog()).toBeVisible();
+    await expect(
+      this.addDialog().getByRole('heading', { name: 'Добавить контакт' }),
+    ).toBeVisible();
   }
 
   addDialog() {

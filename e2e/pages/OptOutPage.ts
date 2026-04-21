@@ -12,7 +12,9 @@ export class OptOutPage {
 
   async openAdd() {
     await this.page.locator('button:has-text("Добавить номер")').click();
-    await expect(this.addDialog()).toBeVisible();
+    await expect(
+      this.addDialog().getByRole('heading', { name: 'Добавить номер в список отписок' }),
+    ).toBeVisible();
   }
 
   addDialog() {

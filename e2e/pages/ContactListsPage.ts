@@ -19,7 +19,9 @@ export class ContactListsPage {
 
   async openCreateModal() {
     await this.page.locator('button:has-text("+ Создать базу")').first().click();
-    await expect(this.createDialog().getByText('Создать контактную базу')).toBeVisible();
+    await expect(
+      this.createDialog().getByRole('heading', { name: 'Создать контактную базу' }),
+    ).toBeVisible();
   }
 
   createDialog() {
