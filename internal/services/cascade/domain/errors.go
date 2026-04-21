@@ -13,4 +13,6 @@ var (
 	ErrStrategyHasActiveDeliveries = errors.New("strategy has active deliveries")
 	ErrDuplicateChannelType        = errors.New("channel type already exists")
 	ErrDuplicateStrategyName       = errors.New("strategy name already exists")
+	ErrAttemptAlreadyExists        = errors.New("attempt already exists for this step")
+	ErrDeliveryConflict            = errors.New("delivery status conflict: concurrent update")
 )
