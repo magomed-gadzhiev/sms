@@ -47,7 +47,9 @@ CREATE TYPE route_owner_type AS ENUM ('platform','client','subaccount');
 
 Пустое (NULL) поле = wildcard. Чем больше заполнено — тем специфичнее правило.
 
-`paid_name`, `regex`, `schedule_id` — дополнительные **фильтры** внутри правила. Они участвуют в матчинге (должны совпасть при заполнении), но **не участвуют в ранжировании специфичности**. Это компромисс: они используются редко и обычно как модификатор к ключу, а не как основа.
+`paid_name`, `regex` — дополнительные **фильтры** внутри правила. Расписания остаются в существующей таблице `route_schedules` со связью `route_id → client_routes.id` (1:N, модель не меняется) — matcher делает lookup schedules для правила по `route_id`. Фильтры участвуют в матчинге (должны совпасть при заполнении), но **не участвуют в ранжировании специфичности**. Это компромисс: они используются редко и обычно как модификатор к ключу, а не как основа.
+
+**Важно:** `schedule_id` как колонку в `client_routes` НЕ добавляем. Причина: `route_schedules.id` — `BIGSERIAL`, а не UUID; FK `client_routes.schedule_id UUID → route_schedules(id)` тип-несовместим. Плюс обратная ссылка создала бы циклический FK (`route_schedules.route_id → client_routes.id` уже существует). Schedules привязываются к маршруту через `route_id`, запросы идут по нему.
 
 ### 4. Семантика наследования
 
@@ -114,7 +116,8 @@ ALTER TABLE client_routes
   ADD COLUMN traffic_type TEXT NULL,
   ADD COLUMN paid_name    TEXT NULL,
   ADD COLUMN regex        TEXT NULL,
-  ADD COLUMN schedule_id  UUID NULL REFERENCES route_schedules(id);
+  -- schedule_id НЕ добавляем: route_schedules.id — BIGSERIAL, FK UUID несовместим.
+  -- Расписания остаются привязаны через route_schedules.route_id → client_routes.id.
 
 -- operator_id уже есть; NULL = wildcard. Снять NOT NULL если стоит.
 
@@ -161,7 +164,7 @@ DROP TABLE route_condition_groups CASCADE;
 DROP TABLE route_conditions CASCADE;
 ```
 
-`route_schedules` сохраняется как есть — ссылка через `schedule_id`.
+`route_schedules` сохраняется как есть — связь 1:N через `route_schedules.route_id → client_routes.id`. Никаких обратных FK в `client_routes` не добавляем.
 
 ### Доменная модель (`internal/services/routing/domain/client_route.go`)
 
@@ -184,7 +187,6 @@ type ClientRoute struct {
     TrafficType *string             // NULL = wildcard (ключевое поле)
     PaidName    *string             // NULL = wildcard (фильтр)
     Regex       *string             // NULL = wildcard (фильтр)
-    ScheduleID  *uuid.UUID
     ProviderID  uuid.UUID
     Priority    int
     CreatedAt   time.Time

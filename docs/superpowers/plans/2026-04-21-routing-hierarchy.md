@@ -20,7 +20,7 @@
 - `migrations/000109_routing_drop_conditions.up.sql` / `.down.sql` — DROP старых таблиц (после валидации).
 
 **Domain (модификации):**
-- `internal/services/routing/domain/client_route.go` — убираем `ClientID`, `Groups`, добавляем `OwnerType`, `OwnerID`, `CountryCode`, `TrafficType`, `PaidName`, `Regex`, `ScheduleID`.
+- `internal/services/routing/domain/client_route.go` — убираем `ClientID`, `Groups`, добавляем `OwnerType`, `OwnerID`, `CountryCode`, `TrafficType`, `PaidName`, `Regex`. Расписания остаются во внешней таблице `route_schedules` (связь 1:N через `route_id`).
 - `internal/services/routing/domain/owner_type.go` (NEW) — enum `OwnerType`.
 - `internal/services/routing/domain/specificity.go` (NEW) — функция `KeyFieldsFilled(r) int`.
 
@@ -113,7 +113,9 @@ ALTER TABLE client_routes
   ADD COLUMN traffic_type TEXT NULL,
   ADD COLUMN paid_name    TEXT NULL,
   ADD COLUMN regex        TEXT NULL,
-  ADD COLUMN schedule_id  UUID NULL REFERENCES route_schedules(id);
+  -- schedule_id НЕ добавляем: route_schedules.id = BIGSERIAL, FK UUID несовместим,
+  -- плюс route_schedules.route_id → client_routes.id уже существует (circular).
+  -- Расписания привязываются через route_schedules.route_id.
 
 -- operator_id уже NULL-able после 000080. Проверить; если NOT NULL — снять.
 -- (Зависит от текущего состояния; если уже nullable — пропустить.)
@@ -133,7 +135,6 @@ BEGIN;
 DROP INDEX IF EXISTS ix_routes_owner_routetype;
 
 ALTER TABLE client_routes
-  DROP COLUMN IF EXISTS schedule_id,
   DROP COLUMN IF EXISTS regex,
   DROP COLUMN IF EXISTS paid_name,
   DROP COLUMN IF EXISTS traffic_type,
@@ -209,8 +210,7 @@ UPDATE client_routes cr SET
   country_code = sub.country_code,
   traffic_type = sub.traffic_type,
   paid_name    = sub.paid_name,
-  regex        = sub.regex,
-  schedule_id  = sub.schedule_id
+  regex        = sub.regex
 FROM (
   SELECT
     rcg.rule_id,
@@ -218,11 +218,9 @@ FROM (
     MAX(CASE WHEN rc.type = 'country'      THEN rc.value        END) AS country_code,
     MAX(CASE WHEN rc.type = 'traffic_type' THEN rc.value        END) AS traffic_type,
     MAX(CASE WHEN rc.type = 'paid_name'    THEN rc.value        END) AS paid_name,
-    MAX(CASE WHEN rc.type = 'regex'        THEN rc.value        END) AS regex,
-    MAX(rs.id)                                                       AS schedule_id
+    MAX(CASE WHEN rc.type = 'regex'        THEN rc.value        END) AS regex
   FROM route_condition_groups rcg
   JOIN route_conditions rc ON rc.group_id = rcg.id
-  LEFT JOIN route_schedules rs ON rs.rule_id = rcg.rule_id
   GROUP BY rcg.rule_id
   HAVING count(DISTINCT rcg.id) = 1  -- только одна группа
 ) sub
@@ -311,8 +309,7 @@ UPDATE client_routes cr SET
   country_code = NULL,
   traffic_type = NULL,
   paid_name    = NULL,
-  regex        = NULL,
-  schedule_id  = NULL;
+  regex        = NULL;
 
 COMMIT;
 ```
@@ -492,7 +489,7 @@ type ClientRoute struct {
     // Фильтры (не участвуют в specificity)
     PaidName    *string
     Regex       *string
-    ScheduleID  *uuid.UUID
+    // Расписания: не колонка, а внешняя таблица route_schedules с FK route_id
 
     ProviderID  uuid.UUID
     Priority    int
@@ -672,7 +669,7 @@ func (r *RouteRepo) LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, e
     query := `
       SELECT id, owner_type, owner_id, route_type,
              operator_id, country_code, traffic_type,
-             paid_name, regex, schedule_id,
+             paid_name, regex,
              provider_id, priority, weight, share, active, status,
              name, comment, created_at, updated_at
       FROM client_routes
@@ -691,7 +688,7 @@ func (r *RouteRepo) LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, e
         if err := rows.Scan(
             &cr.ID, &ownerType, &cr.OwnerID, &cr.RouteType,
             &cr.OperatorID, &cr.CountryCode, &cr.TrafficType,
-            &cr.PaidName, &cr.Regex, &cr.ScheduleID,
+            &cr.PaidName, &cr.Regex,
             &cr.ProviderID, &cr.Priority, &cr.Weight, &cr.Share, &cr.Active, &cr.Status,
             &cr.Name, &cr.Comment, &cr.CreatedAt, &cr.UpdatedAt,
         ); err != nil {
@@ -762,15 +759,15 @@ func (r *RouteRepo) Insert(ctx context.Context, cr *domain.ClientRoute) error {
     _, err := r.pool.Exec(ctx, `
       INSERT INTO client_routes
         (id, owner_type, owner_id, route_type,
-         operator_id, country_code, traffic_type, paid_name, regex, schedule_id,
+         operator_id, country_code, traffic_type, paid_name, regex,
          provider_id, priority, weight, share, active, status, name, comment, created_at, updated_at)
       VALUES
         ($1, $2, $3, $4,
-         $5, $6, $7, $8, $9, $10,
-         $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
+         $5, $6, $7, $8, $9,
+         $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
     `,
         cr.ID, string(cr.OwnerType), cr.OwnerID, cr.RouteType,
-        cr.OperatorID, cr.CountryCode, cr.TrafficType, cr.PaidName, cr.Regex, cr.ScheduleID,
+        cr.OperatorID, cr.CountryCode, cr.TrafficType, cr.PaidName, cr.Regex,
         cr.ProviderID, cr.Priority, cr.Weight, cr.Share, cr.Active, cr.Status, cr.Name, cr.Comment,
     )
     return err
@@ -1255,7 +1252,7 @@ message ClientRouteProto {
   string traffic_type = 7;
   string paid_name = 8;
   string regex = 9;
-  string schedule_id = 10;
+  // schedule_id removed — schedules live in separate route_schedules table with route_id FK
 
   string provider_id = 11;
   int32 priority = 12;
