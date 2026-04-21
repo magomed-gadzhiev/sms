@@ -13,19 +13,19 @@ const MonitoringTable = lazy(() => import('../../components/network-stats/Monito
 const DrillDownDrawer = lazy(() => import('../../components/network-stats/DrillDownDrawer').then(m => ({ default: m.DrillDownDrawer })));
 const ExportButton = lazy(() => import('../../components/network-stats/ExportButton').then(m => ({ default: m.ExportButton })));
 
-// D-14 fix: map current `group_by` to the corresponding drill-down slice_type.
-// Time-based groupings (5min/15min/hour/day/month/year) have no meaningful drill-slice,
-// so we fall back to 'provider' for them — preserves legacy behavior while enabling
-// proper drill-down for dimensional groupings (operator/channel/login/country).
-const DIMENSIONAL_GROUPBY_TO_SLICE: Record<string, string> = {
-  provider: 'provider',
-  operator: 'operator',
-  channel: 'channel',
-  login: 'login',
-  country: 'country',
-};
+// Drill-down slice_type mirrors the current group_by. Backend sliceColumn()
+// supports both dimensional (provider/operator/channel/login/country/sender/
+// traffic_type/method) and time-based (5min/15min/hour/day/month/year) values.
+// Falling back to 'provider' for time-based groupings produced an impossible
+// predicate (provider_id = '<date>'), which returned zero rows — empty drawer.
+const SUPPORTED_SLICE_TYPES = new Set([
+  'provider', 'operator', 'channel', 'login', 'country',
+  'sender', 'traffic_type', 'method',
+  '5min', '15min', 'hour', 'day', 'month', 'year',
+]);
 function groupByToSliceType(groupBy: string | undefined): string {
-  return DIMENSIONAL_GROUPBY_TO_SLICE[groupBy ?? ''] ?? 'provider';
+  const g = groupBy ?? '';
+  return SUPPORTED_SLICE_TYPES.has(g) ? g : 'provider';
 }
 
 export default function NetworkStatisticsPage() {
