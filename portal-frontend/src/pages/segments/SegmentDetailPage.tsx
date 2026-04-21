@@ -6,7 +6,8 @@ import { SegmentBuilder } from '../../components/segments/SegmentBuilder';
 export function SegmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isNew = id === 'new';
+  // Route /segments/new идёт без параметра :id → id=undefined; /segments/:id даёт id='uuid'.
+  const isNew = !id;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
