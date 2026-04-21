@@ -346,6 +346,20 @@ func assertOwnable(user User, ruleOwnerType OwnerType, ruleOwnerID *uuid.UUID) e
 2. **`MatchContext` в pipeline**: проверить, передаёт ли tarification/pipeline `SubaccountID` + `ClientID` раздельно. Если нет — расширить контракт.
 3. **Тесты `matcher_test.go`**: существующие тесты (`TestMatch_ClientSpecificRoute_*`, `TestMatch_FallsBackToDefault*`) удаляются/переписываются — они покрывают устаревшую бинарную модель.
 
+## Pre-flight результат (2026-04-21)
+
+Аудит на dev-сервере:
+
+| Метрика | Значение |
+|---|---|
+| `multi_group_rules` (OR между группами) | 0 |
+| `total_routes` | 39 |
+| `platform_routes` (client_id IS NULL) | 2 |
+| `total_groups` / `total_conditions` | 31 / 30 |
+| routes by type | sms=39 |
+
+Порог ≤50 мульти-групп соблюдён. Плоская модель применима без потери семантики. В миграции учесть: одна группа пустая (31 vs 30 conditions), hlr/max seed platform-general создаст два «висящих» правила — допустимо (занулит NoRouteFound при будущем использовании этих каналов).
+
 ## Риски и компромиссы
 
 - **Override целиком vs per-provider merge.** Выбран override — жертвуем удобством («дополни чужую цепочку»), выигрываем предсказуемость. Если боль реальная — в v2 добавляется флаг `inherit_fallback` на ячейке, без ломания модели.
