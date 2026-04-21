@@ -112,8 +112,6 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/nyaruka/phonenumbers v1.6.12 h1:aeGHjGQnfLhdN5/mZPevhoYMs13FWcQ0Vus0YQHh1Ec=
-github.com/nyaruka/phonenumbers v1.6.12/go.mod h1:IUu45lj2bSeYXQuxDyyuzOrdV10tyRa1YSsfH8EKN5c=
 github.com/osteele/liquid v1.8.1 h1:b+uxMOkD1OOLxueaSvrE0yx6nMqf023DZPPAjPWT5eI=
 github.com/osteele/liquid v1.8.1/go.mod h1:SFqQ9ddbCoKceuG6RckCLJ0hcxUbGhLpvcXJGmHlCWA=
 github.com/osteele/tuesday v1.0.4 h1:iX0xOLW08/FJtXUCr20ngYwOwBE6l/mf7mz8NIv4yl8=
