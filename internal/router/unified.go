@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -98,11 +99,87 @@ func (r *UnifiedRouter) Route(ctx context.Context, clientID, operatorID uuid.UUI
 		return nil, ErrNoRouteFound
 	}
 
-	selected := routes[0]
+	// Weighted selection within the top-priority bucket. This repository
+	// sorts ClientRoute by `priority DESC` (see client_route_repository.go),
+	// so the first element is the highest priority.
+	// Legacy callers (all-weight-zero rows) keep deterministic behaviour:
+	// they fall through to `routes[0]`. See pickWeightedSharedRoute for
+	// tie-breaker semantics. Bug #11 (QA 2026-04-22).
+	selected := pickWeightedSharedRoute(routes, nil)
 	return &shared.RoutingDecision{
 		ProviderID: selected.ProviderID,
 		RouteID:    selected.ID,
 	}, nil
+}
+
+// --- Weighted pick (shared.ClientRoute variant) ---
+
+var (
+	unifiedPickRNGMu sync.Mutex
+	unifiedPickRNG   = rand.New(rand.NewSource(rand.Int63()))
+)
+
+// pickWeightedSharedRoute selects one route from a priority-ordered list using
+// `Weight` as the split factor within the top-priority bucket.
+//
+// shared.ClientRoute (used by UnifiedRouter) has no `Share` column — only
+// `Weight`. The storage layer orders rows by `priority DESC`, so the top
+// priority bucket is the prefix of identical-priority rows at the start.
+//
+// Semantics mirror routing/application.PickWeightedRoute:
+//   - Single-element bucket → return it.
+//   - All weights zero in the bucket → return bucket[0] (legacy-compatible).
+//   - Otherwise cumulative-distribution pick weighted by Weight; rows with
+//     Weight <= 0 are excluded from the draw.
+//
+// Pass a non-nil *rand.Rand for deterministic behaviour in tests; pass nil
+// to use the package-level RNG (process-random seed).
+func pickWeightedSharedRoute(routes []*shared.ClientRoute, r *rand.Rand) *shared.ClientRoute {
+	if len(routes) == 0 {
+		return nil
+	}
+
+	topPriority := routes[0].Priority
+	bucketEnd := 1
+	for bucketEnd < len(routes) && routes[bucketEnd].Priority == topPriority {
+		bucketEnd++
+	}
+	bucket := routes[:bucketEnd]
+
+	if len(bucket) == 1 {
+		return bucket[0]
+	}
+
+	total := 0
+	for _, rt := range bucket {
+		if rt.Weight > 0 {
+			total += rt.Weight
+		}
+	}
+	if total == 0 {
+		return bucket[0]
+	}
+
+	var roll int
+	if r == nil {
+		unifiedPickRNGMu.Lock()
+		roll = unifiedPickRNG.Intn(total)
+		unifiedPickRNGMu.Unlock()
+	} else {
+		roll = r.Intn(total)
+	}
+
+	cumulative := 0
+	for _, rt := range bucket {
+		if rt.Weight <= 0 {
+			continue
+		}
+		cumulative += rt.Weight
+		if roll < cumulative {
+			return rt
+		}
+	}
+	return bucket[0]
 }
 
 // --- In-memory кеш ---

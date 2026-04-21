@@ -199,8 +199,16 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType)
 		}
 
-		// Take the highest-priority route (lowest Priority value).
-		route := result.Matched[0]
+		// Pick a route from the top-priority bucket using `share` weights.
+		// When all top-bucket routes have share=0 (legacy / default config),
+		// the picker falls back deterministically to the first by priority,
+		// preserving prior behaviour. Bug #11 (QA 2026-04-22).
+		route := routingapp.PickWeightedRoute(result.Matched)
+		if route == nil {
+			// Defensive: PickWeightedRoute returns nil only for empty input,
+			// which we already rejected above. Treat as no-route.
+			return fmt.Errorf("маршрут не выбран для message_id=%s (pick returned nil)", kafkaMsg.MessageID)
+		}
 		providerID = route.ProviderID
 		routeID = &route.ID
 
