@@ -55,6 +55,18 @@ One row per HTTP endpoint (not per role) for the A1 axis. OpenAPI is a single do
 | GET /api/v1/cascade/deliveries/{id} | http | client | A1 | MISSING | — | In router, not in openapi | major | plan:docs/superpowers/plans/2026-04-21-fix-openapi-drift.md |
 | GET /api/v1/cascade/stats | http | client | A1 | MISSING | — | In router, not in openapi | major | plan:docs/superpowers/plans/2026-04-21-fix-openapi-drift.md |
 
+| MessagingService/SendMessage | grpc | client | A1-grpc | OK | — | — | — | — |
+| MessagingService/SendBatch | grpc | client | A1-grpc | OK | — | — | — | — |
+| MessagingService/GetMessageStatus | grpc | client | A1-grpc | OK | — | — | — | — |
+| MessagingService/GetMessageHistory | grpc | client | A1-grpc | OK | — | — | — | — |
+| MessagingService/ProcessDLR | grpc | client | A1-grpc | OK | — | — | — | — |
+| MessagingService/CancelMessage | grpc | client | A1-grpc | BROKEN | — | No implementation in server.go; falls through to UnimplementedMessagingServiceServer → codes.Unimplemented | major | plan:docs/superpowers/plans/2026-04-21-fix-grpc-unimplemented-methods.md |
+| MessagingService/ListScheduledMessages | grpc | client | A1-grpc | BROKEN | — | No implementation in server.go; falls through to UnimplementedMessagingServiceServer → codes.Unimplemented | major | plan:docs/superpowers/plans/2026-04-21-fix-grpc-unimplemented-methods.md |
+| GetBalance (dead method) | grpc | client | A1-grpc | BROKEN | — | Method in server.go but not part of MessagingServiceServer interface; never reachable via any registered service | minor | in-PR removal (≤50 lines) |
+| GetStatistics (dead method) | grpc | client | A1-grpc | BROKEN | — | Method in server.go but not part of MessagingServiceServer interface; never reachable via any registered service | minor | in-PR removal (≤50 lines) |
+| proto source — all 21 v1 packages | grpc | client | A1-grpc | BROKEN | — | v1 dirs contain only .pb.go; no .proto source → codegen pipeline broken | major | plan:docs/superpowers/plans/2026-04-21-fix-missing-proto-sources.md |
+| grpc_health_v1 service | grpc | client | A1-grpc | MISSING | — | Standard gRPC health protocol not registered; only HTTP health endpoints exist | minor | inline fix in dead-methods removal PR |
+
 ## Machine-readable
 
 См. `2026-04-21-cycle1-contract-matrix.csv`.
