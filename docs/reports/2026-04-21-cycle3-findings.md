@@ -49,7 +49,51 @@ Note: `subaccount_child` billing still works correctly for the HTTP axis — chi
 
 ## C-visibility (across HTTP + gRPC + SMPP)
 
-_TODO: Task 3_
+### Reference cells (predetermined)
+
+| Cell | Resolution |
+|---|---|
+| C-visibility / gRPC-external / any role | BROKEN — A7.3 stub (see Cycle 2 F3). All gRPC callers see dummy tenant data; cross-tenant isolation absent. |
+| C-visibility / SMPP / subaccount_child | BROKEN — B2 kludge would propagate kludged client_id to any read ops (query_sm). |
+
+### HTTP C-visibility — per-service SQL filter audit
+
+| Endpoint group | Downstream service | Repo method | SQL filter on client_id? | File:line | Verdict |
+|---|---|---|---|---|---|
+| GET sms/status/{id} | messaging | `GetByID` → in-memory check | SQL: `WHERE id = $1` only; application layer checks `msg.ClientID != *clientID` in-memory | `storage/message_repository.go:64`; `messaging/application/message_service.go:224` | OK (in-memory guard — weaker than SQL but functional) |
+| GET sms/history | messaging | `GetByClientID` | SQL: `WHERE client_id = $1` | `storage/message_repository.go:279` | OK |
+| GET sms/scheduled | messaging | `ListScheduled` | SQL: `WHERE client_id = $1 AND status = 'scheduled'` | `storage/message_repository.go:495,518` | OK |
+| GET account/balance | billing | `GetByClientID` | SQL: `WHERE client_id = $1` | `billing/infrastructure/repository/account_repository.go:55` | OK |
+| GET account/stats | analytics | `GetStatistics` | SQL: `AND client_id = $N` (conditional on filter.ClientID != nil, always set from req) | `analytics/infrastructure/repository/metric_repository.go:183` | OK |
+| GET webhooks (list) | webhook | `ListByClientID` | SQL: `WHERE client_id = $1` | `webhook/infrastructure/repository/subscription_repository.go:83` | OK |
+| GET webhooks/{id} | webhook | `GetByID(id, clientID)` | SQL: `WHERE id = $1 AND client_id = $2` | `webhook/infrastructure/repository/subscription_repository.go:68` | OK |
+| GET lookup/history | routing | `GetHistory` (lookup_log_repo) | SQL: mandatory `client_id = $1` first condition | `routing/infrastructure/repository/lookup_log_repo.go:55` | OK |
+| GET templates (list) | template | `ListByClientID` | SQL: `WHERE t.client_id = $N` (added when clientID != uuid.Nil; always non-nil from middleware) | `template/infrastructure/repository/template_repository.go:144` | OK |
+| GET templates/{id} | template | `GetByID(id, clientID)` | SQL: `WHERE t.id = $1 AND t.client_id = $2` | `template/infrastructure/repository/template_repository.go:103` | OK |
+| GET templates/{id}/audit | template | `ListByTemplateID` | SQL: `WHERE template_id = $1` only — no client_id; handler discards clientID (`_` at line 184) and gRPC call omits ClientId | `handlers/templates.go:184`; `template/grpc/server.go:246`; `template/infrastructure/repository/audit_repository.go:89` | **BROKEN** — new finding F-C1 |
+| GET cascade/deliveries | cascade | `List` (delivery_repo) | SQL: mandatory `client_id = $1` first condition | `cascade/infrastructure/postgres/delivery_repo.go:122` | OK |
+| GET cascade/deliveries/{id} | cascade | `GetByClientID(id, clientID)` | SQL: `WHERE id = $1 AND client_id = $2` | `cascade/infrastructure/postgres/delivery_repo.go:76` | OK |
+| GET cascade/stats | cascade | `Stats` (delivery_repo) | SQL: `WHERE client_id = $1 AND created_at BETWEEN $2 AND $3` | `cascade/infrastructure/postgres/delivery_repo.go:208` | OK |
+
+**Summary:** 13/14 endpoints correctly filter by `client_id`; 1 has a visibility bug.
+
+**New findings:**
+
+**F-C1 (major): `GET /api/v1/templates/{id}/audit` — no client_id enforcement.**
+- `handlers/templates.go:184`: handler extracts clientID but discards it with `_`.
+- gRPC call `GetTemplateAuditLog` (line 206) sends only `TemplateId`, no `ClientId`.
+- `template/grpc/server.go:246`: `GetTemplateAuditLog` receives no `client_id`, calls `templateService.GetAuditLog(ctx, templateID, ...)` with no ownership check.
+- `audit_repository.go:89`: SQL is `WHERE template_id = $1` — any authenticated client who knows a template ID (guessable UUID) can read its full audit history.
+- Severity: **major** — information leak (audit log content: old/new body, actor IDs, change reasons). Not critical since it requires a valid session and a known template UUID (not trivially discoverable), but it's a genuine cross-tenant read.
+
+**sms/status in-memory guard note (not a new finding, but documented):**
+`GetMessageStatus` fetches by `id` only in SQL, then checks ownership in Go. If `clientID` is nil in the gRPC call, the check is skipped entirely (`if clientID != nil && ...`). The HTTP handler always passes a non-nil `clientID`, so for the HTTP axis this is OK. For a hypothetical direct gRPC caller with `clientID=""`, the check is bypassed — but this is the pre-existing gRPC-external BROKEN cell (A7.3 stub), not an HTTP bug.
+
+### Decisions
+
+- HTTP C-visibility = OK for `client` and `subaccount_child` for 13/14 endpoints. F-C1 (audit log) is an exception.
+- F-C1 fix path: add `ClientId` field to `GetTemplateAuditLogRequest` proto, propagate from handler, enforce in grpc server via ownership check (fetch template first, verify client_id).
+- subaccount_parent visibility: all SQL queries filter strictly by `client_id = <own_id>`. A `subaccount_parent` (reseller) does NOT see its children's data via any of these endpoints. Whether this is intentional is a product decision — the `is_reseller` flag exists but no "see children" query logic is implemented anywhere in the read path. Hypothesis: current behavior is likely a gap (aggregator should be able to see children's messages for support purposes), but since the spec is silent on this, marking as **UNKNOWN / design gap** rather than BROKEN.
 
 ## C-dlr-routing (across HTTP + gRPC + SMPP)
 
