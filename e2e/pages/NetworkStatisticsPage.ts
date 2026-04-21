@@ -112,4 +112,45 @@ export class NetworkStatisticsPage {
   errorToast(): Locator {
     return this.page.locator('.fixed.bottom-4.right-4.bg-red-50');
   }
+
+  // --- Statistics table ---
+
+  // Main table container (wraps thead/tbody)
+  // TODO(phase-2): DrillDownDrawer's internal table also has <th>Срез</th>. When drill-down
+  // tests open the drawer, this locator will match 2 tables. Scope to mode-container or
+  // use .first() with explicit "drawer closed" precondition.
+  statisticsTable(): Locator {
+    return this.page.locator('table').filter({ has: this.page.locator('th', { hasText: 'Срез' }) });
+  }
+
+  tableHeaders(): Locator {
+    return this.statisticsTable().locator('thead th');
+  }
+
+  tableHeader(text: string): Locator {
+    return this.statisticsTable().locator('thead th', { hasText: new RegExp(`^${text}$`) });
+  }
+
+  // The last th (health icon column) has no text
+  healthHeader(): Locator {
+    return this.statisticsTable().locator('thead th').last();
+  }
+
+  tableRows(): Locator {
+    return this.statisticsTable().locator('tbody tr');
+  }
+
+  tableEmptyCell(): Locator {
+    return this.statisticsTable().locator('tbody td', { hasText: 'Нет данных' });
+  }
+
+  tableLoadingCell(): Locator {
+    return this.statisticsTable().locator('tbody td', { hasText: 'Загрузка...' });
+  }
+
+  // Pagination block (below table)
+  paginationBlock(): Locator {
+    // The pagination div is the flex with "Страница X из Y" text
+    return this.page.locator('div.flex').filter({ hasText: /^Страница\s+\d+\s+из\s+\d+$/ });
+  }
 }
