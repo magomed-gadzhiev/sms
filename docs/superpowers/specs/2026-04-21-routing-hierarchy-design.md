@@ -39,17 +39,20 @@ CREATE TYPE route_owner_type AS ENUM ('platform','client','subaccount');
 
 ### 3. Ключ специфичности
 
-Специфичность правила считается по заполнённости трёх полей:
+Специфичность правила считается по заполнённости четырёх измерений:
 
 - `operator_id`
 - `country_code`
 - `traffic_type`
+- Диапазон номера: «заполнен», если хотя бы один из `number_from`, `number_to` не NULL. (Оба NULL = wildcard.)
 
-Пустое (NULL) поле = wildcard. Чем больше заполнено — тем специфичнее правило.
+Пустые (NULL) поля = wildcard. Чем больше измерений заполнено — тем специфичнее правило.
 
-`paid_name`, `regex` — дополнительные **фильтры** внутри правила. Расписания остаются в существующей таблице `route_schedules` со связью `route_id → client_routes.id` (1:N, модель не меняется) — matcher делает lookup schedules для правила по `route_id`. Фильтры участвуют в матчинге (должны совпасть при заполнении), но **не участвуют в ранжировании специфичности**. Это компромисс: они используются редко и обычно как модификатор к ключу, а не как основа.
+**Не включаем в модель:**
+- `paid_name`, `regex` — на аудите проекта (2026-04-21) 0 использований на проде. YAGNI: если понадобятся — отдельная аддитивная миграция.
+- `schedule_id` колонка — `route_schedules.id` имеет тип `BIGSERIAL`, FK `UUID → BIGSERIAL` несовместим; плюс обратная ссылка `route_schedules.route_id → client_routes.id` уже существует (циклический FK). Расписания остаются во внешней таблице, lookup по `route_id`.
 
-**Важно:** `schedule_id` как колонку в `client_routes` НЕ добавляем. Причина: `route_schedules.id` — `BIGSERIAL`, а не UUID; FK `client_routes.schedule_id UUID → route_schedules(id)` тип-несовместим. Плюс обратная ссылка создала бы циклический FK (`route_schedules.route_id → client_routes.id` уже существует). Schedules привязываются к маршруту через `route_id`, запросы идут по нему.
+**Диапазоны (`number_from`, `number_to`):** `BIGINT NULL`. Matcher сравнивает `msg.phone_number::bigint BETWEEN number_from AND number_to` (NULL-ы трактуются как `-∞`/`+∞`). Диапазон-филтр выбран вместо regex по причинам: явная семантика, индексируемые запросы (btree), UI-очевидность («от» / «до»), покрывает ~95% реальных кейсов port-numbers/MNP/carrier-sub-ranges. Экзотику «каждый третий номер» решаем отдельной аддитивной миграцией, если потребуется.
 
 ### 4. Семантика наследования
 
@@ -86,8 +89,8 @@ resolve(message, route_type):
         if candidates is empty:
             continue
 
-        best_specificity = max(count_filled_key_fields(r) for r in candidates)
-        top = [r for r in candidates if count_filled_key_fields(r) == best_specificity]
+        best_specificity = max(count_filled_dimensions(r) for r in candidates)
+        top = [r for r in candidates if count_filled_dimensions(r) == best_specificity]
         best = min(top, key=lambda r: (r.priority, r.created_at))
 
         return cell_provider_chain(best)                   # все правила той же ячейки, отсортированные по priority
@@ -98,7 +101,9 @@ resolve(message, route_type):
 **Ключевые свойства:**
 
 - Уровень сильнее специфичности: general суб-аккаунта побеждает specific агрегатора.
-- `cell` = `(owner_type, owner_id, route_type, operator_id, country_code, traffic_type)`. В одной ячейке могут быть несколько правил, различающихся `provider_id` и `priority` — это failover-цепочка.
+- `cell` = `(owner_type, owner_id, route_type, operator_id, country_code, traffic_type, number_from, number_to)`. В одной ячейке могут быть несколько правил, различающихся `provider_id` и `priority` — это failover-цепочка.
+- `count_filled_dimensions(r)` = количество заполненных из {operator_id, country_code, traffic_type, phone_range}. phone_range засчитывается как 1, если хотя бы одно из number_from/number_to не NULL.
+- `fields_match(r, msg)` для phone_range: если оба NULL — wildcard; иначе `msg.phone_number::bigint` должен быть в интервале `[COALESCE(number_from, -∞), COALESCE(number_to, +∞)]`.
 - Тай-брейкер при равной specificity: `priority ASC`, далее `created_at ASC`.
 - Unmatched сообщение невозможно, поскольку platform general существует для каждого `route_type`.
 
@@ -114,12 +119,17 @@ ALTER TABLE client_routes
   ADD COLUMN owner_id     UUID NULL,
   ADD COLUMN country_code CHAR(2) NULL,
   ADD COLUMN traffic_type TEXT NULL,
-  ADD COLUMN paid_name    TEXT NULL,
-  ADD COLUMN regex        TEXT NULL,
-  -- schedule_id НЕ добавляем: route_schedules.id — BIGSERIAL, FK UUID несовместим.
-  -- Расписания остаются привязаны через route_schedules.route_id → client_routes.id.
+  ADD COLUMN number_from  BIGINT NULL,
+  ADD COLUMN number_to    BIGINT NULL;
+  -- paid_name, regex НЕ добавляем (YAGNI, 0 uses в проде)
+  -- schedule_id НЕ добавляем (см. пункт 3: FK несовместим, circular)
 
--- operator_id уже есть; NULL = wildcard. Снять NOT NULL если стоит.
+-- operator_id уже nullable с миграции 000080.
+
+-- Sanity-check: from ≤ to если оба заполнены
+ALTER TABLE client_routes ADD CONSTRAINT chk_number_range CHECK (
+  number_from IS NULL OR number_to IS NULL OR number_from <= number_to
+);
 
 -- После backfill (см. миграция данных):
 ALTER TABLE client_routes ALTER COLUMN owner_type SET NOT NULL;
@@ -136,16 +146,20 @@ ALTER TABLE client_routes ADD CONSTRAINT chk_owner_id CHECK (
 -- на general противоречили бы failover-цепочке (несколько провайдеров в ячейке).
 CREATE UNIQUE INDEX uq_cell_provider ON client_routes (
   owner_type,
-  COALESCE(owner_id,     '00000000-0000-0000-0000-000000000000'),
+  COALESCE(owner_id,     '00000000-0000-0000-0000-000000000000'::uuid),
   route_type,
-  COALESCE(operator_id,  '00000000-0000-0000-0000-000000000000'),
+  COALESCE(operator_id,  '00000000-0000-0000-0000-000000000000'::uuid),
   COALESCE(country_code, ''),
   COALESCE(traffic_type, ''),
+  COALESCE(number_from,  -1),
+  COALESCE(number_to,    -1),
   provider_id
 );
 
--- Indexes под matcher
+-- Индексы под matcher и range-lookup
 CREATE INDEX ix_routes_owner_routetype ON client_routes (owner_type, owner_id, route_type);
+CREATE INDEX ix_routes_number_range ON client_routes (number_from, number_to)
+  WHERE number_from IS NOT NULL OR number_to IS NOT NULL;
 
 -- После миграции данных
 DROP TABLE route_condition_groups CASCADE;
@@ -170,11 +184,11 @@ type ClientRoute struct {
     OwnerType   OwnerType
     OwnerID     *uuid.UUID          // NULL только для platform
     RouteType   string              // sms | hlr | max
-    OperatorID  *uuid.UUID          // NULL = wildcard (ключевое поле)
-    CountryCode *string             // NULL = wildcard (ключевое поле)
-    TrafficType *string             // NULL = wildcard (ключевое поле)
-    PaidName    *string             // NULL = wildcard (фильтр)
-    Regex       *string             // NULL = wildcard (фильтр)
+    OperatorID  *uuid.UUID          // NULL = wildcard (ключевое измерение)
+    CountryCode *string             // NULL = wildcard (ключевое измерение)
+    TrafficType *string             // NULL = wildcard (ключевое измерение)
+    NumberFrom  *int64              // NULL = -∞ (ключевое измерение — диапазон)
+    NumberTo    *int64              // NULL = +∞ (ключевое измерение — диапазон)
     ProviderID  uuid.UUID
     Priority    int
     CreatedAt   time.Time
@@ -187,15 +201,14 @@ type ClientRoute struct {
 
 ```go
 type MatchContext struct {
-    RouteType   string
-    SubaccountID *uuid.UUID        // nil для не-суб-аккаунтов
-    ClientID    uuid.UUID           // всегда есть (для суб-аккаунта — его parent; для обычного клиента — он сам)
-    OperatorID  uuid.UUID
-    CountryCode string
-    TrafficType string
-    PaidName    string
-    PhoneNumber string               // для regex-фильтра
-    Time        time.Time            // для schedule
+    RouteType    string
+    SubaccountID *uuid.UUID    // nil для не-суб-аккаунтов
+    ClientID     uuid.UUID     // всегда есть (для суб-аккаунта — его parent; для обычного клиента — он сам)
+    OperatorID   *uuid.UUID    // разрешён resolver'ом номер→оператор (может быть nil если номер не опознан)
+    CountryCode  string
+    TrafficType  string
+    PhoneNumberInt int64       // для проверки диапазона number_from/number_to
+    Time         time.Time     // для schedule (lookup через route_schedules.route_id)
 }
 ```
 
@@ -216,41 +229,75 @@ SELECT count(*) FROM (
 -- Если 0..50 — продолжаем, развернём их вручную.
 ```
 
-### Шаг 1. Backfill новых колонок из `route_conditions`
-
-Для каждой строки `client_routes`:
-
-- Собрать все `route_conditions` через `route_condition_groups`.
-- Если одна group с conditions — поля переезжают в колонки.
-- Если несколько groups (OR) — развернуть в N строк `client_routes`, сохранив `priority`, `provider_id`, `created_at`.
-
-### Шаг 2. Заполнить `owner_type` / `owner_id`
+### Шаг 1. Backfill `owner_type` / `owner_id`
 
 ```sql
-UPDATE client_routes cr SET owner_type = 'platform', owner_id = NULL
-  WHERE cr.client_id IS NULL;
+-- Маршруты без клиента → platform
+UPDATE client_routes SET owner_type = 'platform', owner_id = NULL
+  WHERE client_id IS NULL;
 
+-- Маршруты с клиентом → client или subaccount по наличию parent
 UPDATE client_routes cr SET
   owner_type = CASE WHEN c.parent_client_id IS NULL THEN 'client'::route_owner_type
                     ELSE 'subaccount'::route_owner_type END,
   owner_id   = cr.client_id
-FROM clients c WHERE c.id = cr.client_id;
+FROM clients c
+WHERE c.id = cr.client_id;
+
+-- Sanity: нет orphan-маршрутов
+DO $$
+DECLARE orphans INT;
+BEGIN
+  SELECT count(*) INTO orphans FROM client_routes
+    WHERE client_id IS NOT NULL AND owner_type IS NULL;
+  IF orphans > 0 THEN
+    RAISE EXCEPTION 'backfill: % orphan client_routes (client_id не ссылается на clients)', orphans;
+  END IF;
+END$$;
 ```
 
-### Шаг 3. Seed platform general
+### Шаг 2. Backfill ключевых колонок из `route_conditions`
+
+Pre-flight аудит (2026-04-21) показал: 0 мульти-групповых правил, используемые condition_type только `operator` (27) и `traffic_type` (3). `country`, `paid_name`, `regex` — не используются.
+
+Реальные имена колонок: `route_condition_groups.route_id` (не rule_id), `route_conditions.condition_type` / `condition_value` (не type/value).
 
 ```sql
-INSERT INTO client_routes (id, owner_type, owner_id, route_type, provider_id, priority)
-  SELECT gen_random_uuid(), 'platform', NULL, rt, <default_provider>, 100
-  FROM (VALUES ('sms'),('hlr'),('max')) AS t(rt)
-  ON CONFLICT DO NOTHING;
+UPDATE client_routes cr SET
+  operator_id  = sub.operator_id,
+  country_code = sub.country_code,
+  traffic_type = sub.traffic_type
+FROM (
+  SELECT
+    rcg.route_id,
+    MAX(CASE WHEN rc.condition_type = 'operator'     THEN rc.condition_value::uuid END) AS operator_id,
+    MAX(CASE WHEN rc.condition_type = 'country'      THEN rc.condition_value        END) AS country_code,
+    MAX(CASE WHEN rc.condition_type = 'traffic_type' THEN rc.condition_value        END) AS traffic_type
+  FROM route_condition_groups rcg
+  JOIN route_conditions rc ON rc.group_id = rcg.id
+  GROUP BY rcg.route_id
+) sub
+WHERE cr.id = sub.route_id;
 ```
 
-`<default_provider>` — параметр миграции, определяется оператором деплоя (или `NULL`-safe-placeholder, который админ заменит после).
+`number_from` / `number_to` не backfill'ятся — в старой схеме ranges не было. NULL по умолчанию корректен.
 
-### Шаг 4. Drop старых таблиц
+### Шаг 3. Финализация constraints
 
-Только после валидации, что ни один production-запрос к `route_condition_groups`/`route_conditions` не остался (grep в коде).
+```sql
+ALTER TABLE client_routes ALTER COLUMN owner_type SET NOT NULL;
+-- chk_owner_id, uq_cell_provider, индексы — добавляются здесь (SQL выше, в секции схемы).
+```
+
+### Шаг 4. Seed platform general — НЕ ВЫПОЛНЯЕМ
+
+Audit показал: 2 маршрута уже имеют `client_id IS NULL` (platform-sms failover pair). После Шага 1 у них будет `owner_type='platform'` и general-ячейка (operator_id/country_code/traffic_type NULL). Условие «platform general присутствует» выполнено автоматически для sms.
+
+Для hlr/max seed невозможен без указания default-провайдера (в схеме `providers` нет колонки-маркера `code`, и hlr/max в проде не используются). Если канал пойдёт в работу — отдельный init-скрипт.
+
+### Шаг 5. Drop старых таблиц
+
+Только после валидации, что ни один production-запрос к `route_condition_groups`/`route_conditions` не остался (grep в коде). Выполняется отдельной миграцией 109 после переработки matcher'а и репозиториев.
 
 ## Portal API
 
@@ -266,12 +313,11 @@ message ResolveRoutesRequest {
   string route_type = 1;
   string subaccount_id = 2;  // optional
   string client_id = 3;
-  string operator_id = 4;
+  string operator_id = 4;    // разрешён resolver'ом на стороне pipeline
   string country_code = 5;
   string traffic_type = 6;
-  string paid_name = 7;
-  string phone_number = 8;
-  google.protobuf.Timestamp at = 9;
+  int64 phone_number = 7;    // для проверки number_from/number_to
+  google.protobuf.Timestamp at = 8;
 }
 
 message ResolveRoutesResponse {
@@ -304,20 +350,21 @@ func assertOwnable(user User, ruleOwnerType OwnerType, ruleOwnerID *uuid.UUID) e
    - При отсутствии subaccount-правил консультируется aggregator
    - При отсутствии правил на всех уровнях кроме platform — используется platform general
 2. **Специфичность внутри уровня**
-   - 3 заполненных поля побеждают 2
+   - 3 заполненных измерения побеждают 2 (из {operator_id, country_code, traffic_type, phone_range})
    - При равной specificity выигрывает priority ASC
    - При равной specificity и priority — created_at ASC
-3. **Фильтры vs ключ**
-   - `paid_name='bank'` не делает правило специфичнее, чем правило с `paid_name IS NULL`, если ключевые поля одинаковы (тай-брейкер по priority)
-   - Правило с `paid_name='bank'` не матчит сообщение с `paid_name='shop'`
+3. **Диапазон номеров (phone_range как 4-е измерение)**
+   - Правило с `number_from=79260000000, number_to=79269999999` матчит номер `79261234567` и не матчит `79301234567`
+   - NULL `number_from` трактуется как `-∞`, NULL `number_to` как `+∞`
+   - Правило с заполненным диапазоном специфичнее правила без него при одинаковых остальных ключах
 4. **Failover-цепочка**
    - В ячейке несколько провайдеров с разным priority → цепочка в нужном порядке
    - Override ячейки суб-аккаунтом: цепочка агрегатора для той же ячейки не используется
 5. **Route type**
    - SMS-правило не применяется к HLR-сообщению
-6. **Platform singleton**
-   - INSERT второго platform general → unique violation
-   - DELETE последнего platform general → запрещено (ошибка в handler)
+6. **Platform general presence**
+   - DELETE последнего platform general для route_type → запрещено (409 в handler)
+   - Несколько provider-рядов в platform general (failover-chain) разрешены
 
 ## Кеширование
 
@@ -348,11 +395,18 @@ func assertOwnable(user User, ruleOwnerType OwnerType, ruleOwnerID *uuid.UUID) e
 | `total_groups` / `total_conditions` | 31 / 30 |
 | routes by type | sms=39 |
 
-Порог ≤50 мульти-групп соблюдён. Плоская модель применима без потери семантики. В миграции учесть: одна группа пустая (31 vs 30 conditions), hlr/max seed platform-general создаст два «висящих» правила — допустимо (занулит NoRouteFound при будущем использовании этих каналов).
+Порог ≤50 мульти-групп соблюдён. Плоская модель применима без потери семантики.
+
+Дополнительный audit distribution по condition_type:
+- `operator` — 27 conditions
+- `traffic_type` — 3 conditions
+- `country`, `paid_name`, `regex` — 0 использований
+
+Следствие: `paid_name`, `regex` исключены из модели (YAGNI). `country_code` сохранён как product-level поле (cross-border routing). `number_from/number_to` добавлены как 4-е измерение (диапазоны — реальный use-case, решено в брейнсторме 2026-04-21).
 
 ## Риски и компромиссы
 
 - **Override целиком vs per-provider merge.** Выбран override — жертвуем удобством («дополни чужую цепочку»), выигрываем предсказуемость. Если боль реальная — в v2 добавляется флаг `inherit_fallback` на ячейке, без ломания модели.
-- **Паид-нейм/регекс/шедул — не часть specificity.** Жертвуем точностью ранжирования редких кейсов ради простоты. Если в проде окажется, что такие правила конкурируют на уровне — тай-брейкер через `priority`.
-- **Миграция мульти-групп.** Если их много — боль. Pre-flight check обязателен.
-- **Platform singleton требует seed.** Первая миграция должна знать «дефолтного провайдера». Если его нет — миграция падает; оператор должен заранее указать его через env/параметр.
+- **Диапазон вместо regex.** Жертвуем гибкостью (exotic-паттерны типа «каждый третий номер») ради простоты и explicit-семантики. Если появится реальный кейс — аддитивной миграцией добавим regex-поле обратно.
+- **YAGNI на paid_name/regex.** Убрали поля, которые 0 раз использовались в проде. Если понадобятся — аддитивная миграция.
+- **Platform general presence.** Гарантируется не seed'ом (на проде platform-sms уже есть), а DELETE-protection в admin-handler. Для hlr/max нет general'а вообще — если канал пойдёт, NoRouteFound до создания правила.
