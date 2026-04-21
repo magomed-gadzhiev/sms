@@ -182,10 +182,10 @@ BEGIN
         INSERT INTO hlr_providers (id, name, adapter_type, config, priority, supported_regions,
                                    cost_per_lookup, status, success_rate, active)
         VALUES
-            (uuid_generate_v4(), 'HLR-Primary',   'http',
+            (uuid_generate_v4(), 'HLR-Primary',   'http_rest',
              '{"api_key": "hlr-test-key", "base_url": "https://hlr-test.local"}',
              1, ARRAY['RU', 'KZ', 'BY', 'UA'], 0.001, 'healthy', 99.9, true),
-            (uuid_generate_v4(), 'HLR-Secondary',  'http',
+            (uuid_generate_v4(), 'HLR-Secondary',  'http_rest',
              '{"api_key": "hlr-test-key-2", "base_url": "https://hlr-test-2.local"}',
              2, ARRAY['RU', 'KZ'], 0.002, 'healthy', 98.5, true)
         ON CONFLICT DO NOTHING;

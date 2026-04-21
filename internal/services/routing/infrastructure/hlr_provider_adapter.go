@@ -23,7 +23,11 @@ func NewHLRProviderAdapterFactory() *HLRProviderAdapterFactory {
 // CreateAdapter creates an adapter for the given provider configuration
 func (f *HLRProviderAdapterFactory) CreateAdapter(provider *domain.HLRProvider) (domain.HLRProviderAdapter, error) {
 	switch provider.AdapterType {
-	case "http_rest":
+	// "http_rest" is the canonical value per spec 004-hlr-smart-routing/data-model.md.
+	// "http" is accepted as a defensive alias for legacy rows: migration 000113 normalises
+	// existing data, but this guard prevents regressions if older seeds/fixtures resurface
+	// or an operator hand-edits the table.
+	case "http_rest", "http":
 		return NewHTTPHLRAdapter(provider)
 	default:
 		return nil, fmt.Errorf("неподдерживаемый тип адаптера: %s", provider.AdapterType)
