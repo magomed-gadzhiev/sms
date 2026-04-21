@@ -469,18 +469,19 @@ func (r *StatsRepo) GetDrillDown(ctx context.Context, params *domain.DrillDownPa
 	childDim := "operator"
 	switch params.DetailView {
 	case "statuses":
-		childDim = "channel"
+		// handled separately below: aggregate table stores statuses as
+		// counter columns, not rows, so we unpivot them into synthetic rows.
 	case "errors":
 		childDim = "error"
 	case "timeline":
 		childDim = "hour"
 	case "money":
-		childDim = "sender_name"
+		// handled separately below: money view is a fixed 4-row breakdown
+		// (Revenue / Cost / Profit / Margin), not a grouping by dimension.
 	case "operators":
 		childDim = "operator"
 	}
 
-	col := sliceColumn(childDim)
 	whereClause, args := buildWhereClause(params.Filter)
 
 	// Append parent slice condition
@@ -488,6 +489,15 @@ func (r *StatsRepo) GetDrillDown(ctx context.Context, params *domain.DrillDownPa
 	idx := len(args) + 1
 	whereClause += fmt.Sprintf(" AND %s = $%d", parentCol, idx)
 	args = append(args, params.SliceValue)
+
+	if params.DetailView == "statuses" {
+		return r.drillDownStatuses(ctx, whereClause, args)
+	}
+	if params.DetailView == "money" {
+		return r.drillDownMoney(ctx, whereClause, args)
+	}
+
+	col := sliceColumn(childDim)
 
 	query := fmt.Sprintf(`
 		SELECT
@@ -573,6 +583,137 @@ func (r *StatsRepo) GetDrillDown(ctx context.Context, params *domain.DrillDownPa
 		Rows:    statRows,
 		Trends:  nil,
 		Health:  overallHealth,
+	}, nil
+}
+
+// drillDownStatuses unpivots status counter columns into synthetic rows,
+// one row per status bucket (sent/delivered/failed/pending/timeout/error).
+// The aggregate table network_stats_hourly does not have a `status` column —
+// counts are stored in separate columns — so grouping by a dimension here
+// would yield a non-status slice value (e.g. channel name). Instead we
+// build a fixed list of status rows from column sums.
+func (r *StatsRepo) drillDownStatuses(ctx context.Context, whereClause string, args []interface{}) (*domain.DrillDownResult, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(total), 0)     AS total,
+			COALESCE(SUM(sent), 0)      AS sent,
+			COALESCE(SUM(delivered), 0) AS delivered,
+			COALESCE(SUM(failed), 0)    AS failed,
+			COALESCE(SUM(pending), 0)   AS pending,
+			COALESCE(SUM(timeout), 0)   AS timeout,
+			COALESCE(SUM(error), 0)     AS error,
+			COALESCE(SUM(revenue), 0)   AS revenue,
+			COALESCE(SUM(cost), 0)      AS cost
+		FROM network_stats_hourly
+		%s`, whereClause)
+
+	row := r.db.QueryRow(ctx, query, args...)
+	var total, sent, delivered, failed, pending, timeoutCnt, errorCnt int64
+	var revenue, cost float64
+	if err := row.Scan(&total, &sent, &delivered, &failed, &pending, &timeoutCnt, &errorCnt, &revenue, &cost); err != nil {
+		return nil, fmt.Errorf("scan drill-down statuses: %w", err)
+	}
+
+	buckets := []struct {
+		name  string
+		count int64
+	}{
+		{"sent", sent},
+		{"delivered", delivered},
+		{"failed", failed},
+		{"pending", pending},
+		{"timeout", timeoutCnt},
+		{"error", errorCnt},
+	}
+
+	statRows := make([]domain.StatRow, 0, len(buckets))
+	for _, b := range buckets {
+		share := 0.0
+		if total > 0 {
+			share = float64(b.count) / float64(total)
+		}
+		statRows = append(statRows, domain.StatRow{
+			Slice:   b.name,
+			Total:   b.count,
+			DLRRate: share, // share of total for this status bucket
+			Health:  domain.HealthOK,
+		})
+	}
+
+	summary := computeKPIs(total, delivered, failed, revenue, cost)
+
+	overallHealth := domain.HealthOK
+	dlrRate := 0.0
+	if total > 0 {
+		dlrRate = float64(delivered) / float64(total)
+	}
+	errRate := 0.0
+	if total > 0 {
+		errRate = float64(failed) / float64(total)
+	}
+	if dlrRate < domain.DLRRateDanger || errRate > domain.ErrorRateDanger {
+		overallHealth = domain.HealthDanger
+	} else if dlrRate < domain.DLRRateWarning || errRate > domain.ErrorRateWarning {
+		overallHealth = domain.HealthWarning
+	}
+
+	return &domain.DrillDownResult{
+		Summary: summary,
+		Rows:    statRows,
+		Trends:  nil,
+		Health:  overallHealth,
+	}, nil
+}
+
+// drillDownMoney returns a fixed 4-row financial breakdown:
+// Выручка (revenue), Себестоимость (cost), Прибыль (profit = revenue - cost),
+// Маржа (margin = profit / revenue). The aggregate table stores money as
+// separate revenue/cost columns, not a "money dimension" — grouping by any
+// real column (channel, sender) here would yield a single empty-slice row
+// when filters have already narrowed the query to one value. Instead we
+// unpivot money columns into synthetic rows, analogous to drillDownStatuses.
+func (r *StatsRepo) drillDownMoney(ctx context.Context, whereClause string, args []interface{}) (*domain.DrillDownResult, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(total), 0)     AS total,
+			COALESCE(SUM(delivered), 0) AS delivered,
+			COALESCE(SUM(failed), 0)    AS failed,
+			COALESCE(SUM(revenue), 0)   AS revenue,
+			COALESCE(SUM(cost), 0)      AS cost
+		FROM network_stats_hourly
+		%s`, whereClause)
+
+	row := r.db.QueryRow(ctx, query, args...)
+	var total, delivered, failed int64
+	var revenue, cost float64
+	if err := row.Scan(&total, &delivered, &failed, &revenue, &cost); err != nil {
+		return nil, fmt.Errorf("scan drill-down money: %w", err)
+	}
+
+	profit := revenue - cost
+	margin := 0.0
+	if revenue > 0 {
+		margin = profit / revenue
+	}
+
+	// Build 4 synthetic rows. We put the numeric value in both Total (for
+	// the default "Total" column rendering) and the matching money field
+	// (Revenue/Cost/Profit/Margin) so the frontend can pick whichever it
+	// prefers without losing precision on fractional currency.
+	statRows := []domain.StatRow{
+		{Slice: "Выручка", Total: int64(revenue), Revenue: revenue, Health: domain.HealthOK},
+		{Slice: "Себестоимость", Total: int64(cost), Cost: cost, Health: domain.HealthOK},
+		{Slice: "Прибыль", Total: int64(profit), Profit: profit, Health: domain.HealthOK},
+		{Slice: "Маржа", Total: int64(margin * 100), Margin: margin, DLRRate: margin, Health: domain.HealthOK},
+	}
+
+	summary := computeKPIs(total, delivered, failed, revenue, cost)
+
+	return &domain.DrillDownResult{
+		Summary: summary,
+		Rows:    statRows,
+		Trends:  nil,
+		Health:  domain.HealthOK,
 	}, nil
 }
 
