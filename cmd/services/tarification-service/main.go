@@ -164,6 +164,15 @@ func main() {
 	aggMarginLogRepo := tarificationrepo.NewAggregatorMarginLogRepository(dbx)
 	tarificationService.SetAggregatorRepos(clientInfoRepo, aggTariffRepo, aggMarginLogRepo)
 
+	// QuotaService — используется Calculate() для read-only lookup активной
+	// квоты и подсчёта charge_mode (pool/overage/split). Без него Calculate
+	// для субаккаунта возвращает QuotaServiceMissing (маппится в
+	// QUOTA_NOT_CONFIGURED для клиента) — hot-path commit-on-submit никогда
+	// не списал бы успешно. Отдельный экземпляр от admin-gateway/portal-gateway
+	// (те живут в своих процессах); repo общий через БД.
+	aggQuotaRepo := tarificationrepo.NewAggregatorQuotaRepository(dbx)
+	tarificationService.SetQuotaService(application.NewQuotaService(aggQuotaRepo))
+
 	// Phase 2 commit-on-submit флаг. При false — legacy flow (списание в TarifyMessage).
 	// При true — TarifyMessage только считает (read-only), списание в CommitCharge.
 	tarificationService.SetCommitOnSubmitEnabled(cfg.Tarification.CommitOnSubmitEnabled)
