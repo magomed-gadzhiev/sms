@@ -393,6 +393,7 @@ function LiveFeed({
 interface SubAccountSummary {
   count: number;
   activeCount: number;
+  maxSubAccounts: number;
   totalBalance: number;
   lowBalanceCount: number;
 }
@@ -418,13 +419,17 @@ export function CommandCenter() {
   useEffect(() => {
     if (!isReseller) return;
     subAccountsApi.list().then((resp) => {
-      const data = resp as { sub_accounts: Array<{ active: boolean; balance?: string }> };
+      const data = resp as {
+        sub_accounts: Array<{ active: boolean; balance?: string }>;
+        max_sub_accounts?: number;
+      };
       const subs = data.sub_accounts ?? [];
       const totalBalance = subs.reduce((sum, s) => sum + parseFloat(s.balance ?? '0'), 0);
       const lowBalanceCount = subs.filter(s => parseFloat(s.balance ?? '0') < 100).length;
       setSubSummary({
         count: subs.length,
         activeCount: subs.filter(s => s.active).length,
+        maxSubAccounts: data.max_sub_accounts ?? 0,
         totalBalance,
         lowBalanceCount,
       });
@@ -586,10 +591,22 @@ export function CommandCenter() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <KpiCard
             title="Суб-аккаунты"
-            value={`${subSummary.activeCount} / ${subSummary.count}`}
-            subtitle="активных суб-аккаунтов"
+            value={
+              subSummary.maxSubAccounts > 0
+                ? `${subSummary.activeCount} / ${subSummary.maxSubAccounts}`
+                : `${subSummary.activeCount}`
+            }
+            subtitle={
+              subSummary.maxSubAccounts > 0
+                ? `активных из ${subSummary.maxSubAccounts} по лимиту`
+                : 'активных суб-аккаунтов'
+            }
           >
-            <ProgressBar value={subSummary.activeCount} max={subSummary.count || 1} color="var(--cc-accent-blue)" />
+            <ProgressBar
+              value={subSummary.activeCount}
+              max={subSummary.maxSubAccounts || subSummary.count || 1}
+              color="var(--cc-accent-blue)"
+            />
           </KpiCard>
           <KpiCard
             title="Суммарный баланс"
