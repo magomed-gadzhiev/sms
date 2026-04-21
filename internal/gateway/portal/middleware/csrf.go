@@ -27,6 +27,13 @@ func CSRFMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
+			// API-key auth не использует cookies, CSRF-вектор отсутствует.
+			// Пропускаем CSRF-проверку для Bearer-аутентифицированных запросов.
+			if GetAuthMethod(r.Context()) == AuthMethodAPIKey {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			cookie, err := r.Cookie("csrf_token")
 			if err != nil || cookie.Value == "" {
 				respondCSRFError(w)
