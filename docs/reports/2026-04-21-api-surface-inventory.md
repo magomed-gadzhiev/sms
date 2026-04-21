@@ -2,7 +2,7 @@
 
 **Дата снапшота:** 2026-04-21
 **Источник:** `internal/gateway/client/router/router.go`, `internal/gateway/smpp/server/handler.go`, `internal/smpp/server/handler.go`, `internal/smpp/protocol/constants.go`
-**Ревизия:** commit <ХЭШ> (заполнить в конце Task 7)
+**Ревизия:** commit f2d9311 (Task 6 — matrix skeleton UNKNOWN rows)
 
 ## HTTP Endpoints (client-gateway)
 

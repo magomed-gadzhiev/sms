@@ -40,9 +40,9 @@ const rawAggQuery = `
 SELECT
     0                                                          AS partner_id,
     date_trunc('hour', m.created_at)                           AS hour,
-    COALESCE(m.provider_id, '00000000-0000-0000-0000-000000000000'::uuid) AS provider_id,
+    0::bigint                                                  AS provider_id,
     COALESCE(op.name, '')                                      AS operator,
-    COALESCE(co.name, '')                                      AS country,
+    COALESCE(co.iso_code, '')                                  AS country,
     COALESCE(NULLIF(m.channel, ''), 'sms')                     AS channel,
     COALESCE(c.name, c.email, '')                              AS login,
     COALESCE(m.source, '')                                     AS sender_name,

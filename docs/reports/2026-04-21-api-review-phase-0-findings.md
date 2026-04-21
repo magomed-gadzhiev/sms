@@ -66,8 +66,36 @@ Concretely: when `commitOnSubmitEnabled=false` (default), `TarifyMessage` runs l
 
 ## Blockers for next phases
 
-_TODO: Task 7_
+### B1: No integration test infra in CI
+**Blocks:** Phase C
+**What's wrong:** F2 — CI has no postgres/redis services; 10 integration-tagged test files exist but never run in CI (only unit pass with `-short`).
+**Required action before that phase starts:** Either add service containers + `-tags=integration` job to a workflow, or explicitly downscope Phase C to unit+fakes and acknowledge the coverage loss.
+
+### B2: AuthAdapter user_id=client_id kludge
+**Blocks:** Phase C (specifically C-visibility tests with subaccount identity)
+**What's wrong:** F4 — `internal/gateway/smpp/server/auth_adapter.go:55` has an explicit temporary kludge treating `user_id` as `client_id`. Comment: "временная реализация".
+**Required action before that phase starts:** Fix the conflation before writing C-visibility SMPP tests, or the tests will assert incorrect invariants (binding as user X will resolve as client X, not the actual client).
+
+### B3: Dual-charge path ambiguity
+**Blocks:** C-billing assertions for role=subaccount_parent (does not block starting Phase C, but shapes what the tests measure)
+**What's wrong:** F3 — `ChargeMessageDual` is wired only into `CommitCharge()` behind the `commitOnSubmitEnabled` feature flag, not into `TarifyMessage`. Under flag=off the dual-charge path is never exercised.
+**Required action before that phase starts:** Decide whether Phase C tests exercise flag=on or flag=off, and document the expected behavior for `subaccount_parent` per the aggregator decisions (quota = regulator with hard-stop in `TarifyMessage`).
 
 ## Go/no-go decision for Phase A1
 
-_TODO: Task 7_
+**Decision: GO for Phase A1.**
+
+B1, B2, B3 do not block A1 (OpenAPI↔code comparison is a pure HTTP-contract task, independent of SMPP and integration infra).
+
+### A1 scope estimate
+
+Per inventory, Phase A1 needs to compare `api/openapi/openapi.yaml` against 28 HTTP endpoints (excluding health and docs). Given the spec is hand-written and 7 days behind the handlers, expect drift in at least:
+- Cascade endpoints (identified in Task 2 as returning proto types directly vs the other handlers' inline maps — likely not reflected in openapi.yaml yet).
+- Any endpoint added or modified in the last 7 days (verify via `git log --since=2026-04-14 internal/gateway/client/handlers/`).
+
+### Go/no-go for other phases
+
+- **Phase A2** (error format): GO. Independent of blockers.
+- **Phase A3** (idempotency): GO. Finding expected: idempotency largely absent; the plan will mostly be "add Idempotency-Key middleware + SMPP dedup", likely a crowded but unblocked phase.
+- **Phase A6** (SMPP contract): GO. Huge scope based on Task 4 finding (no TLV constants at all) — this will be the largest downstream plan.
+- **Phase C** (subaccount correctness): **NO-GO** until B1 resolved (or explicit downscope). Recommend: write a separate mini-plan `api-review-phase-c-infra.md` that either adds postgres/redis service containers + integration CI job, or formally reduces Phase C to unit+fakes with explicit loss-of-coverage acknowledged. Additionally B2 must be fixed before SMPP C-visibility tests land.
