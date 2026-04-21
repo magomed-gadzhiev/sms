@@ -232,15 +232,91 @@ The umbrella scope (Cycle 1 = `cmd/client-gateway` + `internal/gateway/client/`;
 
 ### F2. B1 — Integration test infrastructure
 
-_TODO: Task 7_
+**CI workflows with postgres/redis service containers:** No. The single workflow `.github/workflows/ci.yml` has two jobs (`go`, `frontend`). Neither job declares a `services:` block. No postgres or redis container is spun up in CI.
+
+**CI jobs running -tags=integration:** No. The `go` job runs `go test -count=1 -short ./...` — `-short` flag, no `-tags=integration` anywhere in the workflow file.
+
+**scripts/check.sh integration mode:** No. `scripts/check.sh` supports only `--with-tests` (which maps to `go test -count=1 -short ./...`). No `--integration` flag, no `-tags=integration` invocation anywhere in the script.
+
+**Integration-tagged Go files (.go with build tag):** 0. Grep for `^//go:build integration$` and `^// \+build integration$` across `**/*.go` returned no matches.
+
+**Names of those files (sample):** n/a — no integration-tagged files exist.
+
+**Decision on B1:**
+- CLOSED — if CI has postgres+redis AND runs -tags=integration.
+- OPEN — otherwise. Cycle 3 blocked until closed or explicitly downscoped.
+
+**Current verdict:** OPEN. CI has no service containers and no integration test invocation. Zero integration-tagged test files exist in the codebase. Cycle 3 (subaccount billing path through CommitCharge + ChargeMessageDual) cannot be validated end-to-end without either: (a) spinning up postgres+redis in CI and adding `-tags=integration` test suite, or (b) explicitly downscoping Cycle 3 to unit tests with mocked billing client only.
 
 ### F3. B2 — AuthAdapter user_id=client_id kludge
 
-_TODO: Task 7_
+**auth_adapter.go status:** `internal/gateway/smpp/server/auth_adapter.go`, 128 lines reviewed in full.
+
+**Kludge presence:** Still present — same kludge in two methods.
+
+**Evidence:**
+```
+// auth_adapter.go:53-56 (ValidateToken)
+if resp.User.Id != "" {
+    // Попытка получить client_id из метаданных пользователя
+    // В текущей реализации используем user_id как client_id
+    clientID = resp.User.Id
+}
+
+// auth_adapter.go:100-103 (AuthenticateBySystemID)
+if resp.User.Id != "" {
+    // Используем user_id как client_id (можно будет получить из Client Service)
+    clientID = resp.User.Id
+}
+
+// auth_adapter.go:117-127 (GetClientID)
+// GetClientID возвращает ClientID из UserID (временная реализация)
+// В будущем можно получить через Client Service
+func (a *AuthAdapter) GetClientID(ctx context.Context, userID string) (*uuid.UUID, error) {
+    // Временная реализация: пытаемся преобразовать user_id в UUID
+    id, err := uuid.Parse(userID)
+    if err != nil {
+        return nil, nil  // ClientID опционален — silently drops lookup failure
+    }
+    return &id, nil
+}
+```
+
+The conflation is present in both `ValidateToken` (line 56: `clientID = resp.User.Id`) and `AuthenticateBySystemID` (line 103: `clientID = resp.User.Id`). A third kludge exists in `GetClientID` (line 120–127): "временная реализация" that simply parses user_id as UUID rather than performing a real Client Service lookup. All three paths result in `UserInfo.ClientID == UserInfo.UserID`.
+
+**Decision on B2:**
+- CLOSED — proper client_id resolution via client repo or authv1 service, no conflation.
+- OPEN — conflation still present or replaced by different kludge.
+
+**Current verdict:** OPEN. Three conflation points remain: `ValidateToken`, `AuthenticateBySystemID`, and `GetClientID`. No Client Service lookup exists. The `authv1.Authenticate` response only returns a `User` struct with `.Id` (the auth user ID), and `clientID` is assigned directly from it.
+
+**Impact on Cycle 3 C-visibility (SMPP subaccount):** SMPP sessions authenticated via `AuthenticateBySystemID` will have `ClientID == UserID` — any Cycle 3 test asserting that `CommitCharge.ClientID` resolves to the correct billing sub-account will pass only if the user UUID happens to equal the billing client UUID, which is not guaranteed and not tested.
 
 ### F4. B3 — Dual-charge wiring in TarifyMessage
 
-_TODO: Task 7_
+**ChargeMessageDual callers:**
+- `api/proto/billingv1/billing_grpc.pb.go:104` — generated gRPC client stub `(*billingServiceClient).ChargeMessageDual`
+- `internal/services/tarification/application/commit_charge.go:161` — `s.saga.ChargeDualAtomic(ctx, dualReq)` which wraps `ChargeMessageDual` (subaccount branch of `CommitCharge`)
+- `internal/gateway/portal/handlers/billing_test.go:48` — mock implementation
+- `internal/gateway/client/grpc/server_test.go:103` — mock implementation
+- `internal/services/cascade/application/billing_integration.go` — cascade billing integration (separate path)
+
+**TarifyMessage body calls:** When `commitOnSubmitEnabled == false` (default): calls `s.saga.Charge()` only — no `ChargeMessageDual` anywhere in the legacy branch. When `commitOnSubmitEnabled == true`: calls `s.Calculate()` (read-only) and returns immediately — no charge at all; charge deferred to `CommitCharge`.
+
+**CommitCharge body calls:** `CommitCharge` (`commit_charge.go:56`) calls:
+- For direct clients (line 118): `s.saga.Charge()` — single charge via `billingv1.ChargeMessage`
+- For subaccounts (line 161): `s.saga.ChargeDualAtomic(ctx, dualReq)` — which calls `billingv1.ChargeMessageDual` atomically
+
+**Feature flag gating dual-charge:** Flag name: `tarification.commit_on_submit_enabled` (Go field: `CommitOnSubmitEnabled bool`). Default value: **false** (hardcoded in `internal/config/config.go:420`: `v.SetDefault("tarification.commit_on_submit_enabled", false)`). Configured via `config.yaml` or env var `TARIFICATION_COMMIT_ON_SUBMIT_ENABLED`. The flag gates the entire commit-on-submit flow: when false, `TarifyMessage` charges inline via legacy `saga.Charge` (no `ChargeMessageDual`); when true, `TarifyMessage` is read-only and `CommitCharge` handles dual-charge for subaccounts.
+
+**Decision on B3:**
+- CLOSED — TarifyMessage directly calls ChargeMessageDual (or via CommitCharge with flag ON by default and no escape hatch).
+- PARTIAL — wired via flag, flag default ON, but escape hatch exists.
+- OPEN — dual-charge not wired at all, or flag default OFF.
+
+**Current verdict:** OPEN. `ChargeMessageDual` is only reached when `commit_on_submit_enabled=true`, and the default is **false**. In the default production configuration, subaccount charges go through `saga.Charge()` (single charge on sub-account) inside the legacy `TarifyMessage` branch — the aggregator is not charged atomically via `ChargeMessageDual`. The dual-charge path (`CommitCharge` → `ChargeDualAtomic`) is fully implemented and correct, but is not active by default.
+
+**Impact on Cycle 3 C-billing for subaccount_parent:** Tests must assume `commit_on_submit_enabled=false` unless the test fixture explicitly calls `SetCommitOnSubmitEnabled(true)`; under the default, `ChargeMessageDual` is never invoked and the aggregator balance is not decremented — any assertion about aggregator deduction will fail unless the flag is enabled in the test setup.
 
 ## 6. Go/no-go для циклов 1/2/3
 
