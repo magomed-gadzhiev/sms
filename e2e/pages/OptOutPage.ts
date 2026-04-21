@@ -85,4 +85,39 @@ export class OptOutPage {
     await this.submitAdd();
     await this.expectRow(phone);
   }
+
+  // --- Bulk import ---
+
+  async openImport() {
+    await this.page.getByRole('button', { name: 'Импорт CSV' }).click();
+    await expect(
+      this.importDialog().getByRole('heading', { name: 'Импорт номеров в список отписок' }),
+    ).toBeVisible();
+  }
+
+  importDialog() {
+    return this.page.locator('[role="dialog"]').filter({ hasText: 'Импорт номеров в список отписок' });
+  }
+
+  async fillImportText(text: string) {
+    await this.importDialog().locator('textarea').fill(text);
+  }
+
+  async submitImport() {
+    await this.importDialog().getByRole('button', { name: 'Импортировать' }).click();
+  }
+
+  async expectImportResult(imported: number, skipped: number) {
+    const summary = this.importDialog().locator('.bg-green-50');
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText(`Добавлено:`);
+    await expect(summary.locator('strong').nth(0)).toHaveText(String(imported));
+    await expect(summary.locator('strong').nth(1)).toHaveText(String(skipped));
+  }
+
+  async closeImport() {
+    // "Закрыть" конфликтует с ✕-иконкой (aria-label="Закрыть") — берём точно по видимому тексту
+    await this.importDialog().locator('button:text-is("Закрыть")').click();
+    await expect(this.importDialog()).toBeHidden();
+  }
 }

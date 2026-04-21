@@ -99,4 +99,55 @@ export class ContactListDetailPage {
     await this.submitAddContact();
     await this.expectContactRow(phone);
   }
+
+  // --- Attributes modal ---
+
+  async openAttrsModal() {
+    await this.page.getByRole('button', { name: 'Настройки атрибутов' }).click();
+    await expect(
+      this.attrsDialog().getByRole('heading', { name: 'Настройки атрибутов' }),
+    ).toBeVisible();
+  }
+
+  attrsDialog() {
+    return this.page.locator('[role="dialog"]').filter({ hasText: 'Настройки атрибутов' });
+  }
+
+  attrRow(index: number) {
+    return this.attrsDialog().locator('.border.border-gray-200.rounded.p-3').nth(index);
+  }
+
+  async addAttributeRow() {
+    await this.attrsDialog().getByRole('button', { name: '+ Добавить атрибут' }).click();
+  }
+
+  async fillAttribute(
+    index: number,
+    values: { name?: string; displayName?: string; type?: 'string' | 'number' | 'date' | 'boolean' },
+  ) {
+    const row = this.attrRow(index);
+    if (values.name !== undefined) {
+      await row.getByPlaceholder('Системное имя').fill(values.name);
+    }
+    if (values.displayName !== undefined) {
+      await row.getByPlaceholder('Отображаемое имя').fill(values.displayName);
+    }
+    if (values.type !== undefined) {
+      await row.locator('select').selectOption(values.type);
+    }
+  }
+
+  async removeAttributeRow(index: number) {
+    await this.attrRow(index).getByRole('button', { name: 'Удалить атрибут' }).click();
+  }
+
+  async saveAttributes() {
+    await this.attrsDialog().getByRole('button', { name: 'Сохранить' }).click();
+    await expect(this.attrsDialog()).toBeHidden();
+  }
+
+  async cancelAttributes() {
+    await this.attrsDialog().getByRole('button', { name: 'Отмена' }).click();
+    await expect(this.attrsDialog()).toBeHidden();
+  }
 }
