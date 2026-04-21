@@ -475,3 +475,91 @@ CRUD /portal/v1/network/views
 
 **Статус:** 🟡 OPEN-MEDIUM. AC-14 переписан по коду. После фикса — вернуть AC-14 к формулировке "HTTP 400 + локализованный toast" и закрыть drift.
 
+---
+
+## D-14: `openDrillDown` callsites hardcode `sliceType='provider'`
+
+**Обнаружено:** 2026-04-21 при написании Batch 2 AC для Statistics Table (AC-30).
+
+**Ожидаемое поведение:** при клике по строке таблицы drill-down должен открываться по **измерению текущей группировки**. Если `group_by=provider` — по провайдеру; если `group_by=operator` — по оператору; `group_by=country` — по стране и т.д.
+
+**Что в коде:**
+- Хук `openDrillDown(sliceType, sliceValue, label)` параметризован ([useNetworkStats.ts:183](../../portal-frontend/src/hooks/useNetworkStats.ts#L183)) — сам по себе гибкий.
+- Вызывающие стороны (`NetworkStatisticsPage.tsx`) **hardcode первый аргумент как литерал `'provider'`** в трёх местах:
+  - Строка 108 (режим stats): `onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}`
+  - Строка 122 (режим analytics): то же `'provider'`
+  - Строка 144 (режим monitoring): то же `'provider'`
+
+**Последствие:**
+- При `group_by=operator` клик по строке "МТС" отправит `GET /portal/v1/reseller/drilldown?slice_type=provider&slice_value=мтс` — бэк попытается найти провайдера с именем "мтс", не оператора.
+- В лучшем случае drill-down покажет пустую разбивку, в худшем — ошибочные данные (если имя провайдера и оператора случайно совпадают).
+- То же для `group_by=country`, `group_by=channel`, `group_by=login` — drill-down работает корректно **только** при `group_by=provider`.
+
+**Как могло появиться:** изначально drill-down разрабатывался для дефолтной группировки (провайдеры), параметр `sliceType` добавили в хук как хук "на вырост", но callsite не обновили после расширения списка группировок.
+
+**Разрешение (A = spec=truth):**
+Ввести мэппер `groupByToSliceType(group_by)` в `useNetworkStats.ts` или утилитный модуль:
+```ts
+const GROUP_BY_TO_SLICE: Record<string, string> = {
+  provider: 'provider', operator: 'operator', channel: 'channel',
+  login: 'login', country: 'country',
+};
+function groupByToSliceType(gb: string): string {
+  return GROUP_BY_TO_SLICE[gb] || 'provider'; // fallback для временных группировок (5min, hour, day)
+}
+```
+И изменить все 3 callsites на `stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)`.
+
+Альтернатива — инкапсулировать решение прямо в хуке: `openDrillDownFromRow(row)` сам читает current `group_by`. Более чисто.
+
+**Связанные AC:** AC-30 (зафиксировано bug-first: тест описывает текущее поведение). После фикса — обновить AC-30, чтобы `slice_type` зависел от `group_by`.
+
+**Приоритет:** 🟡 MEDIUM. Функционально ломает drill-down для 4 из 5 dimensional-группировок (operator, channel, login, country), но пользователь, возможно, до сих пор не заметил, если практически использует только group_by=provider.
+
+**Статус:** 🟡 OPEN-MEDIUM. AC-30 фиксирует текущее поведение. Фикс — одно изменение в 3 callsites + 1 utility.
+
+---
+
+## D-15: Абсолютные пороги `pending/error` во фронтенде — без источника истины
+
+**Обнаружено:** 2026-04-21 при self-critique Batch 2 AC (AC-26, AC-27).
+
+**Что в коде:**
+
+Backend ([`domain/models.go:14-21`](../../internal/services/network_analytics/domain/models.go#L14-L21)) объявляет:
+```go
+DLRRateWarning     = 0.90
+DLRRateDanger      = 0.80
+LatencyP95WarnMs   = ...
+LatencyP95DangerMs = ...
+ErrorRateWarning   = ...   // процент, НЕ абсолютный count
+ErrorRateDanger    = ...   // процент
+PendingCountWarn   = 100   // абсолютный
+PendingCountDanger = 500   // абсолютный
+```
+Эти константы используются только в `deriveHealth(...)` ([models.go:355-359](../../internal/services/network_analytics/domain/models.go#L355-L359)) для вычисления `health ∈ {ok, warning, danger}` на каждой строке.
+
+Frontend независимо вводит свои пороги для визуальной окраски столбцов:
+- [StatisticsTable.tsx:43](../../portal-frontend/src/components/network-stats/StatisticsTable.tsx#L43): `r.pending > 100 ? 'text-amber-600' : ''` — совпадает с `PendingCountWarn=100`, но порог 500 (`PendingCountDanger`) не используется, нет red-варианта.
+- [StatisticsTable.tsx:45](../../portal-frontend/src/components/network-stats/StatisticsTable.tsx#L45): `r.error > 500 ? 'text-red-600' : 'text-amber-600'` (при error>0). **Число 500 не соответствует ни одной backend-константе** — в backend нет абсолютных error thresholds, только `ErrorRateWarning/Danger` (проценты).
+- [MonitoringTable.tsx:45](../../portal-frontend/src/components/network-stats/MonitoringTable.tsx#L45): `r.pending > 100 ? 'text-amber-600 font-medium' : ''` — совпадает со StatisticsTable.
+- [MonitoringTable.tsx:47](../../portal-frontend/src/components/network-stats/MonitoringTable.tsx#L47): `r.error > 0 ? 'text-red-600 font-medium'` — любой error сразу красный, **другая логика** по сравнению с StatisticsTable.
+- [DrillDownDrawer.tsx:140](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L140): `row.error > 0 ? 'text-red-600'` — как MonitoringTable.
+
+**Три разные логики окраски `error` в трёх местах + число 500 без основания + DLR/profit используют отдельные пороги (AC-22/AC-23/AC-25).**
+
+**Последствие:**
+1. Пороги дрейфуют без уведомления: если backend поднимет `PendingCountWarn` до 200, StatisticsTable и MonitoringTable останутся на 100.
+2. Нет согласованной UX-политики: одна и та же строка в StatisticsTable (error=300) будет amber, а в MonitoringTable — red.
+3. AC-26/AC-27 тестируют магические числа, которые никто не согласовывал — тесты станут хрупкими при любой ревизии.
+
+**Разрешение:**
+- **A (spec=truth, рекомендуется):** вынести пороги в `@portal-frontend/src/constants/thresholds.ts` или получать из backend response (например, KPI-ответ содержит порог в payload). Использовать **одно** место истины во фронтенде, которое можно держать синхронным с `domain/models.go` через сгенерированную константу или ручной sync.
+- **B (reasoned deviation):** признать, что цветовая раскраска — frontend concern, и можно иметь разные пороги в разных таблицах (drill-down может быть строже основной). Тогда — минимум, документировать каждое число inline и добавить unit-test `expect(PENDING_WARN_THRESHOLD).toBe(100)` рядом с backend-константой.
+
+**Связанные AC:** AC-26 (pending > 100), AC-27 (error > 500), AC-22/AC-23 (DLR thresholds). Все в Batch 2.
+
+**Приоритет:** 🟡 LOW. UX-симметрия нарушена, но не ломает функциональность. Реальная цена проявится при первой ревизии порогов.
+
+**Статус:** 🟡 OPEN-LOW. При разрешении — упростить AC-26/AC-27, сослать на константы вместо hard-coded "100"/"500" в тексте AC.
+
