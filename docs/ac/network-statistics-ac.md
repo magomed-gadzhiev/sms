@@ -1027,3 +1027,271 @@
 4. **Drift D-15 активен и в Monitoring — три разные error-логики.** Batch 3 AC-50 снова тестирует error > 0 → red (без ступени 500 как в Statistics). Это осознанно — AC по факту кода. После разрешения D-15 все AC-26/27/50 будут переписаны единообразно.
 
 5. **KPI `chart` (historical window) не покрыт ни одним AC.** В `MonitoringResponse.chart` есть поле с metric points (я видел при чтении server.go:77-82). В UI рендеринг chart'а отсутствует (нет компонента, который его читает). Это значит — либо chart вообще не использован, либо используется только в drill-down drawer (Batch 4). Если не использован — это dead data, drift-кандидат. Проверить при Batch 4.
+
+**Post-Batch 4 update (2026-04-21):** Проверено — `chart`, `trends`, `previous_kpis` действительно НЕ рендерятся нигде во фронтенде (grep по `components/network-stats/*` пусто). Drift зафиксирован как D-16 в `_DRIFT.md`.
+
+---
+
+## Batch 4: Drill-down Drawer
+
+**Scope batch'а:** drill-down drawer, открывающийся при клике по строке основной таблицы. Содержит: overlay + sticky drawer справа (480px), breadcrumb-навигация, health badge, summary KPI grid (3 кол), 5 tabs (operators/statuses/errors/timeline/money), drawer-таблица (5 колонок) с onClick → drill deeper, hint-banner.
+
+**Источники истины (верифицировано 2026-04-21):**
+- [portal-frontend/src/components/network-stats/DrillDownDrawer.tsx](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx)
+- [portal-frontend/src/hooks/useNetworkStats.ts](../../portal-frontend/src/hooks/useNetworkStats.ts) (openDrillDown 183, drillDeeper 197, navigateDrillDown 214, setDrillDownView 239, closeDrillDown 259)
+- [portal-frontend/src/api/networkStats.ts](../../portal-frontend/src/api/networkStats.ts) (DrillDownResponse 109, getDrillDown 173)
+- [portal-frontend/src/pages/network/NetworkStatisticsPage.tsx](../../portal-frontend/src/pages/network/NetworkStatisticsPage.tsx) (drawer mounting 152-164)
+
+### Группа R: Открытие и позиционирование
+
+#### AC-54: Drawer открывается в правой части экрана с оверлеем
+
+**ДАНО:**
+- Mode=stats, есть строка с slice="mts"
+- Drawer закрыт (`stats.drillDown === null`)
+
+**КОГДА:** клик по строке таблицы
+
+**ТОГДА:**
+- Drawer рендерится (`<div class="fixed top-0 right-0 h-full w-[480px] ...">`) — фиксированная ширина 480 px, прилип к правому краю, высота 100%
+- Поверх основной страницы рендерится полупрозрачный overlay (`<div class="fixed inset-0 bg-black/20 z-40">`)
+- Drawer имеет `z-50` (выше overlay), shadow `shadow-xl`, левый border `border-l border-gray-200`
+- Header drawer'а имеет `sticky top-0` — остаётся видимым при прокрутке содержимого
+
+**Источник:** [DrillDownDrawer.tsx:47-59](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L47-L59).
+
+---
+
+#### AC-55: Закрытие drawer'а: клик по X, overlay или breadcrumb "Статистика"
+
+**ДАНО:**
+- Drawer открыт, стек глубиной 1 (один уровень детализации)
+
+**КОГДА:** пользователь выполняет одно из действий:
+  1. Клик по иконке X в правом верхнем углу
+  2. Клик по overlay (вне drawer'а)
+  3. Клик по текстовой ссылке "Статистика" в breadcrumb
+
+**ТОГДА:**
+- `stats.drillDown` становится `null` → drawer и overlay исчезают из DOM (в NetworkStatisticsPage drawer условно рендерится по `stats.drillDown !== null`)
+- Стек детализации `drillDownStack` очищается ([useNetworkStats.ts:216-218,259-262](../../portal-frontend/src/hooks/useNetworkStats.ts#L216))
+- Основная страница (таблица статистики) становится интерактивной
+
+**Источник:** [DrillDownDrawer.tsx:54,62,74](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L54-L74) — три разных обработчика, все ведут к `onClose` или `onNavigate(0)`.
+
+---
+
+### Группа S: Breadcrumb-навигация
+
+#### AC-56: Breadcrumb на первом уровне детализации — "Статистика / {label}"
+
+**ДАНО:**
+- Клик по строке "mts" в основной таблице → drill-down открыт, `drillDownStack` = [{sliceType: 'provider', sliceValue: 'mts', label: 'mts'}]
+
+**КОГДА:** drawer отрендерился
+
+**ТОГДА:**
+- В header'е drawer'а breadcrumb из двух элементов:
+  1. Кликабельная синяя ссылка "Статистика" (`text-blue-600 hover:underline`)
+  2. Иконка ChevronRight (серая)
+  3. Нередактируемый текст "mts" (`font-semibold text-slate-900`) — **не** кликабельный, т.к. это текущий уровень
+
+**Источник:** [DrillDownDrawer.tsx:61-72](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L61-L72).
+
+---
+
+#### AC-57: Breadcrumb на втором уровне: промежуточный элемент кликабелен
+
+**ДАНО:**
+- Из первого уровня "mts" пользователь кликнул по строке "Билайн" → drillDownStack = [{provider, mts, 'mts'}, {operator, beeline, 'Билайн'}]
+
+**КОГДА:** drawer отрендерился
+
+**ТОГДА:**
+- Breadcrumb: "Статистика" (ссылка) / ChevronRight / "mts" (ссылка `text-blue-600 hover:underline`) / ChevronRight / "Билайн" (font-semibold, не ссылка)
+- Клик по "mts" вызывает `onNavigate(1)` → `navigateDrillDown(1)` → стек обрезается до 1 уровня и отправляется запрос по первому уровню
+
+**Источник:** [DrillDownDrawer.tsx:66-70](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L66-L70), [useNetworkStats.ts:214-236](../../portal-frontend/src/hooks/useNetworkStats.ts#L214-L236).
+
+---
+
+### Группа T: Health badge и Summary KPI
+
+#### AC-58: Health badge: "Норма" / "Внимание" / "Проблемный"
+
+**ДАНО:**
+- Ответ drill-down: A) `health="ok"`, B) `health="warning"`, C) `health="danger"`
+
+**КОГДА:** drawer отрендерился
+
+**ТОГДА:**
+- A: badge с текстом "Норма", класс `bg-emerald-50 border-emerald-200 text-emerald-600`
+- B: "Внимание", `bg-amber-50 border-amber-200 text-amber-600`
+- C: "Проблемный", `bg-red-50 border-red-200 text-red-600`
+- Если `data.health` отсутствует — используется 'ok' (fallback в [DrillDownDrawer.tsx:49](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L49))
+
+**Источник:** [DrillDownDrawer.tsx:40-44,78-84](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L40-L84).
+
+---
+
+#### AC-59: Summary KPI: 3-колоночная сетка, только при наличии
+
+**ДАНО:**
+- A) Ответ с `summary = [{name: "Всего", value: 1500}, {name: "DLR%", value: 0.94}, {name: "Выручка", value: 50000}]`
+- B) Ответ с `summary = []` или `summary = null`
+
+**КОГДА:** drawer отрендерился
+
+**ТОГДА:**
+- A: блок с `grid grid-cols-3 gap-2`, 3 карточки центрированные. Значения форматируются через `fmtKPI` по name:
+  - "Всего": "1 500" (toLocaleString)
+  - "DLR%" (contains 'rate'): "94.0%" (= value*100)
+  - "Выручка" (contains 'выручка'): "50 000 ₽"
+- B: блок НЕ рендерится (условие `data?.summary && data.summary.length > 0`)
+
+**Источник:** [DrillDownDrawer.tsx:27-32,88-97](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L27-L97).
+
+---
+
+### Группа U: Tabs
+
+#### AC-60: 5 tabs: operators / statuses / errors / timeline / money
+
+**ДАНО:** drawer открыт
+
+**КОГДА:** осмотр области под header
+
+**ТОГДА:**
+- Tabs.List содержит ровно 5 Tabs.Trigger с текстами в указанном порядке:
+  1. "По операторам" (value=operators)
+  2. "По статусам" (value=statuses)
+  3. "По ошибкам" (value=errors)
+  4. "Динамика" (value=timeline)
+  5. "Деньги" (value=money)
+- Активный tab (дефолт=operators при openDrillDown) имеет `border-b-2 border-blue-600 text-blue-600`
+- Неактивные: `text-gray-500 border-transparent`
+
+**Источник:** [DrillDownDrawer.tsx:101-110](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L101-L110).
+
+---
+
+#### AC-61: Смена tab запускает новый запрос с другим detail_view
+
+**ДАНО:**
+- Drawer открыт, активен tab "operators" (первый запрос с `detail_view=operators`)
+
+**КОГДА:** клик по Tabs.Trigger "По статусам"
+
+**ТОГДА:**
+- `onViewChange('statuses')` → `setDrillDownView('statuses')`
+- Уходит новый запрос `GET /portal/v1/reseller/drilldown?...&detail_view=statuses&parent_type=...&parent_value=...`
+- На время запроса в Tabs.Content — текст "Загрузка..." (`text-center py-8 text-gray-400`)
+- После ответа — таблица с новыми rows
+
+**Источник:** [useNetworkStats.ts:239-257](../../portal-frontend/src/hooks/useNetworkStats.ts#L239-L257).
+
+---
+
+### Группа V: Drawer-таблица
+
+#### AC-62: Drawer-таблица содержит 5 колонок
+
+**ДАНО:** drawer открыт, `data.rows` не пустой
+
+**КОГДА:** просмотр таблицы
+
+**ТОГДА:**
+- `<thead>` содержит 5 `<th>`: "Срез" (left), "Всего" (right), "Достав." (right), "Ошибки" (right), "DLR%" (right)
+- В отличие от основной таблицы (12 колонок), здесь компактный набор — умещается в 480 px drawer'а
+- Каждая строка: slice с ChevronRight в синем (намёк на drill deeper), total, delivered (emerald-600), error (red-600 при >0, литерал "0" иначе), DLR% c dlrColor (те же пороги 0.80/0.90 что и в основной таблице)
+
+**Источник:** [DrillDownDrawer.tsx:117-145](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L117-L145).
+
+---
+
+#### AC-63: Клик по строке drawer-таблицы — drill deeper с hardcoded 'operator'
+
+**ДАНО:**
+- Drawer открыт на первом уровне (стек=1), активен tab "operators", в таблице строка с slice="beeline"
+
+**КОГДА:** клик по `<tr>`
+
+**ТОГДА:**
+- `onDrillDeeper('operator', 'beeline', 'beeline')` → запрос `GET /portal/v1/reseller/drilldown?slice_type=operator&slice_value=beeline&detail_view=operators&parent_type=provider&parent_value=mts&...`
+- drillDownStack увеличивается до 2 уровней
+- Breadcrumb становится "Статистика / mts / beeline" (AC-57)
+
+**Drift note:** `onDrillDeeper` в DrillDownDrawer.tsx:132 **hardcode** передаёт `'operator'` первым аргументом независимо от текущего уровня и контекста. Это означает что drill при любом tab'е (по статусам, ошибкам, деньгам) всегда trying 'operator' как slice-type. Для tab'ов не-operators это смысловая ошибка — нельзя "drill down по оператору из статусной разбивки". Расширение **D-14** — hardcode sliceType касается не только top-level-click из NetworkStatisticsPage, но и внутри drawer.
+
+**Источник:** [DrillDownDrawer.tsx:132](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L132).
+
+---
+
+#### AC-64: Loading state в Tabs.Content
+
+**ДАНО:**
+- Drawer открыт, переключение tab'а → запрос в процессе
+
+**КОГДА:** `loading=true`
+
+**ТОГДА:**
+- Tabs.Content показывает только одну строку: `<div class="text-center py-8 text-gray-400">Загрузка...</div>`
+- Таблица и её шапка не рендерятся
+- Health badge в header'е остаётся виден (он зависит от `data?.health`, не от `loading`)
+
+**Источник:** [DrillDownDrawer.tsx:114-115](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L114-L115).
+
+---
+
+#### AC-65: Empty state — "Нет данных"
+
+**ДАНО:**
+- Drawer открыт, запрос завершён, `rows=[]`
+
+**КОГДА:** рендер Tabs.Content
+
+**ТОГДА:**
+- `<div class="text-center py-8 text-gray-400">Нет данных</div>` вместо таблицы
+- Hint-баннер "Кликните по строке..." тоже скрыт (условие `data?.rows && data.rows.length > 0`)
+
+**Источник:** [DrillDownDrawer.tsx:146-147,153](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L146-L153).
+
+---
+
+#### AC-66: Hint-баннер "Кликните по строке..." отображается при наличии строк
+
+**ДАНО:** drawer открыт, rows содержит ≥1 строку
+
+**КОГДА:** рендер drawer'а
+
+**ТОГДА:**
+- В нижней части drawer'а блок `<div class="mx-4 mb-4 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-[11px] text-gray-500 flex items-center gap-1.5">`
+- Содержит иконку Info (серую) + текст "Кликните по строке для перехода на следующий уровень детализации"
+- При rows=[] блок скрыт (AC-65)
+
+**Источник:** [DrillDownDrawer.tsx:153-158](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L153-L158).
+
+---
+
+## Итого в Batch 4
+
+- **13 AC (AC-54..AC-66)** покрывают: позиционирование drawer'а и способы закрытия (AC-54..AC-55), breadcrumb-навигация на 1 и 2 уровнях (AC-56..AC-57), health badge + summary KPI (AC-58..AC-59), 5 tabs с переключением detail_view (AC-60..AC-61), drawer-таблица и клик → drill deeper с hardcoded 'operator' (AC-62..AC-63), loading/empty/hint (AC-64..AC-66).
+- **Зафиксированные drift'ы:**
+  - D-14 расширен: onDrillDeeper внутри drawer тоже hardcode `'operator'` (AC-63 drift note)
+  - D-16 (новый): `MonitoringResponse.chart`, `AnalyticsResponse.trends`, `AnalyticsResponse.previous_kpis`, `DrillDownResponse.trends` — данные на wire, но не рендерятся ни одним компонентом (dead fields). Отдельная запись в `_DRIFT.md`.
+- **Не покрыто в этом batch** (Batch 5):
+  - Saved views UI (кнопки +Сохранить, список view-chip'ов, удаление)
+  - Keyboard-accessibility (Escape для закрытия drawer'а, Tab-navigation по tabs)
+  - Accessibility / ARIA атрибуты drawer'а как dialog
+
+## Критика своего четвёртого батча
+
+1. **AC-54 не проверяет ARIA-роль drawer'а.** В коде нет `role="dialog"`, нет `aria-modal`, нет `aria-labelledby`. Это a11y-gap, не покрытый никаким AC. Для E2E-тестов сейчас использовать позицию/CSS-классы, для a11y-batch позже — отдельный набор AC.
+
+2. **AC-63 drift (hardcoded 'operator') делает 4 из 5 tabs частично бесполезными для drill deeper.** Клик по строке статуса запустит "drill down по оператору" — пользователь увидит запутанные данные. AC фиксирует поведение, но правильный фикс — не просто исправить hardcode, а **убрать onRowClick на tabs с не-operator детализацией**.
+
+3. **AC-60 fiziruet Tab-labels, но tabs 'statuses'/'errors'/'timeline'/'money' могут вовсе не возвращать данных** на текущем backend'е (не проверялось). Если backend для `detail_view=timeline` возвращает 500 или пустой rows — AC-64 (loading) и AC-65 (empty) покроют, но это только верхушка. Полноценный AC "drawer для detail_view=timeline возвращает X метрик" требует Batch 5+ или отдельной проверки ручной.
+
+4. **D-16 (dead fields) — не блокер, но архитектурно-важный сигнал.** Backend DeveloperX отправляет `chart`/`trends`/`previous_kpis`, фронтенд забыл реализовать графики. На wire — лишний трафик, в UX — отсутствующая функциональность. При следующей ревизии дизайна: либо добавить Recharts-графики (план упоминает Recharts 3.8.1), либо убрать поля из proto.
+
+5. **Tabs.Content один для всех 5 tabs.** Radix-паттерн нестандартен: обычно делают 5 отдельных Tabs.Content с разной разметкой. Здесь — одна Content, `activeView` меняет запрос, а UI одинаков. Работает, но тестировщик может подумать "как поймать, что 5-й tab активен?" — поймать можно только по `data-state="active"` на Tabs.Trigger, не по Content.

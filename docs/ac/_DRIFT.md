@@ -563,3 +563,37 @@ Frontend независимо вводит свои пороги для визу
 
 **Статус:** 🟡 OPEN-LOW. При разрешении — упростить AC-26/AC-27, сослать на константы вместо hard-coded "100"/"500" в тексте AC.
 
+---
+
+## D-16: Поля `chart` / `trends` / `previous_kpis` — dead data на wire
+
+**Обнаружено:** 2026-04-21 при Batch 4 (Drill-down drawer) AC и self-critique Batch 3.
+
+**Что в protocol / API:**
+- [`MonitoringResponse.chart: MetricPoint[]`](../../portal-frontend/src/api/networkStats.ts#L102-L107) — исторический график throughput/latency для режима мониторинга.
+- [`AnalyticsResponse.trends: {metric, points}[]`](../../portal-frontend/src/api/networkStats.ts#L93-L100) — трендовые серии для режима аналитики.
+- [`AnalyticsResponse.previous_kpis: KPI[]`](../../portal-frontend/src/api/networkStats.ts#L95) — KPI предыдущего периода для delta-сравнения.
+- [`DrillDownResponse.trends: {metric, points}[]`](../../portal-frontend/src/api/networkStats.ts#L109-L114) — трендовые серии внутри drill-down.
+- Все четыре поля заполняются бэкендом ([network_analytics/grpc/server.go:56-91](../../internal/services/network_analytics/grpc/server.go#L56-L91)): `Trends`, `PreviousKpis`, `Chart` — всё попадает в ответ.
+
+**Что в UI:**
+- `grep '\.chart\|\.trends\|previous_kpis' portal-frontend/src/components/network-stats/*` → **пусто**.
+- `KPI.delta` используется — но только в [StatisticsKPIStrip.tsx:57-59](../../portal-frontend/src/components/network-stats/StatisticsKPIStrip.tsx#L57-L59) (стрелка ↑/↓ + процент). `previous_kpis` как отдельное поле не читается.
+- Recharts 3.8.1 объявлен в зависимостях (plan 019-portal-ux-improvements), но ни один компонент в `network-stats/` не импортирует `recharts`.
+
+**Последствие:**
+1. **UX-gap.** Спека упоминает: "Mode Analytics — тренды, сигналы", "Mode Monitoring — throughput chart", "Drill-down — временная динамика". Ни одна из этих функций не реализована на фронтенде — только таблицы.
+2. **Wire waste.** Backend вычисляет `chart`/`trends`/`previous_kpis` (включая запросы к `network_stats_hourly` для трендов) и отправляет клиенту. Пропускная способность потребляется без пользы. Для drill-down, вызываемого на каждый клик строки, это заметный overhead.
+3. **Protocol drift.** Proto-схема [api/proto/network_analytics/*.proto](../../api/proto/network_analytics/) декларирует поля как часть контракта; если в будущем кто-то решит их реализовать — нужна сверка, что формат не сдрейфовал от backend'а.
+
+**Разрешение:**
+- **A (complete the feature):** реализовать графики. `AnalyticsResponse.trends` → новый компонент `TrendsChart` (Recharts), рендерится над таблицей в mode=analytics. `MonitoringResponse.chart` → `ThroughputChart` в mode=monitoring. `DrillDownResponse.trends` → отдельный tab в drawer (или дополнение к `timeline` tab). `previous_kpis` → вычисление delta клиентом ИЛИ использование уже готового `KPI.delta`, но тогда `previous_kpis` становится избыточен. **Большая работа**: ~3-4 новых компонента + стилизация.
+- **B (amputate):** удалить поля из proto, репо, API-типа. Чище — wire/API отражают только то, что используется. **Плюс:** проще поддерживать. **Минус:** если фичу задумано восстановить — придётся мигрировать proto назад.
+- **C (document as planned):** пометить поля как "reserved for Phase 2", без немедленной реализации. Требует отметки в спеке и readme.
+
+**Приоритет:** 🟡 LOW. Функциональность работает без графиков (таблицы дают ту же информацию, хоть и без визуализации). Но это тип drift'а, который растёт со временем — каждый новый backend-разработчик добавляет поле "на будущее", фронтенд его не видит.
+
+**Связанные AC:** ни один AC не зависит от этих полей. В Batch 4 self-critique point 4 зафиксировано.
+
+**Статус:** 🟡 OPEN-LOW. Решение — при следующем brainstorm'е по разделу (вместе с Analytics Phase 2).
+
