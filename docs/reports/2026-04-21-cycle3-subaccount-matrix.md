@@ -85,6 +85,19 @@
 | query_sm | SMPP | subaccount_child | C-visibility | BROKEN | | see-cycle1:B2 kludge — kludged client_id=user_id used; reads wrong tenant's data | critical | plan:fix-smpp-auth-clientid-lookup.md |
 | query_sm | SMPP | subaccount_parent | C-visibility | BROKEN | | see-cycle1:B2 kludge | critical | plan:fix-smpp-auth-clientid-lookup.md |
 
+| POST /api/v1/webhooks | HTTP | client | C-dlr-routing | OK | | clientID from Auth middleware → gRPC ClientId → INSERT webhook_subscriptions.client_id = authenticated UUID (webhooks.go:25, server.go:49, subscription_repository.go:52-54) | | |
+| POST /api/v1/webhooks | HTTP | subaccount_child | C-dlr-routing | OK | | child client_id from middleware → own webhook_subscription; no parent leakage | | |
+| POST /api/v1/webhooks | HTTP | subaccount_parent | C-dlr-routing | OK | | parent creates own subscriptions; no child scope | | |
+| DLR webhook delivery (SMPP provider → webhook callback) | async | client | C-dlr-routing | BROKEN | | F-D1: DLR callback sets MessageID=uuid.Nil; HandleDLR always hits "message not found, skipping"; webhook delivery for DLR events silently dead (delivery_service.go:168-175, sender/stage.go:81-104) | critical | fix: resolve SMPPMessageID→internal UUID via GetBySMPPMessageID before publishing DLRMessage |
+| DLR webhook delivery (SMPP provider → webhook callback) | async | subaccount_child | C-dlr-routing | BROKEN | | F-D1: same zero UUID bug; moot (no delivery for any client) | critical | same fix as above |
+| DLR webhook delivery (SMPP provider → webhook callback) | async | subaccount_parent | C-dlr-routing | BROKEN | | F-D1: same zero UUID bug | critical | same fix as above |
+| DLR status upsert (sms.dlr → messages table) | async | client | C-dlr-routing | BROKEN | | F-D2: status/stage.go:223 uses dlr.MessageID=uuid.Nil for upsert; no rows matched; DLR status never persisted | major | same root cause as F-D1 |
+| DLR status upsert (sms.dlr → messages table) | async | subaccount_child | C-dlr-routing | BROKEN | | F-D2: same | major | same fix |
+| DLR status upsert (sms.dlr → messages table) | async | subaccount_parent | C-dlr-routing | BROKEN | | F-D2: same | major | same fix |
+| DLR SMPP dispatch (smppv1.DeliverDLR → client receiver bind) | SMPP | client | C-dlr-routing | OK | | Reference cell: Cycle 2 confirmed + tests in grpc_server_test.go | | |
+| submit_sm / DLR callback (inbound deliver_sm on gateway port) | SMPP | client | C-dlr-routing | BROKEN | | Reference cell: Cycle 2 A6-dlr — esm_class check missing; DLR silently misrouted as MO | critical | plan:fix-smpp-esm-class-dlr-check (stub from Cycle 2) |
+| messagingv1 gRPC-external DLR | gRPC-external | client | C-dlr-routing | n/a | | messagingv1 has no DLR-specific RPC for external clients | | |
+
 ## Machine-readable
 
 См. `2026-04-21-cycle3-subaccount-matrix.csv`.

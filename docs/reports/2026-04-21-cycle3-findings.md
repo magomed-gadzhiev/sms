@@ -97,8 +97,80 @@ Note: `subaccount_child` billing still works correctly for the HTTP axis — chi
 
 ## C-dlr-routing (across HTTP + gRPC + SMPP)
 
-_TODO: Task 4_
+### Reference cells (predetermined)
+
+| Cell | Resolution |
+|---|---|
+| C-dlr-routing / SMPP outbound (smppv1.DeliverDLR → client receiver bind) | OK (Cycle 2 + tests: `grpc_server_test.go`) |
+| C-dlr-routing / SMPP inbound (deliver_sm на gateway port) | BROKEN (Cycle 2 A6-dlr — esm_class check missing) |
+| C-dlr-routing / gRPC-external | n/a (messagingv1 не имеет DLR-specific RPC для внешнего клиента) |
+
+### Webhook creation ownership
+
+**Chain:** POST /api/v1/webhooks → `internal/gateway/client/handlers/webhooks.go:CreateWebhook` → `webhookv1.CreateSubscription` gRPC → `webhook/grpc/server.go:CreateSubscription` → `webhook/application/webhook_service.go:CreateSubscription` → SQL `INSERT INTO webhook_subscriptions`.
+
+**Findings:**
+
+1. `webhooks.go:25`: `clientID, ok := middleware.GetClientID(r.Context())` — extracts authenticated client's UUID from context. No override possible from request body (body only contains `url` and `event_types`).
+2. `webhooks.go:48-52`: gRPC call sets `ClientId: clientID.String()` — the authenticated client UUID.
+3. `webhook/grpc/server.go:34-49`: `CreateSubscription` validates `req.ClientId` non-empty, parses as UUID, passes to `s.webhookService.CreateSubscription(ctx, clientID, ...)` — no ctx injection, no override.
+4. `webhook/application/webhook_service.go:65`: `sub := &domain.Subscription{..., ClientID: clientID, ...}` — the authenticated client_id.
+5. `webhook/infrastructure/repository/subscription_repository.go:52-54`: `INSERT INTO webhook_subscriptions (id, client_id, ...) VALUES ($1, $2, ...)` where `$2 = sub.ClientID` = authenticated client UUID.
+
+**Verdict: OK.** `webhook_subscriptions.client_id` = authenticated client_id. No way to inject a different client_id via request body. Applies equally to `client`, `subaccount_child`, and `subaccount_parent` — each gets their own subscription scoped to their own client_id.
+
+### DLR delivery webhook resolution
+
+**Chain:** provider DLR (deliver_sm) → `smsc/pool_async.go:startReader` → `dlrCallback` → `queue.DLRMessage` on Kafka `sms.dlr` topic → `webhook/application/delivery_service.go:HandleDLR` → `msgRepo.GetEnrichment(dlr.MessageID)` → lookup `messages.client_id` → `dispatchToSubscriptions(enrichment.ClientID, ...)` → `getSubscriptions(clientID)` → `ListActiveByClientID(clientID)`.
+
+**Findings (step by step):**
+
+1. `smsc/pool_async.go:217-230`: When `deliver_sm` received, `parseDLRFromDeliverSM` extracts `SMPPMessageID`, `Stat`, `Source`, `Destination`. Result is `*DeliverSMData` — **no internal MessageID (UUID)**.
+2. `pipeline/sender/stage.go:81-104` (DLR callback): creates `queue.DLRMessage{SMPPMessageID: data.SMPPMessageID, ProviderID: &data.ProviderID, Stat: data.Stat, ...}`. **`MessageID` field is never set** — zero value = `uuid.Nil` (`00000000-0000-0000-0000-000000000000`). Published to Kafka topic `sms.dlr`.
+3. `webhook/application/delivery_service.go:168`: `ds.msgRepo.GetEnrichment(ctx, dlr.MessageID)` — queries `messages WHERE id = '00000000-0000-0000-0000-000000000000'`. This always returns `nil, nil` (no rows).
+4. `delivery_service.go:172-175`: `if enrichment == nil || enrichment.ClientID == nil { ds.logger.Warn().Msg("message not found for DLR, skipping"); return nil }` — **webhook delivery silently dropped every time**.
+5. Because of step 4, `dispatchToSubscriptions` is never reached. No webhook callback is ever sent for SMPP provider DLRs.
+
+**Root cause:** The internal message UUID is never resolved from `SMPPMessageID` before publishing the DLR to Kafka. The missing step is a lookup of `messages.id WHERE smpp_message_id = data.SMPPMessageID` (which exists as `storage.MessageRepository.GetBySMPPMessageID` at `storage/message_repository.go:114-115`) but is not called in the DLR callback path.
+
+Note: The `status/stage.go:213-232` consumer also reads from `sms.dlr` but uses `dlr.MessageID` directly for the upsert. Since `MessageID` is zero, the DB upsert writes a status record for UUID `00000000-...`, which either silently fails (no row with that ID) or corrupts a phantom row. This is a separate bug but same root cause.
+
+**Verdict for subaccount_child:** BROKEN. Even for a plain `client` webhook delivery for provider DLRs is broken. The subaccount question is moot since no DLR ever reaches `dispatchToSubscriptions`.
+
+**Verdict for parent:** n/a — parent does not receive child's DLRs. No parent fallback logic exists in webhook resolution (`getSubscriptions` is strictly `WHERE client_id = $1` with no parent lookup). But this is a design gap (no DLR at all).
+
+**Cross-child leakage:** No. `getSubscriptions` at `delivery_service.go:301` calls `ListActiveByClientID(ctx, clientID)` — strictly scoped to the resolved `client_id`. No cross-child leakage in design. The bigger issue is that this code path is never reached.
+
+### New findings (Task 4)
+
+**F-D1 (critical): DLR webhook delivery dead — MessageID never resolved from SMPPMessageID.**
+
+- `pipeline/sender/stage.go:81-104`: DLR callback creates `queue.DLRMessage` with `MessageID = uuid.Nil`. The mapping from `SMPPMessageID → internal message UUID` is missing.
+- `GetBySMPPMessageID` exists at `storage/message_repository.go:114-115` but is not called.
+- Result: `delivery_service.go:HandleDLR` always hits "message not found, skipping" (line 173-175). All webhook DLR callbacks silently dropped.
+- Affects all clients (not just subaccounts). Any HTTP client that registered a webhook for `delivered`/`failed` events receives nothing from SMPP provider DLRs.
+- Severity: **critical** (complete feature failure — webhooks for DLR events are advertised but non-functional for SMPP-sourced DLRs).
+
+**F-D2 (major): status/stage.go DLR upsert also broken by zero MessageID.**
+
+- `pipeline/status/stage.go:223`: `MessageID: dlr.MessageID` where `dlr.MessageID = uuid.Nil`.
+- The `batchUpsert` call will attempt `UPDATE messages WHERE id = '00000000-...'` — no match, no status update written.
+- DLR status updates (DELIVRD, UNDELIV, etc.) never persisted to `messages` table via this path.
+- Note: The `services/dlr/consumer.go` path (for SMPP outbound DLR dispatch) reads from `sms.status` topic (not `sms.dlr`) and uses `update.MessageID` properly — that path is separate and may work if status upsert were working, but since it's also broken by F-D2, SMPP DLR delivery via `DeliverDLR` gRPC to SMPP receiver clients is also broken for SMPP provider DLRs.
+- Severity: **major** (DLR status tracking completely non-functional for SMPP provider receipts).
+
+### Fix plan stub
+
+**F-D1 fix:** In `pipeline/sender/stage.go` DLR callback, after receiving `data.SMPPMessageID`, perform a synchronous lookup `storage.MessageRepository.GetBySMPPMessageID(ctx, data.SMPPMessageID)` to resolve the internal `MessageID`. Set `dlrMsg.MessageID = msg.ID`. Also set `dlrMsg.ClientID = msg.ClientID` to avoid the DB lookup in `HandleDLR`.
+
+Trade-off: this adds a DB roundtrip in the DLR hot path. Alternative: publish an intermediate Kafka message and resolve asynchronously, but that adds latency. Simplest correct fix: synchronous lookup in callback, acceptable since DLR volume is << send volume.
+
+**F-D2 fix:** Same root cause as F-D1. Resolves automatically once F-D1 is fixed.
 
 ## Summary of critical / major findings (new, not reference)
 
-_TODO: Task 5_
+| ID | Axis | Severity | Description | File |
+|---|---|---|---|---|
+| F-C1 | C-visibility | major | `GET /templates/{id}/audit` — no client_id enforcement; any authenticated client reads any template's audit log | `handlers/templates.go:184`, `audit_repository.go:89` |
+| F-D1 | C-dlr-routing | critical | Webhook DLR delivery dead — `DLRMessage.MessageID` never populated in DLR callback; always zero UUID; `HandleDLR` always skips | `pipeline/sender/stage.go:81-104`, `delivery_service.go:168-175` |
+| F-D2 | C-dlr-routing | major | DLR status upsert broken — same zero MessageID causes DB update to match no rows; DLR statuses never written to `messages` table via SMPP provider receipt path | `pipeline/status/stage.go:223`, `delivery_service.go:168-175` |
