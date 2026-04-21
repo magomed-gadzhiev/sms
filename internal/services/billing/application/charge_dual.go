@@ -212,6 +212,17 @@ func ChargeMessageDual(
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
+	// 6a. Метрика маржи по charge_mode. Инкремент на фактический margin-value
+	// (sub_total - agg_total). Parse ошибки — log warn, метрика пропускается:
+	// билд-блокер из-за non-numeric строки здесь был бы хуже, чем потерянная метрика.
+	if marginF, err := parseDecimal(margin); err == nil {
+		billingAggregatorMarginByMode.
+			WithLabelValues(in.AggregatorID.String(), in.ChargeMode).
+			Add(marginF)
+	} else {
+		log.Warn().Err(err).Str("margin", margin).Msg("aggregator_margin metric: parse decimal failed")
+	}
+
 	// 7. События — non-fatal, вне транзакции.
 	if deps.EventPublisher != nil {
 		if err := deps.EventPublisher.PublishTransactionCompleted(ctx, subTxID.String(), in.SubAccountID.String(), string(billingDomain.TransactionTypeCharge), in.SubAccountTotal, in.Currency); err != nil {

@@ -37,6 +37,13 @@ type TarificationConfig struct {
 	// TarifyMessage делегирует read-only Calculate (без списания), фактическое
 	// списание происходит в CommitCharge. По умолчанию false — legacy flow.
 	CommitOnSubmitEnabled bool `mapstructure:"commit_on_submit_enabled"`
+
+	// CommitRetry — параметры worker'а для ретраев неудачных CommitCharge.
+	// Работает независимо от CommitOnSubmitEnabled (при flag=false очередь
+	// пустая — worker делает бесплатные SELECT-ы).
+	CommitRetryIntervalSeconds int `mapstructure:"commit_retry_interval_seconds"`
+	CommitRetryBatchSize       int `mapstructure:"commit_retry_batch_size"`
+	CommitRetryMaxAttempts     int `mapstructure:"commit_retry_max_attempts"`
 }
 
 // ServiceConfig представляет конфигурацию сервиса
@@ -411,6 +418,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("tarification.janitor_interval_seconds", 30)
 	v.SetDefault("tarification.aggregator_cache_ttl_sec", 300)
 	v.SetDefault("tarification.commit_on_submit_enabled", false)
+	v.SetDefault("tarification.commit_retry_interval_seconds", 30)
+	v.SetDefault("tarification.commit_retry_batch_size", 50)
+	v.SetDefault("tarification.commit_retry_max_attempts", 10)
 }
 
 // validate валидирует конфигурацию
