@@ -69,15 +69,54 @@ Reflection: enabled only when `SMPP_SERVICE_ENV=development`.
 
 ### 3.1. PDU Commands
 
-_TODO: Task 4_
+Switch/case dispatch in `internal/gateway/smpp/server/handler.go:73` (`HandlePDU`).
+Auth for all bind variants: `AuthAdapter.AuthenticateBySystemID` (via `h.authenticate`), which calls `authv1.Authenticate` with `system_id` as API key; the SMPP `password` field is **not verified** — only `system_id` is passed to Auth Service.
+
+| PDU | Handler file:line | Service call | Notes |
+|---|---|---|---|
+| `bind_receiver` | handler.go:113 | `authv1.Authenticate` via `AuthAdapter.AuthenticateBySystemID` | Auth by system_id only; password ignored. Saves session binding to Redis. |
+| `bind_transmitter` | handler.go:161 | `authv1.Authenticate` via `AuthAdapter.AuthenticateBySystemID` | Same auth gap. Saves session binding to Redis. |
+| `bind_transceiver` | handler.go:209 | `authv1.Authenticate` via `AuthAdapter.AuthenticateBySystemID` | Same auth gap. Saves session binding to Redis. |
+| `unbind` | handler.go:257 | none | Calls `session.Unbind()`, deletes Redis binding. |
+| `submit_sm` | handler.go:277 | `queue.Producer.PublishOutgoing` (Kafka topic: outgoing) | Rate-limit check; UDH parsed for multipart; message mapping saved to Redis for DLR routing. No gRPC call — goes directly to Kafka. |
+| `deliver_sm` | handler.go:547 | `storage.OptOutRepository.Add` (DB, conditional) | No MO/DLR branching: `esm_class` and `receipted_message_id` TLV are **not inspected**. Handler treats all deliver_sm as MO. Opt-out recorded if text matches STOP/СТОП/ОТПИСАТЬСЯ/UNSUBSCRIBE and session has ClientID. |
+| `enquire_link` | handler.go:401 | none | Refreshes Redis session TTL; replies with `enquire_link_resp`. |
+| `query_sm` | handler.go:418 | `storage.MessageRepository.GetByMessageID` (DB) | Returns SMPP message state mapped from internal status. Returns `ESME_RQUERYFAIL` if `messageRepo` is nil. |
+| `cancel_sm` | handler.go:465 | `storage.MessageRepository.UpdateStatusByMessageID` (DB) | Sets status to `cancelled`. Returns `ESME_RCANCELFAIL` if `messageRepo` is nil. |
+| `replace_sm` | handler.go:498 | `storage.MessageRepository.UpdateTextByMessageID` (DB) | Only allows replace for `pending`/`queued` messages. Returns `ESME_RREPLACEFAIL` if `messageRepo` is nil. |
+
+**Declared in protocol constants but NOT handled (fall through to `generic_nack` with `ESME_RINVCMDID`):**
+
+- `submit_multi_sm` (0x00000021) — declared in `internal/smpp/protocol/constants.go:24`
+- `data_sm` (0x00000103) — declared in `internal/smpp/protocol/constants.go:31`
+
+**Critical finding — DLR not distinguished from MO in `deliver_sm`:** The handler at line 547 does not check `esm_class & 0x04` (delivery-receipt bit) nor look for the `receipted_message_id` TLV. All inbound `deliver_sm` are treated as mobile-originated messages. Actual DLRs arriving on an SMPP link (as opposed to the internal gRPC path) would be processed as opt-out candidates rather than delivery receipts, silently dropped unless text matches a stop-keyword.
 
 ### 3.2. SMPP TLVs
 
-_TODO: Task 4_
+**Zero `Tag*` / `TLV_*` constants declared.** Neither `internal/smpp/protocol/constants.go`, `pdu.go`, nor `pdu_helper.go` define any TLV tag constants. The TLV wire format is implemented generically: `map[uint16][]byte` fields exist on `SubmitSMPDU`, `DeliverSMPDU`, and `BindRespPDU`; encoder (`encoder.go:496`) and decoder (`decoder.go:571`) iterate the map writing/reading raw `uint16` tag values.
+
+**Magic-literal scan in `internal/gateway/smpp/` and `internal/smsc/`:**
+
+No magic TLV hex literals (0x001E `receipted_message_id`, 0x0427 `message_state`, 0x020C `network_error_code`) were found anywhere in `internal/gateway/smpp/`. The TLV map on `DeliverSMPDU` is populated by the decoder but **never read** by `handleDeliverSM` in the new gateway layer — confirming the DLR non-distinction finding above.
+
+In `internal/gateway/smpp/server/handler.go:658` the `BindRespPDU.TLV` map is allocated (`make(map[uint16][]byte)`) but left empty — the `sc_interface_version` TLV (0x0210) is not populated in bind responses.
+
+| Tag (hex) | Symbolic name | Declared in | Used in submit_sm | Used in deliver_sm | Mapped field | Notes |
+|---|---|---|---|---|---|---|
+| — | — | No Tag constants declared anywhere in `internal/smpp/protocol/` | — | — | — | TLVs handled generically as `map[uint16][]byte`; no named constants exist |
 
 ### 3.3. smppv1 control-plane RPC
 
-_TODO: Task 4_
+Service: `smpp.v1.SMPPGateway` (defined in `api/proto/smppv1/smpp_grpc.pb.go`).
+Registered in `cmd/smpp-gateway/main.go:162`: `smppv1.RegisterSMPPGatewayServer(grpcServer, dlrGRPCServer)`.
+Implementation struct: `GRPCServer` in `internal/gateway/smpp/server/grpc_server.go`.
+Listening port: `GRPC_INTERNAL_PORT` env var, default `9095`.
+No mTLS, no auth interceptor — internal network trust only.
+
+| RPC | Handler file:line | Purpose | Notes |
+|---|---|---|---|
+| `DeliverDLR` | grpc_server.go:45 | Delivers a DLR (Delivery Receipt) to a connected SMPP client by finding the session for the given `system_id` and writing a `deliver_sm` PDU with `esm_class=0x04` to its TCP connection. | Called by the dlr-delivery service. Returns `Delivered: false` (not an error) when session not found or cannot receive; caller must handle retry logic. Metrics: `SMPPDLRDeliveryFailed` / `SMPPDLRDelivered`. |
 
 ## 4. gRPC Internal (top-5 hot-path services)
 
