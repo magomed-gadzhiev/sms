@@ -26,6 +26,15 @@
 | SMPP bind_transceiver | SMPP | client | A6-auth | BROKEN | | password ignored, system_id only | critical | plan:docs/superpowers/plans/2026-04-21-fix-smpp-auth-password.md |
 | SMPP bind_transceiver | SMPP | subaccount_child | A6-auth | BROKEN | | password ignored, system_id only | critical | plan:docs/superpowers/plans/2026-04-21-fix-smpp-auth-password.md |
 | SMPP bind_transceiver | SMPP | subaccount_parent | A6-auth | BROKEN | | password ignored, system_id only | critical | plan:docs/superpowers/plans/2026-04-21-fix-smpp-auth-password.md |
+| SMPP submit_sm | SMPP | client | A6-tlv | BROKEN | | inbound TLV map discarded at gateway; SAR/user_message_reference/message_payload not read | major | plan:TBD (Cycle 2 finale) |
+| SMPP submit_sm | SMPP | subaccount_child | A6-tlv | BROKEN | | inbound TLV map discarded at gateway; SAR/user_message_reference/message_payload not read | major | plan:TBD (Cycle 2 finale) |
+| SMPP submit_sm | SMPP | subaccount_parent | A6-tlv | BROKEN | | inbound TLV map discarded at gateway; SAR/user_message_reference/message_payload not read | major | plan:TBD (Cycle 2 finale) |
+| SMPP submit_multi_sm | SMPP | client | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no submit_multi_sm case in switch | minor | wontfix:deprecated PDU, recommend submit_sm |
+| SMPP submit_multi_sm | SMPP | subaccount_child | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no submit_multi_sm case in switch | minor | wontfix:deprecated PDU, recommend submit_sm |
+| SMPP submit_multi_sm | SMPP | subaccount_parent | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no submit_multi_sm case in switch | minor | wontfix:deprecated PDU, recommend submit_sm |
+| SMPP data_sm | SMPP | client | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no data_sm case in switch | minor | wontfix:low usage, recommend submit_sm |
+| SMPP data_sm | SMPP | subaccount_child | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no data_sm case in switch | minor | wontfix:low usage, recommend submit_sm |
+| SMPP data_sm | SMPP | subaccount_parent | A6-submit-ext | MISSING | | handler returns generic_nack(ESME_RINVCMDID); no data_sm case in switch | minor | wontfix:low usage, recommend submit_sm |
 
 ## Machine-readable
 

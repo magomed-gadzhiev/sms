@@ -53,7 +53,58 @@ This is a **large fix** per umbrella ε+hard-gate criteria (touches auth logic).
 
 ## A6-tlv + A6-submit-ext
 
-_TODO: Task 3_
+**Severity:** major
+
+### A6-tlv: inbound TLV discard
+
+TLVs are correctly parsed at the protocol layer. `DecodeSubmitSM` in `internal/smpp/protocol/decoder.go` calls `readTLV()` and stores the result in `submit.TLV` (a `map[uint16][]byte`). The struct field is populated on every submit_sm that carries optional parameters. The problem occurs one layer up: `handleSubmitSM` in `internal/gateway/smpp/server/handler.go` decodes the PDU into a `*SubmitSMPDU` but then constructs a `queue.KafkaMessage` using only mandatory fields — `submit.ShortMessage`, `submit.SourceAddr`, `submit.DestinationAddr`, `submit.ESMClass`, `submit.DataCoding`, `submit.PriorityFlag`, `submit.RegisteredDelivery`, and the address TON/NPI fields. `submit.TLV` is never read at any point. The map goes out of scope with the local `submit` variable and is garbage-collected.
+
+**Evidence:**
+
+```
+// decoder.go:255-264 — TLV is parsed and stored in submit.TLV
+if d.reader.Len() > 0 {
+    tlv, err := d.readTLV()
+    ...
+    submit.TLV = tlv
+}
+
+// handler.go:297-360 — submit decoded, TLV never referenced
+submit, err := h.decoder.DecodeSubmitSM(pdu.Body)
+...
+kafkaMsg := &queue.KafkaMessage{
+    Source:      submit.SourceAddr,
+    Destination: submit.DestinationAddr,
+    Text:        messageText,
+    // submit.TLV — not accessed anywhere in this function
+}
+```
+
+**Missing TLV reading (impact list):**
+
+- `sar_msg_ref_num` / `sar_total_segments` / `sar_segment_seqnum` (0x020C/0x020E/0x020F) — long message segmentation via TLV SAR: not read at all. Gateway only handles long messages via UDH (`ESMClass & 0x40`). Integrators that split long messages using TLV SAR (instead of UDH) will have every segment accepted with ESME_ROK but arrive at Kafka with no segmentation metadata — the downstream consumer cannot reassemble them. The result is N separate truncated messages delivered independently.
+- `user_message_reference` (0x0204) — request correlation: many enterprise SME clients set this to track their own message IDs end-to-end. It is never forwarded to `KafkaMessage.Metadata` or any downstream model. Integrators relying on this field for correlation cannot match send requests to DLRs.
+- `message_payload` (0x0424) — allows body > 254 bytes without UDH encoding: not read. If a client sets `sm_length=0` and puts the text in `message_payload`, `submit.ShortMessage` will be empty and `messageText` will be an empty string. The message is accepted (ESME_ROK) and published to Kafka with an empty body.
+- `receipted_message_id` (0x001E) and `message_state` (0x0427) on inbound side — not applicable here (these are outbound DLR TLVs). The outbound DLR path in `internal/smsc/pool_async.go:342-358` does read them correctly as a fallback for parsing DLRs from providers. This is unrelated to the inbound submit_sm gap.
+
+### A6-submit-ext: submit_multi_sm / data_sm
+
+**submit_multi_sm:** declared at `internal/smpp/protocol/constants.go:24` as `SubmitMultiSM = 0x00000021`. No case for `protocol.SubmitMultiSM` in the `switch pdu.CommandID` at `handler.go:73-100`. Falls through to `default:` at `handler.go:94-100`, which calls `h.sendGenericNack(pdu.SequenceNumber, protocol.ESME_RINVCMDID)`.
+
+**data_sm:** declared at `internal/smpp/protocol/constants.go:30` as `DataSM = 0x00000103`. Same path — no handler case, falls to `default:` → `sendGenericNack(ESME_RINVCMDID)`.
+
+**Real-world usage risk:**
+
+`submit_multi_sm` was deprecated in SMPP v3.4 in favor of multiple `submit_sm` calls, but it remains in active use by legacy enterprise aggregators and some tier-2 operators that were written against SMPP v3.3 or early v3.4 toolkits (Openwave, CMG, SEMA group libraries). The PDU sends one request with a destination list and receives a single `submit_multi_resp` with per-destination status codes. A client using it will get `generic_nack` with `ESME_RINVCMDID` (invalid command ID), which most SMPP clients interpret as a protocol error and may disconnect or retry in a tight loop. The risk is real for any aggregator integration that hasn't been audited for PDU type.
+
+`data_sm` is the SMPP v3.4 mechanism for sending messages with large payloads exclusively via the `message_payload` TLV (no short_message field). It is used by MMS gateways and some modern binary-content platforms. Enterprise usage is lower than `submit_sm` but not negligible. Clients sending `data_sm` will also receive `generic_nack(ESME_RINVCMDID)`.
+
+Neither PDU type silently corrupts data — the client receives an explicit error. The risk is integration failure (not silent data loss), which makes this `major` rather than `critical`. That said, returning `ESME_RINVCMDID` (invalid command ID) instead of `ESME_RINVSYSTYP` or a properly formatted `data_sm_resp`/`submit_multi_resp` is spec-noncompliant and will confuse well-behaved SMPP client stacks.
+
+### Decisions
+
+- **A6-tlv**: крупное (требует TLV tag constants + gateway-to-service passthrough + messaging.Message model change). Fix-plan `docs/superpowers/plans/2026-04-21-fix-smpp-tlv-support.md` — **не создаём в этом task'е**, выделим в финализации Cycle 2 если нужно. Здесь только matrix + gap.
+- **A6-submit-ext**: если низкое использование — `wontfix` с пометкой что клиенты должны использовать submit_sm. Если высокое — отдельный план.
 
 ## A6-dlr + A6-registered-delivery
 
