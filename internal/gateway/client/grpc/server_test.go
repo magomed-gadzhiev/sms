@@ -100,6 +100,14 @@ func (m *mockBillingClient) ChargeMessage(ctx context.Context, in *billingv1.Cha
 	return nil, args.Error(1)
 }
 
+func (m *mockBillingClient) ChargeMessageDual(ctx context.Context, in *billingv1.ChargeMessageDualRequest, opts ...grpc.CallOption) (*billingv1.ChargeMessageDualResponse, error) {
+	args := m.Called(ctx, in)
+	if v := args.Get(0); v != nil {
+		return v.(*billingv1.ChargeMessageDualResponse), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func (m *mockBillingClient) AddCredits(ctx context.Context, in *billingv1.AddCreditsRequest, opts ...grpc.CallOption) (*billingv1.AddCreditsResponse, error) {
 	args := m.Called(ctx, in)
 	if v := args.Get(0); v != nil {

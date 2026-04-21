@@ -53,7 +53,7 @@ func TestTiersCache_GetOrParsePrepaid(t *testing.T) {
 }
 
 func TestTiersCache_InvalidJSON(t *testing.T) {
-	cache, _ := NewTiersCache(128)
+	cache := NewTiersCache(128)
 	_, err := cache.GetOrParseTiered(uuid.New(), 1, []byte(`{bad json`))
 	require.Error(t, err)
 }
