@@ -39,12 +39,7 @@ test.describe('Network Statistics — Monitoring (seed-free)', () => {
     await expect(stats.pauseButton()).toBeVisible();
   });
 
-  test('AC-42: Clicking "Пауза" stops polling; subsequent 10s+ produce no new requests [D-18]', async ({ page }) => {
-    // D-18: useEffect в useNetworkStats.ts:132-139 безусловно вызывает polling.resume()
-    // каждый render в monitoring mode (polling как dep — новый object ref каждый цикл).
-    // Пауза обнуляется на следующем render → кнопка "Продолжить" не появляется.
-    // test.fail() — тест *должен* упасть на текущем коде; позеленеет после фикса D-18.
-    test.fail(true, 'D-18: useEffect re-resumes polling every render');
+  test('AC-42: Clicking "Пауза" stops polling; subsequent 10s+ produce no new requests', async ({ page }) => {
     const stats = new NetworkStatisticsPage(page);
 
     await stats.goto('?mode=monitoring');
@@ -76,8 +71,7 @@ test.describe('Network Statistics — Monitoring (seed-free)', () => {
     ).toBe(0);
   });
 
-  test('AC-43: "Продолжить" resumes polling (first tick ~10s later) [D-18]', async ({ page }) => {
-    test.fail(true, 'D-18: pause never takes effect, so resume path is unreachable');
+  test('AC-43: "Продолжить" resumes polling (first tick ~10s later)', async ({ page }) => {
     const stats = new NetworkStatisticsPage(page);
 
     await stats.goto('?mode=monitoring');

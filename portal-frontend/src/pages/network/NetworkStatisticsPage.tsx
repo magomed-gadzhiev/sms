@@ -183,12 +183,11 @@ export default function NetworkStatisticsPage() {
         <div className="fixed bottom-4 left-48 flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 shadow-md text-sm z-20">
           <span className="text-gray-500 text-xs">Виды:</span>
           {stats.savedViews.map(v => (
-            // D-17 fix: chip is now a <span> wrapper with "load" button + "delete" button on the side.
-            <span key={v.id} className="inline-flex items-stretch rounded border border-gray-300 overflow-hidden hover:border-blue-400">
+            // D-17 fix: two adjacent buttons — load (chip) + delete (×).
+            <span key={v.id} className="inline-flex items-center gap-0.5">
               <button
                 onClick={() => stats.loadView(v.id)}
-                aria-label={`Загрузить вид ${v.name}`}
-                className={`px-2 py-0.5 text-xs transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}`}
+                className={`px-2 py-0.5 rounded text-xs border transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-blue-400'}`}
               >
                 {v.name}
               </button>
@@ -197,7 +196,7 @@ export default function NetworkStatisticsPage() {
                   if (window.confirm(`Удалить вид «${v.name}»?`)) stats.deleteView(v.id);
                 }}
                 aria-label={`Удалить вид ${v.name}`}
-                className="px-1.5 border-l border-gray-300 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                className="px-1 py-0.5 rounded text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
               >
                 ×
               </button>
