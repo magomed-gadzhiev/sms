@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -53,6 +54,12 @@ type CommitChargeResult struct {
 // Drift: между TarifyMessage и CommitCharge тариф мог измениться. Calculate
 // вернёт актуальные цены — это by design.
 func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitChargeRequest) (*CommitChargeResult, error) {
+	start := time.Now()
+	branch := "subaccount" // перезапишется в direct-ветке
+	defer func() {
+		commitChargeDuration.WithLabelValues(branch).Observe(time.Since(start).Seconds())
+	}()
+
 	// 1. Idempotency short-circuit. Если запись в tarification_log уже есть,
 	// значит CommitCharge (или legacy TarifyMessage) уже отработал —
 	// возвращаем AlreadyCommitted без обращения к billing.
@@ -64,6 +71,7 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 			return nil, fmt.Errorf("idempotency check failed: %w", err)
 		}
 		if existing != nil {
+			commitChargeResult.WithLabelValues("already_committed").Inc()
 			return &CommitChargeResult{AlreadyCommitted: true}, nil
 		}
 	}
@@ -86,14 +94,18 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 		switch calc.RejectionCode {
 		case RejectionCodeQuotaNotConfigured, RejectionCodeQuotaServiceMissing:
 			result.QuotaMissing = true
+			commitChargeResult.WithLabelValues("quota_not_configured").Inc()
 		case RejectionCodeInsufficientBalance:
 			result.SubInsufficient = true
+			commitChargeResult.WithLabelValues("insufficient_balance_subaccount").Inc()
 		case RejectionCodeNoTariffPlan, RejectionCodeNoPeriod, RejectionCodeNoTiers:
 			result.NoTariff = true
+			commitChargeResult.WithLabelValues("no_tariff").Inc()
 		default:
 			// Unknown / empty — консервативно маркируем как NoTariff
 			// (поведение, идентичное legacy fallback).
 			result.NoTariff = true
+			commitChargeResult.WithLabelValues("no_tariff").Inc()
 		}
 		return result, nil
 	}
@@ -102,6 +114,7 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 	// billing.ChargeMessage идемпотентен по message_id (см. billing_service.go:424-432:
 	// transactionRepo.GetByMessageID проверяет существование до начала транзакции).
 	if calc.IsDirect {
+		branch = "direct"
 		chargeResult, err := s.saga.Charge(ctx,
 			req.ClientID.String(), req.MessageID.String(),
 			calc.PlatformAmount, calc.Currency,
@@ -109,15 +122,19 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 			int32(req.SegmentCount),
 		)
 		if err != nil {
+			commitChargeResult.WithLabelValues("transport_error").Inc()
+			s.enqueueRetryIfNeeded(ctx, req, err)
 			return nil, fmt.Errorf("billing charge failed: %w", err)
 		}
 		if !chargeResult.Success {
+			commitChargeResult.WithLabelValues("insufficient_balance_subaccount").Inc()
 			return &CommitChargeResult{SubInsufficient: true}, nil
 		}
 
 		// Post-charge side-effects (direct branch): log + publish + counter + recalc.
 		s.commitChargePostCharge(ctx, req, calc, calc.PlatformAmount)
 
+		commitChargeResult.WithLabelValues("committed").Inc()
 		return &CommitChargeResult{
 			Committed:      true,
 			SubAccountTxID: chargeResult.TransactionID,
@@ -143,6 +160,8 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 
 	dualResp, err := s.saga.ChargeDualAtomic(ctx, dualReq)
 	if err != nil {
+		commitChargeResult.WithLabelValues("transport_error").Inc()
+		s.enqueueRetryIfNeeded(ctx, req, err)
 		return nil, fmt.Errorf("dual charge failed: %w", err)
 	}
 
@@ -155,14 +174,21 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 	switch dualResp.Error {
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_UNSPECIFIED:
 		result.Committed = dualResp.Committed
+		if result.Committed {
+			commitChargeResult.WithLabelValues("committed").Inc()
+		}
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_ALREADY_COMMITTED:
 		result.AlreadyCommitted = true
+		commitChargeResult.WithLabelValues("already_committed").Inc()
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_QUOTA_NOT_CONFIGURED:
 		result.QuotaMissing = true
+		commitChargeResult.WithLabelValues("quota_not_configured").Inc()
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT:
 		result.SubInsufficient = true
+		commitChargeResult.WithLabelValues("insufficient_balance_subaccount").Inc()
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR:
 		result.AggInsufficient = true
+		commitChargeResult.WithLabelValues("insufficient_balance_aggregator").Inc()
 	default:
 		return nil, fmt.Errorf("unknown ChargeMessageDualError: %v", dualResp.Error)
 	}
@@ -286,6 +312,52 @@ func (s *TarificationService) commitChargePostCharge(
 				}
 			}
 		}()
+	}
+}
+
+// enqueueRetryIfNeeded добавляет запись в commit_retry_queue при transport-level
+// ошибке billing RPC. Вызывается только для recoverable ошибок (err != nil из
+// saga.Charge или saga.ChargeDualAtomic). Business rejections (insufficient,
+// quota_missing) НЕ enqueue-ятся — retry не изменит результат.
+//
+// Ошибка самого enqueue логируется, но не возвращается вызывающему: исходная
+// ошибка (не-enqueue) — основная, enqueue — best-effort. Idempotent через
+// ON CONFLICT (message_id) DO NOTHING.
+//
+// Race-safety относительно CommitRetryWorker: worker делает ClaimBatch FOR UPDATE
+// на row с тем же message_id. Наш INSERT ... ON CONFLICT DO NOTHING в Postgres
+// — non-blocking относительно FOR UPDATE row-lock: конфликт по PK проверяется
+// без ожидания lock'а, INSERT возвращает 0 rows affected. Это значит: enqueue
+// внутри worker-path (CommitCharge вызван worker'ом, получил transport error,
+// вернул в enqueueRetryIfNeeded) — безопасный ноп, attempt_count не сбрасывается.
+// Worker потом делает свой UpdateAttempt (attempt++) в той же tx и побеждает.
+func (s *TarificationService) enqueueRetryIfNeeded(ctx context.Context, req *CommitChargeRequest, origErr error) {
+	if s.commitRetryRepo == nil {
+		return
+	}
+	now := time.Now().UTC()
+	entry := &domain.CommitRetryEntry{
+		MessageID:      req.MessageID,
+		ClientID:       req.ClientID,
+		OperatorID:     req.OperatorID,
+		SenderName:     req.SenderName,
+		SegmentCount:   req.SegmentCount,
+		IdempotencyKey: req.IdempotencyKey,
+		AttemptCount:   0,
+		LastError:      origErr.Error(),
+		NextRetryAt:    now.Add(time.Second), // первый retry через backoffFor(1) = 1s
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	inserted, err := s.commitRetryRepo.Enqueue(ctx, entry)
+	if err != nil {
+		log.Error().Err(err).
+			Str("message_id", req.MessageID.String()).
+			Msg("commit-charge: enqueue retry failed — financial inconsistency requires manual action")
+		return
+	}
+	if inserted {
+		commitRetryEnqueuedTotal.Inc()
 	}
 }
 

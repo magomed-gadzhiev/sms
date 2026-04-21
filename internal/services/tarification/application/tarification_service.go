@@ -44,6 +44,17 @@ type TarificationService struct {
 	// в read-only Calculate (фактическое списание — в CommitCharge). False —
 	// legacy путь со списанием внутри TarifyMessage.
 	commitOnSubmitEnabled bool
+
+	// commitRetryRepo — optional persistent буфер для retry CommitCharge при
+	// transport/timeout ошибках от billing-service. Nil — enqueue пропускается
+	// (лог ошибки остаётся, но автоматический retry не произойдёт).
+	commitRetryRepo domain.CommitRetryRepository
+}
+
+// SetCommitRetryRepo регистрирует persistent retry очередь для CommitCharge.
+// Вызывается из main при наличии DB + старте CommitRetryWorker.
+func (s *TarificationService) SetCommitRetryRepo(repo domain.CommitRetryRepository) {
+	s.commitRetryRepo = repo
 }
 
 // SetCommitOnSubmitEnabled включает/выключает commit-on-submit flow.
