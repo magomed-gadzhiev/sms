@@ -715,3 +715,48 @@ fetchData();
 
 **Статус:** 🟡 OPEN-MEDIUM.
 
+---
+
+## D-20: `handleSort` в `StatisticsTable` читает stale `filters` prop при быстрых кликах
+
+**Обнаружено:** 2026-04-21 при прогоне e2e-тестов в Docker — AC-28 consistently fails.
+
+**Что в коде** ([StatisticsTable.tsx:54-58](../../portal-frontend/src/components/network-stats/StatisticsTable.tsx#L54-L58)):
+```tsx
+function handleSort(key: string) {
+  const newDir = filters.sort_by === key && filters.sort_dir === 'desc' ? 'asc' : 'desc';
+  onFiltersChange({ sort_by: key, sort_dir: newDir });
+  onApply();
+}
+```
+
+`handleSort` читает `filters` prop через closure каждый render. При быстрых последовательных кликах React не успевает commit-нуть обновлённый `filters` prop к моменту второго клика — computed `newDir` остаётся `'desc'` вместо переключения на `'asc'`. `Suspense` wrapper в `NetworkStatisticsPage.tsx:85-88`, разделяющий lazy-загрузку StatisticsTable, может усугублять задержку commit'а.
+
+**Воспроизведение (e2e):**
+1. `tableHeader('DLR%').click()` → request `sort_by=dlr_rate&sort_dir=desc` ✓
+2. `waitForLoadState('networkidle')` + 300ms timeout
+3. `tableHeader('DLR%').click()` → ожидается `sort_dir=asc`, приходит `desc` снова
+
+**Разрешение (A):**
+Вынести toggle-логику в хук `useNetworkStats` и вычислять `newDir` через функциональный setState, читающий свежий `prev`:
+```tsx
+// useNetworkStats.ts:
+const toggleSort = useCallback((key: string) => {
+  setFiltersState(prev => {
+    const newDir = prev.sort_by === key && prev.sort_dir === 'desc' ? 'asc' : 'desc';
+    const next = { ...prev, sort_by: key, sort_dir: newDir, page: 1 };
+    filtersRef.current = next;
+    return next;
+  });
+  applyFilters();
+}, [applyFilters]);
+
+// StatisticsTable: <th onClick={() => onToggleSort(col.key)}>
+```
+
+**Связанные AC:** AC-28 (помечен `test.fixme()` до фикса).
+
+**Приоритет:** 🟡 LOW. Edge-case (быстрые двойные клики), но мешает e2e. Фикс — небольшой рефакторинг: +одна функция в хуке, -onFiltersChange+onApply в handleSort.
+
+**Статус:** 🟡 OPEN-LOW. AC-28 `test.fixme()` до фикса.
+

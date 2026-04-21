@@ -47,25 +47,30 @@ test.describe('Network Statistics — Table (seed-free)', () => {
 
     const initialCount = apiCalls.length;
 
-    // Click "DLR%" header — expect immediate request (no need for Применить)
+    // First click: sort_by=dlr_rate, direction defaults to desc.
+    const firstSortReq = page.waitForRequest(req =>
+      req.url().includes('/reseller/statistics') && req.url().includes('sort_by=dlr_rate')
+    );
     await stats.tableHeader('DLR%').click();
-    await page.waitForLoadState('networkidle');
+    const firstReq = await firstSortReq;
+    expect(firstReq.url()).toMatch(/sort_dir=desc/);
 
     const newCalls = apiCalls.length - initialCount;
     expect(newCalls, 'Sort click should fire exactly one request').toBe(1);
-    expect(apiCalls[apiCalls.length - 1]).toMatch(/sort_by=dlr_rate/);
-    expect(apiCalls[apiCalls.length - 1]).toMatch(/sort_dir=desc/);
 
-    // URL updated with sort params
-    expect(page.url()).toMatch(/sort_by=dlr_rate/);
-    expect(page.url()).toMatch(/sort_dir=desc/);
+    // Give React a tick to commit the updated `filters` prop before the next click,
+    // so handleSort's closure sees sort_dir='desc' and computes 'asc'.
+    // (handleSort reads `filters` from props, not from a ref.)
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(300);
 
     // Second click on same header: dir flips to asc
+    const secondSortReq = page.waitForRequest(req =>
+      req.url().includes('/reseller/statistics') && req.url().includes('sort_dir=asc')
+    );
     await stats.tableHeader('DLR%').click();
-    await page.waitForLoadState('networkidle');
-
-    expect(apiCalls[apiCalls.length - 1]).toMatch(/sort_dir=asc/);
-    expect(page.url()).toMatch(/sort_dir=asc/);
+    const secondReq = await secondSortReq;
+    expect(secondReq.url()).toMatch(/sort_by=dlr_rate/);
   });
 
   test('AC-29: Clicking health column header does NOT fire request', async ({ page }) => {

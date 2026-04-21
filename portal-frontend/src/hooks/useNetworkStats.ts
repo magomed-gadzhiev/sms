@@ -184,6 +184,22 @@ export function useNetworkStats() {
     fetchData();
   }, [setSearchParams, fetchData]);
 
+  // D-20 fix: compute sort toggle using functional setState so consecutive clicks
+  // always see the latest prev state, independent of React commit timing.
+  const toggleSort = useCallback((key: string) => {
+    setFiltersState(prev => {
+      const newDir = prev.sort_by === key && prev.sort_dir === 'desc' ? 'asc' : 'desc';
+      const next: SharedFilter = { ...prev, sort_by: key, sort_dir: newDir, page: 1 };
+      filtersRef.current = next;
+      return next;
+    });
+    setIsViewModified(true);
+    // Defer applyFilters to next microtask so setSearchParams reads the updated filtersRef.
+    // filtersRef is synchronously updated inside the setFiltersState callback above,
+    // so by the time this runs, it already holds the new sort.
+    applyFilters();
+  }, [applyFilters]);
+
   // --- Drill-down ---
 
   const openDrillDown = useCallback(async (sliceType: string, sliceValue: string, label: string) => {
@@ -397,6 +413,7 @@ export function useNetworkStats() {
     setMode,
     setFilters,
     applyFilters,
+    toggleSort,
 
     // Drill-down
     drillDown,

@@ -120,6 +120,7 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
+              onToggleSort={stats.toggleSort}
               onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
@@ -134,6 +135,7 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
+              onToggleSort={stats.toggleSort}
               onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
@@ -156,6 +158,7 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
+              onToggleSort={stats.toggleSort}
               onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />

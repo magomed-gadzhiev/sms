@@ -7,6 +7,7 @@ interface StatisticsTableProps {
   filters: SharedFilter;
   onFiltersChange: (partial: Partial<SharedFilter>) => void;
   onApply: () => void;
+  onToggleSort: (key: string) => void;
   onRowClick: (row: StatRow) => void;
   loading: boolean;
 }
@@ -50,12 +51,10 @@ const COLUMNS: { key: string; header: string; align: string; render: (r: StatRow
   { key: 'health', header: '', align: 'center', render: r => <span className={`inline-block w-2 h-2 rounded-full ${healthDot(r.health)}`} /> },
 ];
 
-export function StatisticsTable({ rows, pagination, filters, onFiltersChange, onApply, onRowClick, loading }: StatisticsTableProps) {
-  function handleSort(key: string) {
-    const newDir = filters.sort_by === key && filters.sort_dir === 'desc' ? 'asc' : 'desc';
-    onFiltersChange({ sort_by: key, sort_dir: newDir });
-    onApply();
-  }
+export function StatisticsTable({ rows, pagination, filters, onFiltersChange, onApply, onToggleSort, onRowClick, loading }: StatisticsTableProps) {
+  // D-20 fix: toggle logic moved to useNetworkStats.toggleSort (functional setState),
+  // avoiding stale `filters` prop closures on rapid consecutive clicks.
+  void filters; void onFiltersChange; void onApply; // kept in API for other callsites
 
   function handlePageChange(page: number) {
     onFiltersChange({ page });
@@ -87,7 +86,7 @@ export function StatisticsTable({ rows, pagination, filters, onFiltersChange, on
                 <th
                   key={col.key}
                   className={`px-3 py-2.5 font-semibold text-gray-500 text-xs whitespace-nowrap cursor-pointer select-none ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
-                  onClick={() => col.key !== 'health' && handleSort(col.key)}
+                  onClick={() => col.key !== 'health' && onToggleSort(col.key)}
                 >
                   <span className="inline-flex items-center gap-0.5">
                     {col.header}
