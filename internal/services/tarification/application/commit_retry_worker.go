@@ -95,12 +95,12 @@ func (w *CommitRetryWorker) Run(ctx context.Context, interval time.Duration) {
 // Каждая запись — в своей транзакции (tx для claim+update), чтобы ошибка
 // в одной не держала lock на остальных.
 func (w *CommitRetryWorker) RunOnce(ctx context.Context) (int, error) {
-	tx, err := w.repo.BeginTx(ctx)
+	tx, txHandle, err := w.repo.BeginTx(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("begin tx: %w", err)
 	}
 	// Даже при успехе — commit в конце; при early-return rollback освобождает lock'и.
-	defer func() { _ = tx.Rollback() }()
+	defer func() { _ = txHandle.Rollback() }()
 
 	entries, err := w.repo.ClaimBatch(ctx, tx, w.batchSize, time.Now().UTC())
 	if err != nil {
@@ -145,7 +145,7 @@ func (w *CommitRetryWorker) RunOnce(ctx context.Context) (int, error) {
 		commitRetryProcessedTotal.WithLabelValues(outcome).Inc()
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := txHandle.Commit(); err != nil {
 		return 0, fmt.Errorf("commit tx: %w", err)
 	}
 

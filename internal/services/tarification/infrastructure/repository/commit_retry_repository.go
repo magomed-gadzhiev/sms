@@ -123,6 +123,10 @@ func (r *CommitRetryRepository) DeleteTx(ctx context.Context, tx *sqlx.Tx, messa
 	return nil
 }
 
-func (r *CommitRetryRepository) BeginTx(ctx context.Context) (*sqlx.Tx, error) {
-	return r.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+func (r *CommitRetryRepository) BeginTx(ctx context.Context) (*sqlx.Tx, domain.Tx, error) {
+	tx, err := r.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return nil, nil, err
+	}
+	return tx, tx, nil
 }

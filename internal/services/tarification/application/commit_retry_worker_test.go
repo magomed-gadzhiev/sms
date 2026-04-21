@@ -164,10 +164,19 @@ func (r *fakeRetryRepo) DeleteTx(_ context.Context, _ *sqlx.Tx, id uuid.UUID) er
 	return r.Delete(context.Background(), id)
 }
 
-func (r *fakeRetryRepo) BeginTx(_ context.Context) (*sqlx.Tx, error) {
-	// Worker использует tx только как токен для pass-through в Claim/Update/Delete.
-	// Наш fake не обращается к tx содержимому — можно вернуть nil.
-	return nil, nil
+// fakeTx — test-only domain.Tx. Worker вызывает Rollback/Commit; fake отмечает флаг.
+type fakeTx struct {
+	committed  bool
+	rolledBack bool
+}
+
+func (t *fakeTx) Commit() error   { t.committed = true; return nil }
+func (t *fakeTx) Rollback() error { t.rolledBack = true; return nil }
+
+func (r *fakeRetryRepo) BeginTx(_ context.Context) (*sqlx.Tx, domain.Tx, error) {
+	// Worker использует *sqlx.Tx только как opaque pass-through в Claim/Update/Delete.
+	// Наш fake не обращается к tx содержимому — nil ok.
+	return nil, &fakeTx{}, nil
 }
 
 func (r *fakeRetryRepo) count() int {
