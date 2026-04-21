@@ -29,6 +29,10 @@ func (m *mockTarificationClient) TarifyMessage(ctx context.Context, in *tarifica
 	return nil, nil
 }
 
+func (m *mockTarificationClient) CommitCharge(ctx context.Context, in *tarificationv1.CommitChargeRequest, opts ...grpc.CallOption) (*tarificationv1.CommitChargeResponse, error) {
+	return nil, nil
+}
+
 func (m *mockTarificationClient) CreateSenderRegistration(ctx context.Context, in *tarificationv1.CreateSenderRegistrationRequest, opts ...grpc.CallOption) (*tarificationv1.SenderRegistration, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
