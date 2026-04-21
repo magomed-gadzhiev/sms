@@ -61,6 +61,30 @@ function moneyRowValue(row: { slice: string; revenue: number; cost: number; prof
   }
 }
 
+// Maps the drawer's active tab to the slice_type understood by the backend
+// GetDrillDown handler. Each tab displays a different child dimension in
+// row.slice (see stats_repository.go GetDrillDown childDim switch):
+//   operators  -> slice values are operator names      -> slice_type 'operator'
+//   statuses   -> slice values are channels            -> slice_type 'channel'
+//   errors     -> slice values are error codes/labels  -> slice_type 'error'
+//   timeline   -> slice values are truncated timestamps -> slice_type 'hour'
+//   money      -> slice values are sender names        -> slice_type 'sender'
+//                 (money rows render via a different branch that does not call
+//                 onDrillDeeper, so this entry is defensive only).
+// Without this mapping, every drill-deeper click posted slice_type='operator'
+// regardless of the active tab, producing malformed WHERE clauses
+// (e.g. operator_id='delivered') and empty/wrong drawer contents.
+export function viewToSliceType(view: string): string {
+  switch (view) {
+    case 'operators': return 'operator';
+    case 'statuses':  return 'channel';
+    case 'errors':    return 'error';
+    case 'timeline':  return 'hour';
+    case 'money':     return 'sender';
+    default:          return 'operator';
+  }
+}
+
 function healthBadge(h: string): { bg: string; text: string; label: string } {
   if (h === 'danger') return { bg: 'bg-red-50 border-red-200', text: 'text-red-600', label: 'Проблемный' };
   if (h === 'warning') return { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-600', label: 'Внимание' };
@@ -171,7 +195,7 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
                       <tr
                         key={row.slice + i}
                         className={`border-b border-gray-100 cursor-pointer transition-colors ${row.health === 'danger' ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
-                        onClick={() => onDrillDeeper('operator', row.slice, row.slice)}
+                        onClick={() => onDrillDeeper(viewToSliceType(activeView), row.slice, row.slice)}
                       >
                         <td className="py-2 px-2 text-blue-600 flex items-center gap-1">
                           <ChevronRight size={10} className="text-blue-400" />
