@@ -47,6 +47,7 @@ type SentMessage struct {
 	MessageID     uuid.UUID  `json:"message_id"`
 	TraceID       string     `json:"trace_id,omitempty"`
 	ProviderID    uuid.UUID  `json:"provider_id"`
+	OperatorID    *uuid.UUID `json:"operator_id,omitempty"`
 	RouteID       *uuid.UUID `json:"route_id,omitempty"`
 	SMPPMessageID string     `json:"smpp_message_id"`
 	Status        string     `json:"status"` // sent, failed, retry

@@ -29,6 +29,7 @@ type statusRecord struct {
 	Status        string
 	SMPPMessageID string
 	ProviderID    *uuid.UUID
+	OperatorID    *uuid.UUID
 	RouteID       *uuid.UUID
 	SubmittedAt   *time.Time
 	UpdatedAt     time.Time
@@ -203,6 +204,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 			Status:        status,
 			SMPPMessageID: sent.SMPPMessageID,
 			ProviderID:    providerID,
+			OperatorID:    sent.OperatorID,
 			RouteID:       sent.RouteID,
 			SubmittedAt:   &sent.SentAt,
 			UpdatedAt:     time.Now(),
@@ -261,6 +263,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 			status TEXT,
 			smpp_message_id TEXT,
 			provider_id UUID,
+			operator_id UUID,
 			route_id UUID,
 			submitted_at TIMESTAMPTZ,
 			updated_at TIMESTAMPTZ,
@@ -275,7 +278,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"status_batch"},
-		[]string{"id", "status", "smpp_message_id", "provider_id", "route_id", "submitted_at", "updated_at", "segment_count"},
+		[]string{"id", "status", "smpp_message_id", "provider_id", "operator_id", "route_id", "submitted_at", "updated_at", "segment_count"},
 		pgx.CopyFromSlice(len(records), func(i int) ([]any, error) {
 			r := records[i]
 			return []any{
@@ -283,6 +286,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 				r.Status,
 				r.SMPPMessageID,
 				r.ProviderID,
+				r.OperatorID,
 				r.RouteID,
 				r.SubmittedAt,
 				r.UpdatedAt,
@@ -300,6 +304,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 			status = s.status,
 			smpp_message_id = COALESCE(s.smpp_message_id, messages.smpp_message_id),
 			provider_id = COALESCE(s.provider_id, messages.provider_id),
+			operator_id = COALESCE(s.operator_id, messages.operator_id),
 			route_id = COALESCE(s.route_id, messages.route_id),
 			submitted_at = COALESCE(s.submitted_at, messages.submitted_at),
 			updated_at = s.updated_at,
