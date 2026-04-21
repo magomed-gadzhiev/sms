@@ -37,6 +37,16 @@ function dlrColor(rate: number): string {
   return 'text-emerald-600';
 }
 
+function shortLabel(label: string): string {
+  // "2026-04-15 00:00:00+00" / "2026-04-15T00:00:00Z" → "2026-04-15"
+  const midnight = label.match(/^(\d{4}-\d{2}-\d{2})[T ]00:00(:00)?(\+\d{2}(:?\d{2})?|Z)?$/);
+  if (midnight) return midnight[1];
+  // "2026-04-15 09:00:00+00" → "2026-04-15 09:00"
+  const m = label.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  if (m) return `${m[1]} ${m[2]}`;
+  return label;
+}
+
 function healthBadge(h: string): { bg: string; text: string; label: string } {
   if (h === 'danger') return { bg: 'bg-red-50 border-red-200', text: 'text-red-600', label: 'Проблемный' };
   if (h === 'warning') return { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-600', label: 'Внимание' };
@@ -64,9 +74,9 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
                 <span key={i} className="flex items-center gap-1">
                   <ChevronRight size={12} className="text-gray-400" />
                   {i < stack.length - 1 ? (
-                    <button onClick={() => onNavigate(i + 1)} className="text-blue-600 hover:underline">{level.label}</button>
+                    <button onClick={() => onNavigate(i + 1)} className="text-blue-600 hover:underline">{shortLabel(level.label)}</button>
                   ) : (
-                    <span className="font-semibold text-slate-900">{level.label}</span>
+                    <span className="font-semibold text-slate-900">{shortLabel(level.label)}</span>
                   )}
                 </span>
               ))}
@@ -133,7 +143,7 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
                     >
                       <td className="py-2 px-2 text-blue-600 flex items-center gap-1">
                         <ChevronRight size={10} className="text-blue-400" />
-                        {row.slice}
+                        {shortLabel(row.slice)}
                       </td>
                       <td className="py-2 px-2 text-right">{fmt(row.total)}</td>
                       <td className="py-2 px-2 text-right text-emerald-600">{fmt(row.delivered)}</td>
