@@ -258,4 +258,22 @@ Via HTTP to `cmd/client-gateway`: NO. HTTP middleware correctly validates the to
 
 ## Сводная таблица critical / major находок
 
-_TODO: Task 7_
+| # | Axis | Severity | Finding | Action |
+|---|---|---|---|---|
+| 1 | A6-auth | critical | SMPP bind password полностью игнорируется — auth только по system_id. Authentication bypass для всех 3 bind-типов. | plan:[2026-04-21-fix-smpp-auth-password.md](../superpowers/plans/2026-04-21-fix-smpp-auth-password.md) |
+| 2 | A7.3 | critical | gRPC interceptors в client-gateway и cmd/api захардкожены stub'ом (фиксированный dummy UUID). Любой gRPC вызов = один и тот же dummy tenant. | plan:[2026-04-21-fix-grpc-auth-interceptor.md](../superpowers/plans/2026-04-21-fix-grpc-auth-interceptor.md) |
+| 3 | A6-tlv | major | `submit_sm` TLV map полностью отбрасывается на gateway. SAR TLVs (0x020C-F), user_message_reference (0x0204) никогда не читаются. `message_payload` (0x0424) → silent data loss (пустое body в Kafka). | plan:TBD (комбинированный KafkaMessage refactor — см. мета-находку) |
+| 4 | A6-dlr | major | Inbound `deliver_sm` не различает MO и DLR (`esm_class & 0x04` не проверяется, TLV не читаются). DLR от внешних ESME, приходящие на наш gateway-порт, трактуются как MO и теряются. | plan:TBD |
+| 5 | A6-registered-delivery | major | `registered_delivery` байт записывается в Kafka metadata, но downstream потребитель его не читает. Провайдер всегда получает `registered_delivery=0` независимо от того что клиент запросил. | plan:TBD (часть KafkaMessage refactor) |
+| 6 | A6-datacoding | major | `data_coding` сохраняется в metadata, но `KafkaMessage.ToMessage()` его дропает → downstream `msg.DataCoding=0` для всех SMPP-сообщений. Плюс body bytes cast в Go string без транскодинга → mojibake для UCS-2/Cyrillic (0x06, 0x08). | plan:TBD (часть KafkaMessage refactor) |
+| 7 | A6-long-msg | major | UDH парсинг не валидирует IE identifier (assume 0x00). Multi-IE UDH и 16-bit ref UDH (IE 0x08) приводят к неправильным metadata. Плюс UDH сегменты страдают от тог же `ToMessage()` drop → приходят как независимые сообщения. | plan:TBD (часть KafkaMessage refactor) |
+| 8 | A6-submit-ext | minor | `submit_multi_sm` и `data_sm` возвращают `generic_nack ESME_RINVCMDID`. Рекомендуется клиентам использовать `submit_sm`. | wontfix:deprecated/low-usage |
+| 9 | A7.2 (GetMessageStatus) | minor | messagingv1.GetMessageStatus разрешает nil clientID → downstream ownership check пропускается. Эксплуатируется только bypass'ом proxy (internal network). Proxy перед вызовом заполняет req.ClientId из ctx. | inline-fix-candidate (≤50 строк в messaging service, потенциально в рамках отдельного security-hardening плана) |
+
+## Мета-находка: унификация KafkaMessage.Metadata
+
+Оси **A6-tlv, A6-dlr (registered_delivery propagation), A6-registered-delivery, A6-datacoding, A6-long-msg** имеют общую root-cause: `KafkaMessage.Metadata` (map[string]interface{}) заполняется gateway'ем, но `KafkaMessage.ToMessage()` в `internal/queue/message.go:31-53` **не копирует никакие Metadata-ключи** в `shared.Message`.
+
+Комплексный рефактор `KafkaMessage` struct (first-class fields для `DataCoding`, `ESMClass`, `RegisteredDelivery`, `UDHSegments`, `InboundTLVs`) закроет 4 из 7 major-находок сразу.
+
+**Рекомендуемый отдельный план:** `docs/superpowers/plans/2026-04-21-fix-kafka-message-metadata-propagation.md` (не создан в этом цикле, кандидат для следующей итерации).

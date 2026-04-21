@@ -3,9 +3,9 @@
 **Snapshot date:** 2026-04-21
 **Spec:** `docs/superpowers/specs/2026-04-21-api-review-v2-umbrella.md`
 **Plan:** `docs/superpowers/plans/2026-04-21-api-review-v2-cycle2-smpp-tenant.md`
-**Phase completed:** skeleton (all UNKNOWN)
-**OK rows with test_file (ratchet baseline):** 0
-**Total rows:** заполнить в финале
+**Phase completed:** finalized — все 7 tasks выполнены
+**OK rows with test_file (ratchet baseline):** 0 (Cycle 2 — аудит, тесты покрытия появляются в fix-планах)
+**Total rows:** см. CSV (`wc -l` minus header)
 
 ## Legend
 
