@@ -39,6 +39,11 @@ func (m *MockDeliveryRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 	return args.Error(0)
 }
 
+func (m *MockDeliveryRepository) UpdateStatusCAS(ctx context.Context, id uuid.UUID, expectedStatus domain.DeliveryStatus, newStatus domain.DeliveryStatus, deliveredVia string) error {
+	args := m.Called(ctx, id, expectedStatus, newStatus, deliveredVia)
+	return args.Error(0)
+}
+
 func (m *MockDeliveryRepository) UpdateStep(ctx context.Context, id uuid.UUID, step int) error {
 	args := m.Called(ctx, id, step)
 	return args.Error(0)
