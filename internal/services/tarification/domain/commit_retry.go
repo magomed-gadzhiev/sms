@@ -47,6 +47,11 @@ type CommitRetryRepository interface {
 	// Не требует tx.
 	Delete(ctx context.Context, messageID uuid.UUID) error
 
+	// DeleteTx — та же операция, но внутри транзакции worker'а (row уже
+	// locked через ClaimBatch FOR UPDATE). Предпочтительна для worker'а,
+	// чтобы delete/update coexistовали атомарно с claim.
+	DeleteTx(ctx context.Context, tx *sqlx.Tx, messageID uuid.UUID) error
+
 	// BeginTx — хелпер для callers, которым нужна транзакция для ClaimBatch/UpdateAttempt.
 	BeginTx(ctx context.Context) (*sqlx.Tx, error)
 }

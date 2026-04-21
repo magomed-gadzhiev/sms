@@ -26,12 +26,16 @@ func (r *CommitRetryRepository) Enqueue(ctx context.Context, e *domain.CommitRet
 		INSERT INTO commit_retry_queue (
 			message_id, client_id, operator_id, sender_name, segment_count,
 			idempotency_key, attempt_count, last_error, next_retry_at, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (message_id) DO NOTHING
 	`
+	var lastErr sql.NullString
+	if e.LastError != "" {
+		lastErr = sql.NullString{String: e.LastError, Valid: true}
+	}
 	res, err := r.db.ExecContext(ctx, query,
 		e.MessageID, e.ClientID, e.OperatorID, e.SenderName, e.SegmentCount,
-		e.IdempotencyKey, e.AttemptCount, e.LastError, e.NextRetryAt,
+		e.IdempotencyKey, e.AttemptCount, lastErr, e.NextRetryAt,
 		e.CreatedAt, e.UpdatedAt,
 	)
 	if err != nil {
@@ -47,7 +51,7 @@ func (r *CommitRetryRepository) Enqueue(ctx context.Context, e *domain.CommitRet
 func (r *CommitRetryRepository) ClaimBatch(ctx context.Context, tx *sqlx.Tx, limit int, now time.Time) ([]*domain.CommitRetryEntry, error) {
 	const query = `
 		SELECT message_id, client_id, operator_id, sender_name, segment_count,
-		       idempotency_key, attempt_count, COALESCE(last_error, ''),
+		       idempotency_key, attempt_count, last_error,
 		       next_retry_at, created_at, updated_at
 		FROM commit_retry_queue
 		WHERE next_retry_at <= $1
@@ -64,12 +68,16 @@ func (r *CommitRetryRepository) ClaimBatch(ctx context.Context, tx *sqlx.Tx, lim
 	var out []*domain.CommitRetryEntry
 	for rows.Next() {
 		e := &domain.CommitRetryEntry{}
+		var lastErr sql.NullString
 		if err := rows.Scan(
 			&e.MessageID, &e.ClientID, &e.OperatorID, &e.SenderName, &e.SegmentCount,
-			&e.IdempotencyKey, &e.AttemptCount, &e.LastError,
+			&e.IdempotencyKey, &e.AttemptCount, &lastErr,
 			&e.NextRetryAt, &e.CreatedAt, &e.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
+		}
+		if lastErr.Valid {
+			e.LastError = lastErr.String
 		}
 		out = append(out, e)
 	}
@@ -84,11 +92,15 @@ func (r *CommitRetryRepository) UpdateAttempt(ctx context.Context, tx *sqlx.Tx, 
 		UPDATE commit_retry_queue
 		SET attempt_count = $2,
 		    next_retry_at = $3,
-		    last_error    = NULLIF($4, ''),
+		    last_error    = $4,
 		    updated_at    = NOW()
 		WHERE message_id = $1
 	`
-	_, err := tx.ExecContext(ctx, query, messageID, attemptCount, nextRetryAt, lastError)
+	var lastErr sql.NullString
+	if lastError != "" {
+		lastErr = sql.NullString{String: lastError, Valid: true}
+	}
+	_, err := tx.ExecContext(ctx, query, messageID, attemptCount, nextRetryAt, lastErr)
 	if err != nil {
 		return fmt.Errorf("update attempt: %w", err)
 	}
@@ -99,6 +111,14 @@ func (r *CommitRetryRepository) Delete(ctx context.Context, messageID uuid.UUID)
 	const query = `DELETE FROM commit_retry_queue WHERE message_id = $1`
 	if _, err := r.db.ExecContext(ctx, query, messageID); err != nil {
 		return fmt.Errorf("delete commit retry: %w", err)
+	}
+	return nil
+}
+
+func (r *CommitRetryRepository) DeleteTx(ctx context.Context, tx *sqlx.Tx, messageID uuid.UUID) error {
+	const query = `DELETE FROM commit_retry_queue WHERE message_id = $1`
+	if _, err := tx.ExecContext(ctx, query, messageID); err != nil {
+		return fmt.Errorf("delete commit retry (tx): %w", err)
 	}
 	return nil
 }

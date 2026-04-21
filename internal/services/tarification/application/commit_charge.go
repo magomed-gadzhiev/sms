@@ -323,6 +323,14 @@ func (s *TarificationService) commitChargePostCharge(
 // Ошибка самого enqueue логируется, но не возвращается вызывающему: исходная
 // ошибка (не-enqueue) — основная, enqueue — best-effort. Idempotent через
 // ON CONFLICT (message_id) DO NOTHING.
+//
+// Race-safety относительно CommitRetryWorker: worker делает ClaimBatch FOR UPDATE
+// на row с тем же message_id. Наш INSERT ... ON CONFLICT DO NOTHING в Postgres
+// — non-blocking относительно FOR UPDATE row-lock: конфликт по PK проверяется
+// без ожидания lock'а, INSERT возвращает 0 rows affected. Это значит: enqueue
+// внутри worker-path (CommitCharge вызван worker'ом, получил transport error,
+// вернул в enqueueRetryIfNeeded) — безопасный ноп, attempt_count не сбрасывается.
+// Worker потом делает свой UpdateAttempt (attempt++) в той же tx и побеждает.
 func (s *TarificationService) enqueueRetryIfNeeded(ctx context.Context, req *CommitChargeRequest, origErr error) {
 	if s.commitRetryRepo == nil {
 		return

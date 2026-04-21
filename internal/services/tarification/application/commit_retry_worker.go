@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
@@ -111,19 +110,23 @@ func (w *CommitRetryWorker) RunOnce(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	// Держим список DELETE на после-tx (DELETE вне tx, т.к. Delete() использует
-	// self-contained query). UPDATE делаем внутри tx — row уже locked.
-	var toDelete []uuid.UUID
-
+	// Все operations — внутри tx (claim, update, delete). row locked FOR UPDATE,
+	// Commit освобождает lock'и одним атомом. Если Commit упадёт — ни один
+	// processed outcome не применится (вариант отличный от прежнего split'а,
+	// где DELETE был вне tx и при его сбое метрика success переоценивалась).
 	for _, e := range entries {
 		outcome, lastErr := w.processEntry(ctx, e)
 		switch outcome {
 		case "success", "terminal":
-			toDelete = append(toDelete, e.MessageID)
+			if err := w.repo.DeleteTx(ctx, tx, e.MessageID); err != nil {
+				w.logger.Warn().Err(err).Str("message_id", e.MessageID.String()).Msg("delete entry failed")
+			}
 		case "transient":
 			nextAttempt := e.AttemptCount + 1
 			if nextAttempt >= w.maxAttempts {
-				toDelete = append(toDelete, e.MessageID)
+				if err := w.repo.DeleteTx(ctx, tx, e.MessageID); err != nil {
+					w.logger.Warn().Err(err).Str("message_id", e.MessageID.String()).Msg("delete entry failed")
+				}
 				commitRetryExhaustedTotal.Inc()
 				w.logger.Error().
 					Str("message_id", e.MessageID.String()).
@@ -131,6 +134,7 @@ func (w *CommitRetryWorker) RunOnce(ctx context.Context) (int, error) {
 					Int("attempts", nextAttempt).
 					Str("last_error", lastErr).
 					Msg("commit retry exhausted — message sent but not charged, manual reconciliation required")
+				commitRetryProcessedTotal.WithLabelValues(outcome).Inc()
 				continue
 			}
 			nextAt := time.Now().UTC().Add(backoffFor(nextAttempt))
@@ -143,13 +147,6 @@ func (w *CommitRetryWorker) RunOnce(ctx context.Context) (int, error) {
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit tx: %w", err)
-	}
-
-	// DELETE вне tx — queries self-contained.
-	for _, id := range toDelete {
-		if err := w.repo.Delete(ctx, id); err != nil {
-			w.logger.Warn().Err(err).Str("message_id", id.String()).Msg("delete entry failed")
-		}
 	}
 
 	return len(entries), nil
