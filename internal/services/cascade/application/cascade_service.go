@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -117,22 +118,20 @@ func (s *CascadeService) StartCascade(ctx context.Context, evt cascadekafka.Casc
 		return fmt.Errorf("get delivery: %w", err)
 	}
 
-	// Идемпотентность: уже обработано
-	if delivery.Status != domain.DeliveryPending {
-		s.logger.Debug().Str("delivery_id", deliveryID.String()).Str("status", string(delivery.Status)).Msg("доставка уже обрабатывается, пропускаем")
-		return nil
+	if err := s.deliveries.UpdateStatusCAS(ctx, deliveryID,
+		domain.DeliveryPending, domain.DeliveryInProgress, ""); err != nil {
+		if errors.Is(err, domain.ErrDeliveryConflict) {
+			return nil
+		}
+		return fmt.Errorf("update delivery status to in_progress: %w", err)
 	}
+	delivery.Status = domain.DeliveryInProgress
+	s.metrics.ActiveDeliveries.Inc()
 
 	strategy, err := s.strategies.Get(ctx, delivery.StrategyID)
 	if err != nil {
 		return fmt.Errorf("get strategy: %w", err)
 	}
-
-	if err := s.deliveries.UpdateStatus(ctx, deliveryID, domain.DeliveryInProgress, ""); err != nil {
-		return fmt.Errorf("update delivery status to in_progress: %w", err)
-	}
-	delivery.Status = domain.DeliveryInProgress
-	s.metrics.ActiveDeliveries.Inc()
 
 	return s.executeNextStep(ctx, delivery, strategy, 0)
 }
@@ -181,7 +180,11 @@ func (s *CascadeService) ProcessAttemptResult(ctx context.Context, evt cascadeka
 			return fmt.Errorf("update attempt delivered: %w", err)
 		}
 		// Финализируем доставку
-		if err := s.deliveries.UpdateStatus(ctx, deliveryID, domain.DeliveryDelivered, attempt.ChannelType); err != nil {
+		if err := s.deliveries.UpdateStatusCAS(ctx, deliveryID,
+			domain.DeliveryInProgress, domain.DeliveryDelivered, attempt.ChannelType); err != nil {
+			if errors.Is(err, domain.ErrDeliveryConflict) {
+				return nil
+			}
 			return fmt.Errorf("update delivery delivered: %w", err)
 		}
 		s.logger.Info().
@@ -235,7 +238,11 @@ func (s *CascadeService) executeNextStep(ctx context.Context, delivery *domain.D
 	nextStep := strategy.NextStep(afterStep)
 	if nextStep == nil {
 		// Все шаги исчерпаны
-		if err := s.deliveries.UpdateStatus(ctx, delivery.ID, domain.DeliveryFailed, ""); err != nil {
+		if err := s.deliveries.UpdateStatusCAS(ctx, delivery.ID,
+			domain.DeliveryInProgress, domain.DeliveryFailed, ""); err != nil {
+			if errors.Is(err, domain.ErrDeliveryConflict) {
+				return nil
+			}
 			return fmt.Errorf("mark delivery failed: %w", err)
 		}
 		s.logger.Info().Str("delivery_id", delivery.ID.String()).Msg("все шаги каскада исчерпаны, доставка не удалась")
@@ -255,6 +262,9 @@ func (s *CascadeService) executeNextStep(ctx context.Context, delivery *domain.D
 			channelCfg, _ := s.channels.Get(ctx, nextStep.ChannelID)
 			attempt := domain.NewDeliveryAttempt(delivery.ID, nextStep.ChannelID, string(nextStep.ChannelType), nextStep.StepOrder, delivery.Currency)
 			if err := s.attempts.Create(ctx, attempt); err != nil {
+				if errors.Is(err, domain.ErrAttemptAlreadyExists) {
+					return nil
+				}
 				return fmt.Errorf("create skipped attempt: %w", err)
 			}
 			now := time.Now()
@@ -280,6 +290,9 @@ func (s *CascadeService) executeNextStep(ctx context.Context, delivery *domain.D
 	// Создаём attempt
 	attempt := domain.NewDeliveryAttempt(delivery.ID, nextStep.ChannelID, string(nextStep.ChannelType), nextStep.StepOrder, delivery.Currency)
 	if err := s.attempts.Create(ctx, attempt); err != nil {
+		if errors.Is(err, domain.ErrAttemptAlreadyExists) {
+			return nil
+		}
 		return fmt.Errorf("create attempt: %w", err)
 	}
 
