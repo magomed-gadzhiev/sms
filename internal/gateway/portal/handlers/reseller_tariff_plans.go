@@ -54,7 +54,7 @@ func (h *ResellerTariffPlanHandlers) checkSubAccountOwnership(w http.ResponseWri
 		`SELECT parent_client_id::text FROM clients WHERE id = $1`, subAccountID,
 	).Scan(&parentID)
 	if err != nil || parentID != resellerID {
-		respondError(w, shared.ErrNotFound("субаккаунт не найден"))
+		respondError(w, shared.ErrNotFound("субаккаунт"))
 		return false
 	}
 	return true
@@ -66,7 +66,7 @@ func (h *ResellerTariffPlanHandlers) checkTemplateOwnership(w http.ResponseWrite
 		`SELECT reseller_id::text FROM reseller_tariff_templates WHERE id = $1 AND active = true`, templateID,
 	).Scan(&ownerID)
 	if err != nil || ownerID != resellerID {
-		respondError(w, shared.ErrNotFound("шаблон не найден"))
+		respondError(w, shared.ErrNotFound("шаблон"))
 		return false
 	}
 	return true
@@ -78,7 +78,7 @@ func (h *ResellerTariffPlanHandlers) checkPlanOwnership(w http.ResponseWriter, r
 		`SELECT reseller_id::text FROM reseller_tariff_plans WHERE id = $1 AND active = true`, planID,
 	).Scan(&ownerID)
 	if err != nil || ownerID != resellerID {
-		respondError(w, shared.ErrNotFound("тарифный план не найден"))
+		respondError(w, shared.ErrNotFound("тарифный план"))
 		return false
 	}
 	return true
@@ -294,28 +294,50 @@ func (h *ResellerTariffPlanHandlers) AssignTemplate(w http.ResponseWriter, r *ht
 	}
 
 	var req struct {
-		SubAccountID string `json:"sub_account_id"`
+		SubAccountID  string   `json:"sub_account_id"`
+		SubAccountIDs []string `json:"sub_account_ids"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.SubAccountID == "" {
-		respondError(w, shared.ErrInvalidInput("sub_account_id обязательно"))
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
-	if !h.checkSubAccountOwnership(w, r, resellerID, req.SubAccountID) {
+	ids := req.SubAccountIDs
+	if len(ids) == 0 && req.SubAccountID != "" {
+		ids = []string{req.SubAccountID}
+	}
+	if len(ids) == 0 {
+		respondError(w, shared.ErrInvalidInput("sub_account_ids обязательно"))
 		return
+	}
+	for _, id := range ids {
+		if !h.checkSubAccountOwnership(w, r, resellerID, id) {
+			return
+		}
 	}
 
-	_, err := h.pool.Exec(r.Context(),
-		`INSERT INTO sub_account_template_assignments (sub_account_id, template_id)
-		 VALUES ($1, $2)
-		 ON CONFLICT (sub_account_id) DO UPDATE SET template_id = $2, assigned_at = NOW()`,
-		req.SubAccountID, templateID,
-	)
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка назначения шаблона")
-		respondError(w, shared.ErrInternalServer("ошибка назначения"))
+		respondError(w, shared.ErrInternalServer("ошибка начала транзакции"))
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
+	defer tx.Rollback(r.Context())
+	for _, id := range ids {
+		if _, err := tx.Exec(r.Context(),
+			`INSERT INTO sub_account_template_assignments (sub_account_id, template_id)
+			 VALUES ($1, $2)
+			 ON CONFLICT (sub_account_id) DO UPDATE SET template_id = $2, assigned_at = NOW()`,
+			id, templateID,
+		); err != nil {
+			log.Error().Err(err).Msg("ошибка назначения шаблона")
+			respondError(w, shared.ErrInternalServer("ошибка назначения"))
+			return
+		}
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка фиксации транзакции"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "assigned": len(ids)})
 }
 
 // UnassignTemplate POST /portal/v1/reseller/tariff-templates/{id}/unassign
@@ -713,16 +735,32 @@ func (h *ResellerTariffPlanHandlers) CreatePeriod(w http.ResponseWriter, r *http
 	respondJSON(w, http.StatusCreated, map[string]interface{}{"id": id})
 }
 
-// UpdatePeriod PUT /portal/v1/reseller/tariff-plans/{planId}/periods/{periodId}
+// checkPeriodOwnership verifies that the period belongs to an active plan owned by the reseller.
+// Returns the owning plan ID on success.
+func (h *ResellerTariffPlanHandlers) checkPeriodOwnership(w http.ResponseWriter, r *http.Request, resellerID, periodID string) (string, bool) {
+	var ownerID, planID string
+	err := h.pool.QueryRow(r.Context(),
+		`SELECT p.reseller_id::text, p.id::text
+		 FROM reseller_tariff_plans p
+		 JOIN reseller_tariff_periods per ON per.tariff_plan_id = p.id
+		 WHERE per.id = $1 AND p.active = true`, periodID,
+	).Scan(&ownerID, &planID)
+	if err != nil || ownerID != resellerID {
+		respondError(w, shared.ErrNotFound("период"))
+		return "", false
+	}
+	return planID, true
+}
+
+// UpdatePeriod PUT /portal/v1/reseller/tariff-periods/{id}
 func (h *ResellerTariffPlanHandlers) UpdatePeriod(w http.ResponseWriter, r *http.Request) {
 	resellerID, ok := h.checkReseller(w, r)
 	if !ok {
 		return
 	}
-	vars := mux.Vars(r)
-	planID := vars["id"]
-	periodID := vars["periodId"]
-	if !h.checkPlanOwnership(w, r, resellerID, planID) {
+	periodID := mux.Vars(r)["id"]
+	planID, ok := h.checkPeriodOwnership(w, r, resellerID, periodID)
+	if !ok {
 		return
 	}
 
@@ -777,16 +815,15 @@ func (h *ResellerTariffPlanHandlers) UpdatePeriod(w http.ResponseWriter, r *http
 	respondJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
 }
 
-// DeletePeriod DELETE /portal/v1/reseller/tariff-plans/{planId}/periods/{periodId}
+// DeletePeriod DELETE /portal/v1/reseller/tariff-periods/{id}
 func (h *ResellerTariffPlanHandlers) DeletePeriod(w http.ResponseWriter, r *http.Request) {
 	resellerID, ok := h.checkReseller(w, r)
 	if !ok {
 		return
 	}
-	vars := mux.Vars(r)
-	planID := vars["id"]
-	periodID := vars["periodId"]
-	if !h.checkPlanOwnership(w, r, resellerID, planID) {
+	periodID := mux.Vars(r)["id"]
+	planID, ok := h.checkPeriodOwnership(w, r, resellerID, periodID)
+	if !ok {
 		return
 	}
 
@@ -810,7 +847,7 @@ func (h *ResellerTariffPlanHandlers) ListTiers(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
-	periodID := mux.Vars(r)["periodId"]
+	periodID := mux.Vars(r)["id"]
 
 	// Verify period ownership via plan
 	var planResellerID string
@@ -856,7 +893,7 @@ func (h *ResellerTariffPlanHandlers) UpsertTiers(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	periodID := mux.Vars(r)["periodId"]
+	periodID := mux.Vars(r)["id"]
 
 	// Verify ownership and get strategy
 	var planResellerID, strategy string
