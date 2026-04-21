@@ -15,17 +15,17 @@ var (
 
 // SavedSegment represents a cross-list saved segment with filter rules.
 type SavedSegment struct {
-	ID             uuid.UUID
-	ClientID       uuid.UUID
-	Name           string
-	Description    string
-	ContactListIDs []uuid.UUID
-	Rules          SegmentRules
-	TagRules       *TagRules
-	EstimatedCount int32
-	EstimatedAt    *time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             uuid.UUID    `json:"id"`
+	ClientID       uuid.UUID    `json:"client_id"`
+	Name           string       `json:"name"`
+	Description    string       `json:"description"`
+	ContactListIDs []uuid.UUID  `json:"contact_list_ids"`
+	Rules          SegmentRules `json:"rules"`
+	TagRules       *TagRules    `json:"tag_rules,omitempty"`
+	EstimatedCount int32        `json:"estimated_count"`
+	EstimatedAt    *time.Time   `json:"estimated_at,omitempty"`
+	CreatedAt      time.Time    `json:"created_at"`
+	UpdatedAt      time.Time    `json:"updated_at"`
 }
 
 // SegmentRules represents the top-level rule group with nested conditions.
