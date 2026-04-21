@@ -39,6 +39,14 @@ func (m *testBillingClient) ChargeMessage(ctx context.Context, in *billingv1.Cha
 	return args.Get(0).(*billingv1.ChargeMessageResponse), args.Error(1)
 }
 
+func (m *testBillingClient) ChargeMessageDual(ctx context.Context, in *billingv1.ChargeMessageDualRequest, opts ...grpc.CallOption) (*billingv1.ChargeMessageDualResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.ChargeMessageDualResponse), args.Error(1)
+}
+
 func (m *testBillingClient) AddCredits(ctx context.Context, in *billingv1.AddCreditsRequest, opts ...grpc.CallOption) (*billingv1.AddCreditsResponse, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
