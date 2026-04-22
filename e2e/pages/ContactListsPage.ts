@@ -4,7 +4,7 @@ export class ContactListsPage {
   constructor(private page: Page) {}
 
   async goto() {
-    await this.page.goto('/contact-lists');
+    await this.page.goto('/contact-lists', { waitUntil: 'domcontentloaded' });
     await expect(
       this.page.getByRole('heading', { level: 1, name: 'Контактные базы' }),
     ).toBeVisible();
