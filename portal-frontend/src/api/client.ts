@@ -653,6 +653,40 @@ export const tariffsApi = {
   getUsage: () => apiFetch<{ counters: unknown[]; total: number }>('/tariffs/usage'),
 };
 
+// Client effective-price matrix (spec §5.1.8, Task 22). Returns the
+// read-only effective tariff for the caller's own sub-account.
+export interface ClientTariffsEffectiveCell {
+  operator_id: string;
+  tier_id: string;
+  effective: number | null;
+}
+
+export interface ClientTariffsEffectiveResponse {
+  plan: { id: string; strategy: string; currency: string } | null;
+  period: { id: string; from: string; to: string | null } | null;
+  operators: { id: string; name: string; icon: string | null }[];
+  tiers: { id: string; from_quantity: number }[];
+  cells: ClientTariffsEffectiveCell[];
+}
+
+export const clientTariffsApi = {
+  getEffective: (params?: {
+    channel?: string;
+    country?: string;
+    sender_category?: string;
+    traffic_type?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set('channel', params?.channel ?? 'sms');
+    qs.set('country', params?.country ?? 'RU');
+    qs.set('sender_category', params?.sender_category ?? 'paid_registered');
+    qs.set('traffic_type', params?.traffic_type ?? 'any');
+    return apiFetch<ClientTariffsEffectiveResponse>(
+      `/client/tariffs/effective?${qs.toString()}`,
+    );
+  },
+};
+
 // Lookup API
 export const lookupApi = {
   single: (phone: string) =>
