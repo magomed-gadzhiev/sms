@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { templatesApi, senderNamesApi, ApiError, type TemplateInfo, type SenderNameInfo } from '../../api/client';
+import { useNavigate } from 'react-router-dom';
+import { templatesApi, ApiError, type TemplateInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { DataTable, type Column } from '../../components/data/DataTable';
-import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { TemplateFormModal } from '../../components/templates/TemplateFormModal';
 import { TemplatePreviewModal } from '../../components/templates/TemplatePreviewModal';
 
 const PAGE_SIZE = 20;
@@ -20,42 +18,21 @@ const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' |
   rejected: { variant: 'danger', label: 'Отклонён' },
 };
 
-function pluralize(n: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(n);
-  const mod10 = abs % 10;
-  const mod100 = abs % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${n} ${one}`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} ${few}`;
-  return `${n} ${many}`;
-}
-
 function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
 export function TemplatesPage() {
+  const navigate = useNavigate();
+
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Approved sender names for dropdown
-  const [approvedSenderNames, setApprovedSenderNames] = useState<SenderNameInfo[]>([]);
-  const [sendersError, setSendersError] = useState(false);
-
-  // Create / Edit modal
-  const [showForm, setShowForm] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<TemplateInfo | null>(null);
-
   // Preview modal
   const [previewTemplate, setPreviewTemplate] = useState<TemplateInfo | null>(null);
-
-  // Submit for review loading
-  const [submittingId, setSubmittingId] = useState<string | null>(null);
-
-  // Delete confirmation
-  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -77,64 +54,6 @@ export function TemplatesPage() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
-
-  function loadSenderNames() {
-    setSendersError(false);
-    senderNamesApi.listApproved()
-      .then((res) => setApprovedSenderNames(res.sender_names || []))
-      .catch(() => setSendersError(true));
-  }
-
-  useEffect(() => {
-    loadSenderNames();
-  }, []);
-
-  // --- Create / Edit ---
-
-  function openCreateForm() {
-    setEditingTemplate(null);
-    setShowForm(true);
-  }
-
-  function openEditForm(tpl: TemplateInfo) {
-    setEditingTemplate(tpl);
-    setShowForm(true);
-  }
-
-  // --- Preview ---
-
-  function openPreview(tpl: TemplateInfo) {
-    setPreviewTemplate(tpl);
-  }
-
-  // --- Submit for review ---
-
-  async function handleSubmitForReview(id: string) {
-    if (submittingId) return;
-    setSubmittingId(id);
-    setError('');
-    try {
-      await templatesApi.submit(id);
-      await fetchTemplates();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось отправить на модерацию');
-    } finally {
-      setSubmittingId(null);
-    }
-  }
-
-  // --- Delete ---
-
-  async function handleDelete(id: string) {
-    setError('');
-    try {
-      await templatesApi.remove(id);
-      setDeleteId(null);
-      await fetchTemplates();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось удалить шаблон');
-    }
-  }
 
   // --- Table columns ---
 
@@ -187,32 +106,14 @@ export function TemplatesPage() {
     },
   ];
 
-  const deleteTemplate = templates.find((t) => t.id === deleteId);
-
   return (
     <div className="w-full">
       <PageHeader
         title="Шаблоны"
-        subtitle={total > 0 ? pluralize(total, 'шаблон', 'шаблона', 'шаблонов') : undefined}
-        actions={
-          <Button onClick={openCreateForm}>
-            Создать шаблон
-          </Button>
-        }
+        subtitle="Справочник всех ваших шаблонов. Создание и редактирование — в карточке имени отправителя."
       />
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
-
-      {/* Create / Edit modal */}
-      <TemplateFormModal
-        open={showForm}
-        onClose={() => { setShowForm(false); setEditingTemplate(null); }}
-        onSubmitted={() => { fetchTemplates(); setShowForm(false); setEditingTemplate(null); }}
-        editingTemplate={editingTemplate}
-        availableSenderNames={approvedSenderNames}
-        availableSenderNamesError={sendersError}
-        onReloadSenderNames={loadSenderNames}
-      />
 
       {/* Preview modal */}
       <TemplatePreviewModal
@@ -220,26 +121,20 @@ export function TemplatesPage() {
         onClose={() => setPreviewTemplate(null)}
       />
 
-      {/* Delete confirmation */}
-      <ConfirmDialog
-        open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={() => deleteId && handleDelete(deleteId)}
-        title="Удалить шаблон"
-        description={`Вы уверены, что хотите удалить шаблон${deleteTemplate ? ` "${deleteTemplate.name}"` : ''}? Это действие необратимо.`}
-        confirmLabel="Удалить"
-        variant="danger"
-      />
-
       {loading && templates.length === 0 && (
         <div role="status">Загрузка шаблонов...</div>
       )}
 
       {!loading && !error && templates.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          <p className="mb-2">Шаблоны не созданы</p>
-          <p className="text-sm mb-4">Создайте первый шаблон для отправки сообщений</p>
-          <Button onClick={openCreateForm}>Создать шаблон</Button>
+        <div className="text-center py-16 text-gray-500">
+          <p className="mb-2">У вас пока нет шаблонов</p>
+          <p className="text-sm">
+            Откройте{' '}
+            <a href="/sender-names" className="text-primary underline hover:no-underline">
+              список имён отправителей
+            </a>
+            , зарегистрируйте имя и создайте шаблон во вкладке «Шаблоны» на его странице.
+          </p>
         </div>
       )}
 
@@ -254,81 +149,20 @@ export function TemplatesPage() {
         onPageChange={setPage}
         loading={loading}
         keyField="id"
-        bulkActions={[
-          {
-            label: 'На проверку',
-            variant: 'primary',
-            requiresConfirmation: true,
-            confirmMessage: (n) => `Отправить ${n} шаблонов на проверку?`,
-            onAction: async (ids) => {
-              const submittable = templates
-                .filter((t) => ids.includes(t.id) && (t.status === 'draft' || t.status === 'revision_requested'))
-                .map((t) => t.id);
-              await Promise.all(submittable.map((id) => templatesApi.submit(id).catch(() => {})));
-              await fetchTemplates();
-            },
-          } as BulkAction<TemplateInfo>,
-          {
-            label: 'Удалить',
-            variant: 'danger',
-            requiresConfirmation: true,
-            confirmMessage: (n) => `Удалить ${n} шаблонов? Это действие необратимо.`,
-            onAction: async (ids) => {
-              await Promise.all(ids.map((id) => templatesApi.remove(id).catch(() => {})));
-              await fetchTemplates();
-            },
-          } as BulkAction<TemplateInfo>,
-        ]}
+        bulkActions={[]}
         rowActions={(tpl) => (
-          <div className="flex gap-1 flex-wrap">
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Превью ${tpl.name}`}
-              onClick={() => openPreview(tpl)}
-            >
-              Превью
-            </Button>
-
-            {(tpl.status === 'draft' || tpl.status === 'revision_requested') && (
-              <Button
-                variant="primary"
-                size="sm"
-                aria-label={`Отправить ${tpl.name} на модерацию`}
-                disabled={submittingId === tpl.id}
-                onClick={() => handleSubmitForReview(tpl.id)}
-              >
-                {submittingId === tpl.id ? 'Отправка...' : 'На модерацию'}
-              </Button>
-            )}
-
-            {(tpl.status === 'draft' || tpl.status === 'revision_requested' || tpl.status === 'rejected') && (
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setPreviewTemplate(tpl)}>Превью</Button>
+            {tpl.sender_name_id ? (
               <Button
                 variant="ghost"
                 size="sm"
-                aria-label={`Редактировать ${tpl.name}`}
-                onClick={() => openEditForm(tpl)}
+                onClick={() => navigate(`/sender-names/${tpl.sender_name_id}?tab=templates`)}
               >
-                Редактировать
+                Перейти к имени
               </Button>
-            )}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Удалить ${tpl.name}`}
-              onClick={() => setDeleteId(tpl.id)}
-            >
-              Удалить
-            </Button>
-
-            {tpl.status === 'rejected' && tpl.rejection_reason && (
-              <span
-                className="inline-flex items-center text-xs text-red-600 ml-1"
-                title={tpl.rejection_reason}
-              >
-                Причина: {truncate(tpl.rejection_reason, 30)}
-              </span>
+            ) : (
+              <span className="text-xs text-gray-400">без имени</span>
             )}
           </div>
         )}
