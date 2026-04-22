@@ -17,14 +17,15 @@ const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' |
   deactivated: { variant: 'default', label: 'Деактивировано' },
 };
 
-const ALPHANUMERIC_RE = /^[A-Za-z0-9 ]{1,11}$/;
+const ALPHANUMERIC_RE = /^[A-Za-z0-9._-]{1,11}$/;
 const NUMERIC_RE = /^\d{1,15}$/;
 
 function validateName(name: string): string {
-  if (!name.trim()) return 'Имя обязательно';
+  if (!name) return 'Имя обязательно';
+  if (/\s/.test(name)) return 'Пробелы запрещены';
   if (NUMERIC_RE.test(name)) return '';
-  if (ALPHANUMERIC_RE.test(name) && name.trim() !== '') return '';
-  return 'Имя должно быть 1–11 латинских букв/цифр или 1–15 цифр';
+  if (ALPHANUMERIC_RE.test(name)) return '';
+  return 'Латиница, не более 11 символов. Можно использовать цифры и знаки . _ -';
 }
 
 function formatDate(dt: string) {
@@ -168,7 +169,7 @@ export function SenderNamesPage() {
               maxLength={15}
             />
             <p id="sender-name-hint" className="mt-1 text-xs text-gray-500">
-              1–11 латинских букв/цифр/пробелов или 1–15 цифр
+              Латиница, не более 11 символов. Можно использовать цифры и знаки . _ -. Пробелы запрещены.
             </p>
             {createError && <p className="mt-1 text-sm text-red-600">{createError}</p>}
           </div>
