@@ -1,8 +1,43 @@
 # UX Audit Progress
 
-## [IN_PROGRESS] Модуль: Отправка сообщений и рассылок — спринт 3 (aggregator + subaccount, fix, 2026-04-22)
+## [DONE] Модуль: Отправка сообщений и рассылок — спринт 3 (aggregator + subaccount, fix, 2026-04-22)
 
-Scope: B2 XSS sanitization, B9 восстановление старых pending, B10 cost-estimate для subaccount, B11 polling на странице детализации кампании, B12 исправить ссылку на CommandCenter.
+Scope: хвост UX/security-багов из предыдущих спринтов. Все P2/P3 закрыты, остаётся B5 (500→400 validation codes) и B8 (seed тарифов) — требуют отдельной работы.
+
+### Исправлено (commit 222d824)
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| B2 | HIGH (security) | [handlers/messages.go](internal/gateway/portal/handlers/messages.go) | CSV-экспорт не экранировал `=`/`+`/`-`/`@` в начале ячеек — Excel/Calc исполнит как формулу (CSV formula injection, CVE-класс) | `csvSanitize()` префиксует апострофом ячейки, начинающиеся с триггер-символов. Инъекция в теле SMS теперь безопасна при открытии экспорта |
+| B9 | MED (ops) | [scripts/maintenance/fix_historical_pending.sql](scripts/maintenance/fix_historical_pending.sql) | 3 исторических `pending` сообщения QA-теста оставались в pending навсегда, сбивали агрегатное delivery rate | SQL-скрипт с scope по client_id-списку (не тронет load-test) маркирует их как `rejected` + status_message «legacy pre-fix». Применено: 21 запись из тест-аккаунтов |
+| B10 | MED (UX) | [CampaignWizardPage.tsx:810](portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx#L810) | Итого `0,00 ₽` для субаккаунта без pricing_rules → misleading, выглядит как «бесплатно» | При `estimated_cost == 0` показываем `—` и amber-панель: «Тариф не настроен. Стоимость будет рассчитана при отправке по тарифу оператора/агрегатора» |
+| B11 | MED (UX) | [CampaignDetailPage.tsx:100-114](portal-frontend/src/pages/campaigns/CampaignDetailPage.tsx#L100) | Polling 5с только при `running`/`materializing`. Быстрая рассылка (3 получателя) завершалась за 1-2с — UI залипал на «Подготовка» | 3с интервал, все не-терминальные статусы (`!= completed/cancelled/draft`). Включая `scheduled` и `paused` |
+| B12 | LOW (nav) | [CommandCenter.tsx:629](portal-frontend/src/pages/CommandCenter.tsx#L629) | «Управление суб-аккаунтами → /sub-accounts» у reseller — 404 | `/network/sub-accounts` (аналогично B7 спринт 2) |
+
+### Остаток bug-list (не блокирующие, отдельный backlog)
+
+- **B5** (LOW/UX): validation-ошибки возвращаются как `HTTP 500 INTERNAL_ERROR` вместо `400 INVALID_INPUT`. Требует рефакторинга префиксов в messaging-service validator.
+- **B8** (LOW/config): в dev-seed нет тарифов агрегатора на все операторы (Default-RU для shared, Ростелеком). Ручной fix применён во время аудита.
+
+### Все задеплоенные коммиты (4 спринта по модулю отправки)
+
+- `7bad29e` — sender publish rejected для детерминированных отказов, transient → Kafka redelivery
+- `7b348d1` — persist-vs-status race, retry через failedBuffer
+- `4dcbfed` — закрытие спринта 1 в progress.md
+- `c910e53` — B3 (длина utf8-рун), B4 (approved-sender validation), B6 (warn-лог подмены), B7 (nav)
+- `24ee358` — закрытие спринта 2
+- `222d824` — B2 (CSV formula injection), B9 (historical cleanup), B10 (cost UX), B11 (polling), B12 (nav)
+
+### Итоговое состояние модуля отправки
+
+- **Pipeline:** pending-forever устранён (end-to-end через браузер + API). Race с persist — retry-buffer. `status_message` пробрасывается в БД и UI.
+- **Backend API /messages:** utf8-лимит text 1600 символов; approved sender validation (403 если не принадлежит клиенту); CSV export защищён от formula injection.
+- **Router warn-лог** при подмене sender на fallback для observability.
+- **Agg-view:** `/network/dashboard` + `/network/sub-accounts/:id` → «Сообщения» — корректно агрегирует и показывает трафик субаккаунтов. Все навигационные ссылки у reseller ведут на правильные роуты.
+- **Campaign flow:** создание→запуск→детализация работает end-to-end. Cost-estimate честный (— вместо обманчивого 0,00 ₽). Polling 3с показывает completed сразу.
+- **IDOR изоляция:** subacc не видит чужие сообщения, agg через `/messages/:id` тоже 403 — правильно, сетевой просмотр только через reseller-path.
+
+
 
 ## [DONE] Модуль: Отправка сообщений и рассылок — спринт 2 (aggregator + subaccount, fix, 2026-04-22)
 
