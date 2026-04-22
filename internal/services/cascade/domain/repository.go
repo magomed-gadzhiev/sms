@@ -32,6 +32,7 @@ type DeliveryRepository interface {
 	Get(ctx context.Context, id uuid.UUID) (*Delivery, error)
 	GetByClientID(ctx context.Context, id, clientID uuid.UUID) (*Delivery, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status DeliveryStatus, deliveredVia string) error
+	UpdateStatusCAS(ctx context.Context, id uuid.UUID, expectedStatus DeliveryStatus, newStatus DeliveryStatus, deliveredVia string) error
 	UpdateStep(ctx context.Context, id uuid.UUID, step int) error
 	UpdateCost(ctx context.Context, id uuid.UUID, totalCost float64) error
 	List(ctx context.Context, filter DeliveryFilter) ([]*Delivery, int, error)
