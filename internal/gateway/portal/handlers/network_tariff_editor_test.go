@@ -243,10 +243,11 @@ func doEditorGet(
 // map[string]json.RawMessage for fields we just want to inspect manually.
 type editorBody struct {
 	Scope struct {
-		Kind         string  `json:"kind"`
-		TemplateID   *string `json:"template_id"`
-		SubAccountID *string `json:"sub_account_id"`
-		Name         string  `json:"name"`
+		Kind           string `json:"kind"`
+		TemplateID     string `json:"template_id"`
+		TemplateName   string `json:"template_name"`
+		SubAccountID   string `json:"sub_account_id"`
+		SubAccountName string `json:"sub_account_name"`
 	} `json:"scope"`
 	Template *struct {
 		ID   string `json:"id"`
@@ -308,8 +309,8 @@ func TestEditor_TemplateMode_ReturnsPlain(t *testing.T) {
 
 	b := parseEditorBody(t, w)
 	assert.Equal(t, "template", b.Scope.Kind)
-	require.NotNil(t, b.Scope.TemplateID)
-	assert.Equal(t, seed.TemplateID.String(), *b.Scope.TemplateID)
+	require.NotEmpty(t, b.Scope.TemplateID)
+	assert.Equal(t, seed.TemplateID.String(), b.Scope.TemplateID)
 	require.NotNil(t, b.Plan)
 	assert.Equal(t, seed.PlanID.String(), b.Plan.ID)
 	assert.Equal(t, "threshold", b.Plan.Strategy)
@@ -375,8 +376,8 @@ func TestEditor_OverrideMode_ReturnsInheritanceMarkers(t *testing.T) {
 
 	b := parseEditorBody(t, w)
 	assert.Equal(t, "override", b.Scope.Kind)
-	require.NotNil(t, b.Scope.SubAccountID)
-	assert.Equal(t, sub.String(), *b.Scope.SubAccountID)
+	require.NotEmpty(t, b.Scope.SubAccountID)
+	assert.Equal(t, sub.String(), b.Scope.SubAccountID)
 	require.NotNil(t, b.Template)
 	assert.Equal(t, seed.TemplateID.String(), b.Template.ID)
 
@@ -821,4 +822,119 @@ func TestEditor_ActivePeriodSelection(t *testing.T) {
 	require.NotNil(t, b2.ActivePeriodID)
 	assert.Equal(t, pastPeriodID.String(), *b2.ActivePeriodID,
 		"period_id=past → active period must be the past one")
+}
+
+// TestEditor_OverrideMode_AlignedPeriodSelection verifies the override plan's
+// period aligned to the template period's bounds wins over a non-aligned
+// older period when computing override cells.
+//
+// Setup:
+//   - Template plan (wildcard operator): period [2026-01-01, 2026-06-30)
+//     with a single tier at from_count=0, price=3.0.
+//   - Override plan (wildcard operator) for sub-account: TWO periods —
+//     older [2025-01-01, 2025-12-31) with tier0=2.5, and aligned
+//     [2026-01-01, 2026-06-30) with tier0=2.0.
+//
+// Expected: in override-mode, the editor resolves the override period by
+// bound-alignment to the template's active period and uses 2.0 (not 2.5).
+func TestEditor_OverrideMode_AlignedPeriodSelection(t *testing.T) {
+	pool := getEditorTestPool(t)
+	ctx := context.Background()
+	reseller := seedEditorReseller(t, pool)
+	sub := seedEditorSubAccount(t, pool, reseller)
+	ruID := seedEditorCountryRU(t, pool)
+	mts, _ := seedEditorOperators(t, pool, ruID)
+
+	// Template with one wildcard plan (explicit period bounds).
+	tplID := seedEditorTemplateOnly(t, pool, reseller,
+		fmt.Sprintf("tpl-align-%s", uuid.NewString()[:6]))
+
+	var tplPlanID uuid.UUID
+	err := pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, template_id, country_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, 'paid_registered', 'any', 'threshold', true)
+		RETURNING id`, reseller, tplID, ruID).Scan(&tplPlanID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_plans WHERE id = $1`, tplPlanID)
+	})
+
+	var tplPeriodID uuid.UUID
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, DATE '2026-01-01', DATE '2026-06-30')
+		RETURNING id`, tplPlanID).Scan(&tplPeriodID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, 3.00)`, tplPeriodID)
+	require.NoError(t, err)
+
+	// Bind template to sub.
+	_, err = pool.Exec(ctx, `
+		INSERT INTO sub_account_template_assignments (sub_account_id, template_id)
+		VALUES ($1, $2)`, sub, tplID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM sub_account_template_assignments WHERE sub_account_id = $1`, sub)
+	})
+
+	// Override wildcard plan with two periods.
+	var ovrPlanID uuid.UUID
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, sub_account_id, country_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, 'paid_registered', 'any', 'threshold', true)
+		RETURNING id`, reseller, sub, ruID).Scan(&ovrPlanID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_plans WHERE id = $1`, ovrPlanID)
+	})
+
+	var ovrOldPeriodID, ovrAlignedPeriodID uuid.UUID
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, DATE '2025-01-01', DATE '2025-12-31')
+		RETURNING id`, ovrPlanID).Scan(&ovrOldPeriodID)
+	require.NoError(t, err)
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, DATE '2026-01-01', DATE '2026-06-30')
+		RETURNING id`, ovrPlanID).Scan(&ovrAlignedPeriodID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, 2.50)`, ovrOldPeriodID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, 2.00)`, ovrAlignedPeriodID)
+	require.NoError(t, err)
+
+	h := NewNetworkTariffEditorHandler(pool)
+	w := doEditorGet(t, h, reseller, sub,
+		"mode=override&channel=sms&country=RU&sender_category=paid_registered&traffic_type=any")
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+
+	b := parseEditorBody(t, w)
+	require.NotNil(t, b.Plan)
+	require.Len(t, b.Tiers, 1, "single tier from_count=0")
+	tier0ID := b.Tiers[0].ID
+
+	var found bool
+	for _, c := range b.Cells {
+		if c.OperatorID != mts.String() || c.TierID != tier0ID {
+			continue
+		}
+		found = true
+		assert.Equal(t, "override", c.Source, "aligned override period wins")
+		require.NotNil(t, c.PriceOverride)
+		assert.InDelta(t, 2.00, *c.PriceOverride, 0.001,
+			"aligned period [2026-01-01, 2026-06-30) price wins over older period")
+		require.NotNil(t, c.Effective)
+		assert.InDelta(t, 2.00, *c.Effective, 0.001)
+	}
+	assert.True(t, found, "expected cell for MTS at tier0")
 }

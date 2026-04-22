@@ -38,6 +38,14 @@
 // diverging periods, the editor currently shows the primary plan's periods
 // only; multi-period-per-operator matrices are out of scope for this task.
 //
+// Tier-set divergence across operator-plans: if an operator-specific plan has
+// different `from_count` thresholds than the primary/wildcard plan, cells at
+// primary's `from_count` values that aren't present in the operator-plan will
+// render as `source="unset"`. This is a known limitation; wildcard fallback is
+// suppressed once an operator-specific plan exists at any tier. If this
+// becomes user-visible pain, relax the suppression in `priceForOperator` to
+// allow wildcard fallback per-tier.
+//
 // Note on `channel`: accepted but not filtered. The plan dimensions do not
 // include a channel column today; `traffic_type='any'` is the match-all value
 // for channel-agnostic pricing. Kept in the query string so the frontend
@@ -78,10 +86,11 @@ func NewNetworkTariffEditorHandler(pool *pgxpool.Pool) *NetworkTariffEditorHandl
 // ---------- Response types ----------
 
 type editorScope struct {
-	Kind         string  `json:"kind"` // "template" | "override"
-	TemplateID   *string `json:"template_id,omitempty"`
-	SubAccountID *string `json:"sub_account_id,omitempty"`
-	Name         string  `json:"name"`
+	Kind           string `json:"kind"` // "template" | "override"
+	TemplateID     string `json:"template_id,omitempty"`
+	TemplateName   string `json:"template_name,omitempty"`
+	SubAccountID   string `json:"sub_account_id,omitempty"`
+	SubAccountName string `json:"sub_account_name,omitempty"`
 }
 
 type editorTemplateRef struct {
@@ -246,9 +255,9 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 	tplIDStr := templateID.String()
 	resp := editorResponse{
 		Scope: editorScope{
-			Kind:       "template",
-			TemplateID: &tplIDStr,
-			Name:       tplName,
+			Kind:         "template",
+			TemplateID:   tplIDStr,
+			TemplateName: tplName,
 		},
 		Template: &editorTemplateRef{ID: tplIDStr, Name: tplName},
 		// zero-value slices below; JSON encoder turns nil into null — we
@@ -376,9 +385,9 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 	subIDStr := subAccountID.String()
 	resp := editorResponse{
 		Scope: editorScope{
-			Kind:         "override",
-			SubAccountID: &subIDStr,
-			Name:         subName,
+			Kind:           "override",
+			SubAccountID:   subIDStr,
+			SubAccountName: subName,
 		},
 		Periods:   []editorPeriod{},
 		Operators: []editorOperator{},
