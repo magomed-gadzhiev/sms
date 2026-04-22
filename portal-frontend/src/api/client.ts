@@ -653,6 +653,40 @@ export const tariffsApi = {
   getUsage: () => apiFetch<{ counters: unknown[]; total: number }>('/tariffs/usage'),
 };
 
+// Client effective-price matrix (spec §5.1.8, Task 22). Returns the
+// read-only effective tariff for the caller's own sub-account.
+export interface ClientTariffsEffectiveCell {
+  operator_id: string;
+  tier_id: string;
+  effective: number | null;
+}
+
+export interface ClientTariffsEffectiveResponse {
+  plan: { id: string; strategy: string; currency: string } | null;
+  period: { id: string; from: string; to: string | null } | null;
+  operators: { id: string; name: string; icon: string | null }[];
+  tiers: { id: string; from_quantity: number }[];
+  cells: ClientTariffsEffectiveCell[];
+}
+
+export const clientTariffsApi = {
+  getEffective: (params?: {
+    channel?: string;
+    country?: string;
+    sender_category?: string;
+    traffic_type?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set('channel', params?.channel ?? 'sms');
+    qs.set('country', params?.country ?? 'RU');
+    qs.set('sender_category', params?.sender_category ?? 'paid_registered');
+    qs.set('traffic_type', params?.traffic_type ?? 'any');
+    return apiFetch<ClientTariffsEffectiveResponse>(
+      `/client/tariffs/effective?${qs.toString()}`,
+    );
+  },
+};
+
 // Lookup API
 export const lookupApi = {
   single: (phone: string) =>
@@ -1434,4 +1468,149 @@ export const resellerTariffApi = {
   }) => apiFetch<{ copied_plans: number }>('/reseller/tariff-plans/copy', {
     method: 'POST', body: JSON.stringify(data),
   }),
+};
+
+// =============================================================================
+// Network Tariffs (redesign, 2026-04-22)
+// =============================================================================
+
+export interface SubAccountTariffSummary {
+  sub_account_id: string;
+  sub_account_name: string;
+  sub_account_email: string;
+  template_id: string | null;
+  template_name: string | null;
+  override_count: number;
+  avg_price_per_sms: number | null;
+  currency: string;
+}
+
+export interface TariffTemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  plans_count: number;
+  bound_subaccount_count: number;
+  created_at: string;
+}
+
+export interface TariffEditorCell {
+  operator_id: string;
+  tier_id: string;
+  price_template: number | null;
+  price_override: number | null;
+  effective: number | null;
+  source: 'template' | 'override' | 'unset';
+}
+
+export interface TariffEditorScope {
+  kind: 'template' | 'override';
+  template_id?: string;
+  template_name?: string;
+  sub_account_id?: string;
+  sub_account_name?: string;
+}
+
+export interface TariffEditorData {
+  scope: TariffEditorScope;
+  template: { id: string; name: string } | null;
+  plan: { id: string; strategy: string; currency: string };
+  periods: { id: string; from: string; to: string | null; active: boolean }[];
+  active_period_id: string;
+  operators: { id: string; name: string; icon: string | null }[];
+  tiers: { id: string; from_quantity: number }[];
+  cells: TariffEditorCell[];
+}
+
+// NOTE: `price_per_segment` REQUIRED when `id === null` (backend contract — Task 6).
+export interface TariffBulkTierUpsert {
+  id: string | null;
+  from_quantity: number;
+  price_per_segment?: number;
+}
+
+export interface TariffBulkCellUpsert {
+  operator_id: string;
+  tier_id: string;
+  price: number;
+  scope: 'template' | 'override';
+  sub_account_id?: string;
+}
+
+export interface TariffBulkCellDelete {
+  operator_id: string;
+  tier_id: string;
+  scope: 'template' | 'override';
+  sub_account_id?: string;
+}
+
+export const networkTariffsApi = {
+  listSubaccounts: () =>
+    apiFetch<SubAccountTariffSummary[]>('/network/tariffs/subaccounts-summary'),
+
+  listTemplates: () =>
+    apiFetch<TariffTemplateSummary[]>('/network/tariff-templates'),
+
+  createTemplate: (body: { name: string; description?: string; copy_from_id?: string }) =>
+    apiFetch<{ id: string }>('/network/tariff-templates', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  bindTemplate: (id: string, subAccountIds: string[]) =>
+    apiFetch<{ bound: string[] }>(`/network/tariff-templates/${id}/bind`, {
+      method: 'POST',
+      body: JSON.stringify({ sub_account_ids: subAccountIds }),
+    }),
+
+  duplicateTemplate: (id: string, name: string) =>
+    apiFetch<{ id: string }>(`/network/tariff-templates/${id}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  getEditor: (
+    id: string,
+    params: {
+      mode: 'template' | 'override';
+      channel: string;
+      country: string;
+      sender_category: string;
+      traffic_type: string;
+      period_id?: string;
+    },
+  ) => {
+    const qs = new URLSearchParams();
+    qs.set('mode', params.mode);
+    qs.set('channel', params.channel);
+    qs.set('country', params.country);
+    qs.set('sender_category', params.sender_category);
+    qs.set('traffic_type', params.traffic_type);
+    if (params.period_id) qs.set('period_id', params.period_id);
+    return apiFetch<TariffEditorData>(`/network/tariff-editor/${id}?${qs.toString()}`);
+  },
+
+  bulkPatchPlan: (
+    planId: string,
+    body: {
+      period_id: string;
+      tiers_upsert: TariffBulkTierUpsert[];
+      tiers_delete: string[];
+      cells_upsert: TariffBulkCellUpsert[];
+      cells_delete: TariffBulkCellDelete[];
+    },
+  ) =>
+    apiFetch<{ ok: boolean; errors?: unknown[] }>(`/network/tariff-plans/${planId}/bulk`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  createPeriod: (
+    planId: string,
+    body: { from: string; to?: string; copy_from_period_id?: string; keep_tiers: boolean },
+  ) =>
+    apiFetch<{ id: string }>(`/network/tariff-plans/${planId}/periods`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
