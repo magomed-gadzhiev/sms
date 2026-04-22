@@ -119,6 +119,24 @@ func (r *OperatorBindingRepo) ListPendingByOperator(ctx context.Context, opID uu
 	return out, nil
 }
 
+// GetByTemplateOperator fetches a binding by (template_id, operator_id). Returns domain.ErrOperatorBindingNotFound when absent.
+func (r *OperatorBindingRepo) GetByTemplateOperator(ctx context.Context, templateID, operatorID uuid.UUID) (*domain.OperatorTemplateBinding, error) {
+	const q = `
+		SELECT id, template_id, sender_name_id, operator_id, status,
+		       rejection_reason, reviewed_by, reviewed_at, created_at, updated_at
+		FROM operator_template_bindings
+		WHERE template_id = $1 AND operator_id = $2`
+
+	var row operatorBindingRow
+	if err := r.db.QueryRowxContext(ctx, q, templateID, operatorID).StructScan(&row); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrOperatorBindingNotFound
+		}
+		return nil, fmt.Errorf("get operator binding by template+operator: %w", err)
+	}
+	return row.toDomain(), nil
+}
+
 // UpdateStatus transitions status, stores optional reason and reviewer.
 // Returns domain.ErrOperatorBindingNotFound when no row is matched.
 func (r *OperatorBindingRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status, reason string, reviewer uuid.UUID) error {

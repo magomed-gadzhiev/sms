@@ -38,9 +38,49 @@ func TestSubmitForOperators_IdempotentOnDuplicate(t *testing.T) {
 
 	tmplID, snID, opID := uuid.New(), uuid.New(), uuid.New()
 	repo.On("Create", mock.Anything, mock.Anything).Return(domain.ErrDuplicateOperatorBinding)
+	repo.On("GetByTemplateOperator", mock.Anything, tmplID, opID).Return(
+		&domain.OperatorTemplateBinding{Status: domain.OperatorBindingStatusApproved}, nil)
+	// UpdateStatus must NOT be called for an approved binding.
 
 	err := svc.SubmitForOperators(ctx, tmplID, snID, []uuid.UUID{opID})
-	require.NoError(t, err) // duplicate is swallowed
+	require.NoError(t, err) // approved duplicate is idempotent
+	repo.AssertExpectations(t)
+}
+
+func TestSubmitForOperators_ResubmitRejectedTransitionsToPending(t *testing.T) {
+	ctx := context.Background()
+	repo := new(mocks.MockOperatorBindingRepo)
+	svc := application.NewOperatorBindingService(repo)
+
+	tmplID, snID, opID := uuid.New(), uuid.New(), uuid.New()
+	existing := &domain.OperatorTemplateBinding{
+		ID:         uuid.New(),
+		TemplateID: tmplID,
+		OperatorID: opID,
+		Status:     domain.OperatorBindingStatusRejected,
+	}
+
+	repo.On("Create", mock.Anything, mock.Anything).Return(domain.ErrDuplicateOperatorBinding)
+	repo.On("GetByTemplateOperator", mock.Anything, tmplID, opID).Return(existing, nil)
+	repo.On("UpdateStatus", mock.Anything, existing.ID, domain.OperatorBindingStatusPending, "", uuid.Nil).Return(nil)
+
+	require.NoError(t, svc.SubmitForOperators(ctx, tmplID, snID, []uuid.UUID{opID}))
+	repo.AssertExpectations(t)
+}
+
+func TestSubmitForOperators_ResubmitApprovedIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	repo := new(mocks.MockOperatorBindingRepo)
+	svc := application.NewOperatorBindingService(repo)
+
+	tmplID, snID, opID := uuid.New(), uuid.New(), uuid.New()
+	repo.On("Create", mock.Anything, mock.Anything).Return(domain.ErrDuplicateOperatorBinding)
+	repo.On("GetByTemplateOperator", mock.Anything, tmplID, opID).Return(
+		&domain.OperatorTemplateBinding{Status: domain.OperatorBindingStatusApproved}, nil)
+	// Should NOT call UpdateStatus.
+
+	require.NoError(t, svc.SubmitForOperators(ctx, tmplID, snID, []uuid.UUID{opID}))
+	repo.AssertExpectations(t)
 }
 
 func TestApprove_InvalidTransitionFromApproved(t *testing.T) {

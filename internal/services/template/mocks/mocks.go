@@ -93,6 +93,14 @@ func (m *MockOperatorBindingRepo) GetByID(ctx context.Context, id uuid.UUID) (*d
 	return nil, args.Error(1)
 }
 
+func (m *MockOperatorBindingRepo) GetByTemplateOperator(ctx context.Context, templateID, operatorID uuid.UUID) (*domain.OperatorTemplateBinding, error) {
+	args := m.Called(ctx, templateID, operatorID)
+	if v := args.Get(0); v != nil {
+		return v.(*domain.OperatorTemplateBinding), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func (m *MockOperatorBindingRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status, reason string, reviewer uuid.UUID) error {
 	return m.Called(ctx, id, status, reason, reviewer).Error(0)
 }

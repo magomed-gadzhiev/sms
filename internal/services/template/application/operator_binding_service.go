@@ -15,6 +15,7 @@ import (
 type operatorBindingRepo interface {
 	Create(ctx context.Context, b *domain.OperatorTemplateBinding) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.OperatorTemplateBinding, error)
+	GetByTemplateOperator(ctx context.Context, templateID, operatorID uuid.UUID) (*domain.OperatorTemplateBinding, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status, reason string, reviewer uuid.UUID) error
 	ListPendingByOperator(ctx context.Context, opID uuid.UUID, limit, offset int) ([]*domain.OperatorTemplateBinding, error)
 }
@@ -27,14 +28,33 @@ func NewOperatorBindingService(repo operatorBindingRepo) *OperatorBindingService
 	return &OperatorBindingService{repo: repo}
 }
 
-// SubmitForOperators creates a pending binding per operator. Duplicates from a
-// re-submit are treated as idempotent (swallowed) so callers can safely retry.
+// SubmitForOperators creates a pending binding per operator. On duplicate:
+// - rejected → transitions back to pending (re-submission path)
+// - pending/approved → idempotent no-op
 func (s *OperatorBindingService) SubmitForOperators(ctx context.Context, templateID, senderNameID uuid.UUID, operatorIDs []uuid.UUID) error {
 	for _, opID := range operatorIDs {
 		b := domain.NewOperatorTemplateBinding(templateID, senderNameID, opID)
-		if err := s.repo.Create(ctx, b); err != nil && !errors.Is(err, domain.ErrDuplicateOperatorBinding) {
+		err := s.repo.Create(ctx, b)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, domain.ErrDuplicateOperatorBinding) {
 			return err
 		}
+		// Existing binding — resubmit if rejected, otherwise idempotent.
+		existing, err := s.repo.GetByTemplateOperator(ctx, templateID, opID)
+		if err != nil {
+			return err
+		}
+		if existing.Status == domain.OperatorBindingStatusRejected {
+			if !domain.IsValidOperatorBindingTransition(existing.Status, domain.OperatorBindingStatusPending) {
+				return domain.ErrInvalidOperatorBindingTransition // defensive
+			}
+			if err := s.repo.UpdateStatus(ctx, existing.ID, domain.OperatorBindingStatusPending, "", uuid.Nil); err != nil {
+				return err
+			}
+		}
+		// pending/approved: idempotent no-op
 	}
 	return nil
 }
