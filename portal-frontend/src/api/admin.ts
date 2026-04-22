@@ -1007,3 +1007,39 @@ export const operatorTemplatesApi = {
   }) => adminFetch<OperatorTemplate>(`/operator-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => adminFetch<void>(`/operator-templates/${id}`, { method: 'DELETE' }),
 };
+
+// ── Moderation API ──
+
+export interface ModerationCounts {
+  sender_names_pending: number;
+  bindings_pending: number;
+}
+
+export interface BindingInboxItem {
+  id: string;
+  template_id: string;
+  sender_name_id: string;
+  operator_id: string;
+  status: string;
+  created_at: string;
+  template_name: string;
+  template_body: string;
+  sender_name: string;
+  channel: 'sms' | 'voice' | 'viber';
+  client_email: string;
+  operator_name: string;
+}
+
+export const moderationApi = {
+  getCounts: () => adminFetch<ModerationCounts>('/moderation/counts'),
+  listBindings: (params: { operator_id?: string; limit?: number; offset?: number } = {}) => {
+    const qs_str = qs(Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => [k, String(v)]),
+    ));
+    return adminFetch<{ bindings: BindingInboxItem[]; total: number }>(
+      `/moderation/bindings${qs_str}`,
+    );
+  },
+};
