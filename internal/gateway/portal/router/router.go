@@ -64,6 +64,7 @@ func SetupRouter(
 	resellerTariffHandlers *handlers.ResellerTariffHandlers,
 	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
 	networkTariffsSummaryHandler *handlers.NetworkTariffsSummaryHandler,
+	networkTariffTemplatesHandler *handlers.NetworkTariffTemplatesHandler,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	networkStatsHandlers *handlers.NetworkStatisticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
@@ -400,6 +401,10 @@ func SetupRouter(
 	// project; the reseller flag on clients is the gate.
 	networkTariffs := protected.PathPrefix("/network/tariffs").Subrouter()
 	networkTariffs.HandleFunc("/subaccounts-summary", networkTariffsSummaryHandler.List).Methods("GET")
+
+	// Task 3: /network/tariff-templates (sibling of /network/tariffs, not nested
+	// under it — the frontend calls it at the /network/ level).
+	protected.HandleFunc("/network/tariff-templates", networkTariffTemplatesHandler.List).Methods("GET")
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()
