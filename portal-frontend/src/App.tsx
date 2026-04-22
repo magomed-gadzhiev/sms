@@ -73,7 +73,6 @@ const AdminBillingPage = lazy(() => import('./pages/admin/billing/BillingPage').
 const AdminMonitoringPage = lazy(() => import('./pages/admin/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 const AdminTemplatesPage = lazy(() => import('./pages/admin/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })));
-const AdminSenderNamesPage = lazy(() => import('./pages/admin/SenderNamesAdminPage').then((m) => ({ default: m.SenderNamesAdminPage })));
 const AdminSenderNameDetailPage = lazy(() => import('./pages/admin/sender-names/SenderNameDetailPage').then((m) => ({ default: m.SenderNameDetailPage })));
 const AdminDetalizationPage = lazy(() => import('./pages/admin/detalization/DetalizationPage').then((m) => ({ default: m.DetalizationPage })));
 const AdminWebhooksPage = lazy(() => import('./pages/admin/WebhooksPage').then((m) => ({ default: m.WebhooksPage })));
@@ -91,7 +90,6 @@ const AdminIndividualTariffsPage = lazy(() => import('./pages/admin/tarification
 const AdminSettingsPage = lazy(() => import('./pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const AdminLegalEntitiesPage = lazy(() => import('./pages/admin/legal-entities/LegalEntitiesPage').then((m) => ({ default: m.LegalEntitiesPage })));
 const AdminContractsPage = lazy(() => import('./pages/admin/contracts/ContractsPage').then((m) => ({ default: m.ContractsPage })));
-const AdminOperatorTemplatesPage = lazy(() => import('./pages/admin/operator-templates/OperatorTemplatesPage').then((m) => ({ default: m.OperatorTemplatesPage })));
 const AdminConnectionsPage = lazy(() => import('./pages/admin/connections/ConnectionsPage').then((m) => ({ default: m.ConnectionsPage })));
 const AdminSenderNameInboxPage = lazy(() => import('./pages/admin/moderation/SenderNameInboxPage').then((m) => ({ default: m.SenderNameInboxPage })));
 const AdminSenderNameDirectoryPage = lazy(() => import('./pages/admin/moderation/SenderNameDirectoryPage').then((m) => ({ default: m.SenderNameDirectoryPage })));
@@ -227,7 +225,7 @@ export function App() {
         <Route path="monitoring" element={<Suspense fallback={null}><AdminMonitoringPage /></Suspense>} />
         <Route path="analytics" element={<Suspense fallback={null}><AdminAnalyticsPage /></Suspense>} />
         <Route path="templates" element={<Suspense fallback={null}><AdminTemplatesPage /></Suspense>} />
-        <Route path="sender-names" element={<Suspense fallback={null}><AdminSenderNamesPage /></Suspense>} />
+        <Route path="sender-names" element={<Navigate to="/admin/moderation/sender-names" replace />} />
         <Route path="sender-names/:id" element={<Suspense fallback={null}><AdminSenderNameDetailPage /></Suspense>} />
         <Route path="moderation/sender-names" element={<Suspense fallback={null}><AdminSenderNameInboxPage /></Suspense>} />
         <Route path="moderation/sender-names-directory" element={<Suspense fallback={null}><AdminSenderNameDirectoryPage /></Suspense>} />
@@ -247,7 +245,7 @@ export function App() {
         <Route path="settings" element={<Suspense fallback={null}><AdminSettingsPage /></Suspense>} />
         <Route path="legal-entities" element={<Suspense fallback={null}><AdminLegalEntitiesPage /></Suspense>} />
         <Route path="contracts" element={<Suspense fallback={null}><AdminContractsPage /></Suspense>} />
-        <Route path="operator-templates" element={<Suspense fallback={null}><AdminOperatorTemplatesPage /></Suspense>} />
+        <Route path="operator-templates" element={<Navigate to="/admin/moderation/bindings" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/command-center" replace />} />
