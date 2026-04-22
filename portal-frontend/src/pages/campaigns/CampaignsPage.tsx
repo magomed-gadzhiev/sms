@@ -180,7 +180,7 @@ export function CampaignsPage() {
       {isReseller && (
         <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
           Отображаются только ваши рассылки. Рассылки суб-аккаунтов доступны в разделе{' '}
-          <a href="/sub-accounts" className="underline font-medium hover:text-amber-900">Суб-аккаунты</a>.
+          <a href="/network/sub-accounts" className="underline font-medium hover:text-amber-900">Суб-аккаунты</a>.
         </div>
       )}
 

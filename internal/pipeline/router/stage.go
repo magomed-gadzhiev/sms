@@ -366,7 +366,16 @@ func (s *Stage) resolveSenderName(ctx context.Context, clientID, senderName, ope
 		if snStatus == "approved" {
 			return senderName
 		}
-		return s.getFallbackSender(ctx)
+		fallback := s.getFallbackSender(ctx)
+		log.Warn().
+			Str("component", "pipeline_router").
+			Str("client_id", clientID).
+			Str("original_sender", senderName).
+			Str("fallback", fallback).
+			Str("sender_status", snStatus).
+			Str("reason", "sender_name not approved for sub-account").
+			Msg("sender substituted — регистрация неактивна")
+		return fallback
 	}
 
 	// Direct client: check operator_registrations.approved_type.
@@ -380,7 +389,16 @@ func (s *Stage) resolveSenderName(ctx context.Context, clientID, senderName, ope
 		clientID, senderName, operatorID,
 	).Scan(&approvedType)
 	if err != nil || approvedType == nil {
-		return s.getFallbackSender(ctx)
+		fallback := s.getFallbackSender(ctx)
+		log.Warn().
+			Str("component", "pipeline_router").
+			Str("client_id", clientID).
+			Str("operator_id", operatorID).
+			Str("original_sender", senderName).
+			Str("fallback", fallback).
+			Str("reason", "no operator_registrations entry for direct client").
+			Msg("sender substituted — отсутствует регистрация на оператора")
+		return fallback
 	}
 	return senderName
 }

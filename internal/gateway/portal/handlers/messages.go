@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
@@ -50,6 +51,20 @@ type sendMessageRequest struct {
 	Source      string `json:"source"`
 }
 
+// isNumericSource возвращает true если source — цифровой (короткий код или
+// номер телефона). Для таких sender регистрация в sender_names не требуется.
+func isNumericSource(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // SendMessage обрабатывает POST /messages
 func (h *MessageHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
@@ -74,6 +89,37 @@ func (h *MessageHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 	if req.Source == "" {
 		respondError(w, shared.ErrInvalidInput("Поле source обязательно"))
 		return
+	}
+	// B3: hard limit на длину text в рунах (10 сегментов GSM7 = 1530, UCS2 ~ 670).
+	// Frontend ограничивает 765, API голый — клиент через curl мог отправить 1000+.
+	// utf8.RuneCountInString — чтобы кириллица/UCS2 не обрезалась лишний раз.
+	const maxTextLen = 1600
+	if runeCount := utf8.RuneCountInString(req.Text); runeCount > maxTextLen {
+		respondError(w, shared.ErrInvalidInput(fmt.Sprintf("Поле text слишком длинное (%d символов, максимум %d)", runeCount, maxTextLen)))
+		return
+	}
+
+	// B4: валидация sender_name — должен принадлежать caller'у и быть approved.
+	// Numeric sender (короткие коды / телефонный номер) пропускаем — регистрация не требуется.
+	if h.db != nil && !isNumericSource(req.Source) {
+		var status string
+		queryErr := h.db.QueryRow(r.Context(),
+			`SELECT status FROM sender_names WHERE client_id = $1 AND name = $2 LIMIT 1`,
+			clientID.String(), req.Source,
+		).Scan(&status)
+		if errors.Is(queryErr, pgx.ErrNoRows) {
+			respondError(w, shared.ErrForbidden("Имя отправителя не найдено или не принадлежит вашему аккаунту"))
+			return
+		}
+		if queryErr != nil {
+			log.Error().Err(queryErr).Msg("ошибка проверки sender_name")
+			respondError(w, shared.ErrInternalServer("Ошибка проверки имени отправителя"))
+			return
+		}
+		if status != "approved" {
+			respondError(w, shared.ErrForbidden(fmt.Sprintf("Имя отправителя не одобрено (статус: %s)", status)))
+			return
+		}
 	}
 
 	if h.messagingClient == nil {
