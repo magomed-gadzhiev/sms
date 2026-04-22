@@ -227,10 +227,11 @@ export function MessagesPage() {
     }
   }, [appliedFilters, exportJobId]);
 
+  const defaultVisibleRef = isReseller ? DEFAULT_VISIBLE_RESELLER : DEFAULT_VISIBLE_CLIENT;
   const columnDefs: ColumnDef[] = ALL_COLUMNS.map((c) => ({
     key: c.key,
     label: c.header,
-    defaultVisible: DEFAULT_VISIBLE.has(c.key),
+    defaultVisible: defaultVisibleRef.has(c.key),
   }));
 
   return (
