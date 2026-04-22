@@ -76,6 +76,35 @@ func (m *MockTemplateRepository) RequestRevision(ctx context.Context, templateID
 	return args.Error(0)
 }
 
+// MockOperatorBindingRepo is a mock implementation of application.operatorBindingRepo.
+type MockOperatorBindingRepo struct {
+	mock.Mock
+}
+
+func (m *MockOperatorBindingRepo) Create(ctx context.Context, b *domain.OperatorTemplateBinding) error {
+	return m.Called(ctx, b).Error(0)
+}
+
+func (m *MockOperatorBindingRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.OperatorTemplateBinding, error) {
+	args := m.Called(ctx, id)
+	if v := args.Get(0); v != nil {
+		return v.(*domain.OperatorTemplateBinding), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockOperatorBindingRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status, reason string, reviewer uuid.UUID) error {
+	return m.Called(ctx, id, status, reason, reviewer).Error(0)
+}
+
+func (m *MockOperatorBindingRepo) ListPendingByOperator(ctx context.Context, opID uuid.UUID, limit, offset int) ([]*domain.OperatorTemplateBinding, error) {
+	args := m.Called(ctx, opID, limit, offset)
+	if v := args.Get(0); v != nil {
+		return v.([]*domain.OperatorTemplateBinding), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 // MockAuditRepository is a mock implementation of application.AuditRepository.
 type MockAuditRepository struct {
 	mock.Mock
