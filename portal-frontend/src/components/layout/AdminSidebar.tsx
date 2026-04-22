@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { moderationApi, type ModerationCounts } from '../../api/admin';
 
 interface SidebarItem {
   path: string;
   label: string;
   icon: string;
   resource: string;
+  badge?: number;
 }
 
 interface SidebarGroup {
@@ -27,7 +29,6 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
       { path: '/admin/clients', label: '\u041A\u043B\u0438\u0435\u043D\u0442\u044B', icon: '\u{1F465}', resource: 'clients' },
       { path: '/admin/operator-templates', label: '\u0428\u0430\u0431\u043B\u043E\u043D\u044B \u043E\u043F\u0435\u0440\u0430\u0442\u043E\u0440\u043E\u0432', icon: '\u{1F4DD}', resource: 'templates' },
       { path: '/admin/templates', label: '\u041C\u043E\u0434\u0435\u0440\u0430\u0446\u0438\u044F \u0448\u0430\u0431\u043B\u043E\u043D\u043E\u0432', icon: '\u2705', resource: 'templates' },
-      { path: '/admin/sender-names', label: '\u0418\u043C\u0435\u043D\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u0435\u0439', icon: '\u{1F4F1}', resource: 'templates' },
       { path: '/admin/users', label: '\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0438', icon: '\u{1F511}', resource: 'users' },
     ],
   },
@@ -80,6 +81,41 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
 export function AdminSidebar() {
   const [hovered, setHovered] = useState(false);
   const { user, hasPermission, logout } = useAuth();
+  const [counts, setCounts] = useState<ModerationCounts>({ sender_names_pending: 0, bindings_pending: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      moderationApi.getCounts().then(c => { if (!cancelled) setCounts(c); }).catch(() => {});
+    };
+    tick();
+    const poll = setInterval(tick, 30000);
+    const handler = () => tick();
+    window.addEventListener('moderation:changed', handler);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      window.removeEventListener('moderation:changed', handler);
+    };
+  }, []);
+
+  const groups: SidebarGroup[] = SIDEBAR_GROUPS.map((group, gi) => {
+    if (gi !== 1) return group;
+    const moderationItems: SidebarItem[] = [
+      { path: '/admin/moderation/sender-names', label: '\u041C\u043E\u0434\u0435\u0440\u0430\u0446\u0438\u044F \u0438\u043C\u0451\u043D', icon: '\u{1F4E5}', resource: 'templates', badge: counts.sender_names_pending },
+      { path: '/admin/moderation/sender-names-directory', label: '\u0421\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A \u0438\u043C\u0451\u043D', icon: '\u{1F4F1}', resource: 'templates' },
+      { path: '/admin/moderation/bindings', label: '\u041C\u043E\u0434\u0435\u0440\u0430\u0446\u0438\u044F \u0431\u0438\u043D\u0434\u0438\u043D\u0433\u043E\u0432', icon: '\u{1F517}', resource: 'templates', badge: counts.bindings_pending },
+    ];
+    const baseItems = group.items.filter(item => item.path !== '/admin/sender-names');
+    const templatesIdx = baseItems.findIndex(item => item.path === '/admin/templates');
+    const insertAfter = templatesIdx >= 0 ? templatesIdx + 1 : baseItems.length;
+    const items = [
+      ...baseItems.slice(0, insertAfter),
+      ...moderationItems,
+      ...baseItems.slice(insertAfter),
+    ];
+    return { ...group, items };
+  });
 
   return (
     <aside
@@ -96,7 +132,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2">
-        {SIDEBAR_GROUPS.map((group, gi) => {
+        {groups.map((group, gi) => {
           const visibleItems = group.items.filter((item) => hasPermission(item.resource, 'read'));
           if (visibleItems.length === 0) return null;
 
@@ -124,6 +160,11 @@ export function AdminSidebar() {
                 >
                   <span className="text-base w-5 text-center shrink-0">{item.icon}</span>
                   {hovered && <span className="truncate">{item.label}</span>}
+                  {hovered && typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className="ml-auto text-xs bg-primary text-white rounded-full px-2 py-0.5">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>
