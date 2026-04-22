@@ -67,6 +67,7 @@ func SetupRouter(
 	networkTariffTemplatesHandler *handlers.NetworkTariffTemplatesHandler,
 	networkTariffEditorHandler *handlers.NetworkTariffEditorHandler,
 	networkTariffBulkHandler *handlers.NetworkTariffBulkHandler,
+	clientTariffsEffectiveHandler *handlers.ClientTariffsEffectiveHandler,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	networkStatsHandlers *handlers.NetworkStatisticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
@@ -236,6 +237,11 @@ func SetupRouter(
 	tariffs.HandleFunc("/plans", tariffHandlers.ListAvailablePlans).Methods("GET")
 	tariffs.HandleFunc("/change", tariffHandlers.ChangePlan).Methods("POST")
 	tariffs.HandleFunc("/usage", tariffHandlers.GetUsage).Methods("GET")
+
+	// Task 22: client self-view effective tariff matrix (/tariffs page).
+	// Any authenticated client can read their own effective prices — no
+	// is_reseller gate. Resellers / standalone clients get an empty matrix.
+	protected.HandleFunc("/client/tariffs/effective", clientTariffsEffectiveHandler.Get).Methods("GET")
 
 	// Audit log endpoints
 	protected.HandleFunc("/audit-log", auditHandlers.ListAuditLog).Methods("GET")

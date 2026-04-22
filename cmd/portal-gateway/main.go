@@ -299,6 +299,7 @@ func main() {
 	networkTariffTemplatesHandler := handlers.NewNetworkTariffTemplatesHandler(dbPool, redisClient)
 	networkTariffEditorHandler := handlers.NewNetworkTariffEditorHandler(dbPool)
 	networkTariffBulkHandler := handlers.NewNetworkTariffBulkHandler(dbPool, redisClient)
+	clientTariffsEffectiveHandler := handlers.NewClientTariffsEffectiveHandler(dbPool)
 	resellerAnalyticsHandlers := handlers.NewResellerAnalyticsHandlers(dbPool, serviceClients.AnalyticsClient, serviceClients.ClientClient)
 	networkStatsHandlers := handlers.NewNetworkStatisticsHandlers(serviceClients.NetworkAnalyticsClient)
 
@@ -347,6 +348,7 @@ func main() {
 		networkTariffTemplatesHandler,
 		networkTariffEditorHandler,
 		networkTariffBulkHandler,
+		clientTariffsEffectiveHandler,
 		resellerAnalyticsHandlers,
 		networkStatsHandlers,
 		notificationHandlers,
