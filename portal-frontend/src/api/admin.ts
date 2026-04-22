@@ -719,6 +719,7 @@ export interface AdminSenderNameInfo {
   client_id: string;
   client_email?: string; // enriched by list endpoint via JOIN; absent on detail (gRPC path)
   name: string;
+  channel: 'sms' | 'voice' | 'viber';
   status: 'pending' | 'approved' | 'rejected' | 'deactivated';
   rejection_reason?: string;
   reviewer_id?: string;
@@ -728,7 +729,7 @@ export interface AdminSenderNameInfo {
 }
 
 export const adminSenderNamesApi = {
-  list: (params?: { client_id?: string; status?: string; name_query?: string; limit?: number; offset?: number }) =>
+  list: (params?: { client_id?: string; status?: string; name_query?: string; channel?: string; limit?: number; offset?: number }) =>
     adminFetch<{ sender_names: AdminSenderNameInfo[]; total: number; limit: number; offset: number }>(
       `/sender-names${qs(params || {})}`,
     ),

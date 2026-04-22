@@ -93,6 +93,7 @@ const AdminLegalEntitiesPage = lazy(() => import('./pages/admin/legal-entities/L
 const AdminContractsPage = lazy(() => import('./pages/admin/contracts/ContractsPage').then((m) => ({ default: m.ContractsPage })));
 const AdminOperatorTemplatesPage = lazy(() => import('./pages/admin/operator-templates/OperatorTemplatesPage').then((m) => ({ default: m.OperatorTemplatesPage })));
 const AdminConnectionsPage = lazy(() => import('./pages/admin/connections/ConnectionsPage').then((m) => ({ default: m.ConnectionsPage })));
+const AdminSenderNameInboxPage = lazy(() => import('./pages/admin/moderation/SenderNameInboxPage').then((m) => ({ default: m.SenderNameInboxPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -226,6 +227,7 @@ export function App() {
         <Route path="templates" element={<Suspense fallback={null}><AdminTemplatesPage /></Suspense>} />
         <Route path="sender-names" element={<Suspense fallback={null}><AdminSenderNamesPage /></Suspense>} />
         <Route path="sender-names/:id" element={<Suspense fallback={null}><AdminSenderNameDetailPage /></Suspense>} />
+        <Route path="moderation/sender-names" element={<Suspense fallback={null}><AdminSenderNameInboxPage /></Suspense>} />
         <Route path="webhooks" element={<Suspense fallback={null}><AdminWebhooksPage /></Suspense>} />
         <Route path="hlr" element={<Suspense fallback={null}><AdminHLRPage /></Suspense>} />
         <Route path="countries" element={<Suspense fallback={null}><AdminCountriesPage /></Suspense>} />
