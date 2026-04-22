@@ -334,9 +334,19 @@ func (ap *AsyncProducer) handleResponses() {
 				// Канал закрыт — producer завершает работу
 				return
 			}
+			// Трассировка: без key (message_id) и partition ошибку привязать
+			// к конкретному сообщению в pipeline практически невозможно.
+			keyStr := ""
+			if err.Msg != nil && err.Msg.Key != nil {
+				if encoded, encErr := err.Msg.Key.Encode(); encErr == nil {
+					keyStr = string(encoded)
+				}
+			}
 			ap.logger.Error().
 				Err(err.Err).
 				Str("topic", err.Msg.Topic).
+				Int32("partition", err.Msg.Partition).
+				Str("key", keyStr).
 				Msg("ошибка доставки async сообщения")
 		}
 	}
