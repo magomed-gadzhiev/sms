@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import {
   senderNamesApi,
   ApiError,
@@ -14,13 +14,7 @@ import { TemplatesTab }  from './tabs/TemplatesTab';
 import { OperatorsTab }  from './tabs/OperatorsTab';
 import { BillingTab }    from './tabs/BillingTab';
 import { HistoryTab }    from './tabs/HistoryTab';
-
-const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
-  pending:     { variant: 'warning', label: 'На модерации' },
-  approved:    { variant: 'success', label: 'Одобрено' },
-  rejected:    { variant: 'danger',  label: 'Отклонено' },
-  deactivated: { variant: 'default', label: 'Деактивировано' },
-};
+import { STATUS_BADGE } from './senderNameUtils';
 
 const TABS = [
   { value: 'overview',   label: 'Обзор' },
@@ -33,7 +27,6 @@ type TabValue = typeof TABS[number]['value'];
 
 export function SenderNameDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const toast = useToast();
 
   // Tab state synced to URL
@@ -55,6 +48,19 @@ export function SenderNameDetailPage() {
   const [editError, setEditError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showResubmit, setShowResubmit] = useState(false);
+
+  const onTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const currentIdx = TABS.findIndex((t) => t.value === activeTab);
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = TABS[(currentIdx + 1) % TABS.length];
+      setActiveTab(next.value);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = TABS[(currentIdx - 1 + TABS.length) % TABS.length];
+      setActiveTab(prev.value);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -145,7 +151,11 @@ export function SenderNameDetailPage() {
           {senderName.status === 'approved' && (
             <Button
               variant="secondary"
-              onClick={() => navigate(`/sender-names/${id}/operators`)}
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set('tab', 'operators');
+                setSearchParams(next, { replace: true });
+              }}
             >
               Управление операторами
             </Button>
@@ -193,7 +203,9 @@ export function SenderNameDetailPage() {
                 id={`sn-tab-${t.value}`}
                 aria-selected={active}
                 aria-controls={`sn-panel-${t.value}`}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setActiveTab(t.value)}
+                onKeyDown={onTabKeyDown}
                 className={[
                   'py-3 -mb-px border-b-2 text-sm font-medium transition-colors',
                   active

@@ -8,15 +8,9 @@ import { Input } from '../../components/ui/Input';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { ChannelTabs, type Channel } from '../../components/sender-names/ChannelTabs';
+import { STATUS_BADGE } from './senderNameUtils';
 
 const PAGE_SIZE = 20;
-
-const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
-  pending: { variant: 'warning', label: 'На модерации' },
-  approved: { variant: 'success', label: 'Одобрено' },
-  rejected: { variant: 'danger', label: 'Отклонено' },
-  deactivated: { variant: 'default', label: 'Деактивировано' },
-};
 
 const ALPHANUMERIC_RE = /^[A-Za-z0-9._-]{1,11}$/;
 const NUMERIC_RE = /^\d{1,15}$/;

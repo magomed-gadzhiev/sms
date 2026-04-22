@@ -1,12 +1,6 @@
 import type { SenderNameInfo } from '../../../api/client';
 import { Badge } from '../../../components/ui/Badge';
-
-const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
-  pending:     { variant: 'warning', label: 'На модерации' },
-  approved:    { variant: 'success', label: 'Одобрено' },
-  rejected:    { variant: 'danger',  label: 'Отклонено' },
-  deactivated: { variant: 'default', label: 'Деактивировано' },
-};
+import { STATUS_BADGE } from '../senderNameUtils';
 
 const CHANNEL_LABEL: Record<string, string> = {
   sms:   'SMS',
