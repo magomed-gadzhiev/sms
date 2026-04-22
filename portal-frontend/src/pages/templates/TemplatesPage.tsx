@@ -1,16 +1,14 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { templatesApi, senderNamesApi, ApiError, type TemplateInfo, type SenderNameInfo } from '../../api/client';
-import { useFormValidation } from '../../hooks/useFormValidation';
-import { CharacterCounter } from '../../components/ui/CharacterCounter';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { TemplateFormModal } from '../../components/templates/TemplateFormModal';
 
 const PAGE_SIZE = 20;
 
@@ -50,11 +48,6 @@ export function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const tplValidation = useFormValidation({
-    name: { required: true, minLength: 3, maxLength: 100 },
-    body: { required: true, maxLength: 1600 },
-  });
-
   // Approved sender names for dropdown
   const [approvedSenderNames, setApprovedSenderNames] = useState<SenderNameInfo[]>([]);
   const [sendersError, setSendersError] = useState(false);
@@ -62,11 +55,6 @@ export function TemplatesPage() {
   // Create / Edit modal
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TemplateInfo | null>(null);
-  const [formName, setFormName] = useState('');
-  const [formBody, setFormBody] = useState('');
-  const [formSenderNameId, setFormSenderNameId] = useState('');
-  const [formTrafficType, setFormTrafficType] = useState('transactional');
-  const [saving, setSaving] = useState(false);
 
   // Preview modal
   const [previewTemplate, setPreviewTemplate] = useState<TemplateInfo | null>(null);
@@ -116,68 +104,13 @@ export function TemplatesPage() {
   // --- Create / Edit ---
 
   function openCreateForm() {
-    tplValidation.reset();
     setEditingTemplate(null);
-    setFormName('');
-    setFormBody('');
-    setFormSenderNameId('');
-    setFormTrafficType('transactional');
-    setError('');
     setShowForm(true);
   }
 
   function openEditForm(tpl: TemplateInfo) {
-    tplValidation.reset();
     setEditingTemplate(tpl);
-    setFormName(tpl.name);
-    setFormBody(tpl.body);
-    setFormSenderNameId(tpl.sender_name_id || '');
-    setFormTrafficType(tpl.traffic_type || 'transactional');
-    setError('');
     setShowForm(true);
-  }
-
-  function closeForm() {
-    setShowForm(false);
-    setEditingTemplate(null);
-    setFormName('');
-    setFormBody('');
-    setFormSenderNameId('');
-    setFormTrafficType('transactional');
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const valid = tplValidation.validateAll({ name: formName, body: formBody });
-    if (!valid) {
-      tplValidation.scrollToFirstError();
-      return;
-    }
-    setSaving(true);
-    setError('');
-    try {
-      if (editingTemplate) {
-        await templatesApi.update(editingTemplate.id, {
-          name: formName,
-          body: formBody,
-          sender_name_id: formSenderNameId || undefined,
-          traffic_type: formTrafficType || undefined,
-        });
-      } else {
-        await templatesApi.create({
-          name: formName,
-          body: formBody,
-          sender_name_id: formSenderNameId || undefined,
-          traffic_type: formTrafficType || undefined,
-        });
-      }
-      closeForm();
-      await fetchTemplates();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось сохранить шаблон');
-    } finally {
-      setSaving(false);
-    }
   }
 
   // --- Preview ---
@@ -310,108 +243,15 @@ export function TemplatesPage() {
       {error && <p className="text-red-600 mb-4">{error}</p>}
 
       {/* Create / Edit modal */}
-      <Modal
+      <TemplateFormModal
         open={showForm}
-        onClose={closeForm}
-        title={editingTemplate ? 'Редактировать шаблон' : 'Создать шаблон'}
-      >
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <Input
-              label="Название *"
-              type="text"
-              value={formName}
-              onChange={(e) => { setFormName(e.target.value); tplValidation.fieldProps('name').onChange(e); }}
-              onBlur={(e) => tplValidation.fieldProps('name').onBlur(e)}
-              aria-invalid={tplValidation.errors.name ? true : undefined}
-              aria-describedby={tplValidation.errors.name ? 'name-error' : undefined}
-              required
-              placeholder="Например: Код подтверждения"
-              className={`w-full ${tplValidation.errors.name ? 'border-red-400 focus:border-red-400' : ''}`}
-            />
-            {tplValidation.errors.name && (
-              <p id="name-error" className="mt-1 text-xs text-red-600">{tplValidation.errors.name}</p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Имя отправителя
-            </label>
-            {sendersError ? (
-              <p className="text-xs text-red-600">
-                Не удалось загрузить имена отправителей.{' '}
-                <button type="button" className="underline" onClick={loadSenderNames}>Повторить</button>
-              </p>
-            ) : approvedSenderNames.length > 0 ? (
-              <select
-                value={formSenderNameId}
-                onChange={(e) => setFormSenderNameId(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-              >
-                <option value="">— Без отправителя —</option>
-                {approvedSenderNames.map((sn) => (
-                  <option key={sn.id} value={sn.id}>{sn.name}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-xs text-gray-500">
-                Нет одобренных имён отправителей.{' '}
-                <a href="/sender-names" className="text-primary underline">Зарегистрировать →</a>
-              </p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <Select
-              label="Тип трафика"
-              value={formTrafficType}
-              onChange={setFormTrafficType}
-              options={[
-                { value: 'transactional', label: 'Транзакционный' },
-                { value: 'authorization', label: 'Авторизационный' },
-                { value: 'service', label: 'Сервисный' },
-              ]}
-            />
-          </div>
-
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Текст шаблона *
-              </label>
-              <CharacterCounter current={formBody.length} max={1600} />
-            </div>
-            <textarea
-              value={formBody}
-              onChange={(e) => { setFormBody(e.target.value); tplValidation.fieldProps('body').onChange(e); }}
-              onBlur={(e) => tplValidation.fieldProps('body').onBlur(e)}
-              aria-invalid={tplValidation.errors.body ? true : undefined}
-              aria-describedby={tplValidation.errors.body ? 'body-error' : undefined}
-              required
-              rows={5}
-              placeholder="Ваш код: {{code}}. Здравствуйте, {{name}}!"
-              className={`w-full rounded border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary ${tplValidation.errors.body ? 'border-red-400' : 'border-gray-300'}`}
-            />
-            {tplValidation.errors.body ? (
-              <p id="body-error" className="mt-1 text-xs text-red-600">{tplValidation.errors.body}</p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                Используйте переменные в двойных фигурных скобках: {'{{name}}'}, {'{{code}}'}, {'{{company}}'}
-              </p>
-            )}
-          </div>
-
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="secondary" onClick={closeForm}>
-              Отмена
-            </Button>
-            <Button type="submit" disabled={saving || !formName.trim() || !formBody.trim()}>
-              {saving ? 'Сохранение...' : editingTemplate ? 'Сохранить' : 'Создать'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onClose={() => { setShowForm(false); setEditingTemplate(null); }}
+        onSubmitted={() => { fetchTemplates(); setShowForm(false); setEditingTemplate(null); }}
+        editingTemplate={editingTemplate}
+        availableSenderNames={approvedSenderNames}
+        availableSenderNamesError={sendersError}
+        onReloadSenderNames={loadSenderNames}
+      />
 
       {/* Preview modal */}
       <Modal
