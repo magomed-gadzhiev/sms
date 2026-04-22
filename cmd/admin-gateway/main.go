@@ -25,6 +25,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/application"
 	quotarepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
+	bindingAppl "github.com/smpp-server/smpp-server/internal/services/template/application"
+	bindingRepo "github.com/smpp-server/smpp-server/internal/services/template/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -157,8 +159,13 @@ func main() {
 	quotaService := application.NewQuotaService(quotaRepo)
 	aggregatorQuotaHandlers := handlers.NewAggregatorQuotaHandler(quotaService)
 
+	// Operator binding service — shares the sqlxDB already created for quotaRepo
+	bindingRepoImpl := bindingRepo.NewOperatorBindingRepo(sqlxDB)
+	bindingService := bindingAppl.NewOperatorBindingService(bindingRepoImpl)
+
 	moderationHandlers := handlers.NewModerationHandlers()
 	moderationHandlers.SetDB(adminDB)
+	moderationHandlers.SetBindingService(bindingService)
 
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)

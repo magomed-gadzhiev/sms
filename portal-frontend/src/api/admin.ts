@@ -1043,4 +1043,8 @@ export const moderationApi = {
       `/moderation/bindings${qs_str}`,
     );
   },
+  approveBinding: (id: string) =>
+    adminFetch<{ status: string }>(`/moderation/bindings/${id}/approve`, { method: 'POST', body: JSON.stringify({}) }),
+  rejectBinding: (id: string, reason: string) =>
+    adminFetch<{ status: string }>(`/moderation/bindings/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
 };

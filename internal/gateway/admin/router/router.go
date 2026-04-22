@@ -230,11 +230,13 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}/deactivate", senderNameHandlers.DeactivateSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.GetSenderNameOperatorRegistrations).Methods("GET")
 
-	// Moderation counts + bindings inbox
+	// Moderation counts + bindings inbox + approve/reject
 	moderation := adminV1.PathPrefix("/moderation").Subrouter()
 	moderation.Use(middleware.ModerationScope)
 	moderation.HandleFunc("/counts", moderationHandlers.Counts).Methods(http.MethodGet)
 	moderation.HandleFunc("/bindings", moderationHandlers.ListPendingBindings).Methods(http.MethodGet)
+	moderation.HandleFunc("/bindings/{id}/approve", moderationHandlers.ApproveBinding).Methods(http.MethodPost)
+	moderation.HandleFunc("/bindings/{id}/reject", moderationHandlers.RejectBinding).Methods(http.MethodPost)
 
 	// Detalization endpoints (admin message log)
 	messages := adminV1.PathPrefix("/messages").Subrouter()
