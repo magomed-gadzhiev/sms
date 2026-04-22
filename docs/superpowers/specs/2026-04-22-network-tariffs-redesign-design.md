@@ -32,7 +32,7 @@
 
 ### 1.1 Routes
 
-- **`/network/tariffs`** (admin, `reseller_admin`) — список субаккаунтов со сводкой их тарифа.
+- **`/network/tariffs`** (admin, authenticated + `is_reseller=true`) — список субаккаунтов со сводкой их тарифа.
 - **`/network/tariffs/templates`** (admin) — библиотека шаблонов тарифов.
 - **`/network/tariffs/editor/:id`** (admin) — матричный редактор. Режим определяется query: `?mode=template` (редактируем шаблон) или `?mode=override` (редактируем переопределения субаккаунта).
 - **`/tariffs`** (client, любая аутентифицированная роль) — переиспользует компонент матрицы в readonly-режиме, показывает эффективную сетку текущего субаккаунта. Нет dropdown'а субаккаунтов, нет кнопок правки.
@@ -245,13 +245,16 @@ Response — та же структура что 5.1.5, но без поля `pr
 
 ### 5.2 Permissions
 
-- Все `/api/network/*` → требуют роли `reseller_admin` в middleware.
+- Все `/api/network/*` → требуют authenticated + `is_reseller=true` flag на вызывающем клиенте (проверяется в handler'е, consistent с существующими `reseller_*` handlers). Отдельной роли `reseller_admin` в системе нет.
 - `/api/client/tariffs/effective` → требует `authenticated` + resolved `sub_account_id` из session context.
 
 ### 5.3 Counters
 
+> **Note (schema reality):** колонка `clients.currency` не существует. Response'ы `subaccounts-summary` и editor'а hardcode'ят `"RUB"` до тех пор, пока мультивалютность не будет добавлена в таблицу `clients` (отдельная инициатива).
+
+
 Для быстрого `/tariff-templates` нужны `plans_count`, `bound_subaccount_count`. Два варианта (решаем на этапе плана):
-- **Counter columns** на `reseller_tariff_templates` + триггеры `AFTER INSERT/DELETE` на `reseller_tariff_plans` и `reseller_tariff_template_bindings`.
+- **Counter columns** на `reseller_tariff_templates` + триггеры `AFTER INSERT/DELETE` на `reseller_tariff_plans` и `sub_account_template_assignments` (колонки: `sub_account_id`, `template_id`, `assigned_at`; unique index на `sub_account_id`).
 - **On-read COUNT'ы** в запросе с `LATERAL` подзапросами. Дешевле в миграции, дороже в рантайме.
 
 Default — on-read; переход на counter columns только при p95 > 200ms.

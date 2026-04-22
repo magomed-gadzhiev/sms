@@ -94,6 +94,19 @@ func (r *DeliveryRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
+func (r *DeliveryRepo) UpdateStatusCAS(ctx context.Context, id uuid.UUID, expectedStatus domain.DeliveryStatus, newStatus domain.DeliveryStatus, deliveredVia string) error {
+	query := `UPDATE deliveries SET status = $1, delivered_via = $2, updated_at = $3
+	          WHERE id = $4 AND status = $5`
+	tag, err := r.pool.Exec(ctx, query, string(newStatus), deliveredVia, time.Now(), id, string(expectedStatus))
+	if err != nil {
+		return fmt.Errorf("update delivery status cas: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrDeliveryConflict
+	}
+	return nil
+}
+
 func (r *DeliveryRepo) UpdateStep(ctx context.Context, id uuid.UUID, step int) error {
 	query := `UPDATE deliveries SET current_step = $1, updated_at = $2 WHERE id = $3`
 	tag, err := r.pool.Exec(ctx, query, step, time.Now(), id)
