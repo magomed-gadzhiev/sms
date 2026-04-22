@@ -1,5 +1,9 @@
 # UX Audit Progress
 
+## [IN_PROGRESS] Модуль: Отправка сообщений и рассылок — спринт 3 (aggregator + subaccount, fix, 2026-04-22)
+
+Scope: B2 XSS sanitization, B9 восстановление старых pending, B10 cost-estimate для subaccount, B11 polling на странице детализации кампании, B12 исправить ссылку на CommandCenter.
+
 ## [DONE] Модуль: Отправка сообщений и рассылок — спринт 2 (aggregator + subaccount, fix, 2026-04-22)
 
 Scope: валидация API, UX при подмене sender, битая навигация, end-to-end CampaignWizard.

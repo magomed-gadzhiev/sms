@@ -626,7 +626,7 @@ export function CommandCenter() {
             subtitle="суб-аккаунтов с балансом < 100 ₽"
           >
             <Link
-              to="/sub-accounts"
+              to="/network/sub-accounts"
               style={{ color: 'var(--cc-accent-blue)' }}
               className="text-xs hover:underline mt-1 inline-block"
             >

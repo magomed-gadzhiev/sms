@@ -670,10 +670,27 @@ func (h *MessageHandlers) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		if msg.DeliveredAt != nil {
 			deliveredAt = msg.DeliveredAt.AsTime().Format(time.RFC3339)
 		}
+		// B2: CSV formula injection — если ячейка начинается с =/+/-/@/tab, Excel
+		// исполнит как формулу при открытии файла. Префиксируем апострофом.
 		csvWriter.Write([]string{
-			msg.MessageId, msg.Source, msg.Destination, msg.Text, msg.Status,
+			csvSanitize(msg.MessageId), csvSanitize(msg.Source), csvSanitize(msg.Destination),
+			csvSanitize(msg.Text), csvSanitize(msg.Status),
 			fmt.Sprintf("%d", msg.SegmentCount), createdAt, deliveredAt,
 		})
 	}
 	csvWriter.Flush()
+}
+
+// csvSanitize защищает от CSV formula injection (CVE-класс). Если ячейка
+// начинается с символа-триггера Excel/Calc, префиксует апострофом чтобы
+// engine трактовал как текст, а не формулу. Не влияет на plain-текст.
+func csvSanitize(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
 }
