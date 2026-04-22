@@ -163,9 +163,14 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Create temp table (dropped on commit).
+	// 1. Create temp table. Drop-and-recreate (matching status/stage.go) ensures
+	// the schema is always current even when pgbouncer hands us a reused backend
+	// connection whose session retained an older persist_batch definition after
+	// a migration. `CREATE TEMP TABLE IF NOT EXISTS` is unsafe here because it
+	// silently keeps a stale schema → COPY fails with "column X does not exist".
 	_, err = tx.Exec(ctx, `
-		CREATE TEMP TABLE IF NOT EXISTS persist_batch (
+		DROP TABLE IF EXISTS persist_batch;
+		CREATE TEMP TABLE persist_batch (
 			id UUID, message_id VARCHAR(255), source VARCHAR(20), destination VARCHAR(20),
 			text TEXT, encoding VARCHAR(20), segment_count INT, status VARCHAR(50),
 			priority_flag INT, provider_id UUID, route_id UUID, client_id UUID,
