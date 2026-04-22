@@ -21,7 +21,7 @@ func TestValidateSenderName_AcceptsDotUnderscoreDash(t *testing.T) {
 
 func TestValidateSenderName_AcceptsAlphanumeric11(t *testing.T) {
 	assert.NoError(t, ValidateSenderName("MyBrand1"))
-	assert.NoError(t, ValidateSenderName("12345678901"))
+	assert.NoError(t, ValidateSenderName("MyBrand0123"))
 }
 
 func TestValidateSenderName_AcceptsNumeric15(t *testing.T) {
