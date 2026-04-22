@@ -175,7 +175,7 @@ func TestChangePlan_Success(t *testing.T) {
 	cc.On("GetClient", mock.Anything, &clientv1.GetClientRequest{
 		ClientId: clientID.String(),
 	}).Return(&clientv1.GetClientResponse{
-		Client: &clientv1.ClientInfo{Id: clientID.String()},
+		Client: &clientv1.ClientInfo{ClientId: clientID.String()},
 	}, nil)
 	cc.On("ListPlans", mock.Anything, &clientv1.ListPlansRequest{}).Return(&clientv1.ListPlansResponse{
 		Plans: []*clientv1.SubscriptionPlan{
