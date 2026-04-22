@@ -104,17 +104,17 @@ func (r *SenderNameRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 	return row.toDomain(), nil
 }
 
-func (r *SenderNameRepository) GetByClientAndName(ctx context.Context, clientID uuid.UUID, name string) (*domain.SenderName, error) {
+func (r *SenderNameRepository) GetByClientNameChannel(ctx context.Context, clientID uuid.UUID, name, channel string) (*domain.SenderName, error) {
 	const q = `
 		SELECT id, client_id, company_id, name, channel, status, rejection_reason, reviewer_id, reviewed_at, created_at, updated_at
-		FROM sender_names WHERE client_id = $1 AND name = $2`
+		FROM sender_names WHERE client_id = $1 AND name = $2 AND channel = $3`
 
 	var row senderNameRow
-	if err := r.db.QueryRowxContext(ctx, q, clientID, name).StructScan(&row); err != nil {
+	if err := r.db.QueryRowxContext(ctx, q, clientID, name, channel).StructScan(&row); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrSenderNameNotFound
 		}
-		return nil, fmt.Errorf("get sender name by client and name: %w", err)
+		return nil, fmt.Errorf("get sender name by client, name and channel: %w", err)
 	}
 	return row.toDomain(), nil
 }

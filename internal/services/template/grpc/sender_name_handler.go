@@ -49,7 +49,8 @@ func (h *SenderNameHandler) CreateSenderName(ctx context.Context, req *sendernam
 		return nil, status.Error(codes.InvalidArgument, "invalid company_id format")
 	}
 
-	sn, err := h.svc.RegisterSenderName(ctx, clientID, companyID, req.Name)
+	// TODO(phase1 follow-up): add channel to SenderName proto; defaulting to SMS for now.
+	sn, err := h.svc.RegisterSenderName(ctx, clientID, companyID, req.Name, domain.SenderNameChannelSMS)
 	if err != nil {
 		return nil, h.mapError(err)
 	}

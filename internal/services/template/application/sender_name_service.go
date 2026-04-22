@@ -35,9 +35,21 @@ func NewSenderNameService(repo SenderNameRepository) *SenderNameService {
 	}
 }
 
-func (s *SenderNameService) RegisterSenderName(ctx context.Context, clientID, companyID uuid.UUID, name string) (*domain.SenderName, error) {
+func (s *SenderNameService) RegisterSenderName(ctx context.Context, clientID, companyID uuid.UUID, name, channel string) (*domain.SenderName, error) {
 	if err := domain.ValidateSenderName(name); err != nil {
 		return nil, err
+	}
+	if err := domain.ValidateChannel(channel); err != nil {
+		return nil, err
+	}
+
+	// Duplicate check is channel-aware, matching the 3-col unique constraint (client_id, name, channel).
+	existing, err := s.repo.GetByClientNameChannel(ctx, clientID, name, channel)
+	if err != nil && !errors.Is(err, domain.ErrSenderNameNotFound) {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, domain.ErrDuplicateSenderName
 	}
 
 	sn := &domain.SenderName{
@@ -45,6 +57,7 @@ func (s *SenderNameService) RegisterSenderName(ctx context.Context, clientID, co
 		ClientID:  clientID,
 		CompanyID: companyID,
 		Name:      name,
+		Channel:   channel,
 		Status:    domain.SenderNameStatusPending,
 	}
 

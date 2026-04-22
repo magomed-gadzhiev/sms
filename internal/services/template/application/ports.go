@@ -11,7 +11,7 @@ import (
 type SenderNameRepository interface {
 	Create(ctx context.Context, sn *domain.SenderName) (*domain.SenderName, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SenderName, error)
-	GetByClientAndName(ctx context.Context, clientID uuid.UUID, name string) (*domain.SenderName, error)
+	GetByClientNameChannel(ctx context.Context, clientID uuid.UUID, name, channel string) (*domain.SenderName, error)
 	ListByClient(ctx context.Context, clientID uuid.UUID, status string, limit, offset int) ([]*domain.SenderName, int, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status, rejectionReason string, reviewerID *uuid.UUID) (*domain.SenderName, error)
 	Update(ctx context.Context, sn *domain.SenderName) (*domain.SenderName, error)
