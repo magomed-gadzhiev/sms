@@ -424,12 +424,289 @@ func TestEditor_OverrideMode_ReturnsInheritanceMarkers(t *testing.T) {
 	require.NotNil(t, mtsT1k.priceTpl)
 	assert.InDelta(t, 2.80, *mtsT1k.priceTpl, 0.001)
 
-	// Beeline tier0: in current schema overrides shared across operators
-	// (same as template semantics). Accept either "override" or "template"
-	// but assert the prices line up with the rule in buildCellsOverride.
+	// Beeline tier0: the override plan seeded by seedEditorOverridePlan has
+	// operator_id IS NULL → wildcard override covering every operator without
+	// its own override plan. So Beeline inherits the same override price.
 	blnT0 := byKey[bln.String()+"|"+tier0ID]
 	assert.Equal(t, "override", blnT0.source,
-		"override tiers currently shared across operators — update when per-operator plans land")
+		"wildcard override plan (operator_id IS NULL) covers both operators")
+	require.NotNil(t, blnT0.priceOvr)
+	assert.InDelta(t, 3.00, *blnT0.priceOvr, 0.001)
+}
+
+// ---------- New per-operator plan tests (Task 5 bug fix) ----------
+
+// seedEditorTemplatePlanForOperator is like seedEditorTemplatePlan but pins
+// the plan to a specific operator_id instead of the wildcard NULL. Returns
+// the plan id, period id, and the two tier ids.
+func seedEditorTemplatePlanForOperator(
+	t *testing.T, pool *pgxpool.Pool,
+	resellerID, templateID, countryID uuid.UUID,
+	operatorID *uuid.UUID,
+	price0, price1k float64,
+) (planID, periodID, tier0ID, tier1kID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+
+	err := pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, template_id, country_id, operator_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, 'paid_registered', 'any', 'threshold', true)
+		RETURNING id`, resellerID, templateID, countryID, operatorID).Scan(&planID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_plans WHERE id = $1`, planID)
+	})
+
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, CURRENT_DATE - INTERVAL '1 day', NULL)
+		RETURNING id`, planID).Scan(&periodID)
+	require.NoError(t, err)
+
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, $2) RETURNING id`, periodID, price0).Scan(&tier0ID)
+	require.NoError(t, err)
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 1000, $2) RETURNING id`, periodID, price1k).Scan(&tier1kID)
+	require.NoError(t, err)
+	return
+}
+
+// seedEditorTemplateOnly creates the template row only (no plans).
+func seedEditorTemplateOnly(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID, name string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	tplID := uuid.New()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO reseller_tariff_templates (id, reseller_id, name, active)
+		VALUES ($1, $2, $3, true)`, tplID, resellerID, name)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_templates WHERE id = $1`, tplID)
+	})
+	return tplID
+}
+
+// seedEditorOverridePlanForOperator creates an override plan for a specific
+// operator_id (or wildcard if operatorID == nil) and returns its period id.
+func seedEditorOverridePlanForOperator(
+	t *testing.T, pool *pgxpool.Pool,
+	resellerID, subAccountID, countryID uuid.UUID,
+	operatorID *uuid.UUID,
+) (planID, periodID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+
+	err := pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, sub_account_id, country_id, operator_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, 'paid_registered', 'any', 'threshold', true)
+		RETURNING id`, resellerID, subAccountID, countryID, operatorID).Scan(&planID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_plans WHERE id = $1`, planID)
+	})
+
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, CURRENT_DATE - INTERVAL '1 day', NULL)
+		RETURNING id`, planID).Scan(&periodID)
+	require.NoError(t, err)
+	return
+}
+
+// TestEditor_TemplateMode_PerOperatorPrices: two plans under one template,
+// same dimensions except operator_id. Each has its own period+tiers. Asserts
+// that MTS cell uses MTS plan's price and Beeline cell uses Beeline plan's
+// price — the bug being that the old code used LIMIT 1 and painted one
+// plan's tiers across all operators.
+func TestEditor_TemplateMode_PerOperatorPrices(t *testing.T) {
+	pool := getEditorTestPool(t)
+	reseller := seedEditorReseller(t, pool)
+	ruID := seedEditorCountryRU(t, pool)
+	mts, bln := seedEditorOperators(t, pool, ruID)
+
+	tplID := seedEditorTemplateOnly(t, pool, reseller,
+		fmt.Sprintf("tpl-per-op-%s", uuid.NewString()[:6]))
+
+	// MTS plan at 3.20 / 2.80.
+	_, _, _, _ = seedEditorTemplatePlanForOperator(t, pool, reseller, tplID, ruID, &mts, 3.20, 2.80)
+	// Beeline plan at 4.50 / 4.00.
+	_, _, _, _ = seedEditorTemplatePlanForOperator(t, pool, reseller, tplID, ruID, &bln, 4.50, 4.00)
+
+	h := NewNetworkTariffEditorHandler(pool)
+	w := doEditorGet(t, h, reseller, tplID,
+		"mode=template&channel=sms&country=RU&sender_category=paid_registered&traffic_type=any")
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+
+	b := parseEditorBody(t, w)
+	require.NotNil(t, b.Plan)
+	require.Len(t, b.Tiers, 2)
+
+	var tier0ID, tier1kID string
+	for _, tr := range b.Tiers {
+		switch tr.FromQuantity {
+		case 0:
+			tier0ID = tr.ID
+		case 1000:
+			tier1kID = tr.ID
+		}
+	}
+	require.NotEmpty(t, tier0ID)
+	require.NotEmpty(t, tier1kID)
+
+	byKey := map[string]struct {
+		tpl, eff *float64
+	}{}
+	for _, c := range b.Cells {
+		if c.OperatorID != mts.String() && c.OperatorID != bln.String() {
+			continue
+		}
+		byKey[c.OperatorID+"|"+c.TierID] = struct {
+			tpl, eff *float64
+		}{c.PriceTemplate, c.Effective}
+	}
+
+	// MTS cells from MTS plan.
+	mtsT0 := byKey[mts.String()+"|"+tier0ID]
+	require.NotNil(t, mtsT0.tpl, "MTS tier0 should have template price")
+	assert.InDelta(t, 3.20, *mtsT0.tpl, 0.001)
+	mtsT1k := byKey[mts.String()+"|"+tier1kID]
+	require.NotNil(t, mtsT1k.tpl)
+	assert.InDelta(t, 2.80, *mtsT1k.tpl, 0.001)
+
+	// Beeline cells from Beeline plan (different prices — proves per-op lookup).
+	blnT0 := byKey[bln.String()+"|"+tier0ID]
+	require.NotNil(t, blnT0.tpl, "Beeline tier0 should have template price")
+	assert.InDelta(t, 4.50, *blnT0.tpl, 0.001)
+	blnT1k := byKey[bln.String()+"|"+tier1kID]
+	require.NotNil(t, blnT1k.tpl)
+	assert.InDelta(t, 4.00, *blnT1k.tpl, 0.001)
+}
+
+// TestEditor_TemplateMode_WildcardFallback: wildcard plan (operator_id=NULL)
+// at 5.0; MTS-specific plan at 3.0. Asserts MTS gets 3.0 (specific wins) and
+// Beeline gets 5.0 (wildcard fallback).
+func TestEditor_TemplateMode_WildcardFallback(t *testing.T) {
+	pool := getEditorTestPool(t)
+	reseller := seedEditorReseller(t, pool)
+	ruID := seedEditorCountryRU(t, pool)
+	mts, bln := seedEditorOperators(t, pool, ruID)
+
+	tplID := seedEditorTemplateOnly(t, pool, reseller,
+		fmt.Sprintf("tpl-wc-%s", uuid.NewString()[:6]))
+
+	// Wildcard plan at 5.0 (single tier from_count=0).
+	_, _, _, _ = seedEditorTemplatePlanForOperator(t, pool, reseller, tplID, ruID, nil, 5.00, 4.80)
+	// MTS-specific plan at 3.0.
+	_, _, _, _ = seedEditorTemplatePlanForOperator(t, pool, reseller, tplID, ruID, &mts, 3.00, 2.50)
+
+	h := NewNetworkTariffEditorHandler(pool)
+	w := doEditorGet(t, h, reseller, tplID,
+		"mode=template&channel=sms&country=RU&sender_category=paid_registered&traffic_type=any")
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+
+	b := parseEditorBody(t, w)
+	require.NotNil(t, b.Plan)
+	require.Len(t, b.Tiers, 2)
+
+	var tier0ID string
+	for _, tr := range b.Tiers {
+		if tr.FromQuantity == 0 {
+			tier0ID = tr.ID
+		}
+	}
+	require.NotEmpty(t, tier0ID)
+
+	byKey := map[string]*float64{}
+	for _, c := range b.Cells {
+		byKey[c.OperatorID+"|"+c.TierID] = c.PriceTemplate
+	}
+
+	mtsT0 := byKey[mts.String()+"|"+tier0ID]
+	require.NotNil(t, mtsT0, "MTS tier0 template price must be present")
+	assert.InDelta(t, 3.00, *mtsT0, 0.001, "MTS uses its specific plan, not wildcard")
+
+	blnT0 := byKey[bln.String()+"|"+tier0ID]
+	require.NotNil(t, blnT0, "Beeline tier0 should fall back to wildcard")
+	assert.InDelta(t, 5.00, *blnT0, 0.001, "Beeline has no specific plan → wildcard fallback")
+}
+
+// TestEditor_OverrideMode_PerOperatorOverride: template has MTS and Beeline
+// plans at 3.0 each; sub-account override for MTS only at 2.5. Asserts MTS
+// cell shows effective=2.5 source=override; Beeline shows effective=3.0
+// source=template.
+func TestEditor_OverrideMode_PerOperatorOverride(t *testing.T) {
+	pool := getEditorTestPool(t)
+	ctx := context.Background()
+	reseller := seedEditorReseller(t, pool)
+	sub := seedEditorSubAccount(t, pool, reseller)
+	ruID := seedEditorCountryRU(t, pool)
+	mts, bln := seedEditorOperators(t, pool, ruID)
+
+	tplID := seedEditorTemplateOnly(t, pool, reseller,
+		fmt.Sprintf("tpl-ov-per-op-%s", uuid.NewString()[:6]))
+	// Two operator-specific template plans at the same 3.0/2.8 prices.
+	_, _, _, _ = seedEditorTemplatePlanForOperator(t, pool, reseller, tplID, ruID, &mts, 3.00, 2.80)
+	_, _, _, _ = seedEditorTemplatePlanForOperator(t, pool, reseller, tplID, ruID, &bln, 3.00, 2.80)
+
+	// Bind template.
+	_, err := pool.Exec(ctx, `
+		INSERT INTO sub_account_template_assignments (sub_account_id, template_id)
+		VALUES ($1, $2)`, sub, tplID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM sub_account_template_assignments WHERE sub_account_id = $1`, sub)
+	})
+
+	// MTS-only override at 2.5 (from_count=0).
+	_, ovrPeriod := seedEditorOverridePlanForOperator(t, pool, reseller, sub, ruID, &mts)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, 2.50)`, ovrPeriod)
+	require.NoError(t, err)
+
+	h := NewNetworkTariffEditorHandler(pool)
+	w := doEditorGet(t, h, reseller, sub,
+		"mode=override&channel=sms&country=RU&sender_category=paid_registered&traffic_type=any")
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+
+	b := parseEditorBody(t, w)
+	require.NotNil(t, b.Plan)
+	require.GreaterOrEqual(t, len(b.Tiers), 1)
+
+	var tier0ID string
+	for _, tr := range b.Tiers {
+		if tr.FromQuantity == 0 {
+			tier0ID = tr.ID
+		}
+	}
+	require.NotEmpty(t, tier0ID)
+
+	byKey := map[string]struct {
+		source string
+		eff    *float64
+	}{}
+	for _, c := range b.Cells {
+		byKey[c.OperatorID+"|"+c.TierID] = struct {
+			source string
+			eff    *float64
+		}{c.Source, c.Effective}
+	}
+
+	mtsT0 := byKey[mts.String()+"|"+tier0ID]
+	assert.Equal(t, "override", mtsT0.source, "MTS has its own override plan → source=override")
+	require.NotNil(t, mtsT0.eff)
+	assert.InDelta(t, 2.50, *mtsT0.eff, 0.001)
+
+	blnT0 := byKey[bln.String()+"|"+tier0ID]
+	assert.Equal(t, "template", blnT0.source, "Beeline has no override → source=template")
+	require.NotNil(t, blnT0.eff)
+	assert.InDelta(t, 3.00, *blnT0.eff, 0.001)
 }
 
 func TestEditor_OverrideMode_NoTemplateBinding(t *testing.T) {

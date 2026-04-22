@@ -10,11 +10,33 @@
 //
 // Modes:
 //   - mode=template: {id} is a template id owned by the caller. `cells` come
-//     from the template plan only; `price_override` is always null.
+//     from the template plans only; `price_override` is always null.
 //   - mode=override: {id} is a sub-account id whose parent_client_id equals
 //     the caller. Template is resolved via sub_account_template_assignments.
-//     Periods are taken from the template plan; overrides contribute only
-//     cells, not separate periods.
+//     Periods are taken from the primary template plan; overrides contribute
+//     only cells, not separate periods.
+//
+// Plan dimensions: `(template_id | sub_account_id, country_id, operator_id,
+// sender_category, traffic_type)`. The unique indexes in migration 000098 key
+// `operator_id` via `COALESCE(operator_id, NIL_UUID)` — so a plan with
+// `operator_id IS NULL` is a per-template wildcard covering any operator not
+// already served by an operator-specific plan. The editor resolves each
+// `(operator, tier)` cell by:
+//
+//  1. Look up the operator-specific plan for that operator_id.
+//  2. If none exists, fall back to the wildcard plan (operator_id IS NULL).
+//  3. In override mode, repeat steps 1–2 across both the template-owned plans
+//     and the sub-account override plans; the override plan's price wins when
+//     present, else the template price, else unset.
+//
+// Tier identity across operator-plans: tier rows live under the plan → period
+// tree, so two operator-plans have different tier uuids even for the same
+// from_count. The matrix columns (`tiers`) are populated from ONE "primary"
+// plan — wildcard if present, else the first operator-specific plan ordered
+// by operator name. Per-operator cells look up the matching tier in their own
+// plan by `from_count`, not by tier uuid. If operator-specific plans have
+// diverging periods, the editor currently shows the primary plan's periods
+// only; multi-period-per-operator matrices are out of scope for this task.
 //
 // Note on `channel`: accepted but not filtered. The plan dimensions do not
 // include a channel column today; `traffic_type='any'` is the match-all value
@@ -28,6 +50,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -236,15 +259,17 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 		Cells:     []editorCell{},
 	}
 
-	// 2. Find the template plan for the requested dimensions. If the country
-	// row does not exist (by iso_code), no plan can match — bail out with a
-	// well-formed empty response.
+	// 2. Find all template plans for the requested dimensions. Map keys:
+	//    - operator-specific plans: operator UUID
+	//    - wildcard plan (operator_id IS NULL): uuid.Nil
+	// If the country row does not exist (by iso_code), no plan can match —
+	// bail out with a well-formed empty response.
 	if countryMissing {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
-	tplPlan, err := h.findPlan(ctx, findPlanArgs{
+	tplPlans, err := h.findPlans(ctx, findPlansArgs{
 		TemplateID:     &templateID,
 		CountryID:      countryID,
 		SenderCategory: senderCategory,
@@ -255,32 +280,19 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 		respondError(w, shared.ErrInternalServer("ошибка чтения плана"))
 		return
 	}
-	if tplPlan == nil {
+	if len(tplPlans) == 0 {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
+	primary := pickPrimaryPlan(tplPlans)
 	resp.Plan = &editorPlan{
-		ID:       tplPlan.ID.String(),
-		Strategy: tplPlan.Strategy,
+		ID:       primary.ID.String(),
+		Strategy: primary.Strategy,
 		Currency: "RUB", // hardcoded per spec §5.3 (no clients.currency column)
 	}
 
-	// 3. Load periods for the template plan and pick the active one.
-	periods, err := h.loadPeriods(ctx, tplPlan.ID)
-	if err != nil {
-		log.Error().Err(err).Msg("network_tariff_editor: load periods failed")
-		respondError(w, shared.ErrInternalServer("ошибка чтения периодов"))
-		return
-	}
-	activePeriod := pickActivePeriod(periods, requestedPeriodID)
-	resp.Periods = periodsToJSON(periods, activePeriod)
-	if activePeriod != nil {
-		ps := activePeriod.ID.String()
-		resp.ActivePeriodID = &ps
-	}
-
-	// 4. Operators + tiers + cells (only if we picked a period).
+	// 3. Operators (full list; even those without a plan appear in the matrix).
 	operators, err := h.loadOperators(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("network_tariff_editor: load operators failed")
@@ -289,30 +301,47 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 	}
 	resp.Operators = operators
 
-	if activePeriod != nil {
-		tiers, err := h.loadTiers(ctx, activePeriod.ID)
-		if err != nil {
-			log.Error().Err(err).Msg("network_tariff_editor: load tiers failed")
-			respondError(w, shared.ErrInternalServer("ошибка чтения ступеней"))
-			return
-		}
-		resp.Tiers = tiers
-
-		// Template-price lookup keyed by (operator_id,tier_id). In template
-		// mode, tiers belong to the template period, so operator_id comes
-		// from the iteration — the tier table does not hold operator_id.
-		// Price per (operator,tier) resolves to the tier's price_per_segment
-		// regardless of operator because plan dimensions do NOT include
-		// operator_id in the RedSMS model for channel-agnostic templates.
-		// TODO(multi-operator-plans): when operator_id starts being used on
-		// plans, split by operator here.
-		tierPrices := map[string]float64{}
-		for _, t := range tiers {
-			tierPrices[t.ID] = t.price
-		}
-
-		resp.Cells = buildCellsTemplate(operators, tiers, tierPrices)
+	// 4. Periods are driven by the primary plan. requestedPeriodID selects a
+	// period inside the primary plan; non-primary plans use their own
+	// currently-active period (see comment on the type below).
+	primaryPeriods, err := h.loadPeriods(ctx, primary.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_editor: load periods failed")
+		respondError(w, shared.ErrInternalServer("ошибка чтения периодов"))
+		return
 	}
+	activePeriod := pickActivePeriod(primaryPeriods, requestedPeriodID)
+	resp.Periods = periodsToJSON(primaryPeriods, activePeriod)
+	if activePeriod != nil {
+		ps := activePeriod.ID.String()
+		resp.ActivePeriodID = &ps
+	}
+
+	if activePeriod == nil {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
+	// 5. Tier columns: from the primary plan's active period.
+	primaryTiers, err := h.loadTiers(ctx, activePeriod.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_editor: load tiers failed")
+		respondError(w, shared.ErrInternalServer("ошибка чтения ступеней"))
+		return
+	}
+	resp.Tiers = primaryTiers
+
+	// 6. Per-plan price maps keyed by from_count. The primary plan uses the
+	// user-selected period (activePeriod); other plans pick their own
+	// currently-active period (simplification — see file header).
+	pricesByOperator, err := h.loadPlanPricesByOperator(ctx, tplPlans, primary.ID, activePeriod)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_editor: load per-operator tiers failed")
+		respondError(w, shared.ErrInternalServer("ошибка чтения цен по операторам"))
+		return
+	}
+
+	resp.Cells = buildCellsTemplate(operators, primaryTiers, pricesByOperator)
 
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -381,10 +410,12 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 		return
 	}
 
-	// 3. Look up template plan (if binding exists) and override plan.
-	var tplPlan *planRow
+	// 3. Look up template plans (if binding exists) and override plans. Each
+	// is returned as a map operator_id → plan, where uuid.Nil keys the
+	// wildcard plan (operator_id IS NULL).
+	var tplPlans map[uuid.UUID]planRow
 	if hasTemplate {
-		tplPlan, err = h.findPlan(ctx, findPlanArgs{
+		tplPlans, err = h.findPlans(ctx, findPlansArgs{
 			TemplateID:     &tplID,
 			CountryID:      countryID,
 			SenderCategory: senderCategory,
@@ -397,7 +428,7 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 		}
 	}
 
-	ovrPlan, err := h.findPlan(ctx, findPlanArgs{
+	ovrPlans, err := h.findPlans(ctx, findPlansArgs{
 		SubAccountID:   &subAccountID,
 		CountryID:      countryID,
 		SenderCategory: senderCategory,
@@ -409,40 +440,40 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 		return
 	}
 
-	// 4. Periods are driven by the template plan. If there is no template
-	// plan (unbound sub-account with only overrides), fall back to the
-	// override plan's periods.
-	var periodsSource *planRow
-	switch {
-	case tplPlan != nil:
-		periodsSource = tplPlan
-	case ovrPlan != nil:
-		periodsSource = ovrPlan
+	// 4. Primary plan drives periods + tier columns. Template-bound sub shows
+	// template primary; unbound sub (overrides only) shows override primary.
+	var primary *planRow
+	var isTemplatePrimary bool
+	if len(tplPlans) > 0 {
+		p := pickPrimaryPlan(tplPlans)
+		primary = &p
+		isTemplatePrimary = true
+	} else if len(ovrPlans) > 0 {
+		p := pickPrimaryPlan(ovrPlans)
+		primary = &p
 	}
 
-	if periodsSource == nil {
+	if primary == nil {
 		// Neither template nor override has a plan → empty cells but keep
 		// scope + (optional) template ref.
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
-	// `plan` in the response reflects the template plan when present, else
-	// override plan. Strategy is per-plan in the current schema.
 	resp.Plan = &editorPlan{
-		ID:       periodsSource.ID.String(),
-		Strategy: periodsSource.Strategy,
+		ID:       primary.ID.String(),
+		Strategy: primary.Strategy,
 		Currency: "RUB",
 	}
 
-	periods, err := h.loadPeriods(ctx, periodsSource.ID)
+	primaryPeriods, err := h.loadPeriods(ctx, primary.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("network_tariff_editor: load periods failed")
 		respondError(w, shared.ErrInternalServer("ошибка чтения периодов"))
 		return
 	}
-	activePeriod := pickActivePeriod(periods, requestedPeriodID)
-	resp.Periods = periodsToJSON(periods, activePeriod)
+	activePeriod := pickActivePeriod(primaryPeriods, requestedPeriodID)
+	resp.Periods = periodsToJSON(primaryPeriods, activePeriod)
 	if activePeriod != nil {
 		ps := activePeriod.ID.String()
 		resp.ActivePeriodID = &ps
@@ -461,63 +492,51 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 		return
 	}
 
-	// Tiers: `tiers` listed in the response are the template plan's tiers
-	// for the active period (if template is bound). If no template binding
-	// exists, we fall back to the override plan's tiers so the matrix has
-	// rows to render.
-	tiers, err := h.loadTiers(ctx, activePeriod.ID)
+	primaryTiers, err := h.loadTiers(ctx, activePeriod.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("network_tariff_editor: load tiers failed")
 		respondError(w, shared.ErrInternalServer("ошибка чтения ступеней"))
 		return
 	}
-	resp.Tiers = tiers
+	resp.Tiers = primaryTiers
 
-	// Template prices (if template plan is bound). Keyed by tier.ID — these
-	// ids are the template-plan tier ids when template is bound; otherwise
-	// they are the override-plan tier ids and there are no template prices.
-	tplTierPricesByID := map[string]float64{}
-	if tplPlan != nil {
-		for _, t := range tiers {
-			tplTierPricesByID[t.ID] = t.price
+	// Template prices per operator. The primary plan uses activePeriod; other
+	// plans use their currently-active period by date.
+	var tplPricesByOperator map[uuid.UUID]map[string]float64
+	if len(tplPlans) > 0 {
+		var primID uuid.UUID
+		if isTemplatePrimary {
+			primID = primary.ID
 		}
-	}
-
-	// Override prices: keyed by from_count, matched to the override period
-	// that aligns with the active period's bounds. When template is unbound,
-	// the active period IS an override period — we can load its tiers
-	// directly by id, but for consistency with the template-bound path we
-	// still use the from_count key so buildCellsOverride doesn't branch.
-	var ovrTierPrices map[string]float64
-	switch {
-	case ovrPlan != nil && tplPlan != nil:
-		// Template-bound: match override period by bounds.
-		ovrPeriodID, err := h.findOverridePeriod(ctx, ovrPlan.ID, activePeriod.From, activePeriod.To)
+		tplPricesByOperator, err = h.loadPlanPricesByOperator(ctx, tplPlans, primID, activePeriod)
 		if err != nil {
-			log.Error().Err(err).Msg("network_tariff_editor: find override period failed")
-			respondError(w, shared.ErrInternalServer("ошибка сопоставления периода переопределений"))
+			log.Error().Err(err).Msg("network_tariff_editor: load template per-operator tiers failed")
+			respondError(w, shared.ErrInternalServer("ошибка чтения цен шаблона"))
 			return
 		}
-		if ovrPeriodID != nil {
-			ovrTierPrices, err = h.loadOverrideTierPricesByFromCount(ctx, *ovrPeriodID)
-			if err != nil {
-				log.Error().Err(err).Msg("network_tariff_editor: load override tiers failed")
-				respondError(w, shared.ErrInternalServer("ошибка чтения переопределений"))
-				return
-			}
+	}
+
+	// Override prices per operator. If the primary is the override plan, the
+	// override plan already uses activePeriod; otherwise each override plan
+	// picks its currently-active period (the one whose bounds cover today —
+	// or, preferably, the one aligned to activePeriod).
+	var ovrPricesByOperator map[uuid.UUID]map[string]float64
+	if len(ovrPlans) > 0 {
+		var primID uuid.UUID
+		if !isTemplatePrimary {
+			primID = primary.ID
 		}
-	case ovrPlan != nil && tplPlan == nil:
-		// Unbound: active period is the override period; its tiers are the
-		// override prices.
-		ovrTierPrices = map[string]float64{}
-		for _, t := range tiers {
-			ovrTierPrices[fromCountKey(t.FromQuantity)] = t.price
+		// Prefer override periods that match activePeriod's bounds; fall back
+		// to currently-active by date (handled inside).
+		ovrPricesByOperator, err = h.loadPlanPricesByOperatorAligned(ctx, ovrPlans, primID, activePeriod)
+		if err != nil {
+			log.Error().Err(err).Msg("network_tariff_editor: load override per-operator tiers failed")
+			respondError(w, shared.ErrInternalServer("ошибка чтения переопределений"))
+			return
 		}
 	}
 
-	// Build cells. Operator dimension currently shares the price across all
-	// operators — see TODO in buildCellsTemplate.
-	resp.Cells = buildCellsOverride(operators, tiers, tplTierPricesByID, ovrTierPrices)
+	resp.Cells = buildCellsOverride(operators, primaryTiers, tplPricesByOperator, ovrPricesByOperator)
 
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -525,11 +544,12 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 // ---------- SQL helpers ----------
 
 type planRow struct {
-	ID       uuid.UUID
-	Strategy string
+	ID         uuid.UUID
+	Strategy   string
+	OperatorID uuid.UUID // uuid.Nil = wildcard (operator_id IS NULL)
 }
 
-type findPlanArgs struct {
+type findPlansArgs struct {
 	TemplateID     *uuid.UUID
 	SubAccountID   *uuid.UUID
 	CountryID      uuid.UUID
@@ -537,11 +557,14 @@ type findPlanArgs struct {
 	TrafficType    string
 }
 
-// findPlan returns the single active plan matching the dimensions, or nil if
-// no row matches. `country_id` can be NULL in the DB (wildcard); for this
-// endpoint we match only rows with exact country_id=$country per spec — the
-// editor operates per-country.
-func (h *NetworkTariffEditorHandler) findPlan(ctx context.Context, a findPlanArgs) (*planRow, error) {
+// findPlans returns all active plans matching the non-operator dimensions,
+// keyed by operator_id (uuid.Nil for wildcard rows where operator_id IS NULL).
+// Multiple plans can match because `operator_id` is a plan dimension. Returns
+// an empty (non-nil) map when no rows match.
+//
+// country_id can be NULL in the DB (wildcard country); the editor operates
+// per-country and matches rows with exact country_id=$country per spec.
+func (h *NetworkTariffEditorHandler) findPlans(ctx context.Context, a findPlansArgs) (map[uuid.UUID]planRow, error) {
 	var ownerCol string
 	var ownerVal uuid.UUID
 	switch {
@@ -552,27 +575,58 @@ func (h *NetworkTariffEditorHandler) findPlan(ctx context.Context, a findPlanArg
 		ownerCol = "sub_account_id"
 		ownerVal = *a.SubAccountID
 	default:
-		return nil, errors.New("findPlan: need template_id or sub_account_id")
+		return nil, errors.New("findPlans: need template_id or sub_account_id")
 	}
 
-	var p planRow
 	q := `
-		SELECT id, strategy FROM reseller_tariff_plans
+		SELECT id, strategy, operator_id
+		FROM reseller_tariff_plans
 		WHERE ` + ownerCol + ` = $1
 		  AND active
 		  AND country_id = $2
 		  AND sender_category = $3
-		  AND traffic_type = $4
-		LIMIT 1`
-	err := h.pool.QueryRow(ctx, q, ownerVal, a.CountryID, a.SenderCategory, a.TrafficType).
-		Scan(&p.ID, &p.Strategy)
+		  AND traffic_type = $4`
+	rows, err := h.pool.Query(ctx, q, ownerVal, a.CountryID, a.SenderCategory, a.TrafficType)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return &p, nil
+	defer rows.Close()
+
+	out := make(map[uuid.UUID]planRow)
+	for rows.Next() {
+		var p planRow
+		var opID *uuid.UUID
+		if err := rows.Scan(&p.ID, &p.Strategy, &opID); err != nil {
+			return nil, err
+		}
+		if opID != nil {
+			p.OperatorID = *opID
+		}
+		// If duplicates exist (should be prevented by the unique index but
+		// defense in depth), the last row wins — deterministic enough for a
+		// read endpoint.
+		out[p.OperatorID] = p
+	}
+	return out, rows.Err()
+}
+
+// pickPrimaryPlan selects the plan whose periods + tiers drive the matrix.
+// Precedence: wildcard plan (operator_id=NIL) wins. If none exists, the
+// operator-specific plan with the lowest operator_id (deterministic fallback;
+// would ideally be by operator name but that requires a join we skip here).
+func pickPrimaryPlan(plans map[uuid.UUID]planRow) planRow {
+	if p, ok := plans[uuid.Nil]; ok {
+		return p
+	}
+	// Deterministic choice: sort operator ids and pick the first.
+	ids := make([]uuid.UUID, 0, len(plans))
+	for id := range plans {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i].String() < ids[j].String()
+	})
+	return plans[ids[0]]
 }
 
 type periodRow struct {
@@ -705,11 +759,34 @@ func (h *NetworkTariffEditorHandler) loadTiers(ctx context.Context, periodID uui
 	return out, rows.Err()
 }
 
-// findOverridePeriod returns the override plan's period matching the template
-// period by exact (start_date, end_date). Returns nil if no match.
-func (h *NetworkTariffEditorHandler) findOverridePeriod(
+// pickActivePeriodByDate returns the period whose [start_date, end_date)
+// contains today (end_date NULL = open-ended). Returns nil if none.
+func (h *NetworkTariffEditorHandler) pickActivePeriodByDate(ctx context.Context, planID uuid.UUID) (*periodRow, error) {
+	periods, err := h.loadPeriods(ctx, planID)
+	if err != nil {
+		return nil, err
+	}
+	if len(periods) == 0 {
+		return nil, nil
+	}
+	today := nowUTC()
+	for i := range periods {
+		p := &periods[i]
+		if !p.From.Valid {
+			continue
+		}
+		if !p.From.Time.After(today) && (!p.To.Valid || p.To.Time.After(today)) {
+			return p, nil
+		}
+	}
+	return &periods[0], nil
+}
+
+// findPeriodByBounds returns the period (within plan planID) whose start_date
+// and end_date match the given bounds exactly. Returns nil if no match.
+func (h *NetworkTariffEditorHandler) findPeriodByBounds(
 	ctx context.Context,
-	ovrPlanID uuid.UUID,
+	planID uuid.UUID,
 	from, to sql.NullTime,
 ) (*uuid.UUID, error) {
 	var id uuid.UUID
@@ -720,7 +797,7 @@ func (h *NetworkTariffEditorHandler) findOverridePeriod(
 		WHERE tariff_plan_id = $1
 		  AND start_date IS NOT DISTINCT FROM $2
 		  AND end_date   IS NOT DISTINCT FROM $3
-		LIMIT 1`, ovrPlanID, nullableTime(from), nullableTime(to)).Scan(&id)
+		LIMIT 1`, planID, nullableTime(from), nullableTime(to)).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -730,11 +807,10 @@ func (h *NetworkTariffEditorHandler) findOverridePeriod(
 	return &id, nil
 }
 
-// loadOverrideTierPricesByFromCount returns a map from_count → price for the
-// given override period. We key by from_count (not by tier-id) because
-// override tiers are a different row-set from template tiers; they are
-// matched back to template tiers by their volume threshold.
-func (h *NetworkTariffEditorHandler) loadOverrideTierPricesByFromCount(
+// loadTierPricesByFromCount returns map from_count_string → price for the
+// given period. Useful for looking up prices across plans where the tier
+// uuids differ but the volume thresholds align.
+func (h *NetworkTariffEditorHandler) loadTierPricesByFromCount(
 	ctx context.Context, periodID uuid.UUID,
 ) (map[string]float64, error) {
 	rows, err := h.pool.Query(ctx, `
@@ -758,24 +834,147 @@ func (h *NetworkTariffEditorHandler) loadOverrideTierPricesByFromCount(
 	return out, rows.Err()
 }
 
-// buildCellsTemplate paints one cell per (operator × tier). In template
-// mode: price_template = tier price (shared across operators — see TODO),
-// price_override always null, effective = template price, source = template
-// or unset if price is missing.
+// loadPlanPricesByOperator returns, for each plan in `plans`, a map
+// from_count_string → price. The primary plan (id == primaryPlanID) uses the
+// already-chosen activePeriod; other plans use their currently-active period
+// by date. `primaryPlanID == uuid.Nil` means no plan in `plans` is the
+// primary (i.e., we're loading template plans but the primary is the override
+// plan, or vice versa) — in that case every plan uses its own currently-
+// active period.
+//
+// Returns a map keyed by operator_id (uuid.Nil for the wildcard plan).
+func (h *NetworkTariffEditorHandler) loadPlanPricesByOperator(
+	ctx context.Context,
+	plans map[uuid.UUID]planRow,
+	primaryPlanID uuid.UUID,
+	activePeriod *periodRow,
+) (map[uuid.UUID]map[string]float64, error) {
+	out := make(map[uuid.UUID]map[string]float64, len(plans))
+	for opID, plan := range plans {
+		var periodID uuid.UUID
+		if plan.ID == primaryPlanID && activePeriod != nil {
+			periodID = activePeriod.ID
+		} else {
+			pr, err := h.pickActivePeriodByDate(ctx, plan.ID)
+			if err != nil {
+				return nil, err
+			}
+			if pr == nil {
+				continue
+			}
+			periodID = pr.ID
+		}
+		prices, err := h.loadTierPricesByFromCount(ctx, periodID)
+		if err != nil {
+			return nil, err
+		}
+		out[opID] = prices
+	}
+	return out, nil
+}
+
+// loadPlanPricesByOperatorAligned is like loadPlanPricesByOperator but for
+// each non-primary plan it first tries to find a period aligned to
+// activePeriod's bounds (exact match on start_date/end_date) — the behaviour
+// the old single-plan override code relied on to line tier rows up with the
+// template period. Falls back to the currently-active-by-date period when no
+// aligned period exists.
+func (h *NetworkTariffEditorHandler) loadPlanPricesByOperatorAligned(
+	ctx context.Context,
+	plans map[uuid.UUID]planRow,
+	primaryPlanID uuid.UUID,
+	activePeriod *periodRow,
+) (map[uuid.UUID]map[string]float64, error) {
+	out := make(map[uuid.UUID]map[string]float64, len(plans))
+	for opID, plan := range plans {
+		var periodID uuid.UUID
+		switch {
+		case plan.ID == primaryPlanID && activePeriod != nil:
+			periodID = activePeriod.ID
+		case activePeriod != nil:
+			// Try to align by bounds first.
+			aligned, err := h.findPeriodByBounds(ctx, plan.ID, activePeriod.From, activePeriod.To)
+			if err != nil {
+				return nil, err
+			}
+			if aligned != nil {
+				periodID = *aligned
+			} else {
+				pr, err := h.pickActivePeriodByDate(ctx, plan.ID)
+				if err != nil {
+					return nil, err
+				}
+				if pr == nil {
+					continue
+				}
+				periodID = pr.ID
+			}
+		default:
+			pr, err := h.pickActivePeriodByDate(ctx, plan.ID)
+			if err != nil {
+				return nil, err
+			}
+			if pr == nil {
+				continue
+			}
+			periodID = pr.ID
+		}
+		prices, err := h.loadTierPricesByFromCount(ctx, periodID)
+		if err != nil {
+			return nil, err
+		}
+		out[opID] = prices
+	}
+	return out, nil
+}
+
+// priceForOperator resolves the template or override price for (operator,
+// from_count) with operator-specific-plan-wins-over-wildcard semantics.
+// Returns (price, true) if a match exists, (0, false) otherwise.
+func priceForOperator(
+	pricesByOperator map[uuid.UUID]map[string]float64,
+	operatorID uuid.UUID,
+	fromCount int,
+) (float64, bool) {
+	if pricesByOperator == nil {
+		return 0, false
+	}
+	key := fromCountKey(fromCount)
+	if m, ok := pricesByOperator[operatorID]; ok {
+		if p, ok2 := m[key]; ok2 {
+			return p, true
+		}
+	}
+	// Wildcard fallback.
+	if m, ok := pricesByOperator[uuid.Nil]; ok {
+		if p, ok2 := m[key]; ok2 {
+			return p, true
+		}
+	}
+	return 0, false
+}
+
+// buildCellsTemplate paints one cell per (operator × tier) in template mode.
+// Price resolution per operator: operator-specific plan > wildcard plan > unset.
+// Tiers are keyed by from_count across plans because tier uuids differ.
 func buildCellsTemplate(
 	operators []editorOperator,
 	tiers []tierWithPrice,
-	tierPrices map[string]float64,
+	tplPricesByOperator map[uuid.UUID]map[string]float64,
 ) []editorCell {
 	out := make([]editorCell, 0, len(operators)*len(tiers))
 	for _, op := range operators {
+		opUUID, err := uuid.Parse(op.ID)
+		if err != nil {
+			continue
+		}
 		for _, t := range tiers {
 			cell := editorCell{
 				OperatorID:    op.ID,
 				TierID:        t.ID,
 				PriceOverride: nil,
 			}
-			if p, ok := tierPrices[t.ID]; ok {
+			if p, ok := priceForOperator(tplPricesByOperator, opUUID, t.FromQuantity); ok {
 				tp := p
 				cell.PriceTemplate = &tp
 				eff := p
@@ -790,26 +989,30 @@ func buildCellsTemplate(
 	return out
 }
 
-// buildCellsOverride paints cells for mode=override. For each (operator,
-// tier): price_template from the template tier price (if any), price_override
-// from the override tier indexed by from_count (if any). Effective=override
-// ?? template; source = "override" if override present, "template" if only
-// template, "unset" if neither.
+// buildCellsOverride paints cells for mode=override with per-operator plan
+// semantics. For each (operator, tier): price_template from the operator's
+// template plan (falling back to the wildcard template plan), price_override
+// from the operator's override plan (falling back to the wildcard override).
+// effective = override ?? template; source = "override" | "template" | "unset".
 func buildCellsOverride(
 	operators []editorOperator,
 	tiers []tierWithPrice,
-	tplPricesByTierID map[string]float64,
-	ovrPricesByFromCount map[string]float64,
+	tplPricesByOperator map[uuid.UUID]map[string]float64,
+	ovrPricesByOperator map[uuid.UUID]map[string]float64,
 ) []editorCell {
 	out := make([]editorCell, 0, len(operators)*len(tiers))
 	for _, op := range operators {
+		opUUID, err := uuid.Parse(op.ID)
+		if err != nil {
+			continue
+		}
 		for _, t := range tiers {
 			cell := editorCell{OperatorID: op.ID, TierID: t.ID}
-			if p, ok := tplPricesByTierID[t.ID]; ok {
+			if p, ok := priceForOperator(tplPricesByOperator, opUUID, t.FromQuantity); ok {
 				tp := p
 				cell.PriceTemplate = &tp
 			}
-			if p, ok := ovrPricesByFromCount[fromCountKey(t.FromQuantity)]; ok {
+			if p, ok := priceForOperator(ovrPricesByOperator, opUUID, t.FromQuantity); ok {
 				op := p
 				cell.PriceOverride = &op
 			}
