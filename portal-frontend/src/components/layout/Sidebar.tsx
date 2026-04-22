@@ -5,6 +5,7 @@ export interface NavItem {
   path: string;
   label: string;
   icon?: ReactNode;
+  title?: string;
 }
 
 export interface NavGroup {
@@ -28,6 +29,7 @@ function NavLink({ item, isActive, onClose }: { item: NavItem; isActive: boolean
         to={item.path}
         aria-current={isActive ? 'page' : undefined}
         onClick={onClose}
+        title={item.title}
         className={`flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors
           ${isActive
             ? 'bg-primary text-white font-semibold'

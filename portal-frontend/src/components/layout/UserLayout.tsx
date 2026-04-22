@@ -30,7 +30,7 @@ function buildOwnNavGroups(isSubAccount: boolean): NavGroup[] {
         { path: '/quick-send', label: 'Быстрая отправка' },
         { path: '/campaigns', label: 'Кампании' },
         { path: '/campaign-schedules', label: 'Расписания' },
-        { path: '/templates', label: 'Шаблоны' },
+        { path: '/templates', label: 'Шаблоны', title: 'Справочник всех ваших шаблонов — создание и редактирование в карточке имени отправителя' },
         { path: '/sender-names', label: 'Имена отправителей' },
         { path: '/companies', label: 'Мои компании' },
       ],
