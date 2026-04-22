@@ -405,6 +405,10 @@ func SetupRouter(
 	// Task 3: /network/tariff-templates (sibling of /network/tariffs, not nested
 	// under it — the frontend calls it at the /network/ level).
 	protected.HandleFunc("/network/tariff-templates", networkTariffTemplatesHandler.List).Methods("GET")
+	// Task 4: create / bind / duplicate template.
+	protected.HandleFunc("/network/tariff-templates", networkTariffTemplatesHandler.Create).Methods("POST")
+	protected.HandleFunc("/network/tariff-templates/{id}/bind", networkTariffTemplatesHandler.Bind).Methods("POST")
+	protected.HandleFunc("/network/tariff-templates/{id}/duplicate", networkTariffTemplatesHandler.Duplicate).Methods("POST")
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()
