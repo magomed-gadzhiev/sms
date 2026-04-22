@@ -55,7 +55,6 @@ package handlers
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"sort"
@@ -274,7 +273,7 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 	// If the country row does not exist (by iso_code), no plan can match —
 	// bail out with a well-formed empty response.
 	if countryMissing {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -290,7 +289,7 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 		return
 	}
 	if len(tplPlans) == 0 {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -327,7 +326,7 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 	}
 
 	if activePeriod == nil {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -352,7 +351,7 @@ func (h *NetworkTariffEditorHandler) serveTemplate(
 
 	resp.Cells = buildCellsTemplate(operators, primaryTiers, pricesByOperator)
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, resp)
 }
 
 // serveOverride builds the response for mode=override.
@@ -415,7 +414,7 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 	}
 
 	if countryMissing {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -465,7 +464,7 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 	if primary == nil {
 		// Neither template nor override has a plan → empty cells but keep
 		// scope + (optional) template ref.
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -497,7 +496,7 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 	resp.Operators = operators
 
 	if activePeriod == nil {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -547,7 +546,7 @@ func (h *NetworkTariffEditorHandler) serveOverride(
 
 	resp.Cells = buildCellsOverride(operators, primaryTiers, tplPricesByOperator, ovrPricesByOperator)
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, resp)
 }
 
 // ---------- SQL helpers ----------
@@ -1064,12 +1063,3 @@ var nowUTC = func() time.Time {
 	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-// writeJSON is a tiny local helper — we want raw json.Encoder behavior rather
-// than respondJSON's map-typed signature.
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Error().Err(err).Msg("network_tariff_editor: encode failed")
-	}
-}

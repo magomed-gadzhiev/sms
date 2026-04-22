@@ -301,7 +301,7 @@ func (h *NetworkTariffBulkHandler) BulkPatch(w http.ResponseWriter, r *http.Requ
 
 	h.invalidateSummaryCache(resellerID)
 
-	writeJSON(w, http.StatusOK, bulkResponse{OK: true})
+	writeJSON(w, bulkResponse{OK: true})
 }
 
 // ---------- Period create ----------
@@ -448,7 +448,8 @@ func (h *NetworkTariffBulkHandler) CreatePeriod(w http.ResponseWriter, r *http.R
 
 	h.invalidateSummaryCache(resellerID)
 
-	writeJSON(w, http.StatusCreated, createPeriodResponse{ID: newPeriodID.String()})
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, createPeriodResponse{ID: newPeriodID.String()})
 }
 
 // ---------- helpers ----------
@@ -1011,5 +1012,8 @@ func writeBulkError(w http.ResponseWriter, status int, reason string) {
 }
 
 func writeBulkErrors(w http.ResponseWriter, status int, errs []bulkError) {
-	writeJSON(w, status, bulkResponse{OK: false, Errors: errs})
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	writeJSON(w, bulkResponse{OK: false, Errors: errs})
 }

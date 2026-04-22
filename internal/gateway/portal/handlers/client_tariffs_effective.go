@@ -117,7 +117,7 @@ func (h *ClientTariffsEffectiveHandler) Get(w http.ResponseWriter, r *http.Reque
 	).Scan(&parentID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeJSON(w, http.StatusOK, resp)
+			writeJSON(w, resp)
 			return
 		}
 		log.Error().Err(err).Msg("client_tariffs_effective: client lookup failed")
@@ -126,7 +126,7 @@ func (h *ClientTariffsEffectiveHandler) Get(w http.ResponseWriter, r *http.Reque
 	}
 	if parentID == nil {
 		// Reseller or standalone client — no sub-account plans to read.
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *ClientTariffsEffectiveHandler) Get(w http.ResponseWriter, r *http.Reque
 		`SELECT id FROM countries WHERE iso_code = $1`, countryISO).Scan(&countryID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeJSON(w, http.StatusOK, resp)
+			writeJSON(w, resp)
 			return
 		}
 		log.Error().Err(err).Msg("client_tariffs_effective: country lookup failed")
@@ -199,7 +199,7 @@ func (h *ClientTariffsEffectiveHandler) Get(w http.ResponseWriter, r *http.Reque
 		primary = &p
 	}
 	if primary == nil {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -238,7 +238,7 @@ func (h *ClientTariffsEffectiveHandler) Get(w http.ResponseWriter, r *http.Reque
 	resp.Operators = operators
 
 	if activePeriod == nil {
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, resp)
 		return
 	}
 
@@ -305,5 +305,5 @@ func (h *ClientTariffsEffectiveHandler) Get(w http.ResponseWriter, r *http.Reque
 	}
 	resp.Cells = cells
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, resp)
 }
