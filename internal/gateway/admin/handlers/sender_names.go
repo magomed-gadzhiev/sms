@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -80,6 +83,7 @@ func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *h
 	status := r.URL.Query().Get("status")
 	nameQuery := r.URL.Query().Get("name_query")
 	channel := r.URL.Query().Get("channel")
+	clientID := r.URL.Query().Get("client_id")
 	limit := parseIntParam(r, "limit", 20)
 	offset := parseIntParam(r, "offset", 0)
 
@@ -104,6 +108,11 @@ func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *h
 		args = append(args, "%"+nameQuery+"%")
 		i++
 	}
+	if clientID != "" {
+		conds = append(conds, fmt.Sprintf("sn.client_id = $%d", i))
+		args = append(args, clientID)
+		i++
+	}
 	if scope.IsGlobal {
 		conds = append(conds, "c.reseller_id IS NULL")
 	} else {
@@ -120,12 +129,13 @@ WHERE %s`, where)
 
 	var total int32
 	if err := h.db.QueryRowContext(r.Context(), countSQL, args...).Scan(&total); err != nil {
-		log.Error().Err(err).Msg("ошибка подсчёта имён отправителей")
-		respondError(w, shared.ErrInternalServer("db count error: "+err.Error()))
+		log.Err(err).Msg("sender-name list count db error")
+		respondError(w, shared.ErrInternalServer("database error"))
 		return
 	}
 
-	listArgs := append(args, limit, offset)
+	// Three-index slice to prevent backing-array aliasing with args.
+	listArgs := append(args[:len(args):len(args)], limit, offset)
 	listSQL := fmt.Sprintf(`
 SELECT sn.id, sn.client_id, COALESCE(c.email, ''), sn.name, sn.channel, sn.status,
        sn.rejection_reason, sn.reviewed_at, sn.created_at
@@ -137,8 +147,8 @@ LIMIT $%d OFFSET $%d`, where, i, i+1)
 
 	rows, err := h.db.QueryContext(r.Context(), listSQL, listArgs...)
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка получения списка имён отправителей")
-		respondError(w, shared.ErrInternalServer("db query error: "+err.Error()))
+		log.Err(err).Msg("sender-name list query db error")
+		respondError(w, shared.ErrInternalServer("database error"))
 		return
 	}
 	defer rows.Close()
@@ -150,8 +160,8 @@ LIMIT $%d OFFSET $%d`, where, i, i+1)
 			&row.ID, &row.ClientID, &row.ClientEmail, &row.Name, &row.Channel, &row.Status,
 			&row.RejectionReason, &row.ReviewedAt, &row.CreatedAt,
 		); err != nil {
-			log.Error().Err(err).Msg("ошибка сканирования строки имени отправителя")
-			respondError(w, shared.ErrInternalServer("db scan error: "+err.Error()))
+			log.Err(err).Msg("sender-name list scan db error")
+			respondError(w, shared.ErrInternalServer("database error"))
 			return
 		}
 		item := map[string]interface{}{
@@ -176,8 +186,8 @@ LIMIT $%d OFFSET $%d`, where, i, i+1)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		log.Error().Err(err).Msg("ошибка итерации строк имён отправителей")
-		respondError(w, shared.ErrInternalServer("db rows error: "+err.Error()))
+		log.Err(err).Msg("sender-name list rows iteration db error")
+		respondError(w, shared.ErrInternalServer("database error"))
 		return
 	}
 
@@ -189,10 +199,55 @@ LIMIT $%d OFFSET $%d`, where, i, i+1)
 	})
 }
 
+// authorizeSenderName enforces moderation scope for operations on a single
+// sender name by ID. Admin/superadmin (IsGlobal) are allowed only for
+// direct-client rows (reseller_id IS NULL). Aggregator moderators are allowed
+// only when the sender name's client.reseller_id matches their ResellerID.
+// Returns nil if access is granted, sql.ErrNoRows if the row does not exist,
+// or a sentinel forbidden error otherwise.
+func (h *AdminSenderNameHandlers) authorizeSenderName(ctx context.Context, id string) error {
+	scope := middleware.ScopeFromContext(ctx)
+	if !scope.IsGlobal && scope.ResellerID == nil {
+		return fmt.Errorf("forbidden: no moderation scope")
+	}
+
+	const q = `
+SELECT c.reseller_id FROM sender_names sn
+JOIN clients c ON c.id = sn.client_id
+WHERE sn.id = $1`
+
+	var resellerID *string
+	if err := h.db.QueryRowContext(ctx, q, id).Scan(&resellerID); err != nil {
+		return err // sql.ErrNoRows or a real DB error; caller maps accordingly
+	}
+
+	if scope.IsGlobal {
+		// Admin/superadmin: allow direct-client rows only (reseller_id IS NULL).
+		if resellerID != nil {
+			return fmt.Errorf("forbidden: sender name belongs to aggregator-owned client")
+		}
+		return nil
+	}
+
+	// Aggregator scope: reseller_id must match.
+	if resellerID == nil || *resellerID != scope.ResellerID.String() {
+		return fmt.Errorf("forbidden: sender name is outside your scope")
+	}
+	return nil
+}
+
 func (h *AdminSenderNameHandlers) ApproveSenderName(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if id == "" {
 		respondError(w, shared.ErrInvalidInput("ID обязателен"))
+		return
+	}
+	if err := h.authorizeSenderName(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("sender name"))
+			return
+		}
+		respondError(w, shared.ErrForbidden("access denied"))
 		return
 	}
 	actorID, ok := middleware.GetUserID(r.Context())
@@ -219,6 +274,14 @@ func (h *AdminSenderNameHandlers) RejectSenderName(w http.ResponseWriter, r *htt
 	id := mux.Vars(r)["id"]
 	if id == "" {
 		respondError(w, shared.ErrInvalidInput("ID обязателен"))
+		return
+	}
+	if err := h.authorizeSenderName(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("sender name"))
+			return
+		}
+		respondError(w, shared.ErrForbidden("access denied"))
 		return
 	}
 	actorID, ok := middleware.GetUserID(r.Context())
@@ -253,6 +316,14 @@ func (h *AdminSenderNameHandlers) DeactivateSenderName(w http.ResponseWriter, r 
 		respondError(w, shared.ErrInvalidInput("ID обязателен"))
 		return
 	}
+	if err := h.authorizeSenderName(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("sender name"))
+			return
+		}
+		respondError(w, shared.ErrForbidden("access denied"))
+		return
+	}
 	actorID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Пользователь не найден"))
@@ -275,7 +346,7 @@ func (h *AdminSenderNameHandlers) DeactivateSenderName(w http.ResponseWriter, r 
 	respondJSON(w, http.StatusOK, adminSenderNameToJSON(resp.SenderName))
 }
 
-// GetSenderNameAdmin возвращает имя отправителя по ID без проверки владельца.
+// GetSenderNameAdmin возвращает имя отправителя по ID с проверкой области видимости.
 // GET /admin/v1/sender-names/{id}
 func (h *AdminSenderNameHandlers) GetSenderNameAdmin(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
@@ -283,7 +354,14 @@ func (h *AdminSenderNameHandlers) GetSenderNameAdmin(w http.ResponseWriter, r *h
 		respondError(w, shared.ErrInvalidInput("ID обязателен"))
 		return
 	}
-	// Пустой ClientId = режим администратора (без проверки владельца)
+	if err := h.authorizeSenderName(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("sender name"))
+			return
+		}
+		respondError(w, shared.ErrForbidden("access denied"))
+		return
+	}
 	resp, err := h.client.GetSenderName(r.Context(), &sendernamev1.GetSenderNameRequest{Id: id})
 	if err != nil {
 		respondGRPCError(w, err)
