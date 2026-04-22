@@ -1,5 +1,42 @@
 # UX Audit Progress
 
+## [IN_PROGRESS] Модуль: Панель субаккаунта — последовательный обход всех страниц (subaccount, fix mode + инфраструктура + QA full, 2026-04-22)
+
+Начат: 2026-04-22. Порядок модулей: Command Center → Messages → Contact Lists → Opt-Out → Segments → Quick Send → Campaigns → Campaign Schedules → Templates → Companies → Sender Names → Billing → Tariffs → Lookup → Webhooks → API Keys → Analytics → Providers → Routing → Audit Log → Cascade History → Notifications → Profile → Settings (Domains / Notifications / SMPP / Default Senders) → изоляция (`/network/*`, `/sub-accounts`).
+
+## [DONE] Модуль: Управление сетью — полный повторный аудит (aggregator, /network + все подстраницы, fix mode + инфраструктура + QA full, 2026-04-22)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/App.tsx`, `portal-frontend/src/components/layout/NetworkLayout.tsx`, `portal-frontend/src/components/layout/UserLayout.tsx` | `NetworkQuotaPage` и `NetworkAnalyticsPage` написаны, API (`/quota`, `/reseller/analytics`) работают, но роуты не подключены → мёртвый код, функции недоступны через UI | Добавлены роуты `/network/analytics` и `/network/quota` + пункты меню «Аналитика», «Квота сети» в обоих layout |
+| 2 | `internal/gateway/portal/handlers/reseller_dashboard.go` | N+1 gRPC-запросов: `GetBalance` по одному на каждый субаккаунт последовательно, `GetStatistics` ещё два круга N последовательных вызовов → для агрегатора с 100 субаккаунтами один запрос `/reseller/dashboard` делал 300+ RPC | Все три цикла fan-out в goroutine c `sync.WaitGroup` + `sync.Mutex` — теперь одновременно; время ответа O(1) вместо O(N) |
+| 3 | `portal-frontend/src/pages/network/NetworkDashboardPage.tsx` | `data.traffic.delivery_rate.toFixed(1)`, `sa.delivery_rate.toFixed(1)`, `data.moderation_counts.*` — краш при null в любом поле ответа | Все поля через `?? 0` / optional chaining; `formatAmount()` хелпер для `parseFloat` с isNaN проверкой |
+| 4 | `portal-frontend/src/pages/network/NetworkDashboardPage.tsx` | `parseFloat(data.network_balance.total)` — если `billingClient == nil` на бэке возвращалась пустая строка → `NaN ₽` в UI | `formatAmount()` возвращает `0.00` при NaN/пустой строке; бэкенд при nil billingClient явно заполняет `"0.00"` вместо пустоты |
+| 5 | `internal/gateway/portal/handlers/reseller_dashboard.go` | `Detail: bal + " руб."` — hardcoded `руб.` игнорировал `accounts.currency`; низкий баланс USD-аккаунта показывался как «$X.XX руб.» | SELECT тянет `COALESCE(a.currency, 'RUB')`, detail формируется как `"<balance> <currency>"` |
+| 6 | `internal/gateway/portal/handlers/reseller_dashboard.go` | `.Scan(&moderation.SenderNames)` (и 4 других места) — ошибки scan и query молча игнорировались → если запрос падал из-за schema drift, пользователь видел «Нет модерации» при реальных заявках | Все 5 scan/query проверяют err, логируют через `zerolog` с `reseller_id`, ряды в цикле continue при scan-ошибке вместо молчаливого пропуска |
+| 7 | `portal-frontend/src/pages/sub-accounts/SubAccountsListPage.tsx` | `parseFloat(sa.balance).toLocaleString(...) + ' ₽'` в колонке «Баланс» — если `balance` = null/undefined/"" → `NaN ₽` в таблице | `parseFloat(sa.balance ?? '')` + `isNaN` fallback на 0 |
+
+### Инфраструктура
+
+| Компонент | Статус |
+|---|---|
+| Роуты `/network/*` (`App.tsx`) | ✅ Полные: dashboard, sub-accounts, sub-accounts/:id, moderation, routing, tariffs, statistics, analytics (новый), quota (новый) |
+| `RequireReseller` middleware (фронт) | ✅ Защищает `/network`, пропускает только `is_reseller = true` |
+| `checkReseller()` (бэкенд) | ✅ Все handlers `/reseller/*` проверяют `is_reseller` в БД |
+| API `/reseller/dashboard` | ✅ Работает, теперь с параллельным fan-out |
+| API `/reseller/analytics` | ✅ Подключён роут (строка 469 router.go) |
+| API `/quota`, `/quota/history` | ✅ Подключены (строки 509–513 router.go) |
+| Таблица `accounts.currency` | ✅ Существует с миграции 000006, default `'RUB'` с 000057 |
+| Навигация (`NetworkLayout`, `UserLayout`) | ✅ Все 8 страниц `/network` представлены в сайдбаре |
+
+### Найденные, но отложенные (не критичные для текущего раунда)
+
+- `SubAccountsListPage` рендерит все субаккаунты без пагинации (`pageSize={subAccounts.length}`) — проблема при 500+ аккаунтах (LOW, tech-debt).
+- `NetworkQuotaPage` и `NetworkAnalyticsPage` не проходили отдельный полный аудит — нужен следующий раунд по каждой.
+- `SubAccountsListPage.balance` колонка hardcoded ₽, не использует `accounts.currency` из API (LOW).
+
 ## [DONE] Модуль: Управление сетью (aggregator, /network/*, fix mode + инфраструктура + QA full, 2026-04-15)
 
 ### Исправлено

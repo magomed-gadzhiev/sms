@@ -120,7 +120,7 @@ function StatusBadgeDark({ status }: { status: string }) {
 
 // ── Health Map ────────────────────────────────────────────────────────
 
-function HealthMap({ providers }: { providers: ProviderHealth[] }) {
+function HealthMap({ providers, isSubAccount }: { providers: ProviderHealth[]; isSubAccount: boolean }) {
   return (
     <div
       style={{ background: 'var(--cc-surface)', border: '1px solid var(--cc-border)' }}
@@ -131,7 +131,13 @@ function HealthMap({ providers }: { providers: ProviderHealth[] }) {
       </h3>
       <div className="flex flex-col gap-2">
         {providers.length === 0 && (
-          <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs">Нет провайдеров</p>
+          isSubAccount ? (
+            <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs leading-relaxed">
+              Сообщения отправляются через инфраструктуру агрегатора. Здоровье провайдеров доступно агрегатору.
+            </p>
+          ) : (
+            <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs">Нет провайдеров</p>
+          )
         )}
         {providers.map((p) => (
           <div
@@ -401,6 +407,7 @@ interface SubAccountSummary {
 export function CommandCenter() {
   const { isAuthenticated, user } = useAuth();
   const isReseller = !!user?.is_reseller;
+  const isSubAccount = !!user?.parent_client_id;
   const { unreadCount } = useNotifications(isAuthenticated);
 
   const [metrics, setMetrics]   = useState<DashboardMetrics | null>(null);
@@ -641,7 +648,7 @@ export function CommandCenter() {
             status={wsStatus}
           />
         </div>
-        <HealthMap providers={providers} />
+        <HealthMap providers={providers} isSubAccount={isSubAccount} />
       </div>
 
       {/* Row 3: Smart Alerts (1/3) + Active Campaigns (2/3) */}
