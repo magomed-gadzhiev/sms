@@ -1,11 +1,14 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   networkTariffsApi,
   type TariffTemplateSummary,
 } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { BindTemplateDialog } from './components/BindTemplateDialog';
+import { CreateTemplateDialog } from './components/CreateTemplateDialog';
+import { DuplicateTemplateDialog } from './components/DuplicateTemplateDialog';
 
 function truncate(s: string | null, max: number): string {
   if (!s) return '';
@@ -20,7 +23,14 @@ export function NetworkTariffTemplatesPage() {
 
   const nav = useNavigate();
 
-  useEffect(() => {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [bindTarget, setBindTarget] = useState<TariffTemplateSummary | null>(
+    null,
+  );
+  const [duplicateTarget, setDuplicateTarget] =
+    useState<TariffTemplateSummary | null>(null);
+
+  const refetch = useCallback(() => {
     let cancelled = false;
     setLoading(true);
     networkTariffsApi
@@ -39,18 +49,22 @@ export function NetworkTariffTemplatesPage() {
     };
   }, []);
 
-  // Task 12 will wire these to real dialogs/mutations.
-  const handleCreate = () => {
-    // stub
+  useEffect(() => {
+    const cancel = refetch();
+    return cancel;
+  }, [refetch]);
+
+  const handleCreate = () => setCreateOpen(true);
+  const handleBind = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (row) setBindTarget(row);
   };
-  const handleBind = (_id: string) => {
-    // stub
-  };
-  const handleDuplicate = (_id: string) => {
-    // stub
+  const handleDuplicate = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (row) setDuplicateTarget(row);
   };
   const handleDelete = (_id: string) => {
-    // stub
+    // stub — delete dialog in a later task
   };
 
   const headerActions = (
@@ -211,6 +225,27 @@ export function NetworkTariffTemplatesPage() {
           </tbody>
         </table>
       )}
+      <CreateTemplateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <BindTemplateDialog
+        open={bindTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setBindTarget(null);
+        }}
+        template={bindTarget}
+        onSuccess={() => {
+          refetch();
+        }}
+      />
+      <DuplicateTemplateDialog
+        open={duplicateTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setDuplicateTarget(null);
+        }}
+        sourceTemplate={duplicateTarget}
+        onSuccess={() => {
+          refetch();
+        }}
+      />
     </div>
   );
 }
