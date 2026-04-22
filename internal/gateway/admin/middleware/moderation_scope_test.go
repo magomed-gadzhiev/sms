@@ -88,11 +88,9 @@ func TestScopeFromContext_MissingKey(t *testing.T) {
 	assert.Nil(t, scope.ResellerID)
 }
 
-func TestModerationScope_SuperadminNotGlobal(t *testing.T) {
-	// "superadmin" is handled by AdminAuthMiddleware but ModerationScope only
-	// maps "admin" to IsGlobal. Superadmin is not in scope here — this test
-	// documents the current intentional behaviour; if superadmin needs global
-	// scope, add it to the switch in ModerationScope.
+func TestModerationScope_SuperadminIsGlobal(t *testing.T) {
+	// "superadmin" is handled by AdminAuthMiddleware and ModerationScope maps it
+	// to global scope just like "admin", maintaining role-qualification consistency.
 	superID := uuid.New()
 	ctx := injectAuth(context.Background(), superID, "superadmin")
 	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
@@ -103,7 +101,27 @@ func TestModerationScope_SuperadminNotGlobal(t *testing.T) {
 	}))
 	h.ServeHTTP(httptest.NewRecorder(), req)
 
-	// Intentionally empty — add "superadmin" to the switch if needed.
-	assert.False(t, captured.IsGlobal)
+	assert.True(t, captured.IsGlobal)
+	assert.Nil(t, captured.ResellerID)
+}
+
+func TestRequireScope_PanicsOnEmpty(t *testing.T) {
+	assert.Panics(t, func() {
+		_ = RequireScope(context.Background())
+	})
+}
+
+func TestRequireScope_ReturnsGlobalForAdmin(t *testing.T) {
+	adminID := uuid.New()
+	ctx := injectAuth(context.Background(), adminID, "admin")
+	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+
+	var captured Scope
+	h := ModerationScope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured = RequireScope(r.Context())
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, captured.IsGlobal)
 	assert.Nil(t, captured.ResellerID)
 }

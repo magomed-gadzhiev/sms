@@ -29,7 +29,7 @@ func ScopeFromContext(ctx context.Context) Scope {
 // ModerationScope must be installed AFTER the auth middleware so that user/role
 // claims are already present in the context.
 //
-//   - "admin" → Scope{IsGlobal: true}
+//   - "admin", "superadmin" → Scope{IsGlobal: true}
 //   - "aggregator_moderator" → Scope{ResellerID: &<their user ID>}
 //   - any other role → empty Scope (handlers must reject)
 func ModerationScope(next http.Handler) http.Handler {
@@ -37,7 +37,7 @@ func ModerationScope(next http.Handler) http.Handler {
 		userID, role := extractScopeAuth(r.Context())
 		var scope Scope
 		switch role {
-		case "admin":
+		case "admin", "superadmin":
 			scope = Scope{IsGlobal: true}
 		case "aggregator_moderator":
 			id := userID
@@ -58,4 +58,16 @@ func extractScopeAuth(ctx context.Context) (uuid.UUID, string) {
 		return userID, ""
 	}
 	return userID, roleObj.Name
+}
+
+// RequireScope returns the scope from context, panicking if it is neither
+// global nor reseller-scoped. Use at the start of a handler that relies on
+// ModerationScope being wired: a misconfigured router (missing middleware)
+// will surface as a loud dev-time panic instead of silent data exposure.
+func RequireScope(ctx context.Context) Scope {
+	s := ScopeFromContext(ctx)
+	if !s.IsGlobal && s.ResellerID == nil {
+		panic("moderation scope middleware not wired: empty Scope — check router")
+	}
+	return s
 }
