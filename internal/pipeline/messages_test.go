@@ -68,6 +68,66 @@ func TestRoutedMessage_DeserializeInvalidJSON(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestRoutedMessage_WithCountryIDAndChannel_Roundtrip(t *testing.T) {
+	t.Parallel()
+
+	// Bug #15: persist stage needs country_id and channel populated at INSERT
+	// time, so they must roundtrip through JSON serialization.
+	countryID := uuid.New()
+	operatorID := uuid.New()
+
+	orig := &RoutedMessage{
+		SchemaVersion: 2,
+		MessageID:     uuid.New(),
+		Source:        "Sender",
+		Destination:   "+79001234567",
+		Text:          "Hi",
+		OperatorID:    &operatorID,
+		CountryID:     &countryID,
+		Channel:       "sms",
+		ProviderID:    uuid.New(),
+		RoutedAt:      time.Now().Truncate(time.Millisecond),
+		CreatedAt:     time.Now().Truncate(time.Millisecond),
+	}
+
+	data, err := orig.Serialize()
+	require.NoError(t, err)
+
+	decoded, err := DeserializeRoutedMessage(data)
+	require.NoError(t, err)
+
+	require.NotNil(t, decoded.CountryID)
+	assert.Equal(t, countryID, *decoded.CountryID)
+	require.NotNil(t, decoded.OperatorID)
+	assert.Equal(t, operatorID, *decoded.OperatorID)
+	assert.Equal(t, "sms", decoded.Channel)
+	assert.Equal(t, 2, decoded.SchemaVersion)
+}
+
+func TestRoutedMessage_BackwardCompatV1_NoCountryNoChannel(t *testing.T) {
+	t.Parallel()
+
+	// Messages published by old router pods (schema_version=1, no country_id,
+	// no channel) must still deserialize — persist-stage handles nil fields
+	// as NULL columns. Guarantees additive-only schema change.
+	v1JSON := `{
+		"schema_version": 1,
+		"message_id": "11111111-1111-1111-1111-111111111111",
+		"source": "S",
+		"destination": "+79001234567",
+		"text": "hi",
+		"provider_id": "22222222-2222-2222-2222-222222222222",
+		"routed_at": "2026-04-22T00:00:00Z",
+		"created_at": "2026-04-22T00:00:00Z"
+	}`
+
+	decoded, err := DeserializeRoutedMessage([]byte(v1JSON))
+	require.NoError(t, err)
+	assert.Nil(t, decoded.CountryID)
+	assert.Empty(t, decoded.Channel)
+	assert.Equal(t, 1, decoded.SchemaVersion)
+}
+
 func TestRoutedMessage_NilOptionalFields(t *testing.T) {
 	t.Parallel()
 

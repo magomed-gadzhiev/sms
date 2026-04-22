@@ -41,13 +41,22 @@ func NewOperatorResolver(repo OperatorPrefixRepository, defaultOperatorID uuid.U
 
 // Resolve возвращает operator_id для номера.
 func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID {
+	op, _ := r.ResolveWithCountry(ctx, number)
+	return op
+}
+
+// ResolveWithCountry возвращает (operator_id, country_id) для номера.
+// country_id может быть nil, если в operator_prefixes/operators нет маппинга
+// или если сработал дефолт. Используется pipeline/router для enrichment
+// сообщений на этапе INSERT (bug #15).
+func (r *OperatorResolver) ResolveWithCountry(ctx context.Context, number string) (uuid.UUID, *uuid.UUID) {
 	normalized := normalizePhoneNumber(number)
 	if normalized == "" {
 		r.logger.Debug().
 			Str("number", number).
 			Str("operator_id", r.defaultOperatorID.String()).
 			Msg("empty number, using default operator")
-		return r.defaultOperatorID
+		return r.defaultOperatorID, nil
 	}
 
 	r.mu.RLock()
@@ -68,7 +77,7 @@ func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID
 				Str("prefix", p.Prefix).
 				Str("operator_id", p.OperatorID.String()).
 				Msg("operator resolved by prefix")
-			return p.OperatorID
+			return p.OperatorID, p.CountryID
 		}
 	}
 
@@ -76,7 +85,7 @@ func (r *OperatorResolver) Resolve(ctx context.Context, number string) uuid.UUID
 		Str("number", normalized).
 		Str("operator_id", r.defaultOperatorID.String()).
 		Msg("no prefix match, using default operator")
-	return r.defaultOperatorID
+	return r.defaultOperatorID, nil
 }
 
 func normalizePhoneNumber(number string) string {

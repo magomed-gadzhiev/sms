@@ -14,6 +14,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
+	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -21,28 +22,34 @@ import (
 
 // messageRow holds the data for a single row to be COPYed into the messages table.
 type messageRow struct {
-	id             uuid.UUID
-	traceID        string // not a DB column — used only for trace logging
-	messageID      string
-	source         string
-	destination    string
-	text           string
-	encoding       string
-	segmentCount   int
-	status         string
-	priorityFlag   int
-	providerID     *uuid.UUID
-	routeID        *uuid.UUID
-	clientID       *uuid.UUID
-	templateID     *uuid.UUID
-	senderNameID   *uuid.UUID
-	retryCount     int
-	maxRetries     int
-	createdAt      time.Time
-	updatedAt      time.Time
+	id           uuid.UUID
+	traceID      string // not a DB column — used only for trace logging
+	messageID    string
+	source       string
+	destination  string
+	text         string
+	encoding     string
+	segmentCount int
+	status       string
+	priorityFlag int
+	providerID   *uuid.UUID
+	routeID      *uuid.UUID
+	clientID     *uuid.UUID
+	templateID   *uuid.UUID
+	senderNameID *uuid.UUID
+	operatorID   *uuid.UUID
+	countryID    *uuid.UUID
+	channel      *string
+	retryCount   int
+	maxRetries   int
+	createdAt    time.Time
+	updatedAt    time.Time
 }
 
 // copyColumns lists the columns sent via COPY protocol. Order must match Values() below.
+// Bug #15: operator_id/country_id/channel added so enrichment data lands at INSERT
+// time (previously only status-stage could write them, and only when a DLR arrived —
+// most `pending` messages never got enriched).
 var copyColumns = []string{
 	"id",
 	"message_id",
@@ -58,15 +65,25 @@ var copyColumns = []string{
 	"client_id",
 	"template_id",
 	"sender_name_id",
+	"operator_id",
+	"country_id",
+	"channel",
 	"retry_count",
 	"max_retries",
 	"created_at",
 	"updated_at",
 }
 
-// Stage is the Persist pipeline stage. It consumes messages from sms.outgoing
-// (separate consumer group from Router) and batch-inserts them into the messages
+// Stage is the Persist pipeline stage. It consumes messages from sms.routed
+// (separate consumer group from Sender) and batch-inserts them into the messages
 // PostgreSQL table using the pgx CopyFrom protocol.
+//
+// Bug #15 / Option B (2026-04-22): Persist previously consumed sms.outgoing in
+// parallel with Router, which meant rows were INSERTed before routing decided
+// operator_id/provider_id/channel, and country_id was never resolved. Persist now
+// consumes sms.routed so that all four enrichment columns are populated at
+// INSERT time. If router is down, persist stops — which is intentional: persisting
+// unrouted messages just fills the DB with eventually-useless `pending` rows.
 type Stage struct {
 	consumer *queue.BatchConsumer
 	pool     *pgxpool.Pool
@@ -88,7 +105,7 @@ func NewStage(cfg *config.Config, pool *pgxpool.Pool) (*Stage, error) {
 	consumer, err := queue.NewBatchConsumer(
 		&cfg.Kafka,
 		"pipeline-persist",
-		[]string{cfg.Kafka.TopicOutgoing},
+		[]string{cfg.Kafka.TopicRouted},
 		batchSize,
 		batchTimeout,
 	)
@@ -175,6 +192,7 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 			text TEXT, encoding VARCHAR(20), segment_count INT, status VARCHAR(50),
 			priority_flag INT, provider_id UUID, route_id UUID, client_id UUID,
 			template_id UUID, sender_name_id UUID,
+			operator_id UUID, country_id UUID, channel VARCHAR(20),
 			retry_count INT, max_retries INT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
 		) ON COMMIT DELETE ROWS`)
 	if err != nil {
@@ -194,11 +212,13 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 			id, message_id, source, destination, text, encoding, segment_count,
 			status, priority_flag, provider_id, route_id, client_id,
 			template_id, sender_name_id,
+			operator_id, country_id, channel,
 			retry_count, max_retries, created_at, updated_at
 		)
 		SELECT id, message_id, source, destination, text, encoding, segment_count,
 			status, priority_flag, provider_id, route_id, client_id,
 			template_id, sender_name_id,
+			operator_id, country_id, channel,
 			retry_count, max_retries, created_at, updated_at
 		FROM persist_batch
 		ON CONFLICT (id, created_at) DO NOTHING`)
@@ -218,59 +238,78 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 	return nil
 }
 
-// buildCopyRows deserializes Kafka messages and builds messageRow slices.
-// It returns successfully parsed rows and a slice of errors for failed ones.
+// buildCopyRows deserializes Kafka messages (expected to be RoutedMessage on
+// sms.routed) and builds messageRow slices. Returns successfully parsed rows
+// and a slice of errors for failed ones.
 func buildCopyRows(msgs []*sarama.ConsumerMessage) ([]messageRow, []error) {
 	rows := make([]messageRow, 0, len(msgs))
 	var errs []error
 
 	for _, msg := range msgs {
-		km, err := queue.Deserialize(msg.Value)
+		rm, err := pipeline.DeserializeRoutedMessage(msg.Value)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("offset %d partition %d: %w", msg.Offset, msg.Partition, err))
 			continue
 		}
 
 		// Determine encoding from text content.
-		enc := shared.DetectEncoding(km.Text)
+		enc := shared.DetectEncoding(rm.Text)
 		encodingStr := "GSM7"
 		if enc == shared.EncodingUCS2 {
 			encodingStr = "UCS2"
 		}
 
-		segmentCount := shared.CountSegments(km.Text)
+		segmentCount := shared.CountSegments(rm.Text)
 
-		// Use MessageID from KafkaMessage as the primary key (id).
-		// If MessageID is zero, generate a new UUID.
-		id := km.MessageID
+		// MessageID is the primary key (id). Router always sets it, but fall back
+		// to a new UUID for safety.
+		id := rm.MessageID
 		if id == uuid.Nil {
 			id = uuid.New()
 		}
 
 		now := time.Now()
-		createdAt := km.CreatedAt
+		createdAt := rm.CreatedAt
 		if createdAt.IsZero() {
 			createdAt = now
 		}
 
+		// provider_id on RoutedMessage is a value type (always set by router).
+		// Copy to pointer so NULL remains possible for legacy/in-flight messages
+		// where ProviderID == uuid.Nil.
+		var providerID *uuid.UUID
+		if rm.ProviderID != uuid.Nil {
+			pid := rm.ProviderID
+			providerID = &pid
+		}
+
+		var channel *string
+		if rm.Channel != "" {
+			c := rm.Channel
+			channel = &c
+		}
+
 		rows = append(rows, messageRow{
 			id:           id,
-			traceID:      km.TraceID,
-			messageID:    km.ID,
-			source:       km.Source,
-			destination:  km.Destination,
-			text:         km.Text,
+			traceID:      rm.TraceID,
+			messageID:    rm.MessageID.String(),
+			source:       rm.Source,
+			destination:  rm.Destination,
+			text:         rm.Text,
 			encoding:     encodingStr,
 			segmentCount: segmentCount,
 			status:       "pending",
-			priorityFlag: km.Priority,
-			providerID:   km.ProviderID,
-			routeID:      km.RouteID,
-			clientID:     km.ClientID,
-			templateID:   km.TemplateID,
-			senderNameID: km.SenderNameID,
-			retryCount:   km.RetryCount,
-			maxRetries:   km.MaxRetries,
+			priorityFlag: rm.Priority,
+			providerID:   providerID,
+			routeID:      rm.RouteID,
+			clientID:     rm.ClientID,
+			templateID:   rm.TemplateID,
+			senderNameID: rm.SenderNameID,
+			operatorID:   rm.OperatorID,
+			countryID:    rm.CountryID,
+			channel:      channel,
+			retryCount:   rm.RetryCount,
+			maxRetries:   rm.MaxRetries,
 			createdAt:    createdAt,
 			updatedAt:    now,
 		})
@@ -308,25 +347,34 @@ func (cs *copySource) Values() ([]interface{}, error) {
 	r := cs.rows[cs.idx]
 	cs.idx++
 
+	// channel is stored as *string so nil maps to NULL in pgx COPY.
+	var channelVal interface{}
+	if r.channel != nil {
+		channelVal = *r.channel
+	}
+
 	return []interface{}{
-		r.id,             // id
-		r.messageID,      // message_id
-		r.source,         // source
-		r.destination,    // destination
-		r.text,           // text
-		r.encoding,       // encoding
-		r.segmentCount,   // segment_count
-		r.status,         // status
-		r.priorityFlag,   // priority_flag
-		r.providerID,     // provider_id
-		r.routeID,        // route_id
-		r.clientID,       // client_id
-		r.templateID,     // template_id
-		r.senderNameID,   // sender_name_id
-		r.retryCount,     // retry_count
-		r.maxRetries,     // max_retries
-		r.createdAt,      // created_at
-		r.updatedAt,      // updated_at
+		r.id,           // id
+		r.messageID,    // message_id
+		r.source,       // source
+		r.destination,  // destination
+		r.text,         // text
+		r.encoding,     // encoding
+		r.segmentCount, // segment_count
+		r.status,       // status
+		r.priorityFlag, // priority_flag
+		r.providerID,   // provider_id
+		r.routeID,      // route_id
+		r.clientID,     // client_id
+		r.templateID,   // template_id
+		r.senderNameID, // sender_name_id
+		r.operatorID,   // operator_id
+		r.countryID,    // country_id
+		channelVal,     // channel
+		r.retryCount,   // retry_count
+		r.maxRetries,   // max_retries
+		r.createdAt,    // created_at
+		r.updatedAt,    // updated_at
 	}, nil
 }
 

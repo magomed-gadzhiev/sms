@@ -339,8 +339,11 @@ type ClientRoute struct {
 }
 
 // OperatorPrefix — префикс оператора для определения оператора по номеру.
+// CountryID заполняется JOIN'ом на operators и может быть nil, если оператор
+// в БД не имеет country_id.
 type OperatorPrefix struct {
 	OperatorID uuid.UUID
+	CountryID  *uuid.UUID
 	Prefix     string
 	Priority   int
 }

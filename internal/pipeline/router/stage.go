@@ -153,10 +153,12 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		return fmt.Errorf("десериализация: %w", err)
 	}
 
-	// Определяем оператора по номеру получателя
+	// Определяем оператора и страну по номеру получателя.
+	// country_id используется persist-stage для enrichment (bug #15).
 	var operatorID uuid.UUID
+	var countryID *uuid.UUID
 	if kafkaMsg.ClientID != nil {
-		operatorID = s.operatorResolver.Resolve(ctx, kafkaMsg.Destination)
+		operatorID, countryID = s.operatorResolver.ResolveWithCountry(ctx, kafkaMsg.Destination)
 	} else {
 		operatorID = s.defaultOperatorID
 	}
@@ -168,6 +170,9 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 
 	var providerID uuid.UUID
 	var routeID *uuid.UUID
+	// channel по умолчанию "sms"; если маршрут другой route_type (hlr/max) —
+	// подставляем его, чтобы persist-stage писал корректный channel при INSERT.
+	channel := "sms"
 
 	if kafkaMsg.ClientID != nil {
 		// Build match context with all available fields.
@@ -211,6 +216,9 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		}
 		providerID = route.ProviderID
 		routeID = &route.ID
+		if route.RouteType != "" {
+			channel = route.RouteType
+		}
 
 		trace.Log(s.logger, kafkaMsg.TraceID, kafkaMsg.MessageID.String(), "router", "route_matched").
 			Str("route_id", route.ID.String()).
@@ -238,7 +246,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 
 	resolvedOperatorID := operatorID
 	routed := &pipeline.RoutedMessage{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		MessageID:     kafkaMsg.MessageID,
 		TraceID:       kafkaMsg.TraceID,
 		Source:        resolvedSource,
@@ -246,6 +254,10 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		Text:          kafkaMsg.Text,
 		ClientID:      kafkaMsg.ClientID,
 		OperatorID:    &resolvedOperatorID,
+		CountryID:     countryID,
+		Channel:       channel,
+		TemplateID:    kafkaMsg.TemplateID,
+		SenderNameID:  kafkaMsg.SenderNameID,
 		ProviderID:    providerID,
 		RouteID:       routeID,
 		Priority:      kafkaMsg.Priority,
