@@ -820,9 +820,16 @@ export function CampaignWizardPage() {
                   <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
                     <span className="text-gray-700 font-medium">Итого</span>
                     <span className="font-bold text-base">
-                      {parseFloat(costEstimate.estimated_cost).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽
+                      {parseFloat(costEstimate.estimated_cost) > 0
+                        ? `${parseFloat(costEstimate.estimated_cost).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
+                        : '—'}
                     </span>
                   </div>
+                  {parseFloat(costEstimate.estimated_cost) === 0 && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                      Тариф не настроен в вашем аккаунте. Стоимость будет рассчитана автоматически при отправке каждого сообщения по тарифу оператора/агрегатора.
+                    </p>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Баланс</span>
                     <span className={costEstimate.balance_sufficient ? 'text-green-600' : 'text-red-600'}>

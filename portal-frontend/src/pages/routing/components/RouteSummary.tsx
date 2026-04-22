@@ -1,12 +1,34 @@
-import type { RouteFormData } from '../types';
+import type { RouteFormData, ConditionJSON } from '../types';
 import { WEEKDAY_LABELS, WEEKDAY_BITS, LOGIC_OP_LABELS, CONDITION_TYPE_LABELS } from '../types';
+import type { OperatorInfo } from '../../../api/client';
 
 interface RouteSummaryProps {
   data: RouteFormData;
   providerName: string;
+  operators?: OperatorInfo[];
 }
 
-export function RouteSummary({ data, providerName }: RouteSummaryProps) {
+const TRAFFIC_TYPE_LABELS: Record<string, string> = {
+  authorization: 'Авторизация',
+  transactional: 'Транзакционный',
+  service: 'Сервисный',
+};
+
+function resolveConditionValue(cond: ConditionJSON, operators: OperatorInfo[]): string {
+  if (!cond.value) return '...';
+  if (cond.type === 'operator') {
+    const op = operators.find((o) => o.id === cond.value);
+    if (op) return op.name;
+    console.warn(`[RouteSummary] operator not found for id=${cond.value}`);
+    return cond.value;
+  }
+  if (cond.type === 'traffic_type') {
+    return TRAFFIC_TYPE_LABELS[cond.value] || cond.value;
+  }
+  return cond.value;
+}
+
+export function RouteSummary({ data, providerName, operators = [] }: RouteSummaryProps) {
   const routeTypeLabel = { sms: 'SMS', hlr: 'HLR', max: 'MAX' }[data.route_type] || data.route_type;
   const statusLabel = data.status === 'active' ? 'Активный' : 'Черновик';
 
@@ -36,7 +58,7 @@ export function RouteSummary({ data, providerName }: RouteSummaryProps) {
                     key={ci}
                     className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-600"
                   >
-                    {CONDITION_TYPE_LABELS[cond.type]}: {cond.value || '...'}
+                    {CONDITION_TYPE_LABELS[cond.type]}: {resolveConditionValue(cond, operators)}
                   </span>
                 ))}
               </div>
@@ -71,9 +93,9 @@ export function RouteSummary({ data, providerName }: RouteSummaryProps) {
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-900">{value}</span>
+    <div className="flex justify-between items-start gap-2">
+      <span className="text-gray-500 shrink-0">{label}</span>
+      <span className="font-medium text-gray-900 text-right break-all min-w-0">{value}</span>
     </div>
   );
 }

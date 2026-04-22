@@ -49,12 +49,6 @@ const CHANNELS = [
   { value: 'max_messenger', label: 'MAX Messenger' },
 ];
 
-const SERVICE_TYPES = [
-  { value: 'sms', label: 'SMS' },
-  { value: 'hlr', label: 'HLR' },
-  { value: 'max', label: 'MAX' },
-];
-
 const GROUPINGS = [
   { value: '5min', label: 'по 5 минут' },
   { value: '15min', label: 'по 15 минут' },
@@ -247,17 +241,6 @@ export function StatisticsFilterBar({ mode, filters, onFiltersChange, onApply, l
             <option key={ch.value} value={ch.value}>{ch.label}</option>
           ))}
         </select>
-        <select
-          value={filters.service_type || ''}
-          onChange={e => onFiltersChange({ service_type: e.target.value })}
-          className="px-2.5 py-1 rounded-md text-xs border border-gray-200 text-gray-500 bg-white"
-        >
-          <option value="">Тип услуги</option>
-          {SERVICE_TYPES.map(st => (
-            <option key={st.value} value={st.value}>{st.label}</option>
-          ))}
-        </select>
-
         <button
           onClick={() => setShowExtra(v => !v)}
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border border-gray-200 text-gray-400 hover:border-gray-300"

@@ -120,7 +120,7 @@ function StatusBadgeDark({ status }: { status: string }) {
 
 // ── Health Map ────────────────────────────────────────────────────────
 
-function HealthMap({ providers }: { providers: ProviderHealth[] }) {
+function HealthMap({ providers, isSubAccount }: { providers: ProviderHealth[]; isSubAccount: boolean }) {
   return (
     <div
       style={{ background: 'var(--cc-surface)', border: '1px solid var(--cc-border)' }}
@@ -131,7 +131,13 @@ function HealthMap({ providers }: { providers: ProviderHealth[] }) {
       </h3>
       <div className="flex flex-col gap-2">
         {providers.length === 0 && (
-          <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs">Нет провайдеров</p>
+          isSubAccount ? (
+            <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs leading-relaxed">
+              Сообщения отправляются через инфраструктуру агрегатора. Здоровье провайдеров доступно агрегатору.
+            </p>
+          ) : (
+            <p style={{ color: 'var(--cc-text-muted)' }} className="text-xs">Нет провайдеров</p>
+          )
         )}
         {providers.map((p) => (
           <div
@@ -393,6 +399,7 @@ function LiveFeed({
 interface SubAccountSummary {
   count: number;
   activeCount: number;
+  maxSubAccounts: number;
   totalBalance: number;
   lowBalanceCount: number;
 }
@@ -400,6 +407,7 @@ interface SubAccountSummary {
 export function CommandCenter() {
   const { isAuthenticated, user } = useAuth();
   const isReseller = !!user?.is_reseller;
+  const isSubAccount = !!user?.parent_client_id;
   const { unreadCount } = useNotifications(isAuthenticated);
 
   const [metrics, setMetrics]   = useState<DashboardMetrics | null>(null);
@@ -418,13 +426,17 @@ export function CommandCenter() {
   useEffect(() => {
     if (!isReseller) return;
     subAccountsApi.list().then((resp) => {
-      const data = resp as { sub_accounts: Array<{ active: boolean; balance?: string }> };
+      const data = resp as {
+        sub_accounts: Array<{ active: boolean; balance?: string }>;
+        max_sub_accounts?: number;
+      };
       const subs = data.sub_accounts ?? [];
       const totalBalance = subs.reduce((sum, s) => sum + parseFloat(s.balance ?? '0'), 0);
       const lowBalanceCount = subs.filter(s => parseFloat(s.balance ?? '0') < 100).length;
       setSubSummary({
         count: subs.length,
         activeCount: subs.filter(s => s.active).length,
+        maxSubAccounts: data.max_sub_accounts ?? 0,
         totalBalance,
         lowBalanceCount,
       });
@@ -586,10 +598,22 @@ export function CommandCenter() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <KpiCard
             title="Суб-аккаунты"
-            value={`${subSummary.activeCount} / ${subSummary.count}`}
-            subtitle="активных суб-аккаунтов"
+            value={
+              subSummary.maxSubAccounts > 0
+                ? `${subSummary.activeCount} / ${subSummary.maxSubAccounts}`
+                : `${subSummary.activeCount}`
+            }
+            subtitle={
+              subSummary.maxSubAccounts > 0
+                ? `активных из ${subSummary.maxSubAccounts} по лимиту`
+                : 'активных суб-аккаунтов'
+            }
           >
-            <ProgressBar value={subSummary.activeCount} max={subSummary.count || 1} color="var(--cc-accent-blue)" />
+            <ProgressBar
+              value={subSummary.activeCount}
+              max={subSummary.maxSubAccounts || subSummary.count || 1}
+              color="var(--cc-accent-blue)"
+            />
           </KpiCard>
           <KpiCard
             title="Суммарный баланс"
@@ -602,7 +626,7 @@ export function CommandCenter() {
             subtitle="суб-аккаунтов с балансом < 100 ₽"
           >
             <Link
-              to="/sub-accounts"
+              to="/network/sub-accounts"
               style={{ color: 'var(--cc-accent-blue)' }}
               className="text-xs hover:underline mt-1 inline-block"
             >
@@ -624,7 +648,7 @@ export function CommandCenter() {
             status={wsStatus}
           />
         </div>
-        <HealthMap providers={providers} />
+        <HealthMap providers={providers} isSubAccount={isSubAccount} />
       </div>
 
       {/* Row 3: Smart Alerts (1/3) + Active Campaigns (2/3) */}

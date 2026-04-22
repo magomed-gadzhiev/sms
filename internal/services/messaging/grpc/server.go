@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -15,6 +16,36 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/messaging/application"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
+
+// Metadata keys used to ferry audit-linkage IDs from the gateway send handler
+// through gRPC without requiring a proto regeneration. Values are RFC4122 UUIDs
+// as strings; the server parses and validates them, ignoring malformed input
+// (fail-open on this side — the gateway is the authoritative validator).
+const (
+	mdKeyTemplateID   = "x-sms-template-id"
+	mdKeySenderNameID = "x-sms-sender-name-id"
+)
+
+// parseAuditIDsFromMetadata extracts template_id and sender_name_id from the
+// incoming gRPC metadata. Malformed UUIDs are silently dropped.
+func parseAuditIDsFromMetadata(ctx context.Context) (*uuid.UUID, *uuid.UUID) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, nil
+	}
+	var templateID, senderNameID *uuid.UUID
+	if vals := md.Get(mdKeyTemplateID); len(vals) > 0 && vals[0] != "" {
+		if id, err := uuid.Parse(vals[0]); err == nil {
+			templateID = &id
+		}
+	}
+	if vals := md.Get(mdKeySenderNameID); len(vals) > 0 && vals[0] != "" {
+		if id, err := uuid.Parse(vals[0]); err == nil {
+			senderNameID = &id
+		}
+	}
+	return templateID, senderNameID
+}
 
 // Server реализует gRPC сервис для работы с сообщениями
 type Server struct {
@@ -51,11 +82,16 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 		return nil, err
 	}
 
+	// Audit linkage IDs ferried via gRPC metadata (no proto change required).
+	templateID, senderNameID := parseAuditIDsFromMetadata(ctx)
+
 	// Создаем опции
 	options := &application.SendMessageOptions{
-		ExternalID: req.ExternalId,
-		Priority:   int(req.Priority),
-		IsSandbox:  req.IsSandbox,
+		ExternalID:   req.ExternalId,
+		Priority:     int(req.Priority),
+		IsSandbox:    req.IsSandbox,
+		TemplateID:   templateID,
+		SenderNameID: senderNameID,
 	}
 
 	if req.RegisteredDelivery {

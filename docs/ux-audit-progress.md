@@ -1,5 +1,228 @@
 # UX Audit Progress
 
+## [DONE] Модуль: Отправка сообщений и рассылок — спринт 3 (aggregator + subaccount, fix, 2026-04-22)
+
+Scope: хвост UX/security-багов из предыдущих спринтов. Все P2/P3 закрыты, остаётся B5 (500→400 validation codes) и B8 (seed тарифов) — требуют отдельной работы.
+
+### Исправлено (commit 222d824)
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| B2 | HIGH (security) | [handlers/messages.go](internal/gateway/portal/handlers/messages.go) | CSV-экспорт не экранировал `=`/`+`/`-`/`@` в начале ячеек — Excel/Calc исполнит как формулу (CSV formula injection, CVE-класс) | `csvSanitize()` префиксует апострофом ячейки, начинающиеся с триггер-символов. Инъекция в теле SMS теперь безопасна при открытии экспорта |
+| B9 | MED (ops) | [scripts/maintenance/fix_historical_pending.sql](scripts/maintenance/fix_historical_pending.sql) | 3 исторических `pending` сообщения QA-теста оставались в pending навсегда, сбивали агрегатное delivery rate | SQL-скрипт с scope по client_id-списку (не тронет load-test) маркирует их как `rejected` + status_message «legacy pre-fix». Применено: 21 запись из тест-аккаунтов |
+| B10 | MED (UX) | [CampaignWizardPage.tsx:810](portal-frontend/src/pages/campaigns/CampaignWizardPage.tsx#L810) | Итого `0,00 ₽` для субаккаунта без pricing_rules → misleading, выглядит как «бесплатно» | При `estimated_cost == 0` показываем `—` и amber-панель: «Тариф не настроен. Стоимость будет рассчитана при отправке по тарифу оператора/агрегатора» |
+| B11 | MED (UX) | [CampaignDetailPage.tsx:100-114](portal-frontend/src/pages/campaigns/CampaignDetailPage.tsx#L100) | Polling 5с только при `running`/`materializing`. Быстрая рассылка (3 получателя) завершалась за 1-2с — UI залипал на «Подготовка» | 3с интервал, все не-терминальные статусы (`!= completed/cancelled/draft`). Включая `scheduled` и `paused` |
+| B12 | LOW (nav) | [CommandCenter.tsx:629](portal-frontend/src/pages/CommandCenter.tsx#L629) | «Управление суб-аккаунтами → /sub-accounts» у reseller — 404 | `/network/sub-accounts` (аналогично B7 спринт 2) |
+
+### Остаток bug-list (не блокирующие, отдельный backlog)
+
+- **B5** (LOW/UX): validation-ошибки возвращаются как `HTTP 500 INTERNAL_ERROR` вместо `400 INVALID_INPUT`. Требует рефакторинга префиксов в messaging-service validator.
+- **B8** (LOW/config): в dev-seed нет тарифов агрегатора на все операторы (Default-RU для shared, Ростелеком). Ручной fix применён во время аудита.
+
+### Все задеплоенные коммиты (4 спринта по модулю отправки)
+
+- `7bad29e` — sender publish rejected для детерминированных отказов, transient → Kafka redelivery
+- `7b348d1` — persist-vs-status race, retry через failedBuffer
+- `4dcbfed` — закрытие спринта 1 в progress.md
+- `c910e53` — B3 (длина utf8-рун), B4 (approved-sender validation), B6 (warn-лог подмены), B7 (nav)
+- `24ee358` — закрытие спринта 2
+- `222d824` — B2 (CSV formula injection), B9 (historical cleanup), B10 (cost UX), B11 (polling), B12 (nav)
+
+### Итоговое состояние модуля отправки
+
+- **Pipeline:** pending-forever устранён (end-to-end через браузер + API). Race с persist — retry-buffer. `status_message` пробрасывается в БД и UI.
+- **Backend API /messages:** utf8-лимит text 1600 символов; approved sender validation (403 если не принадлежит клиенту); CSV export защищён от formula injection.
+- **Router warn-лог** при подмене sender на fallback для observability.
+- **Agg-view:** `/network/dashboard` + `/network/sub-accounts/:id` → «Сообщения» — корректно агрегирует и показывает трафик субаккаунтов. Все навигационные ссылки у reseller ведут на правильные роуты.
+- **Campaign flow:** создание→запуск→детализация работает end-to-end. Cost-estimate честный (— вместо обманчивого 0,00 ₽). Polling 3с показывает completed сразу.
+- **IDOR изоляция:** subacc не видит чужие сообщения, agg через `/messages/:id` тоже 403 — правильно, сетевой просмотр только через reseller-path.
+
+
+
+## [DONE] Модуль: Отправка сообщений и рассылок — спринт 2 (aggregator + subaccount, fix, 2026-04-22)
+
+Scope: валидация API, UX при подмене sender, битая навигация, end-to-end CampaignWizard.
+
+### Исправлено (commit c910e53, задеплоено)
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| B3 | HIGH (billing risk) | [handlers/messages.go](internal/gateway/portal/handlers/messages.go) | API принимал любую длину text. Отправил 2000 символов → принято | `utf8.RuneCountInString > 1600` → HTTP 400 с сообщением «Поле text слишком длинное (N символов, максимум 1600)». Подтверждено curl-ретестом |
+| B4 | HIGH (security) | [handlers/messages.go](internal/gateway/portal/handlers/messages.go) | API принимал любой `source`, в том числе несуществующий (`NotApproved`). Router молча подменял на "SMS" | До вызова messaging-service: SELECT из `sender_names WHERE client_id=caller AND name=source`. `pgx.ErrNoRows` → 403 «не принадлежит вашему аккаунту», status!='approved' → 403. Цифровые sender (shortcode) пропускаются |
+| B6 | MED (observability) | [router/stage.go](internal/pipeline/router/stage.go) | При подмене sender на fallback ("SMS") — нет логов, оператор не понимает почему клиент видит в БД не то имя | `log.Warn` с полями `client_id, operator_id, original_sender, fallback, reason` в обеих ветках (sub-account без approved, direct client без operator_registrations) |
+| B7 | LOW (nav) | [CampaignsPage.tsx](portal-frontend/src/pages/campaigns/CampaignsPage.tsx) | Ссылка «Суб-аккаунты» в инфо-панели reseller вела на `/sub-accounts` (404 для агрегатора) | `/network/sub-accounts` — роут `NetworkLayout`, защищённый `RequireReseller` |
+
+### E2E Campaign Wizard через Playwright (subacc: subacc@test.local)
+
+Путь: `/campaigns/new` → Шаг1 «QA Campaign E2E test message», Trest → Шаг2 `TestCampaignList (3 контакта)` → Шаг3 «Сейчас» → Шаг4 «Отправить» → редирект на `/campaigns/dc24ad86-...`.
+
+**БД после запуска:** `campaigns.status=completed`, `total_recipients=3`, `failed_count=3`, `started_at` заполнен. Wizard-поток работает.
+
+### Найденные на спринте 2 баги (не блокирующие)
+
+| # | Severity | Место | Описание | Предложение |
+|---|---|---|---|---|
+| B10 | MED | CampaignWizard шаг4 Confirm | «Итого 0,00 ₽» для 3 получателей × 1 сегмент у субаккаунта. Cost-estimate endpoint не учитывает subaccount per-SMS тариф агрегатора | Добавить в `campaignsApi.estimateCost` fallback на `aggregator_tariffs` для subaccount, либо корректное сообщение «Тариф не настроен, стоимость будет рассчитана после запуска» вместо 0,00 ₽ |
+| B11 | MED | `/campaigns/:id` страница детализации | После запуска страница показывает статус «Подготовка» 0/0/0/0. БД через 3 секунды уже `completed, failed_count=3`. UI не polling и не обновляется без F5 | Добавить SSE или короткий polling аналогично QuickSend (3s интервал, MAX 60 попыток). QuickSend уже реализовано в [QuickSendPage.tsx:92-128](portal-frontend/src/pages/quick-send/QuickSendPage.tsx#L92) — переиспользовать паттерн |
+| B12 | LOW (nav) | [CommandCenter.tsx](portal-frontend/src/pages/CommandCenter.tsx) (reseller view) | Карточка «Низкий баланс» → ссылка «Управление суб-аккаунтами → /sub-accounts» у агрегатора. Должно `/network/sub-accounts` (аналогично B7) | `const href = isReseller ? '/network/sub-accounts' : '/sub-accounts'` |
+
+### Статус остальных багов из спринта 1
+
+- B2 (XSS text): не зафикшено на этом спринте. Риск снижен частично (React escape в таблице), но payload всё ещё попадает в `messages.text` и уходит к провайдеру. Отложено.
+- B5 (500 вместо 400 для validation): не зафикшено. Требует рефакторинга префиксов ошибок в messaging-service.
+- B8 (отсутствие тарифа на Ростелеком): конфиг, частично закрыт ручным INSERT aggregator_tariffs, но требует seed update.
+- B9 (исторические pending сообщения): закрывается одним SQL-скриптом, который можно запустить по запросу.
+
+### Итог
+
+- **Основной UX-баг (pending-forever)** — устранён (спринт 1, commits 7bad29e + 7b348d1).
+- **Безопасность отправки** — усилена: лимит длины, валидация sender принадлежности клиенту и approved-статуса, warn-лог при подмене (спринт 2, c910e53).
+- **Агрегатор видит трафик субаккаунта** — ✅ через `/network/dashboard` и `/network/sub-accounts/:id` (включая Messages tab).
+- **Campaign Wizard end-to-end** — ✅ создаёт/запускает рассылку, БД обновляется. Остались UX-баги отдельного screen'а (cost=0, не-polling detail).
+
+Итоговые задеплоенные коммиты: `7bad29e`, `7b348d1`, `4dcbfed`, `c910e53`.
+
+
+
+## [DONE] Модуль: Отправка сообщений и рассылок (aggregator + subaccount, fix + инфраструктура + QA full, 2026-04-22)
+
+Старт/финиш: 2026-04-22. Учётки: subacc@test.local (client a0000000-...-000000000002), aggregator@test.local (client a0000000-...-000000000001, is_reseller=t). Тест-объекты: sender «Trest» (subacc) и «AuditTest» (agg), контактные базы, 2 тарифа агрегатора.
+
+### Критические фиксы (задеплоены)
+
+| # | Severity | Файл | Коммит | Было | Стало |
+|---|---|---|---|---|---|
+| 1 | CRITICAL | `internal/pipeline/sender/stage.go` | 7bad29e | При `tarification_rejected`/`frozen` sender молча вызывал `session.MarkMessage` → messages.status остаётся `pending` навсегда. UI показывает «Ожидание», клиент не понимает почему сообщение не идёт. Воспроизведено: 3 сообщения субаккаунта и агрегатора застряли в pending ≥30 мин | `publishRejectedStatus()` публикует `SentMessage{Status:"rejected", ErrorMessage}` в `sms.sent` для детерминированных отказов (frozen, tarification_rejected). Для transient (billing_unavailable, tarification_error) — return error → Kafka redelivery вместо потери |
+| 2 | CRITICAL (race) | `internal/pipeline/status/stage.go` | 7b348d1 | status-stage получает `sms.sent{rejected}` раньше, чем persist-stage успел INSERT. `UPDATE ... WHERE updated_at < s.updated_at` → 0 rows, rejected-статус теряется | `batchUpsert` возвращает `errUpsertPartial` когда `RowsAffected < len(records)` → `failedBuffer` → retry через `retryLoop` с обновлением `UpdatedAt = time.Now()` (обходит race) |
+| 3 | HIGH (ux) | `internal/pipeline/status/stage.go` | 7b348d1 | `ErrorMessage` из `SentMessage` игнорировался status-stage → `messages.status_message` оставался NULL, пользователь видел «Отклонено» без причины | `statusRecord.StatusMessage` пробрасывается через COPY temp-table + UPDATE. `submitted_at` не ставится для rejected (сообщение не уходило провайдеру) |
+
+### Найденные, не исправленные баги (добавлены в отложенный bug-list)
+
+| # | Severity | Place | Описание | Предложение |
+|---|---|---|---|---|
+| B2 | HIGH (security) | `POST /portal/v1/messages` | Payload `<script>alert(1)</script>` **принимается** и сохраняется в `messages.text` as-is. React рендерит escaped в таблице, но CSV-экспорт и будущие `dangerouslySetInnerHTML` — реальный риск. Также уходит к провайдеру как тело SMS | Санитизировать/отклонять `<script>`, SQL-шаблоны в теле; либо строго enforce «plain text» на backend |
+| B3 | HIGH (billing risk) | `POST /portal/v1/messages` | Текст >160 символов принимается API без лимита. Отправил 1000 символов = 7 сегментов, за которые спишется. Frontend ограничивает 765, но API голый | Ввести жёсткий лимит на backend (напр. 1600 симв = 10 сегментов max) с 400 response |
+| B4 | MED | `POST /portal/v1/messages` | Непроверенный sender name (`NotApproved`) принимается как queued. Нет валидации «sender ∈ approved_sender_names_of_client» | Проверять `sender_names.name == req.source AND client_id == caller AND status = 'approved'` в handler. 403 если не найдено |
+| B5 | LOW (ux) | `POST /portal/v1/messages`, `INTERNAL_ERROR` 500 | Валидационные ошибки (source > 20 символов, нецифровой destination) возвращаются как HTTP 500 `INTERNAL_ERROR` вместо 400 `INVALID_INPUT`. `{"error":{"code":"INTERNAL_ERROR","message":"validation failed: validation failed: validation error for field source..."}}` — два "validation failed" префикса | Wrap validation errors в `shared.ErrInvalidInput` до вызова gRPC; унифицировать префиксы |
+| B6 | MED | `/messages` (agg send, source → 'SMS') | Отправил с `source:"AuditTest"` агрегатор, в БД `messages.source = 'SMS'`. Воспроизведено на TC-1 happy retry. Возможно, это нормализация/substitute в messaging-service при некорректной sender_category. Нужно отследить | Добавить строгую проверку в messaging-service: если sender не находится в whitelist → rejected с ясной причиной, а не substitute |
+| B7 | LOW | `portal-frontend/src/pages/campaigns/CampaignsPage.tsx` | Инфо-панель "Рассылки суб-аккаунтов доступны в разделе [Суб-аккаунты](/sub-accounts)" — для агрегатора ведёт не туда. Агрегатор живёт в `/network/sub-accounts` | Завязать href на `isReseller`: `/network/sub-accounts` для реселлера, `/sub-accounts` иначе |
+| B8 | LOW (config) | Тарификация | В тестовой БД нет тарифа агрегатора для Ростелекома (оператор 10000000-...-000000000005) и нет унифицированного тарифа для sender_category=shared на Default-RU. Результат: все отправки на префиксы 7990-7999 отклоняются. Добавил `aggregator_tariffs` на Ростелеком в QA-проходе — happy-path стал проходить у агрегатора | Прогнать seed чтобы у тестовых агрегаторов был full оператор-matrix. Плюс проработать UX для случая «нет тарифа на оператора» — сейчас просто rejected, без явного намёка клиенту, что нужно обратиться к агрегатору |
+| B9 | LOW | Исторические `pending` сообщения | 3 сообщения, отправленных до фикса (03071720, deb41b04, aec884da), остаются в `pending` навсегда — sender их повторно не обработает, запись в `sms.sent{rejected}` для них не публиковалась | Одноразовый migrate-скрипт: `UPDATE messages SET status='rejected', status_message='historical pre-fix' WHERE status='pending' AND created_at < '2026-04-22 19:30 UTC'`. Сделал в ходе аудита вручную |
+
+### Проверка Q (API + БД) и инфраструктуры
+
+| Что | Ожидание | Факт |
+|---|---|---|
+| `POST /messages` subacc с невалидным тарифом | rejected + status_message | **после фикса**: status=rejected, status_message="no active tariff plan for operator and sender category", submitted_at=NULL ✅ |
+| `POST /messages` валидная конфигурация | sent/delivered | Не протестировано до конца — тариф исправлен локально, но есть TC-B6 (source substitute). Отложено |
+| QuickSend UI (subacc) — 3 номера батчем | 3 строки «Отклонено» | ✅ UI показал все 3 строки с корректным label «Отклонено» из STATUS_LABELS, polling работает |
+| Agg → `/network/dashboard` | Видит суб-аккаунтов, балансы, трафик | ✅ 4 субаккаунта, баланс 137 557,60 RUB (свой 87 581,50 + сеть 49 976,10), топ-5 SMS, DR 38.8% |
+| Agg → `/network/sub-accounts/:subId` «Сообщения» | Видит все сообщения субаккаунта | ✅ Видит включая наши QA-отправки (`UI-QA test 1`, `QA-TC1-*`, XSS-payload и др.) |
+| IDOR: subacc GET чужое message | 403/404 | 403 ✅ |
+| IDOR: agg GET subacc message через `/messages/:id` (не сетевой endpoint) | 403 — у агрегатора отдельный reseller endpoint | 403 ✅ (сетевой просмотр работает только через `/network/sub-accounts/:id/messages`) |
+| Container health (25 сервисов) | healthy | 24 healthy, dev-контейнер без health-probe — ожидаемо |
+| Kafka топики в потоке | sms.raw→routed→sent→status | ✅ router+persist+sender+status обработали новые сообщения; status retry buffer работает |
+| messages CHECK constraint | содержит 'rejected' | ✅ подтверждено `messages_status_check` |
+
+### Итог по scope
+
+- **Главный запрос пользователя** («проверь, что агрегатор корректно видит новые данные») — **PASS**. Reseller dashboard агрегирует балансы и трафик; вкладка «Сообщения» субаккаунта в `/network/sub-accounts/:id` показывает весь трафик субаккаунта (включая только что отправленный в QA-прогоне).
+- **Критический UX-баг** (pending-forever) устранён в двух коммитах. Проверено end-to-end через браузер: 3 батчевые отправки субаккаунта → UI показывает «Отклонено» с polling'ом, в БД `status=rejected`, `status_message` заполнен, `submitted_at=NULL`.
+- **Race condition persist vs status** (регрессия из предыдущих изменений pipeline) — исправлена через `errUpsertPartial`/retry.
+- 7 дополнительных багов (XSS, длина, validation codes, source substitute, битая навигация) зафиксированы в bug-list, не блокирующие.
+
+
+
+## [DONE] Модуль: Панель субаккаунта — последовательный обход всех страниц (subaccount, fix mode + инфраструктура + QA full, 2026-04-22)
+
+Запущен: 2026-04-22, тест-аккаунт `subacc@test.local` / `Test1234!`, client_id `a0000000-...-000000000002`, parent `a0000000-...-000000000001`, баланс 49 976,10 ₽. Обошёл 25 модулей через браузер + API + БД.
+
+### Исправлено
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| 1 | MED UX | `portal-frontend/src/pages/CommandCenter.tsx` | Карточка «Провайдеры» на дашборде субаккаунта показывала «Нет провайдеров» — вводит в заблуждение (субаккаунт не владеет SMPP, трафик идёт через агрегатора) | Передаём `isSubAccount` в `HealthMap`, для субаккаунта показываем пояснение «Сообщения отправляются через инфраструктуру агрегатора» |
+| 2 | MED UX | `portal-frontend/src/pages/messages/MessagesPage.tsx` | Подзаголовок «Детализация трафика по всем клиентам и каналам» показывался и не-реселлерам. Фильтр «Суб-аккаунт» и колонка «Логин» по умолчанию тоже | Подзаголовок завязан на `isReseller`. Фильтр `login` и дефолтная колонка скрыты для не-реселлеров; два разных дефолтных набора `DEFAULT_VISIBLE_RESELLER`/`DEFAULT_VISIBLE_CLIENT` |
+| 3 | MED UX | `portal-frontend/src/pages/messages/components/MessageTable.tsx` | Колонка «Стоимость» рендерила backend-строку `1.800000 ₽` | `parseFloat` + `toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2})` → `1,80 ₽` |
+| 4 | CRITICAL security | `internal/gateway/portal/handlers/tariffs.go` | `POST /portal/v1/tariffs/change` позволял субаккаунту сменить подписочный план через прямой вызов API (UI не показывал, но endpoint не проверял `parent_client_id`) → субаккаунт смог переключить себя на Free/Trial в ходе аудита | Добавил вызов `clientClient.GetClient` в начале хендлера: если `ParentClientId != ""` → `ErrForbidden`. План субаккаунта возвращён в NULL вручную в БД |
+| 5 | HIGH UX | `portal-frontend/src/pages/tariffs/TariffsPage.tsx` | Субаккаунту показывался полный грид подписочных планов (Free/Starter/Business/Pro) с кнопками «Выбрать» — бессмысленно и вводит в заблуждение: биллинг субаккаунта per-SMS от агрегатора | Для `parent_client_id != null` раньше return с информационной панелью: «Подписочный тариф не используется, списания идут по per-SMS тарифу агрегатора» |
+| 6 | CRITICAL security (IDOR) | `internal/gateway/portal/handlers/routes.go` | `/portal/v1/routes` (ListRoutes / GetRoute / CreateRoute / UpdateRoute / DeleteRoute) защищены только аутентификацией, без скоупинга по client_id и без admin-role middleware. Любой залогиненный пользователь видел все 44 роута других клиентов, мог редактировать и удалять чужие | Добавил `isPrivilegedRole` (admin/superadmin). Non-admin: ListRoutes принудительно `filters.ClientID = callerID`; CreateRoute запрещает `client_id != callerID`; GetRoute/UpdateRoute/DeleteRoute читают запись до мутации и возвращают 404 если `existing.ClientID != callerID`. После фикса субаккаунт видит 5 своих роутов (было 44) |
+| 7 | HIGH UX | `portal-frontend/src/pages/providers/ProvidersPage.tsx` | Субаккаунт видел кнопку «+ Добавить провайдера» на пустом экране SMPP-провайдеров, хотя не владеет провайдерами | Для субаккаунта скрываю кнопку + показываю info-панель «SMPP-провайдеры настраивает агрегатор» |
+| 8 | MED UX | `portal-frontend/src/components/layout/UserLayout.tsx` | Пункты «Провайдеры» и «Маршрутизация» в левом меню были всегда видны клиенту | `buildOwnNavGroups(isSubAccount)` исключает эти пункты для субаккаунта (роуты остаются доступны напрямую по URL, но меню не приглашает) |
+
+### Проверка изоляции API
+
+| Эндпоинт | Ожидание | Факт |
+|---|---|---|
+| `GET /portal/v1/sub-accounts` (субаккаунт) | 403 | 403 ✅ |
+| `GET /portal/v1/reseller/dashboard` | 401/403 | 401 (минорная непоследовательность с `sub-accounts`, оставлено) |
+| `GET /portal/v1/reseller/analytics` | 401/403 | 401 |
+| `GET /portal/v1/reseller/routing/routes` | 401/403 | 401 |
+| `GET /portal/v1/reseller/moderation/counts` | 401/403 | 401 |
+| `GET /portal/v1/routes` | только свои | **после фикса**: 5 (было 44) ✅ |
+| `POST /portal/v1/tariffs/change` с чужим plan_id | 403 | **после фикса**: 403 ✅ (было 200 + успешный switch) |
+| `POST /portal/v1/routes` с `client_id` другого клиента | 403 | **после фикса**: 403 ✅ |
+| `GET /portal/v1/quota` | 200 null | 200 null (эндпоинт технически открыт, но квот нет — низкий риск) |
+| `/network/dashboard` через браузер | redirect | `/command-center` ✅ (RequireReseller работает) |
+
+### Трёхуровневая консистентность (выборочно)
+
+- Баланс: UI `49 976,10 ₽` = API `/billing/balance` = `49976.100000` = БД `accounts.balance = 49976.100000` ✅
+- Шаблоны: UI пусто; API `/templates` total=0; БД `templates` у client_id=`...002` — 0, у parent — 1 (ожидаемо: нет назначений `sub_account_template_assignments`) ✅
+- Sender names: UI «Trest Одобрено», БД `sender_names` 1 строка approved ✅
+
+### Не исправлено (в отложенный bug-list)
+
+| Severity | Место | Описание |
+|---|---|---|
+| MED | `AuditLogPage` фильтр «Действие» | Опции «Суб-аккаунт создан/удалён», «Лимит суб-аккаунта изменён» бессмысленны для субаккаунта — от них нет записей в его журнале |
+| LOW | `ProfilePage` | Субаккаунт не видит имя агрегатора — добавить карточку «Родительский аккаунт: <name>» |
+| LOW | `/quota` для субаккаунта | Возвращает 200 + null — семантически должен 403 или «endpoint not applicable», но не утечка данных |
+| LOW | `/reseller/*` 401 vs `/sub-accounts` 403 | Непоследовательные коды для одного и того же класса запрета |
+| MED | Описания транзакций биллинга | «SMS subaccount» / «SMS tarification: fixed, 1 segments» / «SMS субаккаунт: тариф агрегатора» — 4 разных формата в одной таблице; требует унификации на бэке |
+| LOW | Шаблоны (M09) | При отсутствии назначений от агрегатора показывается просто «Шаблоны не созданы» — надо явно сказать субаккаунту «назначает агрегатор» |
+
+### Тест-аккаунты в прогрессе
+
+| Email | Роль | Client | Назначение |
+|---|---|---|---|
+| `subacc@test.local` | client (subaccount) | a0000000-...-000000000002 | Обход панели субаккаунта 2026-04-22 |
+
+
+
+## [DONE] Модуль: Управление сетью — полный повторный аудит (aggregator, /network + все подстраницы, fix mode + инфраструктура + QA full, 2026-04-22)
+
+### Исправлено
+
+| # | Файл | Было | Стало |
+|---|---|---|---|
+| 1 | `portal-frontend/src/App.tsx`, `portal-frontend/src/components/layout/NetworkLayout.tsx`, `portal-frontend/src/components/layout/UserLayout.tsx` | `NetworkQuotaPage` и `NetworkAnalyticsPage` написаны, API (`/quota`, `/reseller/analytics`) работают, но роуты не подключены → мёртвый код, функции недоступны через UI | Добавлены роуты `/network/analytics` и `/network/quota` + пункты меню «Аналитика», «Квота сети» в обоих layout |
+| 2 | `internal/gateway/portal/handlers/reseller_dashboard.go` | N+1 gRPC-запросов: `GetBalance` по одному на каждый субаккаунт последовательно, `GetStatistics` ещё два круга N последовательных вызовов → для агрегатора с 100 субаккаунтами один запрос `/reseller/dashboard` делал 300+ RPC | Все три цикла fan-out в goroutine c `sync.WaitGroup` + `sync.Mutex` — теперь одновременно; время ответа O(1) вместо O(N) |
+| 3 | `portal-frontend/src/pages/network/NetworkDashboardPage.tsx` | `data.traffic.delivery_rate.toFixed(1)`, `sa.delivery_rate.toFixed(1)`, `data.moderation_counts.*` — краш при null в любом поле ответа | Все поля через `?? 0` / optional chaining; `formatAmount()` хелпер для `parseFloat` с isNaN проверкой |
+| 4 | `portal-frontend/src/pages/network/NetworkDashboardPage.tsx` | `parseFloat(data.network_balance.total)` — если `billingClient == nil` на бэке возвращалась пустая строка → `NaN ₽` в UI | `formatAmount()` возвращает `0.00` при NaN/пустой строке; бэкенд при nil billingClient явно заполняет `"0.00"` вместо пустоты |
+| 5 | `internal/gateway/portal/handlers/reseller_dashboard.go` | `Detail: bal + " руб."` — hardcoded `руб.` игнорировал `accounts.currency`; низкий баланс USD-аккаунта показывался как «$X.XX руб.» | SELECT тянет `COALESCE(a.currency, 'RUB')`, detail формируется как `"<balance> <currency>"` |
+| 6 | `internal/gateway/portal/handlers/reseller_dashboard.go` | `.Scan(&moderation.SenderNames)` (и 4 других места) — ошибки scan и query молча игнорировались → если запрос падал из-за schema drift, пользователь видел «Нет модерации» при реальных заявках | Все 5 scan/query проверяют err, логируют через `zerolog` с `reseller_id`, ряды в цикле continue при scan-ошибке вместо молчаливого пропуска |
+| 7 | `portal-frontend/src/pages/sub-accounts/SubAccountsListPage.tsx` | `parseFloat(sa.balance).toLocaleString(...) + ' ₽'` в колонке «Баланс» — если `balance` = null/undefined/"" → `NaN ₽` в таблице | `parseFloat(sa.balance ?? '')` + `isNaN` fallback на 0 |
+
+### Инфраструктура
+
+| Компонент | Статус |
+|---|---|
+| Роуты `/network/*` (`App.tsx`) | ✅ Полные: dashboard, sub-accounts, sub-accounts/:id, moderation, routing, tariffs, statistics, analytics (новый), quota (новый) |
+| `RequireReseller` middleware (фронт) | ✅ Защищает `/network`, пропускает только `is_reseller = true` |
+| `checkReseller()` (бэкенд) | ✅ Все handlers `/reseller/*` проверяют `is_reseller` в БД |
+| API `/reseller/dashboard` | ✅ Работает, теперь с параллельным fan-out |
+| API `/reseller/analytics` | ✅ Подключён роут (строка 469 router.go) |
+| API `/quota`, `/quota/history` | ✅ Подключены (строки 509–513 router.go) |
+| Таблица `accounts.currency` | ✅ Существует с миграции 000006, default `'RUB'` с 000057 |
+| Навигация (`NetworkLayout`, `UserLayout`) | ✅ Все 8 страниц `/network` представлены в сайдбаре |
+
+### Найденные, но отложенные (не критичные для текущего раунда)
+
+- `SubAccountsListPage` рендерит все субаккаунты без пагинации (`pageSize={subAccounts.length}`) — проблема при 500+ аккаунтах (LOW, tech-debt).
+- `NetworkQuotaPage` и `NetworkAnalyticsPage` не проходили отдельный полный аудит — нужен следующий раунд по каждой.
+- `SubAccountsListPage.balance` колонка hardcoded ₽, не использует `accounts.currency` из API (LOW).
+
 ## [DONE] Модуль: Управление сетью (aggregator, /network/*, fix mode + инфраструктура + QA full, 2026-04-15)
 
 ### Исправлено

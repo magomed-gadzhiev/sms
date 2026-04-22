@@ -82,6 +82,12 @@ func (s *MessageService) SendMessage(
 		if options.MaxRetries > 0 {
 			msg.MaxRetries = options.MaxRetries
 		}
+		if options.TemplateID != nil {
+			msg.TemplateID = options.TemplateID
+		}
+		if options.SenderNameID != nil {
+			msg.SenderNameID = options.SenderNameID
+		}
 	}
 
 	// Определяем кодировку
@@ -122,18 +128,15 @@ func (s *MessageService) SendMessage(
 		// If within tolerance, treat as immediate send (fall through to normal flow)
 	}
 
-	// Sandbox bypass: не отправляем реальному провайдеру — сохраняем в БД как "delivered"
-	if options != nil && options.IsSandbox {
-		msg.MarkAsDelivered()
-		if err := s.messageRepo.Create(ctx, msg); err != nil {
-			return nil, fmt.Errorf("failed to create sandbox message: %w", err)
-		}
-		log.Debug().
-			Str("message_id", msg.ID.String()).
-			Str("client_id", clientID.String()).
-			Msg("sandbox mode: message marked as delivered without sending")
-		return msg, nil
-	}
+	// Sandbox handling is now a provider-layer concern, not a service-layer
+	// short-circuit. Previously IsSandbox bypassed Kafka entirely, marking
+	// the message delivered without any routing or tarification. That caused
+	// divergence between /sms/send (honoured IsSandbox) and /sms/batch
+	// (ignored IsSandbox) — revenue leak + inconsistent contract. Bug #10
+	// (QA 2026-04-22). Sandbox clients must now be routed to a simulator
+	// provider via their client_routes (spec 2026-04-10 sandbox-mode-v2).
+	// IsSandbox is accepted for API compatibility but no longer changes
+	// service-layer behaviour.
 
 	// Non-scheduled: publish directly to Kafka, no DB write.
 	// Persist stage will batch-insert into DB asynchronously via COPY protocol.
@@ -188,6 +191,8 @@ func (s *MessageService) SendBatch(
 			DataCoding:         req.DataCoding,
 			MaxRetries:         req.MaxRetries,
 			ScheduledAt:        scheduledAt,
+			TemplateID:         req.TemplateID,
+			SenderNameID:       req.SenderNameID,
 		}
 
 		msg, err := s.SendMessage(ctx, clientID, req.Source, req.Destination, req.Text, options)
@@ -324,6 +329,11 @@ type SendMessageOptions struct {
 	MaxRetries         int
 	ScheduledAt        *time.Time
 	IsSandbox          bool
+	// Audit linkage: populated by the send handler after the sender/template
+	// have been validated. Propagated through Kafka → persist stage into
+	// messages.{template_id,sender_name_id}.
+	TemplateID   *uuid.UUID
+	SenderNameID *uuid.UUID
 }
 
 // SendMessageRequest представляет запрос на отправку сообщения
@@ -343,6 +353,8 @@ type SendMessageRequest struct {
 	DataCoding         int
 	MaxRetries         int
 	ScheduledAt        *time.Time
+	TemplateID         *uuid.UUID
+	SenderNameID       *uuid.UUID
 }
 
 // BatchResult представляет результат обработки одного сообщения в пакете

@@ -153,10 +153,12 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		return fmt.Errorf("десериализация: %w", err)
 	}
 
-	// Определяем оператора по номеру получателя
+	// Определяем оператора и страну по номеру получателя.
+	// country_id используется persist-stage для enrichment (bug #15).
 	var operatorID uuid.UUID
+	var countryID *uuid.UUID
 	if kafkaMsg.ClientID != nil {
-		operatorID = s.operatorResolver.Resolve(ctx, kafkaMsg.Destination)
+		operatorID, countryID = s.operatorResolver.ResolveWithCountry(ctx, kafkaMsg.Destination)
 	} else {
 		operatorID = s.defaultOperatorID
 	}
@@ -168,6 +170,9 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 
 	var providerID uuid.UUID
 	var routeID *uuid.UUID
+	// channel по умолчанию "sms"; если маршрут другой route_type (hlr/max) —
+	// подставляем его, чтобы persist-stage писал корректный channel при INSERT.
+	channel := "sms"
 
 	if kafkaMsg.ClientID != nil {
 		// Build match context with all available fields.
@@ -199,10 +204,21 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType)
 		}
 
-		// Take the highest-priority route (lowest Priority value).
-		route := result.Matched[0]
+		// Pick a route from the top-priority bucket using `share` weights.
+		// When all top-bucket routes have share=0 (legacy / default config),
+		// the picker falls back deterministically to the first by priority,
+		// preserving prior behaviour. Bug #11 (QA 2026-04-22).
+		route := routingapp.PickWeightedRoute(result.Matched)
+		if route == nil {
+			// Defensive: PickWeightedRoute returns nil only for empty input,
+			// which we already rejected above. Treat as no-route.
+			return fmt.Errorf("маршрут не выбран для message_id=%s (pick returned nil)", kafkaMsg.MessageID)
+		}
 		providerID = route.ProviderID
 		routeID = &route.ID
+		if route.RouteType != "" {
+			channel = route.RouteType
+		}
 
 		trace.Log(s.logger, kafkaMsg.TraceID, kafkaMsg.MessageID.String(), "router", "route_matched").
 			Str("route_id", route.ID.String()).
@@ -230,7 +246,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 
 	resolvedOperatorID := operatorID
 	routed := &pipeline.RoutedMessage{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		MessageID:     kafkaMsg.MessageID,
 		TraceID:       kafkaMsg.TraceID,
 		Source:        resolvedSource,
@@ -238,6 +254,10 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 		Text:          kafkaMsg.Text,
 		ClientID:      kafkaMsg.ClientID,
 		OperatorID:    &resolvedOperatorID,
+		CountryID:     countryID,
+		Channel:       channel,
+		TemplateID:    kafkaMsg.TemplateID,
+		SenderNameID:  kafkaMsg.SenderNameID,
 		ProviderID:    providerID,
 		RouteID:       routeID,
 		Priority:      kafkaMsg.Priority,
@@ -346,7 +366,16 @@ func (s *Stage) resolveSenderName(ctx context.Context, clientID, senderName, ope
 		if snStatus == "approved" {
 			return senderName
 		}
-		return s.getFallbackSender(ctx)
+		fallback := s.getFallbackSender(ctx)
+		log.Warn().
+			Str("component", "pipeline_router").
+			Str("client_id", clientID).
+			Str("original_sender", senderName).
+			Str("fallback", fallback).
+			Str("sender_status", snStatus).
+			Str("reason", "sender_name not approved for sub-account").
+			Msg("sender substituted — регистрация неактивна")
+		return fallback
 	}
 
 	// Direct client: check operator_registrations.approved_type.
@@ -360,7 +389,16 @@ func (s *Stage) resolveSenderName(ctx context.Context, clientID, senderName, ope
 		clientID, senderName, operatorID,
 	).Scan(&approvedType)
 	if err != nil || approvedType == nil {
-		return s.getFallbackSender(ctx)
+		fallback := s.getFallbackSender(ctx)
+		log.Warn().
+			Str("component", "pipeline_router").
+			Str("client_id", clientID).
+			Str("operator_id", operatorID).
+			Str("original_sender", senderName).
+			Str("fallback", fallback).
+			Str("reason", "no operator_registrations entry for direct client").
+			Msg("sender substituted — отсутствует регистрация на оператора")
+		return fallback
 	}
 	return senderName
 }

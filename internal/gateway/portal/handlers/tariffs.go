@@ -141,6 +141,17 @@ func (h *TariffHandlers) ChangePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientResp, err := h.clientClient.GetClient(r.Context(), &clientv1.GetClientRequest{ClientId: clientID.String()})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения информации о клиенте при смене тарифа")
+		respondGRPCError(w, err)
+		return
+	}
+	if clientResp.GetClient().GetParentClientId() != "" {
+		respondError(w, shared.ErrForbidden("Суб-аккаунт не может менять тарифный план — он управляется агрегатором"))
+		return
+	}
+
 	// Получаем информацию о новом плане для списания средств
 	plansResp, err := h.clientClient.ListPlans(r.Context(), &clientv1.ListPlansRequest{})
 	if err != nil {

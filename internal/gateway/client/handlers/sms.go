@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -8,29 +9,118 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	clientv1 "github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
+// gRPC metadata keys matching internal/services/messaging/grpc/server.go. They
+// ferry audit-linkage UUIDs from the HTTP handler into the messaging-service
+// gRPC server without requiring a proto regeneration.
+const (
+	mdKeyTemplateID   = "x-sms-template-id"
+	mdKeySenderNameID = "x-sms-sender-name-id"
+)
+
 // SMSHandlers содержит handlers для SMS операций
 type SMSHandlers struct {
-	messagingClient messagingv1.MessagingServiceClient
-	templateClient  templatev1.TemplateServiceClient
-	clientClient    clientv1.ClientServiceClient
+	messagingClient  messagingv1.MessagingServiceClient
+	templateClient   templatev1.TemplateServiceClient
+	clientClient     clientv1.ClientServiceClient
+	senderNameClient sendernamev1.SenderNameServiceClient
 }
 
-// NewSMSHandlers создает новый SMSHandlers
-func NewSMSHandlers(messagingClient messagingv1.MessagingServiceClient, templateClient templatev1.TemplateServiceClient, clientClient clientv1.ClientServiceClient) *SMSHandlers {
+// NewSMSHandlers создает новый SMSHandlers.
+// senderNameClient may be nil in tests; when nil, sender-name authorization is
+// DISABLED (legacy behaviour) — callers MUST pass a real client in production.
+func NewSMSHandlers(
+	messagingClient messagingv1.MessagingServiceClient,
+	templateClient templatev1.TemplateServiceClient,
+	clientClient clientv1.ClientServiceClient,
+	senderNameClient sendernamev1.SenderNameServiceClient,
+) *SMSHandlers {
 	return &SMSHandlers{
-		messagingClient: messagingClient,
-		templateClient:  templateClient,
-		clientClient:    clientClient,
+		messagingClient:  messagingClient,
+		templateClient:   templateClient,
+		clientClient:     clientClient,
+		senderNameClient: senderNameClient,
 	}
+}
+
+// resolveSenderName looks up the sender_name row for (clientID, source) and
+// enforces approval. It returns the UUID of the approved sender_name or an
+// error suitable for responding to the HTTP caller.
+//
+// Errors:
+//   - shared.ErrForbidden if the sender name is not registered for this client
+//     or is registered but not approved (pending/rejected/deactivated).
+//   - shared.ErrInternal on transport failures talking to sender-name service.
+//
+// When senderNameClient is nil (unit tests), it returns (nil, nil) so legacy
+// tests continue to pass; production wiring always injects a real client.
+func (h *SMSHandlers) resolveSenderName(ctx context.Context, clientID, source string) (string, *shared.AppError) {
+	if h.senderNameClient == nil {
+		return "", nil
+	}
+
+	// Fetch only approved sender names for this client. The API supports
+	// server-side status filtering so we don't pull the full list.
+	resp, err := h.senderNameClient.ListSenderNames(ctx, &sendernamev1.ListSenderNamesRequest{
+		ClientId: clientID,
+		Status:   "approved",
+		Limit:    1000,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID).Str("source", source).
+			Msg("ошибка запроса sender-name service")
+		return "", shared.ErrInternalServer("ошибка проверки sender name")
+	}
+
+	for _, sn := range resp.GetSenderNames() {
+		if sn.GetName() == source {
+			// Defence-in-depth: although we filtered by approved, verify.
+			if sn.GetStatus() != "approved" {
+				continue
+			}
+			return sn.GetId(), nil
+		}
+	}
+
+	// Not found in approved list. Distinguish "unknown sender" vs "exists but
+	// not approved" with a second call, so the caller gets a useful message.
+	allResp, err := h.senderNameClient.ListSenderNames(ctx, &sendernamev1.ListSenderNamesRequest{
+		ClientId: clientID,
+		Limit:    1000,
+	})
+	if err == nil {
+		for _, sn := range allResp.GetSenderNames() {
+			if sn.GetName() == source {
+				return "", shared.ErrForbidden("sender name не одобрен (status=" + sn.GetStatus() + ")")
+			}
+		}
+	}
+	return "", shared.ErrForbidden("sender name не зарегистрирован")
+}
+
+// attachAuditMD adds template_id/sender_name_id to outgoing gRPC metadata.
+func attachAuditMD(ctx context.Context, templateID, senderNameID string) context.Context {
+	var pairs []string
+	if templateID != "" {
+		pairs = append(pairs, mdKeyTemplateID, templateID)
+	}
+	if senderNameID != "" {
+		pairs = append(pairs, mdKeySenderNameID, senderNameID)
+	}
+	if len(pairs) == 0 {
+		return ctx
+	}
+	return metadata.AppendToOutgoingContext(ctx, pairs...)
 }
 
 // SendSMSRequest представляет запрос на отправку SMS
@@ -111,6 +201,25 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Sender name authorization (Bug #7): enforce that `source` matches a
+	// sender_name row owned by this client and in status=approved. Skipped in
+	// sandbox mode so smoke-testing doesn't require full onboarding. Skipped
+	// when senderNameClient is nil (unit tests).
+	senderNameID := ""
+	if !isSandbox {
+		id, appErr := h.resolveSenderName(r.Context(), clientID.String(), req.Source)
+		if appErr != nil {
+			log.Info().
+				Str("client_id", clientID.String()).
+				Str("source", req.Source).
+				Str("reason", appErr.Message).
+				Msg("отклонена отправка: sender name не авторизован")
+			respondError(w, appErr)
+			return
+		}
+		senderNameID = id
+	}
+
 	// Преобразуем в proto запрос
 	protoReq := &messagingv1.SendMessageRequest{
 		ClientId:           clientID.String(),
@@ -136,8 +245,12 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		protoReq.ScheduledAt = timestamppb.New(*req.ScheduledAt)
 	}
 
-	// Вызываем Messaging Service
-	resp, err := h.messagingClient.SendMessage(r.Context(), protoReq)
+	// Вызываем Messaging Service. Audit linkage (template_id, sender_name_id)
+	// is ferried as gRPC metadata because the messaging proto cannot be
+	// regenerated in this environment (see docs/reports/2026-04-22-* for
+	// context).
+	sendCtx := attachAuditMD(r.Context(), req.TemplateID, senderNameID)
+	resp, err := h.messagingClient.SendMessage(sendCtx, protoReq)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка отправки SMS через Messaging Service")
 		respondGRPCError(w, err)
@@ -212,6 +325,20 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 				continue // skip failed renders in batch
 			}
 			msgText = renderResp.RenderedText
+		}
+
+		// Bug #7: enforce sender-name authorization per message. Unauthorized
+		// messages are silently skipped (batch semantics — partial success).
+		// Note: audit linkage (template_id / sender_name_id) is NOT propagated
+		// through the batch RPC because the current SendBatch proto carries
+		// one metadata map per RPC call, not per-message. Single-message
+		// path (SendSMS) is the authoritative audit trail.
+		if _, appErr := h.resolveSenderName(r.Context(), clientID.String(), msg.Source); appErr != nil {
+			log.Info().
+				Str("client_id", clientID.String()).
+				Str("source", msg.Source).
+				Msg("batch: сообщение пропущено — sender name не авторизован")
+			continue
 		}
 
 		protoMsg := &messagingv1.SendMessageRequest{

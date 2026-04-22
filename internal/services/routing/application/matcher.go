@@ -186,12 +186,35 @@ func (m *RouteMatcher) filterMatching(routes []*domain.ClientRoute, ctx MatchCon
 // --- condition evaluation ---
 
 // evaluateConditions applies the chain of condition groups using their logic operators.
+//
+// The running `result` is seeded based on the FIRST group's logic_op so that a
+// chain beginning with AND/AND_NOT has the correct identity element. Without
+// this seed a single-group route with logic_op=AND would evaluate to
+// (false && groupMatch) = false no matter what, silently never matching
+// (see QA 2026-04-22 bug #3 / project bug #12).
+//
+// Seed semantics per op:
+//   - IF         : result = groupMatch (op overwrites; seed irrelevant)
+//   - AND, AND_NOT: identity is true — chain of ANDs requires true start
+//   - OR, OR_NOT : identity is false — chain of ORs requires false start
+//   - unknown    : treated as IF (seed irrelevant)
 func evaluateConditions(groups []domain.ConditionGroup, ctx MatchContext, regexCache map[string]*regexp.Regexp) bool {
 	if len(groups) == 0 {
 		return true
 	}
 
+	// Seed the running result from the FIRST group's logic op. For subsequent
+	// groups the seed is immaterial because `result` carries the previous state.
 	var result bool
+	switch groups[0].LogicOp {
+	case domain.LogicAnd, domain.LogicAndNot:
+		result = true
+	default:
+		// LogicIf overwrites; LogicOr/LogicOrNot identity is false; unknown
+		// treated as IF (also overwrites). `false` is correct for all.
+		result = false
+	}
+
 	for _, g := range groups {
 		groupMatch := evaluateGroup(g, ctx, regexCache)
 

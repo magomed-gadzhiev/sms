@@ -66,7 +66,12 @@ export const ALL_COLUMNS: ColSpec[] = [
   },
   {
     key: 'total_amount', header: 'Стоимость', sortField: 'total_amount',
-    render: (m) => m.total_amount ? `${m.total_amount} ₽` : '—',
+    render: (m) => {
+      if (!m.total_amount) return '—';
+      const n = parseFloat(m.total_amount);
+      if (!Number.isFinite(n)) return '—';
+      return `${n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`;
+    },
   },
   // optional columns
   { key: 'id', header: 'ID', render: (m) => <span className="font-mono text-xs">{m.id.substring(0, 8)}...</span> },

@@ -14,17 +14,21 @@ import { ColumnConfigurator } from './components/ColumnConfigurator';
 import type { ColumnDef } from './components/ColumnConfigurator';
 
 const STORAGE_KEY = 'messages_visible_columns';
-const DEFAULT_VISIBLE = new Set([
+const DEFAULT_VISIBLE_RESELLER = new Set([
   'login', 'destination', 'operator_name', 'channel',
   'text_preview', 'submitted_at', 'status', 'total_amount',
 ]);
+const DEFAULT_VISIBLE_CLIENT = new Set([
+  'destination', 'operator_name', 'channel',
+  'text_preview', 'submitted_at', 'status', 'total_amount',
+]);
 
-function loadVisibleColumns(): Set<string> {
+function loadVisibleColumns(isReseller: boolean): Set<string> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return new Set(JSON.parse(raw) as string[]);
   } catch { /* ignore */ }
-  return new Set(DEFAULT_VISIBLE);
+  return new Set(isReseller ? DEFAULT_VISIBLE_RESELLER : DEFAULT_VISIBLE_CLIENT);
 }
 
 function saveVisibleColumns(cols: Set<string>) {
@@ -83,7 +87,7 @@ export function MessagesPage() {
   const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>(EMPTY_FILTERS);
   const [sort, setSort] = useState<SortState>({ field: 'submitted_at', order: 'desc' });
   const [selectedMsg, setSelectedMsg] = useState<DetalizationMessage | null>(null);
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(loadVisibleColumns);
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => loadVisibleColumns(isReseller));
 
   const [exportJobId, setExportJobId] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -119,7 +123,7 @@ export function MessagesPage() {
     { key: 'date_from', label: 'Дата от', type: 'date' },
     { key: 'date_to', label: 'Дата до', type: 'date' },
     { key: 'destination', label: 'Номер', type: 'text', placeholder: '+7...' },
-    { key: 'login', label: isReseller ? 'Суб-аккаунт' : 'Логин', type: 'text', placeholder: 'Имя суб-аккаунта' },
+    ...(isReseller ? [{ key: 'login' as const, label: 'Суб-аккаунт', type: 'text' as const, placeholder: 'Имя суб-аккаунта' }] : []),
     { key: 'status', label: 'Статус', type: 'select', options: STATUS_OPTIONS },
     { key: 'operator', label: 'Оператор', type: 'select', options: operatorOptions },
     { key: 'sender_name', label: 'Имя отправителя', type: 'select', options: senderNameOptions },
@@ -223,16 +227,21 @@ export function MessagesPage() {
     }
   }, [appliedFilters, exportJobId]);
 
+  const defaultVisibleRef = isReseller ? DEFAULT_VISIBLE_RESELLER : DEFAULT_VISIBLE_CLIENT;
   const columnDefs: ColumnDef[] = ALL_COLUMNS.map((c) => ({
     key: c.key,
     label: c.header,
-    defaultVisible: DEFAULT_VISIBLE.has(c.key),
+    defaultVisible: defaultVisibleRef.has(c.key),
   }));
 
   return (
     <div>
       <PageHeader title="Сообщения" />
-      <p className="text-sm text-muted-foreground mb-4">Детализация трафика по всем клиентам и каналам</p>
+      <p className="text-sm text-muted-foreground mb-4">
+        {isReseller
+          ? 'Детализация трафика по всем клиентам и каналам'
+          : 'Детализация отправленных вами сообщений по каналам'}
+      </p>
 
       {isReseller && (
         <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">

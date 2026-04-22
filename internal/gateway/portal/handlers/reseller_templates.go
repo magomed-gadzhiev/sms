@@ -240,13 +240,18 @@ func resellerTemplateToJSON(t *templatev1.TemplateInfo) map[string]interface{} {
 	if t == nil {
 		return nil
 	}
+	// Canonical shape matches list endpoint (*string → null when empty).
+	var rejectionReason interface{}
+	if t.RejectionReason != "" {
+		rejectionReason = t.RejectionReason
+	}
 	m := map[string]interface{}{
 		"id":               t.Id,
 		"client_id":        t.ClientId,
 		"name":             t.Name,
 		"body":             t.Body,
 		"status":           t.Status,
-		"rejection_reason": t.RejectionReason,
+		"rejection_reason": rejectionReason,
 	}
 	if t.CreatedAt != nil {
 		m["created_at"] = t.CreatedAt.AsTime()

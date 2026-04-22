@@ -43,6 +43,8 @@ type Message struct {
 	ScheduledAt       *time.Time
 	ExpiredAt         *time.Time
 	SegmentCount      int
+	TemplateID        *uuid.UUID
+	SenderNameID      *uuid.UUID
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -181,6 +183,8 @@ func (m *Message) ToShared() *shared.Message {
 		ScheduledAt:       m.ScheduledAt,
 		ExpiredAt:         m.ExpiredAt,
 		SegmentCount:      m.SegmentCount,
+		TemplateID:        m.TemplateID,
+		SenderNameID:      m.SenderNameID,
 		CreatedAt:         m.CreatedAt,
 		UpdatedAt:         m.UpdatedAt,
 	}
@@ -223,6 +227,8 @@ func MessageFromShared(msg *shared.Message) *Message {
 		ScheduledAt:       msg.ScheduledAt,
 		ExpiredAt:         msg.ExpiredAt,
 		SegmentCount:      msg.SegmentCount,
+		TemplateID:        msg.TemplateID,
+		SenderNameID:      msg.SenderNameID,
 		CreatedAt:         msg.CreatedAt,
 		UpdatedAt:         msg.UpdatedAt,
 	}

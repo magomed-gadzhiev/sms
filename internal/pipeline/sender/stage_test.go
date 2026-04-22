@@ -6,10 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
+	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
+	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -439,4 +444,217 @@ func TestFailedMessage_RetryAllowed(t *testing.T) {
 
 	assert.True(t, rm.RetryCount < rm.MaxRetries,
 		"should allow retry when RetryCount < MaxRetries")
+}
+
+// ---------------------------------------------------------------------------
+// handleSendOutcome — регрессия на bug #13 (iter 2)
+// (docs/.../2026-04-21-network-stats-*... see review feedback):
+// при unreachable провайдере sendErr проходит через общий failed-path:
+// SentMessage{status=failed} публикуется, failover или refund — по условиям.
+// ---------------------------------------------------------------------------
+
+// publishedMsg — захваченное обращение к producer.PublishAsync.
+type publishedMsg struct {
+	Topic   string
+	Key     string
+	Value   []byte
+	Headers []sarama.RecordHeader
+}
+
+// capturingPublisher реализует messagePublisher и собирает все publish'ы.
+type capturingPublisher struct {
+	msgs []publishedMsg
+}
+
+func (p *capturingPublisher) PublishAsync(topic, key string, value []byte, headers []sarama.RecordHeader) {
+	p.msgs = append(p.msgs, publishedMsg{
+		Topic:   topic,
+		Key:     key,
+		Value:   append([]byte(nil), value...),
+		Headers: headers,
+	})
+}
+
+func (p *capturingPublisher) byTopic(topic string) []publishedMsg {
+	var out []publishedMsg
+	for _, m := range p.msgs {
+		if m.Topic == topic {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// fakeBillingClient захватывает AddCredits для проверки refund'а.
+type fakeBillingClient struct {
+	billingv1.BillingServiceClient // embedded nil — остальные методы не используются
+	addCredits []*billingv1.AddCreditsRequest
+}
+
+func (f *fakeBillingClient) AddCredits(_ context.Context, req *billingv1.AddCreditsRequest, _ ...grpc.CallOption) (*billingv1.AddCreditsResponse, error) {
+	f.addCredits = append(f.addCredits, req)
+	return &billingv1.AddCreditsResponse{}, nil
+}
+
+func newTestStage(pub *capturingPublisher, billing billingv1.BillingServiceClient, commitOnSubmit bool) *Stage {
+	return &Stage{
+		cfg: &config.Config{
+			Kafka: config.KafkaConfig{
+				TopicSent:   "sms.sent",
+				TopicFailed: "sms.failed",
+			},
+		},
+		logger:                zerolog.Nop(),
+		billingClient:         billing,
+		testPublisher:         pub,
+		commitOnSubmitEnabled: commitOnSubmit,
+	}
+}
+
+// TestHandleSendOutcome_UnreachableProvider_RetryAvailable проверяет что при
+// sendErr (неважно — unreachable или submit failure) и RetryCount < MaxRetries:
+//   - SentMessage{status=failed} публикуется в sms.sent
+//   - FailedMessage публикуется в sms.failed для failover
+//   - refund НЕ вызывается (retries ещё не исчерпаны)
+func TestHandleSendOutcome_UnreachableProvider_RetryAvailable(t *testing.T) {
+	t.Parallel()
+
+	pub := &capturingPublisher{}
+	billing := &fakeBillingClient{}
+	stage := newTestStage(pub, billing, false) // legacy mode
+
+	providerID := uuid.New()
+	clientID := uuid.New()
+	routedMsg := &pipeline.RoutedMessage{
+		SchemaVersion: 1,
+		MessageID:     uuid.New(),
+		Source:        "Sender",
+		Destination:   "+79001234567",
+		Text:          "Hello",
+		ClientID:      &clientID,
+		ProviderID:    providerID,
+		RetryCount:    0,
+		MaxRetries:    3,
+		CreatedAt:     time.Now(),
+	}
+
+	sentMsg, err := stage.handleSendOutcome(context.Background(), sendOutcomeInput{
+		routedMsg:       routedMsg,
+		traceID:         "trace-1",
+		sendErr:         errors.New("провайдер X недоступен: connection refused"),
+		usedProviderID:  providerID,
+		chargedAmount:   "1.50",
+		chargedCurrency: "RUB",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, sentMsg)
+	assert.Equal(t, "failed", sentMsg.Status)
+	assert.Equal(t, providerID, sentMsg.ProviderID)
+	require.NotNil(t, sentMsg.ErrorMessage)
+	assert.Contains(t, *sentMsg.ErrorMessage, "недоступен")
+
+	// SentMessage{failed} published
+	sent := pub.byTopic("sms.sent")
+	require.Len(t, sent, 1, "должен быть один publish в sms.sent")
+	assert.Equal(t, providerID.String(), sent[0].Key)
+
+	// FailedMessage published для failover
+	failed := pub.byTopic("sms.failed")
+	require.Len(t, failed, 1, "должен быть один publish в sms.failed для failover retry")
+	decoded, derr := queue.DeserializeFailed(failed[0].Value)
+	require.NoError(t, derr)
+	assert.Equal(t, routedMsg.MessageID, decoded.MessageID)
+	assert.Equal(t, 1, decoded.RetryCount, "retry_count инкрементирован")
+
+	// refund НЕ вызван — retries не исчерпаны
+	assert.Empty(t, billing.addCredits, "refund не должен вызываться при RetryCount < MaxRetries")
+}
+
+// TestHandleSendOutcome_UnreachableProvider_RetriesExhausted_LegacyMode проверяет
+// что при sendErr + RetryCount >= MaxRetries + commitOnSubmitEnabled=false:
+//   - refund вызывается через billingClient.AddCredits
+//   - FailedMessage НЕ публикуется (retries исчерпаны, failover бесполезен)
+//   - SentMessage{status=failed} всё равно публикуется
+func TestHandleSendOutcome_UnreachableProvider_RetriesExhausted_LegacyMode(t *testing.T) {
+	t.Parallel()
+
+	pub := &capturingPublisher{}
+	billing := &fakeBillingClient{}
+	stage := newTestStage(pub, billing, false) // legacy: refund enabled
+
+	providerID := uuid.New()
+	clientID := uuid.New()
+	routedMsg := &pipeline.RoutedMessage{
+		SchemaVersion: 1,
+		MessageID:     uuid.New(),
+		Source:        "Sender",
+		Destination:   "+79001234567",
+		Text:          "Hi",
+		ClientID:      &clientID,
+		ProviderID:    providerID,
+		RetryCount:    3,
+		MaxRetries:    3, // исчерпаны
+		CreatedAt:     time.Now(),
+	}
+
+	sentMsg, err := stage.handleSendOutcome(context.Background(), sendOutcomeInput{
+		routedMsg:       routedMsg,
+		traceID:         "trace-2",
+		sendErr:         errors.New("провайдер Y недоступен: dial timeout"),
+		usedProviderID:  providerID,
+		chargedAmount:   "2.00",
+		chargedCurrency: "RUB",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "failed", sentMsg.Status)
+
+	// refund вызван
+	require.Len(t, billing.addCredits, 1, "refund должен быть вызван при RetryCount >= MaxRetries в legacy mode")
+	assert.Equal(t, clientID.String(), billing.addCredits[0].ClientId)
+	assert.Equal(t, "2.00", billing.addCredits[0].Amount)
+	assert.Equal(t, "RUB", billing.addCredits[0].Currency)
+
+	// SentMessage опубликован
+	require.Len(t, pub.byTopic("sms.sent"), 1)
+	// FailedMessage НЕ опубликован — retries исчерпаны
+	assert.Empty(t, pub.byTopic("sms.failed"), "sms.failed не должен публиковаться при исчерпанных retries")
+}
+
+// TestHandleSendOutcome_UnreachableProvider_RetriesExhausted_CommitOnSubmit
+// проверяет что при commitOnSubmitEnabled=true refund НЕ вызывается
+// (TarifyMessage был read-only, списания не было).
+func TestHandleSendOutcome_UnreachableProvider_RetriesExhausted_CommitOnSubmit(t *testing.T) {
+	t.Parallel()
+
+	pub := &capturingPublisher{}
+	billing := &fakeBillingClient{}
+	stage := newTestStage(pub, billing, true) // commitOnSubmit: refund disabled
+
+	providerID := uuid.New()
+	clientID := uuid.New()
+	routedMsg := &pipeline.RoutedMessage{
+		MessageID:  uuid.New(),
+		ClientID:   &clientID,
+		ProviderID: providerID,
+		RetryCount: 3,
+		MaxRetries: 3,
+	}
+
+	sentMsg, err := stage.handleSendOutcome(context.Background(), sendOutcomeInput{
+		routedMsg:       routedMsg,
+		traceID:         "trace-3",
+		sendErr:         errors.New("провайдер Z недоступен"),
+		usedProviderID:  providerID,
+		chargedAmount:   "1.00",
+		chargedCurrency: "RUB",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "failed", sentMsg.Status)
+
+	// refund НЕ вызван — commitOnSubmit mode (ничего не списывалось)
+	assert.Empty(t, billing.addCredits, "refund должен быть skip'нут в commitOnSubmit mode")
+	// FailedMessage НЕ опубликован — retries исчерпаны
+	assert.Empty(t, pub.byTopic("sms.failed"))
+	// SentMessage{failed} всё равно публикуется
+	require.Len(t, pub.byTopic("sms.sent"), 1)
 }

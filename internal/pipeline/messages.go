@@ -19,6 +19,10 @@ type RoutedMessage struct {
 	Text               string                 `json:"text"`
 	ClientID           *uuid.UUID             `json:"client_id,omitempty"`
 	OperatorID         *uuid.UUID             `json:"operator_id,omitempty"`
+	CountryID          *uuid.UUID             `json:"country_id,omitempty"`
+	Channel            string                 `json:"channel,omitempty"`
+	TemplateID         *uuid.UUID             `json:"template_id,omitempty"`
+	SenderNameID       *uuid.UUID             `json:"sender_name_id,omitempty"`
 	ProviderID         uuid.UUID              `json:"provider_id"`
 	FallbackProviderID *uuid.UUID             `json:"fallback_provider_id,omitempty"`
 	RouteID            *uuid.UUID             `json:"route_id,omitempty"`
@@ -47,7 +51,9 @@ type SentMessage struct {
 	MessageID     uuid.UUID  `json:"message_id"`
 	TraceID       string     `json:"trace_id,omitempty"`
 	ProviderID    uuid.UUID  `json:"provider_id"`
+	OperatorID    *uuid.UUID `json:"operator_id,omitempty"`
 	RouteID       *uuid.UUID `json:"route_id,omitempty"`
+	Channel       string     `json:"channel,omitempty"`
 	SMPPMessageID string     `json:"smpp_message_id"`
 	Status        string     `json:"status"` // sent, failed, retry
 	ErrorCode     *int       `json:"error_code,omitempty"`

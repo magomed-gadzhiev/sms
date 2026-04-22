@@ -26,6 +26,7 @@ func notImplemented(w http.ResponseWriter, r *http.Request) {
 func SetupRouter(
 	healthChecker *monitoring.HealthChecker,
 	sessionAuthMiddleware func(http.Handler) http.Handler,
+	sessionOrAPIKeyAuthMiddleware func(http.Handler) http.Handler,
 	csrfMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
 	recoveryMiddleware func(http.Handler) http.Handler,
@@ -288,8 +289,13 @@ func SetupRouter(
 	segments.HandleFunc("/{id}", segmentHandlers.DeleteSegment).Methods("DELETE")
 	segments.HandleFunc("/{id}/estimate", segmentHandlers.EstimateSegment).Methods("POST")
 
-	// Campaigns
-	campaigns := protected.PathPrefix("/campaigns").Subrouter()
+	// Campaigns — поддерживают session-auth ИЛИ API-key (Authorization: Bearer sk_live_...).
+	// Монтируем отдельно от `protected`, чтобы иметь свой auth-стек.
+	// CSRF применяется для session-запросов; для API-key запросов CSRF пропускается внутри middleware.
+	campaigns := portalV1.PathPrefix("/campaigns").Subrouter()
+	campaigns.Use(sessionOrAPIKeyAuthMiddleware)
+	campaigns.Use(tenantLoggerMiddleware)
+	campaigns.Use(csrfMiddleware)
 	// Template preview (must be before /{id} routes)
 	campaigns.HandleFunc("/templates/preview", campaignHandlers.PreviewTemplate).Methods("POST")
 	campaigns.HandleFunc("", campaignHandlers.CreateCampaign).Methods("POST")

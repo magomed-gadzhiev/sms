@@ -437,6 +437,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - SMPP_SERVICE_ENV=production
+      - SMPP_TARIFICATION_COMMIT_ON_SUBMIT_ENABLED=true
     networks:
       - smpp-network
     depends_on:
@@ -995,6 +996,7 @@ services:
       - POSTGRES_PASSWORD=smpp_password
       - POSTGRES_DB=smpp_db
       - BILLING_GRPC_ADDR=billing-service:9097
+      - SMPP_TARIFICATION_COMMIT_ON_SUBMIT_ENABLED=true
     networks:
       - smpp-network
     depends_on:

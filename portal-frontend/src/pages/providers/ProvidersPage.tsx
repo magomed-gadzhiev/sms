@@ -6,11 +6,14 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/ui/Badge';
+import { useAuth } from '../../contexts/AuthContext';
 
 const BIND_LABELS: Record<number, string> = { 0: 'TRX', 1: 'TX', 2: 'RX' };
 
 export function ProvidersPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSubAccount = !!user?.parent_client_id;
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,12 +67,20 @@ export function ProvidersPage() {
     <div>
       <PageHeader
         title="SMPP Провайдеры"
-        actions={<Button onClick={() => navigate('/providers/new')}>+ Добавить провайдера</Button>}
+        actions={!isSubAccount ? <Button onClick={() => navigate('/providers/new')}>+ Добавить провайдера</Button> : null}
       />
 
       {error && <p className="text-red-600">{error}</p>}
 
-      {!loading && !error && providers.length === 0 && (
+      {isSubAccount && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl mb-4">
+          <p className="text-sm text-blue-900">
+            В режиме суб-аккаунта SMPP-провайдеры настраивает агрегатор. Вы не управляете подключениями самостоятельно — трафик уходит через инфраструктуру агрегатора.
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && !isSubAccount && providers.length === 0 && (
         <div className="text-center py-12 text-gray-500">
           <p className="mb-2">Провайдеры не настроены</p>
           <p className="text-sm mb-4">Подключите SMPP-провайдера для начала отправки SMS</p>

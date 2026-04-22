@@ -14,10 +14,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
 	"github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// isPrivilegedRole returns true when the caller is an admin/superadmin and
+// therefore allowed to manage routes across clients. Non-admin callers must
+// be scoped to their own client_id.
+func isPrivilegedRole(r *http.Request) bool {
+	role, ok := middleware.GetRole(r.Context())
+	if !ok {
+		return false
+	}
+	return role == "admin" || role == "superadmin"
+}
 
 // RouteHandlers provides HTTP handlers for admin route CRUD.
 type RouteHandlers struct {
@@ -133,6 +145,23 @@ func (h *RouteHandlers) CreateRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Non-admin callers may only create routes scoped to themselves. Block any
+	// attempt to plant a route for a different client (IDOR).
+	if !isPrivilegedRole(r) {
+		callerID, ok := middleware.GetClientID(r.Context())
+		if !ok {
+			respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+			return
+		}
+		callerStr := callerID.String()
+		if req.ClientID == nil || *req.ClientID == "" {
+			req.ClientID = &callerStr
+		} else if *req.ClientID != callerStr {
+			respondError(w, shared.ErrForbidden("Создание маршрутов для другого клиента запрещено"))
+			return
+		}
+	}
+
 	route, appErr := requestToRoute(&req)
 	if appErr != nil {
 		respondError(w, appErr)
@@ -175,6 +204,18 @@ func (h *RouteHandlers) ListRoutes(w http.ResponseWriter, r *http.Request) {
 
 	if q.Get("default") == "true" {
 		filters.DefaultOnly = true
+	}
+
+	// Enforce tenant scoping for non-admin callers — otherwise /routes leaks every
+	// tenant's routes to any authenticated user (IDOR surfaced during subaccount
+	// portal audit 2026-04-22). Admin/superadmin can still filter across tenants.
+	if !isPrivilegedRole(r) {
+		callerID, ok := middleware.GetClientID(r.Context())
+		if !ok {
+			respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+			return
+		}
+		filters.ClientID = &callerID
 	}
 
 	routes, total, err := h.repo.List(r.Context(), filters)
@@ -252,6 +293,18 @@ func (h *RouteHandlers) GetRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !isPrivilegedRole(r) {
+		callerID, ok := middleware.GetClientID(r.Context())
+		if !ok {
+			respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+			return
+		}
+		if route.ClientID == nil || *route.ClientID != callerID {
+			respondError(w, shared.ErrNotFound("Маршрут"))
+			return
+		}
+	}
+
 	respondJSON(w, http.StatusOK, routeToResponse(route))
 }
 
@@ -263,6 +316,28 @@ func (h *RouteHandlers) UpdateRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !isPrivilegedRole(r) {
+		callerID, ok := middleware.GetClientID(r.Context())
+		if !ok {
+			respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+			return
+		}
+		existing, getErr := h.repo.GetByID(r.Context(), id)
+		if getErr != nil {
+			if errors.Is(getErr, domain.ErrClientRouteNotFound) {
+				respondError(w, shared.ErrNotFound("Маршрут"))
+				return
+			}
+			log.Error().Err(getErr).Msg("failed to load route for ownership check")
+			respondError(w, shared.ErrInternalServer("Ошибка получения маршрута"))
+			return
+		}
+		if existing.ClientID == nil || *existing.ClientID != callerID {
+			respondError(w, shared.ErrNotFound("Маршрут"))
+			return
+		}
+	}
+
 	var req routeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
@@ -272,6 +347,17 @@ func (h *RouteHandlers) UpdateRoute(w http.ResponseWriter, r *http.Request) {
 	if appErr := validateRouteRequest(&req); appErr != nil {
 		respondError(w, appErr)
 		return
+	}
+
+	if !isPrivilegedRole(r) {
+		callerID, _ := middleware.GetClientID(r.Context())
+		callerStr := callerID.String()
+		if req.ClientID == nil || *req.ClientID == "" {
+			req.ClientID = &callerStr
+		} else if *req.ClientID != callerStr {
+			respondError(w, shared.ErrForbidden("Перепривязка маршрута к другому клиенту запрещена"))
+			return
+		}
 	}
 
 	route, appErr := requestToRoute(&req)
@@ -306,6 +392,28 @@ func (h *RouteHandlers) DeleteRoute(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат ID"))
 		return
+	}
+
+	if !isPrivilegedRole(r) {
+		callerID, ok := middleware.GetClientID(r.Context())
+		if !ok {
+			respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+			return
+		}
+		existing, getErr := h.repo.GetByID(r.Context(), id)
+		if getErr != nil {
+			if errors.Is(getErr, domain.ErrClientRouteNotFound) {
+				respondError(w, shared.ErrNotFound("Маршрут"))
+				return
+			}
+			log.Error().Err(getErr).Msg("failed to load route for ownership check")
+			respondError(w, shared.ErrInternalServer("Ошибка получения маршрута"))
+			return
+		}
+		if existing.ClientID == nil || *existing.ClientID != callerID {
+			respondError(w, shared.ErrNotFound("Маршрут"))
+			return
+		}
 	}
 
 	if err := h.repo.Delete(r.Context(), id); err != nil {

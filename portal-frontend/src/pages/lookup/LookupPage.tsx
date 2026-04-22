@@ -8,7 +8,7 @@ import { DataTable, type Column } from '../../components/data/DataTable';
 import { StatCard } from '../../components/data/StatCard';
 
 interface LookupResult {
-  phone: string;
+  msisdn: string;
   operator_name: string;
   country_code: string;
   number_status: string;
@@ -18,7 +18,7 @@ interface LookupResult {
 
 interface HistoryEntry {
   id: string;
-  phone: string;
+  msisdn: string;
   operator_name: string;
   country_code: string;
   number_status: string;
@@ -153,7 +153,7 @@ export function LookupPage() {
   }
 
   const bulkColumns: Column<LookupResult>[] = [
-    { key: 'phone', header: 'Номер' },
+    { key: 'msisdn', header: 'Номер' },
     { key: 'operator_name', header: 'Оператор' },
     { key: 'country_code', header: 'Страна' },
     { key: 'number_status', header: 'Статус' },
@@ -166,7 +166,7 @@ export function LookupPage() {
   ];
 
   const historyColumns: Column<HistoryEntry>[] = [
-    { key: 'phone', header: 'Номер' },
+    { key: 'msisdn', header: 'Номер' },
     { key: 'operator_name', header: 'Оператор' },
     { key: 'country_code', header: 'Страна' },
     { key: 'number_status', header: 'Статус' },
@@ -310,7 +310,7 @@ export function LookupPage() {
                 page={1}
                 pageSize={bulkResults.length}
                 onPageChange={() => {}}
-                keyField="phone"
+                keyField="msisdn"
               />
             </div>
           )}

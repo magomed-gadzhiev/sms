@@ -182,10 +182,10 @@ BEGIN
         INSERT INTO hlr_providers (id, name, adapter_type, config, priority, supported_regions,
                                    cost_per_lookup, status, success_rate, active)
         VALUES
-            (uuid_generate_v4(), 'HLR-Primary',   'http',
+            (uuid_generate_v4(), 'HLR-Primary',   'http_rest',
              '{"api_key": "hlr-test-key", "base_url": "https://hlr-test.local"}',
              1, ARRAY['RU', 'KZ', 'BY', 'UA'], 0.001, 'healthy', 99.9, true),
-            (uuid_generate_v4(), 'HLR-Secondary',  'http',
+            (uuid_generate_v4(), 'HLR-Secondary',  'http_rest',
              '{"api_key": "hlr-test-key-2", "base_url": "https://hlr-test-2.local"}',
              2, ARRAY['RU', 'KZ'], 0.002, 'healthy', 98.5, true)
         ON CONFLICT DO NOTHING;
@@ -212,6 +212,32 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END IF;
 END $$;
+
+-- ============================================================
+-- 10. Sub-account QA test users (blocking portal sub-account QA)
+-- ============================================================
+-- Пароль: Test1234! (bcrypt cost=10, prefix $2a$).
+-- См. docs/reports/test-credentials.md для полного списка.
+-- ON CONFLICT (email) DO UPDATE гарантирует идемпотентность при редеплое:
+-- если кто-то вручную сбросит хэш, seed восстановит известный пароль.
+INSERT INTO users (id, username, email, password_hash, role_id, active, client_id)
+VALUES
+    ('39ed66cb-cc45-4b3a-b99e-3ce5f9e3c6e5', 'subacc1',   'subacc@test.local',
+     '$2a$10$5Eb9tCKwrrqXl5nWs.5l3O.Fl4ej19WeJAZ9.0sJ2b6frKQd2YQay',  -- Test1234!
+     '00000000-0000-0000-0000-000000000002', true, 'a0000000-0000-0000-0000-000000000002'),
+    ('6259d929-0a89-413d-ad3a-c9477be37fdf', 'clean-a',   'clean-a@test.local',
+     '$2a$10$5Eb9tCKwrrqXl5nWs.5l3O.Fl4ej19WeJAZ9.0sJ2b6frKQd2YQay',  -- Test1234!
+     '00000000-0000-0000-0000-000000000002', true, 'f6c4b3fd-f0d3-4d73-a59a-b6c43a312f8d'),
+    ('be8e634a-dae6-47cc-b307-a888b8de7f41', 'problem-b', 'problem-b@test.local',
+     '$2a$10$5Eb9tCKwrrqXl5nWs.5l3O.Fl4ej19WeJAZ9.0sJ2b6frKQd2YQay',  -- Test1234!
+     '00000000-0000-0000-0000-000000000002', true, '6063f9b6-5aab-4474-b13c-24e653cb28f0'),
+    ('2b6dbb32-2ce9-432a-9e0d-8a7e931716cc', 'heavy-c',   'heavy-c@test.local',
+     '$2a$10$5Eb9tCKwrrqXl5nWs.5l3O.Fl4ej19WeJAZ9.0sJ2b6frKQd2YQay',  -- Test1234!
+     '00000000-0000-0000-0000-000000000002', true, 'de3712f8-1bfe-4fe5-9be4-81657a3aa746')
+ON CONFLICT (email) DO UPDATE SET
+    password_hash = EXCLUDED.password_hash,
+    active        = EXCLUDED.active,
+    client_id     = EXCLUDED.client_id;
 
 COMMIT;
 

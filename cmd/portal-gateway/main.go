@@ -141,6 +141,9 @@ func main() {
 
 	// Создание middleware
 	sessionAuthMw := middleware.SessionAuthMiddleware(redisClient)
+	// Композитный auth: session cookie ИЛИ API-key (Authorization: Bearer sk_live_...).
+	// Пока используется только на /portal/v1/campaigns (см. router.go).
+	sessionOrAPIKeyMw := middleware.SessionOrAPIKeyMiddleware(redisClient, serviceClients.AuthClient)
 	csrfMw := middleware.CSRFMiddleware()
 	loggingMw := sharedmw.LoggingMiddleware(logger)
 	recoveryMw := sharedmw.RecoveryMiddleware()
@@ -307,6 +310,7 @@ func main() {
 	router := portalrouter.SetupRouter(
 		healthChecker,
 		sessionAuthMw,
+		sessionOrAPIKeyMw,
 		csrfMw,
 		loggingMw,
 		recoveryMw,

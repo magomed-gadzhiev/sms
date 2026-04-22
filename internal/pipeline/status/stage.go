@@ -2,6 +2,7 @@ package status
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -27,9 +28,12 @@ type statusRecord struct {
 	MessageID     uuid.UUID
 	TraceID       string
 	Status        string
+	StatusMessage string // заполняется из SentMessage.ErrorMessage при status=rejected/failed
 	SMPPMessageID string
 	ProviderID    *uuid.UUID
+	OperatorID    *uuid.UUID
 	RouteID       *uuid.UUID
+	Channel       string
 	SubmittedAt   *time.Time
 	UpdatedAt     time.Time
 	SegmentCount  int
@@ -133,10 +137,17 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 
 	// 2. Batch upsert в БД.
 	if err := s.batchUpsert(ctx, records); err != nil {
-		s.logger.Error().
-			Err(err).
-			Int("batch_size", len(records)).
-			Msg("ошибка batch upsert статусов, буферизация для retry")
+		// Partial — не ошибка БД, это race с persist-stage. Логируем warn без spam.
+		if errors.Is(err, errUpsertPartial) {
+			s.logger.Warn().
+				Int("batch_size", len(records)).
+				Msg("batch upsert partial — persist-stage ещё не вставил часть записей, retry через failedBuffer")
+		} else {
+			s.logger.Error().
+				Err(err).
+				Int("batch_size", len(records)).
+				Msg("ошибка batch upsert статусов, буферизация для retry")
+		}
 		monitoring.PipelineMessagesProcessed.WithLabelValues("status", "error").Add(float64(len(records)))
 
 		// T030: буферизация неудачных записей для retry (с ограничением размера).
@@ -197,14 +208,26 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		}
 		status := mapStatus(sent.Status)
 		providerID := &sent.ProviderID
+		// Для rejected сообщение не уходило к провайдеру — submitted_at не проставляем.
+		var submittedAt *time.Time
+		if status != "rejected" {
+			submittedAt = &sent.SentAt
+		}
+		var statusMsg string
+		if sent.ErrorMessage != nil {
+			statusMsg = *sent.ErrorMessage
+		}
 		return &statusRecord{
 			MessageID:     sent.MessageID,
 			TraceID:       sent.TraceID,
 			Status:        status,
+			StatusMessage: statusMsg,
 			SMPPMessageID: sent.SMPPMessageID,
 			ProviderID:    providerID,
+			OperatorID:    sent.OperatorID,
 			RouteID:       sent.RouteID,
-			SubmittedAt:   &sent.SentAt,
+			Channel:       sent.Channel,
+			SubmittedAt:   submittedAt,
 			UpdatedAt:     time.Now(),
 			SegmentCount:  sent.SegmentsCount,
 			SentAt:        sent.SentAt,
@@ -259,9 +282,12 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 		CREATE TEMP TABLE status_batch (
 			id UUID,
 			status TEXT,
+			status_message TEXT,
 			smpp_message_id TEXT,
 			provider_id UUID,
+			operator_id UUID,
 			route_id UUID,
+			channel TEXT,
 			submitted_at TIMESTAMPTZ,
 			updated_at TIMESTAMPTZ,
 			segment_count INT
@@ -275,15 +301,27 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"status_batch"},
-		[]string{"id", "status", "smpp_message_id", "provider_id", "route_id", "submitted_at", "updated_at", "segment_count"},
+		[]string{"id", "status", "status_message", "smpp_message_id", "provider_id", "operator_id", "route_id", "channel", "submitted_at", "updated_at", "segment_count"},
 		pgx.CopyFromSlice(len(records), func(i int) ([]any, error) {
 			r := records[i]
+			var statusMsg any
+			if r.StatusMessage != "" {
+				statusMsg = r.StatusMessage
+			}
 			return []any{
 				r.MessageID,
 				r.Status,
+				statusMsg,
 				r.SMPPMessageID,
 				r.ProviderID,
+				r.OperatorID,
 				r.RouteID,
+				func() any {
+					if r.Channel == "" {
+						return nil
+					}
+					return r.Channel
+				}(),
 				r.SubmittedAt,
 				r.UpdatedAt,
 				r.SegmentCount,
@@ -295,12 +333,15 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	}
 
 	// 3. UPDATE from temp table (idempotent — only newer timestamps)
-	_, err = tx.Exec(ctx, `
+	tag, err := tx.Exec(ctx, `
 		UPDATE messages SET
 			status = s.status,
+			status_message = COALESCE(s.status_message, messages.status_message),
 			smpp_message_id = COALESCE(s.smpp_message_id, messages.smpp_message_id),
 			provider_id = COALESCE(s.provider_id, messages.provider_id),
+			operator_id = COALESCE(s.operator_id, messages.operator_id),
 			route_id = COALESCE(s.route_id, messages.route_id),
+			channel = COALESCE(s.channel, messages.channel),
 			submitted_at = COALESCE(s.submitted_at, messages.submitted_at),
 			updated_at = s.updated_at,
 			segment_count = COALESCE(s.segment_count, messages.segment_count)
@@ -311,8 +352,23 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 		return fmt.Errorf("batch update: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// Race с persist-stage: status-stage может получить SentMessage раньше,
+	// чем persist-stage успел INSERT. Тогда UPDATE затрагивает 0 строк,
+	// а SentMessage теряется. Возвращаем "not all applied" чтобы caller
+	// буферизовал записи на retry — через секунду persist уже вставил.
+	if tag.RowsAffected() < int64(len(records)) {
+		return errUpsertPartial
+	}
+	return nil
 }
+
+// errUpsertPartial — sentinel для case когда UPDATE not all rows (race с persist).
+// Caller буферизует для retry.
+var errUpsertPartial = fmt.Errorf("batch upsert partial — message not yet persisted, retry queued")
 
 // mapStatus преобразует статус из SentMessage в статус для БД.
 func mapStatus(status string) string {
@@ -392,6 +448,16 @@ func (s *Stage) retryLoop(ctx context.Context) {
 			batch := s.failedBuffer
 			s.failedBuffer = nil
 			s.failedMu.Unlock()
+
+			// Обновляем UpdatedAt чтобы обойти гонку с persist-stage:
+			// при retry persist уже вставил row с updated_at=время_инсерта,
+			// и тот может быть > первоначального r.UpdatedAt → UPDATE снова 0 rows.
+			// time.Now() сейчас гарантированно больше updated_at из только что
+			// вставленной persist row.
+			now := time.Now()
+			for _, r := range batch {
+				r.UpdatedAt = now
+			}
 
 			s.logger.Info().
 				Int("buffer_size", len(batch)).

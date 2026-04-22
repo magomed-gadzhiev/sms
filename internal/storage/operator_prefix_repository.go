@@ -19,19 +19,30 @@ func NewOperatorPrefixRepository(db *DB) *OperatorPrefixRepository {
 
 func (r *OperatorPrefixRepository) GetAllActive(ctx context.Context) ([]shared.OperatorPrefix, error) {
 	type row struct {
-		OperatorID uuid.UUID `db:"operator_id"`
-		Prefix     string    `db:"prefix"`
-		Priority   int       `db:"priority"`
+		OperatorID uuid.UUID  `db:"operator_id"`
+		CountryID  *uuid.UUID `db:"country_id"`
+		Prefix     string     `db:"prefix"`
+		Priority   int        `db:"priority"`
 	}
 	var rows []row
+	// JOIN'имся на operators, чтобы получить country_id для enrichment
+	// в pipeline (bug #15: operator_id/country_id должны писаться при INSERT).
 	err := r.db.SelectContext(ctx, &rows,
-		`SELECT operator_id, prefix, priority FROM operator_prefixes WHERE active = true`)
+		`SELECT op.operator_id, o.country_id, op.prefix, op.priority
+		 FROM operator_prefixes op
+		 LEFT JOIN operators o ON o.id = op.operator_id
+		 WHERE op.active = true`)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]shared.OperatorPrefix, len(rows))
 	for i, r := range rows {
-		result[i] = shared.OperatorPrefix{OperatorID: r.OperatorID, Prefix: r.Prefix, Priority: r.Priority}
+		result[i] = shared.OperatorPrefix{
+			OperatorID: r.OperatorID,
+			CountryID:  r.CountryID,
+			Prefix:     r.Prefix,
+			Priority:   r.Priority,
+		}
 	}
 	return result, nil
 }

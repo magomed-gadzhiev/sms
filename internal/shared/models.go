@@ -274,6 +274,8 @@ type Message struct {
 	OperatorID     *uuid.UUID    `json:"operator_id,omitempty" db:"operator_id"`
 	CountryID      *uuid.UUID    `json:"country_id,omitempty" db:"country_id"`
 	SendMethod     NullString    `json:"send_method,omitempty" db:"send_method"`
+	TemplateID     *uuid.UUID    `json:"template_id,omitempty" db:"template_id"`
+	SenderNameID   *uuid.UUID    `json:"sender_name_id,omitempty" db:"sender_name_id"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }
@@ -337,8 +339,11 @@ type ClientRoute struct {
 }
 
 // OperatorPrefix — префикс оператора для определения оператора по номеру.
+// CountryID заполняется JOIN'ом на operators и может быть nil, если оператор
+// в БД не имеет country_id.
 type OperatorPrefix struct {
 	OperatorID uuid.UUID
+	CountryID  *uuid.UUID
 	Prefix     string
 	Priority   int
 }

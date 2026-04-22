@@ -188,12 +188,19 @@ func (h *ResellerSenderNameHandlers) RejectResellerSenderName(w http.ResponseWri
 }
 
 func resellerSenderNameToJSON(sn *sendernamev1.SenderNameInfo) map[string]interface{} {
+	// Canonical shape matches ListResellerSenderNames: rejection_reason is
+	// nullable. Proto emits empty string for non-rejected items; normalize
+	// to null here so reseller UI and list/detail endpoints agree.
+	var rejectionReason interface{}
+	if sn.RejectionReason != "" {
+		rejectionReason = sn.RejectionReason
+	}
 	m := map[string]interface{}{
 		"id":               sn.Id,
 		"client_id":        sn.ClientId,
 		"name":             sn.Name,
 		"status":           sn.Status,
-		"rejection_reason": sn.RejectionReason,
+		"rejection_reason": rejectionReason,
 	}
 	if sn.CreatedAt != nil {
 		m["created_at"] = sn.CreatedAt.AsTime()

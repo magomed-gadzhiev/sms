@@ -38,6 +38,7 @@ function dlrColor(rate: number): string {
 }
 
 function shortLabel(label: string): string {
+  if (!label) return '—';
   // "2026-04-15 00:00:00+00" / "2026-04-15T00:00:00Z" → "2026-04-15"
   const midnight = label.match(/^(\d{4}-\d{2}-\d{2})[T ]00:00(:00)?(\+\d{2}(:?\d{2})?|Z)?$/);
   if (midnight) return midnight[1];
@@ -45,6 +46,43 @@ function shortLabel(label: string): string {
   const m = label.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
   if (m) return `${m[1]} ${m[2]}`;
   return label;
+}
+
+// Value of the matching money field per synthetic row slice. Backend sets
+// Revenue/Cost/Profit in currency units and Margin as a [0..1] fraction; see
+// drillDownMoney in internal/services/network_analytics/.../stats_repository.go.
+function moneyRowValue(row: { slice: string; revenue: number; cost: number; profit: number; margin: number }): string {
+  switch (row.slice) {
+    case 'Выручка': return fmtMoney(row.revenue);
+    case 'Себестоимость': return fmtMoney(row.cost);
+    case 'Прибыль': return fmtMoney(row.profit);
+    case 'Маржа': return fmtPct(row.margin);
+    default: return '—';
+  }
+}
+
+// Maps the drawer's active tab to the slice_type understood by the backend
+// GetDrillDown handler. Each tab displays a different child dimension in
+// row.slice (see stats_repository.go GetDrillDown childDim switch):
+//   operators  -> slice values are operator names      -> slice_type 'operator'
+//   statuses   -> slice values are channels            -> slice_type 'channel'
+//   errors     -> slice values are error codes/labels  -> slice_type 'error'
+//   timeline   -> slice values are truncated timestamps -> slice_type 'hour'
+//   money      -> slice values are sender names        -> slice_type 'sender'
+//                 (money rows render via a different branch that does not call
+//                 onDrillDeeper, so this entry is defensive only).
+// Without this mapping, every drill-deeper click posted slice_type='operator'
+// regardless of the active tab, producing malformed WHERE clauses
+// (e.g. operator_id='delivered') and empty/wrong drawer contents.
+export function viewToSliceType(view: string): string {
+  switch (view) {
+    case 'operators': return 'operator';
+    case 'statuses':  return 'channel';
+    case 'errors':    return 'error';
+    case 'timeline':  return 'hour';
+    case 'money':     return 'sender';
+    default:          return 'operator';
+  }
 }
 
 function healthBadge(h: string): { bg: string; text: string; label: string } {
@@ -124,35 +162,54 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
             {loading ? (
               <div className="text-center py-8 text-gray-400">Загрузка...</div>
             ) : data?.rows && data.rows.length > 0 ? (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-1.5 px-2 text-gray-500 font-semibold">Срез</th>
-                    <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Всего</th>
-                    <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Достав.</th>
-                    <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Ошибки</th>
-                    <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">DLR%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.rows.map((row, i) => (
-                    <tr
-                      key={row.slice + i}
-                      className={`border-b border-gray-100 cursor-pointer transition-colors ${row.health === 'danger' ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
-                      onClick={() => onDrillDeeper('operator', row.slice, row.slice)}
-                    >
-                      <td className="py-2 px-2 text-blue-600 flex items-center gap-1">
-                        <ChevronRight size={10} className="text-blue-400" />
-                        {shortLabel(row.slice)}
-                      </td>
-                      <td className="py-2 px-2 text-right">{fmt(row.total)}</td>
-                      <td className="py-2 px-2 text-right text-emerald-600">{fmt(row.delivered)}</td>
-                      <td className="py-2 px-2 text-right">{row.error > 0 ? <span className="text-red-600 font-medium">{fmt(row.error)}</span> : '0'}</td>
-                      <td className="py-2 px-2 text-right"><span className={dlrColor(row.dlr_rate)}>{fmtPct(row.dlr_rate)}</span></td>
+              activeView === 'money' ? (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-1.5 px-2 text-gray-500 font-semibold">Показатель</th>
+                      <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Значение</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.rows.map((row, i) => (
+                      <tr key={row.slice + i} className="border-b border-gray-100">
+                        <td className="py-2 px-2 text-slate-900">{row.slice || '—'}</td>
+                        <td className="py-2 px-2 text-right font-medium text-slate-900">{moneyRowValue(row)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-1.5 px-2 text-gray-500 font-semibold">Срез</th>
+                      <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Всего</th>
+                      <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Достав.</th>
+                      <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">Ошибки</th>
+                      <th className="text-right py-1.5 px-2 text-gray-500 font-semibold">DLR%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.rows.map((row, i) => (
+                      <tr
+                        key={row.slice + i}
+                        className={`border-b border-gray-100 cursor-pointer transition-colors ${row.health === 'danger' ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                        onClick={() => onDrillDeeper(viewToSliceType(activeView), row.slice, row.slice)}
+                      >
+                        <td className="py-2 px-2 text-blue-600 flex items-center gap-1">
+                          <ChevronRight size={10} className="text-blue-400" />
+                          {shortLabel(row.slice)}
+                        </td>
+                        <td className="py-2 px-2 text-right">{fmt(row.total)}</td>
+                        <td className="py-2 px-2 text-right text-emerald-600">{fmt(row.delivered)}</td>
+                        <td className="py-2 px-2 text-right">{row.error > 0 ? <span className="text-red-600 font-medium">{fmt(row.error)}</span> : '0'}</td>
+                        <td className="py-2 px-2 text-right"><span className={dlrColor(row.dlr_rate)}>{fmtPct(row.dlr_rate)}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
             ) : (
               <div className="text-center py-8 text-gray-400">Нет данных</div>
             )}
@@ -160,7 +217,7 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
         </Tabs.Root>
 
         {/* Hint */}
-        {data?.rows && data.rows.length > 0 && (
+        {data?.rows && data.rows.length > 0 && activeView !== 'money' && (
           <div className="mx-4 mb-4 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-[11px] text-gray-500 flex items-center gap-1.5">
             <Info size={14} className="text-gray-400 shrink-0" />
             Кликните по строке для перехода на следующий уровень детализации

@@ -97,9 +97,13 @@ export function CampaignDetailPage() {
     loadCampaign();
   }, [loadCampaign]);
 
-  // Poll for running/materializing campaigns
+  // Poll для не-терминальных статусов. Рассылки с 3 получателями могут
+  // завершиться за 1-2 секунды — 5s интервал пропускает окно «running»,
+  // пользователь залипает в «Подготовка» пока БД уже completed.
   useEffect(() => {
-    if (!campaign || (campaign.status !== 'running' && campaign.status !== 'materializing')) return;
+    if (!campaign) return;
+    const terminalStatuses = new Set(['completed', 'cancelled', 'draft']);
+    if (terminalStatuses.has(campaign.status)) return;
     const interval = setInterval(() => {
       if (!id) return;
       campaignsApi.get(id).then(setCampaign).catch(() => {});
@@ -107,7 +111,7 @@ export function CampaignDetailPage() {
         .getStats(id)
         .then(setStats)
         .catch(() => {});
-    }, 5000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [campaign?.status, id]);
 
