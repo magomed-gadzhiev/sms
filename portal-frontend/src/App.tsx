@@ -43,8 +43,6 @@ import { CompaniesPage } from './pages/companies/CompaniesPage';
 import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 import { SenderNamesPage } from './pages/sender-names/SenderNamesPage';
 import { SenderNameDetailPage } from './pages/sender-names/SenderNameDetailPage';
-import { SenderNameOperatorsPage } from './pages/sender-names/SenderNameOperatorsPage';
-import { SenderNameBillingHistory } from './pages/sender-names/SenderNameBillingHistory';
 import { BillingPage } from './pages/billing/BillingPage';
 import { MessageDetailPage } from './pages/messages/MessageDetailPage';
 import { TariffsPage } from './pages/tariffs/TariffsPage';
@@ -175,8 +173,6 @@ export function App() {
         <Route path="/companies/:id" element={<CompanyDetailPage />} />
         <Route path="/sender-names" element={<SenderNamesPage />} />
         <Route path="/sender-names/:id" element={<SenderNameDetailPage />} />
-        <Route path="/sender-names/:id/operators" element={<SenderNameOperatorsPage />} />
-        <Route path="/sender-registrations/:id/billing" element={<SenderNameBillingHistory />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/tariffs" element={<TariffsPage />} />
         <Route path="/lookup" element={<LookupPage />} />
