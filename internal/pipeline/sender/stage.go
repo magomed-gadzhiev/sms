@@ -440,10 +440,23 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 	}
 
 	// 6. Конвертируем RoutedMessage в shared.Message и отправляем через SenderFactory.
+	// Ограничиваем время submit: внутри SendMessageAsync шаги WindowSem/WriterCh
+	// ждут только ctx.Done() — без явного deadline они могут подвиснуть на всю
+	// длину session.Context() при забитом канале/зависшем writer-goroutine.
+	// На шаге ожидания ответа defaultAsyncTimeout=30s — это fallback, который
+	// активируется только если ctx без deadline. С нашим 15s переопределяет
+	// его (см. sender.go:361-366).
+	// TODO: вынести smppSubmitTimeout в config (currently hardcoded; в prod под
+	// нагрузкой при window_size=10 и operator RTT 2-5s может быть впритык).
+	// Ограничение: handler в batch-режиме при batch>2 медленных submit'ов
+	// может исчерпать MaxProcessingTime=30s; будущая правка — параллелить
+	// submit'ы или разбивать batch.
 	if sendErr == nil {
 		sharedMsg := routedToSharedMessage(routedMsg)
 		sender := s.senderFactory.For(provider)
-		smppMsgID, sendErr = sender.SendMessageAsync(ctx, sharedMsg, provider, conn)
+		sendCtx, sendCancel := context.WithTimeout(ctx, 15*time.Second)
+		smppMsgID, sendErr = sender.SendMessageAsync(sendCtx, sharedMsg, provider, conn)
+		sendCancel()
 	}
 
 	usedProviderID := routedMsg.ProviderID
