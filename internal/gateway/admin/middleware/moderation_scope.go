@@ -10,7 +10,9 @@ import (
 // Scope represents what rows the current caller may moderate.
 type Scope struct {
 	IsGlobal   bool       // admin (and compatible roles) sees everything
-	ResellerID *uuid.UUID // aggregator_moderator: scope to clients where reseller_id = this
+	ResellerID *uuid.UUID // aggregator_moderator: the aggregator's USER ID — handlers must
+	// resolve this to the aggregator's client_id via users.client_id before
+	// comparing to clients.parent_client_id (use resolveAggregatorClientID).
 }
 
 // scopeCtxKey is the private context key for Scope.
@@ -31,6 +33,9 @@ func ScopeFromContext(ctx context.Context) Scope {
 //
 //   - "admin", "superadmin" → Scope{IsGlobal: true}
 //   - "aggregator_moderator" → Scope{ResellerID: &<their user ID>}
+//     NOTE: ResellerID is the user ID, NOT the client ID. Handlers must call
+//     resolveAggregatorClientID to obtain the client_id before filtering on
+//     clients.parent_client_id.
 //   - any other role → empty Scope (handlers must reject)
 func ModerationScope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

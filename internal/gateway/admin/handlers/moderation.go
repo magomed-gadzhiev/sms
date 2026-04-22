@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
@@ -46,7 +47,18 @@ func (h *ModerationHandlers) Counts(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	snSQL, snArgs := buildPendingSenderNameCountQuery(scope)
+	var resellerClientID uuid.UUID
+	if !scope.IsGlobal {
+		var err error
+		resellerClientID, err = resolveAggregatorClientID(ctx, h.db, *scope.ResellerID)
+		if err != nil {
+			log.Err(err).Msg("moderation counts: resolve aggregator client")
+			respondError(w, shared.ErrInternalServer("database error"))
+			return
+		}
+	}
+
+	snSQL, snArgs := buildPendingSenderNameCountQuery(scope, resellerClientID)
 	var snCount int
 	if err := h.db.QueryRowContext(ctx, snSQL, snArgs...).Scan(&snCount); err != nil {
 		log.Err(err).Msg("moderation counts: sender_names")
@@ -54,7 +66,7 @@ func (h *ModerationHandlers) Counts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bSQL, bArgs := buildPendingBindingCountQuery(scope)
+	bSQL, bArgs := buildPendingBindingCountQuery(scope, resellerClientID)
 	var bCount int
 	if err := h.db.QueryRowContext(ctx, bSQL, bArgs...).Scan(&bCount); err != nil {
 		log.Err(err).Msg("moderation counts: bindings")
@@ -68,19 +80,19 @@ func (h *ModerationHandlers) Counts(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func buildPendingSenderNameCountQuery(scope middleware.Scope) (string, []interface{}) {
+func buildPendingSenderNameCountQuery(scope middleware.Scope, resellerClientID uuid.UUID) (string, []interface{}) {
 	const base = `
 SELECT COUNT(*)
 FROM sender_names sn
 JOIN clients c ON c.id = sn.client_id
 WHERE sn.status = 'pending'`
 	if scope.IsGlobal {
-		return base + ` AND c.reseller_id IS NULL`, nil
+		return base + ` AND c.parent_client_id IS NULL`, nil
 	}
-	return base + ` AND c.reseller_id = $1`, []interface{}{*scope.ResellerID}
+	return base + ` AND c.parent_client_id = $1`, []interface{}{resellerClientID}
 }
 
-func buildPendingBindingCountQuery(scope middleware.Scope) (string, []interface{}) {
+func buildPendingBindingCountQuery(scope middleware.Scope, resellerClientID uuid.UUID) (string, []interface{}) {
 	const base = `
 SELECT COUNT(*)
 FROM operator_template_bindings b
@@ -88,9 +100,9 @@ JOIN sender_names sn ON sn.id = b.sender_name_id
 JOIN clients c ON c.id = sn.client_id
 WHERE b.status = 'pending'`
 	if scope.IsGlobal {
-		return base + ` AND c.reseller_id IS NULL`, nil
+		return base + ` AND c.parent_client_id IS NULL`, nil
 	}
-	return base + ` AND c.reseller_id = $1`, []interface{}{*scope.ResellerID}
+	return base + ` AND c.parent_client_id = $1`, []interface{}{resellerClientID}
 }
 
 // ListPendingBindings returns pending operator_template_bindings enriched with labels.
@@ -108,6 +120,17 @@ func (h *ModerationHandlers) ListPendingBindings(w http.ResponseWriter, r *http.
 		return
 	}
 
+	var resellerClientID uuid.UUID
+	if !scope.IsGlobal {
+		var err error
+		resellerClientID, err = resolveAggregatorClientID(r.Context(), h.db, *scope.ResellerID)
+		if err != nil {
+			log.Err(err).Msg("bindings inbox: resolve aggregator client")
+			respondError(w, shared.ErrInternalServer("database error"))
+			return
+		}
+	}
+
 	operatorIDParam := r.URL.Query().Get("operator_id")
 	limit := parseIntParam(r, "limit", 20)
 	offset := parseIntParam(r, "offset", 0)
@@ -122,10 +145,10 @@ func (h *ModerationHandlers) ListPendingBindings(w http.ResponseWriter, r *http.
 		i++
 	}
 	if scope.IsGlobal {
-		conds = append(conds, "c.reseller_id IS NULL")
+		conds = append(conds, "c.parent_client_id IS NULL")
 	} else {
-		conds = append(conds, fmt.Sprintf("c.reseller_id = $%d", i))
-		args = append(args, *scope.ResellerID)
+		conds = append(conds, fmt.Sprintf("c.parent_client_id = $%d", i))
+		args = append(args, resellerClientID)
 		i++
 	}
 	where := strings.Join(conds, " AND ")

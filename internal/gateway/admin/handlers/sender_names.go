@@ -62,8 +62,10 @@ type adminSenderNameListRow struct {
 // ListAllSenderNames returns sender names visible to the authenticated moderator.
 //
 // Scope is injected by middleware.ModerationScope (must be wired in the router):
-//   - admin / superadmin  → rows where clients.reseller_id IS NULL (direct clients)
-//   - aggregator_moderator → rows where clients.reseller_id = caller's user ID
+//   - admin / superadmin  → rows where clients.parent_client_id IS NULL (direct clients)
+//   - aggregator_moderator → rows where clients.parent_client_id = caller's client_id
+//     (Scope.ResellerID holds the aggregator's user ID; we resolve to client_id via
+//     resolveAggregatorClientID before filtering)
 //   - empty scope         → 403
 //
 // The response preserves the original shape (sender_names / total / limit / offset)
@@ -78,6 +80,19 @@ func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *h
 	if !scope.IsGlobal && scope.ResellerID == nil {
 		respondError(w, shared.ErrForbidden("insufficient role for sender-name moderation"))
 		return
+	}
+
+	// For aggregator scope, Scope.ResellerID is the aggregator's user ID.
+	// parent_client_id in clients is a FK to clients.id — resolve via users.client_id.
+	var resellerClientID string
+	if !scope.IsGlobal {
+		clientUUID, err := resolveAggregatorClientID(r.Context(), h.db, *scope.ResellerID)
+		if err != nil {
+			log.Err(err).Msg("list sender-names: resolve aggregator client")
+			respondError(w, shared.ErrInternalServer("database error"))
+			return
+		}
+		resellerClientID = clientUUID.String()
 	}
 
 	status := r.URL.Query().Get("status")
@@ -114,10 +129,10 @@ func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *h
 		i++
 	}
 	if scope.IsGlobal {
-		conds = append(conds, "c.reseller_id IS NULL")
+		conds = append(conds, "c.parent_client_id IS NULL")
 	} else {
-		conds = append(conds, fmt.Sprintf("c.reseller_id = $%d", i))
-		args = append(args, scope.ResellerID.String())
+		conds = append(conds, fmt.Sprintf("c.parent_client_id = $%d", i))
+		args = append(args, resellerClientID)
 		i++
 	}
 	where := strings.Join(conds, " AND ")
@@ -253,8 +268,10 @@ func (h *AdminSenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *htt
 
 // authorizeSenderName enforces moderation scope for operations on a single
 // sender name by ID. Admin/superadmin (IsGlobal) are allowed only for
-// direct-client rows (reseller_id IS NULL). Aggregator moderators are allowed
-// only when the sender name's client.reseller_id matches their ResellerID.
+// direct-client rows (parent_client_id IS NULL). Aggregator moderators are
+// allowed only when the sender name's client.parent_client_id matches their
+// client_id (Scope.ResellerID is the aggregator's user ID; we resolve via
+// resolveAggregatorClientID before comparing).
 // Returns nil if access is granted, sql.ErrNoRows if the row does not exist,
 // or a sentinel forbidden error otherwise.
 func (h *AdminSenderNameHandlers) authorizeSenderName(ctx context.Context, id string) error {
@@ -264,25 +281,29 @@ func (h *AdminSenderNameHandlers) authorizeSenderName(ctx context.Context, id st
 	}
 
 	const q = `
-SELECT c.reseller_id FROM sender_names sn
+SELECT c.parent_client_id FROM sender_names sn
 JOIN clients c ON c.id = sn.client_id
 WHERE sn.id = $1`
 
-	var resellerID *string
-	if err := h.db.QueryRowContext(ctx, q, id).Scan(&resellerID); err != nil {
+	var parentClientID *string
+	if err := h.db.QueryRowContext(ctx, q, id).Scan(&parentClientID); err != nil {
 		return err // sql.ErrNoRows or a real DB error; caller maps accordingly
 	}
 
 	if scope.IsGlobal {
-		// Admin/superadmin: allow direct-client rows only (reseller_id IS NULL).
-		if resellerID != nil {
+		// Admin/superadmin: allow direct-client rows only (parent_client_id IS NULL).
+		if parentClientID != nil {
 			return fmt.Errorf("forbidden: sender name belongs to aggregator-owned client")
 		}
 		return nil
 	}
 
-	// Aggregator scope: reseller_id must match.
-	if resellerID == nil || *resellerID != scope.ResellerID.String() {
+	// Aggregator scope: parent_client_id must match the aggregator's client_id.
+	aggregatorClientID, err := resolveAggregatorClientID(ctx, h.db, *scope.ResellerID)
+	if err != nil {
+		return fmt.Errorf("forbidden: %w", err)
+	}
+	if parentClientID == nil || *parentClientID != aggregatorClientID.String() {
 		return fmt.Errorf("forbidden: sender name is outside your scope")
 	}
 	return nil
