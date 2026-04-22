@@ -253,6 +253,18 @@ func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 }
 
 // ---------------------------------------------------------------------------
+// maxProcessingTime — общий лимит на «тишину» между чтениями сообщений из
+// sarama claim channel (см. комментарий в NewBatchConsumer). Вынесен в
+// константу, чтобы slowBatchWarnThreshold вычислялся от него, а не разъезжался.
+// TODO: если разным сервисам (persist быстрый vs sender с TarifyMessage+SMPP)
+// понадобятся разные значения — вынести в KafkaConfig.
+const maxProcessingTime = 30 * time.Second
+
+// slowBatchWarnThreshold — ~50% от maxProcessingTime. Diagnostic-сигнал для
+// поиска «тихого зависания»: если вы видите эти WARN часто, значит порог
+// maxProcessingTime близок и его пора повышать или разгружать handler.
+var slowBatchWarnThreshold = maxProcessingTime / 2
+
 // BatchConsumer — batch consumption mode (R-002)
 // ---------------------------------------------------------------------------
 
@@ -281,7 +293,20 @@ func NewBatchConsumer(cfg *config.KafkaConfig, groupID string, topics []string, 
 	saramaCfg.Consumer.Return.Errors = true
 	saramaCfg.Version = sarama.V2_6_0_0
 	saramaCfg.Consumer.Fetch.Default = 1048576 // 1 MiB
-	saramaCfg.Consumer.MaxProcessingTime = 500 * time.Millisecond
+	// MaxProcessingTime — sarama-таймаут на неблокируемый write сообщения в
+	// claim.Messages(). В batch-режиме handler задерживает чтение из канала на
+	// время flush (по размеру батча или batchTimeout). Если «тишина» на канале
+	// превышает MaxProcessingTime, sarama приостанавливает fetch partition;
+	// под нагрузкой это сочетается с последующим heartbeat-голоданием и
+	// выглядит как «тихое зависание» consumer-группы (stable, lag=0, без
+	// обработки). Handler в sender-стадии стабильно выполняет TarifyMessage +
+	// SMPP submit + CommitCharge за ~1.5–2 s на сообщение; при batchSize до
+	// нескольких десятков flush может занимать единицы секунд. 30 s даёт
+	// значимый запас и остаётся заметно меньше SessionTimeout (чтобы
+	// sessionTimeout оставался реальным предохранителем настоящего deadlock'а
+	// handler'а, а не маскировался). Требование: MaxProcessingTime <
+	// cfg.SessionTimeout.
+	saramaCfg.Consumer.MaxProcessingTime = maxProcessingTime
 	saramaCfg.Consumer.Group.Session.Timeout = cfg.SessionTimeout
 	saramaCfg.Consumer.Group.Heartbeat.Interval = cfg.HeartbeatInterval
 
@@ -413,6 +438,15 @@ func (h *batchConsumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSes
 		} else {
 			for _, msg := range batch {
 				session.MarkMessage(msg, "")
+			}
+			// Пороговое предупреждение: приближение к MaxProcessingTime =
+			// диагностический сигнал для будущего репро «тихого зависания».
+			if duration > slowBatchWarnThreshold {
+				h.logger.Warn().
+					Int("batch_size", len(batch)).
+					Dur("duration", duration).
+					Dur("threshold", slowBatchWarnThreshold).
+					Msg("медленный batch — приближение к MaxProcessingTime")
 			}
 			h.logger.Debug().
 				Int("batch_size", len(batch)).
