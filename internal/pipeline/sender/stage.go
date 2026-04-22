@@ -314,17 +314,18 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		})
 		grpcCancel()
 		if balanceErr != nil {
-			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.billing", "error").
+			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.billing", "transient_error").
 				Err(balanceErr).
-				Msg("billing service unavailable, message rejected")
+				Msg("billing service unavailable — сообщение вернётся через Kafka redelivery")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "billing_unavailable").Inc()
-			session.MarkMessage(msg, "")
-			return nil
+			// Transient: НЕ маркируем, Kafka переотдаст сообщение после session.timeout.
+			return fmt.Errorf("billing service unavailable: %w", balanceErr)
 		} else if balanceResp != nil && balanceResp.Frozen {
 			trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.billing", "account_frozen").
 				Str("client_id", routedMsg.ClientID.String()).
 				Msg("account frozen, message rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "account_frozen").Inc()
+			s.publishRejectedStatus(routedMsg, traceID, "Аккаунт заморожен")
 			session.MarkMessage(msg, "")
 			return nil
 		}
@@ -360,18 +361,23 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 		tarifyResp, tarifyErr := s.tarificationClient.TarifyMessage(tarifyCtx, tarifyReq)
 		tarifyCancel()
 		if tarifyErr != nil {
-			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "error").
+			trace.Log(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "transient_error").
 				Err(tarifyErr).
-				Msg("tarification failed, message rejected")
+				Msg("tarification service unavailable — сообщение вернётся через Kafka redelivery")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_error").Inc()
-			session.MarkMessage(msg, "")
-			return nil
+			// Transient: НЕ маркируем, Kafka переотдаст сообщение.
+			return fmt.Errorf("tarification service unavailable: %w", tarifyErr)
 		}
 		if tarifyResp != nil && !tarifyResp.Approved {
+			reason := tarifyResp.RejectionReason
+			if reason == "" {
+				reason = "Сообщение отклонено тарификацией"
+			}
 			trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "rejected").
-				Str("reason", tarifyResp.RejectionReason).
+				Str("reason", reason).
 				Msg("tarification rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_rejected").Inc()
+			s.publishRejectedStatus(routedMsg, traceID, reason)
 			session.MarkMessage(msg, "")
 			return nil
 		}
@@ -688,6 +694,45 @@ func (s *Stage) publisher() messagePublisher {
 		return s.testPublisher
 	}
 	return s.producer
+}
+
+// publishRejectedStatus публикует SentMessage{Status:"rejected"} в sms.sent.
+// Без этого status-stage не обновит messages.status — сообщение навсегда
+// останется в 'pending' при отказе billing/tarification до фактической попытки
+// отправки. reason попадает в ErrorMessage и доступен клиенту в GetMessage.
+func (s *Stage) publishRejectedStatus(routedMsg *pipeline.RoutedMessage, traceID, reason string) {
+	segments := shared.SplitMessage(routedMsg.Text)
+	errMsg := reason
+	sentMsg := &pipeline.SentMessage{
+		SchemaVersion: 1,
+		MessageID:     routedMsg.MessageID,
+		TraceID:       traceID,
+		ProviderID:    routedMsg.ProviderID,
+		OperatorID:    routedMsg.OperatorID,
+		RouteID:       routedMsg.RouteID,
+		Channel:       "sms",
+		Status:        "rejected",
+		ErrorMessage:  &errMsg,
+		SentAt:        time.Now(),
+		SegmentsCount: len(segments),
+	}
+	data, err := sentMsg.Serialize()
+	if err != nil {
+		s.logger.Error().Err(err).
+			Str("message_id", routedMsg.MessageID.String()).
+			Msg("ошибка сериализации rejected SentMessage")
+		return
+	}
+	s.publisher().PublishAsync(
+		s.cfg.Kafka.TopicSent,
+		routedMsg.ProviderID.String(),
+		data,
+		[]sarama.RecordHeader{
+			{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
+			{Key: []byte("provider_id"), Value: []byte(routedMsg.ProviderID.String())},
+			{Key: []byte("status"), Value: []byte("rejected")},
+		},
+	)
 }
 
 // dlrMessageLookup описывает минимальный контракт, нужный для резолва

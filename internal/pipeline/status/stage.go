@@ -27,6 +27,7 @@ type statusRecord struct {
 	MessageID     uuid.UUID
 	TraceID       string
 	Status        string
+	StatusMessage string // заполняется из SentMessage.ErrorMessage при status=rejected/failed
 	SMPPMessageID string
 	ProviderID    *uuid.UUID
 	OperatorID    *uuid.UUID
@@ -199,16 +200,26 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		}
 		status := mapStatus(sent.Status)
 		providerID := &sent.ProviderID
+		// Для rejected сообщение не уходило к провайдеру — submitted_at не проставляем.
+		var submittedAt *time.Time
+		if status != "rejected" {
+			submittedAt = &sent.SentAt
+		}
+		var statusMsg string
+		if sent.ErrorMessage != nil {
+			statusMsg = *sent.ErrorMessage
+		}
 		return &statusRecord{
 			MessageID:     sent.MessageID,
 			TraceID:       sent.TraceID,
 			Status:        status,
+			StatusMessage: statusMsg,
 			SMPPMessageID: sent.SMPPMessageID,
 			ProviderID:    providerID,
 			OperatorID:    sent.OperatorID,
 			RouteID:       sent.RouteID,
 			Channel:       sent.Channel,
-			SubmittedAt:   &sent.SentAt,
+			SubmittedAt:   submittedAt,
 			UpdatedAt:     time.Now(),
 			SegmentCount:  sent.SegmentsCount,
 			SentAt:        sent.SentAt,
@@ -263,6 +274,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 		CREATE TEMP TABLE status_batch (
 			id UUID,
 			status TEXT,
+			status_message TEXT,
 			smpp_message_id TEXT,
 			provider_id UUID,
 			operator_id UUID,
@@ -281,12 +293,17 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"status_batch"},
-		[]string{"id", "status", "smpp_message_id", "provider_id", "operator_id", "route_id", "channel", "submitted_at", "updated_at", "segment_count"},
+		[]string{"id", "status", "status_message", "smpp_message_id", "provider_id", "operator_id", "route_id", "channel", "submitted_at", "updated_at", "segment_count"},
 		pgx.CopyFromSlice(len(records), func(i int) ([]any, error) {
 			r := records[i]
+			var statusMsg any
+			if r.StatusMessage != "" {
+				statusMsg = r.StatusMessage
+			}
 			return []any{
 				r.MessageID,
 				r.Status,
+				statusMsg,
 				r.SMPPMessageID,
 				r.ProviderID,
 				r.OperatorID,
@@ -311,6 +328,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	_, err = tx.Exec(ctx, `
 		UPDATE messages SET
 			status = s.status,
+			status_message = COALESCE(s.status_message, messages.status_message),
 			smpp_message_id = COALESCE(s.smpp_message_id, messages.smpp_message_id),
 			provider_id = COALESCE(s.provider_id, messages.provider_id),
 			operator_id = COALESCE(s.operator_id, messages.operator_id),
