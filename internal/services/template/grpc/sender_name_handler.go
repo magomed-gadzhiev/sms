@@ -248,6 +248,56 @@ func (h *SenderNameHandler) DeactivateSenderName(ctx context.Context, req *sende
 	return &sendernamev1.DeactivateSenderNameResponse{SenderName: senderNameToProto(sn)}, nil
 }
 
+func (h *SenderNameHandler) AdminCreateSenderName(ctx context.Context, req *sendernamev1.AdminCreateSenderNameRequest) (*sendernamev1.AdminCreateSenderNameResponse, error) {
+	if req.GetClientId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+	if req.GetName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "name is required")
+	}
+	if req.GetChannel() == "" {
+		return nil, status.Error(codes.InvalidArgument, "channel is required (sms|voice|viber)")
+	}
+
+	clientID, err := uuid.Parse(req.GetClientId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client_id: %v", err)
+	}
+
+	var companyID uuid.UUID
+	if req.GetCompanyId() != "" {
+		companyID, err = uuid.Parse(req.GetCompanyId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid company_id: %v", err)
+		}
+	}
+
+	var adminID uuid.UUID
+	if req.GetAdminId() != "" {
+		adminID, err = uuid.Parse(req.GetAdminId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid admin_id: %v", err)
+		}
+	}
+
+	// 1. Register — creates pending row.
+	sn, err := h.svc.RegisterSenderName(ctx, clientID, companyID, req.GetName(), req.GetChannel())
+	if err != nil {
+		return nil, h.mapError(err)
+	}
+
+	// 2. Immediately approve — bypasses moderation queue.
+	// If approve fails the pending row is left intact; the admin can approve it manually.
+	approved, err := h.svc.ApproveSenderName(ctx, sn.ID, adminID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "created but auto-approve failed: %v", err)
+	}
+
+	return &sendernamev1.AdminCreateSenderNameResponse{
+		SenderName: senderNameToProto(approved),
+	}, nil
+}
+
 func (h *SenderNameHandler) ListAllSenderNames(ctx context.Context, req *sendernamev1.ListAllSenderNamesRequest) (*sendernamev1.ListAllSenderNamesResponse, error) {
 	var clientID *uuid.UUID
 	if req.ClientId != "" {

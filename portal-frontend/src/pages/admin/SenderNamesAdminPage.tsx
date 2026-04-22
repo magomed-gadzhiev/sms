@@ -60,7 +60,7 @@ export function SenderNamesAdminPage() {
 
   // Add modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '' });
+  const [addForm, setAddForm] = useState({ name: '', clientId: '', channel: 'sms' as 'sms' | 'voice' | 'viber' });
   const [nameError, setNameError] = useState('');
 
   const load = useCallback(async () => {
@@ -130,12 +130,16 @@ export function SenderNamesAdminPage() {
     e.preventDefault();
     const error = validateSenderName(addForm.name ?? '');
     if (error) { setNameError(error); return; }
+    if (!addForm.clientId.trim()) { setNameError('Client ID обязателен'); return; }
     setSubmitting(true);
     try {
-      // TODO: Call adminSenderNamesApi.create when endpoint is available
-      // await adminSenderNamesApi.create(addForm.name.trim());
+      await adminSenderNamesApi.create({
+        client_id: addForm.clientId.trim(),
+        name: addForm.name.trim(),
+        channel: addForm.channel,
+      });
       setShowAddModal(false);
-      setAddForm({ name: '' });
+      setAddForm({ name: '', clientId: '', channel: 'sms' });
       setNameError('');
       load();
     } catch (e) {
@@ -183,7 +187,7 @@ export function SenderNamesAdminPage() {
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
 
       <div className="flex gap-3 mb-4">
-        <Button onClick={() => { setShowAddModal(true); setAddForm({ name: '' }); setNameError(''); }}>Добавить имя</Button>
+        <Button onClick={() => { setShowAddModal(true); setAddForm({ name: '', clientId: '', channel: 'sms' }); setNameError(''); }}>Добавить имя</Button>
       </div>
 
       <div className="flex gap-3 mb-4">
@@ -219,6 +223,17 @@ export function SenderNamesAdminPage() {
       {/* Add modal */}
       <Modal open={showAddModal} onClose={() => { setShowAddModal(false); setNameError(''); }} title="Добавить имя отправителя">
         <form onSubmit={handleAddSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="add-client-id" className="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
+            <input
+              id="add-client-id"
+              type="text"
+              value={addForm.clientId}
+              onChange={(e) => setAddForm(f => ({ ...f, clientId: e.target.value }))}
+              placeholder="UUID клиента..."
+              className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+            />
+          </div>
           <Input
             label="Имя"
             value={addForm.name}
@@ -228,6 +243,19 @@ export function SenderNamesAdminPage() {
             }}
             placeholder="Укажите имя..."
           />
+          <div>
+            <label htmlFor="add-channel" className="block text-sm font-medium text-gray-700 mb-1">Канал</label>
+            <select
+              id="add-channel"
+              value={addForm.channel}
+              onChange={(e) => setAddForm(f => ({ ...f, channel: e.target.value as 'sms' | 'voice' | 'viber' }))}
+              className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+            >
+              <option value="sms">SMS</option>
+              <option value="voice">Voice</option>
+              <option value="viber">Viber</option>
+            </select>
+          </div>
           <div className="mt-1 space-y-0.5">
             <p className="text-xs text-gray-500">Имя должно совпадать с названием организации, ИП, товарным знаком или доменом</p>
             <p className="text-xs text-gray-500">Латиница, не более 11 символов. Можно использовать цифры и знаки . _ —</p>

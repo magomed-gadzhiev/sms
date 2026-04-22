@@ -199,6 +199,58 @@ LIMIT $%d OFFSET $%d`, where, i, i+1)
 	})
 }
 
+type adminCreateSenderNameRequest struct {
+	ClientID  string `json:"client_id"`
+	Name      string `json:"name"`
+	Channel   string `json:"channel"`
+	CompanyID string `json:"company_id,omitempty"`
+}
+
+// CreateSenderName creates a sender name on behalf of a client and auto-approves it
+// in one atomic step (bypasses the normal moderation queue).
+// POST /admin/v1/sender-names
+func (h *AdminSenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Request) {
+	var req adminCreateSenderNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid body"))
+		return
+	}
+	if req.ClientID == "" {
+		respondError(w, shared.ErrInvalidInput("client_id is required"))
+		return
+	}
+	if req.Name == "" {
+		respondError(w, shared.ErrInvalidInput("name is required"))
+		return
+	}
+	if req.Channel == "" {
+		respondError(w, shared.ErrInvalidInput("channel is required (sms|voice|viber)"))
+		return
+	}
+
+	adminID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не найден"))
+		return
+	}
+
+	resp, err := h.client.AdminCreateSenderName(r.Context(), &sendernamev1.AdminCreateSenderNameRequest{
+		ClientId:  req.ClientID,
+		Name:      req.Name,
+		Channel:   req.Channel,
+		CompanyId: req.CompanyID,
+		AdminId:   adminID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"sender_name": adminSenderNameToJSON(resp.GetSenderName()),
+	})
+}
+
 // authorizeSenderName enforces moderation scope for operations on a single
 // sender name by ID. Admin/superadmin (IsGlobal) are allowed only for
 // direct-client rows (reseller_id IS NULL). Aggregator moderators are allowed

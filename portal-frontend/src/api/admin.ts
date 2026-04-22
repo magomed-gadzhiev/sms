@@ -734,6 +734,16 @@ export const adminSenderNamesApi = {
     ),
   get: (id: string) =>
     adminFetch<{ sender_name: AdminSenderNameInfo }>(`/sender-names/${id}`),
+  create: (payload: {
+    client_id: string;
+    name: string;
+    channel: 'sms' | 'voice' | 'viber';
+    company_id?: string;
+  }): Promise<{ sender_name: AdminSenderNameInfo }> =>
+    adminFetch<{ sender_name: AdminSenderNameInfo }>('/sender-names', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   approve: (id: string) =>
     adminFetch<AdminSenderNameInfo>(`/sender-names/${id}/approve`, { method: 'POST' }),
   reject: (id: string, reason: string) =>

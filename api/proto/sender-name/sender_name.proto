@@ -46,6 +46,12 @@ service SenderNameService {
 
   // Список всех заявок (для admin panel), с фильтрацией по статусу.
   rpc ListAllSenderNames(ListAllSenderNamesRequest) returns (ListAllSenderNamesResponse);
+
+  // --- Admin-only: bypass moderation ---
+
+  // Admin-create: creates an already-approved sender name for a client.
+  // Used when the platform registers a name on behalf of a client.
+  rpc AdminCreateSenderName(AdminCreateSenderNameRequest) returns (AdminCreateSenderNameResponse);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,4 +203,16 @@ message ListAllSenderNamesResponse {
   int32 total = 2;
   int32 limit = 3;
   int32 offset = 4;
+}
+
+message AdminCreateSenderNameRequest {
+  string client_id = 1;
+  string name = 2;
+  string channel = 3;            // sms | voice | viber
+  string company_id = 4;         // optional — defaults to client's default company
+  string admin_id = 5;           // who is creating (audit trail)
+}
+
+message AdminCreateSenderNameResponse {
+  SenderNameInfo sender_name = 1;
 }

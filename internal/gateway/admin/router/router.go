@@ -221,6 +221,7 @@ func SetupRouter(
 	// ModerationScope must run after auth (already applied on adminV1 via router.Use).
 	senderNames := adminV1.PathPrefix("/sender-names").Subrouter()
 	senderNames.Use(middleware.ModerationScope)
+	senderNames.HandleFunc("", senderNameHandlers.CreateSenderName).Methods("POST")
 	senderNames.HandleFunc("", senderNameHandlers.ListAllSenderNames).Methods("GET")
 	senderNames.HandleFunc("/{id}", senderNameHandlers.GetSenderNameAdmin).Methods("GET")
 	senderNames.HandleFunc("/{id}/approve", senderNameHandlers.ApproveSenderName).Methods("POST")
