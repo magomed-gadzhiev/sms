@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,7 @@ func TestValidateSenderName_RejectsEmpty(t *testing.T) {
 }
 
 func TestValidateChannel_Valid(t *testing.T) {
-	for _, c := range []string{ChannelSMS, ChannelVoice, ChannelViber} {
+	for _, c := range []string{SenderNameChannelSMS, SenderNameChannelVoice, SenderNameChannelViber} {
 		t.Run(c, func(t *testing.T) {
 			assert.NoError(t, ValidateChannel(c))
 		})
@@ -47,7 +48,7 @@ func TestValidateChannel_Valid(t *testing.T) {
 func TestValidateChannel_Invalid(t *testing.T) {
 	cases := []string{"", "email", "SMS", "Voice", " sms ", "mms"}
 	for _, c := range cases {
-		t.Run(c, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%q", c), func(t *testing.T) {
 			assert.ErrorIs(t, ValidateChannel(c), ErrInvalidChannel)
 		})
 	}

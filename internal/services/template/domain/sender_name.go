@@ -28,9 +28,9 @@ const (
 )
 
 const (
-	ChannelSMS   = "sms"
-	ChannelVoice = "voice"
-	ChannelViber = "viber"
+	SenderNameChannelSMS   = "sms"
+	SenderNameChannelVoice = "voice"
+	SenderNameChannelViber = "viber"
 )
 
 var ErrInvalidChannel = errors.New("invalid channel: must be sms, voice or viber")
@@ -38,7 +38,7 @@ var ErrInvalidChannel = errors.New("invalid channel: must be sms, voice or viber
 // ValidateChannel returns ErrInvalidChannel unless c is one of the allowed channels.
 func ValidateChannel(c string) error {
 	switch c {
-	case ChannelSMS, ChannelVoice, ChannelViber:
+	case SenderNameChannelSMS, SenderNameChannelVoice, SenderNameChannelViber:
 		return nil
 	default:
 		return ErrInvalidChannel
