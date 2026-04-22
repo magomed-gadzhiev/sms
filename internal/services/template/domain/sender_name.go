@@ -27,6 +27,24 @@ const (
 	ActorTypeSystem = "system"
 )
 
+const (
+	ChannelSMS   = "sms"
+	ChannelVoice = "voice"
+	ChannelViber = "viber"
+)
+
+var ErrInvalidChannel = errors.New("invalid channel: must be sms, voice or viber")
+
+// ValidateChannel returns ErrInvalidChannel unless c is one of the allowed channels.
+func ValidateChannel(c string) error {
+	switch c {
+	case ChannelSMS, ChannelVoice, ChannelViber:
+		return nil
+	default:
+		return ErrInvalidChannel
+	}
+}
+
 var (
 	senderNameAlphanumericRegex = regexp.MustCompile(`^[A-Za-z0-9._-]{1,11}$`)
 	senderNameNumericRegex      = regexp.MustCompile(`^\d{1,15}$`)
@@ -38,6 +56,7 @@ type SenderName struct {
 	ClientID        uuid.UUID
 	CompanyID       uuid.UUID
 	Name            string
+	Channel         string
 	Status          string
 	RejectionReason string
 	ReviewerID      *uuid.UUID

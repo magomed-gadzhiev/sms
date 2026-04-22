@@ -35,3 +35,20 @@ func TestValidateSenderName_RejectsTooLongAlpha(t *testing.T) {
 func TestValidateSenderName_RejectsEmpty(t *testing.T) {
 	assert.ErrorIs(t, ValidateSenderName(""), ErrInvalidSenderNameFormat)
 }
+
+func TestValidateChannel_Valid(t *testing.T) {
+	for _, c := range []string{ChannelSMS, ChannelVoice, ChannelViber} {
+		t.Run(c, func(t *testing.T) {
+			assert.NoError(t, ValidateChannel(c))
+		})
+	}
+}
+
+func TestValidateChannel_Invalid(t *testing.T) {
+	cases := []string{"", "email", "SMS", "Voice", " sms ", "mms"}
+	for _, c := range cases {
+		t.Run(c, func(t *testing.T) {
+			assert.ErrorIs(t, ValidateChannel(c), ErrInvalidChannel)
+		})
+	}
+}
