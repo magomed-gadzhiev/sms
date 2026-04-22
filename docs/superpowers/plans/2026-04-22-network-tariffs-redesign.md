@@ -185,12 +185,12 @@ func TestSubaccountsSummary_AvgPrice(t *testing.T) {
 ```sql
 (SELECT AVG(t.price_per_segment)
    FROM reseller_tariff_plans p
-   JOIN reseller_tariff_periods pd ON pd.plan_id = p.id
-     AND pd.valid_from <= NOW() AND (pd.valid_to IS NULL OR pd.valid_to > NOW())
-   JOIN reseller_tariff_tiers t ON t.period_id = pd.id AND t.from_quantity = 0
+   JOIN reseller_tariff_periods pd ON pd.tariff_plan_id = p.id
+     AND pd.start_date <= CURRENT_DATE AND (pd.end_date IS NULL OR pd.end_date > CURRENT_DATE)
+   JOIN reseller_tariff_tiers t ON t.tariff_period_id = pd.id AND t.from_count = 0
    WHERE (p.sub_account_id = c.id OR p.template_id = tpl.id)
-     AND p.active AND p.country_id IN (SELECT id FROM countries WHERE code = 'RU')
-     AND p.sender_category = 'paid')
+     AND p.active AND p.country_id IN (SELECT id FROM countries WHERE iso_code = 'RU')
+     AND p.sender_category = 'paid_registered')
 ```
 
 - [ ] **Step 4: Добавить Redis-кеш**
@@ -1149,3 +1149,11 @@ git commit -m "docs(tariffs): redesign smoke-test report"
 - Legacy-бейдж и взаимодействие с `aggregator_tariffs` — текущий UI показывает «Legacy» в обзоре; матрица должна уметь его отобразить. В плане явно не адресовано; вопрос: сохранять ли legacy-колонку в новом UI? Рекомендация — показывать `legacy`-бейдж в строке оператора, если источник — `aggregator_tariffs`, без возможности править.
 
 Эти open questions решаются на Task 1 (handler увидит, как данные реально устроены) — если данные расходятся с предположением, план адаптируется.
+
+## Open questions surfaced during Phase 1 implementation
+
+- **Wildcard-override precedence (surfaced in Task 2 review, 2026-04-22).** Semantics of `reseller_tariff_plans.operator_id = NULL` (wildcard) vs specific `operator_id` for override rows are undefined in the spec. The Task 2 CTE suppresses template rows only when an override exists for the *same* `(country, operator, sender_category)` tuple after COALESCE-ing NULLs to zero-UUID. If a wildcard override should suppress *all* specific-operator template rows for that (country, sender_category), the current query is wrong and average prices will be inflated. **Must be resolved before Task 5 (GET /api/network/tariff-editor) and Task 6 (PATCH bulk).** Options:
+  - (a) Wildcard has higher precedence — specific operators are overridden by wildcard. Requires modified NOT EXISTS.
+  - (b) Specific always wins over wildcard. Requires ORDER BY with priority + DISTINCT ON.
+  - (c) Wildcard and specific coexist as separate plan slots (no override relationship). Current code. 
+  Pick before implementing editor write flow.
