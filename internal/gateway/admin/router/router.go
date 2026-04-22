@@ -38,6 +38,7 @@ func SetupRouter(
 	connectionsHandlers *handlers.ConnectionsHandlers,
 	auditHandlers *handlers.AdminAuditHandlers,
 	aggregatorQuotaHandlers *handlers.AggregatorQuotaHandler,
+	moderationHandlers *handlers.ModerationHandlers,
 	healthChecker *monitoring.HealthChecker,
 	authMiddleware func(http.Handler) http.Handler,
 	loggingMiddleware func(http.Handler) http.Handler,
@@ -228,6 +229,12 @@ func SetupRouter(
 	senderNames.HandleFunc("/{id}/reject", senderNameHandlers.RejectSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/deactivate", senderNameHandlers.DeactivateSenderName).Methods("POST")
 	senderNames.HandleFunc("/{id}/operator-registrations", senderNameHandlers.GetSenderNameOperatorRegistrations).Methods("GET")
+
+	// Moderation counts + bindings inbox
+	moderation := adminV1.PathPrefix("/moderation").Subrouter()
+	moderation.Use(middleware.ModerationScope)
+	moderation.HandleFunc("/counts", moderationHandlers.Counts).Methods(http.MethodGet)
+	moderation.HandleFunc("/bindings", moderationHandlers.ListPendingBindings).Methods(http.MethodGet)
 
 	// Detalization endpoints (admin message log)
 	messages := adminV1.PathPrefix("/messages").Subrouter()

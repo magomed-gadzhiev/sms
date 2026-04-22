@@ -157,6 +157,9 @@ func main() {
 	quotaService := application.NewQuotaService(quotaRepo)
 	aggregatorQuotaHandlers := handlers.NewAggregatorQuotaHandler(quotaService)
 
+	moderationHandlers := handlers.NewModerationHandlers()
+	moderationHandlers.SetDB(adminDB)
+
 	// Создание middleware
 	authMiddleware := middleware.AdminAuthMiddleware(serviceClients.AuthClient)
 	loggingMiddleware := sharedmw.LoggingMiddleware(logger)
@@ -192,6 +195,7 @@ func main() {
 		connectionsHandlers,
 		auditHandlers,
 		aggregatorQuotaHandlers,
+		moderationHandlers,
 		healthChecker,
 		authMiddleware,
 		loggingMiddleware,
