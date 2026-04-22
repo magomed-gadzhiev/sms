@@ -1,59 +1,60 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   senderNamesApi,
-  senderNameRegistrationsApi,
-  operatorsApi,
-  operatorTemplatesApi,
   ApiError,
   type SenderNameInfo,
-  type SenderNameHistoryEntry,
-  type OperatorRegistration,
-  type SenderNameOperatorInfo,
-  type OperatorTemplate,
 } from '../../api/client';
-import { OperatorTemplatesSection } from './OperatorTemplatesSection';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
+import { OverviewTab }   from './tabs/OverviewTab';
+import { TemplatesTab }  from './tabs/TemplatesTab';
+import { OperatorsTab }  from './tabs/OperatorsTab';
+import { BillingTab }    from './tabs/BillingTab';
+import { HistoryTab }    from './tabs/HistoryTab';
 
 const STATUS_BADGE: Record<string, { variant: 'warning' | 'success' | 'danger' | 'default'; label: string }> = {
-  pending: { variant: 'warning', label: 'На модерации' },
-  approved: { variant: 'success', label: 'Одобрено' },
-  rejected: { variant: 'danger', label: 'Отклонено' },
+  pending:     { variant: 'warning', label: 'На модерации' },
+  approved:    { variant: 'success', label: 'Одобрено' },
+  rejected:    { variant: 'danger',  label: 'Отклонено' },
   deactivated: { variant: 'default', label: 'Деактивировано' },
 };
 
-function formatDate(dt: string) {
-  return new Date(dt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
+const TABS = [
+  { value: 'overview',   label: 'Обзор' },
+  { value: 'templates',  label: 'Шаблоны' },
+  { value: 'operators',  label: 'Операторы' },
+  { value: 'billing',    label: 'Биллинг' },
+  { value: 'history',    label: 'История' },
+] as const;
+type TabValue = typeof TABS[number]['value'];
 
 export function SenderNameDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
 
+  // Tab state synced to URL
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const activeTab: TabValue = (TABS.some((t) => t.value === rawTab) ? rawTab : 'overview') as TabValue;
+  const setActiveTab = (t: TabValue) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', t);
+    setSearchParams(next, { replace: true });
+  };
+
   const [senderName, setSenderName] = useState<SenderNameInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Operator registrations
-  const [registrations, setRegistrations] = useState<OperatorRegistration[]>([]);
-  const [operators, setOperators] = useState<SenderNameOperatorInfo[]>([]);
-
-  // Operator templates
-  const [operatorTemplates, setOperatorTemplates] = useState<OperatorTemplate[]>([]);
-
-  // History
-  const [history, setHistory] = useState<SenderNameHistoryEntry[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  // Resubmit
+  // Resubmit form state (only relevant when status === 'rejected')
   const [editName, setEditName] = useState('');
   const [editError, setEditError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showResubmit, setShowResubmit] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -63,17 +64,6 @@ export function SenderNameDetailPage() {
       const sn = await senderNamesApi.get(id);
       setSenderName(sn);
       setEditName(sn.name);
-
-      if (sn.status === 'approved') {
-        const [regsRes, opsRes, tplRes] = await Promise.all([
-          senderNameRegistrationsApi.list(id),
-          operatorsApi.list(),
-          operatorTemplatesApi.list(id),
-        ]);
-        setRegistrations(regsRes.registrations ?? []);
-        setOperators(opsRes.operators ?? []);
-        setOperatorTemplates(tplRes.templates ?? []);
-      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Ошибка загрузки');
     } finally {
@@ -82,20 +72,6 @@ export function SenderNameDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
-
-  const loadHistory = async () => {
-    if (!id) return;
-    setHistoryLoading(true);
-    try {
-      const res = await senderNamesApi.getHistory(id);
-      setHistory(res.entries ?? []);
-      setShowHistory(true);
-    } catch {
-      // ignore
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
 
   const handleResubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -110,6 +86,7 @@ export function SenderNameDetailPage() {
       }
       await senderNamesApi.resubmit(id);
       toast.success('Имя отправлено на повторное рассмотрение');
+      setShowResubmit(false);
       load();
     } catch (e) {
       setEditError(e instanceof ApiError ? e.message : 'Ошибка');
@@ -136,76 +113,49 @@ export function SenderNameDetailPage() {
   }
 
   const s = STATUS_BADGE[senderName.status] ?? { variant: 'default' as const, label: senderName.status };
-  const registeredIds = new Set(registrations.map((r) => r.operator_id));
 
   return (
     <div>
-      <Link to="/sender-names" className="text-primary text-sm hover:underline mb-4 inline-block">← Имена отправителей</Link>
+      {/* Breadcrumb */}
+      <Link to="/sender-names" className="text-primary text-sm hover:underline mb-4 inline-block">
+        ← Имена отправителей
+      </Link>
 
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold font-mono">{senderName.name}</h1>
-        <Badge variant={s.variant}>{s.label}</Badge>
-      </div>
-
-      {/* Metadata */}
-      <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-        <div>
-          <span className="text-gray-400">Создано</span>
-          <div className="text-gray-900">{formatDate(senderName.created_at)}</div>
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold font-mono">{senderName.name}</h1>
+          <Badge variant={s.variant}>{s.label}</Badge>
         </div>
-        {senderName.reviewed_at && (
-          <div>
-            <span className="text-gray-400">{senderName.status === 'approved' ? 'Одобрено' : 'Отклонено'}</span>
-            <div className="text-gray-900">{formatDate(senderName.reviewed_at)}</div>
-          </div>
-        )}
-      </div>
 
-      {/* Approved: operator registrations */}
-      {senderName.status === 'approved' && (
-        <div className="border-t pt-4 mb-6">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Регистрация у операторов</h3>
-          <div className="flex gap-2 flex-wrap mb-3">
-            {operators.map((op) => {
-              const registered = registeredIds.has(op.id);
-              return (
-                <span
-                  key={op.id}
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    registered ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {registered ? '✓ ' : ''}{op.name}
-                </span>
-              );
-            })}
-          </div>
-          <Button onClick={() => navigate(`/sender-names/${id}/operators`)}>
-            Зарегистрировать у операторов →
-          </Button>
-        </div>
-      )}
-
-      {/* Approved: operator templates section */}
-      {senderName.status === 'approved' && (
-        <OperatorTemplatesSection
-          senderNameId={id!}
-          templates={operatorTemplates}
-          onRefresh={() => {
-            if (id) operatorTemplatesApi.list(id).then((r) => setOperatorTemplates(r.templates ?? []));
-          }}
-        />
-      )}
-
-      {/* Rejected: reason + resubmit form */}
-      {senderName.status === 'rejected' && (
-        <div className="border-t pt-4 mb-6">
-          {senderName.rejection_reason && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md mb-4">
-              <p className="text-sm font-medium text-red-800">Причина отклонения</p>
-              <p className="text-sm text-red-700 mt-1">{senderName.rejection_reason}</p>
-            </div>
+        {/* Header actions */}
+        <div className="flex items-center gap-2">
+          {senderName.status === 'rejected' && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowResubmit((v) => !v);
+                setEditError('');
+                setEditName(senderName.name);
+              }}
+            >
+              Исправить и переотправить
+            </Button>
           )}
+          {senderName.status === 'approved' && (
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/sender-names/${id}/operators`)}
+            >
+              Управление операторами
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Resubmit form (toggled from header, cross-tab) */}
+      {showResubmit && senderName.status === 'rejected' && (
+        <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <h3 className="text-sm font-medium text-gray-700 mb-2">Исправить и отправить повторно</h3>
           <form onSubmit={handleResubmit} className="flex gap-2 items-start">
             <div>
@@ -219,45 +169,56 @@ export function SenderNameDetailPage() {
               {editError && <p className="text-sm text-red-600 mt-1">{editError}</p>}
             </div>
             <Button type="submit" disabled={submitting}>Отправить</Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowResubmit(false)}
+            >
+              Отмена
+            </Button>
           </form>
         </div>
       )}
 
-      {/* Pending info */}
-      {senderName.status === 'pending' && (
-        <div className="border-t pt-4 mb-6">
-          <p className="text-sm text-gray-500">Имя находится на модерации. Мы уведомим вас о результате.</p>
+      {/* Tab bar */}
+      <div className="border-b border-gray-200 mb-6" role="tablist" aria-label="Разрезы имени отправителя">
+        <div className="flex gap-6">
+          {TABS.map((t) => {
+            const active = activeTab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                role="tab"
+                id={`sn-tab-${t.value}`}
+                aria-selected={active}
+                aria-controls={`sn-panel-${t.value}`}
+                onClick={() => setActiveTab(t.value)}
+                className={[
+                  'py-3 -mb-px border-b-2 text-sm font-medium transition-colors',
+                  active
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                ].join(' ')}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      {/* History */}
-      <div className="border-t pt-4">
-        {!showHistory ? (
-          <button
-            onClick={loadHistory}
-            disabled={historyLoading}
-            className="text-primary text-sm hover:underline"
-          >
-            ▸ Показать историю статусов
-          </button>
-        ) : (
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">История статусов</p>
-            <div className="space-y-2">
-              {history.map((e) => (
-                <div key={e.id} className="flex items-start gap-2 text-sm">
-                  <span className="text-gray-400 shrink-0">{formatDate(e.created_at)}</span>
-                  <span>
-                    {e.old_status ? `${e.old_status} → ` : ''}<strong>{e.new_status}</strong>
-                    {e.comment && <span className="text-gray-500 ml-1">({e.comment})</span>}
-                    <span className="text-xs text-gray-400 ml-1">({e.actor_type})</span>
-                  </span>
-                </div>
-              ))}
-              {history.length === 0 && <p className="text-sm text-gray-400">История пуста</p>}
-            </div>
-          </div>
-        )}
+      {/* Tab panels */}
+      <div
+        id={`sn-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`sn-tab-${activeTab}`}
+      >
+        {activeTab === 'overview'  && <OverviewTab  senderName={senderName} />}
+        {activeTab === 'templates' && <TemplatesTab senderName={senderName} />}
+        {activeTab === 'operators' && <OperatorsTab senderName={senderName} />}
+        {activeTab === 'billing'   && <BillingTab   senderName={senderName} />}
+        {activeTab === 'history'   && <HistoryTab   senderName={senderName} />}
       </div>
     </div>
   );
