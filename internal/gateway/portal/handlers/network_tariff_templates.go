@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
@@ -313,6 +314,14 @@ func (h *NetworkTariffTemplatesHandler) createTemplateTx(
 		INSERT INTO reseller_tariff_templates (reseller_id, name, description, active)
 		VALUES ($1, $2, NULLIF($3, ''), true)
 		RETURNING id`, resellerID, name, description).Scan(&newID); err != nil {
+		// Race with another concurrent Create: pre-check above didn't see the
+		// row, but the partial unique index `idx_reseller_template_unique_name
+		// WHERE active=true` catches it here. Map 23505 → 409 to match the
+		// pre-check path instead of generic 500.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return uuid.Nil, shared.ErrConflict("имя шаблона уже используется")
+		}
 		log.Error().Err(err).Msg("network_tariff_templates: insert template failed")
 		return uuid.Nil, shared.ErrInternalServer("ошибка создания шаблона")
 	}
@@ -324,6 +333,12 @@ func (h *NetworkTariffTemplatesHandler) createTemplateTx(
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		// Same race-window: if the unique violation only surfaces at commit
+		// time (deferred constraint or late index check), map it to 409 too.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return uuid.Nil, shared.ErrConflict("имя шаблона уже используется")
+		}
 		log.Error().Err(err).Msg("network_tariff_templates: commit failed")
 		return uuid.Nil, shared.ErrInternalServer("ошибка сохранения")
 	}
@@ -333,6 +348,28 @@ func (h *NetworkTariffTemplatesHandler) createTemplateTx(
 // copyTemplateChildren clones all active plans of srcID into dstID, along
 // with periods and tiers. Sub-account assignments are NOT copied (§3 spec).
 func copyTemplateChildren(ctx context.Context, tx pgx.Tx, srcID, dstID, resellerID uuid.UUID) *shared.AppError {
+	// 0. Re-verify source inside the tx. The ownership check in
+	// createTemplateTx runs outside the tx; between that check and this
+	// point the source could be deactivated (or deleted). Without this
+	// re-check the CTE below would silently find zero active plans and
+	// return 201 with an empty template. Use FOR SHARE to block concurrent
+	// deactivation until commit.
+	var srcActive bool
+	if err := tx.QueryRow(ctx, `
+		SELECT active FROM reseller_tariff_templates
+		WHERE id = $1 AND reseller_id = $2
+		FOR SHARE
+	`, srcID, resellerID).Scan(&srcActive); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return shared.ErrConflict("шаблон-источник был удалён")
+		}
+		log.Error().Err(err).Msg("network_tariff_templates: re-verify source in tx failed")
+		return shared.ErrInternalServer("ошибка проверки источника")
+	}
+	if !srcActive {
+		return shared.ErrConflict("шаблон-источник был деактивирован")
+	}
+
 	// 1. Copy plans. Return old→new mapping via CTE.
 	planMap := map[uuid.UUID]uuid.UUID{}
 	rows, err := tx.Query(ctx, `

@@ -492,6 +492,53 @@ func TestCreateTemplate_CopyFromCopiesPlansPeriodsTiers(t *testing.T) {
 	assert.Equal(t, 0, assignCount, "assignments must not be copied on template duplication")
 }
 
+// TestCreateTemplate_CopyFromDeactivatedSource_409 exercises the in-tx
+// re-verification added alongside the 23505-mapping fix. The pre-tx
+// ownership check in createTemplateTx scopes to reseller_id only (not
+// active), so an inactive source owned by the caller passes that check.
+// Without the re-check in copyTemplateChildren, the CTE would copy zero
+// plans and return 201 with a silently empty template. Now it must 409.
+func TestCreateTemplate_CopyFromDeactivatedSource_409(t *testing.T) {
+	pool := getTemplatesTestPool(t)
+	ctx := context.Background()
+	resellerID := seedTemplatesReseller(t, pool)
+
+	srcName := fmt.Sprintf("deact-src-%s", uuid.NewString()[:8])
+	srcID, _, _ := seedTemplateWithContent(t, pool, resellerID, srcName)
+
+	// Deactivate the source before the Create call — simulates the race
+	// window between ownership check and tx in a deterministic way.
+	_, err := pool.Exec(ctx,
+		`UPDATE reseller_tariff_templates SET active = false WHERE id = $1`, srcID)
+	require.NoError(t, err)
+
+	h := NewNetworkTariffTemplatesHandler(pool, nil)
+	newName := fmt.Sprintf("copy-deact-%s", uuid.NewString()[:8])
+	w := doCreate(t, h, resellerID, map[string]interface{}{
+		"name":         newName,
+		"copy_from_id": srcID.String(),
+	})
+	require.Equal(t, http.StatusConflict, w.Code,
+		"must 409 instead of 201 with empty copy; body=%s", w.Body.String())
+
+	// Assert no half-created template lingers with this name.
+	var cnt int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM reseller_tariff_templates WHERE reseller_id = $1 AND name = $2`,
+		resellerID, newName).Scan(&cnt))
+	assert.Equal(t, 0, cnt, "no template must have been committed")
+}
+
+// TestCreateTemplate_ConcurrentNameInsertReturns409 documents the
+// 23505-mapping path. Deterministically inducing the race between
+// pre-check and INSERT requires instrumentation; we skip with a rationale.
+// The structurally-covered path is: INSERT fails with pgErr.Code==23505 →
+// errors.As(*pgconn.PgError) → ErrConflict. Tested manually by inserting
+// a conflicting row during a paused handler run.
+func TestCreateTemplate_ConcurrentNameInsertReturns409(t *testing.T) {
+	t.Skip("race-window test requires handler instrumentation; 23505→409 path covered structurally (errors.As + pgErr.Code check)")
+}
+
 func TestCreateTemplate_CopyFromForeignReseller_403(t *testing.T) {
 	pool := getTemplatesTestPool(t)
 	resellerA := seedTemplatesReseller(t, pool)
