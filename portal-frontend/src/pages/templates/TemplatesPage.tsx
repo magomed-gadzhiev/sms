@@ -2,13 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { templatesApi, senderNamesApi, ApiError, type TemplateInfo, type SenderNameInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { TemplateFormModal } from '../../components/templates/TemplateFormModal';
+import { TemplatePreviewModal } from '../../components/templates/TemplatePreviewModal';
 
 const PAGE_SIZE = 20;
 
@@ -34,13 +33,6 @@ function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
-/** Extract {{variable}} names from a template body */
-function extractVariables(body: string): string[] {
-  const matches = body.match(/\{\{(\w+)\}\}/g);
-  if (!matches) return [];
-  return [...new Set(matches.map((m) => m.replace(/[{}]/g, '')))];
-}
-
 export function TemplatesPage() {
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [total, setTotal] = useState(0);
@@ -58,10 +50,6 @@ export function TemplatesPage() {
 
   // Preview modal
   const [previewTemplate, setPreviewTemplate] = useState<TemplateInfo | null>(null);
-  const [previewVars, setPreviewVars] = useState<Record<string, string>>({});
-  const [previewResult, setPreviewResult] = useState<string | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [previewError, setPreviewError] = useState('');
 
   // Submit for review loading
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -117,33 +105,6 @@ export function TemplatesPage() {
 
   function openPreview(tpl: TemplateInfo) {
     setPreviewTemplate(tpl);
-    const vars = tpl.variables?.length ? tpl.variables : extractVariables(tpl.body);
-    const initial: Record<string, string> = {};
-    vars.forEach((v) => { initial[v] = ''; });
-    setPreviewVars(initial);
-    setPreviewResult(null);
-    setPreviewError('');
-  }
-
-  function closePreview() {
-    setPreviewTemplate(null);
-    setPreviewVars({});
-    setPreviewResult(null);
-    setPreviewError('');
-  }
-
-  async function handleRender() {
-    if (!previewTemplate) return;
-    setPreviewing(true);
-    setPreviewError('');
-    try {
-      const res = await templatesApi.render(previewTemplate.id, previewVars);
-      setPreviewResult(res.rendered_text);
-    } catch (err) {
-      setPreviewError(err instanceof ApiError ? err.message : 'Не удалось отрендерить шаблон');
-    } finally {
-      setPreviewing(false);
-    }
   }
 
   // --- Submit for review ---
@@ -254,61 +215,10 @@ export function TemplatesPage() {
       />
 
       {/* Preview modal */}
-      <Modal
-        open={!!previewTemplate}
-        onClose={closePreview}
-        title={`Превью: ${previewTemplate?.name || ''}`}
-      >
-        <div className="space-y-4">
-          <div className="bg-gray-50 rounded p-3 text-sm">
-            <p className="text-gray-500 text-xs mb-1">Исходный текст:</p>
-            <p className="whitespace-pre-wrap">{previewTemplate?.body}</p>
-          </div>
-
-          {previewTemplate?.status !== 'approved' && Object.keys(previewVars).length > 0 && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-              Рендеринг доступен только для одобренных шаблонов.
-            </p>
-          )}
-
-          {Object.keys(previewVars).length > 0 ? (
-            <>
-              <div className="space-y-3">
-                {Object.keys(previewVars).map((varName) => (
-                  <Input
-                    key={varName}
-                    label={varName}
-                    type="text"
-                    value={previewVars[varName]}
-                    onChange={(e) =>
-                      setPreviewVars((prev) => ({ ...prev, [varName]: e.target.value }))
-                    }
-                    placeholder={`Значение для {{${varName}}}`}
-                    className="w-full"
-                  />
-                ))}
-              </div>
-
-              <Button onClick={handleRender} disabled={previewing || previewTemplate?.status !== 'approved'}>
-                {previewing ? 'Рендеринг...' : 'Показать'}
-              </Button>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">Шаблон не содержит переменных.</p>
-          )}
-
-          {previewError && (
-            <p className="text-sm text-red-600">{previewError}</p>
-          )}
-
-          {previewResult !== null && (
-            <div className="bg-green-50 border border-green-200 rounded p-3">
-              <p className="text-xs text-green-700 mb-1">Результат:</p>
-              <p className="whitespace-pre-wrap text-sm">{previewResult}</p>
-            </div>
-          )}
-        </div>
-      </Modal>
+      <TemplatePreviewModal
+        template={previewTemplate}
+        onClose={() => setPreviewTemplate(null)}
+      />
 
       {/* Delete confirmation */}
       <ConfirmDialog
