@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { senderNamesApi, companiesApi, ApiError, type SenderNameInfo, type CompanyInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { Badge } from '../../components/ui/Badge';
+import { ChannelTabs, type Channel } from '../../components/sender-names/ChannelTabs';
 
 const PAGE_SIZE = 20;
 
@@ -34,6 +35,17 @@ function formatDate(dt: string) {
 
 export function SenderNamesPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL-synced active channel; defaults to 'sms'
+  const activeChannel = ((searchParams.get('channel') as Channel) || 'sms');
+
+  const setActiveChannel = (c: Channel) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('channel', c);
+    setSearchParams(next, { replace: true });
+    setPage(1);
+  };
 
   const [items, setItems] = useState<SenderNameInfo[]>([]);
   const [total, setTotal] = useState(0);
@@ -48,7 +60,7 @@ export function SenderNamesPage() {
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
-  const [createChannel, setCreateChannel] = useState<'sms' | 'voice' | 'viber'>('sms');
+  const [createChannel, setCreateChannel] = useState<Channel>('sms');
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -78,6 +90,26 @@ export function SenderNamesPage() {
     }).catch(() => {});
   }, []);
 
+  // Client-side filter by active channel.
+  // Fallback: items without a channel field are treated as 'sms' (backfill legacy).
+  // Note: counts are computed from the current page only — not authoritative totals across
+  // all pages. They indicate presence, not exact counts. Accurate counts require backend
+  // channel-filter support (follow-up task).
+  const filteredItems = items.filter((sn) => (sn.channel ?? 'sms') === activeChannel);
+
+  const counts: Partial<Record<Channel, number>> = items.reduce((acc, sn) => {
+    const ch = (sn.channel ?? 'sms') as Channel;
+    acc[ch] = (acc[ch] ?? 0) + 1;
+    return acc;
+  }, {} as Partial<Record<Channel, number>>);
+
+  const openCreate = () => {
+    setShowCreate(true);
+    setCreateName('');
+    setCreateError('');
+    setCreateChannel(activeChannel);
+  };
+
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     const nameErr = validateName(createName);
@@ -88,7 +120,7 @@ export function SenderNamesPage() {
       await senderNamesApi.create(createName.trim(), selectedCompanyId || undefined, createChannel);
       setShowCreate(false);
       setCreateName('');
-      setCreateChannel('sms');
+      setCreateChannel(activeChannel);
       load();
     } catch (e) {
       setCreateError(e instanceof ApiError ? e.message : 'Ошибка создания');
@@ -126,25 +158,39 @@ export function SenderNamesPage() {
       <PageHeader
         title="Имена отправителей"
         subtitle="Управление зарегистрированными именами отправителей SMS"
-        actions={<Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateError(''); }}>Зарегистрировать имя</Button>}
+        actions={<Button onClick={openCreate}>Зарегистрировать имя</Button>}
       />
+
+      <ChannelTabs value={activeChannel} onChange={setActiveChannel} counts={counts} />
 
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
 
-      <DataTable
-        columns={columns}
-        data={items}
-        loading={loading}
-        onRowClick={(sn) => navigate(`/sender-names/${sn.id}`)}
-        total={total}
-        page={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-        bulkActions={[]}
-      />
+      {!loading && filteredItems.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-gray-500 mb-2">
+            Нет имён отправителей для канала {activeChannel.toUpperCase()}
+          </p>
+          <p className="text-sm text-gray-400 mb-4">
+            Зарегистрируйте первое имя для этого канала
+          </p>
+          <Button onClick={openCreate}>Зарегистрировать имя</Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filteredItems}
+          loading={loading}
+          onRowClick={(sn) => navigate(`/sender-names/${sn.id}`)}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+          bulkActions={[]}
+        />
+      )}
 
       {/* Create modal */}
-      <Modal open={showCreate} onClose={() => { setShowCreate(false); setCreateChannel('sms'); }} title="Зарегистрировать имя отправителя">
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); setCreateChannel(activeChannel); }} title="Зарегистрировать имя отправителя">
         <form onSubmit={handleCreate} className="space-y-4">
           {companies.length > 0 && (
             <div>
@@ -168,7 +214,7 @@ export function SenderNamesPage() {
               id="channel-select"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={createChannel}
-              onChange={(e) => setCreateChannel(e.target.value as 'sms' | 'voice' | 'viber')}
+              onChange={(e) => setCreateChannel(e.target.value as Channel)}
             >
               <option value="sms">SMS</option>
               <option value="voice">Voice</option>
@@ -189,7 +235,7 @@ export function SenderNamesPage() {
             {createError && <p className="mt-1 text-sm text-red-600">{createError}</p>}
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => { setShowCreate(false); setCreateChannel('sms'); }}>Отмена</Button>
+            <Button type="button" variant="ghost" onClick={() => { setShowCreate(false); setCreateChannel(activeChannel); }}>Отмена</Button>
             <Button type="submit" disabled={creating}>Зарегистрировать</Button>
           </div>
         </form>
