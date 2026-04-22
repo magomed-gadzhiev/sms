@@ -12,7 +12,17 @@ const OWN_NAV_ITEMS: NavItem[] = [
   { path: '/command-center', label: 'Командный центр' },
 ];
 
-function buildOwnNavGroups(): NavGroup[] {
+function buildOwnNavGroups(isSubAccount: boolean): NavGroup[] {
+  const integrations: NavItem[] = [
+    { path: '/api-keys', label: 'API Ключи' },
+    { path: '/webhooks', label: 'Вебхуки' },
+    { path: '/lookup', label: 'Lookup' },
+    { path: '/settings/smpp', label: 'SMPP' },
+  ];
+  if (!isSubAccount) {
+    integrations.splice(2, 0, { path: '/providers', label: 'Провайдеры' });
+    integrations.splice(3, 0, { path: '/routing', label: 'Маршрутизация' });
+  }
   return [
     {
       label: 'Отправить',
@@ -55,14 +65,7 @@ function buildOwnNavGroups(): NavGroup[] {
     },
     {
       label: 'Интеграции',
-      items: [
-        { path: '/api-keys', label: 'API Ключи' },
-        { path: '/webhooks', label: 'Вебхуки' },
-        { path: '/providers', label: 'Провайдеры' },
-        { path: '/routing', label: 'Маршрутизация' },
-        { path: '/lookup', label: 'Lookup' },
-        { path: '/settings/smpp', label: 'SMPP' },
-      ],
+      items: integrations,
     },
     {
       label: 'Настройки',
@@ -94,6 +97,8 @@ function buildNetworkNavGroups(moderationCount: number): NavGroup[] {
         { path: '/network/routing', label: 'Маршрутизация' },
         { path: '/network/tariffs', label: 'Тарифы' },
         { path: '/network/statistics', label: 'Статистика' },
+        { path: '/network/analytics', label: 'Аналитика' },
+        { path: '/network/quota', label: 'Квота сети' },
       ],
     },
   ];
@@ -115,7 +120,7 @@ export function UserLayout() {
   }, [isNetworkMode, user?.is_reseller]);
 
   const navItems = isNetworkMode ? NETWORK_NAV_ITEMS : OWN_NAV_ITEMS;
-  const navGroups = isNetworkMode ? buildNetworkNavGroups(moderationCount) : buildOwnNavGroups();
+  const navGroups = isNetworkMode ? buildNetworkNavGroups(moderationCount) : buildOwnNavGroups(!!user?.parent_client_id);
   const sidebarTitle = isNetworkMode ? 'Управление сетью' : 'SMS Portal';
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { tariffsApi, ApiError, type TariffPlanInfo, type CurrentPlan } from '../
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useAuth } from '../../contexts/AuthContext';
 
 function formatPrice(rub: number): string {
   return new Intl.NumberFormat('ru-RU', {
@@ -32,6 +33,8 @@ function pluralizeRu(n: number, forms: [string, string, string]): string {
 }
 
 export function TariffsPage() {
+  const { user } = useAuth();
+  const isSubAccount = !!user?.parent_client_id;
   const [current, setCurrent] = useState<CurrentPlan | null>(null);
   const [plans, setPlans] = useState<TariffPlanInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +107,22 @@ export function TariffsPage() {
           : 0,
       )
     : 0;
+
+  if (isSubAccount) {
+    return (
+      <div>
+        <PageHeader title="Тарифы" subtitle="Вы работаете в режиме суб-аккаунта" />
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl">
+          <p className="text-sm text-blue-900 mb-2">
+            Подписочный тариф на этом аккаунте не используется. Списания за отправки идут по per-SMS тарифу, установленному агрегатором, с которым заключён договор.
+          </p>
+          <p className="text-sm text-blue-900">
+            Актуальные тарифы по операторам и каналам, а также квоты, запросите у агрегатора — они управляются на его стороне.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
