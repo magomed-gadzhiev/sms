@@ -65,6 +65,7 @@ func SetupRouter(
 	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
 	networkTariffsSummaryHandler *handlers.NetworkTariffsSummaryHandler,
 	networkTariffTemplatesHandler *handlers.NetworkTariffTemplatesHandler,
+	networkTariffEditorHandler *handlers.NetworkTariffEditorHandler,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	networkStatsHandlers *handlers.NetworkStatisticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
@@ -409,6 +410,9 @@ func SetupRouter(
 	protected.HandleFunc("/network/tariff-templates", networkTariffTemplatesHandler.Create).Methods("POST")
 	protected.HandleFunc("/network/tariff-templates/{id}/bind", networkTariffTemplatesHandler.Bind).Methods("POST")
 	protected.HandleFunc("/network/tariff-templates/{id}/duplicate", networkTariffTemplatesHandler.Duplicate).Methods("POST")
+
+	// Task 5: inheritance-aware matrix editor read endpoint.
+	protected.HandleFunc("/network/tariff-editor/{id}", networkTariffEditorHandler.Get).Methods("GET")
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()
