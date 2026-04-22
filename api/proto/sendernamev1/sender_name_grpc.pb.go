@@ -21,16 +21,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SenderNameService_CreateSenderName_FullMethodName     = "/sendername.v1.SenderNameService/CreateSenderName"
-	SenderNameService_UpdateSenderName_FullMethodName     = "/sendername.v1.SenderNameService/UpdateSenderName"
-	SenderNameService_GetSenderName_FullMethodName        = "/sendername.v1.SenderNameService/GetSenderName"
-	SenderNameService_ListSenderNames_FullMethodName      = "/sendername.v1.SenderNameService/ListSenderNames"
-	SenderNameService_ResubmitSenderName_FullMethodName   = "/sendername.v1.SenderNameService/ResubmitSenderName"
-	SenderNameService_GetSenderNameHistory_FullMethodName = "/sendername.v1.SenderNameService/GetSenderNameHistory"
-	SenderNameService_ApproveSenderName_FullMethodName    = "/sendername.v1.SenderNameService/ApproveSenderName"
-	SenderNameService_RejectSenderName_FullMethodName     = "/sendername.v1.SenderNameService/RejectSenderName"
-	SenderNameService_DeactivateSenderName_FullMethodName = "/sendername.v1.SenderNameService/DeactivateSenderName"
-	SenderNameService_ListAllSenderNames_FullMethodName   = "/sendername.v1.SenderNameService/ListAllSenderNames"
+	SenderNameService_CreateSenderName_FullMethodName      = "/sendername.v1.SenderNameService/CreateSenderName"
+	SenderNameService_UpdateSenderName_FullMethodName      = "/sendername.v1.SenderNameService/UpdateSenderName"
+	SenderNameService_GetSenderName_FullMethodName         = "/sendername.v1.SenderNameService/GetSenderName"
+	SenderNameService_ListSenderNames_FullMethodName       = "/sendername.v1.SenderNameService/ListSenderNames"
+	SenderNameService_ResubmitSenderName_FullMethodName    = "/sendername.v1.SenderNameService/ResubmitSenderName"
+	SenderNameService_GetSenderNameHistory_FullMethodName  = "/sendername.v1.SenderNameService/GetSenderNameHistory"
+	SenderNameService_ApproveSenderName_FullMethodName     = "/sendername.v1.SenderNameService/ApproveSenderName"
+	SenderNameService_RejectSenderName_FullMethodName      = "/sendername.v1.SenderNameService/RejectSenderName"
+	SenderNameService_DeactivateSenderName_FullMethodName  = "/sendername.v1.SenderNameService/DeactivateSenderName"
+	SenderNameService_ListAllSenderNames_FullMethodName    = "/sendername.v1.SenderNameService/ListAllSenderNames"
+	SenderNameService_AdminCreateSenderName_FullMethodName = "/sendername.v1.SenderNameService/AdminCreateSenderName"
 )
 
 // SenderNameServiceClient is the client API for SenderNameService service.
@@ -63,6 +64,9 @@ type SenderNameServiceClient interface {
 	DeactivateSenderName(ctx context.Context, in *DeactivateSenderNameRequest, opts ...grpc.CallOption) (*DeactivateSenderNameResponse, error)
 	// Список всех заявок (для admin panel), с фильтрацией по статусу.
 	ListAllSenderNames(ctx context.Context, in *ListAllSenderNamesRequest, opts ...grpc.CallOption) (*ListAllSenderNamesResponse, error)
+	// Admin-create: creates an already-approved sender name for a client.
+	// Used when the platform registers a name on behalf of a client.
+	AdminCreateSenderName(ctx context.Context, in *AdminCreateSenderNameRequest, opts ...grpc.CallOption) (*AdminCreateSenderNameResponse, error)
 }
 
 type senderNameServiceClient struct {
@@ -173,6 +177,16 @@ func (c *senderNameServiceClient) ListAllSenderNames(ctx context.Context, in *Li
 	return out, nil
 }
 
+func (c *senderNameServiceClient) AdminCreateSenderName(ctx context.Context, in *AdminCreateSenderNameRequest, opts ...grpc.CallOption) (*AdminCreateSenderNameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminCreateSenderNameResponse)
+	err := c.cc.Invoke(ctx, SenderNameService_AdminCreateSenderName_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SenderNameServiceServer is the server API for SenderNameService service.
 // All implementations must embed UnimplementedSenderNameServiceServer
 // for forward compatibility.
@@ -203,6 +217,9 @@ type SenderNameServiceServer interface {
 	DeactivateSenderName(context.Context, *DeactivateSenderNameRequest) (*DeactivateSenderNameResponse, error)
 	// Список всех заявок (для admin panel), с фильтрацией по статусу.
 	ListAllSenderNames(context.Context, *ListAllSenderNamesRequest) (*ListAllSenderNamesResponse, error)
+	// Admin-create: creates an already-approved sender name for a client.
+	// Used when the platform registers a name on behalf of a client.
+	AdminCreateSenderName(context.Context, *AdminCreateSenderNameRequest) (*AdminCreateSenderNameResponse, error)
 	mustEmbedUnimplementedSenderNameServiceServer()
 }
 
@@ -242,6 +259,9 @@ func (UnimplementedSenderNameServiceServer) DeactivateSenderName(context.Context
 }
 func (UnimplementedSenderNameServiceServer) ListAllSenderNames(context.Context, *ListAllSenderNamesRequest) (*ListAllSenderNamesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAllSenderNames not implemented")
+}
+func (UnimplementedSenderNameServiceServer) AdminCreateSenderName(context.Context, *AdminCreateSenderNameRequest) (*AdminCreateSenderNameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminCreateSenderName not implemented")
 }
 func (UnimplementedSenderNameServiceServer) mustEmbedUnimplementedSenderNameServiceServer() {}
 func (UnimplementedSenderNameServiceServer) testEmbeddedByValue()                           {}
@@ -444,6 +464,24 @@ func _SenderNameService_ListAllSenderNames_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SenderNameService_AdminCreateSenderName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminCreateSenderNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SenderNameServiceServer).AdminCreateSenderName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SenderNameService_AdminCreateSenderName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SenderNameServiceServer).AdminCreateSenderName(ctx, req.(*AdminCreateSenderNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SenderNameService_ServiceDesc is the grpc.ServiceDesc for SenderNameService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -490,6 +528,10 @@ var SenderNameService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAllSenderNames",
 			Handler:    _SenderNameService_ListAllSenderNames_Handler,
+		},
+		{
+			MethodName: "AdminCreateSenderName",
+			Handler:    _SenderNameService_AdminCreateSenderName_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -1365,6 +1365,126 @@ func (x *ListAllSenderNamesResponse) GetOffset() int32 {
 	return 0
 }
 
+type AdminCreateSenderNameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Channel       string                 `protobuf:"bytes,3,opt,name=channel,proto3" json:"channel,omitempty"`                      // sms | voice | viber
+	CompanyId     string                 `protobuf:"bytes,4,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"` // optional — defaults to client's default company
+	AdminId       string                 `protobuf:"bytes,5,opt,name=admin_id,json=adminId,proto3" json:"admin_id,omitempty"`       // who is creating (audit trail)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateSenderNameRequest) Reset() {
+	*x = AdminCreateSenderNameRequest{}
+	mi := &file_sender_name_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateSenderNameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateSenderNameRequest) ProtoMessage() {}
+
+func (x *AdminCreateSenderNameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sender_name_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateSenderNameRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreateSenderNameRequest) Descriptor() ([]byte, []int) {
+	return file_sender_name_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *AdminCreateSenderNameRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *AdminCreateSenderNameRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminCreateSenderNameRequest) GetChannel() string {
+	if x != nil {
+		return x.Channel
+	}
+	return ""
+}
+
+func (x *AdminCreateSenderNameRequest) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
+	}
+	return ""
+}
+
+func (x *AdminCreateSenderNameRequest) GetAdminId() string {
+	if x != nil {
+		return x.AdminId
+	}
+	return ""
+}
+
+type AdminCreateSenderNameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SenderName    *SenderNameInfo        `protobuf:"bytes,1,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateSenderNameResponse) Reset() {
+	*x = AdminCreateSenderNameResponse{}
+	mi := &file_sender_name_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateSenderNameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateSenderNameResponse) ProtoMessage() {}
+
+func (x *AdminCreateSenderNameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sender_name_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateSenderNameResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreateSenderNameResponse) Descriptor() ([]byte, []int) {
+	return file_sender_name_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *AdminCreateSenderNameResponse) GetSenderName() *SenderNameInfo {
+	if x != nil {
+		return x.SenderName
+	}
+	return nil
+}
+
 var File_sender_name_proto protoreflect.FileDescriptor
 
 const file_sender_name_proto_rawDesc = "" +
@@ -1478,7 +1598,17 @@ const file_sender_name_proto_rawDesc = "" +
 	"\fsender_names\x18\x01 \x03(\v2\x1d.sendername.v1.SenderNameInfoR\vsenderNames\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\x05R\x06offset2\xa0\b\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\xa3\x01\n" +
+	"\x1cAdminCreateSenderNameRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\achannel\x18\x03 \x01(\tR\achannel\x12\x1d\n" +
+	"\n" +
+	"company_id\x18\x04 \x01(\tR\tcompanyId\x12\x19\n" +
+	"\badmin_id\x18\x05 \x01(\tR\aadminId\"_\n" +
+	"\x1dAdminCreateSenderNameResponse\x12>\n" +
+	"\vsender_name\x18\x01 \x01(\v2\x1d.sendername.v1.SenderNameInfoR\n" +
+	"senderName2\x94\t\n" +
 	"\x11SenderNameService\x12c\n" +
 	"\x10CreateSenderName\x12&.sendername.v1.CreateSenderNameRequest\x1a'.sendername.v1.CreateSenderNameResponse\x12c\n" +
 	"\x10UpdateSenderName\x12&.sendername.v1.UpdateSenderNameRequest\x1a'.sendername.v1.UpdateSenderNameResponse\x12Z\n" +
@@ -1489,7 +1619,8 @@ const file_sender_name_proto_rawDesc = "" +
 	"\x11ApproveSenderName\x12'.sendername.v1.ApproveSenderNameRequest\x1a(.sendername.v1.ApproveSenderNameResponse\x12c\n" +
 	"\x10RejectSenderName\x12&.sendername.v1.RejectSenderNameRequest\x1a'.sendername.v1.RejectSenderNameResponse\x12o\n" +
 	"\x14DeactivateSenderName\x12*.sendername.v1.DeactivateSenderNameRequest\x1a+.sendername.v1.DeactivateSenderNameResponse\x12i\n" +
-	"\x12ListAllSenderNames\x12(.sendername.v1.ListAllSenderNamesRequest\x1a).sendername.v1.ListAllSenderNamesResponseB;Z9github.com/smpp-server/smpp-server/api/proto/sendernamev1b\x06proto3"
+	"\x12ListAllSenderNames\x12(.sendername.v1.ListAllSenderNamesRequest\x1a).sendername.v1.ListAllSenderNamesResponse\x12r\n" +
+	"\x15AdminCreateSenderName\x12+.sendername.v1.AdminCreateSenderNameRequest\x1a,.sendername.v1.AdminCreateSenderNameResponseB;Z9github.com/smpp-server/smpp-server/api/proto/sendernamev1b\x06proto3"
 
 var (
 	file_sender_name_proto_rawDescOnce sync.Once
@@ -1503,37 +1634,39 @@ func file_sender_name_proto_rawDescGZIP() []byte {
 	return file_sender_name_proto_rawDescData
 }
 
-var file_sender_name_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_sender_name_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_sender_name_proto_goTypes = []any{
-	(*SenderNameInfo)(nil),               // 0: sendername.v1.SenderNameInfo
-	(*SenderNameHistoryEntry)(nil),       // 1: sendername.v1.SenderNameHistoryEntry
-	(*CreateSenderNameRequest)(nil),      // 2: sendername.v1.CreateSenderNameRequest
-	(*CreateSenderNameResponse)(nil),     // 3: sendername.v1.CreateSenderNameResponse
-	(*UpdateSenderNameRequest)(nil),      // 4: sendername.v1.UpdateSenderNameRequest
-	(*UpdateSenderNameResponse)(nil),     // 5: sendername.v1.UpdateSenderNameResponse
-	(*GetSenderNameRequest)(nil),         // 6: sendername.v1.GetSenderNameRequest
-	(*GetSenderNameResponse)(nil),        // 7: sendername.v1.GetSenderNameResponse
-	(*ListSenderNamesRequest)(nil),       // 8: sendername.v1.ListSenderNamesRequest
-	(*ListSenderNamesResponse)(nil),      // 9: sendername.v1.ListSenderNamesResponse
-	(*ResubmitSenderNameRequest)(nil),    // 10: sendername.v1.ResubmitSenderNameRequest
-	(*ResubmitSenderNameResponse)(nil),   // 11: sendername.v1.ResubmitSenderNameResponse
-	(*GetSenderNameHistoryRequest)(nil),  // 12: sendername.v1.GetSenderNameHistoryRequest
-	(*GetSenderNameHistoryResponse)(nil), // 13: sendername.v1.GetSenderNameHistoryResponse
-	(*ApproveSenderNameRequest)(nil),     // 14: sendername.v1.ApproveSenderNameRequest
-	(*ApproveSenderNameResponse)(nil),    // 15: sendername.v1.ApproveSenderNameResponse
-	(*RejectSenderNameRequest)(nil),      // 16: sendername.v1.RejectSenderNameRequest
-	(*RejectSenderNameResponse)(nil),     // 17: sendername.v1.RejectSenderNameResponse
-	(*DeactivateSenderNameRequest)(nil),  // 18: sendername.v1.DeactivateSenderNameRequest
-	(*DeactivateSenderNameResponse)(nil), // 19: sendername.v1.DeactivateSenderNameResponse
-	(*ListAllSenderNamesRequest)(nil),    // 20: sendername.v1.ListAllSenderNamesRequest
-	(*ListAllSenderNamesResponse)(nil),   // 21: sendername.v1.ListAllSenderNamesResponse
-	(*timestamppb.Timestamp)(nil),        // 22: google.protobuf.Timestamp
+	(*SenderNameInfo)(nil),                // 0: sendername.v1.SenderNameInfo
+	(*SenderNameHistoryEntry)(nil),        // 1: sendername.v1.SenderNameHistoryEntry
+	(*CreateSenderNameRequest)(nil),       // 2: sendername.v1.CreateSenderNameRequest
+	(*CreateSenderNameResponse)(nil),      // 3: sendername.v1.CreateSenderNameResponse
+	(*UpdateSenderNameRequest)(nil),       // 4: sendername.v1.UpdateSenderNameRequest
+	(*UpdateSenderNameResponse)(nil),      // 5: sendername.v1.UpdateSenderNameResponse
+	(*GetSenderNameRequest)(nil),          // 6: sendername.v1.GetSenderNameRequest
+	(*GetSenderNameResponse)(nil),         // 7: sendername.v1.GetSenderNameResponse
+	(*ListSenderNamesRequest)(nil),        // 8: sendername.v1.ListSenderNamesRequest
+	(*ListSenderNamesResponse)(nil),       // 9: sendername.v1.ListSenderNamesResponse
+	(*ResubmitSenderNameRequest)(nil),     // 10: sendername.v1.ResubmitSenderNameRequest
+	(*ResubmitSenderNameResponse)(nil),    // 11: sendername.v1.ResubmitSenderNameResponse
+	(*GetSenderNameHistoryRequest)(nil),   // 12: sendername.v1.GetSenderNameHistoryRequest
+	(*GetSenderNameHistoryResponse)(nil),  // 13: sendername.v1.GetSenderNameHistoryResponse
+	(*ApproveSenderNameRequest)(nil),      // 14: sendername.v1.ApproveSenderNameRequest
+	(*ApproveSenderNameResponse)(nil),     // 15: sendername.v1.ApproveSenderNameResponse
+	(*RejectSenderNameRequest)(nil),       // 16: sendername.v1.RejectSenderNameRequest
+	(*RejectSenderNameResponse)(nil),      // 17: sendername.v1.RejectSenderNameResponse
+	(*DeactivateSenderNameRequest)(nil),   // 18: sendername.v1.DeactivateSenderNameRequest
+	(*DeactivateSenderNameResponse)(nil),  // 19: sendername.v1.DeactivateSenderNameResponse
+	(*ListAllSenderNamesRequest)(nil),     // 20: sendername.v1.ListAllSenderNamesRequest
+	(*ListAllSenderNamesResponse)(nil),    // 21: sendername.v1.ListAllSenderNamesResponse
+	(*AdminCreateSenderNameRequest)(nil),  // 22: sendername.v1.AdminCreateSenderNameRequest
+	(*AdminCreateSenderNameResponse)(nil), // 23: sendername.v1.AdminCreateSenderNameResponse
+	(*timestamppb.Timestamp)(nil),         // 24: google.protobuf.Timestamp
 }
 var file_sender_name_proto_depIdxs = []int32{
-	22, // 0: sendername.v1.SenderNameInfo.reviewed_at:type_name -> google.protobuf.Timestamp
-	22, // 1: sendername.v1.SenderNameInfo.created_at:type_name -> google.protobuf.Timestamp
-	22, // 2: sendername.v1.SenderNameInfo.updated_at:type_name -> google.protobuf.Timestamp
-	22, // 3: sendername.v1.SenderNameHistoryEntry.created_at:type_name -> google.protobuf.Timestamp
+	24, // 0: sendername.v1.SenderNameInfo.reviewed_at:type_name -> google.protobuf.Timestamp
+	24, // 1: sendername.v1.SenderNameInfo.created_at:type_name -> google.protobuf.Timestamp
+	24, // 2: sendername.v1.SenderNameInfo.updated_at:type_name -> google.protobuf.Timestamp
+	24, // 3: sendername.v1.SenderNameHistoryEntry.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: sendername.v1.CreateSenderNameResponse.sender_name:type_name -> sendername.v1.SenderNameInfo
 	0,  // 5: sendername.v1.UpdateSenderNameResponse.sender_name:type_name -> sendername.v1.SenderNameInfo
 	0,  // 6: sendername.v1.GetSenderNameResponse.sender_name:type_name -> sendername.v1.SenderNameInfo
@@ -1544,31 +1677,34 @@ var file_sender_name_proto_depIdxs = []int32{
 	0,  // 11: sendername.v1.RejectSenderNameResponse.sender_name:type_name -> sendername.v1.SenderNameInfo
 	0,  // 12: sendername.v1.DeactivateSenderNameResponse.sender_name:type_name -> sendername.v1.SenderNameInfo
 	0,  // 13: sendername.v1.ListAllSenderNamesResponse.sender_names:type_name -> sendername.v1.SenderNameInfo
-	2,  // 14: sendername.v1.SenderNameService.CreateSenderName:input_type -> sendername.v1.CreateSenderNameRequest
-	4,  // 15: sendername.v1.SenderNameService.UpdateSenderName:input_type -> sendername.v1.UpdateSenderNameRequest
-	6,  // 16: sendername.v1.SenderNameService.GetSenderName:input_type -> sendername.v1.GetSenderNameRequest
-	8,  // 17: sendername.v1.SenderNameService.ListSenderNames:input_type -> sendername.v1.ListSenderNamesRequest
-	10, // 18: sendername.v1.SenderNameService.ResubmitSenderName:input_type -> sendername.v1.ResubmitSenderNameRequest
-	12, // 19: sendername.v1.SenderNameService.GetSenderNameHistory:input_type -> sendername.v1.GetSenderNameHistoryRequest
-	14, // 20: sendername.v1.SenderNameService.ApproveSenderName:input_type -> sendername.v1.ApproveSenderNameRequest
-	16, // 21: sendername.v1.SenderNameService.RejectSenderName:input_type -> sendername.v1.RejectSenderNameRequest
-	18, // 22: sendername.v1.SenderNameService.DeactivateSenderName:input_type -> sendername.v1.DeactivateSenderNameRequest
-	20, // 23: sendername.v1.SenderNameService.ListAllSenderNames:input_type -> sendername.v1.ListAllSenderNamesRequest
-	3,  // 24: sendername.v1.SenderNameService.CreateSenderName:output_type -> sendername.v1.CreateSenderNameResponse
-	5,  // 25: sendername.v1.SenderNameService.UpdateSenderName:output_type -> sendername.v1.UpdateSenderNameResponse
-	7,  // 26: sendername.v1.SenderNameService.GetSenderName:output_type -> sendername.v1.GetSenderNameResponse
-	9,  // 27: sendername.v1.SenderNameService.ListSenderNames:output_type -> sendername.v1.ListSenderNamesResponse
-	11, // 28: sendername.v1.SenderNameService.ResubmitSenderName:output_type -> sendername.v1.ResubmitSenderNameResponse
-	13, // 29: sendername.v1.SenderNameService.GetSenderNameHistory:output_type -> sendername.v1.GetSenderNameHistoryResponse
-	15, // 30: sendername.v1.SenderNameService.ApproveSenderName:output_type -> sendername.v1.ApproveSenderNameResponse
-	17, // 31: sendername.v1.SenderNameService.RejectSenderName:output_type -> sendername.v1.RejectSenderNameResponse
-	19, // 32: sendername.v1.SenderNameService.DeactivateSenderName:output_type -> sendername.v1.DeactivateSenderNameResponse
-	21, // 33: sendername.v1.SenderNameService.ListAllSenderNames:output_type -> sendername.v1.ListAllSenderNamesResponse
-	24, // [24:34] is the sub-list for method output_type
-	14, // [14:24] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	0,  // 14: sendername.v1.AdminCreateSenderNameResponse.sender_name:type_name -> sendername.v1.SenderNameInfo
+	2,  // 15: sendername.v1.SenderNameService.CreateSenderName:input_type -> sendername.v1.CreateSenderNameRequest
+	4,  // 16: sendername.v1.SenderNameService.UpdateSenderName:input_type -> sendername.v1.UpdateSenderNameRequest
+	6,  // 17: sendername.v1.SenderNameService.GetSenderName:input_type -> sendername.v1.GetSenderNameRequest
+	8,  // 18: sendername.v1.SenderNameService.ListSenderNames:input_type -> sendername.v1.ListSenderNamesRequest
+	10, // 19: sendername.v1.SenderNameService.ResubmitSenderName:input_type -> sendername.v1.ResubmitSenderNameRequest
+	12, // 20: sendername.v1.SenderNameService.GetSenderNameHistory:input_type -> sendername.v1.GetSenderNameHistoryRequest
+	14, // 21: sendername.v1.SenderNameService.ApproveSenderName:input_type -> sendername.v1.ApproveSenderNameRequest
+	16, // 22: sendername.v1.SenderNameService.RejectSenderName:input_type -> sendername.v1.RejectSenderNameRequest
+	18, // 23: sendername.v1.SenderNameService.DeactivateSenderName:input_type -> sendername.v1.DeactivateSenderNameRequest
+	20, // 24: sendername.v1.SenderNameService.ListAllSenderNames:input_type -> sendername.v1.ListAllSenderNamesRequest
+	22, // 25: sendername.v1.SenderNameService.AdminCreateSenderName:input_type -> sendername.v1.AdminCreateSenderNameRequest
+	3,  // 26: sendername.v1.SenderNameService.CreateSenderName:output_type -> sendername.v1.CreateSenderNameResponse
+	5,  // 27: sendername.v1.SenderNameService.UpdateSenderName:output_type -> sendername.v1.UpdateSenderNameResponse
+	7,  // 28: sendername.v1.SenderNameService.GetSenderName:output_type -> sendername.v1.GetSenderNameResponse
+	9,  // 29: sendername.v1.SenderNameService.ListSenderNames:output_type -> sendername.v1.ListSenderNamesResponse
+	11, // 30: sendername.v1.SenderNameService.ResubmitSenderName:output_type -> sendername.v1.ResubmitSenderNameResponse
+	13, // 31: sendername.v1.SenderNameService.GetSenderNameHistory:output_type -> sendername.v1.GetSenderNameHistoryResponse
+	15, // 32: sendername.v1.SenderNameService.ApproveSenderName:output_type -> sendername.v1.ApproveSenderNameResponse
+	17, // 33: sendername.v1.SenderNameService.RejectSenderName:output_type -> sendername.v1.RejectSenderNameResponse
+	19, // 34: sendername.v1.SenderNameService.DeactivateSenderName:output_type -> sendername.v1.DeactivateSenderNameResponse
+	21, // 35: sendername.v1.SenderNameService.ListAllSenderNames:output_type -> sendername.v1.ListAllSenderNamesResponse
+	23, // 36: sendername.v1.SenderNameService.AdminCreateSenderName:output_type -> sendername.v1.AdminCreateSenderNameResponse
+	26, // [26:37] is the sub-list for method output_type
+	15, // [15:26] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_sender_name_proto_init() }
@@ -1582,7 +1718,7 @@ func file_sender_name_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sender_name_proto_rawDesc), len(file_sender_name_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   22,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
