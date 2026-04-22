@@ -3,7 +3,9 @@
 // - Matrix: TariffMatrix component in editable mode.
 // - Period actions: «+ Добавить период» (NewPeriodDialog).
 //   «Удалить период» — omitted until backend endpoint exists. TODO(task-26-delete-period).
-// - Unsaved-changes guard: useBlocker for in-app nav, beforeunload for tab close.
+// - Unsaved-changes guard: anchor click-capture for in-app nav, beforeunload for tab close.
+//   NB: useBlocker requires a data router (createBrowserRouter); app still uses BrowserRouter,
+//   so we intercept clicks on <a href> elements manually.
 //
 // Note re top-bar «Режим правки» toggle and Save/Cancel: TariffMatrix owns its own
 // edit-mode controls (Save/Cancel rendered inside the matrix). Duplicating them in
@@ -15,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Link,
-  useBlocker,
+  useNavigate,
   useParams,
   useSearchParams,
 } from 'react-router-dom';
@@ -81,6 +83,7 @@ export function NetworkTariffEditorPage() {
   const { id = '' } = useParams<{ id: string }>();
   const [search, setSearch] = useSearchParams();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const params = useMemo(() => readParams(search), [search]);
 
@@ -90,7 +93,7 @@ export function NetworkTariffEditorPage() {
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [newPeriodOpen, setNewPeriodOpen] = useState(false);
-  const [pendingNavConfirm, setPendingNavConfirm] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   // fetch editor data whenever id/params change
   useEffect(() => {
@@ -117,13 +120,28 @@ export function NetworkTariffEditorPage() {
   }, [id, params]);
 
   // Task 21: block in-app navigation when there are unsaved changes.
-  const blocker = useBlocker(hasUnsavedChanges);
-
+  // BrowserRouter doesn't support useBlocker, so we capture clicks on internal
+  // anchors at document level and prompt before allowing navigation.
   useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setPendingNavConfirm(true);
-    }
-  }, [blocker.state]);
+    if (!hasUnsavedChanges) return;
+    const handler = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+      if (anchor.target && anchor.target !== '_self') return;
+      // Only intercept same-origin internal nav.
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      e.preventDefault();
+      setPendingHref(url.pathname + url.search + url.hash);
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [hasUnsavedChanges]);
 
   // Task 21: native tab-close guard.
   useEffect(() => {
@@ -318,19 +336,17 @@ export function NetworkTariffEditorPage() {
 
       {/* unsaved-changes confirm dialog for in-app nav */}
       <ConfirmDialog
-        open={pendingNavConfirm}
+        open={pendingHref !== null}
         title="Несохранённые изменения"
         description="Вы уверены, что хотите уйти со страницы? Все несохранённые изменения будут потеряны."
         confirmLabel="Уйти"
         variant="danger"
-        onCancel={() => {
-          setPendingNavConfirm(false);
-          if (blocker.state === 'blocked') blocker.reset?.();
-        }}
+        onCancel={() => setPendingHref(null)}
         onConfirm={() => {
-          setPendingNavConfirm(false);
+          const href = pendingHref;
+          setPendingHref(null);
           setHasUnsavedChanges(false);
-          if (blocker.state === 'blocked') blocker.proceed?.();
+          if (href) navigate(href);
         }}
       />
 
