@@ -62,7 +62,9 @@ import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
-import { NetworkTariffsPage } from './pages/network/NetworkTariffsPage';
+import { NetworkTariffsListPage } from './pages/network/NetworkTariffsListPage';
+import { NetworkTariffTemplatesPage } from './pages/network/NetworkTariffTemplatesPage';
+import { NetworkTariffEditorPage } from './pages/network/NetworkTariffEditorPage';
 const NetworkStatisticsPage = lazy(() => import('./pages/network/NetworkStatisticsPage'));
 
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })));
@@ -195,7 +197,9 @@ export function App() {
           <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
           <Route path="moderation" element={<ModerationPage />} />
           <Route path="routing" element={<NetworkRoutingPage />} />
-          <Route path="tariffs" element={<NetworkTariffsPage />} />
+          <Route path="tariffs" element={<NetworkTariffsListPage />} />
+          <Route path="tariffs/templates" element={<NetworkTariffTemplatesPage />} />
+          <Route path="tariffs/editor/:id" element={<NetworkTariffEditorPage />} />
           <Route path="statistics" element={<Suspense fallback={null}><NetworkStatisticsPage /></Suspense>} />
         </Route>
 
