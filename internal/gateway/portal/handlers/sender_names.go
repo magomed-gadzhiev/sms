@@ -47,7 +47,6 @@ func (h *SenderNameHandlers) SetBillingClients(
 type createSenderNameRequest struct {
 	Name      string `json:"name"`
 	CompanyID string `json:"company_id"`
-	Channel   string `json:"channel"`
 }
 
 func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Request) {
@@ -82,8 +81,6 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	// TODO(phase1 follow-up): pass req.Channel once SenderName proto has a channel field;
-	// for now the gRPC handler defaults to SenderNameChannelSMS.
 	resp, err := h.client.CreateSenderName(r.Context(), &sendernamev1.CreateSenderNameRequest{
 		ClientId:  clientID.String(),
 		Name:      req.Name,

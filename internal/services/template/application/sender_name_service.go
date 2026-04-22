@@ -43,15 +43,6 @@ func (s *SenderNameService) RegisterSenderName(ctx context.Context, clientID, co
 		return nil, err
 	}
 
-	// Duplicate check is channel-aware, matching the 3-col unique constraint (client_id, name, channel).
-	existing, err := s.repo.GetByClientNameChannel(ctx, clientID, name, channel)
-	if err != nil && !errors.Is(err, domain.ErrSenderNameNotFound) {
-		return nil, err
-	}
-	if existing != nil {
-		return nil, domain.ErrDuplicateSenderName
-	}
-
 	sn := &domain.SenderName{
 		ID:        uuid.New(),
 		ClientID:  clientID,
