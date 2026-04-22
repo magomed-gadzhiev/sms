@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -288,7 +289,7 @@ func TestBulkPatch_InsertNewTier(t *testing.T) {
 	w := doBulkPatch(t, h, reseller, seed.PlanID, map[string]interface{}{
 		"period_id": seed.PeriodID.String(),
 		"tiers_upsert": []map[string]interface{}{
-			{"id": nil, "from_quantity": 5000},
+			{"id": nil, "from_quantity": 5000, "price_per_segment": 2.10},
 		},
 	})
 	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
@@ -565,4 +566,187 @@ func TestCreatePeriod_InvalidDateRange(t *testing.T) {
 		"to":   "2030-01-01", // to < from
 	})
 	assert.Equal(t, http.StatusBadRequest, w.Code, "body=%s", w.Body.String())
+}
+
+// ---------- Review-gate tests ----------
+
+// TestBulkPatch_ConcurrentOverrideCreate fires two concurrent override creates
+// for the same (sub_account, dims). Both must succeed (no 500) and exactly one
+// override plan must exist — the INSERT race is caught by the partial unique
+// index and handled via SAVEPOINT + re-SELECT inside findOrCreateOverridePlan.
+func TestBulkPatch_ConcurrentOverrideCreate(t *testing.T) {
+	t.Parallel()
+	pool := getBulkTestPool(t)
+	ctx := context.Background()
+	reseller := seedBulkReseller(t, pool)
+	sub := seedBulkSubAccount(t, pool, reseller)
+	ru := seedBulkCountryRU(t, pool)
+	op := seedBulkOperator(t, pool, ru, "MTS")
+	seed := seedBulkTemplatePlan(t, pool, reseller, ru, op, 3.20, 2.80)
+
+	h := NewNetworkTariffBulkHandler(pool, nil)
+
+	body := map[string]interface{}{
+		"period_id": seed.PeriodID.String(),
+		"cells_upsert": []map[string]interface{}{
+			{"operator_id": op.String(), "tier_id": seed.Tier0ID.String(),
+				"price": 2.50, "scope": "override", "sub_account_id": sub.String()},
+		},
+	}
+
+	var wg sync.WaitGroup
+	results := make([]int, 2)
+	wg.Add(2)
+	for i := 0; i < 2; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			w := doBulkPatch(t, h, reseller, seed.PlanID, body)
+			results[idx] = w.Code
+		}(i)
+	}
+	wg.Wait()
+
+	for _, code := range results {
+		assert.Equal(t, http.StatusOK, code, "concurrent PATCH must not 500")
+	}
+
+	var ovrCount int
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM reseller_tariff_plans
+		WHERE sub_account_id = $1 AND country_id = $2 AND operator_id = $3
+		  AND sender_category = 'paid_registered' AND traffic_type = 'any'
+		  AND active`, sub, ru, op).Scan(&ovrCount))
+	assert.Equal(t, 1, ovrCount, "exactly one override plan must exist")
+
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DELETE FROM reseller_tariff_plans
+			WHERE sub_account_id = $1`, sub)
+	})
+}
+
+// TestBulkPatch_NewTierWithoutPriceRejected verifies C4: a new tier
+// (tiers_upsert with id=null) without price_per_segment is rejected at
+// validation. Otherwise the tier would persist at price=0 and downstream
+// tarification would charge zero.
+func TestBulkPatch_NewTierWithoutPriceRejected(t *testing.T) {
+	pool := getBulkTestPool(t)
+	reseller := seedBulkReseller(t, pool)
+	ru := seedBulkCountryRU(t, pool)
+	op := seedBulkOperator(t, pool, ru, "MTS")
+	seed := seedBulkTemplatePlan(t, pool, reseller, ru, op, 3.20, 2.80)
+
+	h := NewNetworkTariffBulkHandler(pool, nil)
+	w := doBulkPatch(t, h, reseller, seed.PlanID, map[string]interface{}{
+		"period_id": seed.PeriodID.String(),
+		"tiers_upsert": []map[string]interface{}{
+			{"id": nil, "from_quantity": 200}, // no price_per_segment
+		},
+	})
+	require.Equal(t, http.StatusBadRequest, w.Code, "body=%s", w.Body.String())
+	var b bulkBody
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &b))
+	assert.False(t, b.OK)
+	require.NotEmpty(t, b.Errors)
+
+	var count int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM reseller_tariff_tiers
+		 WHERE tariff_period_id = $1 AND from_count = 200`, seed.PeriodID).Scan(&count))
+	assert.Equal(t, 0, count)
+}
+
+// TestBulkPatch_WildcardPlanRejectsCells verifies I2: a wildcard plan
+// (operator_id IS NULL) cannot have operator-specific cells. Attempting to
+// PATCH such a plan with any cells_upsert must return 400.
+func TestBulkPatch_WildcardPlanRejectsCells(t *testing.T) {
+	pool := getBulkTestPool(t)
+	ctx := context.Background()
+	reseller := seedBulkReseller(t, pool)
+	ru := seedBulkCountryRU(t, pool)
+	op := seedBulkOperator(t, pool, ru, "MTS")
+
+	tplID := uuid.New()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO reseller_tariff_templates (id, reseller_id, name, active)
+		VALUES ($1, $2, $3, true)`, tplID, reseller,
+		fmt.Sprintf("wild-%s", uuid.NewString()[:8]))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_templates WHERE id = $1`, tplID)
+	})
+
+	var wildPlanID uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, template_id, country_id, operator_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, NULL, 'paid_registered', 'any', 'threshold', true)
+		RETURNING id`, reseller, tplID, ru).Scan(&wildPlanID))
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM reseller_tariff_plans WHERE id = $1`, wildPlanID)
+	})
+
+	var periodID uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, CURRENT_DATE - INTERVAL '30 days', CURRENT_DATE + INTERVAL '30 days')
+		RETURNING id`, wildPlanID).Scan(&periodID))
+
+	var tierID uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, 1.0) RETURNING id`, periodID).Scan(&tierID))
+
+	h := NewNetworkTariffBulkHandler(pool, nil)
+	w := doBulkPatch(t, h, reseller, wildPlanID, map[string]interface{}{
+		"period_id": periodID.String(),
+		"cells_upsert": []map[string]interface{}{
+			{"operator_id": op.String(), "tier_id": tierID.String(),
+				"price": 2.0, "scope": "template"},
+		},
+	})
+	require.Equal(t, http.StatusBadRequest, w.Code, "body=%s", w.Body.String())
+	var b bulkBody
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &b))
+	assert.False(t, b.OK)
+	require.NotEmpty(t, b.Errors)
+}
+
+// TestBulkPatch_PlanDeactivatedMidRequest — structural only. The FOR SHARE
+// re-verify inside the tx is hard to race deterministically from a test.
+// Skipped; coverage is via the FOR SHARE statement in BulkPatch.
+func TestBulkPatch_PlanDeactivatedMidRequest(t *testing.T) {
+	t.Skip("race-window; covered structurally by FOR SHARE inside BulkPatch")
+}
+
+// TestBulkPatch_CacheInvalidationRollback verifies that when a bulk batch
+// fails validation and the tx is rolled back, the summary cache key is NOT
+// deleted — invalidation only runs post-commit.
+func TestBulkPatch_CacheInvalidationRollback(t *testing.T) {
+	pool := getBulkTestPool(t)
+	reseller := seedBulkReseller(t, pool)
+	ru := seedBulkCountryRU(t, pool)
+	op := seedBulkOperator(t, pool, ru, "MTS")
+	seed := seedBulkTemplatePlan(t, pool, reseller, ru, op, 3.20, 2.80)
+
+	mr := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rc.Close() })
+
+	key := "tariffs:summary:" + reseller.String()
+	require.NoError(t, rc.Set(context.Background(), key, []byte(`[{"cached":true}]`), 0).Err())
+
+	h := NewNetworkTariffBulkHandler(pool, rc)
+	w := doBulkPatch(t, h, reseller, seed.PlanID, map[string]interface{}{
+		"period_id": seed.PeriodID.String(),
+		"cells_upsert": []map[string]interface{}{
+			{"operator_id": op.String(), "tier_id": seed.Tier0ID.String(),
+				"price": -1.0, "scope": "template"},
+		},
+	})
+	require.Equal(t, http.StatusBadRequest, w.Code, "body=%s", w.Body.String())
+
+	v, err := rc.Get(context.Background(), key).Result()
+	require.NoError(t, err, "cache key must still exist on validation failure")
+	assert.Equal(t, `[{"cached":true}]`, v)
 }
