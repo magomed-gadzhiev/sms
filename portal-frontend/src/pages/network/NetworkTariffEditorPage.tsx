@@ -222,7 +222,9 @@ export function NetworkTariffEditorPage() {
               Тарифы
             </Link>
             <span className="text-slate-400">›</span>
-            <span className="font-medium text-slate-800">{data.scope.name}</span>
+            <span className="font-medium text-slate-800">
+              {data.scope.kind === 'template' ? data.scope.template_name : data.scope.sub_account_name}
+            </span>
             {params.mode === 'override' && data.template && (
               <span className="ml-3 text-xs text-slate-500">
                 Шаблон: {data.template.name}

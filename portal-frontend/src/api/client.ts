@@ -1469,13 +1469,16 @@ export interface TariffEditorCell {
   source: 'template' | 'override' | 'unset';
 }
 
+export interface TariffEditorScope {
+  kind: 'template' | 'override';
+  template_id?: string;
+  template_name?: string;
+  sub_account_id?: string;
+  sub_account_name?: string;
+}
+
 export interface TariffEditorData {
-  scope: {
-    kind: 'template' | 'override';
-    template_id?: string;
-    sub_account_id?: string;
-    name: string;
-  };
+  scope: TariffEditorScope;
   template: { id: string; name: string } | null;
   plan: { id: string; strategy: string; currency: string };
   periods: { id: string; from: string; to: string | null; active: boolean }[];

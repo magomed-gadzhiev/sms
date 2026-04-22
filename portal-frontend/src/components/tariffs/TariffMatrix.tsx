@@ -462,7 +462,7 @@ export function TariffMatrix(props: TariffMatrixProps) {
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse text-sm">
           <caption className="sr-only">
-            Тарифная сетка: operators × tiers для {data.scope.name}
+            Тарифная сетка: operators × tiers для {data.scope.kind === 'template' ? data.scope.template_name : data.scope.sub_account_name}
           </caption>
           <thead className="bg-slate-50">
             <tr>
