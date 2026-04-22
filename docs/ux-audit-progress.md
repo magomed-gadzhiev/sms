@@ -1,8 +1,61 @@
 # UX Audit Progress
 
-## [IN_PROGRESS] Модуль: Панель субаккаунта — последовательный обход всех страниц (subaccount, fix mode + инфраструктура + QA full, 2026-04-22)
+## [DONE] Модуль: Панель субаккаунта — последовательный обход всех страниц (subaccount, fix mode + инфраструктура + QA full, 2026-04-22)
 
-Начат: 2026-04-22. Порядок модулей: Command Center → Messages → Contact Lists → Opt-Out → Segments → Quick Send → Campaigns → Campaign Schedules → Templates → Companies → Sender Names → Billing → Tariffs → Lookup → Webhooks → API Keys → Analytics → Providers → Routing → Audit Log → Cascade History → Notifications → Profile → Settings (Domains / Notifications / SMPP / Default Senders) → изоляция (`/network/*`, `/sub-accounts`).
+Запущен: 2026-04-22, тест-аккаунт `subacc@test.local` / `Test1234!`, client_id `a0000000-...-000000000002`, parent `a0000000-...-000000000001`, баланс 49 976,10 ₽. Обошёл 25 модулей через браузер + API + БД.
+
+### Исправлено
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| 1 | MED UX | `portal-frontend/src/pages/CommandCenter.tsx` | Карточка «Провайдеры» на дашборде субаккаунта показывала «Нет провайдеров» — вводит в заблуждение (субаккаунт не владеет SMPP, трафик идёт через агрегатора) | Передаём `isSubAccount` в `HealthMap`, для субаккаунта показываем пояснение «Сообщения отправляются через инфраструктуру агрегатора» |
+| 2 | MED UX | `portal-frontend/src/pages/messages/MessagesPage.tsx` | Подзаголовок «Детализация трафика по всем клиентам и каналам» показывался и не-реселлерам. Фильтр «Суб-аккаунт» и колонка «Логин» по умолчанию тоже | Подзаголовок завязан на `isReseller`. Фильтр `login` и дефолтная колонка скрыты для не-реселлеров; два разных дефолтных набора `DEFAULT_VISIBLE_RESELLER`/`DEFAULT_VISIBLE_CLIENT` |
+| 3 | MED UX | `portal-frontend/src/pages/messages/components/MessageTable.tsx` | Колонка «Стоимость» рендерила backend-строку `1.800000 ₽` | `parseFloat` + `toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2})` → `1,80 ₽` |
+| 4 | CRITICAL security | `internal/gateway/portal/handlers/tariffs.go` | `POST /portal/v1/tariffs/change` позволял субаккаунту сменить подписочный план через прямой вызов API (UI не показывал, но endpoint не проверял `parent_client_id`) → субаккаунт смог переключить себя на Free/Trial в ходе аудита | Добавил вызов `clientClient.GetClient` в начале хендлера: если `ParentClientId != ""` → `ErrForbidden`. План субаккаунта возвращён в NULL вручную в БД |
+| 5 | HIGH UX | `portal-frontend/src/pages/tariffs/TariffsPage.tsx` | Субаккаунту показывался полный грид подписочных планов (Free/Starter/Business/Pro) с кнопками «Выбрать» — бессмысленно и вводит в заблуждение: биллинг субаккаунта per-SMS от агрегатора | Для `parent_client_id != null` раньше return с информационной панелью: «Подписочный тариф не используется, списания идут по per-SMS тарифу агрегатора» |
+| 6 | CRITICAL security (IDOR) | `internal/gateway/portal/handlers/routes.go` | `/portal/v1/routes` (ListRoutes / GetRoute / CreateRoute / UpdateRoute / DeleteRoute) защищены только аутентификацией, без скоупинга по client_id и без admin-role middleware. Любой залогиненный пользователь видел все 44 роута других клиентов, мог редактировать и удалять чужие | Добавил `isPrivilegedRole` (admin/superadmin). Non-admin: ListRoutes принудительно `filters.ClientID = callerID`; CreateRoute запрещает `client_id != callerID`; GetRoute/UpdateRoute/DeleteRoute читают запись до мутации и возвращают 404 если `existing.ClientID != callerID`. После фикса субаккаунт видит 5 своих роутов (было 44) |
+| 7 | HIGH UX | `portal-frontend/src/pages/providers/ProvidersPage.tsx` | Субаккаунт видел кнопку «+ Добавить провайдера» на пустом экране SMPP-провайдеров, хотя не владеет провайдерами | Для субаккаунта скрываю кнопку + показываю info-панель «SMPP-провайдеры настраивает агрегатор» |
+| 8 | MED UX | `portal-frontend/src/components/layout/UserLayout.tsx` | Пункты «Провайдеры» и «Маршрутизация» в левом меню были всегда видны клиенту | `buildOwnNavGroups(isSubAccount)` исключает эти пункты для субаккаунта (роуты остаются доступны напрямую по URL, но меню не приглашает) |
+
+### Проверка изоляции API
+
+| Эндпоинт | Ожидание | Факт |
+|---|---|---|
+| `GET /portal/v1/sub-accounts` (субаккаунт) | 403 | 403 ✅ |
+| `GET /portal/v1/reseller/dashboard` | 401/403 | 401 (минорная непоследовательность с `sub-accounts`, оставлено) |
+| `GET /portal/v1/reseller/analytics` | 401/403 | 401 |
+| `GET /portal/v1/reseller/routing/routes` | 401/403 | 401 |
+| `GET /portal/v1/reseller/moderation/counts` | 401/403 | 401 |
+| `GET /portal/v1/routes` | только свои | **после фикса**: 5 (было 44) ✅ |
+| `POST /portal/v1/tariffs/change` с чужим plan_id | 403 | **после фикса**: 403 ✅ (было 200 + успешный switch) |
+| `POST /portal/v1/routes` с `client_id` другого клиента | 403 | **после фикса**: 403 ✅ |
+| `GET /portal/v1/quota` | 200 null | 200 null (эндпоинт технически открыт, но квот нет — низкий риск) |
+| `/network/dashboard` через браузер | redirect | `/command-center` ✅ (RequireReseller работает) |
+
+### Трёхуровневая консистентность (выборочно)
+
+- Баланс: UI `49 976,10 ₽` = API `/billing/balance` = `49976.100000` = БД `accounts.balance = 49976.100000` ✅
+- Шаблоны: UI пусто; API `/templates` total=0; БД `templates` у client_id=`...002` — 0, у parent — 1 (ожидаемо: нет назначений `sub_account_template_assignments`) ✅
+- Sender names: UI «Trest Одобрено», БД `sender_names` 1 строка approved ✅
+
+### Не исправлено (в отложенный bug-list)
+
+| Severity | Место | Описание |
+|---|---|---|
+| MED | `AuditLogPage` фильтр «Действие» | Опции «Суб-аккаунт создан/удалён», «Лимит суб-аккаунта изменён» бессмысленны для субаккаунта — от них нет записей в его журнале |
+| LOW | `ProfilePage` | Субаккаунт не видит имя агрегатора — добавить карточку «Родительский аккаунт: <name>» |
+| LOW | `/quota` для субаккаунта | Возвращает 200 + null — семантически должен 403 или «endpoint not applicable», но не утечка данных |
+| LOW | `/reseller/*` 401 vs `/sub-accounts` 403 | Непоследовательные коды для одного и того же класса запрета |
+| MED | Описания транзакций биллинга | «SMS subaccount» / «SMS tarification: fixed, 1 segments» / «SMS субаккаунт: тариф агрегатора» — 4 разных формата в одной таблице; требует унификации на бэке |
+| LOW | Шаблоны (M09) | При отсутствии назначений от агрегатора показывается просто «Шаблоны не созданы» — надо явно сказать субаккаунту «назначает агрегатор» |
+
+### Тест-аккаунты в прогрессе
+
+| Email | Роль | Client | Назначение |
+|---|---|---|---|
+| `subacc@test.local` | client (subaccount) | a0000000-...-000000000002 | Обход панели субаккаунта 2026-04-22 |
+
+
 
 ## [DONE] Модуль: Управление сетью — полный повторный аудит (aggregator, /network + все подстраницы, fix mode + инфраструктура + QA full, 2026-04-22)
 
