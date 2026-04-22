@@ -10,9 +10,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -136,7 +139,7 @@ func TestSubaccountsSummary_ReturnsOwnReseller(t *testing.T) {
 	pool := getTestPool(t)
 	fx := seedResellerSummaryFixtures(t, pool)
 
-	h := NewNetworkTariffsSummaryHandler(pool)
+	h := NewNetworkTariffsSummaryHandler(pool, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
 	ctx := context.WithValue(req.Context(), middleware.ClientIDKey, fx.ResellerID)
@@ -239,7 +242,7 @@ func TestSubaccountsSummary_CrossResellerIsolation(t *testing.T) {
 			subAID, subBID, resellerAID, resellerBID)
 	})
 
-	h := NewNetworkTariffsSummaryHandler(pool)
+	h := NewNetworkTariffsSummaryHandler(pool, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
 	req = req.WithContext(context.WithValue(req.Context(), middleware.ClientIDKey, resellerAID))
@@ -265,7 +268,7 @@ func TestSubaccountsSummary_CrossResellerIsolation(t *testing.T) {
 func TestSubaccountsSummary_Unauthorized(t *testing.T) {
 	pool := getTestPool(t)
 
-	h := NewNetworkTariffsSummaryHandler(pool)
+	h := NewNetworkTariffsSummaryHandler(pool, nil)
 	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
 	w := httptest.NewRecorder()
 	h.List(w, req)
@@ -295,7 +298,7 @@ func TestSubaccountsSummary_EmptyForResellerWithNoSubs(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM clients WHERE id = $1`, resellerID)
 	})
 
-	h := NewNetworkTariffsSummaryHandler(pool)
+	h := NewNetworkTariffsSummaryHandler(pool, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
 	req = req.WithContext(context.WithValue(req.Context(), middleware.ClientIDKey, resellerID))
@@ -325,11 +328,177 @@ func TestSubaccountsSummary_NotReseller(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM clients WHERE id = $1`, nonResellerID)
 	})
 
-	h := NewNetworkTariffsSummaryHandler(pool)
+	h := NewNetworkTariffsSummaryHandler(pool, nil)
 	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
 	req = req.WithContext(context.WithValue(req.Context(), middleware.ClientIDKey, nonResellerID))
 	w := httptest.NewRecorder()
 	h.List(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// seedAvgPriceFixture creates a reseller + sub-account with two override plans
+// (MTS tier0=3.0, MegaFon tier0=3.6) for RU × paid_registered. Returns
+// reseller and sub-account IDs. Cleans up via t.Cleanup.
+func seedAvgPriceFixture(t *testing.T, pool *pgxpool.Pool) (resellerID, subID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+
+	var planSubID uuid.UUID
+	err := pool.QueryRow(ctx, `SELECT id FROM subscription_plans ORDER BY monthly_price_rub LIMIT 1`).Scan(&planSubID)
+	require.NoError(t, err)
+
+	// Get or create RU country + two operators.
+	var ruID uuid.UUID
+	err = pool.QueryRow(ctx, `SELECT id FROM countries WHERE iso_code = 'RU'`).Scan(&ruID)
+	if err != nil {
+		ruID = uuid.New()
+		_, err = pool.Exec(ctx, `INSERT INTO countries (id, name, iso_code, phone_code, currency)
+			VALUES ($1, 'Russia', 'RU', '7', 'RUB')`, ruID)
+		require.NoError(t, err)
+	}
+
+	// Use unique operator codes so we don't collide with seeded ones.
+	mtsID := uuid.New()
+	megaID := uuid.New()
+	mtsCode := fmt.Sprintf("MTS-t-%s", uuid.NewString()[:6])
+	megaCode := fmt.Sprintf("MEG-t-%s", uuid.NewString()[:6])
+	_, err = pool.Exec(ctx, `INSERT INTO operators (id, country_id, name, code) VALUES ($1, $2, 'MTS', $3), ($4, $2, 'MegaFon', $5)`,
+		mtsID, ruID, mtsCode, megaID, megaCode)
+	require.NoError(t, err)
+
+	resellerID = uuid.New()
+	subID = uuid.New()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, true, $5)`,
+		resellerID,
+		fmt.Sprintf("reseller-avg-%s", uuid.NewString()[:8]),
+		fmt.Sprintf("apikey-avg-res-%s", resellerID),
+		fmt.Sprintf("avg-res-%s@t.local", uuid.NewString()[:8]),
+		planSubID)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, parent_client_id, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, $5, $6)`,
+		subID,
+		fmt.Sprintf("sub-avg-%s", uuid.NewString()[:8]),
+		fmt.Sprintf("apikey-avg-sub-%s", subID),
+		fmt.Sprintf("avg-sub-%s@t.local", uuid.NewString()[:8]),
+		resellerID, planSubID)
+	require.NoError(t, err)
+
+	// Two override plans (one per operator).
+	var plan1, plan2 uuid.UUID
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, sub_account_id, country_id, operator_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, 'paid_registered', 'any', 'fixed', true) RETURNING id`,
+		resellerID, subID, ruID, mtsID).Scan(&plan1)
+	require.NoError(t, err)
+	err = pool.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, sub_account_id, country_id, operator_id, sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, 'paid_registered', 'any', 'fixed', true) RETURNING id`,
+		resellerID, subID, ruID, megaID).Scan(&plan2)
+	require.NoError(t, err)
+
+	// Active period (start yesterday, no end) + tier0 prices.
+	for _, pp := range []struct {
+		planID uuid.UUID
+		price  float64
+	}{
+		{plan1, 3.0},
+		{plan2, 3.6},
+	} {
+		var periodID uuid.UUID
+		err = pool.QueryRow(ctx, `
+			INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+			VALUES ($1, CURRENT_DATE - INTERVAL '1 day', NULL) RETURNING id`, pp.planID).Scan(&periodID)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `
+			INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+			VALUES ($1, 0, $2)`, periodID, pp.price)
+		require.NoError(t, err)
+	}
+
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM reseller_tariff_plans WHERE reseller_id = $1`, resellerID)
+		_, _ = pool.Exec(ctx, `DELETE FROM clients WHERE id IN ($1, $2)`, subID, resellerID)
+		_, _ = pool.Exec(ctx, `DELETE FROM operators WHERE id IN ($1, $2)`, mtsID, megaID)
+	})
+
+	return resellerID, subID
+}
+
+func TestSubaccountsSummary_AvgPrice(t *testing.T) {
+	pool := getTestPool(t)
+	resellerID, subID := seedAvgPriceFixture(t, pool)
+
+	h := NewNetworkTariffsSummaryHandler(pool, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.ClientIDKey, resellerID))
+
+	w := httptest.NewRecorder()
+	h.List(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+
+	var items []map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &items))
+	require.Len(t, items, 1)
+	require.Equal(t, subID.String(), items[0]["sub_account_id"])
+
+	avg, ok := items[0]["avg_price_per_sms"].(float64)
+	require.True(t, ok, "expected numeric avg_price_per_sms, got %#v", items[0]["avg_price_per_sms"])
+	assert.InDelta(t, 3.3, avg, 0.0001, "expected (3.0 + 3.6)/2 = 3.3")
+}
+
+func TestSubaccountsSummary_CachesResult(t *testing.T) {
+	pool := getTestPool(t)
+	resellerID, subID := seedAvgPriceFixture(t, pool)
+
+	mr := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rc.Close() })
+
+	h := NewNetworkTariffsSummaryHandler(pool, rc)
+
+	// First call — populates cache from DB.
+	req1 := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
+	req1 = req1.WithContext(context.WithValue(req1.Context(), middleware.ClientIDKey, resellerID))
+	w1 := httptest.NewRecorder()
+	h.List(w1, req1)
+	require.Equal(t, http.StatusOK, w1.Code, "body=%s", w1.Body.String())
+	body1 := w1.Body.Bytes()
+
+	// Mutate underlying tier so a fresh DB read would return a different avg.
+	_, err := pool.Exec(context.Background(), `
+		UPDATE reseller_tariff_tiers SET price_per_segment = 99.99
+		WHERE tariff_period_id IN (
+			SELECT pr.id FROM reseller_tariff_periods pr
+			JOIN reseller_tariff_plans p ON p.id = pr.tariff_plan_id
+			WHERE p.sub_account_id = $1
+		) AND from_count = 0`, subID)
+	require.NoError(t, err)
+
+	// Second call — must come from cache, so identical bytes despite DB change.
+	req2 := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
+	req2 = req2.WithContext(context.WithValue(req2.Context(), middleware.ClientIDKey, resellerID))
+	w2 := httptest.NewRecorder()
+	h.List(w2, req2)
+	require.Equal(t, http.StatusOK, w2.Code)
+	assert.Equal(t, body1, w2.Body.Bytes(), "cache hit must return byte-identical body")
+
+	// Sanity: after TTL expiry, the next read should hit DB again and reflect the mutation.
+	mr.FastForward(6 * time.Minute)
+	req3 := httptest.NewRequest(http.MethodGet, "/portal/v1/network/tariffs/subaccounts-summary", nil)
+	req3 = req3.WithContext(context.WithValue(req3.Context(), middleware.ClientIDKey, resellerID))
+	w3 := httptest.NewRecorder()
+	h.List(w3, req3)
+	require.Equal(t, http.StatusOK, w3.Code)
+	assert.NotEqual(t, body1, w3.Body.Bytes(), "after TTL expiry cache should miss and reflect DB changes")
 }

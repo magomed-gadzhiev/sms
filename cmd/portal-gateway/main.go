@@ -295,7 +295,7 @@ func main() {
 	resellerRoutingHandlers := handlers.NewResellerRoutingHandlers(dbPool, serviceClients.RoutingClient)
 	resellerTariffHandlers := handlers.NewResellerTariffHandlers(dbPool)
 	resellerTariffPlanHandlers := handlers.NewResellerTariffPlanHandlers(dbPool)
-	networkTariffsSummaryHandler := handlers.NewNetworkTariffsSummaryHandler(dbPool)
+	networkTariffsSummaryHandler := handlers.NewNetworkTariffsSummaryHandler(dbPool, redisClient)
 	resellerAnalyticsHandlers := handlers.NewResellerAnalyticsHandlers(dbPool, serviceClients.AnalyticsClient, serviceClients.ClientClient)
 	networkStatsHandlers := handlers.NewNetworkStatisticsHandlers(serviceClients.NetworkAnalyticsClient)
 
