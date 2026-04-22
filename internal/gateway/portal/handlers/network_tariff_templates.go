@@ -150,15 +150,15 @@ func (h *NetworkTariffTemplatesHandler) List(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-// createTemplateRequest — body for Create.
-type createTemplateRequest struct {
+// createTariffTemplateRequest — body for Create.
+type createTariffTemplateRequest struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	CopyFromID  *string `json:"copy_from_id,omitempty"`
 }
 
-// createTemplateResponse — response body for Create/Duplicate.
-type createTemplateResponse struct {
+// createTariffTemplateResponse — response body for Create/Duplicate.
+type createTariffTemplateResponse struct {
 	ID string `json:"id"`
 }
 
@@ -169,7 +169,7 @@ func (h *NetworkTariffTemplatesHandler) Create(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req createTemplateRequest
+	var req createTariffTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
 		return
@@ -200,7 +200,7 @@ func (h *NetworkTariffTemplatesHandler) Create(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(createTemplateResponse{ID: newID.String()})
+	_ = json.NewEncoder(w).Encode(createTariffTemplateResponse{ID: newID.String()})
 }
 
 // Duplicate handles POST /portal/v1/network/tariff-templates/{id}/duplicate.
@@ -218,7 +218,7 @@ func (h *NetworkTariffTemplatesHandler) Duplicate(w http.ResponseWriter, r *http
 		return
 	}
 
-	var req createTemplateRequest
+	var req createTariffTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
 		return
@@ -255,7 +255,7 @@ func (h *NetworkTariffTemplatesHandler) Duplicate(w http.ResponseWriter, r *http
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(createTemplateResponse{ID: newID.String()})
+	_ = json.NewEncoder(w).Encode(createTariffTemplateResponse{ID: newID.String()})
 }
 
 // createTemplateTx executes the full create-with-optional-copy transaction.
@@ -472,21 +472,21 @@ func copyTemplateChildren(ctx context.Context, tx pgx.Tx, srcID, dstID, reseller
 	return nil
 }
 
-// bindRequest — body for Bind.
-type bindRequest struct {
+// bindTariffTemplateRequest — body for Bind.
+type bindTariffTemplateRequest struct {
 	SubAccountIDs []string `json:"sub_account_ids"`
 }
 
-// bindReplaced — entry in Bind response `replaced` array.
-type bindReplaced struct {
+// bindTariffTemplateReplaced — entry in Bind response `replaced` array.
+type bindTariffTemplateReplaced struct {
 	SubAccountID  string `json:"sub_account_id"`
 	OldTemplateID string `json:"old_template_id"`
 }
 
-// bindResponse — response body for Bind.
-type bindResponse struct {
-	Bound    []string       `json:"bound"`
-	Replaced []bindReplaced `json:"replaced"`
+// bindTariffTemplateResponse — response body for Bind.
+type bindTariffTemplateResponse struct {
+	Bound    []string                     `json:"bound"`
+	Replaced []bindTariffTemplateReplaced `json:"replaced"`
 }
 
 // Bind handles POST /portal/v1/network/tariff-templates/{id}/bind.
@@ -503,7 +503,7 @@ func (h *NetworkTariffTemplatesHandler) Bind(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req bindRequest
+	var req bindTariffTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
 		return
@@ -587,7 +587,7 @@ func (h *NetworkTariffTemplatesHandler) Bind(w http.ResponseWriter, r *http.Requ
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
 
-	replaced := make([]bindReplaced, 0)
+	replaced := make([]bindTariffTemplateReplaced, 0)
 	rrows, err := tx.Query(r.Context(),
 		`SELECT sub_account_id::text, template_id::text
 		 FROM sub_account_template_assignments
@@ -598,7 +598,7 @@ func (h *NetworkTariffTemplatesHandler) Bind(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	for rrows.Next() {
-		var e bindReplaced
+		var e bindTariffTemplateReplaced
 		if err := rrows.Scan(&e.SubAccountID, &e.OldTemplateID); err != nil {
 			rrows.Close()
 			respondError(w, shared.ErrInternalServer("ошибка чтения прежних привязок"))
@@ -641,5 +641,5 @@ func (h *NetworkTariffTemplatesHandler) Bind(w http.ResponseWriter, r *http.Requ
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(bindResponse{Bound: bound, Replaced: replaced})
+	_ = json.NewEncoder(w).Encode(bindTariffTemplateResponse{Bound: bound, Replaced: replaced})
 }
