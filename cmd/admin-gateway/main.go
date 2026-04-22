@@ -132,6 +132,7 @@ func main() {
 	roleHandlers := handlers.NewRoleHandlers(serviceClients.AuthClient)
 	senderNameHandlers := handlers.NewAdminSenderNameHandlers(serviceClients.SenderNameClient)
 	senderNameHandlers.SetClients(serviceClients.RoutingClient, serviceClients.TarificationClient)
+	senderNameHandlers.SetDB(adminDB)
 	hierarchicalPeriodsHandler := handlers.NewHierarchicalPeriodsHandler(adminDB)
 	detalizationHandlers := handlers.NewDetalizationHandlers(adminDB)
 	legalEntityHandlers := handlers.NewLegalEntityHandlers(adminDB)

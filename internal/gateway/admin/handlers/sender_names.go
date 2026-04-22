@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -12,12 +15,14 @@ import (
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 type AdminSenderNameHandlers struct {
 	client        sendernamev1.SenderNameServiceClient
 	routingClient routingv1.RoutingServiceClient
 	tariffClient  tarificationv1.TarificationServiceClient
+	db            *storage.DB
 }
 
 func NewAdminSenderNameHandlers(client sendernamev1.SenderNameServiceClient) *AdminSenderNameHandlers {
@@ -33,32 +38,154 @@ func (h *AdminSenderNameHandlers) SetClients(
 	h.tariffClient = tariffClient
 }
 
-func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *http.Request) {
-	limit := parseIntParam(r, "limit", 20)
-	offset := parseIntParam(r, "offset", 0)
+// SetDB injects the direct DB pool used by ListAllSenderNames for scoped queries.
+func (h *AdminSenderNameHandlers) SetDB(db *storage.DB) {
+	h.db = db
+}
 
-	resp, err := h.client.ListAllSenderNames(r.Context(), &sendernamev1.ListAllSenderNamesRequest{
-		ClientId:  r.URL.Query().Get("client_id"),
-		Status:    r.URL.Query().Get("status"),
-		NameQuery: r.URL.Query().Get("name_query"),
-		Limit:     limit,
-		Offset:    offset,
-	})
-	if err != nil {
-		log.Error().Err(err).Msg("ошибка получения списка имён отправителей")
-		respondGRPCError(w, err)
+// adminSenderNameListRow holds the columns scanned from the direct SQL query.
+type adminSenderNameListRow struct {
+	ID              string
+	ClientID        string
+	ClientEmail     string
+	Name            string
+	Channel         string
+	Status          string
+	RejectionReason *string
+	ReviewedAt      *time.Time
+	CreatedAt       time.Time
+}
+
+// ListAllSenderNames returns sender names visible to the authenticated moderator.
+//
+// Scope is injected by middleware.ModerationScope (must be wired in the router):
+//   - admin / superadmin  → rows where clients.reseller_id IS NULL (direct clients)
+//   - aggregator_moderator → rows where clients.reseller_id = caller's user ID
+//   - empty scope         → 403
+//
+// The response preserves the original shape (sender_names / total / limit / offset)
+// and adds client_email per item.
+func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *http.Request) {
+	if h.db == nil {
+		respondError(w, shared.ErrInternalServer("db not configured — check SetDB wiring"))
 		return
 	}
 
-	items := make([]map[string]interface{}, 0, len(resp.SenderNames))
-	for _, sn := range resp.SenderNames {
-		items = append(items, adminSenderNameToJSON(sn))
+	scope := middleware.ScopeFromContext(r.Context())
+	if !scope.IsGlobal && scope.ResellerID == nil {
+		respondError(w, shared.ErrForbidden("insufficient role for sender-name moderation"))
+		return
 	}
+
+	status := r.URL.Query().Get("status")
+	nameQuery := r.URL.Query().Get("name_query")
+	channel := r.URL.Query().Get("channel")
+	limit := parseIntParam(r, "limit", 20)
+	offset := parseIntParam(r, "offset", 0)
+
+	var (
+		conds []string
+		args  []interface{}
+		i     = 1
+	)
+	conds = append(conds, "1=1")
+	if status != "" {
+		conds = append(conds, fmt.Sprintf("sn.status = $%d", i))
+		args = append(args, status)
+		i++
+	}
+	if channel != "" {
+		conds = append(conds, fmt.Sprintf("sn.channel = $%d", i))
+		args = append(args, channel)
+		i++
+	}
+	if nameQuery != "" {
+		conds = append(conds, fmt.Sprintf("sn.name ILIKE $%d", i))
+		args = append(args, "%"+nameQuery+"%")
+		i++
+	}
+	if scope.IsGlobal {
+		conds = append(conds, "c.reseller_id IS NULL")
+	} else {
+		conds = append(conds, fmt.Sprintf("c.reseller_id = $%d", i))
+		args = append(args, scope.ResellerID.String())
+		i++
+	}
+	where := strings.Join(conds, " AND ")
+
+	countSQL := fmt.Sprintf(`
+SELECT COUNT(*) FROM sender_names sn
+JOIN clients c ON c.id = sn.client_id
+WHERE %s`, where)
+
+	var total int32
+	if err := h.db.QueryRowContext(r.Context(), countSQL, args...).Scan(&total); err != nil {
+		log.Error().Err(err).Msg("ошибка подсчёта имён отправителей")
+		respondError(w, shared.ErrInternalServer("db count error: "+err.Error()))
+		return
+	}
+
+	listArgs := append(args, limit, offset)
+	listSQL := fmt.Sprintf(`
+SELECT sn.id, sn.client_id, COALESCE(c.email, ''), sn.name, sn.channel, sn.status,
+       sn.rejection_reason, sn.reviewed_at, sn.created_at
+FROM sender_names sn
+JOIN clients c ON c.id = sn.client_id
+WHERE %s
+ORDER BY sn.created_at DESC
+LIMIT $%d OFFSET $%d`, where, i, i+1)
+
+	rows, err := h.db.QueryContext(r.Context(), listSQL, listArgs...)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка имён отправителей")
+		respondError(w, shared.ErrInternalServer("db query error: "+err.Error()))
+		return
+	}
+	defer rows.Close()
+
+	items := make([]map[string]interface{}, 0, limit)
+	for rows.Next() {
+		var row adminSenderNameListRow
+		if err := rows.Scan(
+			&row.ID, &row.ClientID, &row.ClientEmail, &row.Name, &row.Channel, &row.Status,
+			&row.RejectionReason, &row.ReviewedAt, &row.CreatedAt,
+		); err != nil {
+			log.Error().Err(err).Msg("ошибка сканирования строки имени отправителя")
+			respondError(w, shared.ErrInternalServer("db scan error: "+err.Error()))
+			return
+		}
+		item := map[string]interface{}{
+			"id":           row.ID,
+			"client_id":    row.ClientID,
+			"client_email": row.ClientEmail,
+			"name":         row.Name,
+			"channel":      row.Channel,
+			"status":       row.Status,
+			"created_at":   row.CreatedAt.Format(time.RFC3339),
+		}
+		if row.RejectionReason != nil {
+			item["rejection_reason"] = *row.RejectionReason
+		} else {
+			item["rejection_reason"] = ""
+		}
+		if row.ReviewedAt != nil {
+			item["reviewed_at"] = row.ReviewedAt.Format(time.RFC3339)
+		} else {
+			item["reviewed_at"] = nil
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		log.Error().Err(err).Msg("ошибка итерации строк имён отправителей")
+		respondError(w, shared.ErrInternalServer("db rows error: "+err.Error()))
+		return
+	}
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"sender_names": items,
-		"total":        resp.Total,
-		"limit":        resp.Limit,
-		"offset":       resp.Offset,
+		"total":        total,
+		"limit":        limit,
+		"offset":       offset,
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/handlers"
+	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 )
 
@@ -217,7 +218,9 @@ func SetupRouter(
 	adminV1.HandleFunc("/permissions", roleHandlers.ListPermissions).Methods("GET")
 
 	// Sender Names endpoints
+	// ModerationScope must run after auth (already applied on adminV1 via router.Use).
 	senderNames := adminV1.PathPrefix("/sender-names").Subrouter()
+	senderNames.Use(middleware.ModerationScope)
 	senderNames.HandleFunc("", senderNameHandlers.ListAllSenderNames).Methods("GET")
 	senderNames.HandleFunc("/{id}", senderNameHandlers.GetSenderNameAdmin).Methods("GET")
 	senderNames.HandleFunc("/{id}/approve", senderNameHandlers.ApproveSenderName).Methods("POST")
