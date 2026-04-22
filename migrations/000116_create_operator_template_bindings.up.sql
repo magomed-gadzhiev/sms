@@ -19,4 +19,8 @@ CREATE INDEX idx_otb_operator_status ON operator_template_bindings (operator_id,
 CREATE INDEX idx_otb_sender_name ON operator_template_bindings (sender_name_id);
 CREATE INDEX idx_otb_template ON operator_template_bindings (template_id);
 
+CREATE TRIGGER update_operator_template_bindings_updated_at
+    BEFORE UPDATE ON operator_template_bindings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 COMMIT;
