@@ -35,7 +35,7 @@ func (r *AttemptRepo) Create(ctx context.Context, a *domain.DeliveryAttempt) err
 		(id, delivery_id, channel_id, channel_type, step_order, status,
 		 provider_ref, cost, currency, error_message, sent_at, result_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-		ON CONFLICT (delivery_id, step_order) DO NOTHING`
+		ON CONFLICT (delivery_id, step_order, created_at) DO NOTHING`
 
 	tag, err := r.pool.Exec(ctx, query,
 		a.ID, a.DeliveryID, a.ChannelID, a.ChannelType, a.StepOrder,
