@@ -1,5 +1,50 @@
 # UX Audit Progress
 
+## [DONE] Модуль: Отправка сообщений и рассылок — спринт 2 (aggregator + subaccount, fix, 2026-04-22)
+
+Scope: валидация API, UX при подмене sender, битая навигация, end-to-end CampaignWizard.
+
+### Исправлено (commit c910e53, задеплоено)
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| B3 | HIGH (billing risk) | [handlers/messages.go](internal/gateway/portal/handlers/messages.go) | API принимал любую длину text. Отправил 2000 символов → принято | `utf8.RuneCountInString > 1600` → HTTP 400 с сообщением «Поле text слишком длинное (N символов, максимум 1600)». Подтверждено curl-ретестом |
+| B4 | HIGH (security) | [handlers/messages.go](internal/gateway/portal/handlers/messages.go) | API принимал любой `source`, в том числе несуществующий (`NotApproved`). Router молча подменял на "SMS" | До вызова messaging-service: SELECT из `sender_names WHERE client_id=caller AND name=source`. `pgx.ErrNoRows` → 403 «не принадлежит вашему аккаунту», status!='approved' → 403. Цифровые sender (shortcode) пропускаются |
+| B6 | MED (observability) | [router/stage.go](internal/pipeline/router/stage.go) | При подмене sender на fallback ("SMS") — нет логов, оператор не понимает почему клиент видит в БД не то имя | `log.Warn` с полями `client_id, operator_id, original_sender, fallback, reason` в обеих ветках (sub-account без approved, direct client без operator_registrations) |
+| B7 | LOW (nav) | [CampaignsPage.tsx](portal-frontend/src/pages/campaigns/CampaignsPage.tsx) | Ссылка «Суб-аккаунты» в инфо-панели reseller вела на `/sub-accounts` (404 для агрегатора) | `/network/sub-accounts` — роут `NetworkLayout`, защищённый `RequireReseller` |
+
+### E2E Campaign Wizard через Playwright (subacc: subacc@test.local)
+
+Путь: `/campaigns/new` → Шаг1 «QA Campaign E2E test message», Trest → Шаг2 `TestCampaignList (3 контакта)` → Шаг3 «Сейчас» → Шаг4 «Отправить» → редирект на `/campaigns/dc24ad86-...`.
+
+**БД после запуска:** `campaigns.status=completed`, `total_recipients=3`, `failed_count=3`, `started_at` заполнен. Wizard-поток работает.
+
+### Найденные на спринте 2 баги (не блокирующие)
+
+| # | Severity | Место | Описание | Предложение |
+|---|---|---|---|---|
+| B10 | MED | CampaignWizard шаг4 Confirm | «Итого 0,00 ₽» для 3 получателей × 1 сегмент у субаккаунта. Cost-estimate endpoint не учитывает subaccount per-SMS тариф агрегатора | Добавить в `campaignsApi.estimateCost` fallback на `aggregator_tariffs` для subaccount, либо корректное сообщение «Тариф не настроен, стоимость будет рассчитана после запуска» вместо 0,00 ₽ |
+| B11 | MED | `/campaigns/:id` страница детализации | После запуска страница показывает статус «Подготовка» 0/0/0/0. БД через 3 секунды уже `completed, failed_count=3`. UI не polling и не обновляется без F5 | Добавить SSE или короткий polling аналогично QuickSend (3s интервал, MAX 60 попыток). QuickSend уже реализовано в [QuickSendPage.tsx:92-128](portal-frontend/src/pages/quick-send/QuickSendPage.tsx#L92) — переиспользовать паттерн |
+| B12 | LOW (nav) | [CommandCenter.tsx](portal-frontend/src/pages/CommandCenter.tsx) (reseller view) | Карточка «Низкий баланс» → ссылка «Управление суб-аккаунтами → /sub-accounts» у агрегатора. Должно `/network/sub-accounts` (аналогично B7) | `const href = isReseller ? '/network/sub-accounts' : '/sub-accounts'` |
+
+### Статус остальных багов из спринта 1
+
+- B2 (XSS text): не зафикшено на этом спринте. Риск снижен частично (React escape в таблице), но payload всё ещё попадает в `messages.text` и уходит к провайдеру. Отложено.
+- B5 (500 вместо 400 для validation): не зафикшено. Требует рефакторинга префиксов ошибок в messaging-service.
+- B8 (отсутствие тарифа на Ростелеком): конфиг, частично закрыт ручным INSERT aggregator_tariffs, но требует seed update.
+- B9 (исторические pending сообщения): закрывается одним SQL-скриптом, который можно запустить по запросу.
+
+### Итог
+
+- **Основной UX-баг (pending-forever)** — устранён (спринт 1, commits 7bad29e + 7b348d1).
+- **Безопасность отправки** — усилена: лимит длины, валидация sender принадлежности клиенту и approved-статуса, warn-лог при подмене (спринт 2, c910e53).
+- **Агрегатор видит трафик субаккаунта** — ✅ через `/network/dashboard` и `/network/sub-accounts/:id` (включая Messages tab).
+- **Campaign Wizard end-to-end** — ✅ создаёт/запускает рассылку, БД обновляется. Остались UX-баги отдельного screen'а (cost=0, не-polling detail).
+
+Итоговые задеплоенные коммиты: `7bad29e`, `7b348d1`, `4dcbfed`, `c910e53`.
+
+
+
 ## [DONE] Модуль: Отправка сообщений и рассылок (aggregator + subaccount, fix + инфраструктура + QA full, 2026-04-22)
 
 Старт/финиш: 2026-04-22. Учётки: subacc@test.local (client a0000000-...-000000000002), aggregator@test.local (client a0000000-...-000000000001, is_reseller=t). Тест-объекты: sender «Trest» (subacc) и «AuditTest» (agg), контактные базы, 2 тарифа агрегатора.
