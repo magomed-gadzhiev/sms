@@ -163,8 +163,9 @@ export function SenderNamesPage() {
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Канал</label>
+            <label htmlFor="channel-select" className="block text-sm font-medium text-gray-700 mb-1">Канал</label>
             <select
+              id="channel-select"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={createChannel}
               onChange={(e) => setCreateChannel(e.target.value as 'sms' | 'voice' | 'viber')}
@@ -188,7 +189,7 @@ export function SenderNamesPage() {
             {createError && <p className="mt-1 text-sm text-red-600">{createError}</p>}
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Отмена</Button>
+            <Button type="button" variant="ghost" onClick={() => { setShowCreate(false); setCreateChannel('sms'); }}>Отмена</Button>
             <Button type="submit" disabled={creating}>Зарегистрировать</Button>
           </div>
         </form>
