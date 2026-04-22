@@ -48,6 +48,7 @@ export function SenderNamesPage() {
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
+  const [createChannel, setCreateChannel] = useState<'sms' | 'voice' | 'viber'>('sms');
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -84,9 +85,10 @@ export function SenderNamesPage() {
     setCreating(true);
     setCreateError('');
     try {
-      await senderNamesApi.create(createName.trim(), selectedCompanyId || undefined);
+      await senderNamesApi.create(createName.trim(), selectedCompanyId || undefined, createChannel);
       setShowCreate(false);
       setCreateName('');
+      setCreateChannel('sms');
       load();
     } catch (e) {
       setCreateError(e instanceof ApiError ? e.message : 'Ошибка создания');
@@ -142,7 +144,7 @@ export function SenderNamesPage() {
       />
 
       {/* Create modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Зарегистрировать имя отправителя">
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); setCreateChannel('sms'); }} title="Зарегистрировать имя отправителя">
         <form onSubmit={handleCreate} className="space-y-4">
           {companies.length > 0 && (
             <div>
@@ -160,6 +162,18 @@ export function SenderNamesPage() {
               </select>
             </div>
           )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Канал</label>
+            <select
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={createChannel}
+              onChange={(e) => setCreateChannel(e.target.value as 'sms' | 'voice' | 'viber')}
+            >
+              <option value="sms">SMS</option>
+              <option value="voice">Voice</option>
+              <option value="viber">Viber</option>
+            </select>
+          </div>
           <div>
             <Input
               label="Имя отправителя"

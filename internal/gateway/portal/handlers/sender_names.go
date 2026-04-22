@@ -47,6 +47,7 @@ func (h *SenderNameHandlers) SetBillingClients(
 type createSenderNameRequest struct {
 	Name      string `json:"name"`
 	CompanyID string `json:"company_id"`
+	Channel   string `json:"channel"`
 }
 
 func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +63,10 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 	}
 	if req.Name == "" {
 		respondError(w, shared.ErrInvalidInput("Поле name обязательно"))
+		return
+	}
+	if req.Channel == "" {
+		respondError(w, shared.ErrInvalidInput("Поле channel обязательно (sms, voice, viber)"))
 		return
 	}
 
@@ -85,6 +90,7 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 		ClientId:  clientID.String(),
 		Name:      req.Name,
 		CompanyId: companyID,
+		Channel:   req.Channel,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка создания имени отправителя")
@@ -255,6 +261,7 @@ func senderNameToJSON(sn *sendernamev1.SenderNameInfo) map[string]interface{} {
 		"id":               sn.Id,
 		"client_id":        sn.ClientId,
 		"name":             sn.Name,
+		"channel":          sn.GetChannel(),
 		"status":           sn.Status,
 		"rejection_reason": rejectionReason,
 		"reviewer_id":      sn.ReviewerId,

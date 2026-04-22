@@ -49,8 +49,7 @@ func (h *SenderNameHandler) CreateSenderName(ctx context.Context, req *sendernam
 		return nil, status.Error(codes.InvalidArgument, "invalid company_id format")
 	}
 
-	// TODO(phase1 follow-up): add channel to SenderName proto; defaulting to SMS for now.
-	sn, err := h.svc.RegisterSenderName(ctx, clientID, companyID, req.Name, domain.SenderNameChannelSMS)
+	sn, err := h.svc.RegisterSenderName(ctx, clientID, companyID, req.Name, req.GetChannel())
 	if err != nil {
 		return nil, h.mapError(err)
 	}
@@ -285,6 +284,8 @@ func (h *SenderNameHandler) mapError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, domain.ErrInvalidSenderNameFormat):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrInvalidChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrInvalidSenderNameStatus):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrSenderNameNotApproved):
@@ -301,6 +302,7 @@ func senderNameToProto(sn *domain.SenderName) *sendernamev1.SenderNameInfo {
 		ClientId:        sn.ClientID.String(),
 		CompanyId:       sn.CompanyID.String(),
 		Name:            sn.Name,
+		Channel:         sn.Channel,
 		Status:          sn.Status,
 		RejectionReason: sn.RejectionReason,
 		CreatedAt:       timestamppb.New(sn.CreatedAt),

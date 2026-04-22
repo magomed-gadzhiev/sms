@@ -451,6 +451,7 @@ export interface SenderNameInfo {
   id: string;
   client_id: string;
   name: string;
+  channel?: 'sms' | 'voice' | 'viber';
   status: 'pending' | 'approved' | 'rejected' | 'deactivated';
   rejection_reason?: string;
   reviewer_id?: string;
@@ -478,8 +479,8 @@ export const senderNamesApi = {
     );
   },
   get: (id: string) => apiFetch<SenderNameInfo>(`/sender-names/${id}`),
-  create: (name: string, companyId?: string) =>
-    apiFetch<SenderNameInfo>('/sender-names', { method: 'POST', body: JSON.stringify({ name, ...(companyId ? { company_id: companyId } : {}) }) }),
+  create: (name: string, companyId?: string, channel: 'sms' | 'voice' | 'viber' = 'sms') =>
+    apiFetch<SenderNameInfo>('/sender-names', { method: 'POST', body: JSON.stringify({ name, channel, ...(companyId ? { company_id: companyId } : {}) }) }),
   update: (id: string, name: string) =>
     apiFetch<SenderNameInfo>(`/sender-names/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   resubmit: (id: string) =>
