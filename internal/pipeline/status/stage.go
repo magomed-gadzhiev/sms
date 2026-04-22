@@ -2,6 +2,7 @@ package status
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -136,10 +137,17 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 
 	// 2. Batch upsert в БД.
 	if err := s.batchUpsert(ctx, records); err != nil {
-		s.logger.Error().
-			Err(err).
-			Int("batch_size", len(records)).
-			Msg("ошибка batch upsert статусов, буферизация для retry")
+		// Partial — не ошибка БД, это race с persist-stage. Логируем warn без spam.
+		if errors.Is(err, errUpsertPartial) {
+			s.logger.Warn().
+				Int("batch_size", len(records)).
+				Msg("batch upsert partial — persist-stage ещё не вставил часть записей, retry через failedBuffer")
+		} else {
+			s.logger.Error().
+				Err(err).
+				Int("batch_size", len(records)).
+				Msg("ошибка batch upsert статусов, буферизация для retry")
+		}
 		monitoring.PipelineMessagesProcessed.WithLabelValues("status", "error").Add(float64(len(records)))
 
 		// T030: буферизация неудачных записей для retry (с ограничением размера).
@@ -325,7 +333,7 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 	}
 
 	// 3. UPDATE from temp table (idempotent — only newer timestamps)
-	_, err = tx.Exec(ctx, `
+	tag, err := tx.Exec(ctx, `
 		UPDATE messages SET
 			status = s.status,
 			status_message = COALESCE(s.status_message, messages.status_message),
@@ -344,8 +352,23 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 		return fmt.Errorf("batch update: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// Race с persist-stage: status-stage может получить SentMessage раньше,
+	// чем persist-stage успел INSERT. Тогда UPDATE затрагивает 0 строк,
+	// а SentMessage теряется. Возвращаем "not all applied" чтобы caller
+	// буферизовал записи на retry — через секунду persist уже вставил.
+	if tag.RowsAffected() < int64(len(records)) {
+		return errUpsertPartial
+	}
+	return nil
 }
+
+// errUpsertPartial — sentinel для case когда UPDATE not all rows (race с persist).
+// Caller буферизует для retry.
+var errUpsertPartial = fmt.Errorf("batch upsert partial — message not yet persisted, retry queued")
 
 // mapStatus преобразует статус из SentMessage в статус для БД.
 func mapStatus(status string) string {
@@ -425,6 +448,16 @@ func (s *Stage) retryLoop(ctx context.Context) {
 			batch := s.failedBuffer
 			s.failedBuffer = nil
 			s.failedMu.Unlock()
+
+			// Обновляем UpdatedAt чтобы обойти гонку с persist-stage:
+			// при retry persist уже вставил row с updated_at=время_инсерта,
+			// и тот может быть > первоначального r.UpdatedAt → UPDATE снова 0 rows.
+			// time.Now() сейчас гарантированно больше updated_at из только что
+			// вставленной persist row.
+			now := time.Now()
+			for _, r := range batch {
+				r.UpdatedAt = now
+			}
 
 			s.logger.Info().
 				Int("buffer_size", len(batch)).
