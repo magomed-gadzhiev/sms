@@ -1,5 +1,54 @@
 # UX Audit Progress
 
+## [DONE] Модуль: Отправка сообщений и рассылок (aggregator + subaccount, fix + инфраструктура + QA full, 2026-04-22)
+
+Старт/финиш: 2026-04-22. Учётки: subacc@test.local (client a0000000-...-000000000002), aggregator@test.local (client a0000000-...-000000000001, is_reseller=t). Тест-объекты: sender «Trest» (subacc) и «AuditTest» (agg), контактные базы, 2 тарифа агрегатора.
+
+### Критические фиксы (задеплоены)
+
+| # | Severity | Файл | Коммит | Было | Стало |
+|---|---|---|---|---|---|
+| 1 | CRITICAL | `internal/pipeline/sender/stage.go` | 7bad29e | При `tarification_rejected`/`frozen` sender молча вызывал `session.MarkMessage` → messages.status остаётся `pending` навсегда. UI показывает «Ожидание», клиент не понимает почему сообщение не идёт. Воспроизведено: 3 сообщения субаккаунта и агрегатора застряли в pending ≥30 мин | `publishRejectedStatus()` публикует `SentMessage{Status:"rejected", ErrorMessage}` в `sms.sent` для детерминированных отказов (frozen, tarification_rejected). Для transient (billing_unavailable, tarification_error) — return error → Kafka redelivery вместо потери |
+| 2 | CRITICAL (race) | `internal/pipeline/status/stage.go` | 7b348d1 | status-stage получает `sms.sent{rejected}` раньше, чем persist-stage успел INSERT. `UPDATE ... WHERE updated_at < s.updated_at` → 0 rows, rejected-статус теряется | `batchUpsert` возвращает `errUpsertPartial` когда `RowsAffected < len(records)` → `failedBuffer` → retry через `retryLoop` с обновлением `UpdatedAt = time.Now()` (обходит race) |
+| 3 | HIGH (ux) | `internal/pipeline/status/stage.go` | 7b348d1 | `ErrorMessage` из `SentMessage` игнорировался status-stage → `messages.status_message` оставался NULL, пользователь видел «Отклонено» без причины | `statusRecord.StatusMessage` пробрасывается через COPY temp-table + UPDATE. `submitted_at` не ставится для rejected (сообщение не уходило провайдеру) |
+
+### Найденные, не исправленные баги (добавлены в отложенный bug-list)
+
+| # | Severity | Place | Описание | Предложение |
+|---|---|---|---|---|
+| B2 | HIGH (security) | `POST /portal/v1/messages` | Payload `<script>alert(1)</script>` **принимается** и сохраняется в `messages.text` as-is. React рендерит escaped в таблице, но CSV-экспорт и будущие `dangerouslySetInnerHTML` — реальный риск. Также уходит к провайдеру как тело SMS | Санитизировать/отклонять `<script>`, SQL-шаблоны в теле; либо строго enforce «plain text» на backend |
+| B3 | HIGH (billing risk) | `POST /portal/v1/messages` | Текст >160 символов принимается API без лимита. Отправил 1000 символов = 7 сегментов, за которые спишется. Frontend ограничивает 765, но API голый | Ввести жёсткий лимит на backend (напр. 1600 симв = 10 сегментов max) с 400 response |
+| B4 | MED | `POST /portal/v1/messages` | Непроверенный sender name (`NotApproved`) принимается как queued. Нет валидации «sender ∈ approved_sender_names_of_client» | Проверять `sender_names.name == req.source AND client_id == caller AND status = 'approved'` в handler. 403 если не найдено |
+| B5 | LOW (ux) | `POST /portal/v1/messages`, `INTERNAL_ERROR` 500 | Валидационные ошибки (source > 20 символов, нецифровой destination) возвращаются как HTTP 500 `INTERNAL_ERROR` вместо 400 `INVALID_INPUT`. `{"error":{"code":"INTERNAL_ERROR","message":"validation failed: validation failed: validation error for field source..."}}` — два "validation failed" префикса | Wrap validation errors в `shared.ErrInvalidInput` до вызова gRPC; унифицировать префиксы |
+| B6 | MED | `/messages` (agg send, source → 'SMS') | Отправил с `source:"AuditTest"` агрегатор, в БД `messages.source = 'SMS'`. Воспроизведено на TC-1 happy retry. Возможно, это нормализация/substitute в messaging-service при некорректной sender_category. Нужно отследить | Добавить строгую проверку в messaging-service: если sender не находится в whitelist → rejected с ясной причиной, а не substitute |
+| B7 | LOW | `portal-frontend/src/pages/campaigns/CampaignsPage.tsx` | Инфо-панель "Рассылки суб-аккаунтов доступны в разделе [Суб-аккаунты](/sub-accounts)" — для агрегатора ведёт не туда. Агрегатор живёт в `/network/sub-accounts` | Завязать href на `isReseller`: `/network/sub-accounts` для реселлера, `/sub-accounts` иначе |
+| B8 | LOW (config) | Тарификация | В тестовой БД нет тарифа агрегатора для Ростелекома (оператор 10000000-...-000000000005) и нет унифицированного тарифа для sender_category=shared на Default-RU. Результат: все отправки на префиксы 7990-7999 отклоняются. Добавил `aggregator_tariffs` на Ростелеком в QA-проходе — happy-path стал проходить у агрегатора | Прогнать seed чтобы у тестовых агрегаторов был full оператор-matrix. Плюс проработать UX для случая «нет тарифа на оператора» — сейчас просто rejected, без явного намёка клиенту, что нужно обратиться к агрегатору |
+| B9 | LOW | Исторические `pending` сообщения | 3 сообщения, отправленных до фикса (03071720, deb41b04, aec884da), остаются в `pending` навсегда — sender их повторно не обработает, запись в `sms.sent{rejected}` для них не публиковалась | Одноразовый migrate-скрипт: `UPDATE messages SET status='rejected', status_message='historical pre-fix' WHERE status='pending' AND created_at < '2026-04-22 19:30 UTC'`. Сделал в ходе аудита вручную |
+
+### Проверка Q (API + БД) и инфраструктуры
+
+| Что | Ожидание | Факт |
+|---|---|---|
+| `POST /messages` subacc с невалидным тарифом | rejected + status_message | **после фикса**: status=rejected, status_message="no active tariff plan for operator and sender category", submitted_at=NULL ✅ |
+| `POST /messages` валидная конфигурация | sent/delivered | Не протестировано до конца — тариф исправлен локально, но есть TC-B6 (source substitute). Отложено |
+| QuickSend UI (subacc) — 3 номера батчем | 3 строки «Отклонено» | ✅ UI показал все 3 строки с корректным label «Отклонено» из STATUS_LABELS, polling работает |
+| Agg → `/network/dashboard` | Видит суб-аккаунтов, балансы, трафик | ✅ 4 субаккаунта, баланс 137 557,60 RUB (свой 87 581,50 + сеть 49 976,10), топ-5 SMS, DR 38.8% |
+| Agg → `/network/sub-accounts/:subId` «Сообщения» | Видит все сообщения субаккаунта | ✅ Видит включая наши QA-отправки (`UI-QA test 1`, `QA-TC1-*`, XSS-payload и др.) |
+| IDOR: subacc GET чужое message | 403/404 | 403 ✅ |
+| IDOR: agg GET subacc message через `/messages/:id` (не сетевой endpoint) | 403 — у агрегатора отдельный reseller endpoint | 403 ✅ (сетевой просмотр работает только через `/network/sub-accounts/:id/messages`) |
+| Container health (25 сервисов) | healthy | 24 healthy, dev-контейнер без health-probe — ожидаемо |
+| Kafka топики в потоке | sms.raw→routed→sent→status | ✅ router+persist+sender+status обработали новые сообщения; status retry buffer работает |
+| messages CHECK constraint | содержит 'rejected' | ✅ подтверждено `messages_status_check` |
+
+### Итог по scope
+
+- **Главный запрос пользователя** («проверь, что агрегатор корректно видит новые данные») — **PASS**. Reseller dashboard агрегирует балансы и трафик; вкладка «Сообщения» субаккаунта в `/network/sub-accounts/:id` показывает весь трафик субаккаунта (включая только что отправленный в QA-прогоне).
+- **Критический UX-баг** (pending-forever) устранён в двух коммитах. Проверено end-to-end через браузер: 3 батчевые отправки субаккаунта → UI показывает «Отклонено» с polling'ом, в БД `status=rejected`, `status_message` заполнен, `submitted_at=NULL`.
+- **Race condition persist vs status** (регрессия из предыдущих изменений pipeline) — исправлена через `errUpsertPartial`/retry.
+- 7 дополнительных багов (XSS, длина, validation codes, source substitute, битая навигация) зафиксированы в bug-list, не блокирующие.
+
+
+
 ## [DONE] Модуль: Панель субаккаунта — последовательный обход всех страниц (subaccount, fix mode + инфраструктура + QA full, 2026-04-22)
 
 Запущен: 2026-04-22, тест-аккаунт `subacc@test.local` / `Test1234!`, client_id `a0000000-...-000000000002`, parent `a0000000-...-000000000001`, баланс 49 976,10 ₽. Обошёл 25 модулей через браузер + API + БД.
