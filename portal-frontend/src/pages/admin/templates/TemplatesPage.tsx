@@ -20,6 +20,8 @@ const statusLabelMap: Record<string, string> = {
 
 const columns: Column<TemplateInfo>[] = [
   { key: 'name', header: 'Название', sortable: true },
+  // TODO: Shows truncated client_id UUID; replace with client_email once the
+  // admin templates endpoint is pool-migrated (currently returns client_id only).
   { key: 'client_id', header: 'Клиент', render: (t) => t.client_id.slice(0, 8) + '...' },
   {
     key: 'body',

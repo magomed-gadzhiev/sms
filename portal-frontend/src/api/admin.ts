@@ -717,6 +717,7 @@ export interface SenderNameOperatorRegistration {
 export interface AdminSenderNameInfo {
   id: string;
   client_id: string;
+  client_email?: string; // enriched by list endpoint via JOIN; absent on detail (gRPC path)
   name: string;
   status: 'pending' | 'approved' | 'rejected' | 'deactivated';
   rejection_reason?: string;

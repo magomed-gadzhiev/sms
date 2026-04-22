@@ -188,6 +188,9 @@ export function SenderNameDetailPage() {
           </div>
           <div>
             <dt className="text-xs text-gray-500 mb-1">Клиент</dt>
+            {/* TODO: Shows raw client_id; will be replaced with email once detail
+                endpoint is pool-migrated (currently uses gRPC path which
+                does not include client_email). */}
             <dd className="text-sm text-gray-700">{senderName.client_id}</dd>
           </div>
           <div>

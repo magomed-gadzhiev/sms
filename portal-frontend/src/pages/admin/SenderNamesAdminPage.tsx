@@ -149,7 +149,9 @@ export function SenderNamesAdminPage() {
 
   const columns: Column<AdminSenderNameInfo>[] = [
     { key: 'name', header: 'Имя', render: (sn) => <span className="font-mono font-medium">{sn.name}</span> },
-    { key: 'client_id', header: 'Клиент', render: (sn) => <span className="text-xs text-gray-500">{sn.client_id}</span> },
+    { key: 'client_email', header: 'Клиент', render: (sn) => (
+      <span className="text-sm text-gray-700">{sn.client_email || sn.client_id}</span>
+    ) },
     {
       key: 'status', header: 'Статус', render: (sn) => {
         const s = STATUS_BADGE[sn.status] ?? { variant: 'default' as const, label: sn.status };
