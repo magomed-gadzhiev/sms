@@ -3,7 +3,6 @@ package domain
 import (
 	"errors"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +11,7 @@ import (
 var (
 	ErrSenderNameNotFound      = errors.New("sender name not found")
 	ErrDuplicateSenderName     = errors.New("sender name already exists for this client")
-	ErrInvalidSenderNameFormat = errors.New("invalid sender name format: must be 1-11 alphanumeric chars or 1-15 digits")
+	ErrInvalidSenderNameFormat = errors.New("invalid sender name format: must be 1-11 of [A-Za-z0-9._-] or 1-15 digits, no spaces")
 	ErrInvalidSenderNameStatus = errors.New("invalid status transition for sender name")
 	ErrSenderNameNotApproved   = errors.New("sender name is not approved")
 )
@@ -29,7 +28,7 @@ const (
 )
 
 var (
-	senderNameAlphanumericRegex = regexp.MustCompile(`^[A-Za-z0-9 ]{1,11}$`)
+	senderNameAlphanumericRegex = regexp.MustCompile(`^[A-Za-z0-9._-]{1,11}$`)
 	senderNameNumericRegex      = regexp.MustCompile(`^\d{1,15}$`)
 )
 
@@ -64,7 +63,7 @@ func ValidateSenderName(name string) error {
 	if senderNameNumericRegex.MatchString(name) {
 		return nil
 	}
-	if senderNameAlphanumericRegex.MatchString(name) && strings.TrimSpace(name) != "" {
+	if senderNameAlphanumericRegex.MatchString(name) {
 		return nil
 	}
 	return ErrInvalidSenderNameFormat
