@@ -164,9 +164,34 @@ func main() {
 	aggMarginLogRepo := tarificationrepo.NewAggregatorMarginLogRepository(dbx)
 	tarificationService.SetAggregatorRepos(clientInfoRepo, aggTariffRepo, aggMarginLogRepo)
 
+	// QuotaService — используется Calculate() для read-only lookup активной
+	// квоты и подсчёта charge_mode (pool/overage/split). Без него Calculate
+	// для субаккаунта возвращает QuotaServiceMissing (маппится в
+	// QUOTA_NOT_CONFIGURED для клиента) — hot-path commit-on-submit никогда
+	// не списал бы успешно. Отдельный экземпляр от admin-gateway/portal-gateway
+	// (те живут в своих процессах); repo общий через БД.
+	aggQuotaRepo := tarificationrepo.NewAggregatorQuotaRepository(dbx)
+	tarificationService.SetQuotaService(application.NewQuotaService(aggQuotaRepo))
+
 	// Phase 2 commit-on-submit флаг. При false — legacy flow (списание в TarifyMessage).
 	// При true — TarifyMessage только считает (read-only), списание в CommitCharge.
 	tarificationService.SetCommitOnSubmitEnabled(cfg.Tarification.CommitOnSubmitEnabled)
+
+	// Phase 2 persistent retry queue + worker для CommitCharge transport failures.
+	// Worker запускается всегда (даже при flag=false): миграция таблицы не мешает
+	// legacy-режиму, запись в queue происходит только при transport error в
+	// commit-on-submit пути. Worker при пустой очереди тратит один SELECT / interval.
+	commitRetryRepo := tarificationrepo.NewCommitRetryRepository(dbx)
+	tarificationService.SetCommitRetryRepo(commitRetryRepo)
+	commitRetryWorker := application.NewCommitRetryWorker(
+		commitRetryRepo, tarificationService,
+		cfg.Tarification.CommitRetryBatchSize,
+		cfg.Tarification.CommitRetryMaxAttempts,
+		logger,
+	)
+	commitRetryCtx, commitRetryCancel := context.WithCancel(context.Background())
+	go commitRetryWorker.Run(commitRetryCtx, time.Duration(cfg.Tarification.CommitRetryIntervalSeconds)*time.Second)
+	defer commitRetryCancel()
 
 	// Phase 1 unified pricing model. Под фича-флагом. Горячий путь по-прежнему
 	// использует legacy пока флаг OFF; этот блок только инициализирует компоненты

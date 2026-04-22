@@ -63,6 +63,11 @@ func SetupRouter(
 	resellerRoutingHandlers *handlers.ResellerRoutingHandlers,
 	resellerTariffHandlers *handlers.ResellerTariffHandlers,
 	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
+	networkTariffsSummaryHandler *handlers.NetworkTariffsSummaryHandler,
+	networkTariffTemplatesHandler *handlers.NetworkTariffTemplatesHandler,
+	networkTariffEditorHandler *handlers.NetworkTariffEditorHandler,
+	networkTariffBulkHandler *handlers.NetworkTariffBulkHandler,
+	clientTariffsEffectiveHandler *handlers.ClientTariffsEffectiveHandler,
 	resellerAnalyticsHandlers *handlers.ResellerAnalyticsHandlers,
 	networkStatsHandlers *handlers.NetworkStatisticsHandlers,
 	notificationHandlers *handlers.NotificationHandlers,
@@ -233,6 +238,11 @@ func SetupRouter(
 	tariffs.HandleFunc("/change", tariffHandlers.ChangePlan).Methods("POST")
 	tariffs.HandleFunc("/usage", tariffHandlers.GetUsage).Methods("GET")
 
+	// Task 22: client self-view effective tariff matrix (/tariffs page).
+	// Any authenticated client can read their own effective prices — no
+	// is_reseller gate. Resellers / standalone clients get an empty matrix.
+	protected.HandleFunc("/client/tariffs/effective", clientTariffsEffectiveHandler.Get).Methods("GET")
+
 	// Audit log endpoints
 	protected.HandleFunc("/audit-log", auditHandlers.ListAuditLog).Methods("GET")
 
@@ -392,6 +402,29 @@ func SetupRouter(
 	routes.HandleFunc("/{id}", routeHandlers.UpdateRoute).Methods("PUT")
 	routes.HandleFunc("/{id}", routeHandlers.DeleteRoute).Methods("DELETE")
 
+	// Network tariffs — reseller-admin facing /network/tariffs page (spec 2026-04-22).
+	// Path lives at the top of the authenticated portal tree (not under /reseller/)
+	// because the frontend route is /network/tariffs. The handler enforces the
+	// is_reseller check itself — there is no distinct "reseller_admin" role in this
+	// project; the reseller flag on clients is the gate.
+	networkTariffs := protected.PathPrefix("/network/tariffs").Subrouter()
+	networkTariffs.HandleFunc("/subaccounts-summary", networkTariffsSummaryHandler.List).Methods("GET")
+
+	// Task 3: /network/tariff-templates (sibling of /network/tariffs, not nested
+	// under it — the frontend calls it at the /network/ level).
+	protected.HandleFunc("/network/tariff-templates", networkTariffTemplatesHandler.List).Methods("GET")
+	// Task 4: create / bind / duplicate template.
+	protected.HandleFunc("/network/tariff-templates", networkTariffTemplatesHandler.Create).Methods("POST")
+	protected.HandleFunc("/network/tariff-templates/{id}/bind", networkTariffTemplatesHandler.Bind).Methods("POST")
+	protected.HandleFunc("/network/tariff-templates/{id}/duplicate", networkTariffTemplatesHandler.Duplicate).Methods("POST")
+
+	// Task 5: inheritance-aware matrix editor read endpoint.
+	protected.HandleFunc("/network/tariff-editor/{id}", networkTariffEditorHandler.Get).Methods("GET")
+
+	// Task 6: bulk-write endpoints for the matrix editor (tiers/cells + periods).
+	protected.HandleFunc("/network/tariff-plans/{plan_id}/bulk", networkTariffBulkHandler.BulkPatch).Methods("PATCH")
+	protected.HandleFunc("/network/tariff-plans/{plan_id}/periods", networkTariffBulkHandler.CreatePeriod).Methods("POST")
+
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()
 	resellerOpRegs := reseller.PathPrefix("/operator-registrations").Subrouter()
@@ -450,14 +483,14 @@ func SetupRouter(
 	resellerPlans.HandleFunc("/copy", resellerTariffPlanHandlers.CopyPlans).Methods("POST")
 	resellerPlans.HandleFunc("/{id}", resellerTariffPlanHandlers.UpdatePlan).Methods("PUT")
 	resellerPlans.HandleFunc("/{id}", resellerTariffPlanHandlers.DeletePlan).Methods("DELETE")
-	resellerPlans.HandleFunc("/{plan_id}/periods", resellerTariffPlanHandlers.ListPeriods).Methods("GET")
-	resellerPlans.HandleFunc("/{plan_id}/periods", resellerTariffPlanHandlers.CreatePeriod).Methods("POST")
+	resellerPlans.HandleFunc("/{id}/periods", resellerTariffPlanHandlers.ListPeriods).Methods("GET")
+	resellerPlans.HandleFunc("/{id}/periods", resellerTariffPlanHandlers.CreatePeriod).Methods("POST")
 
 	resellerPeriods := reseller.PathPrefix("/tariff-periods").Subrouter()
 	resellerPeriods.HandleFunc("/{id}", resellerTariffPlanHandlers.UpdatePeriod).Methods("PUT")
 	resellerPeriods.HandleFunc("/{id}", resellerTariffPlanHandlers.DeletePeriod).Methods("DELETE")
-	resellerPeriods.HandleFunc("/{period_id}/tiers", resellerTariffPlanHandlers.ListTiers).Methods("GET")
-	resellerPeriods.HandleFunc("/{period_id}/tiers", resellerTariffPlanHandlers.UpsertTiers).Methods("POST")
+	resellerPeriods.HandleFunc("/{id}/tiers", resellerTariffPlanHandlers.ListTiers).Methods("GET")
+	resellerPeriods.HandleFunc("/{id}/tiers", resellerTariffPlanHandlers.UpsertTiers).Methods("PUT", "POST")
 
 	// Reseller analytics
 	reseller.HandleFunc("/analytics", resellerAnalyticsHandlers.GetNetworkAnalytics).Methods("GET")

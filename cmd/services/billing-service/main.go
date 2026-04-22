@@ -84,6 +84,8 @@ func main() {
 	// Репозитории тарификации, нужные для атомарного dual-charge flow (квота + margin log).
 	quotaRepo := tarrepo.NewAggregatorQuotaRepository(dbx)
 	marginLogRepo := tarrepo.NewAggregatorMarginLogRepository(dbx)
+	// Idempotency guard для dual-charge — non-partitioned, solo-PK=message_id.
+	commitGuardRepo := billingrepo.NewCommitIdempotencyGuardRepository(dbx)
 
 	// Инициализация Kafka producer для публикации событий биллинга
 	// Используем дефолтные топики или создаем новые для billing событий
@@ -103,6 +105,7 @@ func main() {
 	// Зависимости для атомарного ChargeMessageDual (dual-списание + квота + margin log в одной tx).
 	dualDeps := application.DualChargeDeps{
 		DB:              dbx,
+		Guard:           commitGuardRepo,
 		QuotaRepo:       quotaRepo,
 		MarginLogRepo:   marginLogRepo,
 		AccountRepo:     accountRepo,

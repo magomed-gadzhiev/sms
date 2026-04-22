@@ -56,14 +56,18 @@ func (r *AggregatorMarginLogRepository) Create(ctx context.Context, entry *domai
 }
 
 // CreateTx вставляет margin_log в рамках переданной транзакции.
-// Возвращает (true, nil), если запись создана; (false, nil) если уже существовала (ON CONFLICT).
-// Используется billing-service'ом для атомарного dual-charge: INSERT margin_log первым,
-// и если idempotency-guard сработал — транзакция откатывается без трогания балансов.
+// Возвращает (true, nil), если запись создана; (false, nil) если уже существовала.
+//
+// ВАЖНО: ON CONFLICT здесь невозможен из-за partitioned table + composite unique
+// (idempotency_key, created_at). Постгрес требует соответствия ON CONFLICT колонок
+// унику, solo (idempotency_key) не матчится. Поэтому caller (billing.ChargeMessageDual)
+// ДОЛЖЕН предварительно вызвать commit_idempotency_guard.ClaimTx — он гарантирует,
+// что для этого message_id мы дойдём сюда не более 1 раза. При нарушении caller
+// получит pg constraint violation (вероятно PK id), это defensive behaviour.
 func (r *AggregatorMarginLogRepository) CreateTx(ctx context.Context, tx *sqlx.Tx, entry *domain.AggregatorMarginLog) (bool, error) {
 	query := `
 		INSERT INTO aggregator_margin_log ` + marginLogInsertColumns + `
 		VALUES ` + marginLogInsertValues + `
-		ON CONFLICT (idempotency_key) DO NOTHING
 		RETURNING id
 	`
 

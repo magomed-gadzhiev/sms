@@ -401,3 +401,362 @@ useEffect(() => {
 
 **Статус:** 🟡 OPEN-MEDIUM. AC-CW-N-11 помечен `test.fixme()` — скипается до фикса фронтенда. Когда реализуется — убрать fixme, тест должен стать зелёным.
 
+---
+
+## D-11: Network routes в спеке vs `/reseller/*` в коде
+
+**Обнаружено:** 2026-04-21 при аудите network-statistics AC перед расширением Batch 2.
+
+**Спека:** [2026-04-17-network-statistics-analytics-monitoring-design.md](../superpowers/specs/2026-04-17-network-statistics-analytics-monitoring-design.md), §1 Architecture:
+```
+GET  /portal/v1/network/statistics
+GET  /portal/v1/network/analytics
+GET  /portal/v1/network/monitoring
+GET  /portal/v1/network/drilldown
+POST /portal/v1/network/export
+CRUD /portal/v1/network/views
+```
+
+**Что в коде:**
+- Router ([router.go:466](../../internal/gateway/portal/router/router.go#L466)): handler'ы из пакета `network_statistics` смонтированы под prefix `reseller.HandleFunc("/statistics", ...)`, т.е. итоговый путь — `/portal/v1/reseller/statistics`.
+- Frontend ([networkStats.ts:161-219](../../portal-frontend/src/api/networkStats.ts#L161-L219)): все API-вызовы идут на `/reseller/statistics`, `/reseller/analytics-summary`, `/reseller/monitoring`, `/reseller/drilldown`, `/reseller/export`, `/reseller/views`.
+- Комментарии в handler'ах ([network_statistics.go:159,186,213](../../internal/gateway/portal/handlers/network_statistics.go#L159)) дезинформируют: `// GetStatistics handles GET /network/statistics` — фактически роута `/network/statistics` не существует.
+- AC-18 в [network-statistics-ac.md](network-statistics-ac.md) уже фиксирует реальный `/reseller/*` контракт, но это не было явно проведено как drift.
+
+**Последствие:**
+1. Любой новый AC, написанный дословно по спеке (как черновик D1 в ходе работы 2026-04-21), использует несуществующие endpoint'ы и ломает тесты.
+2. Внешняя документация/клиенты, следующие спеке, получают 404.
+3. Название "reseller" концептуально неверно в этом месте: раздел для **network-partners** (партнёров-агрегаторов), а не для reseller'ов — это отдельная роль. Использование prefix `/reseller` — легаси из ранней архитектуры, когда аггрегаторы обрабатывались как частный случай reseller.
+
+**Разрешение:**
+- **A (spec=truth, рекомендуется):** переименовать prefix в router'е на `/network/*`, обновить `networkStats.ts` на фронте, обновить комментарии handler'ов. Фронт и бэк в одном PR. Цена: потенциально ломает существующие e2e-тесты, которые ссылаются на `/reseller/*` (проверить `e2e/tests/`). Плюс: название соответствует доменной модели.
+- **B (reasoned deviation):** обновить спеку — заменить `/portal/v1/network/*` на `/portal/v1/reseller/*`, признать исторический prefix. Цена: увековечить confused naming. Новые внешние клиенты будут спотыкаться о "я партнёр сети, почему endpoint называется reseller".
+
+**Приоритет:** 🟡 MEDIUM. Не блокирует работающий flow (фронт и бэк договорились), но блокирует следование спеке при расширении AC и понимании новичками.
+
+**Статус:** 🟡 OPEN-MEDIUM. До разрешения — все новые AC пишутся по фактическому `/reseller/*` (как AC-18). Drift явно отмечен для следующего brainstorm по разделу.
+
+---
+
+## D-12: `validateFilter` возвращает `Internal` вместо `InvalidArgument`
+
+**Обнаружено:** 2026-04-21 при верификации AC-14 (валидация `group_by=5min` на period > 24h).
+
+**Спека:** неявно через §2.5 спеки network-analytics:
+> Валидация комбинации period × group_by возвращает `INVALID_ARGUMENT` с описанием лимита.
+
+**Что в коде:**
+- Validation-логика есть: [service.go:34-55](../../internal/services/network_analytics/application/service.go#L34-L55) — корректно проверяет `GroupByMaxPeriodHours["5min"] = 24`, возвращает `fmt.Errorf("period of %.0f hours exceeds the maximum of %d hours allowed for group_by=%q", ...)`.
+- gRPC wrap не разделяет ошибки: [grpc/server.go:34-36](../../internal/services/network_analytics/grpc/server.go#L34-L36):
+  ```go
+  result, err := s.service.GetStatistics(ctx, filter)
+  if err != nil {
+      return nil, status.Errorf(codes.Internal, "get statistics: %v", err)
+  }
+  ```
+- Любая ошибка — и validation, и БД, и нижележащий infra-сбой — маппится в `codes.Internal`, который HTTP-gateway превращает в **HTTP 500**.
+- UI на выходе получает generic error, пишется в toast без различения (useNetworkStats.ts:118-120): `setError(err?.message || 'Ошибка загрузки данных')`. Никакого распознавания типа ошибки нет.
+
+**Последствие:**
+1. Пользователь, выбравший заведомо невалидную комбинацию (например 5min на 7 днях), видит сообщение вида `rpc error: code = Internal desc = get statistics: period of 168 hours exceeds...`. Это raw-сообщение, без локализации.
+2. Мониторинг/alerting склеивает валидационные отказы с реальными авариями сервиса — невозможно построить SLO на "только infra errors".
+3. AC-14 в документе описывает "HTTP 400 + локализованный toast" — это желаемое состояние, которое код не обеспечивает. На 2026-04-21 AC-14 обновлён под реальное поведение, чтобы тест мог быть зелёным сейчас; после фикса — AC вернуть к изначальной формулировке.
+
+**Разрешение (A = spec=truth):**
+1. Завести sentinel-тип в domain: `var ErrInvalidFilter = errors.New("invalid filter")` или `type ValidationError struct { Msg string }`.
+2. `validateFilter` возвращает ошибку-обёртку этого типа с читаемым русским сообщением.
+3. gRPC server: `errors.As(err, &ValidationError{})` → `codes.InvalidArgument`; иначе — `codes.Internal`.
+4. HTTP handler ([network_statistics.go:177-180](../../internal/gateway/portal/handlers/network_statistics.go#L177-L180)): `respondGRPCError` уже маппит `codes.InvalidArgument` в `ErrInvalidInput` / HTTP 400 ([response.go:72-73](../../internal/api/http/response/response.go#L72-L73)) — дополнительных изменений в HTTP-слое не требуется.
+5. Frontend: в useNetworkStats.ts ловить 400 отдельно и показывать локализованный toast из response.
+
+**Связанные AC:** AC-14 (обновлён в текущем коммите, связан с этим drift), AC-B3-* (новые AC по валидации, которые будут в Batch 2/3).
+
+**Приоритет:** 🟡 MEDIUM. UX-плохо, но не блокирует основной flow. Фикс небольшой, стандартный паттерн для gRPC-сервисов.
+
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `4f0e7d8`. Введён `domain.ValidationError` sentinel; `grpc/server.go` в GetStatistics/GetAnalyticsSummary/GetMonitoringMetrics проверяет `errors.As(err, *ValidationError)` → `codes.InvalidArgument`. Сообщения локализованы на русский. AC-14 обновлён, тест зелёный (HTTP 400 + localized toast).
+
+---
+
+## D-14: `openDrillDown` callsites hardcode `sliceType='provider'`
+
+**Обнаружено:** 2026-04-21 при написании Batch 2 AC для Statistics Table (AC-30).
+
+**Ожидаемое поведение:** при клике по строке таблицы drill-down должен открываться по **измерению текущей группировки**. Если `group_by=provider` — по провайдеру; если `group_by=operator` — по оператору; `group_by=country` — по стране и т.д.
+
+**Что в коде:**
+- Хук `openDrillDown(sliceType, sliceValue, label)` параметризован ([useNetworkStats.ts:183](../../portal-frontend/src/hooks/useNetworkStats.ts#L183)) — сам по себе гибкий.
+- Вызывающие стороны (`NetworkStatisticsPage.tsx`) **hardcode первый аргумент как литерал `'provider'`** в трёх местах:
+  - Строка 108 (режим stats): `onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}`
+  - Строка 122 (режим analytics): то же `'provider'`
+  - Строка 144 (режим monitoring): то же `'provider'`
+
+**Последствие:**
+- При `group_by=operator` клик по строке "МТС" отправит `GET /portal/v1/reseller/drilldown?slice_type=provider&slice_value=мтс` — бэк попытается найти провайдера с именем "мтс", не оператора.
+- В лучшем случае drill-down покажет пустую разбивку, в худшем — ошибочные данные (если имя провайдера и оператора случайно совпадают).
+- То же для `group_by=country`, `group_by=channel`, `group_by=login` — drill-down работает корректно **только** при `group_by=provider`.
+
+**Как могло появиться:** изначально drill-down разрабатывался для дефолтной группировки (провайдеры), параметр `sliceType` добавили в хук как хук "на вырост", но callsite не обновили после расширения списка группировок.
+
+**Разрешение (A = spec=truth):**
+Ввести мэппер `groupByToSliceType(group_by)` в `useNetworkStats.ts` или утилитный модуль:
+```ts
+const GROUP_BY_TO_SLICE: Record<string, string> = {
+  provider: 'provider', operator: 'operator', channel: 'channel',
+  login: 'login', country: 'country',
+};
+function groupByToSliceType(gb: string): string {
+  return GROUP_BY_TO_SLICE[gb] || 'provider'; // fallback для временных группировок (5min, hour, day)
+}
+```
+И изменить все 3 callsites на `stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)`.
+
+Альтернатива — инкапсулировать решение прямо в хуке: `openDrillDownFromRow(row)` сам читает current `group_by`. Более чисто.
+
+**Связанные AC:** AC-30 (зафиксировано bug-first: тест описывает текущее поведение). После фикса — обновить AC-30, чтобы `slice_type` зависел от `group_by`.
+
+**Приоритет:** 🟡 MEDIUM. Функционально ломает drill-down для 4 из 5 dimensional-группировок (operator, channel, login, country), но пользователь, возможно, до сих пор не заметил, если практически использует только group_by=provider.
+
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e`. Введён `groupByToSliceType()` mapper в `NetworkStatisticsPage.tsx`; все 3 callsite'а `openDrillDown` в top-level tabs используют его вместо литерала `'provider'`. Drawer's `onDrillDeeper('operator', ...)` оставлен hardcoded — это отдельная UX-проблема (клик по не-operators tab'у бессмыслен), выделяется в отдельный подкейс при будущем brainstorm'е.
+
+---
+
+## D-15: Абсолютные пороги `pending/error` во фронтенде — без источника истины
+
+**Обнаружено:** 2026-04-21 при self-critique Batch 2 AC (AC-26, AC-27).
+
+**Что в коде:**
+
+Backend ([`domain/models.go:14-21`](../../internal/services/network_analytics/domain/models.go#L14-L21)) объявляет:
+```go
+DLRRateWarning     = 0.90
+DLRRateDanger      = 0.80
+LatencyP95WarnMs   = ...
+LatencyP95DangerMs = ...
+ErrorRateWarning   = ...   // процент, НЕ абсолютный count
+ErrorRateDanger    = ...   // процент
+PendingCountWarn   = 100   // абсолютный
+PendingCountDanger = 500   // абсолютный
+```
+Эти константы используются только в `deriveHealth(...)` ([models.go:355-359](../../internal/services/network_analytics/domain/models.go#L355-L359)) для вычисления `health ∈ {ok, warning, danger}` на каждой строке.
+
+Frontend независимо вводит свои пороги для визуальной окраски столбцов:
+- [StatisticsTable.tsx:43](../../portal-frontend/src/components/network-stats/StatisticsTable.tsx#L43): `r.pending > 100 ? 'text-amber-600' : ''` — совпадает с `PendingCountWarn=100`, но порог 500 (`PendingCountDanger`) не используется, нет red-варианта.
+- [StatisticsTable.tsx:45](../../portal-frontend/src/components/network-stats/StatisticsTable.tsx#L45): `r.error > 500 ? 'text-red-600' : 'text-amber-600'` (при error>0). **Число 500 не соответствует ни одной backend-константе** — в backend нет абсолютных error thresholds, только `ErrorRateWarning/Danger` (проценты).
+- [MonitoringTable.tsx:45](../../portal-frontend/src/components/network-stats/MonitoringTable.tsx#L45): `r.pending > 100 ? 'text-amber-600 font-medium' : ''` — совпадает со StatisticsTable.
+- [MonitoringTable.tsx:47](../../portal-frontend/src/components/network-stats/MonitoringTable.tsx#L47): `r.error > 0 ? 'text-red-600 font-medium'` — любой error сразу красный, **другая логика** по сравнению с StatisticsTable.
+- [DrillDownDrawer.tsx:140](../../portal-frontend/src/components/network-stats/DrillDownDrawer.tsx#L140): `row.error > 0 ? 'text-red-600'` — как MonitoringTable.
+
+**Три разные логики окраски `error` в трёх местах + число 500 без основания + DLR/profit используют отдельные пороги (AC-22/AC-23/AC-25).**
+
+**Последствие:**
+1. Пороги дрейфуют без уведомления: если backend поднимет `PendingCountWarn` до 200, StatisticsTable и MonitoringTable останутся на 100.
+2. Нет согласованной UX-политики: одна и та же строка в StatisticsTable (error=300) будет amber, а в MonitoringTable — red.
+3. AC-26/AC-27 тестируют магические числа, которые никто не согласовывал — тесты станут хрупкими при любой ревизии.
+
+**Разрешение:**
+- **A (spec=truth, рекомендуется):** вынести пороги в `@portal-frontend/src/constants/thresholds.ts` или получать из backend response (например, KPI-ответ содержит порог в payload). Использовать **одно** место истины во фронтенде, которое можно держать синхронным с `domain/models.go` через сгенерированную константу или ручной sync.
+- **B (reasoned deviation):** признать, что цветовая раскраска — frontend concern, и можно иметь разные пороги в разных таблицах (drill-down может быть строже основной). Тогда — минимум, документировать каждое число inline и добавить unit-test `expect(PENDING_WARN_THRESHOLD).toBe(100)` рядом с backend-константой.
+
+**Связанные AC:** AC-26 (pending > 100), AC-27 (error > 500), AC-22/AC-23 (DLR thresholds). Все в Batch 2.
+
+**Приоритет:** 🟡 LOW. UX-симметрия нарушена, но не ломает функциональность. Реальная цена проявится при первой ревизии порогов.
+
+**Статус:** 🟡 OPEN-LOW. При разрешении — упростить AC-26/AC-27, сослать на константы вместо hard-coded "100"/"500" в тексте AC.
+
+---
+
+## D-16: Поля `chart` / `trends` / `previous_kpis` — dead data на wire
+
+**Обнаружено:** 2026-04-21 при Batch 4 (Drill-down drawer) AC и self-critique Batch 3.
+
+**Что в protocol / API:**
+- [`MonitoringResponse.chart: MetricPoint[]`](../../portal-frontend/src/api/networkStats.ts#L102-L107) — исторический график throughput/latency для режима мониторинга.
+- [`AnalyticsResponse.trends: {metric, points}[]`](../../portal-frontend/src/api/networkStats.ts#L93-L100) — трендовые серии для режима аналитики.
+- [`AnalyticsResponse.previous_kpis: KPI[]`](../../portal-frontend/src/api/networkStats.ts#L95) — KPI предыдущего периода для delta-сравнения.
+- [`DrillDownResponse.trends: {metric, points}[]`](../../portal-frontend/src/api/networkStats.ts#L109-L114) — трендовые серии внутри drill-down.
+- Все четыре поля заполняются бэкендом ([network_analytics/grpc/server.go:56-91](../../internal/services/network_analytics/grpc/server.go#L56-L91)): `Trends`, `PreviousKpis`, `Chart` — всё попадает в ответ.
+
+**Что в UI:**
+- `grep '\.chart\|\.trends\|previous_kpis' portal-frontend/src/components/network-stats/*` → **пусто**.
+- `KPI.delta` используется — но только в [StatisticsKPIStrip.tsx:57-59](../../portal-frontend/src/components/network-stats/StatisticsKPIStrip.tsx#L57-L59) (стрелка ↑/↓ + процент). `previous_kpis` как отдельное поле не читается.
+- Recharts 3.8.1 объявлен в зависимостях (plan 019-portal-ux-improvements), но ни один компонент в `network-stats/` не импортирует `recharts`.
+
+**Последствие:**
+1. **UX-gap.** Спека упоминает: "Mode Analytics — тренды, сигналы", "Mode Monitoring — throughput chart", "Drill-down — временная динамика". Ни одна из этих функций не реализована на фронтенде — только таблицы.
+2. **Wire waste.** Backend вычисляет `chart`/`trends`/`previous_kpis` (включая запросы к `network_stats_hourly` для трендов) и отправляет клиенту. Пропускная способность потребляется без пользы. Для drill-down, вызываемого на каждый клик строки, это заметный overhead.
+3. **Protocol drift.** Proto-схема [api/proto/network_analytics/*.proto](../../api/proto/network_analytics/) декларирует поля как часть контракта; если в будущем кто-то решит их реализовать — нужна сверка, что формат не сдрейфовал от backend'а.
+
+**Разрешение:**
+- **A (complete the feature):** реализовать графики. `AnalyticsResponse.trends` → новый компонент `TrendsChart` (Recharts), рендерится над таблицей в mode=analytics. `MonitoringResponse.chart` → `ThroughputChart` в mode=monitoring. `DrillDownResponse.trends` → отдельный tab в drawer (или дополнение к `timeline` tab). `previous_kpis` → вычисление delta клиентом ИЛИ использование уже готового `KPI.delta`, но тогда `previous_kpis` становится избыточен. **Большая работа**: ~3-4 новых компонента + стилизация.
+- **B (amputate):** удалить поля из proto, репо, API-типа. Чище — wire/API отражают только то, что используется. **Плюс:** проще поддерживать. **Минус:** если фичу задумано восстановить — придётся мигрировать proto назад.
+- **C (document as planned):** пометить поля как "reserved for Phase 2", без немедленной реализации. Требует отметки в спеке и readme.
+
+**Приоритет:** 🟡 LOW. Функциональность работает без графиков (таблицы дают ту же информацию, хоть и без визуализации). Но это тип drift'а, который растёт со временем — каждый новый backend-разработчик добавляет поле "на будущее", фронтенд его не видит.
+
+**Связанные AC:** ни один AC не зависит от этих полей. В Batch 4 self-critique point 4 зафиксировано.
+
+**Статус:** 🟡 OPEN-LOW. Решение — при следующем brainstorm'е по разделу (вместе с Analytics Phase 2).
+
+---
+
+## D-17: Удаление сохранённого view — бэкенд и хук готовы, UI отсутствует
+
+**Обнаружено:** 2026-04-21 при Batch 5 (Saved Views) AC.
+
+**Что в инфраструктуре (готово):**
+- API: [`DELETE /portal/v1/reseller/views/:id`](../../portal-frontend/src/api/networkStats.ts#L219) реализован ([`networkStatsApi.deleteView`](../../portal-frontend/src/api/networkStats.ts#L219)).
+- Backend: [`DeleteView` gRPC handler](../../internal/services/network_analytics/grpc/server.go#L226-L233), `views_repository.Delete`, SQL-миграция присутствуют.
+- Хук: [`deleteViewById`](../../portal-frontend/src/hooks/useNetworkStats.ts#L365-L373) реализован, экспортируется как `deleteView` в возвращаемом объекте хука ([useNetworkStats.ts:407](../../portal-frontend/src/hooks/useNetworkStats.ts#L407)).
+
+**Что в UI (отсутствует):**
+- В [NetworkStatisticsPage.tsx:166-194](../../portal-frontend/src/pages/network/NetworkStatisticsPage.tsx#L166-L194) (блок saved views) — **ни одной кнопки / жеста / контекстного меню**, вызывающих `stats.deleteView(id)`.
+- Каждый view-chip имеет только `onClick={() => stats.loadView(v.id)}`. Ни `onContextMenu`, ни long-press, ни иконки корзины.
+
+**Последствие:**
+- Пользователь может **создавать** виды неограниченно, но **не может их удалять** через UI.
+- Накопление ненужных/устаревших views со временем — визуальный мусор в нижней панели.
+- Единственный способ удалить — прямой API-вызов (DevTools / curl) или доступ к БД.
+
+**Как могло появиться:** фича "saved views" была реализована end-to-end (backend→API→hook), но финальная итерация UI не включила destructive action — возможно по причине "не решили UX" (нативный confirm? модальный диалог? hover + корзина?).
+
+**Разрешение:**
+- **A (рекомендуется):** добавить иконку корзины на hover chip'а, с modal-confirm перед DELETE. Минимум изменений — один `onMouseEnter/Leave` handler + одна иконка + модалка через Radix AlertDialog.
+- **B:** dropdown-меню на chip'е (три точки) с действиями "Переименовать" / "Удалить" / "По умолчанию". Более расширяемо, но больше кода.
+- **C:** отложить фичу до brainstorm'а по UX.
+
+**Связанные AC:** Batch 5 (AC-67..AC-74) **намеренно** не включает AC на удаление — AC описывают существующий код, а код не имеет UI-удаления.
+
+**Приоритет:** 🟡 MEDIUM. Функциональный gap для пользователя, не блокер. Обходится через API, но обычный пользователь не знает про DevTools.
+
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e` + `c68e162`. Добавлена кнопка "×" для каждого saved-view chip с `window.confirm` перед DELETE. AC-75 в `saved-views.spec.ts` проверяет flow. UI: два button'а рядом с `gap-0.5`.
+
+---
+
+## D-18: `useEffect` в `useNetworkStats` обнуляет пользовательскую паузу polling'а
+
+**Обнаружено:** 2026-04-21 при фактическом прогоне e2e-тестов Phase 1 в Docker. Тесты AC-42 и AC-43 упали — кнопка `Продолжить` не появлялась после клика `Пауза`.
+
+**Что в коде:**
+[useNetworkStats.ts:129-139](../../portal-frontend/src/hooks/useNetworkStats.ts#L129-L139):
+```tsx
+const polling = usePolling(fetchData, 10000);
+const isMonitoringMode = mode === 'monitoring';
+
+useEffect(() => {
+  if (isMonitoringMode) {
+    polling.resume();
+  } else {
+    polling.pause();
+  }
+}, [isMonitoringMode, polling]);
+```
+
+`usePolling` ([usePolling.ts:33](../../portal-frontend/src/hooks/usePolling.ts#L33)) возвращает новый объект `{ pause, resume, isPaused, lastUpdated }` **на каждом render**. `polling` как dep useEffect — новая ссылка каждый цикл. В monitoring mode этот useEffect запускается на **каждом** render и безусловно вызывает `polling.resume()`, обнуляя пользовательскую паузу.
+
+**Воспроизведение (Playwright):**
+1. Открыть `/network/statistics?mode=monitoring` — polling запущен.
+2. Клик по кнопке "Пауза" → `polling.pause()` → `setIsPaused(true)` → re-render.
+3. На следующем render useEffect видит новую ссылку `polling`, dep меняется, effect firing.
+4. `if (isMonitoringMode) polling.resume()` — `setIsPaused(false)` → re-render.
+5. Кнопка остаётся "Пауза", polling не остановлен.
+
+**Последствие:**
+- UX: пользователь жмёт "Пауза", визуально ничего не меняется (кнопка не флипнулась на "Продолжить"). Может показаться что клик не сработал.
+- Функциональная: polling **нельзя** поставить на паузу в текущем коде. Функция видна в UI, но не работает.
+
+**Разрешение (A = spec=truth):**
+Убрать `polling` из deps или стабилизировать ссылку:
+- **A1:** `useEffect(..., [isMonitoringMode])` — достаточно, т.к. `polling.pause`/`polling.resume` стабильны через `useCallback` внутри `usePolling`.
+- **A2:** сохранить `polling` в `useRef` и использовать `pollingRef.current.pause()` внутри useEffect.
+
+**Связанные AC:** AC-42 (пауза), AC-43 (resume). Phase 1 тесты помечены `test.fail()` с ссылкой на D-18 до фикса.
+
+**Приоритет:** 🟡 MEDIUM. Функция "Пауза" видна пользователю как работающая, на деле не работает. UX-confusing, но не data-loss.
+
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e`. Убрал `polling` из deps useEffect — теперь effect fire только при смене `isMonitoringMode`, `polling.pause/resume` остаются стабильными useCallback'ами. AC-42/AC-43 тесты зелёные на фактическом прогоне в Docker.
+
+---
+
+## D-19: `loadView` не запускает новый fetch если `view.mode` совпадает с текущим
+
+**Обнаружено:** 2026-04-21 при прогоне AC-70 e2e-теста. Тест ожидал `GET /reseller/statistics` после клика по saved-view chip — запрос не ушёл.
+
+**Что в коде:**
+[useNetworkStats.ts:331-343](../../portal-frontend/src/hooks/useNetworkStats.ts#L331-L343) `loadView(id)`:
+- Устанавливает state: `setFiltersState`, `setModeState`, `setActiveViewId`, `setIsViewModified(false)`
+- Обновляет URL: `setSearchParams(filtersToParams(view.mode, parsedFilters))`
+- **НЕ вызывает `fetchData()` напрямую.**
+
+Re-fetch происходит через [useNetworkStats.ts:153-159](../../portal-frontend/src/hooks/useNetworkStats.ts#L153-L159):
+```tsx
+useEffect(() => {
+  if (prevModeRef.current !== mode) {
+    prevModeRef.current = mode;
+    fetchData();
+  }
+}, [mode, fetchData]);
+```
+Только при **смене mode**. Если пользователь на `mode=stats` загружает view с `view.mode='stats'` — mode не меняется, fetchData не запускается. Таблица остаётся со старыми данными несмотря на новые фильтры.
+
+**Последствие:**
+- Пользователь кликнул view "Mts 30d" на вкладке Статистика. Filter state и URL обновились (operator=mts, period=30d и т.д.), но таблица показывает **старые** строки.
+- Визуально фильтры подсвечены активными, результат не совпадает.
+
+**Разрешение (A):**
+Добавить явный `fetchData()` в конце `loadView` (после setSearchParams). Либо добавить фильтры в зависимости useEffect re-fetch'а. Простейший фикс — inline call:
+```tsx
+// В loadView, после setSearchParams:
+fetchData();
+```
+
+**Связанные AC:** AC-70 (клик по chip → filters+URL применяются). Сейчас тест проверяет URL + active chip + filter state — **не** fetch. AC-70 переформулирован 2026-04-21 под реальное поведение, ждёт D-19 фикс.
+
+**Приоритет:** 🟡 MEDIUM. Фактическое применение view происходит только после следующего "Применить" (вручную) или смены mode. Пользователь может не понять почему view "не работает".
+
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `82bf55e`. `loadView` теперь синхронно обновляет `filtersRef.current`, `modeRef.current` и явно вызывает `fetchData()` после `setSearchParams`. AC-70 зелёный.
+
+---
+
+## D-20: `handleSort` в `StatisticsTable` читает stale `filters` prop при быстрых кликах
+
+**Обнаружено:** 2026-04-21 при прогоне e2e-тестов в Docker — AC-28 consistently fails.
+
+**Что в коде** ([StatisticsTable.tsx:54-58](../../portal-frontend/src/components/network-stats/StatisticsTable.tsx#L54-L58)):
+```tsx
+function handleSort(key: string) {
+  const newDir = filters.sort_by === key && filters.sort_dir === 'desc' ? 'asc' : 'desc';
+  onFiltersChange({ sort_by: key, sort_dir: newDir });
+  onApply();
+}
+```
+
+`handleSort` читает `filters` prop через closure каждый render. При быстрых последовательных кликах React не успевает commit-нуть обновлённый `filters` prop к моменту второго клика — computed `newDir` остаётся `'desc'` вместо переключения на `'asc'`. `Suspense` wrapper в `NetworkStatisticsPage.tsx:85-88`, разделяющий lazy-загрузку StatisticsTable, может усугублять задержку commit'а.
+
+**Воспроизведение (e2e):**
+1. `tableHeader('DLR%').click()` → request `sort_by=dlr_rate&sort_dir=desc` ✓
+2. `waitForLoadState('networkidle')` + 300ms timeout
+3. `tableHeader('DLR%').click()` → ожидается `sort_dir=asc`, приходит `desc` снова
+
+**Разрешение (A):**
+Вынести toggle-логику в хук `useNetworkStats` и вычислять `newDir` через функциональный setState, читающий свежий `prev`:
+```tsx
+// useNetworkStats.ts:
+const toggleSort = useCallback((key: string) => {
+  setFiltersState(prev => {
+    const newDir = prev.sort_by === key && prev.sort_dir === 'desc' ? 'asc' : 'desc';
+    const next = { ...prev, sort_by: key, sort_dir: newDir, page: 1 };
+    filtersRef.current = next;
+    return next;
+  });
+  applyFilters();
+}, [applyFilters]);
+
+// StatisticsTable: <th onClick={() => onToggleSort(col.key)}>
+```
+
+**Связанные AC:** AC-28 (помечен `test.fixme()` до фикса).
+
+**Приоритет:** 🟡 LOW. Edge-case (быстрые двойные клики), но мешает e2e. Фикс — небольшой рефакторинг: +одна функция в хуке, -onFiltersChange+onApply в handleSort.
+
+**Статус:** 🟢 RESOLVED (2026-04-21). Коммит `9c355f3` + `811f040`. Введён `toggleSort(key)` в `useNetworkStats`, читает свежий state из `filtersRef.current` и синхронно обновляет его перед `applyFilters()`. `StatisticsTable` / `MonitoringTable` принимают `onToggleSort` prop вместо inline handleSort. AC-28 зелёный в Docker прогоне.
+

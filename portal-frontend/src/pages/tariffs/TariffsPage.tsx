@@ -1,286 +1,184 @@
-import { useState, useEffect, useCallback } from 'react';
-import { tariffsApi, ApiError, type TariffPlanInfo, type CurrentPlan } from '../../api/client';
+// Client self-view of their effective network tariff matrix (Task 23).
+// Replaces the legacy subscription-plan picker. Reuses the shared TariffMatrix
+// component in read-only mode (scope.kind='client'), with no inheritance
+// markers and no period history — the backend returns only the currently
+// active period.
+//
+// Adaptation: the client endpoint's response shape is narrower than the
+// editor's TariffEditorData (no price_template/price_override/source,
+// single `period` instead of `periods[]` + active_period_id). We widen it
+// here before handing to the matrix — template price is set to `effective`,
+// source='template', so the matrix's inheritance code paths are well-fed
+// but are disabled at render-time via showInheritance=false.
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  clientTariffsApi,
+  ApiError,
+  type ClientTariffsEffectiveResponse,
+  type TariffEditorData,
+} from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { Button } from '../../components/ui/Button';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { TariffMatrix } from '../../components/tariffs/TariffMatrix';
 
-function formatPrice(rub: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(rub);
+interface FilterParams {
+  channel: string;
+  country: string;
+  sender_category: string;
+  traffic_type: string;
 }
 
-function formatNumber(n: number): string {
-  return new Intl.NumberFormat('ru-RU').format(n);
-}
+const SENDER_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'paid_registered', label: 'Платный (зарег.)' },
+  { value: 'paid_unregistered', label: 'Платный (незарег.)' },
+  { value: 'free', label: 'Бесплатный' },
+];
 
-/**
- * Russian pluralization: picks the correct word form based on count.
- * forms: [singular, genitive singular, genitive plural]
- * e.g. pluralizeRu(1, ['подключение', 'подключения', 'подключений']) => 'подключение'
- */
-function pluralizeRu(n: number, forms: [string, string, string]): string {
-  const abs = Math.abs(n);
-  const mod10 = abs % 10;
-  const mod100 = abs % 100;
-  if (mod10 === 1 && mod100 !== 11) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
-  return forms[2];
+const TRAFFIC_TYPES: { value: string; label: string }[] = [
+  { value: 'any', label: 'Любой' },
+  { value: 'service', label: 'Сервисный' },
+  { value: 'advertising', label: 'Рекламный' },
+];
+
+const COUNTRIES: { value: string; label: string }[] = [
+  { value: 'RU', label: 'Россия' },
+  { value: 'KZ', label: 'Казахстан' },
+  { value: 'BY', label: 'Беларусь' },
+];
+
+// adaptToEditorData widens the client-endpoint response to TariffEditorData
+// so the shared TariffMatrix can render it without a separate code path.
+// With showInheritance=false the matrix ignores price_template/price_override
+// distinctions — we fill them identically to `effective`.
+function adaptToEditorData(r: ClientTariffsEffectiveResponse): TariffEditorData | null {
+  if (!r.plan || !r.period) return null;
+  return {
+    scope: { kind: 'template' }, // unused visually; scope prop below is {kind:'client'}
+    template: null,
+    plan: r.plan,
+    periods: [{ id: r.period.id, from: r.period.from, to: r.period.to, active: true }],
+    active_period_id: r.period.id,
+    operators: r.operators,
+    tiers: r.tiers,
+    cells: r.cells.map((c) => ({
+      operator_id: c.operator_id,
+      tier_id: c.tier_id,
+      price_template: c.effective,
+      price_override: null,
+      effective: c.effective,
+      source: c.effective == null ? 'unset' : 'template',
+    })),
+  };
 }
 
 export function TariffsPage() {
-  const [current, setCurrent] = useState<CurrentPlan | null>(null);
-  const [plans, setPlans] = useState<TariffPlanInfo[]>([]);
+  const [params, setParams] = useState<FilterParams>({
+    channel: 'sms',
+    country: 'RU',
+    sender_category: 'paid_registered',
+    traffic_type: 'any',
+  });
+
+  const [raw, setRaw] = useState<ClientTariffsEffectiveResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Switch plan dialog
-  const [switchTarget, setSwitchTarget] = useState<TariffPlanInfo | null>(null);
-  const [switching, setSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState('');
-
-  const loadData = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [currentResp, plansResp] = await Promise.all([
-        tariffsApi.getCurrent(),
-        tariffsApi.listPlans(),
-      ]);
-      setCurrent(currentResp);
-      setPlans(plansResp.plans || []);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось загрузить тарифы');
+      const r = await clientTariffsApi.getEffective(params);
+      setRaw(r);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Не удалось загрузить тарифы');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [params]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    load();
+  }, [load]);
 
-  async function handleSwitchPlan() {
-    if (!switchTarget) return;
-    setSwitching(true);
-    setSwitchError('');
-    try {
-      await tariffsApi.switchPlan(switchTarget.id);
-      setSwitchTarget(null);
-      await loadData();
-    } catch (err) {
-      setSwitchError(err instanceof ApiError ? err.message : 'Не удалось сменить тариф');
-    } finally {
-      setSwitching(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div>
-        <PageHeader title="Тарифы" />
-        <div className="animate-pulse p-8 text-center text-gray-500">Загрузка...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div>
-        <PageHeader title="Тарифы" />
-        <div className="text-red-600 p-4">{error}</div>
-      </div>
-    );
-  }
-
-  const usagePercent = current?.plan
-    ? Math.min(
-        100,
-        (current.plan.max_sms_per_month ?? 0) > 0
-          ? Math.round(((current.monthly_sms_count ?? 0) / current.plan.max_sms_per_month) * 100)
-          : 0,
-      )
-    : 0;
+  const data = useMemo(() => (raw ? adaptToEditorData(raw) : null), [raw]);
 
   return (
     <div>
-      <PageHeader title="Тарифы" subtitle="Управление тарифным планом" />
+      <PageHeader title="Тарифы" subtitle="Действующие цены по операторам" />
 
-      {/* Current plan card */}
-      {current?.plan && (
-        <div className="bg-white border-2 border-primary/30 rounded-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="text-xs font-medium text-primary uppercase tracking-wide">
-                Текущий план
-              </span>
-              <h2 className="text-xl font-semibold text-gray-900 mt-1">
-                {current.plan.display_name}
-              </h2>
-            </div>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-gray-900">
-                {formatPrice(current.plan.monthly_price_rub)}
-              </span>
-              <span className="text-sm text-gray-500"> / мес</span>
-            </div>
-          </div>
-
-          {/* Limits */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-xs text-gray-500 mb-1">SMS в месяц</div>
-              <div className="text-sm font-semibold text-gray-900">
-                {formatNumber(current.plan.max_sms_per_month)}
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-xs text-gray-500 mb-1">SMPP подключения</div>
-              <div className="text-sm font-semibold text-gray-900">
-                {formatNumber(current.plan.max_smpp_connections)}
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-xs text-gray-500 mb-1">Пользователи</div>
-              <div className="text-sm font-semibold text-gray-900">
-                {formatNumber(current.plan.max_users)}
-              </div>
-            </div>
-          </div>
-
-          {/* SMS usage progress */}
-          <div>
-            <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-gray-600">Использовано SMS</span>
-              <span className="text-gray-900 font-medium">
-                {formatNumber(current.monthly_sms_count)} / {formatNumber(current.plan.max_sms_per_month)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div
-                className={`h-3 rounded-full transition-all duration-500 ${
-                  usagePercent >= 90
-                    ? 'bg-red-500'
-                    : usagePercent >= 70
-                      ? 'bg-yellow-500'
-                      : 'bg-green-500'
-                }`}
-                style={{ width: `${usagePercent}%` }}
-              />
-            </div>
-            <div className="text-xs text-gray-400 mt-1 text-right">{usagePercent}%</div>
-          </div>
-        </div>
-      )}
-
-      {/* Available plans */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Доступные планы</h2>
-
-      {switchError && (
-        <div className="text-red-600 text-sm mb-4 p-3 bg-red-50 rounded">{switchError}</div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {plans.map((plan) => {
-          const isCurrent = current?.plan?.name === plan.name;
-          return (
-            <div
-              key={plan.name}
-              className={`bg-white border rounded-lg p-5 flex flex-col transition-shadow hover:shadow-md ${
-                isCurrent
-                  ? 'border-primary ring-2 ring-primary/20'
-                  : 'border-gray-200'
-              }`}
-            >
-              {/* Plan header */}
-              <div className="mb-4">
-                {isCurrent && (
-                  <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-primary bg-primary/10 rounded-full px-2 py-0.5 mb-2">
-                    Текущий
-                  </span>
-                )}
-                <h3 className="text-lg font-semibold text-gray-900">{plan.display_name}</h3>
-                <div className="mt-1">
-                  <span className="text-2xl font-bold text-gray-900">
-                    {formatPrice(plan.monthly_price_rub)}
-                  </span>
-                  <span className="text-sm text-gray-500"> / мес</span>
-                </div>
-              </div>
-
-              {/* Plan limits */}
-              <ul className="text-sm text-gray-600 space-y-2 mb-5 flex-1">
-                <li className="flex items-center gap-2">
-                  <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                  {formatNumber(plan.max_sms_per_month)} SMS / мес
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                  {formatNumber(plan.max_smpp_connections)} SMPP {pluralizeRu(plan.max_smpp_connections, ['подключение', 'подключения', 'подключений'])}
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                  {formatNumber(plan.max_users)} {pluralizeRu(plan.max_users, ['пользователь', 'пользователя', 'пользователей'])}
-                </li>
-                {(() => {
-                  const feats = plan.features;
-                  if (!feats) return null;
-                  // API returns either string[] or Record<string, boolean>
-                  const items = Array.isArray(feats)
-                    ? feats
-                    : Object.entries(feats).filter(([, v]) => v).map(([k]) => k);
-                  const featureLabels: Record<string, string> = {
-                    analytics: 'Аналитика',
-                    hlr: 'HLR проверки',
-                    smart_routing: 'Умная маршрутизация',
-                    sub_accounts: 'Суб-аккаунты',
-                    webhooks: 'Вебхуки',
-                    white_label: 'White Label',
-                  };
-                  return items.map((feat) => (
-                    <li key={feat} className="flex items-center gap-2">
-                      <span className="text-green-500 text-base leading-none">{'\u2713'}</span>
-                      {featureLabels[feat] || feat}
-                    </li>
-                  ));
-                })()}
-              </ul>
-
-              {/* Action */}
-              <Button
-                variant={isCurrent ? 'secondary' : 'primary'}
-                disabled={isCurrent}
-                className="w-full"
-                onClick={() => !isCurrent && setSwitchTarget(plan)}
-              >
-                {isCurrent ? 'Текущий план' : 'Выбрать'}
-              </Button>
-            </div>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <FilterSelect
+          label="Страна"
+          value={params.country}
+          options={COUNTRIES}
+          onChange={(v) => setParams((p) => ({ ...p, country: v }))}
+        />
+        <FilterSelect
+          label="Тип имени"
+          value={params.sender_category}
+          options={SENDER_CATEGORIES}
+          onChange={(v) => setParams((p) => ({ ...p, sender_category: v }))}
+        />
+        <FilterSelect
+          label="Тип трафика"
+          value={params.traffic_type}
+          options={TRAFFIC_TYPES}
+          onChange={(v) => setParams((p) => ({ ...p, traffic_type: v }))}
+        />
       </div>
 
-      {plans.length === 0 && (
-        <div className="text-center text-gray-400 py-12">Нет доступных планов</div>
+      {loading && !data ? (
+        <div className="animate-pulse p-8 text-center text-gray-500">Загрузка...</div>
+      ) : error ? (
+        <div className="text-red-600 p-4">{error}</div>
+      ) : !data ? (
+        <div className="text-center text-gray-400 py-12">
+          Тариф для вашего аккаунта не настроен.
+        </div>
+      ) : (
+        <div>
+          {raw?.period && (
+            <div className="text-xs text-slate-500 mb-2">
+              Период: {raw.period.from}
+              {raw.period.to ? ` — ${raw.period.to}` : ' — по настоящее время'}
+              {raw.plan ? ` · Валюта: ${raw.plan.currency}` : ''}
+            </div>
+          )}
+          <TariffMatrix
+            data={data}
+            scope={{ kind: 'client' }}
+            editable={false}
+            showInheritance={false}
+            currency={raw?.plan?.currency ?? 'RUB'}
+          />
+        </div>
       )}
-
-      {/* Confirm switch dialog */}
-      <ConfirmDialog
-        open={!!switchTarget}
-        onConfirm={handleSwitchPlan}
-        onCancel={() => setSwitchTarget(null)}
-        title="Сменить тарифный план"
-        description={
-          switchTarget
-            ? `Вы уверены, что хотите перейти на план "${switchTarget.display_name}" (${formatPrice(switchTarget.monthly_price_rub)}/мес)?`
-            : ''
-        }
-        confirmLabel="Подтвердить"
-        loading={switching}
-      />
     </div>
+  );
+}
+
+interface FilterSelectProps {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}
+
+function FilterSelect({ label, value, options, onChange }: FilterSelectProps) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-slate-600">{label}:</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded border border-slate-300 px-2 py-1 text-sm bg-white"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

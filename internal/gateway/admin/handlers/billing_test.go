@@ -38,6 +38,10 @@ func (m *mockBillingClient) ChargeMessage(ctx context.Context, in *billingv1.Cha
 	return nil, nil
 }
 
+func (m *mockBillingClient) ChargeMessageDual(ctx context.Context, in *billingv1.ChargeMessageDualRequest, opts ...grpc.CallOption) (*billingv1.ChargeMessageDualResponse, error) {
+	return nil, nil
+}
+
 func (m *mockBillingClient) AddCredits(ctx context.Context, in *billingv1.AddCreditsRequest, opts ...grpc.CallOption) (*billingv1.AddCreditsResponse, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {

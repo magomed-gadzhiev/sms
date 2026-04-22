@@ -129,14 +129,20 @@ export function useNetworkStats() {
   const polling = usePolling(fetchData, 10000);
   const isMonitoringMode = mode === 'monitoring';
 
-  // Pause polling when not in monitoring mode
+  // Pause polling when not in monitoring mode.
+  // IMPORTANT (D-18 fix): `polling` is a fresh object reference on every render,
+  // so including it in deps made this effect fire on every render and
+  // unconditionally re-resume polling — breaking user-initiated pause.
+  // `polling.pause`/`polling.resume` are stable useCallbacks (wrapping stable setIsPaused),
+  // so calling them through a stale polling ref is safe.
   useEffect(() => {
     if (isMonitoringMode) {
       polling.resume();
     } else {
       polling.pause();
     }
-  }, [isMonitoringMode, polling]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMonitoringMode]);
 
   // --- Actions ---
 
@@ -177,6 +183,20 @@ export function useNetworkStats() {
     setSearchParams(filtersToParams(modeRef.current, filtersRef.current), { replace: true });
     fetchData();
   }, [setSearchParams, fetchData]);
+
+  // D-20 fix: toggle sort using filtersRef as the single source of truth for "current
+  // filters". filtersRef is updated synchronously on every setFilters call (line ~170)
+  // and on every render (line ~87), so it reflects the freshest state independent of
+  // React commit timing / Suspense batching.
+  const toggleSort = useCallback((key: string) => {
+    const current = filtersRef.current;
+    const newDir = current.sort_by === key && current.sort_dir === 'desc' ? 'asc' : 'desc';
+    const next: SharedFilter = { ...current, sort_by: key, sort_dir: newDir, page: 1 };
+    filtersRef.current = next;
+    setFiltersState(next);
+    setIsViewModified(true);
+    applyFilters();
+  }, [applyFilters]);
 
   // --- Drill-down ---
 
@@ -339,8 +359,15 @@ export function useNetworkStats() {
     setModeState(view.mode as Mode);
     setActiveViewId(id);
     setIsViewModified(false);
+    // Sync refs so fetchData reads fresh values when called synchronously below
+    filtersRef.current = parsedFilters;
+    modeRef.current = view.mode as Mode;
     setSearchParams(filtersToParams(view.mode as Mode, parsedFilters), { replace: true });
-  }, [savedViews, setSearchParams]);
+    // D-19 fix: explicitly trigger fetch. The mode-change useEffect only re-fetches
+    // on mode change, not on filter-state change, so same-mode loadView would otherwise
+    // leave the table showing stale data.
+    fetchData();
+  }, [savedViews, setSearchParams, fetchData]);
 
   const saveCurrentView = useCallback(async (name: string) => {
     try {
@@ -384,6 +411,7 @@ export function useNetworkStats() {
     setMode,
     setFilters,
     applyFilters,
+    toggleSort,
 
     // Drill-down
     drillDown,

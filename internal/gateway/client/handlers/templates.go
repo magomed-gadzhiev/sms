@@ -181,13 +181,27 @@ func (h *TemplateHandlers) DeleteTemplate(w http.ResponseWriter, r *http.Request
 }
 
 func (h *TemplateHandlers) GetTemplateAudit(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
 
 	id := mux.Vars(r)["id"]
+
+	// Ownership check: сперва достаём template с clientID — template service
+	// возвращает NotFound если template принадлежит другому клиенту.
+	// Без этого GetTemplateAuditLog ниже не фильтрует по client_id и любой
+	// authenticated клиент мог бы читать audit чужих шаблонов
+	// (finding F-C1 из Cycle 3 ревью v2).
+	if _, err := h.templateClient.GetTemplate(r.Context(), &templatev1.GetTemplateRequest{
+		Id:       id,
+		ClientId: clientID.String(),
+	}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
 	q := r.URL.Query()
 	limit := int32(100)
 	offset := int32(0)

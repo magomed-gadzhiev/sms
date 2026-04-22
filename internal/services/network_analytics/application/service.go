@@ -32,6 +32,8 @@ func NewNetworkAnalyticsService(
 }
 
 // validateFilter checks that the requested period is within the allowed maximum for the chosen grouping.
+// D-12 fix: returns *domain.ValidationError for user-input violations so the gRPC layer
+// maps them to codes.InvalidArgument (HTTP 400), not codes.Internal (HTTP 500).
 func validateFilter(filter *domain.SharedFilter) error {
 	if filter.GroupBy == "" {
 		return nil
@@ -42,14 +44,17 @@ func validateFilter(filter *domain.SharedFilter) error {
 	}
 	maxHours, ok := domain.GroupByMaxPeriodHours[filter.GroupBy]
 	if !ok {
-		return fmt.Errorf("invalid group_by value %q: allowed values are 5min, 15min, hour, day, provider, operator, channel, login, country", filter.GroupBy)
+		return domain.NewValidationError(fmt.Sprintf(
+			"Недопустимое значение group_by=%q. Разрешены: 5min, 15min, hour, day, month, year, provider, operator, channel, login, country",
+			filter.GroupBy,
+		))
 	}
 	periodHours := filter.DateTo.Sub(filter.DateFrom).Hours()
 	if periodHours > float64(maxHours) {
-		return fmt.Errorf(
-			"period of %.0f hours exceeds the maximum of %d hours allowed for group_by=%q",
-			periodHours, maxHours, filter.GroupBy,
-		)
+		return domain.NewValidationError(fmt.Sprintf(
+			"Группировка %q допустима только для периода до %d часов (запрошено: %.0f часов). Выберите меньший период или укажите другую группировку.",
+			filter.GroupBy, maxHours, periodHours,
+		))
 	}
 	return nil
 }

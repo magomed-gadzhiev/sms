@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { SegmentBuilder } from '../../components/segments/SegmentBuilder';
+import { getCookie } from '../../utils/cookies';
 
 export function SegmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isNew = id === 'new';
+  // Route /segments/new идёт без параметра :id → id=undefined; /segments/:id даёт id='uuid'.
+  const isNew = !id;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -41,9 +43,15 @@ export function SegmentDetailPage() {
     };
     const url = isNew ? '/portal/v1/segments' : `/portal/v1/segments/${id}`;
     const method = isNew ? 'POST' : 'PUT';
+    const csrfToken = getCookie('csrf_token');
     const res = await fetch(url, {
-      method, headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', body: JSON.stringify(body),
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
     });
     setSaving(false);
     if (res.ok) {
@@ -54,8 +62,11 @@ export function SegmentDetailPage() {
 
   const estimate = async () => {
     if (!id || isNew) return;
+    const csrfToken = getCookie('csrf_token');
     const res = await fetch(`/portal/v1/segments/${id}/estimate`, {
-      method: 'POST', credentials: 'include',
+      method: 'POST',
+      credentials: 'include',
+      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
     });
     if (res.ok) {
       const data = await res.json();

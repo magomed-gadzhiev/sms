@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -68,6 +69,29 @@ func main() {
 	defer cancel()
 
 	worker := application.NewAggregationWorker(dbPool, statsRepo, monitoringRepo, log.Logger)
+
+	// Optional one-shot backfill on startup, driven by env vars.
+	// Set BACKFILL_FROM=YYYY-MM-DD and BACKFILL_TO=YYYY-MM-DD to re-aggregate
+	// messages for the window; BACKFILL_TRUNCATE=true first wipes the target
+	// table so counters don't double on re-runs.
+	if bf := viper.GetString("BACKFILL_FROM"); bf != "" {
+		bt := viper.GetString("BACKFILL_TO")
+		from, errF := time.Parse("2006-01-02", bf)
+		to, errT := time.Parse("2006-01-02", bt)
+		if errF != nil || errT != nil {
+			log.Fatal().Str("from", bf).Str("to", bt).Msg("BACKFILL_FROM/BACKFILL_TO must be YYYY-MM-DD")
+		}
+		if viper.GetBool("BACKFILL_TRUNCATE") {
+			if _, err := dbPool.Exec(ctx, "TRUNCATE network_stats_hourly"); err != nil {
+				log.Fatal().Err(err).Msg("truncate network_stats_hourly failed")
+			}
+			log.Info().Msg("backfill: truncated network_stats_hourly")
+		}
+		if err := worker.BackfillWindow(ctx, from, to); err != nil {
+			log.Fatal().Err(err).Msg("backfill failed")
+		}
+	}
+
 	go worker.RunHourlyAggregation(ctx)
 	go worker.RunSnapshotCollection(ctx)
 	log.Info().Msg("Aggregation workers started")

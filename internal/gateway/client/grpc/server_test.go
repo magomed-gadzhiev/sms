@@ -100,6 +100,14 @@ func (m *mockBillingClient) ChargeMessage(ctx context.Context, in *billingv1.Cha
 	return nil, args.Error(1)
 }
 
+func (m *mockBillingClient) ChargeMessageDual(ctx context.Context, in *billingv1.ChargeMessageDualRequest, opts ...grpc.CallOption) (*billingv1.ChargeMessageDualResponse, error) {
+	args := m.Called(ctx, in)
+	if v := args.Get(0); v != nil {
+		return v.(*billingv1.ChargeMessageDualResponse), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func (m *mockBillingClient) AddCredits(ctx context.Context, in *billingv1.AddCreditsRequest, opts ...grpc.CallOption) (*billingv1.AddCreditsResponse, error) {
 	args := m.Called(ctx, in)
 	if v := args.Get(0); v != nil {
@@ -649,7 +657,11 @@ func TestGetStatistics_ProxyError(t *testing.T) {
 
 // ─── interceptor_test.go (inline) ──────────────────────────────────────────
 
-func TestAuthInterceptor_SetsDummyClientID(t *testing.T) {
+// TestAuthInterceptor_LoadTestMode — после fix A7.3 dummy-инжекция
+// сохранена только за LOAD_TEST_MODE env-var (см. interceptor_test.go
+// для regression coverage реальной ValidateToken-логики).
+func TestAuthInterceptor_LoadTestMode(t *testing.T) {
+	t.Setenv("LOAD_TEST_MODE", "true")
 	interceptor := AuthInterceptor(nil)
 
 	handlerCalled := false
@@ -657,11 +669,11 @@ func TestAuthInterceptor_SetsDummyClientID(t *testing.T) {
 		handlerCalled = true
 		cid, ok := GetClientID(ctx)
 		require.True(t, ok)
-		assert.Equal(t, uuid.MustParse("00000000-0000-0000-0000-000000000001"), cid)
+		assert.Equal(t, uuid.MustParse("c0000000-0000-0000-0000-000000000001"), cid)
 		return "ok", nil
 	}
 
-	resp, err := interceptor(context.Background(), nil, nil, handler)
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{}, handler)
 	require.NoError(t, err)
 	assert.True(t, handlerCalled)
 	assert.Equal(t, "ok", resp)

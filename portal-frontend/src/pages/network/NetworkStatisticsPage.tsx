@@ -13,6 +13,21 @@ const MonitoringTable = lazy(() => import('../../components/network-stats/Monito
 const DrillDownDrawer = lazy(() => import('../../components/network-stats/DrillDownDrawer').then(m => ({ default: m.DrillDownDrawer })));
 const ExportButton = lazy(() => import('../../components/network-stats/ExportButton').then(m => ({ default: m.ExportButton })));
 
+// Drill-down slice_type mirrors the current group_by. Backend sliceColumn()
+// supports both dimensional (provider/operator/channel/login/country/sender/
+// traffic_type/method) and time-based (5min/15min/hour/day/month/year) values.
+// Falling back to 'provider' for time-based groupings produced an impossible
+// predicate (provider_id = '<date>'), which returned zero rows — empty drawer.
+const SUPPORTED_SLICE_TYPES = new Set([
+  'provider', 'operator', 'channel', 'login', 'country',
+  'sender', 'traffic_type', 'method',
+  '5min', '15min', 'hour', 'day', 'month', 'year',
+]);
+function groupByToSliceType(groupBy: string | undefined): string {
+  const g = groupBy ?? '';
+  return SUPPORTED_SLICE_TYPES.has(g) ? g : 'provider';
+}
+
 export default function NetworkStatisticsPage() {
   const stats = useNetworkStats();
   const [operators, setOperators] = useState<{ id: string; name: string }[]>([]);
@@ -105,7 +120,8 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
-              onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}
+              onToggleSort={stats.toggleSort}
+              onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
           </Tabs.Content>
@@ -119,7 +135,8 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
-              onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}
+              onToggleSort={stats.toggleSort}
+              onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
           </Tabs.Content>
@@ -141,7 +158,8 @@ export default function NetworkStatisticsPage() {
               filters={stats.filters}
               onFiltersChange={stats.setFilters}
               onApply={stats.applyFilters}
-              onRowClick={(row: any) => stats.openDrillDown('provider', row.slice, row.slice)}
+              onToggleSort={stats.toggleSort}
+              onRowClick={(row: any) => stats.openDrillDown(groupByToSliceType(stats.filters.group_by), row.slice, row.slice)}
               loading={stats.loading}
             />
           </Tabs.Content>
@@ -168,13 +186,24 @@ export default function NetworkStatisticsPage() {
         <div className="fixed bottom-4 left-48 flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 shadow-md text-sm z-20">
           <span className="text-gray-500 text-xs">Виды:</span>
           {stats.savedViews.map(v => (
-            <button
-              key={v.id}
-              onClick={() => stats.loadView(v.id)}
-              className={`px-2 py-0.5 rounded text-xs border transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-blue-400'}`}
-            >
-              {v.name}
-            </button>
+            // D-17 fix: two adjacent buttons — load (chip) + delete (×).
+            <span key={v.id} className="inline-flex items-center gap-0.5">
+              <button
+                onClick={() => stats.loadView(v.id)}
+                className={`px-2 py-0.5 rounded text-xs border transition-colors ${stats.activeViewId === v.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-blue-400'}`}
+              >
+                {v.name}
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm(`Удалить вид «${v.name}»?`)) stats.deleteView(v.id);
+                }}
+                aria-label={`Удалить вид ${v.name}`}
+                className="px-1 py-0.5 rounded text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                ×
+              </button>
+            </span>
           ))}
           {stats.isViewModified && (
             <button
