@@ -65,3 +65,119 @@
    активного/review_pending/merged бага (см. маппинг в секции «State & TodoWrite» ниже).
 
 После инициализации — ждём следующих команд пользователя.
+
+## Фаза 1: Сбор bug package (`/bug <описание>`)
+
+Когда пользователь пишет `/bug <описание>`, основной поток делает ВСЁ нижеследующее
+сам (не через агента), затем передаёт готовый пакет агенту.
+
+### 1.1. Генерация bug_id
+
+```
+timestamp = strftime('%Y%m%d-%H%M%S', now())
+slug = описание, приведённое к ASCII lower-kebab, первые 40 символов
+       (убрать знаки препинания, заменить пробелы на '-', выбросить пустые хвосты)
+bug_id = f"{timestamp}-{slug}"
+```
+
+Пример: `/bug Сохранение кампании падает 500` →
+`20260423-143201-sohranenie-kampanii-padaet-500`.
+
+### 1.2. Создать директорию пакета
+
+```bash
+PKG=".claude/bugs/$BUG_ID"
+mkdir -p "$PKG/response-bodies"
+```
+
+Записать `$PKG/description.md`:
+```markdown
+# <bug_id>
+
+**Время:** <ISO8601>
+**Описание пользователя:**
+
+<original text>
+```
+
+### 1.3. Снять артефакты через chrome-devtools-mcp
+
+Сделать **параллельно** (одно сообщение, несколько tool calls):
+
+1. `mcp__plugin_chrome-devtools-mcp__list_pages` → выбрать активную вкладку
+   (ту, где `focused: true`; если несколько — спросить пользователя).
+2. `mcp__plugin_chrome-devtools-mcp__select_page` для выбранной.
+3. `mcp__plugin_chrome-devtools-mcp__take_screenshot` → сохранить в
+   `$PKG/screenshot.png`.
+4. `mcp__plugin_chrome-devtools-mcp__list_console_messages` → сериализовать в
+   `$PKG/console.json` (JSON-массив `{level, text, timestamp, source}`).
+5. `mcp__plugin_chrome-devtools-mcp__list_network_requests` → сериализовать в
+   `$PKG/network.json` (массив `{id, method, url, status, duration, timestamp}`).
+6. `mcp__plugin_chrome-devtools-mcp__take_snapshot` → сохранить в
+   `$PKG/dom-snapshot.html`.
+7. Записать текущий URL в `$PKG/url.txt` (берётся из `list_pages` / активной
+   страницы).
+
+### 1.4. Выделить failed requests
+
+Отфильтровать `network.json` где `status >= 400` или `status == 0` (aborted).
+Записать в `$PKG/failed-requests.json`.
+
+Для каждого failed request:
+```
+mcp__plugin_chrome-devtools-mcp__get_network_request(id=<request_id>)
+```
+Сохранить тело ответа в `$PKG/response-bodies/<request_id>.json` (или `.txt`,
+если не JSON).
+
+### 1.5. Снять backend-логи
+
+```bash
+./scripts/server.sh exec "docker compose logs --since=2m --no-color" \
+  > "$PKG/backend-logs.txt"
+```
+
+Если файл >1MB: не обрезать на уровне скрипта (нужен таймстамп-контекст), а
+оставить как есть. Агент сам отфильтрует по `bug_id`-таймстампу.
+
+### 1.6. Обновить state.json
+
+Добавить bug entry, status `captured`:
+```json
+{
+  "bugs": {
+    "<bug_id>": {
+      "status": "captured",
+      "description_short": "<первые 60 символов>",
+      "created_at": "<ISO>",
+      "package_dir": ".claude/bugs/<bug_id>",
+      "worktree_path": null,
+      "branch": "fix/bug-<bug_id>",
+      "agent_started_at": null,
+      "agent_finished_at": null,
+      "files_changed": null,
+      "review_iterations": null,
+      "failure_reason": null,
+      "deployed_at": null
+    }
+  }
+}
+```
+
+### 1.7. Обновить TodoWrite
+
+Создать todo: `[<bug_id>] <description_short>`, status `in_progress`.
+
+После завершения фазы 1 — переходим к фазе 2 (диспатч агента) в том же сообщении,
+не ожидая пользователя.
+
+### Граничные случаи
+
+- **Chrome закрыт пользователем между сессиями сбора** — `list_pages` вернёт
+  пусто или ошибку. Повторить фазу 0 (запустить Chrome), попросить пользователя
+  повторить `/bug` после того, как воспроизведёт баг.
+- **Несколько активных вкладок** — спросить пользователя, какую брать; не гадать.
+- **Нулевое число failed-requests** — это нормально (баг не обязан проявляться как
+  HTTP-ошибка). Пакет без `response-bodies/*.json`.
+- **backend-logs.txt пустой** — значит, `server.sh exec` вернул пусто или упал.
+  Не блокирует фазу, агенту виднее по console и network.
