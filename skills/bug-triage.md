@@ -134,11 +134,32 @@ mcp__plugin_chrome-devtools-mcp__get_network_request(id=<request_id>)
 
 ```bash
 ./scripts/server.sh exec "docker compose logs --since=2m --no-color" \
-  > "$PKG/backend-logs.txt"
+  > "$PKG/backend-logs.txt.raw"
 ```
 
-Если файл >1MB: не обрезать на уровне скрипта (нужен таймстамп-контекст), а
-оставить как есть. Агент сам отфильтрует по `bug_id`-таймстампу.
+**Если файл >1MB** — обрезать до последних 1000 строк на сервис (спека §4).
+Логи от `docker compose logs` идут с префиксом `<service> |`, по нему можно
+сгруппировать. Простой подход (bash + awk):
+
+```bash
+if [[ $(stat -c%s "$PKG/backend-logs.txt.raw") -gt 1048576 ]]; then
+  # Для каждого уникального сервиса оставить последние 1000 строк
+  awk -F ' \\| ' '
+    { lines[$1] = lines[$1] "\n" $0; count[$1]++ }
+    END {
+      for (s in lines) {
+        # последние 1000 строк для сервиса s
+        n = split(lines[s], arr, "\n")
+        start = (n > 1000) ? n - 1000 + 1 : 1
+        for (i = start; i <= n; i++) print arr[i]
+      }
+    }
+  ' "$PKG/backend-logs.txt.raw" > "$PKG/backend-logs.txt"
+  rm "$PKG/backend-logs.txt.raw"
+else
+  mv "$PKG/backend-logs.txt.raw" "$PKG/backend-logs.txt"
+fi
+```
 
 ### 1.6. Обновить state.json
 
@@ -432,10 +453,41 @@ else:
 
 ### `.claude/bugs/state.json` — схема
 
-Смотри спеку §8. Ключевые поля каждого бага:
-`status`, `description_short`, `created_at`, `package_dir`, `worktree_path`,
-`branch`, `agent_started_at`, `agent_finished_at`, `files_changed`,
-`review_iterations`, `failure_reason`, `deployed_at`.
+```json
+{
+  "version": 1,
+  "chrome_pid": <int | null>,
+  "max_parallel": 3,
+  "bugs": {
+    "<bug_id>": {
+      "status": "<один из 8 статусов ниже>",
+      "description_short": "<первые 60 символов>",
+      "created_at": "<ISO8601>",
+      "package_dir": ".claude/bugs/<bug_id>",
+      "worktree_path": "<абсолютный путь | null>",
+      "branch": "fix/bug-<bug_id>",
+      "agent_started_at": "<ISO8601 | null>",
+      "agent_finished_at": "<ISO8601 | null>",
+      "files_changed": ["<relative path>", ...] | null,
+      "review_iterations": <int | null>,
+      "failure_reason": "<str | null>",
+      "deployed_at": "<ISO8601 | null>"
+    }
+  },
+  "deploy_queue": ["<bug_id>", ...],
+  "last_deploy_at": "<ISO8601 | null>"
+}
+```
+
+**Статусы (enum):**
+- `captured` — пакет собран, агент ещё не стартовал
+- `queued` — в очереди (превышен `max_parallel`)
+- `in_progress` — агент работает
+- `review_pending` — агент закончил, merge-gate требует решения пользователя (конфликт или пересечение)
+- `ready_for_merge` — агент закончил, ждёт обработки merge-gate'ом
+- `merged` — смёрджено в master, ждёт деплоя
+- `deployed` — задеплоено
+- `failed` — агент не справился (3 итерации CHANGES_REQUESTED, зависание, session lost, reject пользователя)
 
 ### Маппинг TodoWrite
 
