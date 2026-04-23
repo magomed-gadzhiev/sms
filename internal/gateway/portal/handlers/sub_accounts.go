@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -152,6 +153,17 @@ func (h *SubAccountHandlers) CreateSubAccount(w http.ResponseWriter, r *http.Req
 		respondError(w, shared.ErrInvalidInput("Поле name обязательно"))
 		return
 	}
+	if req.DailyLimit < 0 || req.MonthlyLimit < 0 {
+		respondError(w, shared.ErrInvalidInput("Лимиты не могут быть отрицательными"))
+		return
+	}
+	// InitialBalance — опциональная строка-Decimal. Валидируем если передан непустой/ненулевой.
+	if req.InitialBalance != "" && req.InitialBalance != "0" {
+		if ib, ibErr := strconv.ParseFloat(req.InitialBalance, 64); ibErr != nil || ib < 0 {
+			respondError(w, shared.ErrInvalidInput("Начальный баланс должен быть положительным числом"))
+			return
+		}
+	}
 
 	// Создаем суб-аккаунт через client service
 	createResp, err := h.clientClient.CreateSubAccount(r.Context(), &clientv1.CreateSubAccountRequest{
@@ -273,6 +285,11 @@ func (h *SubAccountHandlers) UpdateLimits(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
+	// Отрицательные лимиты не имеют смысла и падали 500 ниже по стеку.
+	if req.DailyLimit < 0 || req.MonthlyLimit < 0 {
+		respondError(w, shared.ErrInvalidInput("Лимиты не могут быть отрицательными"))
+		return
+	}
 
 	resp, err := h.clientClient.UpdateSubAccountLimits(r.Context(), &clientv1.UpdateSubAccountLimitsRequest{
 		SubAccountId:   subAccountID,
@@ -329,6 +346,20 @@ func (h *SubAccountHandlers) TransferBalance(w http.ResponseWriter, r *http.Requ
 
 	if req.Amount == "" {
 		respondError(w, shared.ErrInvalidInput("Поле amount обязательно"))
+		return
+	}
+	// Валидируем сумму: строго положительное число. Без этого:
+	//   * amount="-10" — billing принимал и переводил В ОБРАТНУЮ сторону
+	//     (изъятие у субакка), то есть aggregator мог удалённо забирать средства.
+	//   * amount="abc" — падало 500 INTERNAL_ERROR вместо 400.
+	//   * amount="0" — создавался пустой transaction_id.
+	amountF, parseErr := strconv.ParseFloat(req.Amount, 64)
+	if parseErr != nil {
+		respondError(w, shared.ErrInvalidInput("Сумма должна быть числом"))
+		return
+	}
+	if amountF <= 0 {
+		respondError(w, shared.ErrInvalidInput("Сумма должна быть больше нуля"))
 		return
 	}
 
