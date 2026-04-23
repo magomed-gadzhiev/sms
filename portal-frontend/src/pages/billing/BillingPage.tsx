@@ -113,11 +113,11 @@ const columns: Column<TransactionItem>[] = [
     header: 'Сумма',
     render: (tx) => {
       const numeric = parseFloat(tx.amount);
-      const isNegative =
+      const rawNegative =
         !Number.isNaN(numeric) ? numeric < 0 : tx.amount.trim().startsWith('-');
-      const isOutflow =
-        tx.type === 'charge' || tx.type === 'transfer_out' || isNegative;
-      const sign = isOutflow ? (isNegative ? '' : '-') : '+';
+      const typeOutflow = tx.type === 'charge' || tx.type === 'transfer_out';
+      const isOutflow = typeOutflow !== rawNegative;
+      const sign = numeric === 0 ? '' : isOutflow ? '-' : '+';
       const absolute = Number.isNaN(numeric)
         ? tx.amount.replace(/^-/, '')
         : Math.abs(numeric).toString();
