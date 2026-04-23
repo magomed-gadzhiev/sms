@@ -1,6 +1,45 @@
 # UX Audit Progress
 
-## [DONE] Модуль: Управление сетью — прогон 9 страниц (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23)
+## [DONE] Модуль: Управление сетью — прогон 9 страниц, раунд 2 (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23, продолжение)
+
+Продолжение после `ScheduleWakeup` возврата. Прошёл оставшиеся 5 страниц (SubAccountDetail, Routing, TariffsList, TariffEditor, Statistics) через UI + API.
+
+### Найдено и исправлено в раунде 2
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| B6 | HIGH/SECURITY | [sub_accounts.go:330](internal/gateway/portal/handlers/sub_accounts.go#L330) TransferBalance | `amount="-10"` → 200 OK, деньги переводились В ОБРАТНУЮ сторону (aggregator изымал средства у субакка без согласия). Финансовый бэкдор | ParseFloat → reject `<= 0` → 400 |
+| B7 | MED | TransferBalance | `amount="0"` создавал пустой transfer_id | Тот же check `<= 0` |
+| B8 | HIGH | TransferBalance | `amount="abc"` → 500 INTERNAL_ERROR от billing | `strconv.ParseFloat` → 400 |
+| B9 | HIGH | UpdateLimits + CreateSubAccount | `daily_limit=-1` или `monthly_limit=-100` → 500 INTERNAL_ERROR ниже по стеку. `initial_balance="abc"` тоже | Валидация `< 0` + ParseFloat для initial_balance → 400 |
+| B10 | HIGH | [sub_account_repository.go:27-75](internal/services/client/infrastructure/repository/sub_account_repository.go#L27) | `ListByParentID` / `CountByParentID` не фильтровали soft-deleted (active=false). Удалённые сабакки всплывали во всех dropdown'ах и засчитывались в `max_sub_accounts` лимит | `WHERE parent_client_id=$1 AND active=true` |
+
+### Проверено без багов (UI + API)
+
+- **NetworkRoutingPage**: выпадающий bulk-assign список корректен, негативные сценарии не проверены детально (bulk модалка требует установленного провайдера).
+- **NetworkTariffEditorPage (PR #32)**: mode validation работает (`mode=garbage` → 400 с внятным сообщением), `id` парсится как UUID (мусор → 400), страница показывает понятное сообщение «тарифный план не найден» при отсутствии overrides. API validation country/sender_category/traffic_type присутствует.
+- **NetworkStatisticsPage**: 3 вкладки, 7 периодов, 11 вариантов группировки — стат-таблица загружается, SavedViews работают. Показатели «Выручка/Себестоимость/Прибыль = 0 ₽» — ожидаемо (нет настроенных тарифов). Minor observation: «Ошибки 0,059» без % сбивает с толку — decimal вместо %.
+
+### Обновлённый deploy лог
+
+- `3a61d01` B1, B2
+- `194d8f3` B3 миграция
+- `b98817e` B4, B5 (255)
+- `7184806` B5 финал (100)
+- `1cb2f02` progress.md
+- `0093745` B6, B7, B8, B9
+- `d6d086c` B10
+
+### Итог двух раундов
+
+- **10 багов исправлены** (5 в раунде 1 + 5 в раунде 2). 1 CRITICAL/SECURITY (B6 — финансовый бэкдор), 5 HIGH (B2, B3, B5, B8, B9, B10), 2 MED (B1, B7), 1 NAV (B4).
+- **Страниц прошло UI + API верификацию**: 9/9 (пусть и в разной глубине — на TariffEditor пустое состояние без overrides ограничило BVA на ценах).
+- **Backlog отложенных багов** (см. раунд 1): handleDelete stub шаблонов, XSS-payload в имени (React по дефолту защищает), однообразные сообщения валидации, tariff CRUD неполный, audit_log не пишется из reseller/tariff handlers.
+- **Критичный финансовый bug (B6)** — был самым серьёзным. До фикса любой владелец aggregator-аккаунта мог через `POST /sub-accounts/{id}/transfer {"amount":"-X"}` снять средства с любого своего субакка без согласия владельца. Тип escalation: внутренний abuse (aggregator уже имеет write-доступ к субакку по модели), но семантически «перевод X от A к B» → `-X` не должно инвертировать направление.
+
+---
+
+## [DONE-round1] Модуль: Управление сетью — прогон 9 страниц (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23)
 
 Scope: все роуты под `/network`. Полный QA full с UI-верификацией пройден по 4 страницам (Dashboard, SubAccountsList, Moderation, TariffTemplates). Остальные 5 страниц (SubAccountDetail, Routing, TariffsList, TariffEditor, Statistics) — статический анализ кода + браузерная проверка грузится-без-ошибок, но без полноты BVA/state-transition. Честно: обратного контекста не хватило на полный full QA по всем 9.
 
