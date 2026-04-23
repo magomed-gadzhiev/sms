@@ -53,12 +53,13 @@ export function NetworkTariffsListPage() {
     };
   }, []);
 
+  const q = search.trim().toLowerCase();
   const filtered = rows.filter(
     (r) =>
       (!onlyOverrides || r.override_count > 0) &&
-      (search === '' ||
-        r.sub_account_name.toLowerCase().includes(search.toLowerCase()) ||
-        r.sub_account_email.toLowerCase().includes(search.toLowerCase())),
+      (q === '' ||
+        r.sub_account_name.toLowerCase().includes(q) ||
+        r.sub_account_email.toLowerCase().includes(q)),
   );
 
   if (loading) {

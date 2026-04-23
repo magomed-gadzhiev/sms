@@ -138,23 +138,35 @@ func (h *ResellerModerationHandlers) ApproveResellerOperatorRegistration(w http.
 		return
 	}
 
-	_, err = h.pool.Exec(r.Context(),
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка обновления"))
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if _, err = tx.Exec(r.Context(),
 		`UPDATE operator_registrations
 		 SET status = 'approved', approved_type = registration_type,
 		     approved_at = NOW(), resolved_at = NOW(), updated_at = NOW()
 		 WHERE id = $1`,
 		id,
-	)
-	if err != nil {
+	); err != nil {
 		respondError(w, shared.ErrInternalServer("ошибка обновления"))
 		return
 	}
-	_, _ = h.pool.Exec(r.Context(),
+	if _, err = tx.Exec(r.Context(),
 		`INSERT INTO operator_registration_history
 		    (operator_registration_id, old_status, new_status, actor_id, actor_type, created_at)
 		 VALUES ($1, 'submitted', 'approved', $2, 'aggregator', NOW())`,
 		id, clientID,
-	)
+	); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка записи истории"))
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{"status": "approved"})
 }
 
@@ -189,22 +201,34 @@ func (h *ResellerModerationHandlers) RejectResellerOperatorRegistration(w http.R
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	note := resellerNullStr(req.Note)
 
-	_, err = h.pool.Exec(r.Context(),
-		`UPDATE operator_registrations
-		 SET status = 'rejected', moderator_note = $2, resolved_at = NOW(), updated_at = NOW()
-		 WHERE id = $1`,
-		id, note,
-	)
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
 		respondError(w, shared.ErrInternalServer("ошибка обновления"))
 		return
 	}
-	_, _ = h.pool.Exec(r.Context(),
+	defer tx.Rollback(r.Context())
+	if _, err = tx.Exec(r.Context(),
+		`UPDATE operator_registrations
+		 SET status = 'rejected', moderator_note = $2, resolved_at = NOW(), updated_at = NOW()
+		 WHERE id = $1`,
+		id, note,
+	); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка обновления"))
+		return
+	}
+	if _, err = tx.Exec(r.Context(),
 		`INSERT INTO operator_registration_history
 		    (operator_registration_id, old_status, new_status, actor_id, actor_type, comment, created_at)
 		 VALUES ($1, 'submitted', 'rejected', $2, 'aggregator', $3, NOW())`,
 		id, clientID, note,
-	)
+	); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка записи истории"))
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{"status": "rejected"})
 }
 
@@ -239,23 +263,35 @@ func (h *ResellerModerationHandlers) RequestRevisionResellerOperatorRegistration
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	note := resellerNullStr(req.Note)
 
-	_, err = h.pool.Exec(r.Context(),
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка обновления"))
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if _, err = tx.Exec(r.Context(),
 		`UPDATE operator_registrations
 		 SET status = 'revision_requested', moderator_note = $2,
 		     resolved_at = NOW(), updated_at = NOW()
 		 WHERE id = $1`,
 		id, note,
-	)
-	if err != nil {
+	); err != nil {
 		respondError(w, shared.ErrInternalServer("ошибка обновления"))
 		return
 	}
-	_, _ = h.pool.Exec(r.Context(),
+	if _, err = tx.Exec(r.Context(),
 		`INSERT INTO operator_registration_history
 		    (operator_registration_id, old_status, new_status, actor_id, actor_type, comment, created_at)
 		 VALUES ($1, 'submitted', 'revision_requested', $2, 'aggregator', $3, NOW())`,
 		id, clientID, note,
-	)
+	); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка записи истории"))
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{"status": "revision_requested"})
 }
 

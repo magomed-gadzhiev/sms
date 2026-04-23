@@ -97,7 +97,8 @@ export function NetworkRoutingPage() {
         provider_id: bulkProviderID,
         priority: parseInt(bulkPriority) || 10,
       });
-      const ok = (result.results as any[]).filter((r: any) => r.status === 'assigned').length;
+      const results = Array.isArray(result?.results) ? (result.results as any[]) : [];
+      const ok = results.filter((r: any) => r.status === 'assigned').length;
       toast.success(`Назначено: ${ok} из ${bulkSelected.size}`);
       setShowBulk(false);
       setBulkSelected(new Set());
