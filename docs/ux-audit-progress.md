@@ -1,5 +1,51 @@
 # UX Audit Progress
 
+## [DONE] Модуль: Управление сетью — раунд 4: /network/tariffs (aggregator, fix, Infrastructure Check, QA full, 2026-04-23)
+
+Претензия пользователя: «нет возможности создавать любые виды тарифов из панели агрегатора».
+
+### Диагноз
+
+- `POST /portal/v1/network/tariff-templates` работает, шаблон создаётся — но после редиректа в `/network/tariffs/editor/:id?mode=template` редактор зависает на empty-state «тарифный план не найден. Создайте план на уровне платформы».
+- **«Уровня платформы» не существует**: у reseller/aggregator нет UI для создания `reseller_tariff_plans`. Есть только хендлер `POST /reseller/tariff-plans` — но он ожидает `country_id` (UUID) и не подвязан к `/network/*` маршрутам.
+- То же самое при открытии override-редактора для субаккаунта без назначенного шаблона.
+- Итог: агрегатор может создать пустой шаблон, но не может задать ни одной цены.
+
+### Исправлено (BUG-14, HIGH UX/Logic Gap)
+
+| Слой | Было | Стало |
+|---|---|---|
+| [internal/gateway/portal/handlers/network_tariff_bulk.go:455](internal/gateway/portal/handlers/network_tariff_bulk.go#L455) | Нет хендлера | `CreatePlan`: транзакция plan + default period (today, open-ended) + default tier (from_count=0, price=0). ISO-код резолвится в country_id, проверяется ownership шаблона/субаккаунта, invalidates `tariffs:summary:<reseller_id>` |
+| [internal/gateway/portal/router/router.go:433](internal/gateway/portal/router/router.go#L433) | — | `POST /network/tariff-plans` |
+| [portal-frontend/src/api/client.ts:1618](portal-frontend/src/api/client.ts#L1618) | — | `networkTariffsApi.createPlan({template_id?/sub_account_id?, country, sender_category, traffic_type, strategy})` |
+| [portal-frontend/src/pages/network/NetworkTariffEditorPage.tsx:234](portal-frontend/src/pages/network/NetworkTariffEditorPage.tsx#L234) | Empty-state без CTA; текст отсылал к несуществующему «уровню платформы» | Кнопка «+ Создать тарифный план» в empty-state. После успеха — toast + refetch → матрица открывается с одной ступенью |
+
+### Verify (трёхуровневая консистентность)
+
+- **UI**: кнопка «+ Создать тарифный план» на `/network/tariffs/editor/bc578c3b-...?mode=template` → матрица с period «2026-04-23 — бессрочно (активный)», strategy=fixed, 6 операторов × tier 0+ × 0.00 ₽.
+- **API**: `GET /portal/v1/network/tariff-editor/bc578c3b-...` после клика возвращает `plan.id=75c5d896-...`, `active_period_id` заполнен, массив `tiers` непустой.
+- **БД**: `reseller_tariff_plans` — 1 строка (sender_category=paid_registered, traffic_type=any, strategy=fixed), `reseller_tariff_periods` — 1, `reseller_tariff_tiers` — 1. SQL-вердикт:
+  ```
+  75c5d896-54fa-449d-b498-4435d5dd5c82|paid_registered|any|fixed|periods=1|tiers=1
+  ```
+
+### Infrastructure Check: PASS
+
+- Миграция 000099 сделала `reseller_tariff_periods.end_date` nullable — код вставляет NULL для «бессрочного» периода.
+- Таблица `countries` заполнена (RU/KZ/BY резолвятся).
+- Unique-index `idx_reseller_plan_template_dims` корректно ловит 409 при повторном создании того же сочетания.
+
+### Deploy
+
+- Commit `7570872` — CreatePlan backend + frontend CTA. Build + docker-compose up завершились (portal-gateway healthy, portal-frontend up).
+
+### Известные ограничения (техдолг)
+
+- Дефолтные цены = 0 — в prod это дыра. На sandbox-сервере ok. Следующий шаг: выбор strategy и стартовых цен в диалоге создания плана, а не дефолт.
+- UI не даёт удалять план (`DELETE /network/tariff-plans/{id}` есть как `reseller_tariff_plans.DeletePlan`, но не подвязан к /network/*).
+
+---
+
 ## [DONE] Модуль: Управление сетью — раунд 3 (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23)
 
 Проверил статус backlog из раундов 1-2. Часть пунктов уже исправлена (SubAccountDetail handleTransfer isNaN-guard — уже стоит, Statistics groupByToSliceType — уже включает time-based). Дожал 3 реальных бага.
