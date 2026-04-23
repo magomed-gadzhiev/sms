@@ -84,10 +84,8 @@ func main() {
 	contactGrpcServer := contactgrpc.NewServer(contactService)
 	contactv1.RegisterContactServiceServer(grpcServer, contactGrpcServer)
 
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	grpcListener, err := net.Listen("tcp", ":5012")
 	if err != nil {

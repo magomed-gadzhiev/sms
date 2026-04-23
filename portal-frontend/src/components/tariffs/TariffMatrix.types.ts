@@ -41,8 +41,15 @@ export interface TariffMatrixSaveResult {
   errors?: TariffMatrixSaveError[];
 }
 
+// The matrix always operates within a concrete period — callers must
+// ensure `plan` and `active_period_id` are non-null before rendering.
+export type TariffMatrixData = Omit<TariffEditorData, 'plan' | 'active_period_id'> & {
+  plan: NonNullable<TariffEditorData['plan']>;
+  active_period_id: string;
+};
+
 export interface TariffMatrixProps {
-  data: TariffEditorData;
+  data: TariffMatrixData;
   scope: TariffMatrixScope;
   /** false → no edit mode button/inputs */
   editable: boolean;

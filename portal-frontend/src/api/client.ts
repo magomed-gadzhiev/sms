@@ -1514,9 +1514,9 @@ export interface TariffEditorScope {
 export interface TariffEditorData {
   scope: TariffEditorScope;
   template: { id: string; name: string } | null;
-  plan: { id: string; strategy: string; currency: string };
+  plan: { id: string; strategy: string; currency: string } | null;
   periods: { id: string; from: string; to: string | null; active: boolean }[];
-  active_period_id: string;
+  active_period_id: string | null;
   operators: { id: string; name: string; icon: string | null }[];
   tiers: { id: string; from_quantity: number }[];
   cells: TariffEditorCell[];

@@ -183,11 +183,8 @@ func main() {
 	messagingGrpcServer := messaginggrpc.NewServer(messageService, dlrService)
 	messagingv1.RegisterMessagingServiceServer(grpcServer, messagingGrpcServer)
 
-	// Включение reflection для разработки
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", ":9092") // Используем порт для messaging service

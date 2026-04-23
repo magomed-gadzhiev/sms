@@ -175,10 +175,8 @@ func main() {
 	campaignGrpcServer := campaigngrpc.NewServer(campaignService)
 	campaignv1.RegisterCampaignServiceServer(grpcServer, campaignGrpcServer)
 
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	grpcListener, err := net.Listen("tcp", ":5013")
 	if err != nil {

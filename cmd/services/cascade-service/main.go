@@ -245,10 +245,8 @@ func main() {
 	cascadeGrpcServer := cascadegrpc.NewServer(cascadeService, channelService, strategyService, deliveryService, operatorSupportRepo)
 	cascadeGrpcServer.Register(grpcServer)
 
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {

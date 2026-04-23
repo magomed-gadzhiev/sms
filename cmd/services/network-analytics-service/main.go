@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	networkanalyticsv1 "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1"
 	"github.com/smpp-server/smpp-server/internal/services/network_analytics/application"
@@ -103,6 +104,7 @@ func main() {
 	// gRPC server
 	grpcServer := grpc.NewServer()
 	networkanalyticsv1.RegisterNetworkAnalyticsServiceServer(grpcServer, networkgrpc.NewServer(service))
+	reflection.Register(grpcServer)
 
 	port := viper.GetString("GRPC_PORT")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))

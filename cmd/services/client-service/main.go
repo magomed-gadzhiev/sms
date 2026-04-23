@@ -88,11 +88,8 @@ func main() {
 	clientGrpcServer := clientgrpc.NewServer(clientService, subAccountService)
 	clientv1.RegisterClientServiceServer(grpcServer, clientGrpcServer)
 
-	// Включение reflection для разработки
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", cfg.API.GRPC.GetAddr())

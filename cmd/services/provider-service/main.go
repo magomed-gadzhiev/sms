@@ -128,11 +128,8 @@ func main() {
 	clientProviderGrpcServer := providergrpc.NewClientProviderServer(clientProviderService)
 	cpv1.RegisterClientProviderServiceServer(grpcServer, clientProviderGrpcServer)
 
-	// Включение reflection для разработки
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", ":9094") // Используем порт для provider service

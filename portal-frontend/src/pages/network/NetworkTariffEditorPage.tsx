@@ -187,7 +187,7 @@ export function NetworkTariffEditorPage() {
 
   const handleSave = useCallback(
     async (batch: TariffBulkSaveBody): Promise<TariffMatrixSaveResult> => {
-      if (!data) return { ok: false };
+      if (!data || !data.plan) return { ok: false };
       try {
         const res = await networkTariffsApi.bulkPatchPlan(data.plan.id, batch);
         if (res.ok) {
@@ -225,6 +225,62 @@ export function NetworkTariffEditorPage() {
   if (!data || !matrixScope) {
     return null;
   }
+
+  // Backend returns plan=null when no plan matches the selected filters
+  // (template exists, but no row in reseller_tariff_plans for this
+  // country/sender_category/traffic_type combination). Render an empty
+  // state with filters still switchable so the user can pick a combination
+  // that does have a plan, rather than crashing the page.
+  if (!data.plan) {
+    return (
+      <div className="flex flex-col">
+        <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
+          <div className="px-6 py-3 space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Link to="/network/tariffs" className="text-sky-600 hover:underline">
+                Тарифы
+              </Link>
+              <span className="text-slate-400">›</span>
+              <span className="font-medium text-slate-800">
+                {data.scope.kind === 'template' ? data.scope.template_name : data.scope.sub_account_name}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <FilterSelect
+                label="Страна"
+                value={params.country}
+                options={COUNTRIES}
+                onChange={(v) => updateParam('country', v)}
+              />
+              <FilterSelect
+                label="Тип имени"
+                value={params.sender_category}
+                options={SENDER_CATEGORIES}
+                onChange={(v) => updateParam('sender_category', v)}
+              />
+              <FilterSelect
+                label="Тип трафика"
+                value={params.traffic_type}
+                options={TRAFFIC_TYPES}
+                onChange={(v) => updateParam('traffic_type', v)}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-10 text-center text-sm text-slate-600">
+          <p className="mb-1 font-medium text-slate-800">
+            Для выбранной комбинации фильтров тарифный план не найден.
+          </p>
+          <p className="text-slate-500">
+            Попробуйте другую страну, тип имени или тип трафика — либо создайте
+            план для этой комбинации на уровне платформы.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const plan = data.plan;
 
   const activePeriod =
     data.periods.find((p) => p.id === data.active_period_id) ?? data.periods[0];
@@ -293,7 +349,7 @@ export function NetworkTariffEditorPage() {
               onNewPeriod={() => setNewPeriodOpen(true)}
             />
             <div className="ml-auto text-xs text-slate-500">
-              Стратегия: <span className="font-medium text-slate-700">{data.plan.strategy}</span>
+              Стратегия: <span className="font-medium text-slate-700">{plan.strategy}</span>
               {/* TODO(out-of-scope): «Редактировать стратегию плана». */}
             </div>
           </div>
@@ -302,15 +358,22 @@ export function NetworkTariffEditorPage() {
 
       {/* matrix body */}
       <div className="px-6 py-4">
-        <TariffMatrix
-          data={data}
-          scope={matrixScope}
-          editable={true}
-          showInheritance={params.mode === 'override'}
-          currency={data.plan.currency}
-          onSaveBatch={handleSave}
-          onUnsavedChange={setHasUnsavedChanges}
-        />
+        {data.active_period_id ? (
+          <TariffMatrix
+            data={{ ...data, plan, active_period_id: data.active_period_id }}
+            scope={matrixScope}
+            editable={true}
+            showInheritance={params.mode === 'override'}
+            currency={plan.currency}
+            onSaveBatch={handleSave}
+            onUnsavedChange={setHasUnsavedChanges}
+          />
+        ) : (
+          <div className="py-8 text-center text-sm text-slate-600">
+            У плана пока нет периодов тарификации. Создайте первый, чтобы
+            начать редактирование матрицы.
+          </div>
+        )}
 
         {/* period-level actions */}
         <div className="mt-4 flex items-center gap-2">
@@ -326,7 +389,7 @@ export function NetworkTariffEditorPage() {
       <NewPeriodDialog
         open={newPeriodOpen}
         onOpenChange={setNewPeriodOpen}
-        planId={data.plan.id}
+        planId={plan.id}
         existingPeriods={data.periods.map((p) => ({ id: p.id, from: p.from, to: p.to }))}
         onSuccess={(newPeriodId) => {
           updateParam('period_id', newPeriodId);

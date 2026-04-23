@@ -96,10 +96,8 @@ func main() {
 	companyGrpcServer := companygrpc.NewServer(companyAppService)
 	companyv1.RegisterCompanyServiceServer(grpcServer, companyGrpcServer)
 
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	grpcListener, err := net.Listen("tcp", ":9099")
 	if err != nil {

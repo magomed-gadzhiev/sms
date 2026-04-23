@@ -218,11 +218,8 @@ func main() {
 	billingGrpcServer := billinggrpc.NewServer(billingService, pricingService, dualDeps)
 	billingv1.RegisterBillingServiceServer(grpcServer, billingGrpcServer)
 
-	// Включение reflection для разработки
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", ":9097") // Используем порт для billing service

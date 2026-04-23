@@ -281,11 +281,8 @@ func main() {
 	routingGrpcServer.SetClientRoutingDeps(clientProviderRepo, clientRouteRepo, clientStrategyRepo)
 	routingv1.RegisterRoutingServiceServer(grpcServer, routingGrpcServer)
 
-	// Включение reflection для разработки
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", ":9093") // Используем порт для routing service

@@ -77,10 +77,8 @@ func main() {
 	auditGrpcServer := auditgrpc.NewServer(auditRepo)
 	auditv1.RegisterAuditServiceServer(grpcServer, auditGrpcServer)
 
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", ":9102")

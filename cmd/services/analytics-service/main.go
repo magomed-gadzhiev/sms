@@ -205,11 +205,8 @@ func main() {
 	analyticsGrpcServer := analyticsgrpc.NewServer(analyticsService, reportService, realtimeService)
 	analyticsv1.RegisterAnalyticsServiceServer(grpcServer, analyticsGrpcServer)
 
-	// Включение reflection для разработки
-	if cfg.Service.Env == "development" {
-		reflection.Register(grpcServer)
-		logger.Info().Msg("gRPC reflection включен")
-	}
+	reflection.Register(grpcServer)
+	logger.Info().Msg("gRPC reflection включен")
 
 	// Запуск gRPC сервера
 	grpcListener, err := net.Listen("tcp", ":9096") // Используем порт для analytics service

@@ -16,10 +16,10 @@ import {
   clientTariffsApi,
   ApiError,
   type ClientTariffsEffectiveResponse,
-  type TariffEditorData,
 } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { TariffMatrix } from '../../components/tariffs/TariffMatrix';
+import type { TariffMatrixData } from '../../components/tariffs/TariffMatrix.types';
 
 interface FilterParams {
   channel: string;
@@ -50,12 +50,13 @@ const COUNTRIES: { value: string; label: string }[] = [
 // so the shared TariffMatrix can render it without a separate code path.
 // With showInheritance=false the matrix ignores price_template/price_override
 // distinctions — we fill them identically to `effective`.
-function adaptToEditorData(r: ClientTariffsEffectiveResponse): TariffEditorData | null {
+function adaptToEditorData(r: ClientTariffsEffectiveResponse): TariffMatrixData | null {
   if (!r.plan || !r.period) return null;
+  const plan = r.plan;
   return {
     scope: { kind: 'template' }, // unused visually; scope prop below is {kind:'client'}
     template: null,
-    plan: r.plan,
+    plan,
     periods: [{ id: r.period.id, from: r.period.from, to: r.period.to, active: true }],
     active_period_id: r.period.id,
     operators: r.operators,
