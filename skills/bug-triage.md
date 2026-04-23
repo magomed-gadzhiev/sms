@@ -287,3 +287,206 @@ Agent(
   не подключён. Проверить `superpowers:using-git-worktrees`. Без worktree —
   отказать: "Нельзя диспатчить без изоляции. Установите superpowers."
 - **Превышение max_parallel = 3** — ставить в `queued`, стартовать из фазы 3.
+
+## Фаза 3: Merge-gate и деплой
+
+Триггер: system-reminder об окончании background-агента (формат:
+"Background agent <id> completed").
+
+### 3.1. Прочитать результат
+
+```bash
+cat .claude/bugs/<bug_id>/result.json
+```
+
+Если файла нет (агент упал, не успел записать):
+- state.json: `status=failed`, `failure_reason="agent did not produce result.json"`
+- Сообщение пользователю с путём к worktree.
+- К шагу 3.7 (поднять следующего из очереди queued).
+
+### 3.2. Ветвление по status
+
+**Если `status == "failed"`:**
+- state.json: `status=failed`, `failure_reason=<из result.json>`,
+  `agent_finished_at=now()`
+- TodoWrite: в completed с префиксом ✗
+- Сообщение пользователю с путём к worktree и кратким summary
+- К шагу 3.7
+
+**Если `status == "ready_for_merge"`:**
+- Идём в merge-gate (3.3).
+
+### 3.3. Merge-gate: проверка пересечений
+
+Из state.json взять `files_changed` всех багов со статусом
+`in_progress` или `ready_for_merge` (кроме текущего).
+
+Пересечение = непустое `set(files_changed_current) ∩ set(files_changed_other)`.
+
+Если есть пересечение → `review_pending` (шаг 3.5), пропустить 3.4.
+
+### 3.4. Dry-run merge
+
+```bash
+# Подтянуть ветку из worktree (ветка уже есть в git-репо, worktree просто
+# делит тот же .git — fetch не нужен)
+git merge --no-commit --no-ff fix/bug-<bug_id>
+MERGE_STATUS=$?
+
+if [[ $MERGE_STATUS -eq 0 ]]; then
+  # Чистый merge
+  git commit -m "merge: bug <bug_id> — <summary>"
+  # state.json: status=merged, добавить в deploy_queue
+else
+  git merge --abort
+  # → review_pending (шаг 3.5)
+fi
+```
+
+### 3.5. Review pending (конфликт или пересечение)
+
+- state.json: `status=review_pending`
+- TodoWrite: in_progress с префиксом ⏸
+- Спросить пользователя:
+  ```
+  Bug <bug_id> готов к merge.
+  Причина задержки: <conflict | overlap with bug <other_id>>
+  Файлы: <list>
+  Варианты:
+  - m (merge now) — я помогу разрулить конфликт вручную
+  - d (defer) — пусть ждёт, пока другой завершится
+  - r (reject) — отклонить фикс, worktree оставить на память
+  ```
+- Ответ пользователя обрабатывается в следующем сообщении (не блокирует поток).
+
+### 3.6. Триггер батч-деплоя
+
+После попадания в `deploy_queue`:
+- Запустить таймер 5 минут (через фоновый sleep + background task, или просто
+  отметить в state.json `deploy_scheduled_at`).
+- ИЛИ: если очереди `in_progress` и `queued` пусты (все агенты закончили) →
+  немедленный деплой.
+
+### 3.7. Батч-деплой
+
+```bash
+# Выбрать команду
+if все merged фиксы в одном сервисе (по files_changed path mapping):
+  ./scripts/server.sh deploy <service>
+else:
+  ./scripts/server.sh deploy
+```
+
+Ожидание завершения команды (foreground, блокирует поток — deploy идёт 1–2
+минуты, это приемлемо, пользователь видит, что работа идёт).
+
+**Успех (exit 0):**
+- Все `merged` → `deployed`, `deployed_at=now()`
+- TodoWrite → completed
+- `deploy_queue` очистить
+- `last_deploy_at=now()` в state.json
+- Очистить worktree: для каждого deployed bug —
+  `git worktree remove <worktree_path>`. Ветка `fix/bug-*` остаётся.
+- Сообщение: "Задеплоено: <N> фиксов. <bug_ids>."
+
+**Фейл (exit != 0):**
+- Merge НЕ откатывается (код уже в master).
+- Все `merged` → `review_pending` с пометкой `failure_reason="deploy failed: <stderr tail>"`.
+- Сообщение пользователю с выхлопом и предложением: "Деплой упал. Код в
+  master. Варианты: повторить деплой, откатить merge вручную."
+
+### 3.8. Подхват очереди
+
+Если были `queued` баги и освободился слот (ещё один `in_progress` стал не
+`in_progress`) → взять первый из `queued`, перейти в фазу 2 для него.
+
+## Команды управления
+
+### `/bug-triage status`
+
+Прочитать state.json, вывести таблицу:
+```
+Активные (<N>/3):
+  <bug_id> | <status> | <elapsed> | <short_desc>
+  ...
+В очереди на деплой (<M>):
+  <bug_id> | merged at <time> | <files_changed summary>
+Последний деплой: <ISO> (<elapsed> назад)
+Требуют внимания:
+  <bug_id> | review_pending | <reason>
+```
+
+### `/bug-triage stop`
+
+1. Для каждого `in_progress` / `queued` / `review_pending`:
+   - status → `failed`, `failure_reason="session stopped by user"`
+   - TodoWrite → completed с ✗
+2. Для каждого `merged` не задеплоенного:
+   - Спросить: "Есть <N> смёрдженных. Задеплоить перед выходом? [y/n]"
+   - y → фаза 3.7 батчем
+   - n → оставить как есть, пользователь задеплоит руками
+3. Не убивать Chrome — окно пользователя, пусть сам закроет.
+4. Не трогать state.json окончательно — он нужен при следующем старте для истории.
+
+## State & TodoWrite
+
+### `.claude/bugs/state.json` — схема
+
+Смотри спеку §8. Ключевые поля каждого бага:
+`status`, `description_short`, `created_at`, `package_dir`, `worktree_path`,
+`branch`, `agent_started_at`, `agent_finished_at`, `files_changed`,
+`review_iterations`, `failure_reason`, `deployed_at`.
+
+### Маппинг TodoWrite
+
+| state.json status | TodoWrite status | Префикс |
+|---|---|---|
+| captured, queued, in_progress | in_progress | — |
+| review_pending | in_progress | ⏸ |
+| ready_for_merge, merged | in_progress | — |
+| deployed | completed | — |
+| failed | completed | ✗ |
+
+## Error handling — когда что-то пошло не так
+
+| Фейл | Поведение |
+|---|---|
+| Chrome не стартует | Вывод путей, по которым искали, инструкция запуска вручную |
+| CDP-порт 9222 не отвечает через 3с после запуска | То же + предложение проверить антивирус/firewall |
+| chrome-devtools-mcp не подключён в сессии | Просьба рестартовать Claude Code |
+| Background-агент завис (>30 мин без `agent_finished_at`) | → failed, worktree сохранён |
+| `server.sh deploy` упал | merged → review_pending с выхлопом |
+| state.json corrupt | `state-init.sh` делает .bak и стартует чистый |
+| Нет активных вкладок Chrome при `/bug` | Ошибка: "Открой портал в окне Chrome и повтори" |
+| `Agent(isolation=worktree)` возвращает ошибку | Skill не продолжает — требует `superpowers:using-git-worktrees` |
+| playwright-mcp не подключён | Агент в своём brief-е отметит: "не могу repro, диагностика только по пакету". Это ухудшает качество, но не блокер. |
+
+## Антипаттерны
+
+- ❌ Снимать артефакты **внутри** агента через chrome-devtools-mcp — сломает
+  сессию пользователя (MCP single-session).
+- ❌ Коммитить/мёрджить из агента — это делает оркестратор после merge-gate.
+- ❌ Пропускать code-reviewer внутри агента — gated как в
+  `/execute-with-review`.
+- ❌ Автодеплоить после каждого merged — ломает батчинг, устаревшие деплои
+  перекрываются.
+- ❌ Запускать >3 агентов параллельно — ресурсы машины + риск merge-конфликтов
+  возрастает нелинейно.
+- ❌ `git merge --no-verify` при автомёрдже — pre-commit hook должен пройти.
+- ❌ Переиспользовать твой рабочий Chrome (без отдельного `--user-data-dir`) —
+  cookies/localStorage сломаются после сессии.
+
+## Интеграции
+
+- **superpowers:using-git-worktrees** — изоляция агентов. Без него skill не работает.
+- **superpowers:code-reviewer** — обязательный гейт внутри агента.
+- **chrome-devtools-mcp** — для основного потока.
+- **playwright-mcp** — для агентов (repro + проверка фикса).
+- **scripts/server.sh** — deploy, logs через SSH на sms-server.
+- **scripts/check.sh** — пре-коммит-гейт агента.
+
+## Что skill НЕ делает (YAGNI)
+
+См. секцию 10 спеки. Вкратце: не профилирует производительность, не ведёт
+аналитику, не откатывает деплой, не поддерживает другие браузеры, не работает
+вне `c:\projects\sms`.
