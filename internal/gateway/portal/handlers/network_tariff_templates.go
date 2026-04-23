@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -177,6 +178,15 @@ func (h *NetworkTariffTemplatesHandler) Create(w http.ResponseWriter, r *http.Re
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
 		respondError(w, shared.ErrInvalidInput("имя шаблона обязательно"))
+		return
+	}
+	// БД: reseller_tariff_templates.name — VARCHAR(255). Без проверки → 500.
+	if utf8.RuneCountInString(req.Name) > 255 {
+		respondError(w, shared.ErrInvalidInput("имя шаблона слишком длинное (макс 255 символов)"))
+		return
+	}
+	if utf8.RuneCountInString(req.Description) > 10000 {
+		respondError(w, shared.ErrInvalidInput("описание шаблона слишком длинное (макс 10000 символов)"))
 		return
 	}
 
