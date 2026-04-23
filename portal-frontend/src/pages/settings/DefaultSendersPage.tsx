@@ -6,6 +6,7 @@ import { defaultSendersApi, senderNamesApi, type SenderNameInfo } from '../../ap
 const CHANNELS: Array<{ code: string; label: string }> = [
   { code: 'sms', label: 'SMS' },
   { code: 'viber', label: 'Viber' },
+  { code: 'max', label: 'MAX' },
 ];
 
 export function DefaultSendersPage() {

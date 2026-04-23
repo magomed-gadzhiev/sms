@@ -1,5 +1,9 @@
 # UX Audit Progress
 
+## [IN_PROGRESS] Модуль: Имена отправителей и шаблоны — full sweep (subaccount + aggregator, fix + Infra + QA full, 2026-04-23)
+
+Фокус: весь путь регистрации `sender_names`, связанные `templates`, биллинг имён, default-senders, overrides операторов. Роли: `subacc@test.local` (subaccount) и `aggregator@test.local` (reseller/aggregator). Ожидается: матрица статусов (pending → approved/rejected/blocked), BVA на поля имени/текста шаблона, трёхуровневая консистентность, попытка cross-tenant доступа.
+
 ## [DONE] Модуль: Панель субаккаунта — раунд 2, полный обход (subaccount, fix + инфраструктура + QA full, 2026-04-23)
 
 Тест-аккаунт `subacc@test.local` / `Admin123!` (client `a0000000-...-000000000002`, parent = aggregator). Обошёл все 25 страниц субаккаунта, включая попытки прямого доступа к `/network/*`, `/providers`, `/routing`.

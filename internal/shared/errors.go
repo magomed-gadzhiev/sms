@@ -3,6 +3,7 @@ package shared
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // ErrorCode представляет код ошибки
@@ -104,8 +105,16 @@ func ErrInvalidInput(message string) *AppError {
 	return NewAppError(ErrCodeInvalidInput, message, http.StatusBadRequest)
 }
 
-// ErrNotFound создает ошибку "не найдено"
+// ErrNotFound создает ошибку "не найдено".
+// Если переданное сообщение уже содержит «не найден/не найдена/не найдено/not found»,
+// возвращаем его без модификаций. Иначе добавляем суффикс «не найден» —
+// это обратносовместимо с вызовами вида ErrNotFound("шаблон").
 func ErrNotFound(resource string) *AppError {
+	lower := strings.ToLower(resource)
+	if strings.Contains(lower, "не найден") || strings.Contains(lower, "не найдена") ||
+		strings.Contains(lower, "не найдено") || strings.Contains(lower, "not found") {
+		return NewAppError(ErrCodeNotFound, resource, http.StatusNotFound)
+	}
 	return NewAppError(ErrCodeNotFound, fmt.Sprintf("%s не найден", resource), http.StatusNotFound)
 }
 

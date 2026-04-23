@@ -172,7 +172,20 @@ func (h *SettingsHandlers) GetDefaultSenders(w http.ResponseWriter, r *http.Requ
 	respondJSON(w, http.StatusOK, result)
 }
 
-// SetDefaultSenders handles PUT /portal/v1/settings/default-senders
+// allowedDefaultSenderChannels — белый список каналов, поддерживаемых таблицей
+// default_sender_names (см. CHECK constraint в миграции).
+var allowedDefaultSenderChannels = map[string]struct{}{
+	"sms":   {},
+	"viber": {},
+	"max":   {},
+}
+
+// SetDefaultSenders handles PUT /portal/v1/settings/default-senders.
+// Принимает map channel → sender_name_id. Пустой sender_name_id очищает default
+// для канала. Перед записью валидирует:
+//  1. channel ∈ {sms, viber, max};
+//  2. sender_name принадлежит вызывающему клиенту;
+//  3. sender_name.status = approved.
 func (h *SettingsHandlers) SetDefaultSenders(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
@@ -186,17 +199,53 @@ func (h *SettingsHandlers) SetDefaultSenders(w http.ResponseWriter, r *http.Requ
 	}
 	ctx := r.Context()
 	for channel, senderNameID := range req {
-		if channel == "" || senderNameID == "" {
+		if channel == "" {
 			continue
 		}
-		_, err := h.pool.Exec(ctx, `
+		if _, allowed := allowedDefaultSenderChannels[channel]; !allowed {
+			respondError(w, shared.ErrInvalidInput("неподдерживаемый канал: "+channel))
+			return
+		}
+		if senderNameID == "" {
+			if _, err := h.pool.Exec(ctx,
+				`DELETE FROM default_sender_names WHERE client_id = $1 AND channel = $2`,
+				clientID.String(), channel,
+			); err != nil {
+				respondError(w, shared.ErrInternalServer("ошибка очистки default sender для канала "+channel))
+				return
+			}
+			continue
+		}
+
+		var (
+			ownerID string
+			status  string
+		)
+		err := h.pool.QueryRow(ctx,
+			`SELECT client_id::text, status FROM sender_names WHERE id = $1::uuid`,
+			senderNameID,
+		).Scan(&ownerID, &status)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("имя отправителя не найдено: "+senderNameID))
+			return
+		}
+		if ownerID != clientID.String() {
+			respondError(w, shared.ErrInvalidInput("имя отправителя не принадлежит вашему аккаунту"))
+			return
+		}
+		if status != "approved" {
+			respondError(w, shared.ErrInvalidInput(
+				"имя отправителя должно быть в статусе approved (текущий: "+status+")"))
+			return
+		}
+
+		if _, err := h.pool.Exec(ctx, `
 			INSERT INTO default_sender_names (client_id, channel, sender_name_id)
 			VALUES ($1, $2, $3::uuid)
 			ON CONFLICT (client_id, channel)
 			DO UPDATE SET sender_name_id = $3::uuid
-		`, clientID.String(), channel, senderNameID)
-		if err != nil {
-			respondError(w, shared.ErrInternalServer("Ошибка сохранения"))
+		`, clientID.String(), channel, senderNameID); err != nil {
+			respondError(w, shared.ErrInternalServer("ошибка сохранения default для канала "+channel))
 			return
 		}
 	}

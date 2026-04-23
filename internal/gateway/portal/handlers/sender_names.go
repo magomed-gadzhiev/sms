@@ -71,13 +71,41 @@ func (h *SenderNameHandlers) CreateSenderName(w http.ResponseWriter, r *http.Req
 			respondError(w, shared.ErrInternalServer("database pool недоступен"))
 			return
 		}
+		// 1) пробуем явно дефолтную, 2) если её нет, но компания одна — берём её,
+		// 3) иначе просим пользователя выбрать компанию.
 		if err := h.pool.QueryRow(r.Context(),
 			`SELECT company_id::text FROM client_companies WHERE client_id = $1 AND is_default = TRUE LIMIT 1`,
 			clientID,
 		).Scan(&companyID); err != nil {
-			log.Error().Err(err).Str("client_id", clientID.String()).Msg("не найдена дефолтная компания клиента")
-			respondError(w, shared.ErrInvalidInput("у клиента не найдена компания по умолчанию"))
-			return
+			rows, qErr := h.pool.Query(r.Context(),
+				`SELECT company_id::text FROM client_companies WHERE client_id = $1 LIMIT 2`,
+				clientID,
+			)
+			if qErr != nil {
+				log.Error().Err(qErr).Str("client_id", clientID.String()).Msg("ошибка чтения списка компаний клиента")
+				respondError(w, shared.ErrInternalServer("ошибка чтения компаний клиента"))
+				return
+			}
+			ids := make([]string, 0, 2)
+			for rows.Next() {
+				var id string
+				if err := rows.Scan(&id); err == nil {
+					ids = append(ids, id)
+				}
+			}
+			rows.Close()
+			switch len(ids) {
+			case 0:
+				respondError(w, shared.ErrInvalidInput(
+					"добавьте компанию в разделе «Компании», прежде чем регистрировать имя отправителя"))
+				return
+			case 1:
+				companyID = ids[0]
+			default:
+				respondError(w, shared.ErrInvalidInput(
+					"выберите компанию: у вас несколько компаний и ни одна не назначена основной (раздел «Компании»)"))
+				return
+			}
 		}
 	}
 
