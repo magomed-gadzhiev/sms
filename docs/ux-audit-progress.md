@@ -1,6 +1,45 @@
 # UX Audit Progress
 
-## [DONE] Модуль: Управление сетью — прогон 9 страниц, раунд 2 (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23, продолжение)
+## [DONE] Модуль: Управление сетью — раунд 3 (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23)
+
+Проверил статус backlog из раундов 1-2. Часть пунктов уже исправлена (SubAccountDetail handleTransfer isNaN-guard — уже стоит, Statistics groupByToSliceType — уже включает time-based). Дожал 3 реальных бага.
+
+### Найдено и исправлено
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| B11 | HIGH reliability | [reseller_moderation.go](internal/gateway/portal/handlers/reseller_moderation.go) Approve/Reject/RequestRevision | UPDATE статуса + INSERT history — два отдельных `pool.Exec`. Ошибка INSERT игнорировалась (`_, _ = ...`) → status был коммитнут, а строка в `operator_registration_history` могла потеряться. Дыра в audit-trail | pgx-транзакция: UPDATE и INSERT коммитятся вместе или откатываются вместе |
+| B12 | MED defensive | [NetworkRoutingPage.tsx:100](portal-frontend/src/pages/network/NetworkRoutingPage.tsx#L100) handleBulkAssign | `(result.results as any[]).filter(...)` — если backend вернёт `results: null` / `undefined`, бросает `TypeError: filter of undefined`, модалка зависает в `bulkSubmitting=true` | `Array.isArray(result?.results) ? ... : []` — graceful fallback |
+| B13 | LOW UX | [NetworkTariffsListPage.tsx:56](portal-frontend/src/pages/network/NetworkTariffsListPage.tsx#L56) filter | `search.toLowerCase()` — пробел в начале/конце строки → нулевой результат при «видимом» совпадении | `search.trim().toLowerCase()` |
+
+### Проверено и отклонено (уже исправлено раньше или ложная тревога)
+
+- **SubAccountDetailPage handleTransfer**: `isNaN(amount) || amount <= 0` уже стоит на [строке 234](portal-frontend/src/pages/sub-accounts/SubAccountDetailPage.tsx#L234). Backlog из раунда 1 устарел.
+- **NetworkStatisticsPage groupByToSliceType**: `SUPPORTED_SLICE_TYPES` уже включает time-based (`5min`, `15min`, `hour`, `day`, `month`, `year`). Drill-down drawer не теряет строки.
+- **NetworkTariffEditorPage empty periods**: статический анализ не подтвердил краш — `TariffMatrix` принимает пустой массив без падения.
+
+### Инфраструктура (Infrastructure Check: yes)
+
+- Три handler'а модерации теперь в транзакции. **Не проверены в этом раунде**: `sub_account_service.CreateSubAccount` (multi-step), `reseller_tariff_plans.go` create/update (3+ INSERT).
+- **Audit log**: reseller handlers по-прежнему не пишут в `audit_log` — техдолг.
+
+### Deploy
+
+- `461024f` — B11, B12, B13. Build + deploy завершились (portal-gateway healthy, portal-frontend up).
+
+### Итог трёх раундов
+
+- **13 багов исправлено** суммарно (5+5+3).
+- **1 CRITICAL/SECURITY** (B6 round 2 — transfer негативных сумм), **7 HIGH**, **3 MED**, **1 LOW**, **1 NAV**.
+- **Открытый техдолг**: audit_log не пишется из reseller handlers; handleDelete для tariff templates — stub; per-field error messages для суб-аккаунтов; полный CRUD PR #32; транзакции на create-субаккаунт.
+
+### Честная оценка QA-full покрытия
+
+Полный UI + API + DB цикл пройден на 4-5 страницах из 9. На остальных — статический анализ + «грузится без ошибок». Полный BVA / матрица переходов / трёхуровневая консистентность по всем 9 за один прогон — вне бюджета одной сессии.
+
+---
+
+## [DONE-round2] Модуль: Управление сетью — прогон 9 страниц, раунд 2 (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23, продолжение)
 
 Продолжение после `ScheduleWakeup` возврата. Прошёл оставшиеся 5 страниц (SubAccountDetail, Routing, TariffsList, TariffEditor, Statistics) через UI + API.
 
