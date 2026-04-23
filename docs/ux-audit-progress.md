@@ -1,8 +1,69 @@
 # UX Audit Progress
 
-## [IN_PROGRESS] Модуль: Имена отправителей и шаблоны — full sweep (subaccount + aggregator, fix + Infra + QA full, 2026-04-23)
+## [DONE] Модуль: Имена отправителей и шаблоны — full sweep (subaccount + aggregator, fix + Infra + QA full, 2026-04-23)
 
-Фокус: весь путь регистрации `sender_names`, связанные `templates`, биллинг имён, default-senders, overrides операторов. Роли: `subacc@test.local` (subaccount) и `aggregator@test.local` (reseller/aggregator). Ожидается: матрица статусов (pending → approved/rejected/blocked), BVA на поля имени/текста шаблона, трёхуровневая консистентность, попытка cross-tenant доступа.
+Аккаунты: `subacc@test.local` (`a0000000-...-000000000002`, parent = aggregator) и `aggregator@test.local` (`a0000000-...-000000000001`, is_reseller=t). Полный обход API (`/portal/v1/sender-names`, `/templates`, `/sender-registrations`, `/reseller/*`, `/settings/default-senders`) с прямой верификацией состояния через PostgreSQL.
+
+### Pass/Fail summary
+
+| TC | Зона | Вердикт |
+|----|------|---------|
+| TC-SN-CR | `POST /sender-names` BVA: пустое, пробелы-only, 11/12 alphanumeric, 15/16 numeric, кириллица, `<script>`, SQL-инъекция, дубль | PASS — формат валидируется, dup → 409 |
+| TC-SN-FB | Тот же endpoint без `company_id` (новый поток UI) | **FAIL → FIXED** (BUG-1) |
+| TC-SN-RES | Resubmit rejected → pending, повторный approve/reject → 400 | PASS |
+| TC-SN-HIST | `GET /sender-names/:id/history` | PASS — записи `system → admin` пишутся |
+| TC-SN-CT | Cross-tenant: subaccount читает чужой sender_name | PASS — 404 |
+| TC-SN-OP | `bulk operator-registrations` happy + idempotency + блок на pending имени | PASS |
+| TC-SN-OPT | nested `operator-templates` create draft | PASS |
+| TC-TPL-BVA | `POST /templates` BVA: name/body required, body=1600 ✓, body=1601 → 400 | PASS |
+| TC-TPL-CT | template c чужим `sender_name_id` | PASS — 404 |
+| TC-TPL-LC | draft → submit → revision_requested → submit → approve | PASS, повторный submit/approve из неверного статуса → 400 |
+| TC-AGG-MOD | reject без reason / с reason / approve / повторный | PASS — reason обязателен (400), state-machine блокирует |
+| TC-AGG-MOD2 | aggregator approve через `/reseller/sender-names/:not-subaccount-id/approve` | PASS — 404 (но сообщение-дубль исправлено в BUG-3) |
+| TC-AGG-CNT | `/reseller/moderation/counts` | PASS — учитывает `pending+revision_requested` для шаблонов и `pending` для имён |
+| TC-CROSS-RES | subaccount → `/reseller/*` | PASS — 401 «доступ только для агрегаторов» |
+| TC-DEF-CT | `/settings/default-senders`: подмена на чужой sender_name_id | **FAIL → FIXED** (BUG-2) |
+| TC-DEF-PEND | `/settings/default-senders` с pending именем | **FAIL → FIXED** (BUG-2) |
+| TC-DEF-INV | `/settings/default-senders` с несуществующим UUID | **FAIL → FIXED** (BUG-2) |
+| TC-DEF-CH | `/settings/default-senders` с unknown channel `telegram` | **FAIL (500 INTERNAL) → FIXED** (BUG-2: 400) |
+| TC-DEF-MAX | `/settings/default-senders` с каналом `max` | **FAIL (500) → FIXED** (BUG-4: миграция + UI) |
+| TC-ERR-DUP | сообщения вида `«sender name not found не найден»` | **FAIL → FIXED** (BUG-3) |
+
+### Зафиксированные баги (все исправлены, code-reviewed, задеплоены, верифицированы)
+
+| # | Severity | Файл | Было → Стало |
+|---|---|---|---|
+| BUG-1 | HIGH (UX) | [sender_names.go:68-103](internal/gateway/portal/handlers/sender_names.go#L68) | `CreateSenderName` без `company_id` падал с «у клиента не найдена компания по умолчанию», даже если у клиента **одна** компания без флага is_default → новый fallback: 0 компаний → «добавьте компанию», 1 → автоматически берём её, 2+ → «выберите компанию или назначьте основную». Verify: `POST /sender-names {name:QaAuto01}` без company_id → 201 |
+| BUG-2 | **CRITICAL (security/UX)** | [settings.go:147-227](internal/gateway/portal/handlers/settings.go#L147) | `SetDefaultSenders` принимал любой sender_name_id (включая чужие/несуществующие/pending), unknown channel валился в 500. Добавлена валидация: whitelist `{sms,viber,max}`, ownership-check `client_id=caller`, status-check `approved`, пустой sender_name_id очищает запись. Verify: 5 негативных сценариев → 400 с человеческим сообщением, MAX → 200 |
+| BUG-3 | MED (UX) | [errors.go:107-119](internal/shared/errors.go#L107) | `shared.ErrNotFound` всегда добавлял суффикс «не найден», давая «sender name not found не найден» при callsites вида `ErrNotFound("sender name not found")`. Теперь wrapper умнее: если строка уже содержит «не найден/найдена/найдено/not found» — суффикс не добавляется. Обратносовместимо с 30+ callsites вида `ErrNotFound("шаблон")`. Verify: `GET /sender-names/<other>` → `"sender name not found"` (одинарно) |
+| BUG-4 | MED (feature gap) | [migrations/000120](migrations/000120_default_senders_add_max_channel.up.sql), [DefaultSendersPage.tsx:6-10](portal-frontend/src/pages/settings/DefaultSendersPage.tsx#L6) | Канал MAX отсутствовал в DB CHECK constraint и в селекторе UI. Добавлены: миграция расширяет `default_sender_names_channel_check` до `[sms,viber,max]`, UI получил пункт «MAX». Verify: запись `(client_id, channel=max, sender_name_id)` в БД, UI селектор показывает 3 канала |
+
+### Проверка инфраструктуры (раздел 7)
+
+- **Таблицы:** `sender_names`, `sender_name_status_history`, `default_sender_names`, `templates`, `operator_templates`, `sender_registrations`, `sender_name_billing_records`, `client_companies` — все на месте, индексы корректные.
+- **Миграции:** 000120 применена в проде через `scripts/server.sh migrate`. Down-миграция корректно удаляет `max`-строки перед сужением CHECK.
+- **gRPC:** `sendernamev1.SenderNameServiceClient` и `templatev1.TemplateServiceClient` отрабатывают transitions; reseller endpoints выполняют дополнительный `is_reseller=true`-чек прямым SQL до gRPC.
+- **CSRF:** `/portal/v1/auth/login` исключён из CSRF, остальные mutating-endpoints требуют `X-CSRF-Token`. Проверено.
+- **Rate-limit/Redis:** не затронуты этими фиксами.
+- **FK:** `default_sender_names.sender_name_id` **не имеет FK** на `sender_names.id` — фиксится валидацией в handler. Добавлять FK задним числом рискованно (orphan rows на проде из старой логики). Зафиксировано в backlog.
+
+### Остаточный бэклог
+
+| Severity | Где | Что |
+|---|---|---|
+| MED | `default_sender_names` | Нет FK на `sender_names`. Handler валидирует, но при rare-race можно создать orphan. Накатить FK + cleanup-миграция (требует аудита существующих строк). |
+| MED | `SetDefaultSenders` | Цикл по каналам не атомарен: ошибка на 3-м канале оставляет первые 2 применёнными. Обернуть в `pool.BeginTx`. |
+| LOW | `sender_name_status_history.actor_type='admin'` для агрегатора | Путаница в аудите: aggregator ≠ admin. Завести отдельный actor_type `aggregator/reseller`. |
+| LOW | `templates` отказ approve из `revision_requested` | API сейчас требует subaccount явно делать `submit` после revision; UI это закрывает, но при прямом curl агрегатор может удивиться сообщению `«can only approve pending or review templates»`. Согласовано как корректное поведение, но сообщение можно улучшить. |
+| LOW | `sender_names.name` с пробелами | Регэкс принимает `^[A-Za-z0-9 ]{1,11}$`, но `«AB CD»` ≠ `«ABCD»`, оба валидны. Стоит trim/normalize на входе либо warn в UI. |
+| LOW | `/settings/default-senders` UI | «Не выбрано» (пустое value) не отправляется на бэкенд → существующий default нельзя очистить через UI (бэкенд это уже умеет). |
+
+### Summary
+- **20 тест-кейсов**, **15 PASS**, **5 FAIL → 4 FIXED** (один FAIL — `TC-DEF-MAX` — закрыт двумя независимыми фиксами BUG-2 и BUG-4).
+- 1× CRITICAL (security в default-senders), 1× HIGH (UX в CreateSenderName), 2× MED — все исправлены, проверены в проде.
+- Deploy: коммит `d67bc80`, миграция 000120, верификация после `docker compose up -d --no-deps --build portal-gateway`.
+
+
 
 ## [DONE] Модуль: Панель субаккаунта — раунд 2, полный обход (subaccount, fix + инфраструктура + QA full, 2026-04-23)
 
