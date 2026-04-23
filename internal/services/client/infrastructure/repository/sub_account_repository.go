@@ -30,7 +30,7 @@ func (r *SubAccountRepository) ListByParentID(ctx context.Context, parentID uuid
 		SELECT id, name, COALESCE(email, ''), COALESCE(contact_person, ''), COALESCE(phone, ''), active, metadata,
 		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
 		FROM clients
-		WHERE parent_client_id = $1
+		WHERE parent_client_id = $1 AND active = true
 		ORDER BY created_at DESC
 	`
 
@@ -64,7 +64,9 @@ func (r *SubAccountRepository) ListByParentID(ctx context.Context, parentID uuid
 // CountByParentID считает количество суб-аккаунтов для родительского клиента
 func (r *SubAccountRepository) CountByParentID(ctx context.Context, parentID uuid.UUID) (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM clients WHERE parent_client_id = $1`
+	// Не считаем soft-deleted — иначе max_sub_accounts лимит исчерпывается
+	// удалёнными записями и пользователь не может создать новый субакк.
+	query := `SELECT COUNT(*) FROM clients WHERE parent_client_id = $1 AND active = true`
 
 	err := r.db.QueryRowContext(ctx, query, parentID).Scan(&count)
 	if err != nil {
