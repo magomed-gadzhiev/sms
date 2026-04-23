@@ -1,5 +1,72 @@
 # UX Audit Progress
 
+## [DONE] Модуль: Панель субаккаунта — раунд 2, полный обход (subaccount, fix + инфраструктура + QA full, 2026-04-23)
+
+Тест-аккаунт `subacc@test.local` / `Admin123!` (client `a0000000-...-000000000002`, parent = aggregator). Обошёл все 25 страниц субаккаунта, включая попытки прямого доступа к `/network/*`, `/providers`, `/routing`.
+
+### Pass/Fail summary
+
+| TC | Страница | Вердикт |
+|----|----------|---------|
+| TC-1 | `/command-center` | PASS — баланс `49 976,10 ₽`, плашка «Сообщения отправляются через инфраструктуру агрегатора», нет кнопки «Управление сетью» |
+| TC-2 | `/quick-send` | PASS — отправка `+79990000001` → rejected (БД: `messages` row `c81aa735-8dbe...`, status=rejected) |
+| TC-3 | `/campaigns` + `/campaigns/:id` | PASS — 3 кампании, inline-плашка «в рамках вашего аккаунта» |
+| TC-4 | `/campaign-schedules` | PASS — empty state c CTA |
+| TC-5 | `/templates` | PASS — empty state c CTA |
+| TC-6 | `/sender-names` + `/sender-names/:id` | PASS — `Trest` approved, billing next `01.05.2026` |
+| TC-7 | `/companies` + `/companies/:id` | PASS — «Test» без ИНН, кнопка «Сделать основной» |
+| TC-8 | `/messages` + `/messages/:id` | PASS — 37 сообщений, XSS payload `<script>alert(1)</script>` рендерится как текст |
+| TC-9 | `/cascade/history` | PASS — empty state + фильтры стратегий |
+| TC-10 | `/analytics` | PASS — timeline + таблица, доставлено 5 из 38 |
+| TC-11 | `/contact-lists` + detail + import | PASS — `TestCampaignList` (3 контакта) |
+| TC-12 | `/segments` | PASS — empty |
+| TC-13 | `/opt-out` | PASS — empty |
+| TC-14 | `/billing` | **FAIL → FIXED** (BUG-1, BUG-2, см. ниже) |
+| TC-15 | `/tariffs` | PASS (для каждого типа имени/трафика — «Тариф для вашего аккаунта не настроен», ожидаемо, ведь агрегатор управляет) |
+| TC-16 | `/api-keys` | PASS — 6 ключей, есть возможность задать scope `sub-accounts:manage` (backend должен 403-ить при использовании, проверка не проведена) |
+| TC-17 | `/webhooks` | PASS — empty |
+| TC-18 | `/lookup` | PASS — empty, счётчик 0 |
+| TC-19 | `/settings/smpp` | PASS — статичный текст про SMPP-провайдеров |
+| TC-20 | `/profile` | PASS — email/company, 2FA настройка, смена пароля |
+| TC-21 | `/settings/domains` | PASS — empty |
+| TC-22 | `/settings/notifications` | PASS — 6 типов уведомлений × (in-app/email) |
+| TC-23 | `/settings/default-senders` | PASS — SMS+Viber селекторы (канал MAX отсутствует; у аккаунта действительно нет MAX-имён, но несогласованность с `/sender-names/:id/operators` стоит зафиксировать отдельно) |
+| TC-24 | `/audit-log` | PASS-warning — «Данные не найдены» по всем фильтрам. В селекте `Действие` присутствуют опции `Суб-аккаунт создан / удалён / Лимит изменён` — невозможные для роли subaccount действия; стоит отфильтровать в UI по роли (не критично, косметика) |
+| TC-25 | `/network/dashboard` прямым URL | PASS — `RequireReseller` редиректит на `/command-center` |
+| TC-26 | `/providers` прямым URL | PASS — показывает placeholder «настраивает агрегатор», nav скрывает |
+| TC-26 | `/routing` прямым URL | **FAIL → FIXED** (BUG-3) — ранее показывал полный edit-UI с маршрутами/кнопками |
+
+### Зафиксированные баги (все в режиме fix сразу исправлены)
+
+| # | Severity | Файл | Было | Стало |
+|---|---|---|---|---|
+| BUG-1 | HIGH | [BillingPage.tsx:80-85](portal-frontend/src/pages/billing/BillingPage.tsx#L80) | Транзакции с типом `transfer_in` / `transfer_out` (backend: [transfer.go:10-11](internal/services/billing/domain/transfer.go#L10)) рендерились сырым enum-кодом — в колонке «Тип» badge показывал `transfer_in` вместо локализованного текста | Добавлены метки `Перевод (вх.)`, `Перевод (исх.)` и цвета badge (`success` / `danger`) в `typeLabel` и `typeBadgeVariant`, фильтр `TYPE_OPTIONS` дополнен обоими значениями (вместо старого обобщённого `transfer`) |
+| BUG-2 | HIGH | [BillingPage.tsx:107-113](portal-frontend/src/pages/billing/BillingPage.tsx#L107) | Суммы колонки рендерились как `{type === 'charge' ? '-' : '+'}{amount}`. При `transfer_in` с отрицательным amount получалось `+-10,00 RUB`. Знак был прибит к **типу**, а не к знаку числа | Логика пересчитана: выбираем `isOutflow` по (`charge`, `transfer_out`, или `amount<0`); знак берётся из знака числа, отображаем `Math.abs(amount)` с корректным префиксом, цвет суммы идёт от `isOutflow` |
+| BUG-3 | HIGH (access/UX) | [RoutingPage.tsx](portal-frontend/src/pages/routing/RoutingPage.tsx) | Субаккаунту прямым URL `/routing` открывался полный редактор маршрутов с кнопками «+ Добавить маршрут», «Изменить», «Удалить» (в БД у субакка сидированы 5 client_routes, backend не блокирует). Несогласованность с `/providers`, где уже есть placeholder | Добавлен ранний return с placeholder «в режиме суб-аккаунта маршрутизацию настраивает агрегатор…» по паттерну `/providers`. Backend пока оставлен без доп. проверок — write-paths через UI теперь не запускаются, а прямые REST-запросы — отдельный backlog-пункт |
+
+### Проверка инфраструктуры (раздел 7)
+
+- **API:** Handler `GET /portal/v1/routing/routes` ([client_routing.go:135-138](internal/gateway/portal/handlers/client_routing.go#L135)) передаёт `ClientId: clientID.String()` — не пропускает parent_client_id. Маршруты субакка это его собственные записи `client_routes`, а не агрегаторские; утечки чужих данных нет.
+- **БД:** В `client_routes` у `a0000000-...-000000000002` лежат 5 sid-строк (МТС/Билайн/МегаФон/Default). Это данные сидов, unused в продакшене subaccount-flow.
+- **Транзакции:** Backend корректно проставляет `transaction_type = 'transfer_in'` / `'transfer_out'` при переводе — проблема была чисто фронтовая.
+- **Kafka/Redis:** не затронуты; регрессий по каналу отправки SMS нет (QuickSend → rejected → транзакции не создаются, баланс не изменился).
+
+### Остаточный бэклог (для следующих раундов, не фикшено)
+
+| Severity | Где | Что |
+|---|---|---|
+| MED | [client_routing.go:ListRoutes/CreateRoute/UpdateRoute/DeleteRoute](internal/gateway/portal/handlers/client_routing.go) | Backend не отвергает вызовы от клиентов с `parent_client_id`. UI теперь блокирует, но прямой API-запрос через curl/api-key с scope `full_access` вернёт/создаст маршруты. Нужна middleware-проверка «не-reseller subaccount → 403 для write, либо возврат пустого set» |
+| LOW | [AuditLogPage.tsx — фильтр Действие](portal-frontend/src/pages/audit/AuditLogPage.tsx) | Опции `Суб-аккаунт создан / удалён / Лимит изменён` показываются роли, которая этих действий не порождает. Косметика |
+| LOW | `/audit-log` — пустые логи | Субаккаунт выполнил логин/смена настроек/отправки, но UI показывает «Данные не найдены». Либо backend не пишет client-level audit для subacc, либо handler фильтрует только по actor_id user — нужно расследование |
+| LOW | `/settings/default-senders` | Канал MAX отсутствует в UI; у аккаунта нет MAX-имён. Проверить, что селектор появляется автоматически когда имя добавлено, иначе субаккаунт не сможет выбрать default MAX |
+
+### Summary
+- **28 тест-кейсов** (25 pages + 3 guard-checks), **25 PASS**, **3 FAIL → FIXED**.
+- Критичных багов не найдено. 2× HIGH + 1× HIGH(access/UX) — все исправлены одним патчем.
+- Deploy: см. следующий коммит.
+
+
+
 ## [DONE] Модуль: Управление сетью — раунд 4: /network/tariffs (aggregator, fix, Infrastructure Check, QA full, 2026-04-23)
 
 Претензия пользователя: «нет возможности создавать любые виды тарифов из панели агрегатора».

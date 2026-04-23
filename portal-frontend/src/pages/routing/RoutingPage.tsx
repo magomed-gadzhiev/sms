@@ -8,12 +8,15 @@ import {
   ApiError,
   type Provider,
 } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 import type { RouteListItem } from './types';
 import { RouteFilters } from './components/RouteFilters';
 import { RouteTable } from './components/RouteTable';
 import { RouteModal } from './RouteModal';
 
 export function RoutingPage() {
+  const { user } = useAuth();
+  const isSubAccount = !!user?.parent_client_id;
   const [routes, setRoutes] = useState<RouteListItem[]>([]);
   const [providers, setProviders] = useState<Map<string, Provider>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -89,6 +92,19 @@ export function RoutingPage() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  if (isSubAccount) {
+    return (
+      <div>
+        <PageHeader title="Общие маршруты" />
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl">
+          <p className="text-sm text-blue-900">
+            В режиме суб-аккаунта маршрутизацию настраивает агрегатор. Вы не управляете маршрутами самостоятельно — трафик направляется по правилам агрегатора.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

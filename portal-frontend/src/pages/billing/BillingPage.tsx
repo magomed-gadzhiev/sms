@@ -55,7 +55,8 @@ const TYPE_OPTIONS = [
   { value: 'charge', label: 'Списание' },
   { value: 'credit', label: 'Пополнение' },
   { value: 'refund', label: 'Возврат' },
-  { value: 'transfer', label: 'Перевод' },
+  { value: 'transfer_out', label: 'Перевод (исходящий)' },
+  { value: 'transfer_in', label: 'Перевод (входящий)' },
 ];
 
 const TRANSACTION_FILTERS: FilterDef[] = [
@@ -75,6 +76,8 @@ const typeBadgeVariant: Record<string, 'danger' | 'success' | 'warning' | 'defau
   credit: 'success',
   refund: 'warning',
   transfer: 'default',
+  transfer_out: 'danger',
+  transfer_in: 'success',
 };
 
 const typeLabel: Record<string, string> = {
@@ -82,6 +85,8 @@ const typeLabel: Record<string, string> = {
   credit: 'Пополнение',
   refund: 'Возврат',
   transfer: 'Перевод',
+  transfer_out: 'Перевод (исх.)',
+  transfer_in: 'Перевод (вх.)',
 };
 
 const columns: Column<TransactionItem>[] = [
@@ -106,11 +111,22 @@ const columns: Column<TransactionItem>[] = [
   {
     key: 'amount',
     header: 'Сумма',
-    render: (tx) => (
-      <span className={tx.type === 'charge' ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
-        {tx.type === 'charge' ? '-' : '+'}{fmtMoney(tx.amount, tx.currency)}
-      </span>
-    ),
+    render: (tx) => {
+      const numeric = parseFloat(tx.amount);
+      const isNegative =
+        !Number.isNaN(numeric) ? numeric < 0 : tx.amount.trim().startsWith('-');
+      const isOutflow =
+        tx.type === 'charge' || tx.type === 'transfer_out' || isNegative;
+      const sign = isOutflow ? (isNegative ? '' : '-') : '+';
+      const absolute = Number.isNaN(numeric)
+        ? tx.amount.replace(/^-/, '')
+        : Math.abs(numeric).toString();
+      return (
+        <span className={isOutflow ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+          {sign}{fmtMoney(absolute, tx.currency)}
+        </span>
+      );
+    },
   },
   {
     key: 'balance_after',
