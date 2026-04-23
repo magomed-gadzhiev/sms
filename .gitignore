@@ -117,7 +117,3 @@ portal-frontend/.vite/
 
 # Playwright MCP session debris
 .playwright-mcp/
-
-# Bug triage runtime artifacts (keep .gitkeep only)
-.claude/bugs/*
-!.claude/bugs/.gitkeep
