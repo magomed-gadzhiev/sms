@@ -180,9 +180,9 @@ func (h *NetworkTariffTemplatesHandler) Create(w http.ResponseWriter, r *http.Re
 		respondError(w, shared.ErrInvalidInput("имя шаблона обязательно"))
 		return
 	}
-	// БД: reseller_tariff_templates.name — VARCHAR(255). Без проверки → 500.
-	if utf8.RuneCountInString(req.Name) > 255 {
-		respondError(w, shared.ErrInvalidInput("имя шаблона слишком длинное (макс 255 символов)"))
+	// БД: reseller_tariff_templates.name — VARCHAR(100). Без проверки → 500.
+	if utf8.RuneCountInString(req.Name) > 100 {
+		respondError(w, shared.ErrInvalidInput("имя шаблона слишком длинное (макс 100 символов)"))
 		return
 	}
 	if utf8.RuneCountInString(req.Description) > 10000 {

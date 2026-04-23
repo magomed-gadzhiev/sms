@@ -26,7 +26,10 @@
       "Bash(echo * > .claude/bugs/*)",
       "Bash(./scripts/bug-triage/state-init.sh)",
       "Bash(./scripts/bug-triage/chrome-check.sh)",
-      "Bash(./scripts/bug-triage/chrome-launch.sh:*)"
+      "Bash(./scripts/bug-triage/chrome-launch.sh:*)",
+      "Bash(rm -rf skills/bug-triage.md scripts/bug-triage .claude/bugs .claude/commands/bug.md .claude/commands/bug-triage.md docs/superpowers/specs/2026-04-23-bug-triage-skill-design.md docs/superpowers/plans/2026-04-23-bug-triage-skill.md)",
+      "Bash(rmdir .claude/commands)",
+      "Bash(rmdir skills *)"
     ]
   }
 }

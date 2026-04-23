@@ -223,7 +223,7 @@ END $$;
 INSERT INTO users (id, username, email, password_hash, role_id, active, client_id)
 VALUES
     ('39ed66cb-cc45-4b3a-b99e-3ce5f9e3c6e5', 'subacc1',   'subacc@test.local',
-     '$2a$10$5Eb9tCKwrrqXl5nWs.5l3O.Fl4ej19WeJAZ9.0sJ2b6frKQd2YQay',  -- Test1234!
+     '$2a$10$Od96EF1oN2Cp7JPpMNyLCuHs.mN3dRB82Ukq8TRhEDgKokaDj2jYO',  -- Admin123!
      '00000000-0000-0000-0000-000000000002', true, 'a0000000-0000-0000-0000-000000000002'),
     ('6259d929-0a89-413d-ad3a-c9477be37fdf', 'clean-a',   'clean-a@test.local',
      '$2a$10$5Eb9tCKwrrqXl5nWs.5l3O.Fl4ej19WeJAZ9.0sJ2b6frKQd2YQay',  -- Test1234!

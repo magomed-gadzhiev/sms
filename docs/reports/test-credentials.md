@@ -1,6 +1,6 @@
 # Test Credentials (sandbox server)
 
-Last updated: 2026-04-22
+Last updated: 2026-04-23
 
 All accounts below live on `sms-server` and are re-seeded by
 `test/load/fixtures/seed.sql`. Passwords here are checked into the repo
@@ -13,7 +13,7 @@ Do not reuse any of these credentials on production.
 |-------------------------|-------------|--------|--------------------------------------|-------------------------------------|
 | `loadtest-admin@test.local`  | `Admin123!` | admin  | —                                    | seed.sql §4                         |
 | `loadtest-client@test.local` | `Admin123!` | client | `c0000000-…-000000000001`            | seed.sql §4                         |
-| `subacc@test.local`     | `Test1234!` | client | `a0000000-…-000000000002` (TestSubAccount, parent = `a0000000-…-000000000001`) | sub-account QA (generic)            |
+| `subacc@test.local`     | `Admin123!` | client | `a0000000-…-000000000002` (TestSubAccount, parent = `a0000000-…-000000000001`) | sub-account QA (generic)            |
 | `clean-a@test.local`    | `Test1234!` | client | `f6c4b3fd-…` (Test Clean A)          | sub-account cycle 3 test (A path)   |
 | `problem-b@test.local`  | `Test1234!` | client | `6063f9b6-…` (Test Problem B)        | sub-account cycle 3 test (B path)   |
 | `heavy-c@test.local`    | `Test1234!` | client | `de3712f8-…` (Test Heavy C)          | sub-account cycle 3 test (C path)   |
@@ -24,12 +24,16 @@ Verify login (from server):
 curl -s -o /dev/null -w '%{http_code}\n' \
   -X POST http://localhost:18084/portal/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"subacc@test.local","password":"Test1234!"}'
+  -d '{"email":"subacc@test.local","password":"Admin123!"}'
 # expected: 200
 ```
 
 ## History
 
+- 2026-04-23: переключил `subacc@test.local` на `Admin123!`, чтобы выровнять с
+  `aggregator@test.local`/`admin@example.com` (см. memory `project_sandbox_test_credentials.md`).
+  Хеш зафиксирован в migration `000118_subacc_password_admin123.up.sql`
+  (upsert `password_hash` = тот же bcrypt, что в 000116).
 - 2026-04-22: reset `subacc/clean-a/problem-b/heavy-c` from unknown-plaintext
   bcrypt hash (`$2a$10$xF1l8O6cAKP9A...`) to `Test1234!`. The unknown hash
   had been blocking all portal sub-account QA (bug #8). Added idempotent

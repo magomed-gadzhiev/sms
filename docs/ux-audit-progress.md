@@ -1,5 +1,9 @@
 # UX Audit Progress
 
+## [IN_PROGRESS] Модуль: Управление сетью — полный прогон всех 9 страниц (aggregator, /network/*, fix + инфраструктура + QA full, 2026-04-23)
+
+Scope: все роуты под `/network` — dashboard, sub-accounts (list + detail), moderation, routing, tariffs (list + templates + editor), statistics. Особый фокус — tariffs-редизайн (PR #32, commit 75eaf68), не проходивший предыдущий аудит. Режим fix с немедленным исправлением найденных проблем.
+
 ## [DONE] Модуль: Отправка сообщений и рассылок — спринт 3 (aggregator + subaccount, fix, 2026-04-22)
 
 Scope: хвост UX/security-багов из предыдущих спринтов. Все P2/P3 закрыты, остаётся B5 (500→400 validation codes) и B8 (seed тарифов) — требуют отдельной работы.
