@@ -44,13 +44,21 @@
    ```bash
    ./scripts/bug-triage/chrome-launch.sh "$PORTAL_URL"
    ```
-   `PORTAL_URL` — по умолчанию `http://localhost:5173`, можно переопределить через
-   env var `BUG_TRIAGE_PORTAL_URL`.
+   `PORTAL_URL` — по умолчанию `http://72.56.232.202:18085/` (sms-server dev sandbox),
+   можно переопределить через env var `BUG_TRIAGE_PORTAL_URL` (например, на локальный
+   dev-сервер, если ты его запустил: `http://localhost:5173`).
 
    Подождать 3 секунды, повторить `chrome-check.sh`. Если всё ещё exit 1 →
    сообщить пользователю: "Chrome не стартует. Проверьте установку (искал в
    `Program Files`, `Program Files (x86)`, `%LOCALAPPDATA%`) или запустите сами с
    флагом `--remote-debugging-port=9222`."
+
+   **Quirk:** Chrome с флагом `--remote-debugging-port` при свежем профиле
+   игнорирует URL-аргумент и открывается на `about:blank`. После успешного
+   `chrome-check.sh`:
+   - `mcp__plugin_chrome-devtools-mcp__list_pages`
+   - Если единственная вкладка = `about:blank` → `navigate_page(url=$PORTAL_URL)`
+     через chrome-devtools-mcp, чтобы портал реально открылся.
 
 4. **Восстановить state:** прочитать `.claude/bugs/state.json`, для каждого бага:
    - `in_progress` старше 30 минут без `agent_finished_at` → `status=failed`,
@@ -102,39 +110,62 @@ mkdir -p "$PKG/response-bodies"
 
 ### 1.3. Снять артефакты через chrome-devtools-mcp
 
+**ВАЖНО про форматы:** MCP-инструменты `list_console_messages` и `list_network_requests`
+возвращают текст в markdown (не JSON). Не пытайся парсить/сериализовать в JSON —
+сохраняй как есть в `.md`-файлы. Это компромисс: агент читает сырой markdown, но
+ему это удобно (структура понятна и так).
+
 Сделать **параллельно** (одно сообщение, несколько tool calls):
 
 1. `mcp__plugin_chrome-devtools-mcp__list_pages` → выбрать активную вкладку
-   (ту, где `focused: true`; если несколько — спросить пользователя).
-2. `mcp__plugin_chrome-devtools-mcp__select_page` для выбранной.
-3. `mcp__plugin_chrome-devtools-mcp__take_screenshot` → сохранить в
-   `$PKG/screenshot.png`.
-4. `mcp__plugin_chrome-devtools-mcp__list_console_messages` → сериализовать в
-   `$PKG/console.json` (JSON-массив `{level, text, timestamp, source}`).
-5. `mcp__plugin_chrome-devtools-mcp__list_network_requests` → сериализовать в
-   `$PKG/network.json` (массив `{id, method, url, status, duration, timestamp}`).
-6. `mcp__plugin_chrome-devtools-mcp__take_snapshot` → сохранить в
-   `$PKG/dom-snapshot.html`.
-7. Записать текущий URL в `$PKG/url.txt` (берётся из `list_pages` / активной
-   страницы).
+   (ту, где `[selected]`; если на `about:blank` и пользователь ожидал портал —
+   спросить, навигировать ли через `navigate_page` на `$PORTAL_URL`, или он
+   сам перейдёт и повторит `/bug`).
+2. Если вкладок несколько и нет явного победителя — спросить пользователя;
+   не гадать.
+3. `mcp__plugin_chrome-devtools-mcp__take_screenshot(filePath=".claude/bugs/<bug_id>/screenshot.png")`
+   — MCP сам сохранит в файл. Использовать относительный путь от cwd.
+4. `mcp__plugin_chrome-devtools-mcp__list_console_messages` → записать ответ
+   как есть в `$PKG/console.md` (markdown-текст MCP).
+5. `mcp__plugin_chrome-devtools-mcp__list_network_requests` → записать ответ
+   как есть в `$PKG/network.md`.
+6. `mcp__plugin_chrome-devtools-mcp__take_snapshot(filePath=".claude/bugs/<bug_id>/dom-snapshot")`
+   — **MCP игнорирует расширение и сохраняет как `.txt`**. Результирующий файл
+   будет `dom-snapshot.txt`. Не надо пытаться переименовать — агент читает по
+   имени `dom-snapshot.txt`.
+7. Записать текущий URL в `$PKG/url.txt` (из `list_pages` активная запись).
 
 ### 1.4. Выделить failed requests
 
-Отфильтровать `network.json` где `status >= 400` или `status == 0` (aborted).
-Записать в `$PKG/failed-requests.json`.
+Парсинг `network.md` — регуляркой вытащить строки вида
+`reqid=<N> <METHOD> <URL> [<STATUS>]`, где `<STATUS>` ≥ 400 или пустой/0.
 
-Для каждого failed request:
+Пример awk:
+```bash
+awk 'match($0, /reqid=([0-9]+).*\[([0-9]+)\]/, m) { if (m[2]+0 >= 400 || m[2]+0 == 0) print $0 }' \
+  "$PKG/network.md" > "$PKG/failed-requests.md"
 ```
-mcp__plugin_chrome-devtools-mcp__get_network_request(id=<request_id>)
+
+Для каждого failed request (id = число):
 ```
-Сохранить тело ответа в `$PKG/response-bodies/<request_id>.json` (или `.txt`,
-если не JSON).
+mcp__plugin_chrome-devtools-mcp__get_network_request(
+  reqid=<N>,
+  responseFilePath=".claude/bugs/<bug_id>/response-bodies/<N>.response",
+  requestFilePath=".claude/bugs/<bug_id>/response-bodies/<N>.request"
+)
+```
+MCP сохранит с расширениями `.network-request` / `.network-response` (или теми,
+что указаны). Если файлы пустые — запрос не имел тела, это ок.
 
 ### 1.5. Снять backend-логи
 
+Скрипт `./scripts/server.sh exec` делает голый `ssh`, **без `cd` в `REMOTE_DIR`**
+и без указания `COMPOSE_FILE`. Поэтому команда должна содержать полный путь
+явно:
+
 ```bash
-./scripts/server.sh exec "docker compose logs --since=2m --no-color" \
-  > "$PKG/backend-logs.txt.raw"
+./scripts/server.sh exec "cd /opt/sms && docker compose -f deployments/docker-compose.yml logs --since=2m --no-color" \
+  > "$PKG/backend-logs.txt.raw" 2>&1
 ```
 
 **Если файл >1MB** — обрезать до последних 1000 строк на сервис (спека §4).
