@@ -91,21 +91,25 @@ bug_id = f"{timestamp}-{slug}"
 Пример: `/bug Сохранение кампании падает 500` →
 `20260423-143201-sohranenie-kampanii-padaet-500`.
 
-### 1.2. Создать директорию пакета
+### 1.2. Создать директорию пакета и description.md
+
+**ВАЖНО:** все файлы bug package пишем через Bash (heredoc/redirection), НЕ через
+Write/Edit tool. Причина: Write/Edit открывают вкладку в IDE на каждый файл и
+требуют отдельного разрешения, что ломает UX при сборе 6-8 файлов на баг.
+Bash с путём `.claude/bugs/*` разрешается один раз за сессию.
 
 ```bash
 PKG=".claude/bugs/$BUG_ID"
 mkdir -p "$PKG/response-bodies"
-```
 
-Записать `$PKG/description.md`:
-```markdown
-# <bug_id>
+cat > "$PKG/description.md" <<EOF
+# $BUG_ID
 
-**Время:** <ISO8601>
+**Время:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
 **Описание пользователя:**
 
-<original text>
+$USER_DESCRIPTION
+EOF
 ```
 
 ### 1.3. Снять артефакты через chrome-devtools-mcp
@@ -124,16 +128,20 @@ mkdir -p "$PKG/response-bodies"
 2. Если вкладок несколько и нет явного победителя — спросить пользователя;
    не гадать.
 3. `mcp__plugin_chrome-devtools-mcp__take_screenshot(filePath=".claude/bugs/<bug_id>/screenshot.png")`
-   — MCP сам сохранит в файл. Использовать относительный путь от cwd.
-4. `mcp__plugin_chrome-devtools-mcp__list_console_messages` → записать ответ
-   как есть в `$PKG/console.md` (markdown-текст MCP).
-5. `mcp__plugin_chrome-devtools-mcp__list_network_requests` → записать ответ
-   как есть в `$PKG/network.md`.
-6. `mcp__plugin_chrome-devtools-mcp__take_snapshot(filePath=".claude/bugs/<bug_id>/dom-snapshot")`
-   — **MCP игнорирует расширение и сохраняет как `.txt`**. Результирующий файл
-   будет `dom-snapshot.txt`. Не надо пытаться переименовать — агент читает по
-   имени `dom-snapshot.txt`.
-7. Записать текущий URL в `$PKG/url.txt` (из `list_pages` активная запись).
+   — MCP сам сохранит в файл (не через Write tool, IDE не откроет).
+4. `mcp__plugin_chrome-devtools-mcp__take_snapshot(filePath=".claude/bugs/<bug_id>/dom-snapshot")`
+   — **MCP игнорирует расширение и сохраняет как `dom-snapshot.txt`**. Не
+   переименовывать.
+5. `mcp__plugin_chrome-devtools-mcp__list_console_messages` → из tool result'а
+   забрать markdown и **через Bash heredoc** записать в `$PKG/console.md`:
+   ```bash
+   cat > "$PKG/console.md" <<'EOF'
+   <markdown from tool result>
+   EOF
+   ```
+6. Аналогично для `list_network_requests` → `$PKG/network.md`.
+7. `echo "$CURRENT_URL" > "$PKG/url.txt"` (URL берём из `list_pages` активной
+   записи).
 
 ### 1.4. Выделить failed requests
 
@@ -146,7 +154,8 @@ awk 'match($0, /reqid=([0-9]+).*\[([0-9]+)\]/, m) { if (m[2]+0 >= 400 || m[2]+0 
   "$PKG/network.md" > "$PKG/failed-requests.md"
 ```
 
-Для каждого failed request (id = число):
+Для каждого failed request (id = число) — **через MCP с filePath**, не через
+Write tool:
 ```
 mcp__plugin_chrome-devtools-mcp__get_network_request(
   reqid=<N>,
@@ -154,8 +163,8 @@ mcp__plugin_chrome-devtools-mcp__get_network_request(
   requestFilePath=".claude/bugs/<bug_id>/response-bodies/<N>.request"
 )
 ```
-MCP сохранит с расширениями `.network-request` / `.network-response` (или теми,
-что указаны). Если файлы пустые — запрос не имел тела, это ок.
+MCP сохраняет напрямую, IDE вкладку не откроет. Если файлы пустые — запрос не
+имел тела, это ок.
 
 ### 1.5. Снять backend-логи
 
@@ -546,6 +555,11 @@ else:
 
 ## Антипаттерны
 
+- ❌ Писать файлы bug package через `Write` / `Edit` tool — IDE открывает вкладку
+  на каждый файл, разрешение запрашивается на каждый. Используй Bash heredoc
+  (`cat > path <<EOF ... EOF`) или MCP с `filePath=...` (take_screenshot,
+  take_snapshot, get_network_request). Edit/Write допустимы только для файлов
+  внутри worktree агента (там уже нормальный dev-flow).
 - ❌ Снимать артефакты **внутри** агента через chrome-devtools-mcp — сломает
   сессию пользователя (MCP single-session).
 - ❌ Коммитить/мёрджить из агента — это делает оркестратор после merge-gate.

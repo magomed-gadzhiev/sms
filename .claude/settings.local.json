@@ -6,7 +6,27 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(ls C:/projects/sms/migrations/*.up.sql)",
-      "Bash(sort -t_ -k1 -V)"
+      "Bash(sort -t_ -k1 -V)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://72.56.232.202:18085/network/)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://72.56.232.202:18085/)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_console_messages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_network_requests",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_network_request",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__select_page",
+      "Bash(mkdir -p .claude/bugs scripts/bug-triage scripts/bug-triage/tests)",
+      "Bash(touch .claude/bugs/.gitkeep)",
+      "Bash(rm .claude/bugs/state.json)",
+      "Bash(DRY_RUN=1 ./scripts/bug-triage/chrome-launch.sh http://localhost:5173)",
+      "Bash(mkdir -p .claude/bugs/*)",
+      "Bash(cat > .claude/bugs/*)",
+      "Bash(echo * > .claude/bugs/*)",
+      "Bash(./scripts/bug-triage/state-init.sh)",
+      "Bash(./scripts/bug-triage/chrome-check.sh)",
+      "Bash(./scripts/bug-triage/chrome-launch.sh:*)"
     ]
   }
 }
