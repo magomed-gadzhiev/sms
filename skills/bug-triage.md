@@ -181,3 +181,109 @@ mcp__plugin_chrome-devtools-mcp__get_network_request(id=<request_id>)
   HTTP-ошибка). Пакет без `response-bodies/*.json`.
 - **backend-logs.txt пустой** — значит, `server.sh exec` вернул пусто или упал.
   Не блокирует фазу, агенту виднее по console и network.
+
+## Фаза 2: Диспатч агента (solver)
+
+Сразу после фазы 1, в том же сообщении.
+
+### 2.1. Проверить лимит параллельности
+
+Посчитать в state.json количество багов со статусом `in_progress`. Если ≥
+`max_parallel` (по умолчанию 3):
+- Обновить status нового бага на `queued` в state.json.
+- Оставить todo в `in_progress` с пометкой "(queued)".
+- Вернуться к пользователю: "Пакет собран, агент в очереди. Активно: N/3."
+- НЕ диспатчить агента. Когда кто-то освободится (фаза 3), взять из очереди.
+
+Если `< max_parallel` → шаг 2.2.
+
+### 2.2. Обновить state и todo
+
+- state.json: `status = "in_progress"`, `agent_started_at = now()`
+- TodoWrite: без изменений (уже in_progress)
+
+### 2.3. Запустить агента
+
+```
+Agent(
+  subagent_type="general-purpose",
+  run_in_background=true,
+  isolation="worktree",
+  description="Solve bug <bug_id>",
+  prompt=<BRIEF>
+)
+```
+
+### 2.4. Brief для агента (подставить bug_id и PORTAL_URL)
+
+```
+Ты решаешь баг <bug_id>. Полный пакет артефактов в основном репозитории:
+.claude/bugs/<bug_id>/
+
+Тебе выделен отдельный worktree (isolation=worktree). Все коммиты — в нём.
+
+Твой workflow:
+
+1. Прочти артефакты в следующем порядке:
+   - description.md — что сказал пользователь
+   - screenshot.png — что он видел
+   - failed-requests.json — какие запросы упали
+   - response-bodies/*.json — тела ответов failed-запросов
+   - console.json — логи браузера
+   - backend-logs.txt — логи всего docker-стека за 2 минуты до снятия пакета
+   - url.txt, dom-snapshot.html — контекст страницы
+
+2. Определи корневую причину. Используй Grep/Read по коду, не гадай.
+   Опирайся на спеку проекта (docs/superpowers/specs/*) и AC (docs/ac/*),
+   если нашёл соответствующий feature.
+
+3. Воспроизведи баг через playwright-mcp:
+   - URL портала: <PORTAL_URL>
+   - Креды: aggregator@test.local / Admin123! (или
+     admin@example.com / Admin123! для админки)
+   - Сохрани storage_state после логина в <worktree>/playwright-state.json,
+     переиспользуй в последующих заходах.
+   - НЕ используй chrome-devtools-mcp — он занят основным потоком, твои
+     tool calls туда сломают активную сессию пользователя.
+
+4. Напиши фикс. Минимальный. Не рефактори смежное.
+
+5. Прогони ./scripts/check.sh (go vet + build + tsc + eslint). Должен пройти.
+
+6. Добавь/обнови тесты под изменение (AC-based, если поведение пользователя).
+
+7. Через playwright-mcp проверь, что баг больше не воспроизводится.
+
+8. Вызови субагента superpowers:code-reviewer для review diff'а:
+   - APPROVED → шаг 9
+   - CHANGES_REQUESTED → фикс, повтор review (максимум 3 итерации)
+   - После 3 неуспешных → сформируй result.json со status=failed
+
+9. Коммит в текущую ветку worktree (fix/bug-<bug_id>). НЕ merge, НЕ push.
+   В теле коммита — строка "Reviewed: superpowers:code-reviewer (APPROVED)".
+
+10. Запиши результат в <абсолютный путь к основному репо>/.claude/bugs/<bug_id>/result.json:
+    {
+      "status": "ready_for_merge" | "failed",
+      "branch": "fix/bug-<bug_id>",
+      "worktree_path": "<абсолютный путь к твоему worktree>",
+      "summary": "<1-2 предложения что сделал>",
+      "files_changed": ["relative/path.go", ...],
+      "review_iterations": <N>,
+      "failure_reason": "<только если failed>"
+    }
+
+Не мёрджи сам. Не деплой сам. Оркестратор сделает это.
+```
+
+### 2.5. Ответ пользователю
+
+После запуска Agent(run_in_background=true) — короткое сообщение:
+"Bug <bug_id> диспатчен. Пиши следующий `/bug` или ожидай уведомления."
+
+### Граничные случаи
+
+- **Agent tool не принимает `isolation=worktree`** — значит, плагин worktrees
+  не подключён. Проверить `superpowers:using-git-worktrees`. Без worktree —
+  отказать: "Нельзя диспатчить без изоляции. Установите superpowers."
+- **Превышение max_parallel = 3** — ставить в `queued`, стартовать из фазы 3.
