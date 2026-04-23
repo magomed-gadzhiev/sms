@@ -394,10 +394,33 @@ export function NetworkTariffEditorPage() {
               onChange={(v) => updateParam('period_id', v)}
               onNewPeriod={() => setNewPeriodOpen(true)}
             />
-            <div className="ml-auto text-xs text-slate-500">
-              Стратегия: <span className="font-medium text-slate-700">{plan.strategy}</span>
-              {/* TODO(out-of-scope): «Редактировать стратегию плана». */}
-            </div>
+            <StrategySelect
+              value={plan.strategy}
+              disabled={hasUnsavedChanges}
+              onChange={async (newStrategy) => {
+                if (newStrategy === plan.strategy) return;
+                try {
+                  const body: Parameters<typeof networkTariffsApi.updateStrategy>[0] = {
+                    country: params.country,
+                    sender_category: params.sender_category,
+                    traffic_type: params.traffic_type,
+                    strategy: newStrategy,
+                  };
+                  if (matrixScope.kind === 'template') {
+                    body.template_id = matrixScope.templateId;
+                  } else if (matrixScope.kind === 'override') {
+                    body.sub_account_id = matrixScope.subAccountId;
+                  } else {
+                    return;
+                  }
+                  await networkTariffsApi.updateStrategy(body);
+                  toast.success('Стратегия обновлена');
+                  refetch();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'Ошибка обновления стратегии');
+                }
+              }}
+            />
           </div>
         </div>
       </div>
@@ -522,6 +545,42 @@ function PeriodSelect({ value, periods, onChange, onNewPeriod }: PeriodSelectPro
           </option>
         ))}
         <option value={NEW_SENTINEL}>+ Новый период…</option>
+      </select>
+    </label>
+  );
+}
+
+const STRATEGY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'fixed', label: 'Фиксированная' },
+  { value: 'threshold', label: 'Пороговая' },
+  { value: 'threshold_recalc', label: 'Пороговая (перерасчёт)' },
+  { value: 'prepaid_threshold', label: 'Предоплаченная пороговая' },
+];
+
+interface StrategySelectProps {
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}
+
+function StrategySelect({ value, disabled, onChange }: StrategySelectProps) {
+  return (
+    <label
+      className="ml-auto flex items-center gap-2 text-sm"
+      title={disabled ? 'Сначала сохраните изменения цен' : undefined}
+    >
+      <span className="text-slate-600">Стратегия:</span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
+      >
+        {STRATEGY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
     </label>
   );

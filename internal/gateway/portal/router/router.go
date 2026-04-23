@@ -434,6 +434,10 @@ func SetupRouter(
 	// from the editor empty-state — wraps plan + default period + default tier
 	// in one transaction so the matrix has something to render immediately.
 	protected.HandleFunc("/network/tariff-plans", networkTariffBulkHandler.CreatePlan).Methods("POST")
+	// Update strategy across every active plan matching (template|sub_account,
+	// country, sender_category, traffic_type). Surfaces as a single dropdown
+	// in the editor top-bar.
+	protected.HandleFunc("/network/tariff-plans/strategy", networkTariffBulkHandler.UpdateStrategy).Methods("PUT")
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()

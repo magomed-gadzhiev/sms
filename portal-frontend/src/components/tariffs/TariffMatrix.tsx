@@ -72,6 +72,8 @@ export function TariffMatrix(props: TariffMatrixProps) {
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
   const [saving, setSaving] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [newTierRaw, setNewTierRaw] = useState('');
+  const [tierOpError, setTierOpError] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const cellIndex = useMemo(() => {
@@ -328,6 +330,72 @@ export function TariffMatrix(props: TariffMatrixProps) {
     exitEditMode();
   }, [exitEditMode]);
 
+  // Tier ops — separate from the cell-drafts flow. Each click sends an
+  // isolated batch (tiers_upsert/delete only, no cells). The parent refetches
+  // on success, which picks up the new tier set without wiping cell drafts
+  // (useEffect reset keys on [plan.id, active_period_id], not `data`).
+  const submitTierAdd = useCallback(async () => {
+    if (!onSaveBatch || saving) return;
+    const raw = newTierRaw.trim().replace(',', '.');
+    if (raw === '') {
+      setTierOpError('Введите объём (сегментов)');
+      return;
+    }
+    const q = Number(raw);
+    if (!Number.isFinite(q) || q < 0 || !Number.isInteger(q)) {
+      setTierOpError('Объём должен быть неотрицательным целым числом');
+      return;
+    }
+    if (sortedTiers.some((t) => t.from_quantity === q)) {
+      setTierOpError('Ступень с таким объёмом уже существует');
+      return;
+    }
+    setTierOpError(null);
+    setSaving(true);
+    try {
+      const res = await onSaveBatch({
+        period_id: data.active_period_id,
+        tiers_upsert: [{ id: null, from_quantity: q, price_per_segment: 0 }],
+        tiers_delete: [],
+        cells_upsert: [],
+        cells_delete: [],
+      });
+      if (res.ok) {
+        setNewTierRaw('');
+      } else {
+        setTierOpError('Не удалось добавить ступень');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [onSaveBatch, saving, newTierRaw, sortedTiers, data.active_period_id]);
+
+  const submitTierDelete = useCallback(
+    async (tierId: string, label: string) => {
+      if (!onSaveBatch || saving) return;
+      if (!window.confirm(`Удалить ступень «${label}»? Цены по ней будут потеряны.`)) {
+        return;
+      }
+      setTierOpError(null);
+      setSaving(true);
+      try {
+        const res = await onSaveBatch({
+          period_id: data.active_period_id,
+          tiers_upsert: [],
+          tiers_delete: [tierId],
+          cells_upsert: [],
+          cells_delete: [],
+        });
+        if (!res.ok) {
+          setTierOpError('Не удалось удалить ступень');
+        }
+      } finally {
+        setSaving(false);
+      }
+    },
+    [onSaveBatch, saving, data.active_period_id],
+  );
+
   const renderReadCell = (cell: TariffEditorCell | undefined) => {
     const source = cell?.source ?? 'unset';
     const effective = cell?.effective ?? null;
@@ -482,7 +550,23 @@ export function TariffMatrix(props: TariffMatrixProps) {
                   scope="col"
                   className="border-b border-slate-200 px-3 py-2 text-right font-medium text-slate-700 tabular-nums"
                 >
-                  {formatQuantity(tier.from_quantity)}
+                  <span className="inline-flex items-center gap-1">
+                    {formatQuantity(tier.from_quantity)}
+                    {showEditControls && sortedTiers.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          submitTierDelete(tier.id, formatQuantity(tier.from_quantity))
+                        }
+                        disabled={saving}
+                        title="Удалить ступень"
+                        aria-label={`Удалить ступень ${formatQuantity(tier.from_quantity)}`}
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        ×
+                      </button>
+                    ) : null}
+                  </span>
                 </th>
               ))}
             </tr>
@@ -541,6 +625,37 @@ export function TariffMatrix(props: TariffMatrixProps) {
           </tbody>
         </table>
       </div>
+
+      {showEditControls ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span className="text-slate-700">Добавить ступень от объёма:</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={newTierRaw}
+            onChange={(e) => {
+              setNewTierRaw(e.target.value);
+              if (tierOpError) setTierOpError(null);
+            }}
+            placeholder="например, 1000"
+            aria-label="Объём сегментов для новой ступени"
+            className="w-32 rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={submitTierAdd}
+            disabled={saving || newTierRaw.trim() === ''}
+          >
+            + Добавить
+          </Button>
+          {tierOpError ? (
+            <span role="alert" className="text-xs text-red-600">
+              {tierOpError}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {showEditControls ? (
         <div

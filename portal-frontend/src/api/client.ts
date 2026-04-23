@@ -1627,4 +1627,17 @@ export const networkTariffsApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  updateStrategy: (body: {
+    template_id?: string;
+    sub_account_id?: string;
+    country: string;
+    sender_category: string;
+    traffic_type: string;
+    strategy: string;
+  }) =>
+    apiFetch<{ updated: number }>(`/network/tariff-plans/strategy`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 };

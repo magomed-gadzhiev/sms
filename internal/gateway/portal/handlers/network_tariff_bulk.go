@@ -452,6 +452,147 @@ func (h *NetworkTariffBulkHandler) CreatePeriod(w http.ResponseWriter, r *http.R
 	writeJSON(w, createPeriodResponse{ID: newPeriodID.String()})
 }
 
+// ---------- UpdateStrategy ----------
+
+// updateStrategyRequest — PUT /portal/v1/network/tariff-plans/strategy body.
+// Updates strategy across every active plan matching the given dimensions
+// (template or sub_account scope). Frontend exposes strategy as a single
+// dropdown on the editor top-bar; semantically the choice applies to the
+// wildcard plan and every per-operator plan auto-materialised under it.
+type updateStrategyRequest struct {
+	TemplateID     *string `json:"template_id"`
+	SubAccountID   *string `json:"sub_account_id"`
+	Country        string  `json:"country"`
+	SenderCategory string  `json:"sender_category"`
+	TrafficType    string  `json:"traffic_type"`
+	Strategy       string  `json:"strategy"`
+}
+
+// UpdateStrategy handles PUT /portal/v1/network/tariff-plans/strategy.
+func (h *NetworkTariffBulkHandler) UpdateStrategy(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := h.ensureReseller(w, r)
+	if !ok {
+		return
+	}
+
+	var req updateStrategyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
+		return
+	}
+
+	hasTpl := req.TemplateID != nil && strings.TrimSpace(*req.TemplateID) != ""
+	hasSub := req.SubAccountID != nil && strings.TrimSpace(*req.SubAccountID) != ""
+	if hasTpl == hasSub {
+		respondError(w, shared.ErrInvalidInput("укажите ровно одно из template_id или sub_account_id"))
+		return
+	}
+
+	strategy := strings.TrimSpace(req.Strategy)
+	if !validCreatePlanStrategies[strategy] {
+		respondError(w, shared.ErrInvalidInput("недопустимая стратегия: "+strategy))
+		return
+	}
+
+	countryISO := strings.ToUpper(strings.TrimSpace(req.Country))
+	if countryISO == "" {
+		respondError(w, shared.ErrInvalidInput("country обязателен"))
+		return
+	}
+
+	senderCategory := strings.TrimSpace(req.SenderCategory)
+	if senderCategory == "" {
+		senderCategory = "paid_registered"
+	}
+	trafficType := strings.TrimSpace(req.TrafficType)
+	if trafficType == "" {
+		trafficType = "any"
+	}
+
+	ctx := r.Context()
+
+	var countryID uuid.UUID
+	if err := h.pool.QueryRow(ctx,
+		`SELECT id FROM countries WHERE iso_code = $1`, countryISO,
+	).Scan(&countryID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrInvalidInput("страна не найдена: "+countryISO))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: update-strategy country lookup failed")
+		respondError(w, shared.ErrInternalServer("ошибка поиска страны"))
+		return
+	}
+
+	var ownerCol string
+	var ownerID uuid.UUID
+	if hasTpl {
+		id, err := uuid.Parse(strings.TrimSpace(*req.TemplateID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("template_id некорректен"))
+			return
+		}
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM reseller_tariff_templates
+			   WHERE id = $1 AND reseller_id = $2 AND active)`,
+			id, resellerID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: update-strategy template ownership check failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки шаблона"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("шаблон"))
+			return
+		}
+		ownerCol = "template_id"
+		ownerID = id
+	} else {
+		id, err := uuid.Parse(strings.TrimSpace(*req.SubAccountID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("sub_account_id некорректен"))
+			return
+		}
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM clients
+			   WHERE id = $1 AND parent_client_id = $2)`,
+			id, resellerID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: update-strategy sub-account ownership check failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки субаккаунта"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("субаккаунт"))
+			return
+		}
+		ownerCol = "sub_account_id"
+		ownerID = id
+	}
+
+	ct, err := h.pool.Exec(ctx, `
+		UPDATE reseller_tariff_plans
+		SET strategy = $1, updated_at = NOW()
+		WHERE `+ownerCol+` = $2
+		  AND active
+		  AND country_id = $3
+		  AND sender_category = $4
+		  AND traffic_type = $5`,
+		strategy, ownerID, countryID, senderCategory, trafficType,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: update strategy failed")
+		respondError(w, shared.ErrInternalServer("ошибка обновления стратегии"))
+		return
+	}
+
+	h.invalidateSummaryCache(resellerID)
+
+	writeJSON(w, map[string]interface{}{"updated": ct.RowsAffected()})
+}
+
 // ---------- CreatePlan ----------
 
 // createPlanRequest — POST /portal/v1/network/tariff-plans body.
