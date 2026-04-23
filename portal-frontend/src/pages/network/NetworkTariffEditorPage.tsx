@@ -94,6 +94,8 @@ export function NetworkTariffEditorPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [newPeriodOpen, setNewPeriodOpen] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [creatingPlan, setCreatingPlan] = useState(false);
+  const [createPlanError, setCreatePlanError] = useState<string | null>(null);
 
   // fetch editor data whenever id/params change
   useEffect(() => {
@@ -229,9 +231,36 @@ export function NetworkTariffEditorPage() {
   // Backend returns plan=null when no plan matches the selected filters
   // (template exists, but no row in reseller_tariff_plans for this
   // country/sender_category/traffic_type combination). Render an empty
-  // state with filters still switchable so the user can pick a combination
-  // that does have a plan, rather than crashing the page.
+  // state with filters still switchable + a CTA to create the missing plan.
   if (!data.plan) {
+    const handleCreatePlan = async () => {
+      setCreatingPlan(true);
+      setCreatePlanError(null);
+      try {
+        const body: Parameters<typeof networkTariffsApi.createPlan>[0] = {
+          country: params.country,
+          sender_category: params.sender_category,
+          traffic_type: params.traffic_type,
+          strategy: 'fixed',
+        };
+        if (matrixScope.kind === 'template') {
+          body.template_id = matrixScope.templateId;
+        } else if (matrixScope.kind === 'override') {
+          body.sub_account_id = matrixScope.subAccountId;
+        } else {
+          return;
+        }
+        await networkTariffsApi.createPlan(body);
+        toast.success('Тарифный план создан');
+        refetch();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setCreatePlanError(msg);
+        toast.error(msg);
+      } finally {
+        setCreatingPlan(false);
+      }
+    };
     return (
       <div className="flex flex-col">
         <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
@@ -269,12 +298,20 @@ export function NetworkTariffEditorPage() {
         </div>
         <div className="px-6 py-10 text-center text-sm text-slate-600">
           <p className="mb-1 font-medium text-slate-800">
-            Для выбранной комбинации фильтров тарифный план не найден.
+            Для выбранной комбинации фильтров тарифный план ещё не создан.
           </p>
-          <p className="text-slate-500">
-            Попробуйте другую страну, тип имени или тип трафика — либо создайте
-            план для этой комбинации на уровне платформы.
+          <p className="mb-4 text-slate-500">
+            Создайте план для текущего сочетания «страна × тип имени × тип
+            трафика» — далее можно будет задать ступени цен и периоды.
           </p>
+          <Button onClick={handleCreatePlan} disabled={creatingPlan}>
+            {creatingPlan ? 'Создаём…' : '+ Создать тарифный план'}
+          </Button>
+          {createPlanError && (
+            <p role="alert" className="mt-3 text-xs text-red-600">
+              {createPlanError}
+            </p>
+          )}
         </div>
       </div>
     );

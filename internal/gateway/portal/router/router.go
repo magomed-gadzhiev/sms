@@ -430,6 +430,10 @@ func SetupRouter(
 	// Task 6: bulk-write endpoints for the matrix editor (tiers/cells + periods).
 	protected.HandleFunc("/network/tariff-plans/{plan_id}/bulk", networkTariffBulkHandler.BulkPatch).Methods("PATCH")
 	protected.HandleFunc("/network/tariff-plans/{plan_id}/periods", networkTariffBulkHandler.CreatePeriod).Methods("POST")
+	// Fix 2026-04-23 (UX /network/tariffs): create a fresh reseller_tariff_plan
+	// from the editor empty-state — wraps plan + default period + default tier
+	// in one transaction so the matrix has something to render immediately.
+	protected.HandleFunc("/network/tariff-plans", networkTariffBulkHandler.CreatePlan).Methods("POST")
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()

@@ -1613,4 +1613,18 @@ export const networkTariffsApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  createPlan: (body: {
+    template_id?: string;
+    sub_account_id?: string;
+    country: string;
+    operator_id?: string;
+    sender_category: string;
+    traffic_type: string;
+    strategy?: string;
+  }) =>
+    apiFetch<{ id: string; period_id: string }>(`/network/tariff-plans`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
