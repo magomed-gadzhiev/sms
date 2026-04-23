@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
@@ -301,11 +302,12 @@ func (h *ResellerDashboardHandlers) GetResellerDashboard(w http.ResponseWriter, 
 			for rows.Next() {
 				var id, name, bal string
 				if rows.Scan(&id, &name, &bal) == nil {
+					balFloat, _ := strconv.ParseFloat(bal, 64)
 					localProblems = append(localProblems, problemAlert{
 						SubAccountID: id,
 						Name:         name,
 						Type:         "low_balance",
-						Detail:       bal + " руб.",
+						Detail:       fmt.Sprintf("Баланс: %.2f ₽", balFloat),
 					})
 				}
 			}

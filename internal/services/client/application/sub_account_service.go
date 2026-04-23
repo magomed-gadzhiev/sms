@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,10 +85,23 @@ func (s *SubAccountService) CreateSubAccount(
 		return nil, ErrInvalidClientData
 	}
 
+	// Генерируем уникальный API key и secret — БД требует UNIQUE(api_key),
+	// иначе второй субаккаунт с пустым ключом упадёт с SQLSTATE 23505.
+	apiKeyBytes := make([]byte, 16)
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(apiKeyBytes); err != nil {
+		return nil, err
+	}
+	if _, err := rand.Read(secretBytes); err != nil {
+		return nil, err
+	}
+
 	// Создаем суб-аккаунт
 	subAccount := &domain.Client{
 		ID:             uuid.New(),
 		Name:           name,
+		APIKey:         "ak-" + hex.EncodeToString(apiKeyBytes),
+		Secret:         hex.EncodeToString(secretBytes),
 		Email:          email,
 		ContactPerson:  contactPerson,
 		Active:         true,
