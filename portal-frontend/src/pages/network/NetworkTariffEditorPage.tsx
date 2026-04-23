@@ -177,6 +177,15 @@ export function NetworkTariffEditorPage() {
     return { kind: 'override', subAccountId: data.scope.sub_account_id ?? id };
   }, [data, id]);
 
+  // Stable reference for TariffMatrix `data` prop. Without memoisation this
+  // object is re-created every render; TariffMatrix's drafts-reset effect
+  // would then fire on every keystroke (because onUnsavedChange re-renders
+  // this component, which re-spreads `data`), wiping in-flight edits.
+  const matrixData = useMemo(() => {
+    if (!data || !data.plan || !data.active_period_id) return null;
+    return { ...data, plan: data.plan, active_period_id: data.active_period_id };
+  }, [data]);
+
   const refetch = useCallback(() => {
     if (!id) return;
     networkTariffsApi
@@ -395,9 +404,9 @@ export function NetworkTariffEditorPage() {
 
       {/* matrix body */}
       <div className="px-6 py-4">
-        {data.active_period_id ? (
+        {data.active_period_id && matrixData ? (
           <TariffMatrix
-            data={{ ...data, plan, active_period_id: data.active_period_id }}
+            data={matrixData}
             scope={matrixScope}
             editable={true}
             showInheritance={params.mode === 'override'}

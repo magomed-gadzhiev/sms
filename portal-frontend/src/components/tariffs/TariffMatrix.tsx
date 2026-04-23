@@ -99,12 +99,16 @@ export function TariffMatrix(props: TariffMatrixProps) {
     onUnsavedChange?.(hasChanges);
   }, [hasChanges, onUnsavedChange]);
 
-  // when parent swaps `data` (e.g. after successful save or period change), reset local state.
+  // when parent swaps to a DIFFERENT plan/period, reset local state. We key on
+  // identity markers instead of `data` itself because the parent may re-create
+  // the `data` object on every render (e.g. via spread) — keying on `data`
+  // would nuke the user's in-flight edits after the first keystroke triggers
+  // onUnsavedChange → parent re-render → new `data` reference.
   useEffect(() => {
     setDrafts(new Map());
     setErrors(new Map());
     setActiveKey(null);
-  }, [data]);
+  }, [data.plan.id, data.active_period_id]);
 
   const exitEditMode = useCallback(() => {
     setEditMode(false);
