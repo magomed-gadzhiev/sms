@@ -51,6 +51,7 @@ func SetupRouter(
 	sms.HandleFunc("/status/{id}", smsHandlers.GetStatus).Methods("GET")
 	sms.HandleFunc("/history", smsHandlers.GetHistory).Methods("GET")
 	sms.HandleFunc("/scheduled", smsHandlers.ListScheduled).Methods("GET")
+	sms.HandleFunc("/cancel/{id}", smsHandlers.CancelScheduled).Methods("POST")
 	sms.HandleFunc("/{id}", smsHandlers.CancelSMS).Methods("DELETE")
 
 	// Account endpoints
