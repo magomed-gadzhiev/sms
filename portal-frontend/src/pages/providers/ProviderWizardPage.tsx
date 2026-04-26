@@ -8,11 +8,10 @@ import { Step1BasicInfo } from './steps/Step1BasicInfo';
 import { Step2Connection } from './steps/Step2Connection';
 import { Step3Params } from './steps/Step3Params';
 import { Step4Test } from './steps/Step4Test';
-import { Step5Routing } from './steps/Step5Routing';
 import { Step6Summary } from './steps/Step6Summary';
 
-const STEP_LABELS = ['Основное', 'Подключение', 'Параметры', 'Тест', 'Маршрутизация', 'Итоги'];
-const TOTAL_STEPS = 6;
+const STEP_LABELS = ['Основное', 'Подключение', 'Параметры', 'Тест', 'Итоги'];
+const TOTAL_STEPS = 5;
 
 const DEFAULTS: Partial<CreateProviderRequest> = {
   bind_type: 0,
@@ -72,7 +71,7 @@ export function ProviderWizardPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <PageHeader title="Добавить SMPP провайдера" />
+      <PageHeader title="Добавить подключение" />
       <WizardProgress currentStep={step} totalSteps={TOTAL_STEPS} labels={STEP_LABELS} />
 
       <div className="p-6 border border-gray-200 rounded-lg">
@@ -80,8 +79,7 @@ export function ProviderWizardPage() {
         {step === 2 && <Step2Connection data={data} onChange={update} />}
         {step === 3 && <Step3Params data={data} onChange={update} />}
         {step === 4 && <Step4Test data={data} />}
-        {step === 5 && <Step5Routing data={data} onChange={update} />}
-        {step === 6 && <Step6Summary data={data} />}
+        {step === 5 && <Step6Summary data={data} />}
 
         {error && <p className="text-red-600 mt-3">{error}</p>}
 

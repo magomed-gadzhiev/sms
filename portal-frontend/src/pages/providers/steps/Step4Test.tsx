@@ -12,7 +12,7 @@ export function Step4Test({ data }: Props) {
 
   async function runTest() {
     if (!data.host || !data.port || !data.system_id || !data.password) {
-      setError('Fill in connection details first (Step 2)');
+      setError('Сначала заполните параметры подключения (шаг 2)');
       return;
     }
     setTesting(true);
@@ -28,7 +28,7 @@ export function Step4Test({ data }: Props) {
       });
       setResult(res);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Test failed');
+      setError(err instanceof ApiError ? err.message : 'Тест не пройден');
     } finally {
       setTesting(false);
     }
@@ -36,9 +36,9 @@ export function Step4Test({ data }: Props) {
 
   return (
     <div>
-      <h3>Test Connection</h3>
+      <h3>Тест</h3>
       <p style={{ color: '#666' }}>
-        Verify your SMPP credentials by performing a live bind/unbind test.
+        Проверяем учётные данные SMPP реальным bind/unbind на сервер провайдера.
       </p>
       <button
         type="button"
@@ -53,7 +53,7 @@ export function Step4Test({ data }: Props) {
           cursor: testing ? 'not-allowed' : 'pointer',
         }}
       >
-        {testing ? 'Testing...' : 'Test Connection'}
+        {testing ? 'Проверяем...' : 'Проверить подключение'}
       </button>
 
       {error && <p style={{ color: '#d32f2f', marginTop: 12 }}>{error}</p>}
@@ -61,11 +61,11 @@ export function Step4Test({ data }: Props) {
       {result && (
         <div style={{ marginTop: 16, padding: 12, background: result.success ? '#e8f5e9' : '#ffebee', borderRadius: 4 }}>
           <div style={{ fontWeight: 'bold', color: result.success ? '#2e7d32' : '#c62828', marginBottom: 8 }}>
-            {result.success ? `✓ Connected (${result.latency_ms}ms)` : `✗ Failed`}
+            {result.success ? `✓ Подключено (${result.latency_ms} мс)` : `✗ Не удалось`}
           </div>
           <pre style={{ fontSize: 12, margin: 0, whiteSpace: 'pre-wrap' }}>
             {(result.log ?? []).join('\n')}
-            {result.error ? `\nError: ${result.error}` : ''}
+            {result.error ? `\nОшибка: ${result.error}` : ''}
           </pre>
         </div>
       )}

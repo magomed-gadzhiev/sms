@@ -4,12 +4,12 @@ interface Props {
   data: Partial<CreateProviderRequest>;
 }
 
-const BIND_LABELS: Record<number, string> = { 0: 'Transceiver', 1: 'Transmitter', 2: 'Receiver' };
+const BIND_LABELS: Record<number, string> = { 0: 'Двусторонний (TRX)', 1: 'Только отправка (TX)', 2: 'Только приём (RX)' };
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <tr>
-      <td style={{ padding: '6px 8px', color: '#666', width: 160 }}>{label}</td>
+      <td style={{ padding: '6px 8px', color: '#666', width: 200 }}>{label}</td>
       <td style={{ padding: '6px 8px' }}>{value}</td>
     </tr>
   );
@@ -18,27 +18,19 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 export function Step6Summary({ data }: Props) {
   return (
     <div>
-      <h3>Summary</h3>
-      <p style={{ color: '#666' }}>Review your configuration before creating the provider.</p>
+      <h3>Сводка</h3>
+      <p style={{ color: '#666' }}>Проверьте параметры перед созданием подключения.</p>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
         <tbody>
-          <Row label="Name" value={data.name} />
-          {data.description && <Row label="Description" value={data.description} />}
-          {data.tags && data.tags.length > 0 && <Row label="Tags" value={data.tags.join(', ')} />}
-          <Row label="Host" value={`${data.host}:${data.port}`} />
+          <Row label="Название" value={data.name} />
+          {data.description && <Row label="Описание" value={data.description} />}
+          {data.tags && data.tags.length > 0 && <Row label="Метки" value={data.tags.join(', ')} />}
+          <Row label="Хост" value={`${data.host}:${data.port}`} />
           <Row label="System ID" value={data.system_id} />
-          <Row label="Bind Type" value={BIND_LABELS[data.bind_type ?? 0]} />
-          <Row label="Max Connections" value={data.max_connections ?? 1} />
-          <Row label="Window Size" value={data.window_size ?? 10} />
-          <Row label="TPS Limit" value={data.tps_limit ?? 100} />
-          {data.routing_rules && data.routing_rules.length > 0 && (
-            <Row
-              label="Routing Rules"
-              value={data.routing_rules.map((r, i) => (
-                <div key={i}>{r.pattern} (priority: {r.priority})</div>
-              ))}
-            />
-          )}
+          <Row label="Режим подключения" value={BIND_LABELS[data.bind_type ?? 0]} />
+          <Row label="Макс. подключений" value={data.max_connections ?? 1} />
+          <Row label="Размер окна" value={data.window_size ?? 10} />
+          <Row label="Лимит TPS" value={data.tps_limit ?? 100} />
         </tbody>
       </table>
     </div>

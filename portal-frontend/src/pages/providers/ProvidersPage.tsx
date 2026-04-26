@@ -67,7 +67,7 @@ export function ProvidersPage() {
     <div>
       <PageHeader
         title="Подключения"
-        actions={!isSubAccount ? <Button onClick={() => navigate('/providers/new')}>+ Добавить провайдера</Button> : null}
+        actions={!isSubAccount ? <Button onClick={() => navigate('/providers/new')}>+ Добавить подключение</Button> : null}
       />
 
       {error && <p className="text-red-600">{error}</p>}
@@ -82,10 +82,10 @@ export function ProvidersPage() {
 
       {!loading && !error && !isSubAccount && providers.length === 0 && (
         <div className="text-center py-12 text-gray-500">
-          <p className="mb-2">Провайдеры не настроены</p>
+          <p className="mb-2">Подключения не настроены</p>
           <p className="text-sm mb-4">Подключите SMPP-провайдера для начала отправки SMS</p>
           <Button variant="ghost" onClick={() => navigate('/providers/new')}>
-            Добавить провайдера
+            Добавить подключение
           </Button>
         </div>
       )}
