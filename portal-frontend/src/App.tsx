@@ -168,6 +168,7 @@ export function App() {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProviderWizardPage />} />
+        <Route path="/providers/:id/edit" element={<ProviderWizardPage />} />
         <Route path="/routing" element={<RoutingPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/companies" element={<CompaniesPage />} />

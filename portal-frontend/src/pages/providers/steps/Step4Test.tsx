@@ -3,16 +3,21 @@ import { providersApi, ApiError, type CreateProviderRequest, type TestConnection
 
 interface Props {
   data: Partial<CreateProviderRequest>;
+  isEdit?: boolean;
 }
 
-export function Step4Test({ data }: Props) {
+export function Step4Test({ data, isEdit }: Props) {
   const [result, setResult] = useState<TestConnectionResult | null>(null);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState('');
 
   async function runTest() {
-    if (!data.host || !data.port || !data.system_id || !data.password) {
+    if (!data.host || !data.port || !data.system_id) {
       setError('Сначала заполните параметры подключения (шаг 2)');
+      return;
+    }
+    if (!data.password) {
+      setError(isEdit ? 'Введите пароль на шаге 2, чтобы проверить подключение' : 'Сначала заполните параметры подключения (шаг 2)');
       return;
     }
     setTesting(true);

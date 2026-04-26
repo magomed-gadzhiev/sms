@@ -101,9 +101,14 @@ export function ProvidersPage() {
           loading={loading}
           keyField="id"
           rowActions={(p) => (
-            <Button variant="danger" size="sm" onClick={() => setDeleteId(p.id)}>
-              Удалить
-            </Button>
+            <div className="flex gap-1.5">
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/providers/${p.id}/edit`)}>
+                Редактировать
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => setDeleteId(p.id)}>
+                Удалить
+              </Button>
+            </div>
           )}
         />
       )}
@@ -112,8 +117,8 @@ export function ProvidersPage() {
         open={deleteId !== null}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteId(null)}
-        title="Удалить провайдера"
-        description="Вы уверены, что хотите удалить этого провайдера? Это действие нельзя отменить."
+        title="Удалить подключение"
+        description="Вы уверены, что хотите удалить это подключение? Это действие нельзя отменить."
         confirmLabel="Удалить"
         variant="danger"
         loading={deleting}

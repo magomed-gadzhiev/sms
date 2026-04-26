@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { providersApi, ApiError, type CreateProviderRequest } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { WizardProgress } from './components/WizardProgress';
@@ -24,10 +24,42 @@ const DEFAULTS: Partial<CreateProviderRequest> = {
 
 export function ProviderWizardPage() {
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEdit = !!editId;
   const [step, setStep] = useState(1);
   const [data, setData] = useState<Partial<CreateProviderRequest>>(DEFAULTS);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
+
+  useEffect(() => {
+    if (!editId) return;
+    setLoading(true);
+    setError('');
+    providersApi.get(editId)
+      .then((p) => {
+        // Provider response не содержит password — он просто не передаётся
+        // в форму. Если пользователь оставит password пустым, payload пойдёт
+        // без поля; если введёт новый — заменит на бэке.
+        setData({
+          name: p.name,
+          description: p.description,
+          tags: p.tags ?? [],
+          host: p.host,
+          port: p.port,
+          system_id: p.system_id,
+          bind_type: p.bind_type,
+          window_size: p.window_size,
+          max_connections: p.max_connections,
+          tps_limit: p.tps_limit,
+          routing_rules: p.routing_rules ?? [],
+        });
+      })
+      .catch((err) => {
+        setError(err instanceof ApiError ? err.message : 'Не удалось загрузить подключение');
+      })
+      .finally(() => setLoading(false));
+  }, [editId]);
 
   function update(updates: Partial<CreateProviderRequest>) {
     setData(prev => ({ ...prev, ...updates }));
@@ -39,7 +71,8 @@ export function ProviderWizardPage() {
       if (!data.host?.trim()) return 'Хост обязателен';
       if (!data.port || data.port <= 0) return 'Укажите корректный порт';
       if (!data.system_id?.trim()) return 'System ID обязателен';
-      if (!data.password?.trim()) return 'Пароль обязателен';
+      // В режиме редактирования пароль не обязателен — пустое поле = «не менять»
+      if (!isEdit && !data.password?.trim()) return 'Пароль обязателен';
     }
     return '';
   }
@@ -60,25 +93,45 @@ export function ProviderWizardPage() {
     setSaving(true);
     setError('');
     try {
-      await providersApi.create(data as CreateProviderRequest);
+      if (isEdit && editId) {
+        // Если password пустой — не отправляем поле (бэк трактует как «не менять»)
+        const { password, ...rest } = data;
+        const payload: Partial<CreateProviderRequest> = password?.trim()
+          ? { ...rest, password }
+          : rest;
+        await providersApi.update(editId, payload);
+      } else {
+        await providersApi.create(data as CreateProviderRequest);
+      }
       navigate('/providers');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось создать провайдера');
+      setError(err instanceof ApiError ? err.message : isEdit ? 'Не удалось сохранить подключение' : 'Не удалось создать подключение');
     } finally {
       setSaving(false);
     }
   }
 
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <PageHeader title="Редактирование подключения" />
+        <div className="p-6 border border-gray-200 rounded-lg" role="status">
+          Загрузка...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
-      <PageHeader title="Добавить подключение" />
+      <PageHeader title={isEdit ? 'Редактирование подключения' : 'Добавить подключение'} />
       <WizardProgress currentStep={step} totalSteps={TOTAL_STEPS} labels={STEP_LABELS} />
 
       <div className="p-6 border border-gray-200 rounded-lg">
         {step === 1 && <Step1BasicInfo data={data} onChange={update} />}
-        {step === 2 && <Step2Connection data={data} onChange={update} />}
+        {step === 2 && <Step2Connection data={data} onChange={update} isEdit={isEdit} />}
         {step === 3 && <Step3Params data={data} onChange={update} />}
-        {step === 4 && <Step4Test data={data} />}
+        {step === 4 && <Step4Test data={data} isEdit={isEdit} />}
         {step === 5 && <Step6Summary data={data} />}
 
         {error && <p className="text-red-600 mt-3">{error}</p>}
@@ -89,6 +142,7 @@ export function ProviderWizardPage() {
           onBack={handleBack}
           onNext={handleNext}
           onSubmit={handleSubmit}
+          submitLabel={isEdit ? 'Сохранить' : 'Создать'}
           loading={saving}
         />
       </div>

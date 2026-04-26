@@ -5,6 +5,7 @@ interface WizardNavProps {
   onNext: () => void;
   onSubmit?: () => void;
   nextLabel?: string;
+  submitLabel?: string;
   loading?: boolean;
   nextDisabled?: boolean;
 }
@@ -16,6 +17,7 @@ export function WizardNav({
   onNext,
   onSubmit,
   nextLabel,
+  submitLabel,
   loading,
   nextDisabled,
 }: WizardNavProps) {
@@ -29,7 +31,7 @@ export function WizardNav({
         disabled={currentStep === 1}
         style={{ padding: '8px 20px', cursor: currentStep === 1 ? 'not-allowed' : 'pointer' }}
       >
-        ← Back
+        ← Назад
       </button>
       <button
         type="button"
@@ -44,7 +46,7 @@ export function WizardNav({
           cursor: loading || nextDisabled ? 'not-allowed' : 'pointer',
         }}
       >
-        {loading ? 'Saving...' : (isLast ? (nextLabel ?? 'Create Provider') : (nextLabel ?? 'Next →'))}
+        {loading ? 'Сохраняем...' : (isLast ? (submitLabel ?? nextLabel ?? 'Создать') : (nextLabel ?? 'Далее →'))}
       </button>
     </div>
   );

@@ -3,6 +3,7 @@ import type { CreateProviderRequest } from '../../../api/client';
 interface Props {
   data: Partial<CreateProviderRequest>;
   onChange: (updates: Partial<CreateProviderRequest>) => void;
+  isEdit?: boolean;
 }
 
 const BIND_TYPES = [
@@ -11,7 +12,7 @@ const BIND_TYPES = [
   { value: 2, label: 'Только приём (RX)' },
 ];
 
-export function Step2Connection({ data, onChange }: Props) {
+export function Step2Connection({ data, onChange, isEdit }: Props) {
   return (
     <div>
       <h3>Подключение</h3>
@@ -45,12 +46,12 @@ export function Step2Connection({ data, onChange }: Props) {
         </label>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <label>Пароль *<br />
+        <label>{isEdit ? 'Пароль' : 'Пароль *'}<br />
           <input
             type="password"
             value={data.password ?? ''}
             onChange={e => onChange({ password: e.target.value })}
-            placeholder="••••••••"
+            placeholder={isEdit ? 'Оставьте пустым, чтобы не менять' : '••••••••'}
             style={{ width: '100%', padding: '8px', marginTop: 4 }}
           />
         </label>
