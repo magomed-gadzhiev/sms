@@ -24,7 +24,7 @@ describe('apiFetch', () => {
   const originalHref = window.location.href;
 
   beforeEach(() => {
-    originalFetch = global.fetch;
+    originalFetch = globalThis.fetch;
     // Reset cookies between tests.
     document.cookie.split(';').forEach((c) => {
       const name = c.split('=')[0].trim();
@@ -33,14 +33,14 @@ describe('apiFetch', () => {
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     // Restore URL navigation stub.
     window.history.replaceState({}, '', originalHref);
   });
 
   it('prefixes requests with /portal/v1 and defaults Content-Type to application/json', async () => {
     const fetchMock = mockFetchOK({ ok: true });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await authApi.logout();
 
@@ -53,7 +53,7 @@ describe('apiFetch', () => {
 
   it('forwards credentials: "include" so cookies travel with the request', async () => {
     const fetchMock = mockFetchOK({ ok: true });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
     await authApi.logout();
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect(init.credentials).toBe('include');
@@ -62,7 +62,7 @@ describe('apiFetch', () => {
   it('attaches X-CSRF-Token header when csrf_token cookie is set', async () => {
     document.cookie = 'csrf_token=abc-csrf; path=/';
     const fetchMock = mockFetchOK({ ok: true });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
     await authApi.logout();
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>)['X-CSRF-Token']).toBe('abc-csrf');
@@ -70,7 +70,7 @@ describe('apiFetch', () => {
 
   it('omits X-CSRF-Token when no cookie is present', async () => {
     const fetchMock = mockFetchOK({ ok: true });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
     await authApi.logout();
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>)['X-CSRF-Token']).toBeUndefined();
@@ -78,12 +78,9 @@ describe('apiFetch', () => {
 
   it('omits Content-Type for FormData bodies', async () => {
     const fetchMock = mockFetchOK({ ok: true });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
     const fd = new FormData();
     fd.append('file', new Blob(['x']));
-    // Use an arbitrary endpoint that accepts FormData — apiFetch is generic, call via fetch mock.
-    const { default: dummy } = await import('./client');
-    void dummy;
     // Directly invoke apiFetch via re-export isn't exposed; use messagesApi.send wrapper with FormData by manual call:
     // Easiest: call fetch wrapper with FormData through exportApi — but to stay focused we inline a dummy apiFetch call via dynamic import.
     // Instead, use webhooksApi.create with JSON to prove default — the FormData guard lives in apiFetch.
@@ -92,19 +89,19 @@ describe('apiFetch', () => {
   });
 
   it('returns parsed JSON body on success', async () => {
-    global.fetch = mockFetchOK({ requires_2fa: false }) as unknown as typeof fetch;
+    globalThis.fetch = mockFetchOK({ requires_2fa: false }) as unknown as typeof fetch;
     const res = await authApi.login('a@b', 'secret');
     expect(res).toEqual({ requires_2fa: false });
   });
 
   it('returns empty object for 204 No Content', async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 })) as unknown as typeof fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 })) as unknown as typeof fetch;
     const res = await webhooksApi.remove('wh-1');
     expect(res).toEqual({});
   });
 
   it('throws ApiError carrying status and server message', async () => {
-    global.fetch = mockFetchError(400, 'VALIDATION', 'Invalid destination') as unknown as typeof fetch;
+    globalThis.fetch = mockFetchError(400, 'VALIDATION', 'Invalid destination') as unknown as typeof fetch;
     await expect(messagesApi.send({ destination: 'x', text: 'y', source: 'z' })).rejects.toMatchObject({
       status: 400,
       message: 'Invalid destination',
@@ -112,7 +109,7 @@ describe('apiFetch', () => {
   });
 
   it('throws ApiError with status 401 and "Unauthorized" for non-auth paths', async () => {
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: { message: 'nope' } }), { status: 401 }),
     ) as unknown as typeof fetch;
     // Prevent jsdom navigation error: stub location.href setter.
@@ -124,7 +121,7 @@ describe('apiFetch', () => {
   });
 
   it('does NOT redirect on 401 for auth endpoints (login/logout), so the form can show an error', async () => {
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: { message: 'Invalid credentials' } }), { status: 401 }),
     ) as unknown as typeof fetch;
     const locationMock = { pathname: '/login', href: '/login' } as unknown as Location;
@@ -139,7 +136,7 @@ describe('apiFetch', () => {
   });
 
   it('falls back to statusText when response body has no error.message', async () => {
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(null, { status: 500, statusText: 'Internal Server Error' }),
     ) as unknown as typeof fetch;
     await expect(templatesApi.remove('t-1')).rejects.toMatchObject({
@@ -149,14 +146,14 @@ describe('apiFetch', () => {
   });
 
   it('maps "parent client not found" to capitalized form', async () => {
-    global.fetch = mockFetchError(409, 'CONFLICT', 'parent client not found') as unknown as typeof fetch;
+    globalThis.fetch = mockFetchError(409, 'CONFLICT', 'parent client not found') as unknown as typeof fetch;
     await expect(templatesApi.remove('t-1')).rejects.toMatchObject({
       message: 'Parent client not found',
     });
   });
 
   it('wraps AbortError in an ApiError with status 0', async () => {
-    global.fetch = vi.fn().mockImplementation(
+    globalThis.fetch = vi.fn().mockImplementation(
       () =>
         new Promise((_, reject) => {
           const err = new DOMException('aborted', 'AbortError');
@@ -182,7 +179,7 @@ describe('URL composition', () => {
   let fetchMock: ReturnType<typeof mockFetchOK>;
   beforeEach(() => {
     fetchMock = mockFetchOK({ templates: [], total: 0, page: 1, per_page: 10, total_pages: 0 });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
   });
 
   it('templatesApi.list serializes query params', async () => {
