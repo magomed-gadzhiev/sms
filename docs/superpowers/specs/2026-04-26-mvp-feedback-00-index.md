@@ -12,7 +12,7 @@
 | 2 | Шаблоны клиента — переменные | S | ✅ закрыт 2026-04-26 — chip-ряд + удалено поле «Тип трафика» (commit 110784b) | [02](2026-04-26-mvp-feedback-02-templates-variables-design.md) |
 | 3 | SMPP → «Подключения» | S | ✅ закрыт 2026-04-26 (commits 762f11a/b8e0d6c/1414b8b). Backend: graceful reconnect SMPP при update — отдельная проверка | [03](2026-04-26-mvp-feedback-03-smpp-connections-rename-design.md) |
 | 4 | Админ → Заблокировать клиента | M | UI готов (2026-04-26): кнопка/модалка/бейдж/разблокировка, статус через UpdateClient(active). Осталось: backend каскад (refresh-tokens revoke, SMPP disconnect, pipeline cancel, audit-log persistence reason, blocked_at/block_reason миграция) | [04](2026-04-26-mvp-feedback-04-admin-block-client-design.md) |
-| 5 | Биллинг — фильтры + группировка | M | базовые фильтры, агрегации нет, нет `operation_kind` | [05](2026-04-26-mvp-feedback-05-billing-filters-design.md) |
+| 5 | Биллинг — фильтры + группировка | M | foundation (2026-04-26): миграция 000121 добавляет `operation_kind` + backfill heuristics + индекс. Осталось: proto-extension `GetTransactionHistoryRequest` (kind/group_by), новый SQL агрегации в repository, backend kind при создании tx во всех местах, UI фильтр Операция + Группировка | [05](2026-04-26-mvp-feedback-05-billing-filters-design.md) |
 | 6 | Dadata в Профиле | M | интеграции нет вообще | [06](2026-04-26-mvp-feedback-06-dadata-profile-design.md) |
 | 7 | Провайдеры — бизнес-карточка | L | требуется миграция модели (1:1 → 1:N) | [07](2026-04-26-mvp-feedback-07-provider-business-card-design.md) |
 | 8 | MCC/MNC — схема + seed | M | колонок `mcc`/`mnc` нет (рассинхрон с фронтом) | [08](2026-04-26-mvp-feedback-08-mcc-mnc-import-design.md) |
