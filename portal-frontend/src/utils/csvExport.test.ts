@@ -5,7 +5,7 @@ describe('exportToCsv', () => {
   beforeEach(() => {
     // jsdom lacks URL.createObjectURL; stub both.
     const createdUrls: string[] = [];
-    (URL as unknown as { createObjectURL: (b: Blob) => string }).createObjectURL = vi.fn((b: Blob) => {
+    (URL as unknown as { createObjectURL: (b: Blob) => string }).createObjectURL = vi.fn((_b: Blob) => {
       createdUrls.push('blob:' + String(createdUrls.length));
       return 'blob:' + String(createdUrls.length - 1);
     });

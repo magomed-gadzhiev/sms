@@ -66,7 +66,7 @@ export function ProvidersPage() {
   return (
     <div>
       <PageHeader
-        title="SMPP Провайдеры"
+        title="Подключения"
         actions={!isSubAccount ? <Button onClick={() => navigate('/providers/new')}>+ Добавить провайдера</Button> : null}
       />
 
