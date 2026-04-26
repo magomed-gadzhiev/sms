@@ -10,13 +10,13 @@
 |---|---|---|---|---|
 | 1 | Быстрая отправка | trivial (правка спеки) | ✅ закрыт 2026-04-26 — код соответствует, действий по коду нет | [01](2026-04-26-mvp-feedback-01-quick-send-design.md) |
 | 2 | Шаблоны клиента — переменные | S | ✅ закрыт 2026-04-26 — chip-ряд + удалено поле «Тип трафика» (commit 110784b) | [02](2026-04-26-mvp-feedback-02-templates-variables-design.md) |
-| 3 | SMPP → «Подключения» | S | частично (2026-04-26): nav/title, удаление дубля + redirect, визард локализован, шаг «Маршрутизация» убран. Осталось: Edit-кнопка (нужен фикс багов в client.ts + edit-mode wizard) | [03](2026-04-26-mvp-feedback-03-smpp-connections-rename-design.md) |
+| 3 | SMPP → «Подключения» | S | ✅ закрыт 2026-04-26 (commits 762f11a/b8e0d6c/1414b8b). Backend: graceful reconnect SMPP при update — отдельная проверка | [03](2026-04-26-mvp-feedback-03-smpp-connections-rename-design.md) |
 | 4 | Админ → Заблокировать клиента | M | флаг есть, каскада нет (1/4) | [04](2026-04-26-mvp-feedback-04-admin-block-client-design.md) |
 | 5 | Биллинг — фильтры + группировка | M | базовые фильтры, агрегации нет, нет `operation_kind` | [05](2026-04-26-mvp-feedback-05-billing-filters-design.md) |
 | 6 | Dadata в Профиле | M | интеграции нет вообще | [06](2026-04-26-mvp-feedback-06-dadata-profile-design.md) |
 | 7 | Провайдеры — бизнес-карточка | L | требуется миграция модели (1:1 → 1:N) | [07](2026-04-26-mvp-feedback-07-provider-business-card-design.md) |
 | 8 | MCC/MNC — схема + seed | M | колонок `mcc`/`mnc` нет (рассинхрон с фронтом) | [08](2026-04-26-mvp-feedback-08-mcc-mnc-import-design.md) |
-| 9 | Кампании-wizard — косметика | S | частично (2026-04-26): «Расписания» скрыты из меню. Осталось: 4 точечные правки + audience preview-эндпоинт | [09](2026-04-26-mvp-feedback-09-campaigns-wizard-cosmetics-design.md) |
+| 9 | Кампании-wizard — косметика | S | частично (2026-04-26): «Расписания» скрыты, default sender (sms), Variant B summary. Осталось: audience preview-эндпоинт, draft без contact_list (нужна миграция БД + domain change) | [09](2026-04-26-mvp-feedback-09-campaigns-wizard-cosmetics-design.md) |
 | 10 | Детализация — UX-полировка | M | ~85% готово, 5 точечных правок + дубль-страница | [10](2026-04-26-mvp-feedback-10-detalization-polish-design.md) |
 
 ## Принятые архитектурные решения (без ожидания менеджера)
