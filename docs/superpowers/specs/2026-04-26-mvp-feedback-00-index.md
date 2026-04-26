@@ -17,7 +17,7 @@
 | 7 | Провайдеры — бизнес-карточка | L | требуется миграция модели (1:1 → 1:N) | [07](2026-04-26-mvp-feedback-07-provider-business-card-design.md) |
 | 8 | MCC/MNC — схема + seed | M | foundation (2026-04-26): миграция 000122 (колонки + индексы) + 000123 (seed 35 операторов СНГ из 11 стран). Осталось: proto-extension OperatorInfo, repository SELECT mcc/mnc, service-валидация, обновить sender_names.go:211-224 чтобы вернуть реальные mcc вместо op.Code | [08](2026-04-26-mvp-feedback-08-mcc-mnc-import-design.md) |
 | 9 | Кампании-wizard — косметика | S | частично (2026-04-26): «Расписания» скрыты, default sender (sms), Variant B summary. Осталось: audience preview-эндпоинт, draft без contact_list (нужна миграция БД + domain change) | [09](2026-04-26-mvp-feedback-09-campaigns-wizard-cosmetics-design.md) |
-| 10 | Детализация — UX-полировка | M | ~85% готово, 5 точечных правок + дубль-страница | [10](2026-04-26-mvp-feedback-10-detalization-polish-design.md) |
+| 10 | Детализация — UX-полировка | M | частично (2026-04-26): сортировка по статусу (frontend + backend whitelist), скрытие /admin/detalization из меню + баннер deprecation. Осталось: dropdown XLSX/CSV + BOM + лимит 100k экспорта (новый XLSX worker), client-фильтр для admin на /messages | [10](2026-04-26-mvp-feedback-10-detalization-polish-design.md) |
 
 ## Принятые архитектурные решения (без ожидания менеджера)
 

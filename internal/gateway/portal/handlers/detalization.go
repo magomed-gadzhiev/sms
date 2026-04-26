@@ -59,7 +59,7 @@ func NewDetalizationHandlers(db *pgxpool.Pool) *DetalizationHandlers {
 // Query params: status, destination, date_from, date_to, limit, offset,
 //
 //	login, operator, sender_name, channel, country, send_method, message_id,
-//	sort_by (submitted_at|created_at|status_at|total_amount|segment_count), sort_order (asc|desc)
+//	sort_by (submitted_at|created_at|status_at|total_amount|segment_count|status), sort_order (asc|desc)
 func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
@@ -89,6 +89,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 		"status_at":     "COALESCE(m.delivered_at, m.failed_at)",
 		"total_amount":  "tl.total_amount",
 		"segment_count": "m.segment_count",
+		"status":        "m.status",
 	}
 	orderCol := "m.created_at"
 	if col, ok2 := validSortBy[sortBy]; ok2 {

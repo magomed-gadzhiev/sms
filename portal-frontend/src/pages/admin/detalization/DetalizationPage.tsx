@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { DataTable, type Column } from '../../../components/data/DataTable';
 import { Button } from '../../../components/ui/Button';
@@ -267,6 +268,16 @@ export function DetalizationPage() {
           </Button>
         }
       />
+
+      <div role="status" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="font-medium mb-1">Раздел устарел</p>
+        <p>
+          Этот экран будет удалён. Используйте обновлённую страницу{' '}
+          <Link to="/messages" className="text-amber-900 underline font-medium">«Сообщения»</Link>{' '}
+          — она поддерживает те же фильтры (включая выбор клиента для админа), а также экспорт,
+          настройку колонок и сортировку по статусу.
+        </p>
+      </div>
 
       {/* Фильтры */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
