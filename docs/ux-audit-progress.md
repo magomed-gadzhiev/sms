@@ -2,7 +2,67 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 11/30: Admin — sender-names review/approve (admin, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 11/30: Admin — sender-names review/approve (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
+
+[Summary] 27 TC прогнаны (включая регрессии после фикса), 2 функциональных бага найдены и исправлены одним PR (BUG-32/33), 1 follow-up зафиксирован (BUG-34 missing admin history endpoint). Error-mapping в этом сервисе **уже корректен** (NotFound/InvalidArgument/AlreadyExists/FailedPrecondition мапятся правильно через mapError в gRPC handler) — паттерн BUG-9/13/17/28 здесь НЕ повторяется.
+
+[BUG LIST]
+
+BUG-32: RejectSenderName/DeactivateSenderName принимали пустой reason → audit-trail без причины — Severity: MED — Категория: Logic Gap / Audit Integrity
+  Шаги: POST /admin/v1/sender-names/{id}/reject с {"reason":""} → 200, sender_name переходит в rejected, sender_name_status_history строка с comment="". Frontend типизирует reason как обязательный (admin.ts:738 `reject(id, reason: string)`), но валидации нет — баг проходит при curl/API direct.
+  Получалось: история модерации без причины, клиент не видит почему отклонён, audit-trail неинформативен.
+  Корневая причина: handler RejectSenderName/DeactivateSenderName делал Decode → передавал req.Reason as-is в gRPC, который писал в БД и history.
+  Доказательство: TC11.9 reject empty → 200; DB.rejection_reason="", history.comment="". После фикса (TC11.9-RE) → 400 с понятным сообщением.
+  Фикс: commit 0bbc41c — TrimSpace + проверка len 3..500. Reject и Deactivate имеют идентичную логику, разные сообщения ("Причина отказа..." / "Причина деактивации..."). Константы senderNameMinReasonLen=3, senderNameMaxReasonLen=500.
+  Минор-замечание reviewer (не блокер, в follow-up): len() считает байты, не руны — для русского минимум 3 байта = 1.5 символа. Стоит мигрировать на utf8.RuneCountInString при следующей итерации.
+
+BUG-33: ListAllSenderNames пропускал limit=-1 → unbounded dump — Severity: LOW — Категория: Logic Gap / DoS Risk
+  Шаги: GET /admin/v1/sender-names?limit=-1 → 200, отдан полный размер таблицы (на стенде 6 строк, в проде потенциально миллионы при росте). `parseIntParam` подменяет default только при ParseError, отрицательное число валидно как Int → транзит до SQL → LIMIT -1 = unbounded.
+  Получалось: admin может неинтентом затащить весь sender_names (или DoS-вектор через скрипт).
+  Фикс: commit 0bbc41c — clamping в начале handler: `limit ≤ 0 → 20; limit > 200 → 200; offset < 0 → 0`. Константа senderNameMaxListLimit=200.
+  Reviewer flagged inconsistency: общий parsePagination (common.go:46) использует max 500 для per_page, новый код — 200 для limit. Это inconsistency существующего шаблона admin pagination, не введена этим PR. Зафиксирована как наблюдение для будущего spec.
+
+BUG-34 (наблюдение, требует feature work): admin не может посмотреть transition history sender-name через API — Severity: MED — Категория: UX / Feature Gap
+  Шаги: GET /admin/v1/sender-names/{id}/history → 404 (роут не зарегистрирован).
+  Корневая причина: в service-слое `GetSenderNameHistoryAdmin(ctx, id, limit, offset)` уже существует (sender_name_service.go:219) и возвращает []SenderNameStatusHistory. Но gRPC `GetSenderNameHistory` требует ClientId (sender_name_handler.go:151) — admin endpoint без ClientId не существует. Соответственно admin handler в gateway отсутствует и роут не зарегистрирован.
+  Получалось: админ не видит кто/когда/почему менял статус sender_name (только текущий rejection_reason). При спорной модерации нельзя восстановить хронологию.
+  Фикс: вынесен в follow-up — требует:
+    (a) добавить gRPC метод `GetSenderNameHistoryAdmin` (или флаг in `GetSenderNameHistory` для admin-режима — путь как `GetSenderName(ClientId="")`)
+    (b) handler в admin gateway → роут `/admin/v1/sender-names/{id}/history`
+    (c) frontend integration (детальная страница sender_name с историей)
+  Я склоняюсь к (a) flag-вариант (как сделано в GetSenderName) — минимальная инвазивность.
+
+[Test Coverage]
+PASS: TC11.1 list all → 200, TC11.2 list filter status=pending → 200, TC11.3 filter client_id → 200, TC11.4 filter name_query → 200, TC11.5/5b/5c RBAC unauth/user→401/403, TC11.6 GET sender-name → 200 wrap {sender_name}, TC11.7 approve happy → 200 + reviewer_id+reviewed_at + history записан (UI=API=DB), TC11.8 reject with reason → 200 + DB consistency, TC11.10 reject NO body → 400 "Неверный формат запроса", TC11.11 approve already-approved → 400 "invalid status transition", TC11.12 reject already-rejected → 400, TC11.13 deactivate happy approved→deactivated → 200, TC11.14 deactivate already-deactivated → 400, TC11.15 reject approved (skip pending) → 400 (transitions matrix корректна), TC11.16 reject ASCII reason → 200, TC11.17 reject UTF-8 кириллица через @file → 200 + DB hex valid UTF-8, TC11.18 operator-registrations empty → 200 {registrations:[]}, TC11.19 invalid uuid format → 400, TC11.20 GET non-existent → 404, TC11.21 approve non-existent → 404, TC11.22 limit=2 → returns 2/total=6, TC11.23 offset=10 out-of-range → 0 items, TC11.27 invalid status filter (silent ignore) → empty.
+
+REGRESSION после фикса:
+PASS: TC11.9-RE reject empty → 400, TC11.9b-RE only spaces → 400, TC11.9c-RE 1-char → 400, TC11.9d-RE >500 → 400, TC11.9e-RE valid → 200, TC11.13-RE deactivate empty → 400, TC11.24-RE limit=-1 → clamp 20, TC11.24b-RE limit=99999 → clamp 200, TC11.7-REGR approve happy still works.
+FAIL/наблюдения: TC11.25 admin history endpoint (BUG-34, отсутствует).
+
+OBSERVATIONS:
+- Error-mapping в этом сервисе УЖЕ корректен (gRPC mapError на NotFound/AlreadyExists/InvalidArgument/FailedPrecondition + GRPCError в shared/response). Не повторяется паттерн BUG-9/13/17/28.
+- State transition matrix реализована правильно (`pending→{approved,rejected}, rejected→pending, approved→deactivated, deactivated→{}`). Все нелегальные переходы → 400 "invalid status transition for sender name".
+- Response schema admin: list содержит plain объекты с rejection_reason="" (не null) и reviewer_id="" (не null) — frontend optional `?:` это терпит, но конвенция отличается от reviewed_at:null (timestamp). Не критично.
+- operator-registrations endpoint silent-fail (200 + empty) при ошибке tarification-service — подавляет диагностику. Не блокер, но в проде admin может не понять что данных нет vs ошибка.
+- adminSenderNamesApi.approve/reject/deactivate в TS типизирован как `Promise<AdminSenderNameInfo>` без обёртки {sender_name} — handler возвращает bare adminSenderNameToJSON(...). Это согласовано (отличается от GET, который оборачивает).
+
+[Success Path] Admin: GET /admin/v1/sender-names → list pending модерации с фильтрами (status, client_id, name_query); POST /{id}/approve → 200, sender_name.status=approved + reviewer_id + reviewed_at + history-запись; POST /{id}/reject c reason {3..500 chars} → 200, sender_name.status=rejected + rejection_reason + history; approved sender_name можно деактивировать через /{id}/deactivate с reason. Все state transitions через domain.allowedTransitions matrix; нелегальные → 400.
+
+[Recommendations]
+1. (MED) BUG-34 — добавить admin history endpoint (требует feature work, не одно-строчный fix). См. план в BUG-34 описании.
+2. (LOW) Reviewer-flagged техдолг: мигрировать `len(reason)` → `utf8.RuneCountInString(reason)` для консистентности UI/API сообщений с человеческим восприятием символов.
+3. (LOW) Унифицировать pagination conventions для admin: parsePagination max=500, sender-names limit max=200 — выбрать один максимум для всех list endpoint'ов и зафиксировать в shared helper.
+4. (LOW) Frontend ModerationPage: добавить min={3} max={500} validation на поле reason (sync с backend). Пользователь сейчас видит ошибку только после клика.
+5. (LOW) Регрессионный тест на reject с пустым reason / deactivate empty — defence-in-depth.
+
+[Test Data] Создан и удалён seed: 6 sender_names (aa000000-...000001..000006) для Demo-Main и Demo-Light. После прогона DELETE'нут вместе с history (DELETE 9 history rows, DELETE 6 sender_names). Состояние БД восстановлено: count=0.
+
+[Commits этапа]
+- bf46e0b docs(audit): этап 11/30 admin sender-names — [IN_PROGRESS]
+- 0bbc41c fix(sender-names): валидация reason + clamp limit в admin handler [BUG-32/33]
+- (этот) docs(audit): этап 11/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 10/30: Admin — aggregators (sub-accounts UI) (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
