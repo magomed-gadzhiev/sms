@@ -2,7 +2,79 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 13/30: Admin — webhooks + billing настройки (admin, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 13/30: Admin — webhooks + billing настройки (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API+frontend-types)
+
+[Summary] 25 TC прогнаны (12 webhooks + 13 billing). 8 функциональных багов найдены, 5 исправлены одним PR (BUG-38/39/41/45/46), 3 ушли в наблюдения по design-причинам. Один из фиксов — CRITICAL (BUG-41: эндпоинт пополнения принимал отрицательные суммы и фактически списывал баланс), один HIGH (BUG-38: вся страница /admin/webhooks была сломана из-за рассинхрона полей frontend↔backend).
+
+[BUG LIST]
+
+BUG-38: Frontend WebhooksPage полностью сломан из-за рассинхрона полей с бэкендом — Severity: HIGH — Категория: Functional / Schema mismatch
+  Шаги: открыть /admin/webhooks под admin-сессией.
+  Ожидалось: список вебхуков загружается, можно создать/удалить.
+  Получилось:
+    - List при mount шёл без фильтра client_id → backend 400 "client_id обязателен" → пустая таблица + toast "Не удалось загрузить вебхуки".
+    - Бэкенд (`internal/services/webhook/grpc/server.go::ListSubscriptions`) возвращает `{subscriptions:[{id,event_types,...}]}`, frontend (`portal-frontend/src/pages/admin/WebhooksPage.tsx::columns`) читал `webhooks[].webhook_id` и `events` — даже при правильном фильтре таблица была бы пустой/битой.
+    - Create отправлял поле `events` (frontend), бэкенд требует `event_types` → 400 "event_types обязателен".
+    - Delete формировал URL из `deleteWebhook.webhook_id` (undefined) → DELETE /webhooks/undefined.
+  Доказательство (API):
+    `curl /admin/v1/webhooks` → HTTP 400 "client_id обязателен".
+    `curl POST /admin/v1/webhooks -d '{"client_id":"...","url":"https://...","events":["delivered"]}'` → HTTP 400 "event_types обязателен".
+  Доказательство (схема): `internal/services/webhook/grpc/server.go::subscriptionToProto` лит `Id`/`EventTypes`; `internal/gateway/admin/handlers/webhooks.go::adminSubscriptionToMap` маппит в `id`/`event_types`. Frontend ожидал `webhook_id`/`events`.
+  Фикс: 21ea79d.
+
+BUG-39: Placeholder событий в форме создания вебхука вёл в заблуждение — Severity: LOW — Категория: UX / Documentation drift
+  Шаги: открыть модалку создания, посмотреть placeholder поля "События".
+  Ожидалось: пример с допустимыми типами `delivered, failed, expired, rejected` (см. `internal/services/webhook/domain/models.go::ValidEventTypes`).
+  Получилось: placeholder `message.delivered, message.failed` — таких типов в whitelist нет, ввод по примеру → backend 400 "invalid event type: message.delivered".
+  Фикс: 21ea79d (placeholder заменён, добавлен client-side whitelist + validation hint).
+
+BUG-41: POST /admin/v1/billing/clients/:id/credits принимает отрицательные суммы и amount=0 — Severity: CRITICAL — Категория: Security / Billing integrity
+  Шаги: `POST /admin/v1/billing/clients/<UUID>/credits -d '{"amount":"-100","description":"x"}'`.
+  Ожидалось: 400 "amount должен быть положительным".
+  Получилось: HTTP 200, `new_balance: 99900.000000` — баланс уменьшен через эндпоинт пополнения.
+  Доказательство (DB до/после):
+    SELECT balance FROM accounts WHERE client_id='c0000000-...01' → 100000 → 99900 (списан 100 через POST /credits).
+    SELECT amount FROM transactions WHERE id='<txid>' → '-100' с type='credit'.
+  Доказательство (handler): `BillingHandlers.AddCreditsRequest.Validate` (до фикса) проверял только `Amount==""`, ни знака, ни формата. gRPC layer (`internal/services/billing/grpc/server.go::AddCredits`) — то же. `s.add(balance, amount)` через `math/big.Float` спокойно прибавляет отрицательное.
+  Фикс: 21ea79d (validate через `big.Float.SetString` → отказ при !ok; `IsInf()` → 400; `Sign() <= 0` → 400). Регрессионный тест `TestBillingHandlers/AddCredits/rejects_non-positive_and_malformed_amounts (BUG-41)` с 6 кейсами (-100, 0, +0, abc, Inf, +Inf), AssertNotCalled на gRPC. После фикса: regress curl -100 → 400, 0 → 400, Inf → 400, 5.50 → 200.
+
+BUG-45: Frontend TransactionsTab фильтр transaction_type содержит несуществующее значение 'debit' и не покрывает половину допустимых типов — Severity: MEDIUM — Категория: Functional / Schema drift
+  Шаги: открыть /admin/billing → таб "Транзакции" → фильтр "Тип" → выбрать "Списание (debit)".
+  Ожидалось: показать только charge/списания.
+  Получилось: пустой результат — БД (миграция 000006 CHECK + 000119) принимает `charge|credit|refund|adjustment|transfer_in|transfer_out`, типа `debit` не существует.
+  Фикс: 21ea79d (опции фильтра приведены к реальным значениям БД, добавлены charge/refund/adjustment/transfer_in/transfer_out).
+
+BUG-46: GET /admin/v1/billing/balances и /transactions не клампят limit (паттерн BUG-33) — Severity: LOW — Категория: Performance / DoS-vector
+  Шаги: `curl /admin/v1/billing/balances?limit=99999`.
+  Ожидалось: limit ≤ MAX_LIMIT (200).
+  Получилось: HTTP 200 с `"limit":99999` — параметр уехал в gRPC и SQL без ограничения.
+  Фикс: 21ea79d (helper `clampPagination(limit, offset, def, max)` в `billing.go`, применён в `GetTransactionHistory` и `ListBalances`; `billingMaxListLimit = 200`).
+
+[Наблюдения / без фикса в этом этапе]
+
+- BUG-40: GET /admin/v1/billing/clients/<несуществующий UUID>/balance → HTTP 200 с `balance:"0"`, не 404. Полу-фича: account создаётся при следующем addCredits (см. `BillingService.AddCredits` lines 96-109). Решение пользователя — оставить как есть или 404.
+- BUG-42: AddCredits с amount=0 создавал noop-транзакцию (LOW). После фикса BUG-41 закрыто как побочный эффект — `Sign() <= 0` отклоняет ноль. Дыра остаётся в gRPC service (если кто-то вызовет напрямую).
+- pgx/SQL ошибки → 500 паттерн (BUG-9/13/17/28): TC8 (webhook FK violation на несуществующий client_id) → 500 INTERNAL вместо 404; TC23 (AddCredits invalid amount string "abc" — был замаскирован, но gRPC service всё ещё может упасть так), TC24 (SetCreditLimit "abc" → 500). Накопительный follow-up.
+- operation_kind фильтр в TransactionsTab отсутствует (миграция 121, MVP-feedback №5 dcbab7f добавила колонку `operation_kind`, но frontend не экспонирует). Feature gap, отдельный PR.
+- ListSubscriptions требует client_id — admin не имеет глобального view "все вебхуки". В текущем фиксе это закрыто заглушкой "Выберите клиента". Архитектурный вопрос: нужен ли админский global view?
+- ListSubscriptions в gRPC требует client_id (см. `internal/services/webhook/grpc/server.go:77-78`), а UpdateSubscription тоже требует client_id в body — означает, что admin должен сначала найти владельца webhook'а. UX-неудобство, но не баг.
+
+[Success Path]
+Admin открывает /admin/webhooks → выбирает клиента в фильтре → видит его подписки → создаёт новую (URL https://..., events delivered,failed) → запись появляется → может удалить через rowAction. На /admin/billing → таб "Транзакции" → фильтр по типу charge/refund показывает соответствующие записи. Начисление средств: amount > 0 принимается, amount ≤ 0 / Inf / non-numeric → 400 на уровне handler, не доходит до gRPC.
+
+[Recommendations]
+1. **Накопительный PR на pgx error-mapping**: уже >9 файлов с паттерном (sender_names части, client_configs, billing AddCredits/SetCreditLimit, contracts, contact, operator_templates, webhook FK violation). Извлечь helper `mapPgxError(err) → AppError` в `internal/shared` и заменить во всех handler/gRPC слоях. Без этого UX будет регулярно валиться в "Внутренняя ошибка сервера" вместо 400/404.
+2. **Operation_kind фильтр в TransactionsTab**: добавить дополнительный select с values `message|sender_name|operator_template|operator_tariff|other`, передавать через query — backend gRPC `GetTransactionHistoryRequest` нужно расширить полем (сейчас только `transaction_type`).
+3. **Архитектурное решение по admin global view**: либо новый gRPC method `ListAllSubscriptions` (с pagination + фильтрами), либо принять текущую "выбери клиента" как намеренную ownership-модель. Документировать в spec.
+
+[Test Data]
+- webhook id 0c216be9-e51a-4ef7-8c81-03285ec9ab1d у Demo-Main (создан в TC4, удалён в TC11).
+- Два мусорных теста-транзакций amount=-100/0 на c0000000-...01 от TC21/22 ДО фикса BUG-41 (баланс был восстановлен через TC happy-pos +5.50 → итого balance ≈ 99905.50).
+- Регрессионный тест `TestBillingHandlers/AddCredits/rejects_non-positive_and_malformed_amounts (BUG-41)`.
+
+Коммиты:
+- c18e4c3 docs(audit): этап 13/30 admin webhooks+billing — [IN_PROGRESS]
+- 21ea79d fix(admin): webhook page schema mismatch + billing AddCredits non-positive amount + clamp limits [BUG-38/39/41/45/46 этап 13/30]
 
 ## [DONE] Этап 12/30: Admin — operator-templates (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
