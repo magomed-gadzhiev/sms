@@ -2,7 +2,71 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 10/30: Admin — aggregators (sub-accounts UI) (admin, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 10/30: Admin — aggregators (sub-accounts UI) (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
+
+[Summary] 20 TC прогнаны, 4 функциональных бага найдены и исправлены одним PR (BUG-25/26/29/30), 3 follow-up зафиксированы (BUG-27 архитектурный — overlap, BUG-28 паттерн error-mapping, BUG-31 missing UI route).
+
+[BUG LIST]
+
+BUG-25: Admin aggregator-quotas API возвращал CamelCase JSON (нет json-тегов в domain.AggregatorQuota) — Severity: CRITICAL — Категория: Reliability Risk / Spec Drift
+  Шаги: GET /admin/v1/aggregators/:id/quotas → response `{"quotas":[{"ID":"...","AggregatorID":"...","PeriodStart":"...","SegmentLimit":1000000,...}]}`. Frontend AggregatorQuotasPage.tsx читает row.segment_limit.toLocaleString() → TypeError на undefined. UI визуально пуст / падает.
+  Корневая причина: `domain.AggregatorQuota` поля без `json:"..."` тегов; encoding/json по умолчанию использует имена полей. То же самое в portal /aggregator/quotas/spending (GetQuotaSpending) — отдавал bare domain slice.
+  Доказательство: до фикса list возвращал ID/AggregatorID/PeriodStart; после — quota_id/aggregator_id/period_start (см. TC10.1-RE).
+  Фикс: commit 60b4e42 — handler-level DTO `quotaResponse` (admin) и `quotaSummary` (portal) с snake_case json-тегами; helpers `toQuotaResponse(q)` / `toQuotaResponses(qs)`. Domain не тронут (доменный слой не должен знать про JSON wire format).
+
+BUG-26: UpdateQuota игнорировал aggregator_id из URL path — cross-tenant дыра — Severity: HIGH — Категория: Logic Gap / Access Control
+  Шаги: PUT /admin/v1/aggregators/<random_uuid>/quotas/<real_quota_id> с {"segment_limit":777} → 200, реальная квота другого aggregator обновлена.
+  Корневая причина: handler парсил только `quota_id`, не сверял `aggregator_id` с владельцем квоты. Admin-only API, но логически дыра.
+  Фикс: commit 60b4e42 — `QuotaService.UpdateQuota(aggregatorID, quotaID, ...)`; ownership-mismatch и not-found возвращают единый sentinel `ErrQuotaNotFound` (не утекает existence информация); handler мапит → 404. После фикса IDOR-PUT → 404 NOT_FOUND, квота не меняется (TC10.17-RE).
+
+BUG-29: CreateQuota/UpdateQuota не оборачивали response в `{quota: ...}` — нарушение контракта с frontend — Severity: MED — Категория: Spec Drift
+  Шаги: фронт `aggregatorQuotasApi.create()` типизирован как `Promise<{quota: AggregatorQuota}>` (admin.ts:961), но handler возвращал bare quota. После create UI делает refetch активной квоты, поэтому pad-эффект ослаблен — но контракт нарушен и getActive/portal::GetMyQuota уже использовали обёртку → асимметрия.
+  Фикс: commit 60b4e42 — Create/Update оборачивают в `{"quota": toQuotaResponse(q)}`.
+
+BUG-30: Frontend интерфейс ожидает `active: boolean`, поля нет ни в БД, ни в domain — Severity: MED — Категория: Spec Drift
+  Шаги: AggregatorQuotasPage отображает Badge `active ? "Активна" : "Архив"` — все строки всегда "Архив" (undefined → false).
+  Корневая причина: `aggregator_quotas` schema (`\d aggregator_quotas`) не имеет колонки `active`. Это вычисляемое свойство по периоду.
+  Фикс: commit 60b4e42 — DTO добавляет computed `Active = !period_start.After(now) && period_end.After(now)` (та же семантика, что в `repo.GetActive` SQL: `period_start <= NOW() AND period_end > NOW()`). Verified: квоты с period_start=2026-05-01 (today=2026-04-29) → active=false; happy-path active=true для сегодняшней квоты.
+
+BUG-27 (наблюдение, требует решения): нет проверки overlap периодов на CreateQuota — Severity: HIGH — Категория: Logic Gap / Architecture
+  Шаги: создать (2026-05-01..2026-05-31) и (2026-05-15..2026-06-15) для одного aggregator → 201/201, обе попадают под GetActive в момент пересечения.
+  Корневая причина: UNIQUE constraint только по (aggregator_id, period_start), нет EXCLUDE USING gist по диапазону. ConsumeQuota.GetActive берёт LIMIT 1 ORDER BY period_start DESC — поведение детерминировано, но недокументировано (выбирается **более поздняя** из перекрывающихся).
+  Фикс: вынесен в follow-up — нужно policy-решение от пользователя:
+    (a) запретить overlap на DB-уровне (миграция с EXCLUDE constraint, требует ENABLE btree_gist + handler 409 на нарушение)
+    (b) разрешить overlap явно, документировать "последняя побеждает", возможно добавить флаг archive в UI
+  Я склоняюсь к (a) — overlap = баг ввода, не feature.
+
+BUG-28 (повторение системного паттерна BUG-9/13/17): CHECK violations → 500 — Severity: MED — Категория: Logic Gap
+  Шаги: POST с segment_limit=-1 / overage_rate=-0.01 / period_end<=period_start / duplicate (aggregator_id, period_start) → все 500 INTERNAL_ERROR.
+  Ожидалось: 400 Bad Request (CHECK) / 409 Conflict (UNIQUE) с понятными сообщениями.
+  Корневая причина: handler `respondError(w, shared.ErrInternalServer(...))` на любую ошибку из service. Применять fix как часть BUG-9 system-wide error-mapping PR (pgErrorToHTTPCode helper, добавить в shared).
+  Фикс: вынесен в follow-up.
+
+BUG-31 (наблюдение): нет UI-страницы `/admin/aggregators` (список агрегаторов) — Severity: MED — Категория: UX / Feature gap
+  Шаги: grep `/admin/aggregators` в App.tsx → нет matches; страница `AggregatorQuotasPage` зарегистрирована только nested как `/admin/aggregators/:aggregatorId/quotas`. UI доступен только если ввести URL вручную; нет navigation entry в AdminLayout.
+  Получилось: admin не может выйти на список агрегаторов через UI; функциональность (CRUD квот) присутствует на backend и в page-компоненте, но UI-вход отсутствует.
+  Фикс: вынесен в follow-up — требует страницы /admin/aggregators с list агрегаторов (clients где is_reseller=true) + ссылки на quotas-страницу.
+
+[Test Coverage]
+PASS: TC10.1 list initial empty → 200 (после фикса snake_case), TC10.2 unauth → 401, TC10.3 active none → {quota:null}, TC10.4 user→403, TC10.5 invalid agg UUID → 400, TC10.6 list non-existent agg → 200 empty (расценивается норм для admin), TC10.7 create happy → 201 + DTO + DB consistency, TC10.8 list after create → 200, TC10.9 active before period → null, TC10.14 invalid date format → 400, TC10.17-RE IDOR → 404 (после BUG-26 фикса), TC10.18-RE non-existent quota_id → 404 (после BUG-26 фикса), TC10.19-RE update happy → 200 + wrap {quota}, TC10.20 invalid quota_id format → 400.
+FAIL/наблюдения: TC10.10-10.13 (BUG-28 паттерн), TC10.15 overlap (BUG-27), TC10.16 dup period_start (BUG-28).
+
+[Success Path] Admin: GET /admin/v1/aggregators/{aggID}/quotas → list истории; POST /admin/v1/aggregators/{aggID}/quotas с {period_start, period_end, segment_limit>0, overage_rate≥0, currency=RUB, auto_renew} → 201 {quota:{...snake_case...}}; PUT /admin/v1/aggregators/{aggID}/quotas/{quotaID} только с segment_limit/overage_rate/auto_renew → 200 {quota:{...}}; ownership-cross-tenant → 404. Активная квота — `period_start <= today < period_end`.
+
+[Recommendations]
+1. (HIGH) BUG-27 overlap policy — нужно решение пользователя; рекомендую DB-EXCLUDE + 409 mapping (вариант a). До решения один aggregator может иметь несколько "active" квот с детерминированным but non-obvious tie-break.
+2. (HIGH) BUG-31 — добавить страницу `/admin/aggregators` с listings (clients WHERE is_reseller=true) + переход к quotas. Без UI gateway админ не может найти эту функциональность.
+3. (MED) BUG-28 включить в общий error-mapping PR с BUG-9/13/17. У aggregator_quotas четыре CHECK constraints + один UNIQUE — все возвращают 500.
+4. (LOW) Регрессионный e2e-тест: round-trip POST→GET с проверкой ключей snake_case (предотвращает повторение BUG-25). Можно добавить в integration_test.
+
+[Test Data] Создано/удалено: 2 квоты для Demo-Reseller (260dbb27..., 338bb7e3...) → DELETE'нуты SQL'ом после прогона.
+
+[Commits этапа]
+- d094734 docs(audit): этап 10/30 admin aggregators — [IN_PROGRESS]
+- 60b4e42 fix(aggregator-quotas): wire DTO с json-тегами + ownership check в UpdateQuota [BUG-25/26/29/30]
+- (этот) docs(audit): этап 10/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 9/30: Admin — clients (CRUD + блокировка) (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
