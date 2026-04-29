@@ -2,9 +2,43 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 6/30: Admin — HLR providers (admin, /admin/hlr/providers, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 6/30: Admin — HLR providers (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
-Lock поставлен. UI-проверки пропускаю. На стенде из demo_seed: 2 HLR-провайдера (HLR-Primary RU/KZ/BY/UA, HLR-Secondary RU/KZ).
+[Summary] 9 TC прогнаны (PASS после фикса), 1 CRITICAL bug найден и исправлен + 1 system-wide follow-up зафиксирован.
+
+[BUG LIST]
+
+BUG-15: HLR provider create/update падал SQLSTATE 22P02 — Severity: CRITICAL — Категория: Reliability Risk
+  Шаги: POST /admin/v1/hlr/providers с любым валидным config_json → HTTP 500; routing-service health-monitor каждые ~3s пытался UPDATE существующих HLR-Primary/Secondary и спамил Warn-логи.
+  Корневая причина: Create/Update передавали `json.Marshal(...) []byte` напрямую в `database/sql.ExecContext` для jsonb-колонки. Драйвер мапит []byte как bytea, Postgres не имеет implicit cast bytea→jsonb. Маскировался demo_seed.sql (raw SQL), которые создавали записи в обход Go-кода.
+  Доказательство: routing-service logs `ERROR: invalid input syntax for type json (SQLSTATE 22P02)` каждые ~3s; admin-gateway: HTTP 500 на POST.
+  Фикс: commit 07f2e03 — `string(configJSON)` вместо `[]byte`. После фикса verify: 0 errors в 30s window (vs ~10), 3 health-checks (ожидаемая частота).
+
+BUG-16 (наблюдение, system-wide latent): аналогичный []byte→jsonb паттерн в трёх других репозиториях — Severity: HIGH — Категория: Reliability Risk
+  Шаги (теоретический): любой Create в analytics/metric_repository.go, billing/transaction_repository.go (HOT PATH — biling), contact/import_repository.go с непустым metadata → 500
+  Маскируется: ранний return на nil/empty metadata защищает большинство caller'ов; но первый caller с непустыми metadata выстрелит в проде. billing особенно опасен — Charge с metadata.
+  Фикс: вынесен в follow-up (отдельный системный PR — добавить string-cast во все три и интеграционные round-trip тесты)
+
+[Test Coverage]
+PASS: 6.1 list providers → 200 (HLR-Primary/Secondary видны), 6.2 user→403/unauth→401, 6.3 create happy → 201 после фикса, 6.5 update → 200 + DB consistency, 6.6 missing adapter_type → 400 с понятным сообщением, 6.9 delete (soft, active=false) → 200 + DB confirm. Health-monitor шум ушёл.
+
+OBSERVATIONS:
+- Health-monitor в routing-service ходит к HLR-провайдерам (https://hlr-test.local) и логирует Warn на network timeout — это норма на dev, hosts недоступны.
+- DELETE — soft delete (UPDATE active=false), не hard delete. UI должен это знать (показывать deleted records в скрытом виде).
+
+[Recommendations]
+1. (HIGH) Системный PR на BUG-16 — поправить все 3 репо, добавить интеграционные round-trip тесты с testutil.GetTestDSN().
+2. (MED) Hard delete vs soft delete для HLR-провайдеров — документировать в спеке.
+3. (LOW) Health-monitor verbose: WARN per-cycle при network timeout захламляет логи — снизить до DEBUG, либо log-once-per-N-failures.
+
+[Test Data] Создан/удалён: HLR provider QA-HLR → переименован QA-HLR-R → soft-deleted → hard-cleanup'нут SQL-DELETE.
+
+[Commits этапа]
+- 665e9cd docs(audit): этап 6/30 — [IN_PROGRESS]
+- 07f2e03 fix(hlr): передавать config как string в jsonb [BUG-15]
+- (этот) docs(audit): этап 6/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 5/30: Admin — routes + client-routes (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
