@@ -11,10 +11,12 @@ import { StatusBadge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import { webhooksAdminApi, clientsApi, type WebhookInfo, type ClientInfo } from '../../api/admin';
 
+const VALID_EVENT_TYPES = ['delivered', 'failed', 'expired', 'rejected'] as const;
+
 const columns: Column<WebhookInfo>[] = [
   { key: 'url', header: 'URL' },
   { key: 'client_id', header: 'Клиент', render: (w) => w.client_id.slice(0, 8) + '...' },
-  { key: 'events', header: 'События', render: (w) => (w.events || []).join(', ') },
+  { key: 'event_types', header: 'События', render: (w) => (w.event_types || []).join(', ') },
   { key: 'active', header: 'Статус', render: (w) => <StatusBadge status={w.active ? 'active' : 'inactive'} /> },
   { key: 'created_at', header: 'Создан', render: (w) => new Date(w.created_at).toLocaleDateString() },
 ];
@@ -22,7 +24,7 @@ const columns: Column<WebhookInfo>[] = [
 export function WebhooksPage() {
   const toast = useToast();
   const [data, setData] = useState<WebhookInfo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [deleteWebhook, setDeleteWebhook] = useState<WebhookInfo | null>(null);
@@ -39,16 +41,27 @@ export function WebhooksPage() {
       label: 'Клиент',
       type: 'select',
       options: clientOptions,
-      placeholder: 'Все клиенты',
+      placeholder: 'Выберите клиента...',
     },
   ];
 
+  const selectedClientID = filterValues.client_id || '';
+
   const fetchData = useCallback(async () => {
+    if (!selectedClientID) {
+      setData([]);
+      return;
+    }
     setLoading(true);
-    try { const res = await webhooksAdminApi.list(filterValues); setData(res.webhooks || []); }
-    catch { toast.error('Не удалось загрузить вебхуки'); }
-    finally { setLoading(false); }
-  }, [filterValues, toast]);
+    try {
+      const res = await webhooksAdminApi.list({ client_id: selectedClientID });
+      setData(res.subscriptions || []);
+    } catch {
+      toast.error('Не удалось загрузить вебхуки');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedClientID, toast]);
 
   const fetchClients = useCallback(async () => {
     setClientsLoading(true);
@@ -60,34 +73,60 @@ export function WebhooksPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
+  const parsedEvents = form.events.split(',').map((s) => s.trim()).filter(Boolean);
+  const invalidEvents = parsedEvents.filter((e) => !VALID_EVENT_TYPES.includes(e as typeof VALID_EVENT_TYPES[number]));
+
   const handleCreate = async () => {
+    if (parsedEvents.length === 0) {
+      toast.error('Укажите хотя бы один тип события');
+      return;
+    }
+    if (invalidEvents.length > 0) {
+      toast.error(`Недопустимые типы: ${invalidEvents.join(', ')}. Доступно: ${VALID_EVENT_TYPES.join(', ')}`);
+      return;
+    }
     setSaving(true);
-    try { await webhooksAdminApi.create({ client_id: form.client_id, url: form.url, events: form.events.split(',').map((s) => s.trim()).filter(Boolean), active: true }); toast.success('Вебхук создан'); setShowCreate(false); fetchData(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
+    try {
+      await webhooksAdminApi.create({ client_id: form.client_id, url: form.url, event_types: parsedEvents });
+      toast.success('Вебхук создан');
+      setShowCreate(false);
+      if (form.client_id !== selectedClientID) {
+        setFilterValues({ client_id: form.client_id });
+      } else {
+        fetchData();
+      }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
     if (!deleteWebhook) return;
     setSaving(true);
-    try { await webhooksAdminApi.delete(deleteWebhook.webhook_id, deleteWebhook.client_id); toast.success('Вебхук удалён'); setDeleteWebhook(null); fetchData(); }
+    try { await webhooksAdminApi.delete(deleteWebhook.id, deleteWebhook.client_id); toast.success('Вебхук удалён'); setDeleteWebhook(null); fetchData(); }
     catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
     finally { setSaving(false); }
   };
 
   return (
     <>
-      <PageHeader title="Вебхуки" subtitle={`${data.length} вебхуков`} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Вебхуки' }]} actions={<Button onClick={() => { setForm({ client_id: '', url: '', events: '' }); setShowCreate(true); }}>Создать вебхук</Button>} />
+      <PageHeader title="Вебхуки" subtitle={selectedClientID ? `${data.length} вебхуков` : 'Выберите клиента, чтобы увидеть вебхуки'} breadcrumbs={[{ label: 'Админ', href: '/admin/dashboard' }, { label: 'Вебхуки' }]} actions={<Button onClick={() => { setForm({ client_id: selectedClientID, url: '', events: '' }); setShowCreate(true); }}>Создать вебхук</Button>} />
       <FilterBar filters={filters} values={filterValues} onChange={setFilterValues} onReset={() => setFilterValues({})} />
-      <DataTable columns={columns} data={data} total={data.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="webhook_id"
-        rowActions={(w) => <Button size="sm" variant="ghost" onClick={() => setDeleteWebhook(w)}>Удалить</Button>}
-        emptyMessage={
-          <div className="text-center py-12 text-gray-500">
-            <p className="text-lg font-medium">Нет данных</p>
-            <p className="text-sm mt-1">Нажмите «Создать вебхук», чтобы добавить первый вебхук</p>
-          </div>
-        }
-      />
+      {!selectedClientID ? (
+        <div className="text-center py-12 text-gray-500 border border-dashed rounded">
+          <p className="text-lg font-medium">Клиент не выбран</p>
+          <p className="text-sm mt-1">Выберите клиента в фильтре выше, чтобы увидеть его вебхуки</p>
+        </div>
+      ) : (
+        <DataTable columns={columns} data={data} total={data.length} page={1} pageSize={100} onPageChange={() => {}} loading={loading} keyField="id"
+          rowActions={(w) => <Button size="sm" variant="ghost" onClick={() => setDeleteWebhook(w)}>Удалить</Button>}
+          emptyMessage={
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-lg font-medium">Нет данных</p>
+              <p className="text-sm mt-1">Нажмите «Создать вебхук», чтобы добавить первый вебхук</p>
+            </div>
+          }
+        />
+      )}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Создание вебхука">
         <div className="space-y-4">
           <SearchableSelect
@@ -99,11 +138,17 @@ export function WebhooksPage() {
             loading={clientsLoading}
             required
           />
-          <Input label="URL" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required placeholder="https://..." />
-          <Input label="События (через запятую)" value={form.events} onChange={(e) => setForm({ ...form, events: e.target.value })} placeholder="message.delivered, message.failed" />
+          <Input label="URL (HTTPS)" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required placeholder="https://..." />
+          <div>
+            <Input label="События (через запятую)" value={form.events} onChange={(e) => setForm({ ...form, events: e.target.value })} placeholder="delivered, failed, expired, rejected" />
+            <p className="text-xs text-gray-500 mt-1">Доступные: {VALID_EVENT_TYPES.join(', ')}</p>
+            {invalidEvents.length > 0 && (
+              <p className="text-xs text-red-600 mt-1">Недопустимые: {invalidEvents.join(', ')}</p>
+            )}
+          </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>Отмена</Button>
-            <Button onClick={handleCreate} disabled={saving || !form.client_id || !form.url}>{saving ? 'Создание...' : 'Создать'}</Button>
+            <Button onClick={handleCreate} disabled={saving || !form.client_id || !form.url || parsedEvents.length === 0 || invalidEvents.length > 0}>{saving ? 'Создание...' : 'Создать'}</Button>
           </div>
         </div>
       </Modal>

@@ -271,6 +271,40 @@ func TestBillingHandlers(t *testing.T) {
 
 			assert.Equal(t, http.StatusBadRequest, rr.Code)
 		})
+
+		// Регрессия BUG-41 (этап 13/30): admin AddCredits принимал отрицательные суммы и ноль,
+		// фактически списывая баланс через эндпоинт пополнения. Также big.Float.SetString
+		// принимает "Inf" — должно отклоняться до похода в gRPC-сервис.
+		t.Run("rejects non-positive and malformed amounts (BUG-41)", func(t *testing.T) {
+			cases := []struct {
+				name   string
+				amount string
+			}{
+				{"negative", "-100"},
+				{"zero", "0"},
+				{"zero with sign", "+0"},
+				{"non-numeric", "abc"},
+				{"infinity", "Inf"},
+				{"positive infinity", "+Inf"},
+			}
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					client := new(mockBillingClient)
+					handler := NewBillingHandlers(client)
+
+					body, _ := json.Marshal(AddCreditsRequest{Amount: tc.amount, Currency: "RUB"})
+					req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/clients/client-abc/credits", bytes.NewReader(body))
+					req.Header.Set("Content-Type", "application/json")
+					req = mux.SetURLVars(req, map[string]string{"id": "client-abc"})
+
+					rr := httptest.NewRecorder()
+					handler.AddCredits(rr, req)
+
+					assert.Equal(t, http.StatusBadRequest, rr.Code, "amount=%q должно отклоняться до gRPC-вызова", tc.amount)
+					client.AssertNotCalled(t, "AddCredits")
+				})
+			}
+		})
 	})
 
 	t.Run("CreatePricingRule", func(t *testing.T) {

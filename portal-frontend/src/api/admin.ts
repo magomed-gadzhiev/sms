@@ -143,10 +143,10 @@ export interface TemplateInfo {
 }
 
 export interface WebhookInfo {
-  webhook_id: string;
+  id: string;
   client_id: string;
   url: string;
-  events: string[];
+  event_types: string[];
   active: boolean;
   secret?: string;
   created_at: string;
@@ -408,15 +408,15 @@ export const analyticsAdminApi = {
 };
 
 export const webhooksAdminApi = {
-  list: (params?: { client_id?: string }) =>
-    adminFetch<{ webhooks: WebhookInfo[] }>(`/webhooks${qs(params || {})}`),
-  get: (id: string, clientId?: string) =>
-    adminFetch<{ webhook: WebhookInfo }>(`/webhooks/${id}${qs({ client_id: clientId })}`),
-  create: (data: Partial<WebhookInfo>) =>
-    adminFetch<void>('/webhooks', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: Partial<WebhookInfo>) =>
-    adminFetch<void>(`/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (id: string, clientId?: string) =>
+  list: (params: { client_id: string }) =>
+    adminFetch<{ subscriptions: WebhookInfo[] }>(`/webhooks${qs(params)}`),
+  get: (id: string, clientId: string) =>
+    adminFetch<WebhookInfo>(`/webhooks/${id}${qs({ client_id: clientId })}`),
+  create: (data: { client_id: string; url: string; event_types: string[] }) =>
+    adminFetch<WebhookInfo>('/webhooks', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { client_id: string; url?: string; event_types?: string[]; active?: boolean }) =>
+    adminFetch<WebhookInfo>(`/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string, clientId: string) =>
     adminFetch<void>(`/webhooks/${id}${qs({ client_id: clientId })}`, { method: 'DELETE' }),
 };
 

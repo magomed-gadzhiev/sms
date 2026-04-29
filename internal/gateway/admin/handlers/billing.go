@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -13,6 +14,23 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/admin/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+const billingMaxListLimit = 200
+
+// clampPagination нормализует limit/offset для админских list-эндпоинтов биллинга.
+// Защищает от DoS через большие limit'ы (BUG-46) и от отрицательных значений.
+func clampPagination(limit, offset, def, max int) (int, int) {
+	if limit > max {
+		limit = max
+	}
+	if limit < 1 {
+		limit = def
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return limit, offset
+}
 
 // BillingHandlers обрабатывает HTTP запросы для биллинга
 type BillingHandlers struct {
@@ -111,6 +129,7 @@ func (h *BillingHandlers) GetTransactionHistory(w http.ResponseWriter, r *http.R
 	transactionType := r.URL.Query().Get("transaction_type")
 	limit := parseInt(r.URL.Query().Get("limit"), 50)
 	offset := parseInt(r.URL.Query().Get("offset"), 0)
+	limit, offset = clampPagination(limit, offset, 50, billingMaxListLimit)
 
 	// client_id опционален для админа — без него возвращаем все транзакции
 
@@ -366,8 +385,11 @@ func (h *BillingHandlers) ListBalances(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	status := r.URL.Query().Get("status")
 	belowThreshold := r.URL.Query().Get("below_threshold") == "true"
-	limit := parseIntParam(r, "limit", 50)
-	offset := parseIntParam(r, "offset", 0)
+	limit32 := parseIntParam(r, "limit", 50)
+	offset32 := parseIntParam(r, "offset", 0)
+	limitInt, offsetInt := clampPagination(int(limit32), int(offset32), 50, billingMaxListLimit)
+	limit := int32(limitInt)
+	offset := int32(offsetInt)
 
 	resp, err := h.billingClient.ListBalances(r.Context(), &billingv1.ListBalancesRequest{
 		Search:         search,
@@ -434,6 +456,17 @@ type AddCreditsRequest struct {
 func (r *AddCreditsRequest) Validate() error {
 	if r.Amount == "" {
 		return shared.ErrInvalidInput("amount обязателен")
+	}
+	amt, ok := new(big.Float).SetString(r.Amount)
+	if !ok {
+		return shared.ErrInvalidInput("amount имеет неверный формат")
+	}
+	// big.Float.SetString принимает "Inf"/"+Inf"/"-Inf"; для финансовой суммы недопустимо.
+	if amt.IsInf() {
+		return shared.ErrInvalidInput("amount имеет неверный формат")
+	}
+	if amt.Sign() <= 0 {
+		return shared.ErrInvalidInput("amount должен быть положительным числом")
 	}
 	// Валюту не задаём по умолчанию — сервис биллинга использует валюту аккаунта
 	return nil

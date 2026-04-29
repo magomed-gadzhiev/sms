@@ -18,7 +18,11 @@ const txFilters: FilterDef[] = [
     type: 'select',
     options: [
       { value: 'credit', label: 'Пополнение' },
-      { value: 'debit', label: 'Списание' },
+      { value: 'charge', label: 'Списание (charge)' },
+      { value: 'refund', label: 'Возврат' },
+      { value: 'adjustment', label: 'Корректировка' },
+      { value: 'transfer_in', label: 'Трансфер: входящий' },
+      { value: 'transfer_out', label: 'Трансфер: исходящий' },
     ],
   },
   { key: 'from', label: 'От', type: 'date' },
