@@ -2,9 +2,39 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 5/30: Admin — routes + client-routes (admin, /admin/routes + /admin/client-routes, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 5/30: Admin — routes + client-routes (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
-Lock поставлен. UI-проверки пропускаю (Playwright MCP disconnected). Свежий MVP-feedback №8 — MCC/MNC routing foundation (commit 85f2e85, миграции 122-123 — добавили колонки + seed СНГ). На стенде: 13 routes из demo_seed (Russia prefix-based), 0 client-routes, операторы с MCC/MNC из миграции 123 (под country_id=00000000-...-001).
+[Summary] 13 TC прогнаны, 12 PASS, 1 наблюдение. Без code-fix'ов (ловить-в-follow-up).
+
+[BUG LIST]
+
+BUG-13 (наблюдение): non-existent provider_id в POST /admin/v1/routes возвращает 500 вместо 404 — повторение паттерна BUG-9 — Severity: MED — Категория: Logic Gap
+  Шаги: создание route с provider_ids=[<random uuid>] → HTTP 500 "Внутренняя ошибка сервера"
+  Ожидалось: 400/404 с понятным сообщением "provider not found: <uuid>"
+  Получилось: 500 (благодаря BUG-7 fix raw SQL не утекает, но HTTP-код неправильный)
+  Корневая причина: routing-service возвращает codes.Internal на FK violation `routes.provider_ids` → providers
+  Фикс: вынесен в follow-up (часть системного error-mapping pattern из BUG-9)
+
+[Test Coverage]
+PASS: 5.1 list routes → 200 (13 records включая I-Digital + 11 demo + 1 default), 5.3 user→403/unauth→401, 5.4 create route happy → 201, 5.5 update PUT priority → 200 + DB consistency, 5.6 missing pattern → 400 "pattern обязателен", 5.7 invalid uuid format в provider_ids → 400 "invalid provider_id format", 5.9 list client-routes per-client → 200 (empty array), 5.11 user RBAC на client-routes → 403, 5.13 unassign non-existent → 404 "client route not found", cleanup DELETE route → 200.
+
+OBSERVATIONS:
+- ClientRoute (миграция/UI-тип) — это **per-operator override** (поля operator_id+provider_id обязательны), а НЕ assign-global-route-to-client. Моё изначальное предположение было неверным — я попытался отправить {route_id, priority} и получил 400. Это **не баг**, корректное поведение. Документация UI-типа в admin.ts:683 явно показывает поля.
+- Пропущены TC по advanced routing: MCC/MNC pattern matching (миграции 122-123 свежие), failover между провайдерами при недоступности — это требует подключения реального SMSC. Перенесено в этап 30 (E2E).
+
+[Success Path] Admin создаёт route: POST /admin/v1/routes с {name, pattern (prefix), provider_ids, priority, load_balance_strategy, failover_enabled, active} → 201 + route_id. Update — PUT /admin/v1/routes/{id} с partial fields. Delete — DELETE. Per-client overrides — через POST /admin/v1/clients/{cid}/routes с {operator_id, provider_id, priority, weight, active, shared}.
+
+[Recommendations]
+1. (MED) Объединить BUG-9 + BUG-13 в одну системную правку: wrapper `pgErrorToGRPCCode` для всех services, который мапит unique-violation → codes.AlreadyExists, FK violation → codes.NotFound (или FailedPrecondition).
+2. (LOW) ClientRoute UI и docs/specs должны явно различать "global route assignment" vs "per-operator override" — без явной типологии новый разработчик повторит мою ошибку.
+
+[Test Data] Создан/удалён: route QA-Route → priority изменён → удалён cleanup'ом.
+
+[Commits этапа]
+- 4062d20 docs(audit): этап 5/30 — [IN_PROGRESS]
+- (этот) docs(audit): этап 5/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 4/30: Admin — providers + connections (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
