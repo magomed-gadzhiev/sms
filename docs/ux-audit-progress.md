@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 2/30: Auth — register / password-reset / 2FA (user, /register + /reset-password* + /portal/v1/auth/*, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. Продолжение этапа 1 без /clear (один поток, контекст управляемый).
+
 ## [DONE] Этап 1/30: Auth — login/logout/session (admin/aggregator/user, fix + Infrastructure + QA full, 2026-04-29) — частичный
 
 [Summary] 22 тест-кейса прогнано (из 31 запланированных), 22 PASS, 0 FAIL после фиксов. 2 бага найдены и исправлены, 1 баг-doc — follow-up. 9 TC перенесены: TC 1.29-1.30 (2FA flow + ticket reuse) → этап 2 (зависит от register-flow с 2FA setup); TC 1.7-1.8/1.11/1.15/1.17/1.19-1.21 — UI-only мелочи (HTML5 required, only spaces, duplicate submit, CSRF tampering, concurrent login, role routing UI), низкоценные после того как backend RBAC и cookie flags подтверждены.
