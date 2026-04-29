@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 8/30: Admin — legal-entities + contracts (admin, /admin/legal-entities + /admin/contracts, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки пропускаю.
+
 ## [DONE] Этап 7/30: Admin — tarification (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 13 TC прогнаны (12 PASS, 1 повторение BUG-9 паттерна). Без code-fix'ов (повторение системного паттерна).
