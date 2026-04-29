@@ -60,15 +60,16 @@ func TestQuotaService_UpdateQuota(t *testing.T) {
 	repo := &MockAggregatorQuotaRepository{}
 	svc := NewQuotaService(repo)
 
+	aggID := uuid.New()
 	quotaID := uuid.New()
 	existing := &domain.AggregatorQuota{
-		ID: quotaID, SegmentLimit: 1000, OverageRate: "0.50", AutoRenew: true,
+		ID: quotaID, AggregatorID: aggID, SegmentLimit: 1000, OverageRate: "0.50", AutoRenew: true,
 	}
 
 	repo.On("GetByID", mock.Anything, quotaID).Return(existing, nil)
 	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.AggregatorQuota")).Return(nil)
 
-	updated, err := svc.UpdateQuota(context.Background(), quotaID, 2000, "0.25", false)
+	updated, err := svc.UpdateQuota(context.Background(), aggID, quotaID, 2000, "0.25", false)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2000), updated.SegmentLimit)
 	assert.Equal(t, "0.25", updated.OverageRate)
@@ -82,10 +83,28 @@ func TestQuotaService_UpdateQuota_NotFound(t *testing.T) {
 
 	repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, nil)
 
-	_, err := svc.UpdateQuota(context.Background(), uuid.New(), 2000, "0.25", false)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	_, err := svc.UpdateQuota(context.Background(), uuid.New(), uuid.New(), 2000, "0.25", false)
+	assert.ErrorIs(t, err, ErrQuotaNotFound)
 	repo.AssertExpectations(t)
+}
+
+func TestQuotaService_UpdateQuota_AggregatorMismatch(t *testing.T) {
+	repo := &MockAggregatorQuotaRepository{}
+	svc := NewQuotaService(repo)
+
+	realAgg := uuid.New()
+	otherAgg := uuid.New()
+	quotaID := uuid.New()
+	existing := &domain.AggregatorQuota{
+		ID: quotaID, AggregatorID: realAgg, SegmentLimit: 1000, OverageRate: "0.50", AutoRenew: true,
+	}
+
+	repo.On("GetByID", mock.Anything, quotaID).Return(existing, nil)
+
+	_, err := svc.UpdateQuota(context.Background(), otherAgg, quotaID, 2000, "0.25", false)
+	assert.ErrorIs(t, err, ErrQuotaNotFound)
+	repo.AssertExpectations(t)
+	repo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
 }
 
 func TestAggregatorQuota_DomainMethods(t *testing.T) {

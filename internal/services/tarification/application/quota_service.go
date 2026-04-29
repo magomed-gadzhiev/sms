@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -10,6 +11,10 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
+
+// ErrQuotaNotFound is returned when a quota does not exist or does not belong
+// to the aggregator referenced in the request path.
+var ErrQuotaNotFound = errors.New("quota not found")
 
 type QuotaService struct {
 	repo domain.AggregatorQuotaRepository
@@ -79,13 +84,16 @@ func (s *QuotaService) GetActiveQuota(ctx context.Context, aggregatorID uuid.UUI
 	return s.repo.GetActive(ctx, aggregatorID, time.Now())
 }
 
-func (s *QuotaService) UpdateQuota(ctx context.Context, quotaID uuid.UUID, segmentLimit int64, overageRate string, autoRenew bool) (*domain.AggregatorQuota, error) {
+// UpdateQuota updates a quota by ID, ensuring it belongs to the supplied
+// aggregator. Returns ErrQuotaNotFound either if the quota does not exist or
+// belongs to a different aggregator (single error to avoid leaking ownership).
+func (s *QuotaService) UpdateQuota(ctx context.Context, aggregatorID, quotaID uuid.UUID, segmentLimit int64, overageRate string, autoRenew bool) (*domain.AggregatorQuota, error) {
 	quota, err := s.repo.GetByID(ctx, quotaID)
 	if err != nil {
 		return nil, err
 	}
-	if quota == nil {
-		return nil, fmt.Errorf("quota not found")
+	if quota == nil || quota.AggregatorID != aggregatorID {
+		return nil, ErrQuotaNotFound
 	}
 	quota.SegmentLimit = segmentLimit
 	quota.OverageRate = overageRate
