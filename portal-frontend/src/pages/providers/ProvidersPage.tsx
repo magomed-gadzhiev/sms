@@ -66,8 +66,8 @@ export function ProvidersPage() {
   return (
     <div>
       <PageHeader
-        title="SMPP Провайдеры"
-        actions={!isSubAccount ? <Button onClick={() => navigate('/providers/new')}>+ Добавить провайдера</Button> : null}
+        title="Подключения"
+        actions={!isSubAccount ? <Button onClick={() => navigate('/providers/new')}>+ Добавить подключение</Button> : null}
       />
 
       {error && <p className="text-red-600">{error}</p>}
@@ -82,10 +82,10 @@ export function ProvidersPage() {
 
       {!loading && !error && !isSubAccount && providers.length === 0 && (
         <div className="text-center py-12 text-gray-500">
-          <p className="mb-2">Провайдеры не настроены</p>
+          <p className="mb-2">Подключения не настроены</p>
           <p className="text-sm mb-4">Подключите SMPP-провайдера для начала отправки SMS</p>
           <Button variant="ghost" onClick={() => navigate('/providers/new')}>
-            Добавить провайдера
+            Добавить подключение
           </Button>
         </div>
       )}
@@ -101,9 +101,14 @@ export function ProvidersPage() {
           loading={loading}
           keyField="id"
           rowActions={(p) => (
-            <Button variant="danger" size="sm" onClick={() => setDeleteId(p.id)}>
-              Удалить
-            </Button>
+            <div className="flex gap-1.5">
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/providers/${p.id}/edit`)}>
+                Редактировать
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => setDeleteId(p.id)}>
+                Удалить
+              </Button>
+            </div>
           )}
         />
       )}
@@ -112,8 +117,8 @@ export function ProvidersPage() {
         open={deleteId !== null}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteId(null)}
-        title="Удалить провайдера"
-        description="Вы уверены, что хотите удалить этого провайдера? Это действие нельзя отменить."
+        title="Удалить подключение"
+        description="Вы уверены, что хотите удалить это подключение? Это действие нельзя отменить."
         confirmLabel="Удалить"
         variant="danger"
         loading={deleting}

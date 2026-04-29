@@ -19,7 +19,7 @@ function fmt(s?: string | null) {
   return new Date(s).toLocaleString('ru-RU');
 }
 
-export type SortField = 'submitted_at' | 'created_at' | 'status_at' | 'total_amount' | 'segment_count';
+export type SortField = 'submitted_at' | 'created_at' | 'status_at' | 'total_amount' | 'segment_count' | 'status';
 export interface SortState { field: SortField; order: 'asc' | 'desc' }
 
 interface Props {
@@ -57,7 +57,7 @@ export const ALL_COLUMNS: ColSpec[] = [
     render: (m) => <span className="text-xs whitespace-nowrap">{fmt(m.submitted_at)}</span>,
   },
   {
-    key: 'status', header: 'Статус',
+    key: 'status', header: 'Статус', sortField: 'status',
     render: (m) => (
       <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[m.status] ?? 'bg-gray-100 text-gray-700'}`}>
         {STATUS_LABELS[m.status] ?? m.status}

@@ -17,10 +17,9 @@ function buildOwnNavGroups(isSubAccount: boolean): NavGroup[] {
     { path: '/api-keys', label: 'API Ключи' },
     { path: '/webhooks', label: 'Вебхуки' },
     { path: '/lookup', label: 'Lookup' },
-    { path: '/settings/smpp', label: 'SMPP' },
   ];
   if (!isSubAccount) {
-    integrations.splice(2, 0, { path: '/providers', label: 'Провайдеры' });
+    integrations.splice(2, 0, { path: '/providers', label: 'Подключения' });
     integrations.splice(3, 0, { path: '/routing', label: 'Маршрутизация' });
   }
   return [
@@ -29,7 +28,6 @@ function buildOwnNavGroups(isSubAccount: boolean): NavGroup[] {
       items: [
         { path: '/quick-send', label: 'Быстрая отправка' },
         { path: '/campaigns', label: 'Кампании' },
-        { path: '/campaign-schedules', label: 'Расписания' },
         { path: '/templates', label: 'Шаблоны' },
         { path: '/sender-names', label: 'Имена отправителей' },
         { path: '/companies', label: 'Мои компании' },

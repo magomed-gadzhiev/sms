@@ -21,8 +21,18 @@ import (
 	routingapp "github.com/smpp-server/smpp-server/internal/services/routing/application"
 	routingdomain "github.com/smpp-server/smpp-server/internal/services/routing/domain"
 	routinginfra "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
+
+// routerSenderCache caches resolveSenderName results keyed by
+// (clientID|senderName|operatorID) → resolved sender. Hot-path: every routed
+// message runs two SQL queries without this cache.
+var routerSenderCache = cache.NewHardCache(60 * time.Second)
+
+// routerFallbackCache caches the system_defaults fallback sender. Single-key
+// cache, refreshed once per TTL.
+var routerFallbackCache = cache.NewHardCache(300 * time.Second)
 
 // Stage — pipeline stage для маршрутизации сообщений.
 // Потребляет из sms.outgoing и sms.failed, вызывает RouteMatcher
@@ -346,6 +356,24 @@ func (s *Stage) resolveSenderName(ctx context.Context, clientID, senderName, ope
 		return senderName
 	}
 
+	// Hard-cache hit: result by (client, sender, operator) — stable across TTL.
+	cacheKey := clientID + "|" + senderName + "|" + operatorID
+	if routerSenderCache.Enabled() {
+		if v, ok := routerSenderCache.Get(cacheKey); ok {
+			return v.(string)
+		}
+	}
+	result := s.resolveSenderNameUncached(ctx, clientID, senderName, operatorID)
+	if routerSenderCache.Enabled() {
+		routerSenderCache.Set(cacheKey, result)
+	}
+	return result
+}
+
+// resolveSenderNameUncached is the DB-hitting path extracted so the cache
+// wrapper can call it. Keeps the two SQL queries verbatim.
+func (s *Stage) resolveSenderNameUncached(ctx context.Context, clientID, senderName, operatorID string) string {
+
 	// Check if sub-account or direct client, and get sender_name status.
 	var parentClientID *string
 	var snStatus string
@@ -408,12 +436,20 @@ func (s *Stage) getFallbackSender(ctx context.Context) string {
 	if s.pool == nil {
 		return "SMS"
 	}
+	if routerFallbackCache.Enabled() {
+		if v, ok := routerFallbackCache.Get("default"); ok {
+			return v.(string)
+		}
+	}
 	var val string
 	err := s.pool.QueryRow(ctx,
 		`SELECT value FROM system_defaults WHERE key = 'default_sender_name' LIMIT 1`,
 	).Scan(&val)
 	if err != nil || val == "" {
-		return "SMS"
+		val = "SMS"
+	}
+	if routerFallbackCache.Enabled() {
+		routerFallbackCache.Set("default", val)
 	}
 	return val
 }

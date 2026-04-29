@@ -3,20 +3,21 @@ import type { CreateProviderRequest } from '../../../api/client';
 interface Props {
   data: Partial<CreateProviderRequest>;
   onChange: (updates: Partial<CreateProviderRequest>) => void;
+  isEdit?: boolean;
 }
 
 const BIND_TYPES = [
-  { value: 0, label: 'Transceiver (TRX)' },
-  { value: 1, label: 'Transmitter (TX)' },
-  { value: 2, label: 'Receiver (RX)' },
+  { value: 0, label: 'Двусторонний (TRX)' },
+  { value: 1, label: 'Только отправка (TX)' },
+  { value: 2, label: 'Только приём (RX)' },
 ];
 
-export function Step2Connection({ data, onChange }: Props) {
+export function Step2Connection({ data, onChange, isEdit }: Props) {
   return (
     <div>
-      <h3>Connection Details</h3>
+      <h3>Подключение</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12, marginBottom: 16 }}>
-        <label>Host *<br />
+        <label>Хост *<br />
           <input
             value={data.host ?? ''}
             onChange={e => onChange({ host: e.target.value })}
@@ -24,7 +25,7 @@ export function Step2Connection({ data, onChange }: Props) {
             style={{ width: '100%', padding: '8px', marginTop: 4 }}
           />
         </label>
-        <label>Port *<br />
+        <label>Порт *<br />
           <input
             type="number"
             value={data.port ?? ''}
@@ -35,7 +36,7 @@ export function Step2Connection({ data, onChange }: Props) {
         </label>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <label>System ID *<br />
+        <label>Идентификатор системы (System ID) *<br />
           <input
             value={data.system_id ?? ''}
             onChange={e => onChange({ system_id: e.target.value })}
@@ -45,18 +46,18 @@ export function Step2Connection({ data, onChange }: Props) {
         </label>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <label>Password *<br />
+        <label>{isEdit ? 'Пароль' : 'Пароль *'}<br />
           <input
             type="password"
             value={data.password ?? ''}
             onChange={e => onChange({ password: e.target.value })}
-            placeholder="••••••••"
+            placeholder={isEdit ? 'Оставьте пустым, чтобы не менять' : '••••••••'}
             style={{ width: '100%', padding: '8px', marginTop: 4 }}
           />
         </label>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <label>Bind Type<br />
+        <label>Режим подключения<br />
           <select
             value={data.bind_type ?? 0}
             onChange={e => onChange({ bind_type: parseInt(e.target.value) })}

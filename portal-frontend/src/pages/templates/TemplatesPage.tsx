@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import { templatesApi, senderNamesApi, ApiError, type TemplateInfo, type SenderNameInfo } from '../../api/client';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { CharacterCounter } from '../../components/ui/CharacterCounter';
@@ -6,7 +6,6 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import type { BulkAction } from '../../components/data/BulkActionBar';
 import { Badge } from '../../components/ui/Badge';
@@ -65,8 +64,8 @@ export function TemplatesPage() {
   const [formName, setFormName] = useState('');
   const [formBody, setFormBody] = useState('');
   const [formSenderNameId, setFormSenderNameId] = useState('');
-  const [formTrafficType, setFormTrafficType] = useState('transactional');
   const [saving, setSaving] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   // Preview modal
   const [previewTemplate, setPreviewTemplate] = useState<TemplateInfo | null>(null);
@@ -121,7 +120,6 @@ export function TemplatesPage() {
     setFormName('');
     setFormBody('');
     setFormSenderNameId('');
-    setFormTrafficType('transactional');
     setError('');
     setShowForm(true);
   }
@@ -132,7 +130,6 @@ export function TemplatesPage() {
     setFormName(tpl.name);
     setFormBody(tpl.body);
     setFormSenderNameId(tpl.sender_name_id || '');
-    setFormTrafficType(tpl.traffic_type || 'transactional');
     setError('');
     setShowForm(true);
   }
@@ -143,7 +140,23 @@ export function TemplatesPage() {
     setFormName('');
     setFormBody('');
     setFormSenderNameId('');
-    setFormTrafficType('transactional');
+  }
+
+  function insertAtCursor(token: string) {
+    const ta = bodyRef.current;
+    if (!ta) {
+      setFormBody((prev) => prev + token);
+      return;
+    }
+    const start = ta.selectionStart ?? formBody.length;
+    const end = ta.selectionEnd ?? formBody.length;
+    const next = formBody.slice(0, start) + token + formBody.slice(end);
+    setFormBody(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const caret = start + token.length;
+      ta.setSelectionRange(caret, caret);
+    });
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -161,14 +174,12 @@ export function TemplatesPage() {
           name: formName,
           body: formBody,
           sender_name_id: formSenderNameId || undefined,
-          traffic_type: formTrafficType || undefined,
         });
       } else {
         await templatesApi.create({
           name: formName,
           body: formBody,
           sender_name_id: formSenderNameId || undefined,
-          traffic_type: formTrafficType || undefined,
         });
       }
       closeForm();
@@ -265,19 +276,6 @@ export function TemplatesPage() {
         ),
     },
     {
-      key: 'traffic_type',
-      header: 'Тип трафика',
-      render: (tpl) => {
-        const labels: Record<string, string> = {
-          transactional: 'Транзакционный',
-          authorization: 'Авторизационный',
-          service: 'Сервисный',
-        };
-        const val = tpl.traffic_type || 'transactional';
-        return <span className="text-sm text-gray-700">{labels[val] ?? val}</span>;
-      },
-    },
-    {
       key: 'body',
       header: 'Текст',
       render: (tpl) => (
@@ -363,41 +361,49 @@ export function TemplatesPage() {
           </div>
 
           <div className="mb-4">
-            <Select
-              label="Тип трафика"
-              value={formTrafficType}
-              onChange={setFormTrafficType}
-              options={[
-                { value: 'transactional', label: 'Транзакционный' },
-                { value: 'authorization', label: 'Авторизационный' },
-                { value: 'service', label: 'Сервисный' },
-              ]}
-            />
-          </div>
-
-          <div className="mb-4">
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="tpl-body" className="block text-sm font-medium text-gray-700">
                 Текст шаблона *
               </label>
               <CharacterCounter current={formBody.length} max={1600} />
             </div>
             <textarea
+              id="tpl-body"
+              ref={bodyRef}
               value={formBody}
               onChange={(e) => { setFormBody(e.target.value); tplValidation.fieldProps('body').onChange(e); }}
               onBlur={(e) => tplValidation.fieldProps('body').onBlur(e)}
               aria-invalid={tplValidation.errors.body ? true : undefined}
-              aria-describedby={tplValidation.errors.body ? 'body-error' : undefined}
+              aria-describedby={tplValidation.errors.body ? 'body-error' : 'body-hint'}
               required
               rows={5}
               placeholder="Ваш код: {{code}}. Здравствуйте, {{name}}!"
               className={`w-full rounded border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary ${tplValidation.errors.body ? 'border-red-400' : 'border-gray-300'}`}
             />
+            <div className="mt-2 flex flex-wrap gap-1.5" role="toolbar" aria-label="Вставить переменную">
+              {[
+                { label: 'Уважаемый(ая)', token: 'Уважаем{ый|ая}' },
+                { label: 'Имя', token: '{{name}}' },
+                { label: 'Отчество', token: '{{lastname}}' },
+                { label: 'Фамилия', token: '{{firstname}}' },
+                { label: 'День рождения', token: '{{birthday}}' },
+                { label: 'Промокод', token: '{{promocode}}' },
+              ].map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => insertAtCursor(chip.token)}
+                  className="px-2.5 py-1 text-xs rounded-full border border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 text-gray-700 transition-colors"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
             {tplValidation.errors.body ? (
               <p id="body-error" className="mt-1 text-xs text-red-600">{tplValidation.errors.body}</p>
             ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                Используйте переменные в двойных фигурных скобках: {'{{name}}'}, {'{{code}}'}, {'{{company}}'}
+              <p id="body-hint" className="mt-1 text-xs text-gray-500">
+                Значения подставляются из колонок контактной базы при отправке.
               </p>
             )}
           </div>

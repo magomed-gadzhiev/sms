@@ -18,7 +18,17 @@ import (
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 )
+
+// senderNameCache caches (client_id) → map[name]sender_name_id for approved
+// senders. Hot-path: every POST /api/v1/sms/send calls resolveSenderName and
+// without cache it fans out 1–2 gRPC calls each hitting Postgres.
+var senderNameCache = cache.NewHardCache(60 * time.Second)
+
+type cachedSenderMap struct {
+	approved map[string]string // name → sender_name_id
+}
 
 // gRPC metadata keys matching internal/services/messaging/grpc/server.go. They
 // ferry audit-linkage UUIDs from the HTTP handler into the messaging-service
@@ -69,6 +79,20 @@ func (h *SMSHandlers) resolveSenderName(ctx context.Context, clientID, source st
 		return "", nil
 	}
 
+	// Hard-cache hit: all approved sender names for this client are in memory.
+	if senderNameCache.Enabled() {
+		if v, ok := senderNameCache.Get(clientID); ok {
+			entry := v.(*cachedSenderMap)
+			if id, found := entry.approved[source]; found {
+				return id, nil
+			}
+			// Cached list is authoritative for approved senders; if source is
+			// not there, fall through to the slow path only to distinguish
+			// "unknown" from "exists-but-not-approved" for a useful error.
+			return h.senderNotFoundResponse(ctx, clientID, source)
+		}
+	}
+
 	// Fetch only approved sender names for this client. The API supports
 	// server-side status filtering so we don't pull the full list.
 	resp, err := h.senderNameClient.ListSenderNames(ctx, &sendernamev1.ListSenderNamesRequest{
@@ -82,6 +106,17 @@ func (h *SMSHandlers) resolveSenderName(ctx context.Context, clientID, source st
 		return "", shared.ErrInternalServer("ошибка проверки sender name")
 	}
 
+	// Populate cache with all approved senders for this client.
+	if senderNameCache.Enabled() {
+		m := make(map[string]string, len(resp.GetSenderNames()))
+		for _, sn := range resp.GetSenderNames() {
+			if sn.GetStatus() == "approved" {
+				m[sn.GetName()] = sn.GetId()
+			}
+		}
+		senderNameCache.Set(clientID, &cachedSenderMap{approved: m})
+	}
+
 	for _, sn := range resp.GetSenderNames() {
 		if sn.GetName() == source {
 			// Defence-in-depth: although we filtered by approved, verify.
@@ -92,8 +127,13 @@ func (h *SMSHandlers) resolveSenderName(ctx context.Context, clientID, source st
 		}
 	}
 
-	// Not found in approved list. Distinguish "unknown sender" vs "exists but
-	// not approved" with a second call, so the caller gets a useful message.
+	return h.senderNotFoundResponse(ctx, clientID, source)
+}
+
+// senderNotFoundResponse performs the distinguishing lookup between
+// "sender unknown" and "sender exists but not approved" to return a clearer
+// forbidden message. Slow path — not cached because it only fires on rejection.
+func (h *SMSHandlers) senderNotFoundResponse(ctx context.Context, clientID, source string) (string, *shared.AppError) {
 	allResp, err := h.senderNameClient.ListSenderNames(ctx, &sendernamev1.ListSenderNamesRequest{
 		ClientId: clientID,
 		Limit:    1000,
@@ -242,6 +282,11 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		protoReq.ValidityPeriod = timestamppb.New(*req.ValidityPeriod)
 	}
 	if req.ScheduledAt != nil {
+		// US4 AC4: reject messages scheduled in the past.
+		if req.ScheduledAt.Before(time.Now()) {
+			respondError(w, shared.ErrInvalidInput("scheduled_at должно быть в будущем"))
+			return
+		}
 		protoReq.ScheduledAt = timestamppb.New(*req.ScheduledAt)
 	}
 
@@ -282,7 +327,19 @@ type SendBatchSMSRequest struct {
 	ScheduledAt *time.Time       `json:"scheduled_at,omitempty"`
 }
 
-// SendBatch обрабатывает запрос на пакетную отправку SMS
+// MaxBatchSize — maximum messages accepted in a single POST /sms/batch
+// (contracts/client-api.md). Batches larger than this are rejected wholesale
+// with HTTP 400 batch_too_large (US3 AC3).
+const MaxBatchSize = 10000
+
+// SendBatch обрабатывает запрос на пакетную отправку SMS.
+//
+// Response contract (contracts/client-api.md):
+//   { "results": [...], "total": N, "accepted": K, "rejected": N-K }
+// Each result is either {message_id, status, segment_count, created_at} for
+// accepted messages OR {error, index} for entries rejected before the RPC
+// (validation or sender-name failures). `index` is the 0-based position in the
+// original request — clients need it to correlate errors with inputs.
 func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 	var req SendBatchSMSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -290,7 +347,6 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем client_id из контекста
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
@@ -302,19 +358,49 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Преобразуем в proto сообщения
+	// US3 AC3: oversize batches rejected wholesale before any processing.
+	if len(req.Messages) > MaxBatchSize {
+		respondError(w, &shared.AppError{
+			Code:       "BATCH_TOO_LARGE",
+			Message:    "Максимальный размер пакета — 10000 сообщений",
+			HTTPStatus: http.StatusBadRequest,
+		})
+		return
+	}
+
+	// US4 AC4: batch-level scheduled_at in the past → reject entire batch.
+	if req.ScheduledAt != nil && req.ScheduledAt.Before(time.Now()) {
+		respondError(w, shared.ErrInvalidInput("scheduled_at должно быть в будущем"))
+		return
+	}
+
+	// Pre-RPC validation phase — build proto messages for accepted entries and
+	// record rejections with their original indices so the client can map back.
+	type rejection struct {
+		index int
+		err   string
+	}
 	protoMessages := make([]*messagingv1.SendMessageRequest, 0, len(req.Messages))
-	for _, msg := range req.Messages {
+	// acceptedIndices[i] = original index of req.Messages that produced
+	// protoMessages[i]. Needed to fill in rejections from downstream responses.
+	acceptedIndices := make([]int, 0, len(req.Messages))
+	rejections := make([]rejection, 0)
+
+	for i, msg := range req.Messages {
 		if msg.Source == "" || msg.Destination == "" {
+			rejections = append(rejections, rejection{i, "source и destination обязательны"})
 			continue
 		}
-		msgText := msg.Text
 		if msg.TemplateID != "" && msg.Text != "" {
-			continue // skip: mutually exclusive
+			rejections = append(rejections, rejection{i, "нельзя указать одновременно text и template_id"})
+			continue
 		}
 		if msg.TemplateID == "" && msg.Text == "" {
-			continue // skip: neither provided
+			rejections = append(rejections, rejection{i, "необходимо указать text или template_id"})
+			continue
 		}
+
+		msgText := msg.Text
 		if msg.TemplateID != "" {
 			renderResp, err := h.templateClient.RenderTemplate(r.Context(), &templatev1.RenderTemplateRequest{
 				TemplateId: msg.TemplateID,
@@ -322,85 +408,105 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 				Variables:  msg.Variables,
 			})
 			if err != nil {
-				continue // skip failed renders in batch
+				rejections = append(rejections, rejection{i, "ошибка рендера шаблона: " + err.Error()})
+				continue
 			}
 			msgText = renderResp.RenderedText
 		}
 
-		// Bug #7: enforce sender-name authorization per message. Unauthorized
-		// messages are silently skipped (batch semantics — partial success).
-		// Note: audit linkage (template_id / sender_name_id) is NOT propagated
-		// through the batch RPC because the current SendBatch proto carries
-		// one metadata map per RPC call, not per-message. Single-message
-		// path (SendSMS) is the authoritative audit trail.
+		// Bug #7: enforce sender-name authorization per message. Audit linkage
+		// (template_id / sender_name_id) is NOT propagated through the batch
+		// RPC because SendBatch proto carries one metadata map per RPC, not
+		// per-message. Single-message path (SendSMS) is the authoritative
+		// audit trail. TODO: extend SendBatch proto to carry per-message
+		// audit metadata so batch+templates closes the compliance loop.
 		if _, appErr := h.resolveSenderName(r.Context(), clientID.String(), msg.Source); appErr != nil {
-			log.Info().
-				Str("client_id", clientID.String()).
-				Str("source", msg.Source).
-				Msg("batch: сообщение пропущено — sender name не авторизован")
+			rejections = append(rejections, rejection{i, appErr.Message})
 			continue
 		}
 
 		protoMsg := &messagingv1.SendMessageRequest{
-			ClientId:          clientID.String(),
-			Source:            msg.Source,
-			Destination:       msg.Destination,
-			Text:              msgText,
-			ExternalId:        msg.ExternalID,
-			Priority:          msg.Priority,
+			ClientId:           clientID.String(),
+			Source:             msg.Source,
+			Destination:        msg.Destination,
+			Text:               msgText,
+			ExternalId:         msg.ExternalID,
+			Priority:           msg.Priority,
 			RegisteredDelivery: msg.RegisteredDelivery,
-			ServiceType:       msg.ServiceType,
-			SourceAddrTon:     msg.SourceAddrTON,
-			SourceAddrNpi:     msg.SourceAddrNPI,
-			DestAddrTon:       msg.DestAddrTON,
-			DestAddrNpi:       msg.DestAddrNPI,
-			DataCoding:        msg.DataCoding,
+			ServiceType:        msg.ServiceType,
+			SourceAddrTon:      msg.SourceAddrTON,
+			SourceAddrNpi:      msg.SourceAddrNPI,
+			DestAddrTon:        msg.DestAddrTON,
+			DestAddrNpi:        msg.DestAddrNPI,
+			DataCoding:         msg.DataCoding,
 		}
-
 		if msg.ValidityPeriod != nil {
 			protoMsg.ValidityPeriod = timestamppb.New(*msg.ValidityPeriod)
 		}
-
 		protoMessages = append(protoMessages, protoMsg)
+		acceptedIndices = append(acceptedIndices, i)
 	}
 
-	// Вызываем Messaging Service
-	protoReq := &messagingv1.SendBatchRequest{
-		ClientId:  clientID.String(),
-		Messages:  protoMessages,
-	}
-	if req.ScheduledAt != nil {
-		protoReq.ScheduledAt = timestamppb.New(*req.ScheduledAt)
+	// Build ordered results: insert accepted and rejected entries into a single
+	// slice positioned by the original index to give the client a stable order.
+	total := len(req.Messages)
+	results := make([]map[string]interface{}, total)
+
+	// Place rejections first.
+	for _, rej := range rejections {
+		results[rej.index] = map[string]interface{}{
+			"error": rej.err,
+			"index": rej.index,
+		}
 	}
 
-	resp, err := h.messagingClient.SendBatch(r.Context(), protoReq)
-	if err != nil {
-		log.Error().Err(err).Msg("ошибка пакетной отправки SMS через Messaging Service")
-		respondGRPCError(w, err)
-		return
-	}
+	accepted := 0
+	if len(protoMessages) > 0 {
+		protoReq := &messagingv1.SendBatchRequest{
+			ClientId: clientID.String(),
+			Messages: protoMessages,
+		}
+		if req.ScheduledAt != nil {
+			protoReq.ScheduledAt = timestamppb.New(*req.ScheduledAt)
+		}
 
-	// Формируем ответ
-	results := make([]map[string]interface{}, 0, len(resp.Results))
-	for _, result := range resp.Results {
-		r := map[string]interface{}{
-			"message_id":    result.MessageId,
-			"status":        result.Status,
-			"segment_count": result.SegmentCount,
+		resp, err := h.messagingClient.SendBatch(r.Context(), protoReq)
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка пакетной отправки SMS через Messaging Service")
+			respondGRPCError(w, err)
+			return
 		}
-		if result.CreatedAt != nil {
-			r["created_at"] = result.CreatedAt.AsTime()
+
+		// Fill in downstream results at their original positions. Assumption:
+		// resp.Results aligns 1:1 with protoMessages in the order we sent.
+		for i, result := range resp.Results {
+			if i >= len(acceptedIndices) {
+				break
+			}
+			origIdx := acceptedIndices[i]
+			item := map[string]interface{}{
+				"message_id":    result.MessageId,
+				"status":        result.Status,
+				"segment_count": result.SegmentCount,
+			}
+			if result.CreatedAt != nil {
+				item["created_at"] = result.CreatedAt.AsTime()
+			}
+			if result.Error != "" {
+				item["error"] = result.Error
+				item["index"] = origIdx
+			} else {
+				accepted++
+			}
+			results[origIdx] = item
 		}
-		if result.Error != "" {
-			r["error"] = result.Error
-		}
-		results = append(results, r)
 	}
 
 	response := map[string]interface{}{
-		"results":       results,
-		"success_count": resp.SuccessCount,
-		"failed_count":  resp.FailedCount,
+		"results":  results,
+		"total":    total,
+		"accepted": accepted,
+		"rejected": total - accepted,
 	}
 
 	respondJSON(w, http.StatusOK, response)
@@ -445,6 +551,11 @@ func (h *SMSHandlers) GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp.SubmittedAt != nil {
+		// Contract (contracts/client-api.md) calls this field `sent_at`; proto
+		// carries it as `submitted_at` for historical reasons. Emit both so
+		// any existing clients relying on the internal name don't break during
+		// the transition, but `sent_at` is the canonical public name.
+		response["sent_at"] = resp.SubmittedAt.AsTime()
 		response["submitted_at"] = resp.SubmittedAt.AsTime()
 	}
 	if resp.DeliveredAt != nil {
@@ -649,7 +760,10 @@ func (h *SMSHandlers) ListScheduled(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// CancelSMS отменяет запланированное сообщение
+// CancelSMS отменяет запланированное сообщение (legacy DELETE /api/v1/sms/{id}).
+// Returns 204 No Content on success for backward compatibility with older SDK
+// versions. Prefer CancelScheduled (POST /api/v1/sms/cancel/{id}) which returns
+// a JSON body matching contracts/client-api.md.
 func (h *SMSHandlers) CancelSMS(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
@@ -674,4 +788,35 @@ func (h *SMSHandlers) CancelSMS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// CancelScheduled отменяет запланированное сообщение по контракту
+// POST /api/v1/sms/cancel/{id} → 200 {"message_id": "...", "status": "cancelled"}.
+func (h *SMSHandlers) CancelScheduled(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	vars := mux.Vars(r)
+	messageID := vars["id"]
+	if messageID == "" {
+		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
+		return
+	}
+
+	_, err := h.messagingClient.CancelMessage(r.Context(), &messagingv1.CancelMessageRequest{
+		MessageId: messageID,
+		ClientId:  clientID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message_id": messageID,
+		"status":     "cancelled",
+	})
 }

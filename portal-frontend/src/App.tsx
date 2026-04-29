@@ -51,7 +51,6 @@ import { TariffsPage } from './pages/tariffs/TariffsPage';
 import { LookupPage } from './pages/lookup/LookupPage';
 import { DomainsPage } from './pages/settings/DomainsPage';
 import { NotificationSettingsPage } from './pages/settings/NotificationSettingsPage';
-import { SmppSettingsPage } from './pages/settings/SmppSettingsPage';
 import { DefaultSendersPage } from './pages/settings/DefaultSendersPage';
 import { SegmentsPage } from './pages/segments/SegmentsPage';
 import { SegmentDetailPage } from './pages/segments/SegmentDetailPage';
@@ -169,6 +168,7 @@ export function App() {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProviderWizardPage />} />
+        <Route path="/providers/:id/edit" element={<ProviderWizardPage />} />
         <Route path="/routing" element={<RoutingPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
@@ -184,7 +184,7 @@ export function App() {
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/settings/domains" element={<DomainsPage />} />
         <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
-        <Route path="/settings/smpp" element={<SmppSettingsPage />} />
+        <Route path="/settings/smpp" element={<Navigate to="/providers" replace />} />
         <Route path="/settings/default-senders" element={<DefaultSendersPage />} />
         <Route path="/cascade/history" element={<CascadeHistoryPage />} />
         <Route path="/cascade/history/:id" element={<CascadeDeliveryDetail />} />

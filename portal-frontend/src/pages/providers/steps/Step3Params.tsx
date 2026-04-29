@@ -8,9 +8,9 @@ interface Props {
 export function Step3Params({ data, onChange }: Props) {
   return (
     <div>
-      <h3>Connection Parameters</h3>
+      <h3>Параметры</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <label>Max Connections<br />
+        <label>Макс. одновременных подключений<br />
           <input
             type="number"
             min={1}
@@ -20,7 +20,7 @@ export function Step3Params({ data, onChange }: Props) {
             style={{ width: '100%', padding: '8px', marginTop: 4 }}
           />
         </label>
-        <label>Window Size<br />
+        <label>Размер окна (window)<br />
           <input
             type="number"
             min={1}
@@ -30,7 +30,7 @@ export function Step3Params({ data, onChange }: Props) {
             style={{ width: '100%', padding: '8px', marginTop: 4 }}
           />
         </label>
-        <label>TPS Limit<br />
+        <label>Лимит TPS (сообщений/сек)<br />
           <input
             type="number"
             min={1}
@@ -41,9 +41,9 @@ export function Step3Params({ data, onChange }: Props) {
         </label>
       </div>
       <p style={{ color: '#666', fontSize: 13 }}>
-        <strong>Max Connections</strong> — number of simultaneous SMPP binds.<br />
-        <strong>Window Size</strong> — outstanding unacknowledged messages per connection.<br />
-        <strong>TPS Limit</strong> — maximum messages per second.
+        <strong>Макс. подключений</strong> — число одновременных SMPP-сессий (bind).<br />
+        <strong>Размер окна</strong> — число неподтверждённых сообщений на одно подключение.<br />
+        <strong>Лимит TPS</strong> — максимум сообщений в секунду через это подключение.
       </p>
     </div>
   );

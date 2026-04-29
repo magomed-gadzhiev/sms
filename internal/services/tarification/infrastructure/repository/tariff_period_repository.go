@@ -8,7 +8,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 )
+
+// periodActiveCache caches (plan_id) → *TariffPeriod. Periods rarely change.
+// TTL kept shorter (30s) because period boundaries depend on wall-clock and
+// a stale cached period might outlive its end_date.
+var periodActiveCache = cache.NewHardCache(30 * time.Second)
 
 // TariffPeriodRepository реализует domain.TariffPeriodRepository
 type TariffPeriodRepository struct {
@@ -67,8 +73,26 @@ func (r *TariffPeriodRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 	return &period, nil
 }
 
-// GetActiveByPlanID получает активный тарифный период для плана на указанную дату
+// GetActiveByPlanID получает активный тарифный период для плана на указанную дату.
+// Hard-cache по plan_id. На hot-path `now` меняется каждую мс, поэтому ключ —
+// только plan_id. TTL 30s компенсирует риск stale-hit на границе периода.
 func (r *TariffPeriodRepository) GetActiveByPlanID(ctx context.Context, planID uuid.UUID, now time.Time) (*domain.TariffPeriod, error) {
+	cacheKey := planID.String()
+	if periodActiveCache.Enabled() {
+		if v, ok := periodActiveCache.Get(cacheKey); ok {
+			if v == nil {
+				return nil, domain.ErrTariffPeriodNotFound
+			}
+			p := v.(*domain.TariffPeriod)
+			// Defensive: если кэшированный период уже кончился, инвалидируем.
+			if p.EndDate != nil && p.EndDate.Before(now) {
+				periodActiveCache.Invalidate(cacheKey)
+			} else {
+				return p, nil
+			}
+		}
+	}
+
 	var period domain.TariffPeriod
 	query := `
 		SELECT id, tariff_plan_id, start_date, end_date, created_at
@@ -85,11 +109,17 @@ func (r *TariffPeriodRepository) GetActiveByPlanID(ctx context.Context, planID u
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			if periodActiveCache.Enabled() {
+				periodActiveCache.Set(cacheKey, nil)
+			}
 			return nil, domain.ErrTariffPeriodNotFound
 		}
 		return nil, err
 	}
 
+	if periodActiveCache.Enabled() {
+		periodActiveCache.Set(cacheKey, &period)
+	}
 	return &period, nil
 }
 

@@ -4,11 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 )
+
+// planActiveCache caches (operator_id|category) → *TariffPlan for the hot-path
+// TarifyMessage flow. Plans rarely change; stale hit across TTL window is OK.
+var planActiveCache = cache.NewHardCache(60 * time.Second)
 
 // TariffPlanRepository реализует domain.TariffPlanRepository
 type TariffPlanRepository struct {
@@ -87,6 +93,16 @@ func (r *TariffPlanRepository) GetActiveByOperatorAndCategory(ctx context.Contex
 		WHERE tp.operator_id = $1 AND tp.sender_category = $2 AND tp.active = true
 	`
 
+	cacheKey := operatorID.String() + "|" + string(category)
+	if planActiveCache.Enabled() {
+		if v, ok := planActiveCache.Get(cacheKey); ok {
+			if v == nil {
+				return nil, domain.ErrTariffPlanNotFound
+			}
+			return v.(*domain.TariffPlan), nil
+		}
+	}
+
 	err := r.db.QueryRowContext(ctx, query, operatorID, category).Scan(
 		&plan.ID,
 		&plan.OperatorID,
@@ -99,11 +115,17 @@ func (r *TariffPlanRepository) GetActiveByOperatorAndCategory(ctx context.Contex
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			if planActiveCache.Enabled() {
+				planActiveCache.Set(cacheKey, nil)
+			}
 			return nil, domain.ErrTariffPlanNotFound
 		}
 		return nil, err
 	}
 
+	if planActiveCache.Enabled() {
+		planActiveCache.Set(cacheKey, &plan)
+	}
 	return &plan, nil
 }
 

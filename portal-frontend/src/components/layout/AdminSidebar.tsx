@@ -63,7 +63,6 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     title: '\u041E\u0442\u0447\u0451\u0442\u044B',
     items: [
-      { path: '/admin/detalization', label: '\u0414\u0435\u0442\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u044F', icon: '\u{1F50D}', resource: 'analytics' },
       { path: '/admin/analytics', label: '\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430', icon: '\u{1F4C8}', resource: 'analytics' },
       { path: '/admin/monitoring', label: '\u041C\u043E\u043D\u0438\u0442\u043E\u0440\u0438\u043D\u0433', icon: '\u26A1', resource: 'analytics' },
       { path: '/admin/audit', label: '\u0410\u0443\u0434\u0438\u0442', icon: '\u{1F4DC}', resource: 'audit' },

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { campaignsApi } from '../../api/campaigns';
 import { contactListsApi, type ContactList, type ContactListSegments } from '../../api/contacts';
-import { senderNamesApi, type SenderNameInfo, ApiError, type TemplateInfo } from '../../api/client';
+import { senderNamesApi, defaultSendersApi, type SenderNameInfo, ApiError, type TemplateInfo } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -86,13 +86,22 @@ export function CampaignWizardPage() {
   } | null>(null);
   const [costLoading, setCostLoading] = useState(false);
 
-  // Загрузка sender names
+  // Загрузка sender names + дефолтного отправителя для канала SMS
   useEffect(() => {
     setSendersError('');
-    senderNamesApi.listApproved().then((res) => {
-      const names = res.sender_names ?? [];
+    Promise.all([
+      senderNamesApi.listApproved(),
+      defaultSendersApi.get().catch(() => ({} as Record<string, string>)),
+    ]).then(([sendersRes, defaults]) => {
+      const names = sendersRes.sender_names ?? [];
       setSenderNames(names);
-      if (names.length > 0) setSenderNameId(names[0].id);
+      if (names.length > 0) {
+        const defaultId = defaults['sms'];
+        const initialSender = (defaultId && names.find((s) => s.id === defaultId))
+          ? defaultId
+          : names[0].id;
+        setSenderNameId(initialSender);
+      }
     }).catch((err) => {
       setSendersError(err instanceof ApiError ? err.message : 'Не удалось загрузить имена отправителей');
     });
@@ -746,22 +755,27 @@ export function CampaignWizardPage() {
                   className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
               </div>
 
-              {abEnabled && (
-                <div className="p-3 flex justify-between items-start gap-2">
-                  <div className="min-w-0">
-                    <dt className="text-gray-500 text-xs mb-1">A/B тестирование</dt>
-                    <dd className="text-gray-900 truncate">
-                      Вариант B: {(abTemplateB?.body || '—').slice(0, 80)}
-                    </dd>
-                    <dd className="text-gray-500 text-xs mt-0.5">
-                      Доля: {abSplitPercent}% · Время: {abDurationHours}ч ·{' '}
-                      Метрика: {abMetric === 'delivery_rate' ? 'Доставка' : abMetric === 'click_rate' ? 'CTR' : 'Уник. CTR'}
-                    </dd>
+              {abEnabled && (() => {
+                const variantBLabel = abMessageTextB.trim()
+                  ? `Вариант B: ${abMessageTextB.slice(0, 80)}${abMessageTextB.length > 80 ? '…' : ''}`
+                  : abTemplateB
+                  ? `Шаблон варианта B: ${abTemplateB.name} — ${abTemplateB.body.slice(0, 60)}${abTemplateB.body.length > 60 ? '…' : ''}`
+                  : 'Вариант B: —';
+                return (
+                  <div className="p-3 flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <dt className="text-gray-500 text-xs mb-1">A/B тестирование</dt>
+                      <dd className="text-gray-900 truncate">{variantBLabel}</dd>
+                      <dd className="text-gray-500 text-xs mt-0.5">
+                        Доля: {abSplitPercent}% · Время: {abDurationHours}ч ·{' '}
+                        Метрика: {abMetric === 'delivery_rate' ? 'Доставка' : abMetric === 'click_rate' ? 'CTR' : 'Уник. CTR'}
+                      </dd>
+                    </div>
+                    <button type="button" onClick={() => setStep('message')}
+                      className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
                   </div>
-                  <button type="button" onClick={() => setStep('message')}
-                    className="shrink-0 text-xs text-blue-600 hover:underline">изменить</button>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="p-3 flex justify-between items-start gap-2">
                 <div className="min-w-0">
