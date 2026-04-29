@@ -2,9 +2,59 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 9/30: Admin — clients (CRUD + блокировка) (admin, /admin/clients, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 9/30: Admin — clients (CRUD + блокировка) (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
-Lock поставлен. UI-проверки пропускаю. Свежий MVP-feedback №4 — модалка блокировки + бейдж разблокировки (commit 1d29699). На стенде из demo_seed: 4 клиента (Demo-Main/Demo-Reseller/Demo-Light/Demo-Default).
+[Summary] 13 TC прогнаны, 1 CRITICAL bug (BUG-21) найден и исправлен, 3 follow-up зафиксированы (BUG-22 LOW, BUG-23 HIGH security/policy, BUG-24 MED). Также расширен scope BUG-16 до 7 файлов после доп. grep'a reviewer'ом.
+
+[BUG LIST]
+
+BUG-21: client_configs UpdateRateLimits падал на jsonb (SQLSTATE 22P02) — Severity: CRITICAL — Категория: Reliability Risk
+  Шаги: PUT /admin/v1/clients/:id/rate-limits для клиента без записи в client_configs (Demo-Light в seed) → 500.
+  Корневая причина: тот же паттерн что BUG-15 (HLR config). UpdateRateLimits через ErrConfigNotFound фоллбэчится в Create, который пишет json.RawMessage напрямую в jsonb колонку → bytea без implicit cast.
+  Доказательство: client-service log `ERROR: invalid input syntax for type json (SQLSTATE 22P02)`
+  Фикс: commit cec04b8 — `string(config.Settings)` в Create+Update. Verify: после фикса 200, не 500.
+
+BUG-22 (наблюдение): negative rate-limit принимается без валидации — Severity: LOW — Категория: Logic Gap
+  Шаги: PUT /admin/v1/clients/:id/rate-limits с rate_limit_per_second=-10 → 200 OK
+  Ожидалось: 400 с понятным сообщением "rate_limit must be ≥0"
+  Фикс: вынесен в follow-up (handler-level enum/range validation, аналогично BUG-10 для bind_type)
+
+BUG-23: блокировка клиента (active=false) не блокирует login его users — Severity: HIGH — Категория: Access Control
+  Шаги: 1) admin делает PUT /admin/v1/clients/<reseller_id> active=false 2) пользователь reseller@demo.local логинится → 200 с user.active=true
+  Ожидалось: блокировка clients.active=false должна автоматически отбрасывать login users этого клиента (либо явно через FOREIGN KEY check, либо middleware). Иначе пользователь продолжает видеть UI с фоном-битыми операциями.
+  Получилось: login успешен, юзер видит портал, но любой POST/PUT, требующий active client, упадёт.
+  Корневая причина: auth/login проверяет только `users.active`, не `clients.active`. Спецификация бизнес-логики: должен ли клиент блокироваться вместе с user — неясно.
+  Фикс: вынесен в follow-up — требует дизайн-решения от пользователя (cascade блокировка users при clients.active=false vs middleware-проверка clients.active в каждом endpoint).
+
+BUG-24: PUT /clients/:id/rate-limits возвращает success но values НЕ персистятся — Severity: MED — Категория: Logic Gap
+  Шаги: PUT с {rate_limit_per_second:99,...} → 200 {"success":true}; SELECT в client_configs показывает rate_limit_per_second=0; SELECT в clients показывает старые legacy-значения 100/6000.
+  Ожидалось: переданные значения сохраняются в client_configs.
+  Получилось: SQL UPDATE действительно срабатывает (updated_at changes), но значения = 0. Видимо handler/gRPC mapping в admin-gateway или client-service теряет fields из request body.
+  Корневая причина: предположительно proto-mapping в admin/handlers/clients.go или client-service gRPC server.UpdateRateLimits — нужен trace.
+  Фикс: вынесен в follow-up (требует deep-dive в gRPC contract mapping)
+
+[Test Coverage]
+PASS: 9.1 list clients → 200 (видны клиенты из этапов 2 + demo), 9.2 RBAC user→403/unauth→401, 9.3 get client → 200, 9.4 update contact_person → 200 + DB consistency, 9.5 block (active=false) → 200 + DB confirm, 9.6 unblock → 200, 9.7 freeze billing → 200 (frozen_at returned), 9.8 unfreeze → 200, 9.9 update rate-limits → 200 (после фикса BUG-21), 9.11 non-existent get → 404, 9.12 non-existent update → 404 "client not found".
+FAIL/наблюдения: 9.10 negative rate (BUG-22), 9.13 blocked client login (BUG-23), 9.14 rate-limits not persisting (BUG-24).
+
+OBSERVATIONS:
+- В DB две таблицы с rate_limit_*: `clients.rate_limit_*` (legacy, видны 100/6000 для Demo-Light из seed) и `client_configs.rate_limit_*` (canonical из 000003). Раздвоение — потенциальный источник rasism, синхронизация неясна. Зафиксирую как **наблюдение для архитектора**.
+- Freeze/unfreeze billing работает корректно и независимо от clients.active — это намеренно (биллинг-блок без полной блокировки клиента). UI должен это отображать.
+
+[Recommendations]
+1. (HIGH) BUG-23: дизайн-решение по cascade блокировки. Требует ответа: следует ли блокировать users автоматически при clients.active=false?
+2. (MED) BUG-24: deep-dive в gRPC client-service.UpdateRateLimits — trace handler params до SQL. Тривиальный регрессион-тест: PUT → GET, expect-equal.
+3. (LOW) Унифицировать rate_limit fields: либо удалить из clients (legacy), либо синхронизировать.
+4. (MED) Расширить BUG-16 follow-up до 7 файлов: client/config_repository (этим коммитом), contact, provider, campaign — все имеют тот же jsonb-паттерн (источник: review at agent af9e89a0efa4e5798).
+
+[Test Data] Все правки на Demo-Light (rate_limits/contact_person) и Demo-Reseller (active toggle) восстановлены.
+
+[Commits этапа]
+- (lock-коммит, см. предыдущий — этап 9 IN_PROGRESS)
+- cec04b8 fix(client): передавать settings как string в client_configs jsonb [BUG-21]
+- (этот) docs(audit): этап 9/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 8/30: Admin — legal-entities + contracts (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
