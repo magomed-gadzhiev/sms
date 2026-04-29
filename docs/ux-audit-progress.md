@@ -2,9 +2,41 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 7/30: Admin — tariffs + tarification (admin, /admin/tariffs + /admin/tarification + /admin/individual-tariffs, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 7/30: Admin — tarification (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
-Lock поставлен. UI-проверки пропускаю (Playwright MCP disconnected). На стенде из demo_seed: subscription_plans (free/starter/business/pro), tariffs по операторам, индивидуальные тарифы. Свежий MVP-feedback №5 — operation_kind в transactions (commit dcbab7f, миграция 121).
+[Summary] 13 TC прогнаны (12 PASS, 1 повторение BUG-9 паттерна). Без code-fix'ов (повторение системного паттерна).
+
+[BUG LIST]
+
+BUG-17 (повторение паттерна BUG-9): CHECK constraint violation на sender_category=INVALID возвращает 500 вместо 400 — Severity: MED — Категория: Logic Gap
+  Шаги: POST /admin/v1/tarification/tariff-plans с sender_category="INVALID" → HTTP 500
+  Ожидалось: 400 с указанием допустимых значений (shared/paid_registered/free_registered)
+  Получилось: 500 (raw SQL не утекает благодаря BUG-7 fix, но HTTP-код неправильный)
+  Корневая причина: tarification-service возвращает codes.Internal на CHECK constraint violation вместо codes.InvalidArgument. Тот же паттерн что BUG-9/BUG-13.
+  Фикс: вынесен в follow-up — общий системный error-mapping PR (вместе с BUG-9/13)
+
+[Test Coverage]
+PASS: 7.1 list tariff-plans → 200 (empty в seed), 7.2 RBAC user→403/unauth→401, 7.3 list tariff-periods → 200, 7.4 list tariff-tiers → 200, 7.5 list hierarchical periods → 200, 7.6 list usage без client_id → 400 c понятным сообщением, 7.10 list usage с client_id → 200, 7.7 list sender-registrations → 200, 7.8 create tariff-plan happy (valid sender_category+strategy) → 201, 7.14 duplicate active plan (partial UNIQUE) → 409 с понятным сообщением, 7.15 update PUT active=false → 200 + DB consistency, 7.11 hierarchical periods RBAC user→403, 7.12b create hierarchical period validation (требует country_id) → 400 (correct).
+
+OBSERVATIONS:
+- API контракт CreateTariffPlanRequest требует operator_id+sender_category+strategy (не name+description как ожидалось). Schema CHECK constraints: sender_category IN (shared, paid_registered, free_registered), strategy IN (fixed, threshold, threshold_recalc, prepaid_threshold).
+- Hierarchical period также требует country_id вместе с operator_id — сложная иерархия.
+- /tarification/usage без client_id возвращает 400 (правильно — нельзя смотреть всё-всё, только per-client).
+- TC 7.14 показал: tarification-service ПРАВИЛЬНО классифицирует partial UNIQUE violation как 409. Значит BUG-9 не повсеместен — где-то error mapping есть. Это означает, что system-wide fix BUG-9 нужно делать аккуратно, не сломав уже корректные пути.
+
+[Success Path] Admin создаёт tariff-plan: POST с {operator_id, sender_category=shared|paid_registered|free_registered, strategy=fixed|threshold|threshold_recalc|prepaid_threshold, active=true} → 201 + tariff_plan_id. PUT для отключения, GET через /tariff-plans для list. Hierarchical periods для иерархических тарифов с операторами и странами.
+
+[Recommendations]
+1. (MED) Объединить BUG-9 + BUG-13 + BUG-17 в один системный PR error-mapping. Перед фиксом проверить какие сервисы УЖЕ корректно возвращают 409/422 — не сломать их.
+2. (LOW) Документировать допустимые enum values (sender_category, strategy) в API spec — иначе клиенты будут ловить 500 на CHECK violation.
+
+[Test Data] Создан/удалён: tariff-plan QA для МТС/shared/fixed → переключён на active=false → удалён SQL'ом.
+
+[Commits этапа]
+- 59202cf docs(audit): этап 7/30 — [IN_PROGRESS]
+- (этот) docs(audit): этап 7/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 6/30: Admin — HLR providers (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
