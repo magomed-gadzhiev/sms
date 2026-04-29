@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 11/30: Admin — sender-names review/approve (admin, fix + Infrastructure + QA full, 2026-04-29)
+
 ## [DONE] Этап 10/30: Admin — aggregators (sub-accounts UI) (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 20 TC прогнаны, 4 функциональных бага найдены и исправлены одним PR (BUG-25/26/29/30), 3 follow-up зафиксированы (BUG-27 архитектурный — overlap, BUG-28 паттерн error-mapping, BUG-31 missing UI route).
