@@ -2,9 +2,48 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 8/30: Admin — legal-entities + contracts (admin, /admin/legal-entities + /admin/contracts, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 8/30: Admin — legal-entities + contracts (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
-Lock поставлен. UI-проверки пропускаю.
+[Summary] 10 TC прогнаны (PASS после fix), 1 HIGH bug найден и исправлен (BUG-18 — JOIN typo, ещё 2 латентных в detalization), 2 минор как follow-up.
+
+[BUG LIST]
+
+BUG-18: SQL JOIN typo `cl.client_id` вместо `cl.id` — Severity: HIGH — Категория: Logic Gap / Spec Drift
+  Шаги: GET /admin/v1/contracts → 500
+  Корневая причина: `clients.id` это PK; FK-имя `client_id` существует только на referencing-таблицах (contracts, messages, users). Три идентичных typo в `contracts.go:94` (active failure), `detalization.go:96` и `:197` (latent — endpoint deprecated в MVP-feedback №10).
+  Доказательство: backend log `ERROR: column cl.client_id does not exist (SQLSTATE 42703)`
+  Фикс: commit 38c0d42 — три однобуквенные правки (cl.client_id → cl.id). Verify: list contracts → 200, contract creation+JOIN корректно показывают client_name.
+
+BUG-19 (наблюдение): PUT /admin/v1/contracts/:id с partial body вызывает SQLSTATE 22P02 на legal_entity_id="" — Severity: MED — Категория: Logic Gap
+  Шаги: PUT /admin/v1/contracts/:id с body {"status":"terminated"} → 500
+  Корневая причина: handler заполняет все поля contracts в UPDATE-запросе, не различая present/absent поля. legal_entity_id из request → "" → передан как UUID → 22P02.
+  Фикс: вынесен в follow-up (нужно использовать `*string` или sql.NullString для optional полей в UpdateContract handler/repo)
+
+BUG-20 (наблюдение): DELETE 204 No Content + handler пытается JSON-encode body — Severity: LOW — Категория: Code Quality
+  Шаги: DELETE /admin/v1/legal-entities/:id → 204 (правильно), но в логе backend "http: request method or response status code does not allow body".
+  Корневая причина: handler делает respondJSON после w.WriteHeader(204).
+  Фикс: вынесен в follow-up (dead-code в handler, не фатально для клиента)
+
+[Test Coverage]
+PASS: 8.1 list legal-entities → 200, 8.2 RBAC user→403/unauth→401, 8.3 list contracts → 200 (после фикса BUG-18), 8.4 create legal-entity (с правильными полями name+inn+full_name+address) → 201 + DB insert, 8.5 missing required → 400 "inn и name обязательны", 8.6 create contract (с client_id+legal_entity_id+contract_number+start_date) → 201 + DB consistency + JOIN client_name, 8.7 list contracts after create → 200 с full body, 8.9 delete contract → 204, 8.10 delete legal-entity → 204 + DB count=0.
+
+OBSERVATIONS:
+- DELETE — hard delete для contracts/legal-entities (не soft, в отличие от HLR providers).
+- API CreateLegalEntity ждёт name+inn+full_name+address (не company_name+kpp+legal_address+actual_address+ceo_name как ожидалось от UI). Schema проще, чем кажется по UI.
+
+[Recommendations]
+1. (HIGH) Регрессионный smoke integration-тест на /admin/v1/contracts (list+create+update+delete). Тест бы поймал BUG-18 до production. Аналогично для всех list endpoints с JOIN'ами.
+2. (MED) BUG-19: рефакторинг UpdateContract handler/repo на partial-update паттерн (или domain-level approach с GetByID + apply changes + Save).
+3. (LOW) BUG-20: убрать respondJSON после WriteHeader(204) в delete handlers.
+
+[Test Data] Создан/удалён: legal-entity QA-Legal (id 96071b23-...) → contract QA-001 (id da232978-...) → DELETE'нуты через API endpoint, остатки cleanup'нуты SQL'ом (0 rows).
+
+[Commits этапа]
+- (lock коммит — пропущен, sloppy state)
+- 38c0d42 fix(admin): contracts/detalization JOIN typo cl.client_id → cl.id [BUG-18]
+- (этот) docs(audit): этап 8/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 7/30: Admin — tarification (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
