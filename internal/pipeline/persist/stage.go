@@ -3,6 +3,7 @@ package persist
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -19,6 +20,15 @@ import (
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// persistTempTableReuse — load-test-only флаг. Под `true` использует
+// `CREATE TEMP TABLE IF NOT EXISTS ... ON COMMIT DELETE ROWS` (зануляет
+// DDL-overhead на каждом батче). Опасность: если миграция изменит схему
+// `messages` без рестарта persist-pod'а — закешированная schema temp-table
+// в pgbouncer-сессии разойдётся с реальной, COPY упадёт. Default false:
+// делает DROP+CREATE на каждый батч (медленнее, но безопасно при in-place
+// миграциях).
+var persistTempTableReuse = os.Getenv("PERSIST_TEMP_TABLE_REUSE") == "true"
 
 // messageRow holds the data for a single row to be COPYed into the messages table.
 type messageRow struct {
@@ -180,12 +190,27 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Create temp table. Drop-and-recreate (matching status/stage.go) ensures
-	// the schema is always current even when pgbouncer hands us a reused backend
-	// connection whose session retained an older persist_batch definition after
-	// a migration. `CREATE TEMP TABLE IF NOT EXISTS` is unsafe here because it
-	// silently keeps a stale schema → COPY fails with "column X does not exist".
-	_, err = tx.Exec(ctx, `
+	// 1. Create temp table.
+	// Default (safe): DROP+CREATE на каждом батче — DDL overhead, но
+	// гарантирует совпадение схемы temp-table с актуальным набором
+	// колонок даже после in-place миграции `messages`.
+	// Под `PERSIST_TEMP_TABLE_REUSE=true` (load-test): CREATE IF NOT
+	// EXISTS + ON COMMIT DELETE ROWS — переиспользуем существующую
+	// pg_temp таблицу для всей сессии. См. комментарий к
+	// persistTempTableReuse.
+	var ddl string
+	if persistTempTableReuse {
+		ddl = `
+		CREATE TEMP TABLE IF NOT EXISTS persist_batch (
+			id UUID, message_id VARCHAR(255), source VARCHAR(20), destination VARCHAR(20),
+			text TEXT, encoding VARCHAR(20), segment_count INT, status VARCHAR(50),
+			priority_flag INT, provider_id UUID, route_id UUID, client_id UUID,
+			template_id UUID, sender_name_id UUID,
+			operator_id UUID, country_id UUID, channel VARCHAR(20),
+			retry_count INT, max_retries INT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+		) ON COMMIT DELETE ROWS`
+	} else {
+		ddl = `
 		DROP TABLE IF EXISTS persist_batch;
 		CREATE TEMP TABLE persist_batch (
 			id UUID, message_id VARCHAR(255), source VARCHAR(20), destination VARCHAR(20),
@@ -194,8 +219,9 @@ func (s *Stage) copyInsert(ctx context.Context, rows []messageRow) error {
 			template_id UUID, sender_name_id UUID,
 			operator_id UUID, country_id UUID, channel VARCHAR(20),
 			retry_count INT, max_retries INT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-		) ON COMMIT DELETE ROWS`)
-	if err != nil {
+		)`
+	}
+	if _, err = tx.Exec(ctx, ddl); err != nil {
 		return fmt.Errorf("create temp table: %w", err)
 	}
 

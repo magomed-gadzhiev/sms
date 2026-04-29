@@ -92,6 +92,30 @@ const pipelineOptions = {
     tags: commonTags,
 };
 
+const stressOptions = {
+    scenarios: {
+        stress: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '1m',  target: 500 },
+                { duration: '2m',  target: 1500 },
+                { duration: '2m',  target: 3000 },
+                { duration: '10m', target: 3500 },
+                { duration: '1m',  target: 0 },
+            ],
+            exec: 'pipelineDefault',
+            gracefulRampDown: '30s',
+            tags: { scenario: 'stress' },
+        },
+    },
+    thresholds: {
+        'http_req_failed{name:SendSMS}':    ['rate<0.10'],
+        'http_req_failed{name:SendBatch}':  ['rate<0.10'],
+    },
+    tags: commonTags,
+};
+
 const soakOptions = {
     scenarios: {
         soak: {
@@ -112,9 +136,10 @@ const soakOptions = {
 };
 
 export const options =
-    SCENARIO === 'smoke' ? smokeOptions :
-    SCENARIO === 'soak'  ? soakOptions  :
-                           pipelineOptions;
+    SCENARIO === 'smoke'  ? smokeOptions  :
+    SCENARIO === 'soak'   ? soakOptions   :
+    SCENARIO === 'stress' ? stressOptions :
+                            pipelineOptions;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 

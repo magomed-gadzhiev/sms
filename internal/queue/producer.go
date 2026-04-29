@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -11,11 +12,18 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 )
 
-// Producer представляет Kafka producer для публикации сообщений
+// Producer представляет Kafka producer для публикации сообщений.
+//
+// Под флагом KAFKA_ASYNC_PUBLISH=true параллельно инициализируется
+// sarama.AsyncProducer и publish() использует его вместо блокирующего
+// SendMessage. Дубляж ресурсов приемлем: AsyncProducer живёт столько же,
+// сколько и SyncProducer, shared-состояния нет.
 type Producer struct {
-	producer sarama.SyncProducer
-	config   *config.KafkaConfig
-	logger   zerolog.Logger
+	producer      sarama.SyncProducer
+	asyncProducer sarama.AsyncProducer // nil если async-режим отключен
+	asyncEnabled  bool
+	config        *config.KafkaConfig
+	logger        zerolog.Logger
 }
 
 // WaitForKafka ожидает готовности Kafka брокеров
@@ -63,17 +71,38 @@ func WaitForKafka(cfg *config.KafkaConfig, maxAttempts int, backoff time.Duratio
 	return fmt.Errorf("Kafka брокеры недоступны после %d попыток", maxAttempts)
 }
 
-// NewProducer создает новый Kafka producer
+// NewProducer создает новый Kafka producer.
+//
+// KAFKA_FAST_PRODUCER=true enables high-throughput mode for load testing:
+//   - RequiredAcks=WaitForLocal (no cross-replica wait; single-broker setup
+//     anyway makes WaitForAll == WaitForLocal semantically)
+//   - MaxOpenRequests=5 (up to 5 in-flight requests per broker, allowing
+//     parallel sends from concurrent goroutines — default 1 serializes ALL
+//     producers through one in-flight slot)
+//   - Idempotent=false (idempotence requires MaxOpenRequests<=5 + acks=all;
+//     incompatible with the above under Sarama)
+//
+// Default (non-fast) preserves durability guarantees but is ~10x slower under
+// high concurrency because sync SendMessage with MaxOpenRequests=1 serializes.
 func NewProducer(cfg *config.KafkaConfig) (*Producer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.Return.Errors = true
-	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
 	saramaConfig.Producer.Retry.Max = cfg.MaxRetries
 	saramaConfig.Producer.Retry.Backoff = cfg.RetryBackoff
 	saramaConfig.Producer.Compression = sarama.CompressionSnappy
-	saramaConfig.Producer.Idempotent = true
-	saramaConfig.Net.MaxOpenRequests = 1
+
+	if os.Getenv("KAFKA_FAST_PRODUCER") == "true" {
+		saramaConfig.Producer.RequiredAcks = sarama.WaitForLocal
+		saramaConfig.Producer.Idempotent = false
+		saramaConfig.Net.MaxOpenRequests = 5
+		saramaConfig.Producer.Flush.Frequency = 5 * time.Millisecond
+		saramaConfig.Producer.Flush.Messages = 500
+	} else {
+		saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
+		saramaConfig.Producer.Idempotent = true
+		saramaConfig.Net.MaxOpenRequests = 1
+	}
 
 	producer, err := sarama.NewSyncProducer(cfg.Brokers, saramaConfig)
 	if err != nil {
@@ -82,11 +111,54 @@ func NewProducer(cfg *config.KafkaConfig) (*Producer, error) {
 
 	logger := log.With().Str("component", "kafka_producer").Logger()
 
-	return &Producer{
+	p := &Producer{
 		producer: producer,
 		config:   cfg,
 		logger:   logger,
-	}, nil
+	}
+
+	// Опциональный AsyncProducer — для inter-stage hot-path publish.
+	// Активируется ENV KAFKA_ASYNC_PUBLISH=true. При ошибке создания —
+	// падаем в sync (не fatal).
+	//
+	// ВАЖНО (load-test only): async-режим — fire-and-forget, caller получает
+	// nil сразу после Input() <- message. Это нарушает at-least-once для
+	// топика sms.outgoing (caller уже ответил клиенту HTTP 200 / SMPP
+	// SUBMIT_OK), поэтому publish() форсит sync для TopicOutgoing
+	// независимо от asyncEnabled. Под этим флагом async допустим только
+	// для inter-stage топиков (sms.routed, sms.dlr, sms.failed) — там
+	// retry-цепочка уже встроена в pipeline.
+	if os.Getenv("KAFKA_ASYNC_PUBLISH") == "true" {
+		asyncCfg := sarama.NewConfig()
+		asyncCfg.Producer.Return.Successes = false
+		asyncCfg.Producer.Return.Errors = true
+		asyncCfg.Producer.RequiredAcks = sarama.WaitForLocal
+		asyncCfg.Producer.Compression = sarama.CompressionSnappy
+		asyncCfg.Producer.Flush.Frequency = 5 * time.Millisecond
+		asyncCfg.Producer.Flush.Messages = 500
+		asyncCfg.Producer.Flush.Bytes = 1 << 20 // 1 MB
+		asyncCfg.Net.MaxOpenRequests = 8
+		asyncCfg.Producer.Retry.Max = cfg.MaxRetries
+		asyncCfg.Producer.Retry.Backoff = cfg.RetryBackoff
+
+		ap, err := sarama.NewAsyncProducer(cfg.Brokers, asyncCfg)
+		if err != nil {
+			logger.Warn().Err(err).Msg("не удалось создать AsyncProducer, падаем в sync")
+		} else {
+			p.asyncProducer = ap
+			p.asyncEnabled = true
+			go func() {
+				for e := range ap.Errors() {
+					logger.Error().Err(e.Err).Str("topic", e.Msg.Topic).Msg("async publish error")
+				}
+			}()
+			logger.Warn().
+				Str("topic_outgoing_forced_sync", cfg.TopicOutgoing).
+				Msg("KAFKA_ASYNC_PUBLISH=true — fire-and-forget включён для inter-stage; LOAD-TEST ONLY, в prod-конфигах флаг не должен быть выставлен")
+		}
+	}
+
+	return p, nil
 }
 
 // PublishOutgoing публикует исходящее SMS сообщение в топик sms.outgoing
@@ -213,6 +285,17 @@ func (p *Producer) publish(ctx context.Context, topic string, msg *KafkaMessage)
 		Timestamp: time.Now(),
 	}
 
+	// Fast path: если AsyncProducer активен И топик НЕ sms.outgoing —
+	// fire-and-forget. Для sms.outgoing форсим sync, потому что caller
+	// уже отрапортовал клиенту HTTP 200 / SMPP SUBMIT_OK и потеря
+	// сообщения = реальная потеря для клиента, а не «pipeline catch-up».
+	// Inter-stage топики (sms.routed/dlr/failed) переживают потерю —
+	// retry-цепочка встроена в consumer'ы.
+	if p.asyncEnabled && topic != p.config.TopicOutgoing {
+		p.asyncProducer.Input() <- message
+		return nil
+	}
+
 	// Retry механизм
 	var lastErr error
 	for attempt := 0; attempt <= p.config.MaxRetries; attempt++ {
@@ -251,6 +334,11 @@ func (p *Producer) publish(ctx context.Context, topic string, msg *KafkaMessage)
 
 // Close закрывает producer
 func (p *Producer) Close() error {
+	if p.asyncProducer != nil {
+		if err := p.asyncProducer.Close(); err != nil {
+			p.logger.Error().Err(err).Msg("ошибка закрытия async producer")
+		}
+	}
 	if err := p.producer.Close(); err != nil {
 		p.logger.Error().Err(err).Msg("ошибка закрытия producer")
 		return err
