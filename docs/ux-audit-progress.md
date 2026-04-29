@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 4/30: Admin — providers + connections (admin, /admin/providers + /admin/connections, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки пропускаю (Playwright MCP disconnected). На стенде из demo_seed: 8 провайдеров (Provider-MTS-RU/Beeline/Megafon/Tele2/Tinkoff/International/Backup). Свежий MVP-feedback №3 — Edit-визард providers (commits 1414b8b/b8e0d6c). Endpoints: GET/POST/PUT/DELETE /admin/v1/providers, GET /providers/:id/health; GET /connections, POST /connections/:id/{reconnect,stop}.
+
 ## [DONE] Этап 3/30: Admin — countries + operators (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only, без UI)
 
 [Summary] 19 TC прогнаны (PASS), 2 баг найдены и исправлены. UI-проверки пропущены (Playwright MCP disconnected) — режим API+SQL. На стенде свежеприменены миграции 122-123 (MCC/MNC + seed СНГ); MCC/MNC у legacy-операторов из 000012 — NULL (заметка для этапа 5).
