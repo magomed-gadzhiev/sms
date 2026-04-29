@@ -2,9 +2,44 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 3/30: Admin — countries + operators (admin, /admin/countries + /admin/v1/{countries,operators,operators/*/prefixes}, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 3/30: Admin — countries + operators (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only, без UI)
 
-Lock поставлен. UI-проверки невозможны (Playwright MCP disconnected) — режим API+SQL. Endpoints: GET/POST /admin/v1/countries, GET/POST/PUT /admin/v1/operators, GET/POST/DELETE /admin/v1/operators/:id/prefixes. На стенде свежеприменены миграции 122-123 (MCC/MNC + seed СНГ).
+[Summary] 19 TC прогнаны (PASS), 2 баг найдены и исправлены. UI-проверки пропущены (Playwright MCP disconnected) — режим API+SQL. На стенде свежеприменены миграции 122-123 (MCC/MNC + seed СНГ); MCC/MNC у legacy-операторов из 000012 — NULL (заметка для этапа 5).
+
+[BUG LIST]
+
+BUG-6: country handler не валидирует длину/формат полей — SQL-leak в 500 — Severity: MED — Категория: Logic Gap / Information Disclosure
+  Шаги: POST /admin/v1/countries с iso_code="TOOLONG" → response 500 + body содержит SQLSTATE 22001 "value too long for type character varying(2)" (раскрытие schema)
+  Ожидалось: 400 с понятным сообщением, без leak'а схемы
+  Получилось: 500 с raw SQL-ошибкой
+  Доказательство: HTTP 500 body `"ERROR: value too long for type character varying(2) (SQLSTATE 22001)"`
+  Фикс: commit 068150e — добавил handler-level validation: ISO 3166-1 alpha-2 regex для iso_code, ISO 4217 для currency, `^\+?[0-9]{1,5}$` для phone_code, name max 100 рун (UTF-8). UpdateCountry теперь тоже Validate(), пустой body отвергается 400. Прошёл 2 review-цикла (UTF-8 runes, regex format, empty-body).
+
+BUG-7 (cross-cutting): default-ветка `response.GRPCError` форвардила `st.Message()` для codes.Internal → SQL-leak во ВСЕХ admin/portal/client handlers — Severity: HIGH — Категория: Information Disclosure / Reliability Risk
+  Шаги: любая непредусмотренная DB-ошибка (FK violation, deadlock, future-migration constraint) проходила через `respondGRPCError` → `ErrInternalServer(st.Message())` → клиент видел raw SQL-сообщение
+  Ожидалось: generic "Внутренняя ошибка сервера" клиенту, детали в server-side log
+  Получилось: 17+ admin handlers и 60+ portal/client handlers — все потенциальные SQL-утечки
+  Доказательство: BUG-6 — конкретный пример leak'а; grep по `status.Error(codes.Internal, err.Error())` в `internal/services/*/grpc/server.go` показал 47+ call-site'ов с тем же паттерном
+  Фикс: commit 068150e — `response.go` default-ветка возвращает static "Внутренняя ошибка сервера", server-side `log.Error().Err(err)` уже сохраняет detail. Закрывает leak system-wide одной правкой.
+
+[Test Coverage]
+PASS: 3.1 list countries → 200 (СНГ из seed 123), 3.2 list operators → 200, 3.3 user → 403 "Admin access required", 3.4 unauth → 401, 3.5 create happy → 201, 3.6 duplicate iso_code → 409, 3.7 empty name → 400, 3.8 iso_code TOOLONG → 400 (после фикса), 3.8b iso_code lowercase → 400, 3.8c phone_code 6цифр → 400, 3.8d cyrillic name 88 символов → 201, 3.9 SQLi в name → 400 (parsing fails), 3.10 UpdateCountry empty body → 400 (после фикса), 3.11 list operators with country_id filter → 200, 3.12 create operator → 201, 3.13 create prefix → 201, 3.14 list prefixes → 200, 3.15 create operator с несуществующим country_id → 404 "country not found", 3.16 update operator → 200, 3.17 DB consistency после update → ✓, 3.18 unauth+user POST operators → 401/403, 3.19 empty prefix → 400.
+
+[Success Path] Admin list countries → /admin/v1/countries → 200 со списком СНГ. Admin создаёт страну: POST {name, iso_code (2 ASCII upper), phone_code (digits), currency (3 ASCII upper)} → handler validate → routing-service gRPC → INSERT clients → 201 с full body. Operators: POST /admin/v1/operators c {country_id, name, code} → 201; затем POST /operators/:id/prefixes c {prefix} → 201; список через /operators/:id/prefixes → 200.
+
+[Recommendations]
+1. (HIGH) DELETE country/operator endpoints не реализованы (404). Добавить — иначе test-data накапливается без cleanup.
+2. (MED) MCC/MNC у legacy-операторов из миграции 000012 — NULL; сидится только новые из 000123. Если route lookup использует MCC/MNC primary, легаси не находится. Проверить в этапе 5 (routes/MCC/MNC).
+3. (LOW) Прод-проверка legacy-данных: SELECT количества стран с lowercase currency / нестандартным phone_code, чтобы убедиться что новый regex не сломает UPDATE их через legacy-форму.
+
+[Test Data] Создано/удалено: country YZ (Cyrillic-test), country QA (length-test), operator QA-Operator-Renamed с prefix 7888 — все cleanup'нуты SQL-DELETE'ом в конце прогона.
+
+[Commits этапа]
+- aec3ca4 docs(audit): этап 3/30 — [IN_PROGRESS]
+- 068150e fix(admin): country length+format validation + GRPC error leak [BUG-6 + BUG-7]
+- (этот) docs(audit): этап 3/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 2/30: Auth — register / password-reset / 2FA setup (user, fix + Infrastructure + QA full, 2026-04-29) — частичный
 
