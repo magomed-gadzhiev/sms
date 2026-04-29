@@ -1,58 +1,75 @@
 # sms Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-18
+SMS-платформа: набор Go-микросервисов + React-портал. Spec-driven development через `.specify/`.
 
-## Active Technologies
-- Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), prometheus/client_golang (metrics), stretchr/testify (testing) (002-operator-tarification)
-- PostgreSQL 15+ (pgx driver, monthly partitioning for high-volume tables), Redis 7+ (caching) (002-operator-tarification)
-- Go 1.24.0 (backend), TypeScript (frontend SPA) + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, golang-jwt/jwt/v5, pquerna/otp (TOTP 2FA), React 19 + Vite (frontend) (003-self-service-portal)
-- PostgreSQL 15+ (pgx, monthly partitioning для audit_log), Redis 7+ (сессии, rate-limiting, кеш) (003-self-service-portal)
-- Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), prometheus/client_golang (metrics) (004-hlr-smart-routing)
-- PostgreSQL 15+ (pgx driver, monthly partitioning для lookup_log), Redis 7+ (HLR cache) (004-hlr-smart-routing)
-- Go 1.24.0 + testify/assert, testify/require, testify/mock, pgx/v5, go-redis/v9, gorilla/mux, google.golang.org/grpc, zerolog (005-unit-functional-tests)
-- PostgreSQL 15+ (тестовая БД через pgx), Redis 7+ (тестовый для сессий/кеша) (005-unit-functional-tests)
-- TypeScript 5.x + React 19 (Vite) + react-router-dom (уже используется), нет новых зависимостей (006-ux-a11y-audit)
-- N/A (фронтенд-только) (006-ux-a11y-audit)
-- Grafana JSON (дашборд), YAML (provisioning), Go 1.24.0 (новая метрика) + Grafana 10+ (визуализация), Prometheus (time-series), PostgreSQL 15+ (бизнес-данные), grafana-postgresql-datasource (плагин) (007-grafana-live-dashboard)
-- Prometheus (метрики: counters, histograms, gauges), PostgreSQL (accounts, transactions, messages, tarification_log, aggregated_metrics) (007-grafana-live-dashboard)
-- PostgreSQL 15+ (pgx, monthly partitioning для messages/audit_log), Redis 7+ (rate-limiting, cache), Apache Kafka (inter-stage messaging) (008-high-throughput-pipeline)
-- Go 1.24.0 (backend), TypeScript 5.x + React 19 (frontend) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, prometheus/client_golang, stretchr/testify (010-sender-names-templates)
-- PostgreSQL 15+ (pgx driver); новые таблицы `sender_names`, `sender_name_status_history`; ALTER TABLE `templates` (010-sender-names-templates)
-- Go 1.24.0 (backend), TypeScript 5.x + React 19 / Vite (frontend) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, prometheus/client_golang (011-operator-sender-billing)
-- PostgreSQL 15+ (pgx driver); таблицы `operators` (ALTER), новая `sender_name_billing_records` (011-operator-sender-billing)
-- Go 1.24+ (backend), TypeScript 5.x + React 19 (frontend) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, prometheus/client_golang (012-multichannel-cascade)
-- PostgreSQL 15+ (pgx, monthly partitioning для `deliveries`, `delivery_attempts`), Redis 7+ (reachability cache TTL 1h) (012-multichannel-cascade)
-- Go 1.24.0 + gorilla/mux (HTTP), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), prometheus/client_golang (metrics), IBM/sarama v1.43.0 (Kafka), crypto/hmac (webhook signature) (013-max-messenger-channel)
-- PostgreSQL 15+ (существующие таблицы cascade), Redis 7+ (reachability cache) (013-max-messenger-channel)
-- Go 1.24.0 (бэкенд), TypeScript 5.x + React 19 (фронтенд) + gorilla/mux, google.golang.org/grpc v1.78.0, IBM/sarama v1.43.0, jackc/pgx/v5, redis/go-redis/v9, rs/zerolog, React 19 + Vite (017-tech-debt-refactor)
-- PostgreSQL 15+ (pgx), Redis 7+ (017-tech-debt-refactor)
-- TypeScript 5.7 + React 19, Vite 6.0 + React Router 7.1, Tailwind CSS 4.2, Radix UI (018-fix-portal-qa-bugs)
-- N/A (frontend-only changes) (018-fix-portal-qa-bugs)
-- Go 1.24.0 (backend), TypeScript 5.7 + React 19 (frontend) + gorilla/mux, gRPC (analyticsv1, messagingv1, campaignv1), pgx/v5 (portal's own pool), redis/go-redis/v9 (export jobs), Recharts 3.8.1 (charts), Radix UI Dialog/DropdownMenu/Tabs (UI components), Tailwind CSS 4.2 (019-portal-ux-improvements)
-- PostgreSQL 15+ (новая таблица `notifications`), Redis 7+ (export job state, TTL 1h) (019-portal-ux-improvements)
+## Stack
 
-- Go 1.24.0 + gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), golang-jwt/jwt/v5 (auth), prometheus/client_golang (metrics), stretchr/testify (testing) (001-sms-gateway-platform)
+**Backend (Go 1.24.0):** gorilla/mux (HTTP), google.golang.org/grpc v1.78.0 (gRPC), IBM/sarama v1.43.0 (Kafka), jackc/pgx/v5 (PostgreSQL), redis/go-redis/v9 (Redis), rs/zerolog (logging), spf13/viper (config), golang-jwt/jwt/v5 (auth), pquerna/otp (TOTP 2FA), prometheus/client_golang (metrics), stretchr/testify (tests).
 
-## Project Structure
+**Frontend (`portal-frontend/`):** TypeScript 5.7 + React 19, Vite 6, React Router 7.1, Tailwind CSS 4.2, Radix UI, Recharts 3.8.
 
-```text
-src/
-tests/
+**Infra:** PostgreSQL 15+ (monthly partitioning для `messages`, `audit_log`, `lookup_log`, `deliveries`, `delivery_attempts`), Redis 7+ (sessions, rate-limit, cache), Apache Kafka (pipeline), Prometheus + Grafana.
+
+## Repo map
+
+```
+cmd/                       # main-пакеты сервисов: admin-gateway, api, client-gateway,
+                           # dlr-delivery, pipeline-worker, portal-gateway, seed-admin,
+                           # services, smpp-gateway, smpp-server, worker
+internal/
+  api/                     # HTTP/gRPC handlers
+  config/                  # viper конфигурация
+  gateway/                 # SMPP-шлюзы
+  monitoring/              # Prometheus exporters
+  pipeline/                # Kafka-стадии (message processing)
+  queue/                   # очереди и DLQ
+  router/                  # smart routing
+  services/                # бизнес-сервисы (tarification, billing, audit, ...)
+  shared/                  # общие модели/утилиты
+  smpp/, smsc/             # SMPP-протокол
+  storage/                 # pgx-репозитории
+  testutil/                # тест-хелперы
+api/                       # proto-определения и сгенерированные стабы
+portal-frontend/           # SPA (React 19 / Vite / TS)
+deployments/               # docker-compose, configs, directus, docker/
+migrations/                # SQL-миграции (golang-migrate формат)
+specs/                     # spec-driven фичи (см. ниже)
+docs/                      # архитектура, AC, отчёты, deployment-гайды
+scripts/                   # server.sh, check.sh, утилиты
+test/, tests/, e2e/        # интеграционные/E2E тесты
+.specify/                  # spec-kit конфигурация
+.githooks/                 # pre-commit
+skills/                    # локальные skills для Claude
 ```
 
-## Commands
+## Specs
 
-# Add commands for Go 1.24.0
+Активные спецификации (`specs/<NNN>-<slug>/`):
+
+| ID | Slug | Статус |
+|----|------|--------|
+| 001 | sms-gateway-platform | ядро платформы |
+| 002 | operator-tarification | тарификация по операторам |
+| 003 | self-service-portal | клиентский портал |
+| 004 | hlr-smart-routing | HLR + smart routing |
+| 005 | unit-functional-tests | тестовый каркас |
+| 006 | ux-a11y-audit | a11y портала |
+| 007 | grafana-live-dashboard | Grafana-дашборд |
+| 008 | high-throughput-pipeline | pipeline на Kafka |
+| 010 | sender-names-templates | sender names + шаблоны |
+| 011 | operator-sender-billing | биллинг по операторам |
+| 012 | multichannel-cascade | каскад каналов |
+| 013 | max-messenger-channel | MAX мессенджер |
+| 015 | architecture-data-flows | потоки данных (для онбординга) |
+| 017 | tech-debt-refactor | техдолг |
+| 018 | fix-portal-qa-bugs | QA-фиксы портала |
+| 019 | portal-ux-improvements | UX-улучшения портала |
+
+Каждая спека: `spec.md` (обязательно), плюс опционально `plan.md`, `tasks.md`, `data-model.md`, `quickstart.md`, `research.md`, `checklists/`.
 
 ## Code Style
 
-Go 1.24.0: Follow standard conventions
-
-## Recent Changes
-- 019-portal-ux-improvements: Added Go 1.24.0 (backend), TypeScript 5.7 + React 19 (frontend) + gorilla/mux, gRPC (analyticsv1, messagingv1, campaignv1), pgx/v5 (portal's own pool), redis/go-redis/v9 (export jobs), Recharts 3.8.1 (charts), Radix UI Dialog/DropdownMenu/Tabs (UI components), Tailwind CSS 4.2
-- 018-fix-portal-qa-bugs: Added TypeScript 5.7 + React 19, Vite 6.0 + React Router 7.1, Tailwind CSS 4.2, Radix UI
-- 018-fix-portal-qa-bugs: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-
+Go 1.24.0: стандартные конвенции (`go vet`, `go fmt`). TypeScript: ESLint baseline 69 warnings (см. ниже).
 
 ## Server Management
 
@@ -75,8 +92,6 @@ Go 1.24.0: Follow standard conventions
 Переменная `DEPLOY_BRANCH` — ветка для деплоя (по умолчанию master).
 
 Перед деплоем: запушить изменения в GitHub, проверить что код компилируется.
-
-<!-- MANUAL ADDITIONS START -->
 
 ## Quality Gates
 
@@ -168,5 +183,3 @@ Deliverable 2 Phase 1. Lint/CI ловят синтаксис и типы. Review
 - **Ставь под сомнение собственные формулировки.** Если на предыдущем шаге что-то предложил и это оказалось избыточным ограничением — признай это открыто ("я был излишне ограничивал"), не маскируй.
 
 Эта инструкция имеет приоритет над дефолтным поведением "be helpful".
-
-<!-- MANUAL ADDITIONS END -->

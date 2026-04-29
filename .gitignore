@@ -52,10 +52,6 @@ test.exit
 *.sqlite
 *.sqlite3
 
-# Generated files (if you want to exclude generated proto files, uncomment)
-# api/proto/**/*.pb.go
-# api/proto/**/*_grpc.pb.go
-
 # Coverage
 coverage.txt
 coverage.html
@@ -70,33 +66,29 @@ mem.prof
 configs/*.yaml
 !configs/*.example.yaml
 
-# Compiled Go binaries (root level)
-admin-gateway
-client-gateway
+# Compiled Go binaries — only root-level; keep service source under cmd/ trackable
+/admin-gateway
+/admin-service
+/api-gateway
+/audit-service
+/auth-service
+/billing-service
+/campaign-service
+/cascade-service
+/client-gateway
+/client-service
+/link-service
+/messaging-service
+/pipeline-worker
 /portal-gateway
-messaging-service
-template-service
-webhook-service
-campaign-service
-worker
-link-service
-cascade-service
-routing-service
-tarification-service
-billing-service
-audit-service
-auth-service
-client-service
-smpp-gateway
-smpp-server
-webhook-service
-pipeline-worker
-admin-gateway
-client-gateway
-/portal-gateway
-messaging-service
-template-service
-campaign-service
+/portal-service
+/routing-service
+/smpp-gateway
+/smpp-server
+/tarification-service
+/template-service
+/webhook-service
+/worker
 
 # Stray dependency directories
 github.com/
@@ -117,3 +109,15 @@ portal-frontend/.vite/
 
 # Playwright MCP session debris
 .playwright-mcp/
+
+# Screenshots and QA artefacts at repo root (Playwright/manual)
+/*.png
+/qa-tests/
+/audit-*.png
+/product-review-*.png
+
+# Build/test output dumps
+/build_output.txt
+/vet_output.txt
+/summary.json
+/logs/
