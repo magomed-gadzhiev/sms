@@ -31,7 +31,17 @@ func NewPublisher(producer sarama.SyncProducer, topic string, logger zerolog.Log
 }
 
 // Publish serializes the audit event to JSON and sends it to the Kafka topic.
+//
+// If the publisher was constructed with a nil producer (e.g. Kafka was
+// unavailable at startup and the caller chose to proceed without an audit
+// trail), Publish becomes a no-op rather than panicking. Callers can keep
+// calling Publish unconditionally; the system gracefully degrades to "no
+// audit trail" instead of failing the user-facing request.
 func (p *Publisher) Publish(ctx context.Context, event *AuditEvent) error {
+	if p == nil || p.producer == nil {
+		return nil
+	}
+
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("audit: marshal event: %w", err)
@@ -62,7 +72,13 @@ func (p *Publisher) Publish(ctx context.Context, event *AuditEvent) error {
 	return nil
 }
 
-// Close closes the underlying Kafka producer.
+// Close closes the underlying Kafka producer. If the publisher was constructed
+// with a nil producer (graceful-degradation path, see Publish), Close is a
+// no-op. This keeps `defer publisher.Close()` safe at every call site,
+// regardless of whether Kafka was reachable at startup.
 func (p *Publisher) Close() error {
+	if p == nil || p.producer == nil {
+		return nil
+	}
 	return p.producer.Close()
 }

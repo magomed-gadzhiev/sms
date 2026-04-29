@@ -189,6 +189,47 @@ func TestPublisher_Publish_MessageFormat(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestPublisher_Publish_NilProducerInjected mirrors cmd/portal-gateway/main.go:
+// if Kafka is unhealthy at startup, kafkaProducer is nil but the bootstrap
+// continues. NewPublisher still returns a non-nil *Publisher with producer=nil.
+// Publish must not panic in that state — that's the production scenario this
+// fix exists for. Removing this test re-opens BUG-1.
+func TestPublisher_Publish_NilProducerInjected(t *testing.T) {
+	logger := zerolog.Nop()
+	pub := NewPublisher(nil, "test.topic", logger)
+
+	event := NewAuditEvent("tenant-1", "user-1", ActionLogin, ResourceAuth, "")
+
+	require.NotPanics(t, func() {
+		err := pub.Publish(context.Background(), event)
+		assert.NoError(t, err, "Publish with nil producer should be a no-op, not an error")
+	})
+}
+
+func TestPublisher_Publish_NilReceiver(t *testing.T) {
+	var pub *Publisher
+	event := NewAuditEvent("t", "u", ActionLogin, ResourceAuth, "")
+
+	require.NotPanics(t, func() {
+		err := pub.Publish(context.Background(), event)
+		assert.NoError(t, err, "Publish on a nil receiver should be a no-op, not panic")
+	})
+}
+
+func TestPublisher_Close_NilProducer(t *testing.T) {
+	pub := NewPublisher(nil, "test.topic", zerolog.Nop())
+	require.NotPanics(t, func() {
+		assert.NoError(t, pub.Close())
+	})
+}
+
+func TestPublisher_Close_NilReceiver(t *testing.T) {
+	var pub *Publisher
+	require.NotPanics(t, func() {
+		assert.NoError(t, pub.Close())
+	})
+}
+
 func TestPublisher_Close(t *testing.T) {
 	producer := mocks.NewSyncProducer(t, nil)
 	logger := zerolog.Nop()
