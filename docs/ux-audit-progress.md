@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 12/30: Admin — operator-templates (admin, fix + Infrastructure + QA full, 2026-04-29)
+
 ## [DONE] Этап 11/30: Admin — sender-names review/approve (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 27 TC прогнаны (включая регрессии после фикса), 2 функциональных бага найдены и исправлены одним PR (BUG-32/33), 1 follow-up зафиксирован (BUG-34 missing admin history endpoint). Error-mapping в этом сервисе **уже корректен** (NotFound/InvalidArgument/AlreadyExists/FailedPrecondition мапятся правильно через mapError в gRPC handler) — паттерн BUG-9/13/17/28 здесь НЕ повторяется.
