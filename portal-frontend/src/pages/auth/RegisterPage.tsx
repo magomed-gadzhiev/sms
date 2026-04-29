@@ -4,6 +4,7 @@ import { authApi, ApiError } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { destForRole } from '../../utils/authRedirect';
 
 const PLANS = [
   { name: 'free', label: 'Free', price: '0₽' },
@@ -13,7 +14,7 @@ const PLANS = [
 ] as const;
 
 export function RegisterPage() {
-  const { isAuthenticated, refreshUser } = useAuth();
+  const { isAuthenticated, refreshUser, role } = useAuth();
   const navigate = useNavigate();
 
   const [companyName, setCompanyName] = useState('');
@@ -28,9 +29,9 @@ export function RegisterPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate(destForRole(role), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   if (isAuthenticated) return null;
 
@@ -52,8 +53,8 @@ export function RegisterPage() {
         ...(phone ? { phone } : {}),
         plan_name: planName,
       });
-      await refreshUser();
-      navigate('/dashboard', { replace: true });
+      const profile = await refreshUser();
+      navigate(destForRole(profile.role), { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         const msg = err.message.toLowerCase();

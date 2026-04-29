@@ -4,9 +4,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ApiError } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { destForRole } from '../../utils/authRedirect';
 
 export function LoginPage() {
-  const { login, login2fa, isAuthenticated } = useAuth();
+  const { login, login2fa, isAuthenticated, role } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -18,9 +19,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate(destForRole(role), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   if (isAuthenticated) return null;
 
@@ -39,8 +40,7 @@ export function LoginPage() {
       if (result.requires2fa && result.loginTicket) {
         setLoginTicket(result.loginTicket);
       } else {
-        const dest = result.role === 'admin' || result.role === 'superadmin' ? '/admin' : '/dashboard';
-        navigate(dest, { replace: true });
+        navigate(destForRole(result.role), { replace: true });
       }
     } catch (err) {
       if (err instanceof ApiError) {
@@ -61,9 +61,8 @@ export function LoginPage() {
     setError('');
     setSubmitting(true);
     try {
-      const role = await login2fa(loginTicket!, totpCode);
-      const dest = role === 'admin' || role === 'superadmin' ? '/admin' : '/dashboard';
-      navigate(dest, { replace: true });
+      const r = await login2fa(loginTicket!, totpCode);
+      navigate(destForRole(r), { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Ошибка проверки 2FA');
     } finally {

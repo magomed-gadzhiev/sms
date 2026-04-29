@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authApi, profileApi, ApiError, type ProfileData } from '../api/client';
 
-type UserRole = 'client' | 'admin' | 'superadmin';
+export type UserRole = 'client' | 'admin' | 'superadmin';
 
 interface Permission {
   resource: string;
@@ -18,7 +18,7 @@ interface AuthState {
   hasPermission: (resource: string, action: string) => boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   login2fa: (loginTicket: string, totpCode: string) => Promise<UserRole>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<ProfileData>;
   logout: () => Promise<void>;
 }
 
@@ -100,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profile = await profileApi.get();
     setUser(profile);
     await loadPermissions(profile);
+    return profile;
   }, [loadPermissions]);
 
   const logout = useCallback(async () => {
