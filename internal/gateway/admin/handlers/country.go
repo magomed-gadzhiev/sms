@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -118,6 +120,11 @@ func (h *CountryHandler) UpdateCountry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := req.Validate(); err != nil {
+		respondError(w, err.(*shared.AppError))
+		return
+	}
+
 	grpcReq := &routingv1.UpdateCountryRequest{
 		Id:        id,
 		Name:      req.Name,
@@ -145,15 +152,51 @@ type CreateCountryRequest struct {
 	Currency  string `json:"currency"`
 }
 
-func (r *CreateCountryRequest) Validate() error {
-	if r.Name == "" {
+// Валидация длины и формата колонок countries (миграция 000012:
+// name VARCHAR(100), iso_code VARCHAR(2), phone_code VARCHAR(5),
+// currency VARCHAR(3)). Делаем проверки на handler-уровне, чтобы не отдавать
+// клиенту 500 с SQLSTATE 22001. Для name считаем символы (UTF-8 runes),
+// а не байты, иначе кириллица в названии страны рубится в 2 раза раньше,
+// чем разрешает Postgres.
+const countryNameMaxLen = 100
+
+var (
+	isoAlpha2Re = regexp.MustCompile(`^[A-Z]{2}$`)
+	isoAlpha3Re = regexp.MustCompile(`^[A-Z]{3}$`)
+	// phone_code в БД — VARCHAR(5); ITU-T E.164 допускает префикс «+»; пускаем
+	// либо просто цифры, либо «+цифры». Не валидируем содержательно — это
+	// справочник, могут быть нестандартные коды.
+	phoneCodeRe = regexp.MustCompile(`^\+?[0-9]{1,5}$`)
+)
+
+func validateCountryFields(name, isoCode, phoneCode, currency string, requireAll bool) error {
+	if requireAll && name == "" {
 		return shared.ErrInvalidInput("name обязателен")
 	}
-	if r.ISOCode == "" {
+	if name != "" && utf8.RuneCountInString(name) > countryNameMaxLen {
+		return shared.ErrInvalidInput("name не может превышать 100 символов")
+	}
+	if requireAll && isoCode == "" {
 		return shared.ErrInvalidInput("iso_code обязателен")
 	}
-	if r.PhoneCode == "" {
+	if isoCode != "" && !isoAlpha2Re.MatchString(isoCode) {
+		return shared.ErrInvalidInput("iso_code должен быть 2 заглавные ASCII-буквы (ISO 3166-1 alpha-2)")
+	}
+	if requireAll && phoneCode == "" {
 		return shared.ErrInvalidInput("phone_code обязателен")
+	}
+	if phoneCode != "" && !phoneCodeRe.MatchString(phoneCode) {
+		return shared.ErrInvalidInput("phone_code: цифры (1–5) с опциональным «+»")
+	}
+	if currency != "" && !isoAlpha3Re.MatchString(currency) {
+		return shared.ErrInvalidInput("currency должен быть 3 заглавные ASCII-буквы (ISO 4217)")
+	}
+	return nil
+}
+
+func (r *CreateCountryRequest) Validate() error {
+	if err := validateCountryFields(r.Name, r.ISOCode, r.PhoneCode, r.Currency, true); err != nil {
+		return err
 	}
 	if r.Currency == "" {
 		r.Currency = "RUB"
@@ -166,6 +209,13 @@ type UpdateCountryRequest struct {
 	ISOCode   string `json:"iso_code,omitempty"`
 	PhoneCode string `json:"phone_code,omitempty"`
 	Currency  string `json:"currency,omitempty"`
+}
+
+func (r *UpdateCountryRequest) Validate() error {
+	if r.Name == "" && r.ISOCode == "" && r.PhoneCode == "" && r.Currency == "" {
+		return shared.ErrInvalidInput("nothing to update: укажите хотя бы одно поле")
+	}
+	return validateCountryFields(r.Name, r.ISOCode, r.PhoneCode, r.Currency, false)
 }
 
 type CountryResponse struct {

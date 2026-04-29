@@ -84,8 +84,13 @@ func GRPCError(w http.ResponseWriter, err error) {
 	case codes.DeadlineExceeded, codes.Unavailable:
 		appErr = shared.ErrServiceUnavailable("Сервис временно недоступен")
 	default:
+		// codes.Internal и любые непредусмотренные коды — детали ИДУТ ТОЛЬКО
+		// В ЛОГ. Клиент получает обобщённое сообщение, иначе утечёт SQL/
+		// schema-info (например, SQLSTATE 22001 "value too long for type
+		// character varying(2)"). Server-side err уже содержит st.Message(),
+		// этого достаточно для отладки.
 		log.Error().Err(err).Str("code", st.Code().String()).Msg("ошибка gRPC")
-		appErr = shared.ErrInternalServer(st.Message())
+		appErr = shared.ErrInternalServer("Внутренняя ошибка сервера")
 	}
 
 	Error(w, appErr)
