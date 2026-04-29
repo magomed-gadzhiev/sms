@@ -6,7 +6,7 @@
 
 ## Input
 - **Module:** {module name}
-- **User Role:** {admin | client | operator}
+- **User Role:** {admin | aggregator | user | subaccount}
 - **Context:** {component, URL, or page}
 - **Action:** {audit | debug | review | fix}
 - **Infrastructure Check:** {yes | no}
@@ -15,7 +15,8 @@
 ## Архитектура проекта (SMS-платформа)
 - Frontend: React 19 + Vite + Tailwind CSS 4.2 + Radix UI (SPA, `/portal`)
 - Backend: Go 1.24 + gorilla/mux → gRPC → PostgreSQL 15 / Redis 7 / Kafka
-- Роли: `admin` (аккаунты, тарифы, операторы), `client` (кампании, контакты, баланс, Quick Send), `operator` (маршруты, статусы, биллинг)
+- Роли (бизнес-язык, как тестируем): `admin` (системный администратор), `aggregator` (клиент-реселлер, видит панель `/network`), `user` (рядовой клиент: кампании, контакты, баланс, Quick Send), `subaccount` (саб-клиент агрегатора).
+- Технически в `users.role` это `admin` / `superadmin` / `client`; разница `aggregator` vs `user` vs `subaccount` определяется флагами `clients.is_reseller` и `clients.parent_account_id`. При тестировании используй бизнес-имена ролей; при чтении кода держи в голове, что в БД — три enum-значения.
 - API-prefix: `/api/v1/` (REST) + gRPC для внутренних сервисов
 - БД: PostgreSQL, доступна через `scripts/server.sh exec "psql -U sms sms -c \"...\""` или напрямую через pgx-код
 

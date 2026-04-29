@@ -14,7 +14,7 @@
 - Backend: Go 1.24 + gorilla/mux → gRPC → PostgreSQL 15 / Redis 7 / Kafka
 - Frontend: React 19 + Vite + Tailwind CSS 4.2 + Radix UI (SPA, `/portal`)
 - Auth: JWT (golang-jwt/jwt/v5) + TOTP 2FA (pquerna/otp)
-- Роли: `admin`, `client`, `operator` — RBAC через middleware
+- Роли (бизнес-язык): `admin`, `aggregator`, `user`, `subaccount`. Технически в `users.role` хранятся `admin`/`superadmin`/`client`; aggregator/subaccount/user различаются по `clients.is_reseller` и `clients.parent_account_id`. RBAC проверяй по бизнес-роли.
 - Критичные данные: баланс аккаунтов, тарифы, номера телефонов получателей, API-ключи
 
 ## Алгоритм анализа
