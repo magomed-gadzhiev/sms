@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog/log"
+
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -21,6 +23,7 @@ func NewSystemDefaultsHandlers(repo *storage.SystemDefaultsRepository) *SystemDe
 func (h *SystemDefaultsHandlers) GetAll(w http.ResponseWriter, r *http.Request) {
 	all, err := h.repo.GetAll(r.Context())
 	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения system_defaults")
 		respondError(w, shared.ErrInternalServer("ошибка получения system_defaults"))
 		return
 	}
@@ -53,6 +56,7 @@ func (h *SystemDefaultsHandlers) Set(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.repo.Set(r.Context(), key, req.Value, nil); err != nil {
+		log.Error().Err(err).Str("key", key).Int("value", req.Value).Msg("ошибка сохранения system_defaults")
 		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
 		return
 	}

@@ -25,8 +25,12 @@ func NewRoleHandlers(authClient authv1.AuthServiceClient) *RoleHandlers {
 
 // ListRoles обрабатывает GET /admin/v1/roles
 func (h *RoleHandlers) ListRoles(w http.ResponseWriter, r *http.Request) {
-	limit := parseIntParam(r, "limit", 50)
-	offset := parseIntParam(r, "offset", 0)
+	// BUG-47: clamp limit (паттерн BUG-33/46)
+	limitRaw := parseIntParam(r, "limit", 50)
+	offsetRaw := parseIntParam(r, "offset", 0)
+	limitClamped, offsetClamped := clampPagination(int(limitRaw), int(offsetRaw), 50, usersMaxListLimit)
+	limit := int32(limitClamped)
+	offset := int32(offsetClamped)
 
 	resp, err := h.authClient.ListRoles(r.Context(), &authv1.ListRolesRequest{
 		Limit:  limit,

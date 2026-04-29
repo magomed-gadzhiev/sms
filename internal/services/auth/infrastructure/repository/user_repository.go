@@ -292,11 +292,33 @@ func (r *UserRepository) Deactivate(ctx context.Context, userID uuid.UUID) error
 	return nil
 }
 
-// ResetTOTP удаляет TOTP секрет пользователя
+// ResetTOTP удаляет TOTP секрет пользователя.
+// BUG-53: ранее код делал `DELETE FROM totp_secrets`, но такой таблицы нет —
+// TOTP-секрет хранится в users.totp_secret_encrypted (см. миграция 000014),
+// а recovery-коды — в totp_recovery_codes. Любой вызов ResetUser2FA
+// валился с "relation totp_secrets does not exist (SQLSTATE 42P01)".
 func (r *UserRepository) ResetTOTP(ctx context.Context, userID uuid.UUID) error {
-	query := `DELETE FROM totp_secrets WHERE user_id = $1`
-	_, err := r.db.ExecContext(ctx, query, userID)
-	return err
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE users
+		   SET totp_secret_encrypted = NULL,
+		       totp_enabled          = FALSE,
+		       totp_verified_at      = NULL,
+		       updated_at            = NOW()
+		 WHERE id = $1`, userID); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM totp_recovery_codes WHERE user_id = $1`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // itoa конвертирует int в строку для построения SQL запросов

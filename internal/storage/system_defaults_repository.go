@@ -36,12 +36,16 @@ func (r *SystemDefaultsRepository) GetInt(ctx context.Context, key string) (int,
 
 func (r *SystemDefaultsRepository) Set(ctx context.Context, key string, value int, updatedBy *string) error {
 	encoded, _ := json.Marshal(strconv.Itoa(value))
+	// BUG-54: колонка `value` имеет тип jsonb. database/sql + pgx-stdlib
+	// передают []byte как `bytea`, и Postgres не умеет неявно приводить bytea→jsonb
+	// (`invalid input syntax for type json`). Преобразуем в string — pgx тогда
+	// шлёт значение как text, и cast `$2::jsonb` отрабатывает корректно.
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO system_defaults (key, value, updated_at, updated_by)
-		VALUES ($1, $2, now(), $3)
+		VALUES ($1, $2::jsonb, now(), $3)
 		ON CONFLICT (key) DO UPDATE
 		    SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-		key, encoded, updatedBy)
+		key, string(encoded), updatedBy)
 	return err
 }
 

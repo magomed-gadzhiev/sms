@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"net/mail"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -11,6 +12,36 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/clientv1"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+const (
+	usersMaxListLimit  = 200
+	minUserPasswordLen = 8
+)
+
+// validateUserEmail проверяет формат email через стандартный парсер.
+// BUG-48: до фикса CreateUser принимал любую строку как email (например "not-an-email").
+func validateUserEmail(email string) *shared.AppError {
+	if email == "" {
+		return shared.ErrInvalidInput("email обязателен")
+	}
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Address != email {
+		return shared.ErrInvalidInput("неверный формат email")
+	}
+	return nil
+}
+
+// validateUserPassword проверяет минимальную длину пароля.
+// BUG-49: до фикса CreateUser принимал пароль из 1 символа.
+func validateUserPassword(password string) *shared.AppError {
+	if password == "" {
+		return shared.ErrInvalidInput("password обязателен")
+	}
+	if len(password) < minUserPasswordLen {
+		return shared.ErrInvalidInput("пароль должен быть не короче 8 символов")
+	}
+	return nil
+}
 
 // UserHandlers обрабатывает HTTP запросы для управления пользователями
 type UserHandlers struct {
@@ -35,8 +66,12 @@ func (h *UserHandlers) ListUsers(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	roleID := r.URL.Query().Get("role_id")
 	activeOnly := r.URL.Query().Get("active_only") == "true"
-	limit := parseIntParam(r, "limit", 50)
-	offset := parseIntParam(r, "offset", 0)
+	// BUG-47: clamp limit (паттерн BUG-33/46) — без него limit=99999 уходит в gRPC/SQL
+	limitRaw := parseIntParam(r, "limit", 50)
+	offsetRaw := parseIntParam(r, "offset", 0)
+	limitClamped, offsetClamped := clampPagination(int(limitRaw), int(offsetRaw), 50, usersMaxListLimit)
+	limit := int32(limitClamped)
+	offset := int32(offsetClamped)
 
 	resp, err := h.authClient.ListUsers(r.Context(), &authv1.ListUsersRequest{
 		Search:     search,
@@ -102,12 +137,12 @@ func (h *UserHandlers) CreateUser(w http.ResponseWriter, r *http.Request) {
 		respondError(w, shared.ErrInvalidInput("username обязателен"))
 		return
 	}
-	if req.Email == "" {
-		respondError(w, shared.ErrInvalidInput("email обязателен"))
+	if err := validateUserEmail(req.Email); err != nil {
+		respondError(w, err)
 		return
 	}
-	if req.Password == "" {
-		respondError(w, shared.ErrInvalidInput("password обязателен"))
+	if err := validateUserPassword(req.Password); err != nil {
+		respondError(w, err)
 		return
 	}
 
@@ -144,7 +179,11 @@ func (h *UserHandlers) CreateUser(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, userInfoToMap(resp.User))
 }
 
-// UpdateUser обрабатывает PUT /admin/v1/users/:id
+// UpdateUser обрабатывает PUT /admin/v1/users/:id.
+// BUG-52: до фикса partial body (например только {"email":"x"}) вызывал
+// FK violation `users_role_id_fkey` — пустой role_id уходил в gRPC и SQL UPDATE
+// падал на FK к несуществующей роли с id="". Решение: не передавать в gRPC
+// поля, которые клиент не указал явно (используем указатели для разбора).
 func (h *UserHandlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["id"]
 	if userID == "" {
@@ -153,21 +192,59 @@ func (h *UserHandlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Email  string `json:"email"`
-		RoleID string `json:"role_id"`
-		Active bool   `json:"active"`
+		Email  *string `json:"email"`
+		RoleID *string `json:"role_id"`
+		Active *bool   `json:"active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
 
-	resp, err := h.authClient.UpdateUser(r.Context(), &authv1.UpdateUserRequest{
+	if req.Email == nil && req.RoleID == nil && req.Active == nil {
+		respondError(w, shared.ErrInvalidInput("укажите хотя бы одно поле для обновления"))
+		return
+	}
+
+	// Валидация переданных полей до pre-fetch
+	if req.Email != nil {
+		if err := validateUserEmail(*req.Email); err != nil {
+			respondError(w, err)
+			return
+		}
+	}
+	if req.RoleID != nil && *req.RoleID == "" {
+		respondError(w, shared.ErrInvalidInput("role_id не может быть пустым"))
+		return
+	}
+
+	// gRPC-контракт UpdateUserRequest не использует FieldMask и затирает все
+	// переданные поля. Pre-fetch текущего user'а, чтобы не передавать пустые
+	// строки в auth-service (FK violation на роль с id="").
+	current, getErr := h.authClient.GetUser(r.Context(), &authv1.GetUserRequest{UserId: userID})
+	if getErr != nil {
+		log.Error().Err(getErr).Str("user_id", userID).Msg("ошибка чтения пользователя перед обновлением")
+		respondGRPCError(w, getErr)
+		return
+	}
+
+	grpcReq := &authv1.UpdateUserRequest{
 		UserId: userID,
-		Email:  req.Email,
-		RoleId: req.RoleID,
-		Active: req.Active,
-	})
+		Email:  current.User.Email,
+		RoleId: current.User.Role.Id,
+		Active: current.User.Active,
+	}
+	if req.Email != nil {
+		grpcReq.Email = *req.Email
+	}
+	if req.RoleID != nil {
+		grpcReq.RoleId = *req.RoleID
+	}
+	if req.Active != nil {
+		grpcReq.Active = *req.Active
+	}
+
+	resp, err := h.authClient.UpdateUser(r.Context(), grpcReq)
 	if err != nil {
 		log.Error().Err(err).Str("user_id", userID).Msg("ошибка обновления пользователя")
 		respondGRPCError(w, err)
