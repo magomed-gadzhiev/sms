@@ -5,12 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
+)
+
+const (
+	operatorTemplateMaxListLimit  = 200
+	operatorTemplateDefaultLimit  = 50
+	operatorTemplateMinNoteLen    = 3
+	operatorTemplateMaxNoteLen    = 500
 )
 
 // OperatorTemplateHandlers обрабатывает CRUD для шаблонов операторов.
@@ -93,8 +101,17 @@ func (h *OperatorTemplateHandlers) ListOperatorTemplates(w http.ResponseWriter, 
 	operatorID := q.Get("operator_id")
 	senderNameID := q.Get("sender_name_id")
 	status := q.Get("status")
-	limit := parseIntParam(r, "limit", 50)
+	limit := parseIntParam(r, "limit", operatorTemplateDefaultLimit)
 	offset := parseIntParam(r, "offset", 0)
+	if limit <= 0 {
+		limit = operatorTemplateDefaultLimit
+	}
+	if limit > operatorTemplateMaxListLimit {
+		limit = operatorTemplateMaxListLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
 
 	args := []interface{}{}
 	conditions := ""
@@ -230,16 +247,23 @@ func (h *OperatorTemplateHandlers) UpdateOperatorTemplate(w http.ResponseWriter,
 	}
 	varsJSON, _ := json.Marshal(req.Variables)
 
+	// BUG-35: пустая строка sender_name_id не должна валиться 22P02 при partial update.
+	// Передаём как nil (NULL) — COALESCE сохранит текущее значение.
+	var senderNameIDArg interface{}
+	if req.SenderNameID != "" {
+		senderNameIDArg = req.SenderNameID
+	}
+
 	res, err := h.db.ExecContext(r.Context(), `
 		UPDATE operator_templates
 		SET name           = COALESCE(NULLIF($2,''), name),
-		    sender_name_id = CASE WHEN $3::text = '' THEN sender_name_id ELSE $3::uuid END,
+		    sender_name_id = COALESCE($3::uuid, sender_name_id),
 		    body           = COALESCE(NULLIF($4,''), body),
 		    variables      = CASE WHEN $5 = '[]' OR $5 = 'null' THEN variables ELSE $5::jsonb END,
 		    status         = COALESCE(NULLIF($6,''), status),
 		    updated_at     = now()
 		WHERE id = $1::uuid
-	`, id, req.Name, req.SenderNameID, req.Body, string(varsJSON), req.Status)
+	`, id, req.Name, senderNameIDArg, req.Body, string(varsJSON), req.Status)
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка обновления")
 		respondError(w, shared.ErrInternalServer("Ошибка обновления"))
@@ -278,20 +302,63 @@ func (h *OperatorTemplateHandlers) DeleteOperatorTemplate(w http.ResponseWriter,
 	respondJSON(w, http.StatusNoContent, nil)
 }
 
+// loadModerationContext загружает текущий статус модерации шаблона + проверяет
+// что он привязан к sender_name прямого клиента. Возвращает (status, found, eligible, error).
+//
+// BUG-36: разделяем три случая, чтобы не возвращать 404 при существующем шаблоне.
+//   - found=false → 404 "шаблон не найден"
+//   - eligible=false → 400 "требует привязки к sender_name прямого клиента"
+//   - eligible=true → проверка currentStatus == 'submitted' на стороне вызывающего
+func (h *OperatorTemplateHandlers) loadModerationContext(r *http.Request, id string) (string, bool, bool, error) {
+	var (
+		status   sql.NullString
+		eligible bool
+	)
+	err := h.db.QueryRowContext(r.Context(), `
+		SELECT
+			ot.moderation_status,
+			(sn.id IS NOT NULL AND c.parent_client_id IS NULL) AS eligible
+		FROM operator_templates ot
+		LEFT JOIN sender_names sn ON sn.id = ot.sender_name_id
+		LEFT JOIN clients c       ON c.id = sn.client_id
+		WHERE ot.id = $1
+	`, id).Scan(&status, &eligible)
+	if err == sql.ErrNoRows {
+		return "", false, false, nil
+	}
+	if err != nil {
+		return "", false, false, err
+	}
+	return status.String, true, eligible, nil
+}
+
+func validateModeratorNote(note string) (string, *shared.AppError) {
+	trimmed := strings.TrimSpace(note)
+	if len(trimmed) < operatorTemplateMinNoteLen {
+		return "", shared.ErrInvalidInput(fmt.Sprintf("Комментарий модератора обязателен (минимум %d символов)", operatorTemplateMinNoteLen))
+	}
+	if len(trimmed) > operatorTemplateMaxNoteLen {
+		return "", shared.ErrInvalidInput(fmt.Sprintf("Комментарий модератора слишком длинный (максимум %d символов)", operatorTemplateMaxNoteLen))
+	}
+	return trimmed, nil
+}
+
 // ApproveOperatorTemplate POST /admin/v1/operator-templates/{id}/approve
 func (h *OperatorTemplateHandlers) ApproveOperatorTemplate(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	var currentStatus string
-	err := h.db.QueryRowContext(r.Context(),
-		`SELECT ot.moderation_status FROM operator_templates ot
-		 JOIN sender_names sn ON sn.id = ot.sender_name_id
-		 JOIN clients c ON c.id = sn.client_id
-		 WHERE ot.id = $1 AND c.parent_client_id IS NULL`,
-		id,
-	).Scan(&currentStatus)
+	currentStatus, found, eligible, err := h.loadModerationContext(r, id)
 	if err != nil {
+		log.Error().Err(err).Msg("operator_templates: ошибка чтения moderation context")
+		respondError(w, shared.ErrInternalServer("ошибка чтения шаблона"))
+		return
+	}
+	if !found {
 		respondError(w, shared.ErrNotFound("шаблон не найден"))
+		return
+	}
+	if !eligible {
+		respondError(w, shared.ErrInvalidInput("модерация возможна только для шаблонов прямых клиентов с привязкой к sender_name"))
 		return
 	}
 	if currentStatus != "submitted" {
@@ -314,89 +381,57 @@ func (h *OperatorTemplateHandlers) ApproveOperatorTemplate(w http.ResponseWriter
 
 // RejectOperatorTemplate POST /admin/v1/operator-templates/{id}/reject
 func (h *OperatorTemplateHandlers) RejectOperatorTemplate(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	var currentStatus string
-	err := h.db.QueryRowContext(r.Context(),
-		`SELECT ot.moderation_status FROM operator_templates ot
-		 JOIN sender_names sn ON sn.id = ot.sender_name_id
-		 JOIN clients c ON c.id = sn.client_id
-		 WHERE ot.id = $1 AND c.parent_client_id IS NULL`,
-		id,
-	).Scan(&currentStatus)
-	if err != nil {
-		respondError(w, shared.ErrNotFound("шаблон не найден"))
-		return
-	}
-	if currentStatus != "submitted" {
-		respondError(w, shared.ErrInvalidInput("reject возможен только из статуса submitted"))
-		return
-	}
-
-	var req struct {
-		Note string `json:"note"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	note := opTplNullStr(req.Note)
-	_, err = h.db.ExecContext(r.Context(),
-		`UPDATE operator_templates
-		 SET moderation_status = 'rejected', moderator_note = $2,
-		     resolved_at = NOW(), updated_at = NOW()
-		 WHERE id = $1`,
-		id, note,
-	)
-	if err != nil {
-		respondError(w, shared.ErrInternalServer("ошибка обновления"))
-		return
-	}
-	respondJSON(w, http.StatusOK, map[string]interface{}{"moderation_status": "rejected"})
+	h.transitionWithNote(w, r, "rejected", "reject")
 }
 
 // RequestRevisionOperatorTemplate POST /admin/v1/operator-templates/{id}/request-revision
 func (h *OperatorTemplateHandlers) RequestRevisionOperatorTemplate(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	h.transitionWithNote(w, r, "revision_requested", "request-revision")
+}
 
-	var currentStatus string
-	err := h.db.QueryRowContext(r.Context(),
-		`SELECT ot.moderation_status FROM operator_templates ot
-		 JOIN sender_names sn ON sn.id = ot.sender_name_id
-		 JOIN clients c ON c.id = sn.client_id
-		 WHERE ot.id = $1 AND c.parent_client_id IS NULL`,
-		id,
-	).Scan(&currentStatus)
-	if err != nil {
-		respondError(w, shared.ErrNotFound("шаблон не найден"))
-		return
-	}
-	if currentStatus != "submitted" {
-		respondError(w, shared.ErrInvalidInput("request-revision возможен только из статуса submitted"))
-		return
-	}
+func (h *OperatorTemplateHandlers) transitionWithNote(w http.ResponseWriter, r *http.Request, newStatus, action string) {
+	id := mux.Vars(r)["id"]
 
 	var req struct {
 		Note string `json:"note"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	note := opTplNullStr(req.Note)
+	note, vErr := validateModeratorNote(req.Note)
+	if vErr != nil {
+		respondError(w, vErr)
+		return
+	}
+
+	currentStatus, found, eligible, err := h.loadModerationContext(r, id)
+	if err != nil {
+		log.Error().Err(err).Msg("operator_templates: ошибка чтения moderation context")
+		respondError(w, shared.ErrInternalServer("ошибка чтения шаблона"))
+		return
+	}
+	if !found {
+		respondError(w, shared.ErrNotFound("шаблон не найден"))
+		return
+	}
+	if !eligible {
+		respondError(w, shared.ErrInvalidInput("модерация возможна только для шаблонов прямых клиентов с привязкой к sender_name"))
+		return
+	}
+	if currentStatus != "submitted" {
+		respondError(w, shared.ErrInvalidInput(action+" возможен только из статуса submitted"))
+		return
+	}
+
 	_, err = h.db.ExecContext(r.Context(),
 		`UPDATE operator_templates
-		 SET moderation_status = 'revision_requested', moderator_note = $2,
+		 SET moderation_status = $2, moderator_note = $3,
 		     resolved_at = NOW(), updated_at = NOW()
 		 WHERE id = $1`,
-		id, note,
+		id, newStatus, note,
 	)
 	if err != nil {
 		respondError(w, shared.ErrInternalServer("ошибка обновления"))
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]interface{}{"moderation_status": "revision_requested"})
-}
-
-func opTplNullStr(s string) interface{} {
-	if s == "" {
-		return nil
-	}
-	return s
+	respondJSON(w, http.StatusOK, map[string]interface{}{"moderation_status": newStatus})
 }
