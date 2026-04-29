@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 9/30: Admin — clients (CRUD + блокировка) (admin, /admin/clients, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки пропускаю. Свежий MVP-feedback №4 — модалка блокировки + бейдж разблокировки (commit 1d29699). На стенде из demo_seed: 4 клиента (Demo-Main/Demo-Reseller/Demo-Light/Demo-Default).
+
 ## [DONE] Этап 8/30: Admin — legal-entities + contracts (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 10 TC прогнаны (PASS после fix), 1 HIGH bug найден и исправлен (BUG-18 — JOIN typo, ещё 2 латентных в detalization), 2 минор как follow-up.
