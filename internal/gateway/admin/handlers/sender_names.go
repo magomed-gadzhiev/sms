@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
@@ -33,9 +34,24 @@ func (h *AdminSenderNameHandlers) SetClients(
 	h.tariffClient = tariffClient
 }
 
+const (
+	senderNameMaxListLimit  = 200
+	senderNameMinReasonLen  = 3
+	senderNameMaxReasonLen  = 500
+)
+
 func (h *AdminSenderNameHandlers) ListAllSenderNames(w http.ResponseWriter, r *http.Request) {
 	limit := parseIntParam(r, "limit", 20)
 	offset := parseIntParam(r, "offset", 0)
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > senderNameMaxListLimit {
+		limit = senderNameMaxListLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
 
 	resp, err := h.client.ListAllSenderNames(r.Context(), &sendernamev1.ListAllSenderNamesRequest{
 		ClientId:  r.URL.Query().Get("client_id"),
@@ -104,10 +120,19 @@ func (h *AdminSenderNameHandlers) RejectSenderName(w http.ResponseWriter, r *htt
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
+	reason := strings.TrimSpace(req.Reason)
+	if len(reason) < senderNameMinReasonLen {
+		respondError(w, shared.ErrInvalidInput("Причина отказа обязательна (минимум 3 символа)"))
+		return
+	}
+	if len(reason) > senderNameMaxReasonLen {
+		respondError(w, shared.ErrInvalidInput("Причина отказа слишком длинная (максимум 500 символов)"))
+		return
+	}
 	resp, err := h.client.RejectSenderName(r.Context(), &sendernamev1.RejectSenderNameRequest{
 		Id:      id,
 		ActorId: actorID.String(),
-		Reason:  req.Reason,
+		Reason:  reason,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -136,10 +161,19 @@ func (h *AdminSenderNameHandlers) DeactivateSenderName(w http.ResponseWriter, r 
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
+	reason := strings.TrimSpace(req.Reason)
+	if len(reason) < senderNameMinReasonLen {
+		respondError(w, shared.ErrInvalidInput("Причина деактивации обязательна (минимум 3 символа)"))
+		return
+	}
+	if len(reason) > senderNameMaxReasonLen {
+		respondError(w, shared.ErrInvalidInput("Причина деактивации слишком длинная (максимум 500 символов)"))
+		return
+	}
 	resp, err := h.client.DeactivateSenderName(r.Context(), &sendernamev1.DeactivateSenderNameRequest{
 		Id:      id,
 		ActorId: actorID.String(),
-		Reason:  req.Reason,
+		Reason:  reason,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
