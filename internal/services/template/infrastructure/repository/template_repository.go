@@ -4,12 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/smpp-server/smpp-server/internal/services/template/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 )
+
+// templateByIDCache caches GetByID / GetByIDAdmin results. Templates are
+// updated rarely (approval changes) and read per-message on hot path.
+var templateByIDCache = cache.NewHardCache(120 * time.Second)
 
 type TemplateRepository struct {
 	db *sqlx.DB
@@ -97,6 +103,16 @@ func (r *TemplateRepository) Create(ctx context.Context, t *domain.Template) (*d
 }
 
 func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID) (*domain.Template, error) {
+	cacheKey := id.String() + "|" + clientID.String()
+	if templateByIDCache.Enabled() {
+		if v, ok := templateByIDCache.Get(cacheKey); ok {
+			if v == nil {
+				return nil, domain.ErrTemplateNotFound
+			}
+			return v.(*domain.Template), nil
+		}
+	}
+
 	query := `SELECT t.id, t.client_id, t.name, t.body, t.variables, t.status, t.rejection_reason, t.reviewer_id, t.review_comment, t.reviewed_at, t.created_at, t.updated_at, t.sender_name_id, sn.name AS sender_name, t.traffic_type
 		FROM templates t
 		LEFT JOIN sender_names sn ON t.sender_name_id = sn.id
@@ -105,12 +121,19 @@ func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, id, clientID).StructScan(&row)
 	if err == sql.ErrNoRows {
+		if templateByIDCache.Enabled() {
+			templateByIDCache.Set(cacheKey, nil)
+		}
 		return nil, domain.ErrTemplateNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template: %w", err)
 	}
-	return row.toDomain(), nil
+	t := row.toDomain()
+	if templateByIDCache.Enabled() {
+		templateByIDCache.Set(cacheKey, t)
+	}
+	return t, nil
 }
 
 // GetByIDAdmin retrieves a template without client_id check (for admin operations)

@@ -3,12 +3,18 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
+
+// providerInfoCache caches provider records by ID. Providers change rarely
+// (tps_limit / active toggle only). TTL 120s.
+var providerInfoCache = cache.NewHardCache(120 * time.Second)
 
 // ProviderRepository реализует domain.ProviderRepository
 // Пока используем локальную БД, в будущем можно заменить на gRPC вызов к Provider Service
@@ -27,20 +33,32 @@ func NewProviderRepository(db *sqlx.DB) *ProviderRepository {
 	}
 }
 
-// GetByID получает информацию о провайдере по ID
+// GetByID получает информацию о провайдере по ID.
+// Hard-cache по id. Provider table менее подвижна чем client/route.
 func (r *ProviderRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ProviderInfo, error) {
+	cacheKey := id.String()
+	if providerInfoCache.Enabled() {
+		if v, ok := providerInfoCache.Get(cacheKey); ok {
+			return v.(*domain.ProviderInfo), nil
+		}
+	}
+
 	provider, err := r.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domain.ProviderInfo{
-		ID:              provider.ID,
-		Name:            provider.Name,
-		Active:          provider.Active,
-		Priority:        provider.Priority,
+	info := &domain.ProviderInfo{
+		ID:               provider.ID,
+		Name:             provider.Name,
+		Active:           provider.Active,
+		Priority:         provider.Priority,
 		ThroughputPerSec: provider.ThroughputPerSec,
-	}, nil
+	}
+	if providerInfoCache.Enabled() {
+		providerInfoCache.Set(cacheKey, info)
+	}
+	return info, nil
 }
 
 // GetAllActive получает все активные провайдеры

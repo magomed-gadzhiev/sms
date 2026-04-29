@@ -4,11 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smpp-server/smpp-server/internal/services/routing/domain"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 )
+
+// operatorByIDCache caches operators by id. Operators change very rarely.
+var operatorByIDCache = cache.NewHardCache(300 * time.Second)
+var operatorByCodeCache = cache.NewHardCache(300 * time.Second)
 
 // OperatorRepository реализует domain.OperatorRepository
 type OperatorRepository struct {
@@ -49,8 +55,18 @@ func (r *OperatorRepository) Create(ctx context.Context, operator *domain.Operat
 	return err
 }
 
-// GetByID получает оператора по ID
+// GetByID получает оператора по ID. Hard-cache TTL 5 мин.
 func (r *OperatorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Operator, error) {
+	cacheKey := id.String()
+	if operatorByIDCache.Enabled() {
+		if v, ok := operatorByIDCache.Get(cacheKey); ok {
+			if v == nil {
+				return nil, domain.ErrOperatorNotFound
+			}
+			return v.(*domain.Operator), nil
+		}
+	}
+
 	var operator domain.Operator
 	query := `
 		SELECT id, country_id, name, code, supports_paid_sender, supports_free_sender,
@@ -73,16 +89,31 @@ func (r *OperatorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			if operatorByIDCache.Enabled() {
+				operatorByIDCache.Set(cacheKey, nil)
+			}
 			return nil, domain.ErrOperatorNotFound
 		}
 		return nil, err
 	}
 
+	if operatorByIDCache.Enabled() {
+		operatorByIDCache.Set(cacheKey, &operator)
+	}
 	return &operator, nil
 }
 
-// GetByCode получает оператора по коду
+// GetByCode получает оператора по коду. Hard-cache TTL 5 мин.
 func (r *OperatorRepository) GetByCode(ctx context.Context, code string) (*domain.Operator, error) {
+	if operatorByCodeCache.Enabled() {
+		if v, ok := operatorByCodeCache.Get(code); ok {
+			if v == nil {
+				return nil, domain.ErrOperatorNotFound
+			}
+			return v.(*domain.Operator), nil
+		}
+	}
+
 	var operator domain.Operator
 	query := `
 		SELECT id, country_id, name, code, supports_paid_sender, supports_free_sender,
@@ -105,11 +136,17 @@ func (r *OperatorRepository) GetByCode(ctx context.Context, code string) (*domai
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			if operatorByCodeCache.Enabled() {
+				operatorByCodeCache.Set(code, nil)
+			}
 			return nil, domain.ErrOperatorNotFound
 		}
 		return nil, err
 	}
 
+	if operatorByCodeCache.Enabled() {
+		operatorByCodeCache.Set(code, &operator)
+	}
 	return &operator, nil
 }
 

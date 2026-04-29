@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,7 +15,16 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/auth/domain"
 	authinfra "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure"
 	authrepo "github.com/smpp-server/smpp-server/internal/services/auth/infrastructure/repository"
+	"github.com/smpp-server/smpp-server/internal/shared/cache"
 )
+
+// authCache caches (api-key-hash) → *domain.User for hot-path
+// authentication. Enabled via HARD_CACHE_ENABLED env.
+var authCache = cache.NewHardCache(60 * time.Second)
+
+// lastUsedSampleRate — under hard-cache, only update api_keys.last_used_at
+// on ~1% of hits to avoid lock contention on the row.
+const lastUsedSampleDenominator = 100
 
 // Sentinel errors, re-exported from repository for callers that don't import the repo package.
 var (
@@ -152,6 +162,38 @@ func (s *AuthService) AuthenticateByAPIKey(
 	// Хешируем ключ для поиска
 	keyHash := s.hashAPIKey(apiKey)
 
+	ip := ""
+	if len(requestIP) > 0 {
+		ip = requestIP[0]
+	}
+
+	// Hard-cache hit: skip DB entirely, но Active/Expired проверяются по
+	// кешированному значению — deactivated/expired ключ не должен работать
+	// в течение TTL. Невалидную запись инвалидируем, последующий запрос
+	// пойдёт в БД за актуальным отказом. last_used_at update сэмплируется
+	// ~1% для снятия hot-row lock contention.
+	if authCache.Enabled() {
+		if v, ok := authCache.Get(keyHash); ok {
+			entry := v.(*cachedAuthEntry)
+			if !entry.key.IsValid() || !entry.user.IsActive() {
+				authCache.Invalidate(keyHash)
+			} else if ip != "" && !entry.key.IsIPAllowed(ip) {
+				return nil, ErrIPNotAllowed
+			} else {
+				if entry.counter.Add(1)%lastUsedSampleDenominator == 0 {
+					go func(id uuid.UUID) {
+						bg, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+						defer cancel()
+						if err := s.apiKeyRepo.UpdateLastUsed(bg, id); err != nil {
+							log.Debug().Err(err).Msg("sampled last_used update failed")
+						}
+					}(entry.key.ID)
+				}
+				return entry.user, nil
+			}
+		}
+	}
+
 	// Получаем API ключ
 	key, err := s.apiKeyRepo.GetByKeyHash(ctx, keyHash)
 	if err != nil {
@@ -167,8 +209,8 @@ func (s *AuthService) AuthenticateByAPIKey(
 	}
 
 	// Проверяем IP whitelist
-	if len(requestIP) > 0 && requestIP[0] != "" {
-		if !key.IsIPAllowed(requestIP[0]) {
+	if ip != "" {
+		if !key.IsIPAllowed(ip) {
 			return nil, ErrIPNotAllowed
 		}
 	}
@@ -189,7 +231,17 @@ func (s *AuthService) AuthenticateByAPIKey(
 		return nil, ErrUserInactive
 	}
 
+	if authCache.Enabled() {
+		authCache.Set(keyHash, &cachedAuthEntry{key: key, user: user})
+	}
+
 	return user, nil
+}
+
+type cachedAuthEntry struct {
+	key     *domain.APIKey
+	user    *domain.User
+	counter atomic.Uint64
 }
 
 // ValidateToken валидирует JWT токен и возвращает информацию о пользователе
