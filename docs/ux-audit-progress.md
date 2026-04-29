@@ -1,5 +1,13 @@
 # UX Audit Progress
 
+> Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
+
+## [IN_PROGRESS] Этап 1/30: Auth — login/logout/session (admin/aggregator/user/subaccount, /login + /portal/v1/auth/*, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. Pre-этап: pgbouncer был Exited(255), все зависимые gateways/pipeline-workers были в crashloop из-за DNS-таймаутов. Перезапуск контейнера `deployments-pgbouncer-1` восстановил каскад. demo_seed применён через `docker exec -i postgres psql -U smpp -d smpp_db < test/load/fixtures/demo_seed.sql` (idempotent UPSERT). В БД: 3 пользователя (`admin`, `demo-client`, `demo-reseller`), 4 клиента, 4 компании, 4 аккаунта с балансами, 8 провайдеров, 14 маршрутов.
+
+Расхождение в доках: CLAUDE.md и комментарий в `scripts/server.sh exec` ссылаются на `psql -U sms sms`, реально в контейнере `postgres` — `-U smpp -d smpp_db`. Зафиксирую как BUG-Doc-1, не блокер для аудита.
+
 ## [DONE] Модуль: Имена отправителей и шаблоны — full sweep (subaccount + aggregator, fix + Infra + QA full, 2026-04-23)
 
 Аккаунты: `subacc@test.local` (`a0000000-...-000000000002`, parent = aggregator) и `aggregator@test.local` (`a0000000-...-000000000001`, is_reseller=t). Полный обход API (`/portal/v1/sender-names`, `/templates`, `/sender-registrations`, `/reseller/*`, `/settings/default-senders`) с прямой верификацией состояния через PostgreSQL.
