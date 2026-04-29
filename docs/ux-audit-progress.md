@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 15/30: Admin — monitoring + analytics + audit-log (admin, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 14/30: Admin — users + settings (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (API+infra)
 
 [Summary] 32 TC прогнаны (4 list+roles+permissions, 7 CreateUser/edge, 5 GetUser/UpdateUser, 3 Deactivate/Reset2FA/ResetPassword, 5 SystemDefaults, 3 RBAC, остальные boundary). 8 функциональных багов найдены, 6 исправлены одним PR (BUG-47/48/49/52/53/54), 2 ушли в наблюдения как накопительный паттерн. Среди исправлений два HIGH (BUG-53 кнопка "Сбросить 2FA" в admin была полностью сломана из-за ошибки в SQL repo, BUG-54 страница /admin/settings полностью сломана из-за неявного bytea→jsonb cast в pgx-stdlib).
