@@ -2,7 +2,72 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 12/30: Admin — operator-templates (admin, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 12/30: Admin — operator-templates (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
+
+[Summary] 23 TC прогнаны (включая регрессии после фикса), 4 функциональных бага найдены и исправлены одним PR (BUG-35/36/37 + BUG-32-pattern). Один из них (BUG-35) — HIGH severity, ломал UI edit любого шаблона без sender_name. System-wide паттерн BUG-9/13/17/28 (pgx errors → 500 вместо 400/404) подтверждён здесь массово (TC12.7/8/9/12/15b/c/21 — 7 кейсов в одном handler) — НЕ фиксим в одиночку, накопительный follow-up.
+
+[BUG LIST]
+
+BUG-35: UpdateOperatorTemplate с пустым sender_name_id падал 500 (SQLSTATE 22P02) — Severity: HIGH — Категория: Logic Gap / UI-blocker
+  Шаги: PUT /admin/v1/operator-templates/{id} с body `{"name":"x"}` (или любой partial без sender_name_id) → 500 INTERNAL_ERROR. В UI: openEdit пишет `sender_name_id: item.sender_name_id || ''`, при шаблоне без привязки фронт всегда отправлял пустую строку → 500. Edit любого шаблона без sender_name был полностью сломан через UI.
+  Корневая причина: SQL `sender_name_id = CASE WHEN $3::text = '' THEN sender_name_id ELSE $3::uuid END` — pgx определял тип $3 по ELSE-ветке как UUID и валидировал параметр на bind-стадии. Пустая строка не проходила UUID parse → 22P02 ДО исполнения CASE.
+  Получалось: 500 Internal на любой partial PUT, и через UI на шаблоны без sender_name.
+  Доказательство: TC12.13 partial → 500; TC12.16 update non-existent → тоже 500 (тот же 22P02, не доходит до RowsAffected=0). Логи admin-gateway: `invalid input syntax for type uuid: "" (SQLSTATE 22P02)`.
+  Фикс: commit dce420f — pre-обработка в Go (`var senderNameIDArg interface{}; if req.SenderNameID != "" { senderNameIDArg = req.SenderNameID }`), SQL → `COALESCE($3::uuid, sender_name_id)`. Известное ограничение: нельзя сбросить sender_name_id обратно в NULL — это отдельная фича (нужен patch-style API с явным sentinel), не введено фиксом.
+
+BUG-36: Approve/Reject/RequestRevision misleading 404 при существующем шаблоне без sender_name_id — Severity: LOW — Категория: Logic Gap / UX
+  Шаги: POST /admin/v1/operator-templates/{id}/approve для шаблона который существует но без sender_name_id → 404 "шаблон не найден". Запутывает: шаблон есть, но кажется удалённым.
+  Корневая причина: SELECT с INNER JOIN sender_names — NULL sender_name_id даёт пустой набор → ErrNoRows → 404.
+  Фикс: commit dce420f — helper `loadModerationContext` с LEFT JOIN, разделяет (found, eligible, status). 404 только при реальном отсутствии шаблона, 400 "модерация возможна только для шаблонов прямых клиентов с привязкой к sender_name" если шаблон есть но не подходит.
+
+BUG-37: List limit=-1 → 500, limit=99999 без clamp = unbounded — Severity: LOW/MED — Категория: Logic Gap / DoS Risk (BUG-33 паттерн)
+  Шаги: GET /admin/v1/operator-templates?limit=-1 → 500 INTERNAL_ERROR (`LIMIT -1` syntax error от Postgres); ?limit=99999 → 200 без clamp (на пустой таблице 0 строк, в проде потенциально вся таблица).
+  Фикс: commit dce420f — clamp в начале handler (default 50, max 200, offset≥0). Идентично паттерну BUG-33 для sender-names. Inconsistency с другими admin модулями (sender_names: max 200; common parsePagination: max 500) сохранена — наблюдение.
+
+BUG-32-pattern: Reject/RequestRevision принимали пустой note → audit без причины — Severity: MED — Категория: Logic Gap / Audit Integrity
+  Тот же паттерн что BUG-32 sender-names (этап 11, commit 0bbc41c) — рекуррентный для всех modal-with-reason endpoints в админке.
+  Фикс: commit dce420f — `validateModeratorNote` (TrimSpace + len 3..500). Approve как и раньше не требует note (consistency со sender-names).
+
+[Наблюдения, не фиксим в одиночку]
+
+- BUG-9/13/17/28 system-wide паттерн **подтверждён массово** в operator_templates handler (отдельные TC):
+  - TC12.7: Create с invalid UUID для operator_id → 500 (22P02, должен 400).
+  - TC12.8: Create с non-existent operator_id (FK violation) → 500 (23503, должен 400/422).
+  - TC12.9: Create с invalid status → 500 (23514 CHECK violation, должен 400).
+  - TC12.12: GET с invalid UUID → 500 (22P02, должен 400).
+  - TC12.15b/c: Update с FK/UUID violations → 500.
+  - TC12.21: List filter с invalid operator_id UUID → 500.
+  Корень: handler использует `database/sql` напрямую без error mapping. Накопилось ≥7 файлов с этим паттерном — отдельный PR через `pgxutil.MapErrorToHTTP`-helper или подобное. **НЕ ФИКСИМ ЗДЕСЬ.**
+
+- BUG-16-pattern (jsonb crash): operator_templates.go использует `string(varsJSON)`, не `[]byte` — **этот код безопасен**. Паттерн НЕ повторяется.
+
+- TOCTOU race в loadModerationContext + UPDATE: SELECT и UPDATE раздельны, два конкурентных reject могут оба пройти проверку submitted и оба сделать UPDATE — второй перетрёт moderator_note первого. Был и в старом коде, не регрессия. Reviewer отметил для техдолга. Фикс: один UPDATE с WHERE moderation_status='submitted' + RETURNING + проверка RowsAffected.
+
+- len() в validateModeratorNote считает байты, не руны — кириллица 2 символа = 4 байта проходит (минимум 3 байта). Тот же минор-баг что зафиксирован в этапе 11 sender-names. Накопительный follow-up для всех админ-handlers с reason validation.
+
+- Spec-drift риск: `loadModerationContext` фильтрует `c.parent_client_id IS NULL` — только direct clients, sub-account шаблоны нельзя модерировать. Поведение унаследовано из старого кода. spec 010-sender-names-templates явно не упоминает parent_client_id — поведение реализации, не AC. Открытый вопрос: должны ли модерироваться sub-account templates? Не блокер этапа, требует решения.
+
+- BUG-34 паттерн (admin history endpoint): operator_templates тоже не имеет admin GET /history endpoint для transition-логи. Service-слой operator_template_service.go может уже иметь GetOperatorTemplateHistoryAdmin (не проверял в этом этапе). Тот же follow-up класса что BUG-34.
+
+[Open для решения пользователя]
+
+- (a) BUG-9/13/17/28 system-wide error mapping — когда фиксим? Накопилось 7 файлов: aggregator, sender_names (часть мест), client_configs, billing, contracts, contact, operator_templates. Один PR с helper pgxutil.MapError или per-handler patches.
+- (b) Sub-account модерация operator-templates — фича или явный block? (поведение в коде = block, но не в spec).
+- (c) UI: невозможность сбросить sender_name_id обратно в NULL после фикса BUG-35. Нужен patch-style API с sentinel "<unset>" или отдельный endpoint /clear-sender-name. Не критично — UI пока этот сценарий не предлагает (Select имеет "Без имени отправителя" → пустая строка → теперь сохранит текущее значение, не сбросит).
+
+[Success Path] Admin открывает /admin/operator-templates, видит таблицу с фильтрами по оператору и статусу. Создаёт шаблон, выбирает оператора (обязательно), опционально sender_name, пишет body с переменными вида {code}. Редактирование partial-friendly. Approve/reject — только для шаблонов прямых клиентов с привязанным sender_name, status=submitted. Reject/request-revision требуют комментарий 3..500 символов.
+
+[Recommendations]
+1. **Срочно (next sprint)**: системный фикс error-mapping pgx → http codes. Накопилось ≥7 файлов, BUG-9/13/17/28/часть BUG-Update — это всё один корень, в проде = 500-storm для любого валидного "плохого" запроса (что админ может сделать руками или через интеграцию).
+2. **MED**: TOCTOU race в moderation transitions — один UPDATE с условием статуса вместо SELECT+UPDATE.
+3. **LOW**: utf8.RuneCountInString для всех reason/note валидаций по платформе. Сейчас минимум 3 байта = 1 символ кириллицы — теоретически приёмлемо, но inconsistent.
+
+[Test Data]
+- 4 шаблона создано-удалено в ходе TC: 3 на этапе обнаружения багов, 1 на регрессии. Все clean-up через DELETE 204. operator_templates таблица в текущем состоянии: 0 строк (база чиста).
+- Использован operator_id 10000000-0000-0000-0000-000000000001 (МТС) — seed-данные, без модификации.
+- sender_names пуст в БД на dev стенде — TC для approve happy path не прогонялись (требуется создание sender_name + перевод шаблона в submitted; вне scope этапа). Регрессия покрывает только negative path approve/reject.
+
+## [DONE] Этап 11/30: Admin — sender-names review/approve
 
 ## [DONE] Этап 11/30: Admin — sender-names review/approve (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
