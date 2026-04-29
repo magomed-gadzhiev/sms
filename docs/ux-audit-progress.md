@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 10/30: Admin — aggregators (sub-accounts UI) (admin, fix + Infrastructure + QA full, 2026-04-29)
+
 ## [DONE] Этап 9/30: Admin — clients (CRUD + блокировка) (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 13 TC прогнаны, 1 CRITICAL bug (BUG-21) найден и исправлен, 3 follow-up зафиксированы (BUG-22 LOW, BUG-23 HIGH security/policy, BUG-24 MED). Также расширен scope BUG-16 до 7 файлов после доп. grep'a reviewer'ом.
