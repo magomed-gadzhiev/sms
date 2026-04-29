@@ -2,9 +2,45 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 2/30: Auth — register / password-reset / 2FA (user, /register + /reset-password* + /portal/v1/auth/*, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 2/30: Auth — register / password-reset / 2FA setup (user, fix + Infrastructure + QA full, 2026-04-29) — частичный
 
-Lock поставлен. Продолжение этапа 1 без /clear (один поток, контекст управляемый).
+[Summary] 14 TC прогнано, 14 PASS после фиксов. 2 CRITICAL bug найдены и исправлены, оба требовали БД-миграций (вариант 3 из эскалации — гибрид: миграция сейчас, рефакторинг кода как follow-up). 6 TC по полному 2FA flow (verify TOTP, ticket reuse, disable, login через TOTP) перенесены в этап 31 (cross-cutting) — требуют генерации TOTP-кодов из секрета, что усложняет автоматизацию.
+
+[BUG LIST]
+
+BUG-4: register падает 500 на отсутствующей колонке clients.account_type — Severity: CRITICAL — Категория: Reliability Risk / Spec Drift
+  Шаги: 1) POST /portal/v1/auth/register с валидным телом 2) client-service делает INSERT INTO clients (..., account_type, ...) 3) ERROR: column "account_type" does not exist (SQLSTATE 42703) 4) UI: "Внутренняя ошибка сервера"
+  Корневая причина: код client-service ссылается на account_type (write в client_repository.go:43, read в tarification client_info_repository.go:30); миграция, добавляющая колонку, никогда не была написана. Колонка введена в коммите be20324 (2026-04-15) без миграции. Self-service register никогда не работал на этом стенде (4 demo-клиента созданы через seed в обход).
+  Доказательство: client-service logs `column "account_type" of relation "clients" does not exist`; проверка `\d clients` — колонки нет; grep по миграциям 000001-000123 — ни одного ALTER TABLE с этим именем
+  Фикс: миграция 000124_add_account_type_to_clients (commit b1c1f29) — narrow fix; рефакторинг (удалить колонку, заменить derived parent_client_id IS [NOT] NULL) вынесен в follow-up
+
+BUG-5: триггер create_account_for_new_client падает на NOT NULL company_id — Severity: CRITICAL — Категория: Reliability Risk / Spec Drift
+  Шаги: 1) После фикса BUG-4 — повторить register 2) client-service создаёт клиента, AFTER INSERT триггер срабатывает 3) INSERT INTO accounts без company_id → SQLSTATE 23502
+  Корневая причина: миграция 000091 сделала accounts.company_id NOT NULL и backfill'нула существующие clients/accounts «Оферта»-компанией, но триггер create_account_for_new_client (введён 000056) обновлён НЕ был. Self-service register сломан с момента применения 091. demo_seed обходил это `ALTER TABLE clients DISABLE TRIGGER`, что маскировало баг от регрессионных тестов.
+  Доказательство: client-service logs `null value in column "company_id" of relation "accounts" violates not-null constraint`; `\df create_account_for_new_client` показывает функцию без company_id в INSERT
+  Фикс: миграция 000125_fix_create_account_trigger_with_company (commit b1c1f29) — триггер сам создаёт «Оферта»-компанию и client_companies, INSERT account с company_id. Прошёл 2 review-цикла (исправлен silent-orphan path в conflict-handling, добавлен warning о race с idx_client_companies_default).
+
+[Test Coverage]
+PASS: 2.1 register happy free → 201 + 3-tier consistency (users→clients→client_companies→companies→accounts), 2.2 register с plan=starter → 201 + plan_id привязан, 2.4 duplicate email → 409 CONFLICT "email already registered", 2.5 password<8 → 400, 2.6 missing password → 400, 2.7 missing company_name → 400, 2.8 company_name>500 → 400, 2.9 invalid email format → 400, 2.10 SQL injection в email → 400 (валидация формата перехватывает), 2.11 password-reset request happy → 202 anti-enum, 2.12 password-reset request несуществующий email → 202 (anti-enumeration работает), 2.13 password-reset с invalid token → 400, 2.13b empty token → 400, 2.16 2FA setup → 200 с QR-URL и 10 recovery codes.
+
+PERENESEN-в-этап-31: 2.17-2.19 2FA verify TOTP / login c 2FA / ticket reuse — требуют генерации TOTP-кодов из секрета, лучше делать при cross-cutting аудите security.
+
+[Success Path] Регистрация: POST /portal/v1/auth/register с {email, password, company_name, [contact_person, phone, plan_name]} → backend валидирует format/длину → создаёт client (с account_type='direct') → trigger создаёт «Оферта»-компанию + client_companies + accounts (company_id, balance=0, RUB) → создаёт user (role=client) → создаёт session → cookies portal_session+csrf_token → 201 с {client_id, user}. Reset password: POST /password/reset-request → всегда 202 (anti-enum); POST /password/reset с {token, new_password} → 200 если token валиден, 400 если просрочен/неверен.
+
+[Recommendations]
+1. (HIGH) Follow-up: рефакторинг убрать дублирующую колонку account_type, перенести логику триггера в client-service.CreateClient (явный flow вместо скрытого триггера). Эта пара багов — следствие того что бизнес-логика разбросана между триггером и application code.
+2. (HIGH) Добавить регрессионный E2E-тест playwright на register flow — голый smoke (POST → 201 + cookies + login subsequent). Покрытие отсутствует, и оба бага влияли на production.
+3. (MED) Рассмотреть e-mail-нотификацию после register (welcome + verification) — сейчас регистрация без email-verify, password-reset без реальной отправки email.
+4. (LOW) Глубокий audit миграций 091 → 124: пройти все триггеры/функции, использующие accounts/clients, проверить совместимость со схемой.
+
+[Test Data] Создано 3 тестовых аккаунта через UI register: qa+1777472328@audit.local, qa+s1777472352@audit.local (plan=starter), qa+v1777472560@audit.local (re-verify после доработки миграции). Все с client_companies (Оферта) и accounts (0 RUB).
+
+[Commits этапа]
+- 1eb0308 docs(audit): этап 2/30 — [IN_PROGRESS]
+- b1c1f29 fix(migrations): 000124+000125 — починить self-service register flow [BUG-4+BUG-5]
+- (этот) docs(audit): этап 2/30 — [DONE] частичный
+
+
 
 ## [DONE] Этап 1/30: Auth — login/logout/session (admin/aggregator/user, fix + Infrastructure + QA full, 2026-04-29) — частичный
 
