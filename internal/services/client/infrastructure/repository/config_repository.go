@@ -40,13 +40,17 @@ func (r *ConfigRepository) Create(ctx context.Context, config *domain.ClientConf
 		)
 	`
 
+	// settings — jsonb. database/sql encodes []byte/json.RawMessage как bytea,
+	// что Postgres не кастует в jsonb (SQLSTATE 22P02). Передаём как string,
+	// тогда драйвер шлёт text и Postgres сам кастует. См. также BUG-15
+	// (HLR provider config).
 	_, err := r.db.ExecContext(ctx, query,
 		config.ID, config.ClientID,
 		config.RateLimitPerSecond, config.RateLimitPerMinute,
 		config.RateLimitPerHour, config.RateLimitPerDay,
 		pq.Array(config.AllowedSources),
 		pq.Array(config.BlockedDestinations),
-		config.Settings,
+		string(config.Settings),
 		config.CreatedAt, config.UpdatedAt,
 	)
 
@@ -110,13 +114,14 @@ func (r *ConfigRepository) Update(ctx context.Context, config *domain.ClientConf
 		WHERE client_id = $1
 	`
 
+	// settings — jsonb. См. комментарий в Create — string, не []byte.
 	result, err := r.db.ExecContext(ctx, query,
 		config.ClientID,
 		config.RateLimitPerSecond, config.RateLimitPerMinute,
 		config.RateLimitPerHour, config.RateLimitPerDay,
 		pq.Array(config.AllowedSources),
 		pq.Array(config.BlockedDestinations),
-		config.Settings,
+		string(config.Settings),
 		config.UpdatedAt,
 	)
 
