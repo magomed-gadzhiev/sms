@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 3/30: Admin — countries + operators (admin, /admin/countries + /admin/v1/{countries,operators,operators/*/prefixes}, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки невозможны (Playwright MCP disconnected) — режим API+SQL. Endpoints: GET/POST /admin/v1/countries, GET/POST/PUT /admin/v1/operators, GET/POST/DELETE /admin/v1/operators/:id/prefixes. На стенде свежеприменены миграции 122-123 (MCC/MNC + seed СНГ).
+
 ## [DONE] Этап 2/30: Auth — register / password-reset / 2FA setup (user, fix + Infrastructure + QA full, 2026-04-29) — частичный
 
 [Summary] 14 TC прогнано, 14 PASS после фиксов. 2 CRITICAL bug найдены и исправлены, оба требовали БД-миграций (вариант 3 из эскалации — гибрид: миграция сейчас, рефакторинг кода как follow-up). 6 TC по полному 2FA flow (verify TOTP, ticket reuse, disable, login через TOTP) перенесены в этап 31 (cross-cutting) — требуют генерации TOTP-кодов из секрета, что усложняет автоматизацию.
