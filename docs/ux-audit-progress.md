@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 13/30: Admin — webhooks + billing настройки (admin, fix + Infrastructure + QA full, 2026-04-29)
+
 ## [DONE] Этап 12/30: Admin — operator-templates (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 23 TC прогнаны (включая регрессии после фикса), 4 функциональных бага найдены и исправлены одним PR (BUG-35/36/37 + BUG-32-pattern). Один из них (BUG-35) — HIGH severity, ломал UI edit любого шаблона без sender_name. System-wide паттерн BUG-9/13/17/28 (pgx errors → 500 вместо 400/404) подтверждён здесь массово (TC12.7/8/9/12/15b/c/21 — 7 кейсов в одном handler) — НЕ фиксим в одиночку, накопительный follow-up.
