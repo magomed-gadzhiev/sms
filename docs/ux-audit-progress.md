@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 6/30: Admin — HLR providers (admin, /admin/hlr/providers, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки пропускаю. На стенде из demo_seed: 2 HLR-провайдера (HLR-Primary RU/KZ/BY/UA, HLR-Secondary RU/KZ).
+
 ## [DONE] Этап 5/30: Admin — routes + client-routes (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 13 TC прогнаны, 12 PASS, 1 наблюдение. Без code-fix'ов (ловить-в-follow-up).
