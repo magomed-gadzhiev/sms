@@ -91,7 +91,7 @@ const contractSelectQuery = `
 		ct.created_at,
 		ct.updated_at
 	FROM contracts ct
-	LEFT JOIN clients cl ON cl.client_id = ct.client_id
+	LEFT JOIN clients cl ON cl.id = ct.client_id
 	LEFT JOIN legal_entities le ON le.id = ct.legal_entity_id
 `
 

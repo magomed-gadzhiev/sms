@@ -93,7 +93,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 			COALESCE(c.name, '')             AS client_name
 		FROM messages m
 		LEFT JOIN providers p ON p.id = m.provider_id
-		LEFT JOIN clients c ON c.client_id = m.client_id
+		LEFT JOIN clients c ON c.id = m.client_id
 		WHERE 1=1` + conditions + `
 		ORDER BY m.created_at DESC
 		LIMIT ` + strconv.Itoa(limit) + ` OFFSET ` + strconv.Itoa(offset)
@@ -194,7 +194,7 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 		FROM messages m
 		LEFT JOIN providers p ON p.id = m.provider_id
 		LEFT JOIN client_routes r ON r.id = m.route_id
-		LEFT JOIN clients c ON c.client_id = m.client_id
+		LEFT JOIN clients c ON c.id = m.client_id
 		WHERE m.id = $1::uuid
 		LIMIT 1
 	`
