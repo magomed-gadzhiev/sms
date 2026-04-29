@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 5/30: Admin — routes + client-routes (admin, /admin/routes + /admin/client-routes, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки пропускаю (Playwright MCP disconnected). Свежий MVP-feedback №8 — MCC/MNC routing foundation (commit 85f2e85, миграции 122-123 — добавили колонки + seed СНГ). На стенде: 13 routes из demo_seed (Russia prefix-based), 0 client-routes, операторы с MCC/MNC из миграции 123 (под country_id=00000000-...-001).
+
 ## [DONE] Этап 4/30: Admin — providers + connections (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 13 TC прогнаны (PASS), 4 баг найдены и зафиксированы как follow-up. Без code-fix'ов (все 4 — системные паттерны через несколько сервисов, лучше делать одним системным PR).
