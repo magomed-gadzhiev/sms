@@ -2,9 +2,60 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 4/30: Admin — providers + connections (admin, /admin/providers + /admin/connections, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 4/30: Admin — providers + connections (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
-Lock поставлен. UI-проверки пропускаю (Playwright MCP disconnected). На стенде из demo_seed: 8 провайдеров (Provider-MTS-RU/Beeline/Megafon/Tele2/Tinkoff/International/Backup). Свежий MVP-feedback №3 — Edit-визард providers (commits 1414b8b/b8e0d6c). Endpoints: GET/POST/PUT/DELETE /admin/v1/providers, GET /providers/:id/health; GET /connections, POST /connections/:id/{reconnect,stop}.
+[Summary] 13 TC прогнаны (PASS), 4 баг найдены и зафиксированы как follow-up. Без code-fix'ов (все 4 — системные паттерны через несколько сервисов, лучше делать одним системным PR).
+
+[BUG LIST]
+
+BUG-8: POST /admin/v1/providers вернул 502 Bad Gateway, но провайдер создан в БД — Severity: LOW — Категория: Reliability Risk
+  Шаги: первый POST после рестарта admin-gateway → 502, провайдер всё равно появился в БД
+  Корневая причина: видимо первый запрос ловит cold-start gRPC connection до provider-service, haproxy timeout. Повторные запросы PASS.
+  Доказательство: HTTP 502 от haproxy + DB SELECT showed inserted row
+  Фикс: вынесен в follow-up (race на cold start, не блокер)
+
+BUG-9: provider-service возвращает 500 на UNIQUE constraint вместо 409 — Severity: MED — Категория: Logic Gap
+  Шаги: POST /admin/v1/providers с дублем name → 500 "Внутренняя ошибка сервера"
+  Ожидалось: 409 Conflict с понятным сообщением (как countries → "country with this ISO code already exists")
+  Получилось: 500 (благодаря BUG-7 fix raw SQL не утекает, но HTTP-код неправильный)
+  Корневая причина: provider-service gRPC server возвращает `status.Error(codes.Internal, err.Error())` на pgx unique-violation, тогда как должен классифицировать как codes.AlreadyExists. Это системный pattern — нужен wrapper `pgErrorToGRPCCode` для всех services с UNIQUE constraints.
+  Фикс: вынесен в follow-up (системный — переписать error mapping во всех services)
+
+BUG-10: provider bind_type не валидируется handler-ом, принимаются произвольные значения — Severity: LOW — Категория: Logic Gap
+  Шаги: POST с bind_type=99 → 201 Created (БД не имеет CHECK constraint, SMPP-gateway непредсказуемо себя поведёт при подключении)
+  Ожидалось: 400 с "bind_type должен быть 1 (receiver) / 2 (transmitter) / 3 (transceiver)"
+  Получилось: 201
+  Фикс: вынесен в follow-up (handler-level enum validation)
+
+BUG-11: reconnect non-existent connection → 500 вместо 404 — Severity: LOW — Категория: Logic Gap
+  Шаги: POST /admin/v1/connections/<random-uuid>/reconnect → 500 "Ошибка отправки команды"
+  Ожидалось: 404 Not Found
+  Получилось: 500 (после BUG-7 fix не leak'ает SQL, но код неправильный)
+  Фикс: вынесен в follow-up (handler/service should check existence before reconnect)
+
+[Test Coverage]
+PASS: 4.1 list providers → 200 (8 провайдеров видны), 4.2 user/unauth → 403/401, 4.3 create happy → 201 (после исправления формата bind_type на int), 4.4 get → 200, 4.5 update PUT → 200 + DB consistency, 4.7 missing name → 400, 4.8/4.9 port validation (negative/65536) → 400 с понятным сообщением, 4.11 health → 200 (status=unhealthy, ожидаемо т.к. SMSC недоступен), 4.12 list connections → 200 (пустой список — ни один SMPP-bind не активен), 4.13 connection RBAC → 403/401, 4.15 delete → 200 + DB count=0.
+
+OBSERVATIONS:
+- bind_type API использует int (1=receiver, 2=transmitter, 3=transceiver), не строку. Это inconsistent с UI-описанием бизнес-логики (UI отображает текст). Архитектурный выбор, не баг.
+- Healthcheck возвращает unhealthy — это норма на dev-стенде без реальных SMSC. Поведение корректное.
+- BUG-7 fix верифицирован дважды: TC 4.6 (duplicate) и TC 4.14 (reconnect) — оба возвращают generic "Внутренняя ошибка сервера" вместо raw SQL, как и было задумано.
+
+[Success Path] Admin создаёт провайдер: POST /admin/v1/providers с {name, host, port, system_id, password, bind_type=3, max_connections, active=true} → 201 + provider_id. Затем PUT /admin/v1/providers/{id} меняет имя/статус → 200. GET /providers/{id}/health показывает текущий статус подключения. DELETE удаляет.
+
+[Recommendations]
+1. (HIGH) Системный фикс error-mapping в gRPC-сервисах: pgx unique-violation → codes.AlreadyExists, not_found → codes.NotFound. Сейчас в нескольких сервисах raw err идёт в codes.Internal. Без BUG-7 фикса это была бы information disclosure; с фиксом это просто неправильный HTTP-код, но HTTP-код важен для UI и интеграций.
+2. (MED) Добавить enum-validation для bind_type в provider handler (1/2/3). Аналогично — для других int-enum полей в БД, которые могут принимать недопустимые значения.
+3. (LOW) Cold-start 502 на admin-gateway после rebuild — добавить retry на admin-gateway или подождать в healthcheck до полной готовности gRPC pool.
+4. (LOW) connections handler — проверка существования перед reconnect/stop, корректный 404 для несуществующих.
+
+[Test Data] Создано/удалено: provider QA-Test-Provider → переименован → удалён через DELETE; провайдеры X1, X2 (port-validation negative tests, не созданы), X3 (bind_type=99 baseline test, удалён вместе с QA-Renamed cleanup'ом).
+
+[Commits этапа]
+- 2b405ed docs(audit): этап 4/30 — [IN_PROGRESS]
+- (этот) docs(audit): этап 4/30 — [DONE] частичный (без code-fix; 4 follow-up)
+
+
 
 ## [DONE] Этап 3/30: Admin — countries + operators (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only, без UI)
 
