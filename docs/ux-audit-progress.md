@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 7/30: Admin — tariffs + tarification (admin, /admin/tariffs + /admin/tarification + /admin/individual-tariffs, fix + Infrastructure + QA full, 2026-04-29)
+
+Lock поставлен. UI-проверки пропускаю (Playwright MCP disconnected). На стенде из demo_seed: subscription_plans (free/starter/business/pro), tariffs по операторам, индивидуальные тарифы. Свежий MVP-feedback №5 — operation_kind в transactions (commit dcbab7f, миграция 121).
+
 ## [DONE] Этап 6/30: Admin — HLR providers (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API-only)
 
 [Summary] 9 TC прогнаны (PASS после фикса), 1 CRITICAL bug найден и исправлен + 1 system-wide follow-up зафиксирован.
