@@ -49,8 +49,13 @@ func (r *HLRProviderRepository) Create(ctx context.Context, provider *domain.HLR
 		INSERT INTO hlr_providers (id, name, adapter_type, config, priority, supported_regions, cost_per_lookup, status, success_rate, active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
+	// database/sql encodes []byte как bytea, и Postgres не имеет implicit
+	// bytea→jsonb cast → SQLSTATE 22P02. Передаём как string, чтобы драйвер
+	// послал text, который jsonb принимает через implicit cast. (Драйвер тут
+	// pgx-stdlib, см. cmd/services/routing-service/main.go; lib/pq в этом
+	// файле используется только для pq.Array, не как SQL-driver.)
 	_, err = r.db.ExecContext(ctx, query,
-		provider.ID, provider.Name, provider.AdapterType, configJSON,
+		provider.ID, provider.Name, provider.AdapterType, string(configJSON),
 		provider.Priority, pq.Array(provider.SupportedRegions), provider.CostPerLookup,
 		string(provider.Status), provider.SuccessRate, provider.Active,
 		provider.CreatedAt, provider.UpdatedAt,
@@ -75,11 +80,12 @@ func (r *HLRProviderRepository) Update(ctx context.Context, provider *domain.HLR
 			active = $12, updated_at = $13
 		WHERE id = $1`
 
-	// last_success_at и last_failure_at — TIMESTAMPTZ в БД. Передаём *time.Time
-	// напрямую (Unix-seconds через *int64 вызывает SQLSTATE 22P02, т.к. pq не
-	// приводит integer к timestamp without explicit ::to_timestamp каста).
+	// last_success_at и last_failure_at — TIMESTAMPTZ. Передаём *time.Time
+	// напрямую (Unix-seconds через *int64 вызывает SQLSTATE 22P02, потому что
+	// нет implicit-cast int→timestamp в Postgres — это не специфика драйвера).
+	// config: см. комментарий в Create — string, не []byte.
 	_, err = r.db.ExecContext(ctx, query,
-		provider.ID, provider.Name, provider.AdapterType, configJSON,
+		provider.ID, provider.Name, provider.AdapterType, string(configJSON),
 		provider.Priority, pq.Array(provider.SupportedRegions), provider.CostPerLookup,
 		string(provider.Status), provider.SuccessRate,
 		provider.LastSuccessAt, provider.LastFailureAt,
