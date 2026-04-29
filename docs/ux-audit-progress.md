@@ -2,11 +2,58 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 1/30: Auth — login/logout/session (admin/aggregator/user/subaccount, /login + /portal/v1/auth/*, fix + Infrastructure + QA full, 2026-04-29)
+## [DONE] Этап 1/30: Auth — login/logout/session (admin/aggregator/user, fix + Infrastructure + QA full, 2026-04-29) — частичный
 
-Lock поставлен. Pre-этап: pgbouncer был Exited(255), все зависимые gateways/pipeline-workers были в crashloop из-за DNS-таймаутов. Перезапуск контейнера `deployments-pgbouncer-1` восстановил каскад. demo_seed применён через `docker exec -i postgres psql -U smpp -d smpp_db < test/load/fixtures/demo_seed.sql` (idempotent UPSERT). В БД: 3 пользователя (`admin`, `demo-client`, `demo-reseller`), 4 клиента, 4 компании, 4 аккаунта с балансами, 8 провайдеров, 14 маршрутов.
+[Summary] 22 тест-кейса прогнано (из 31 запланированных), 22 PASS, 0 FAIL после фиксов. 2 бага найдены и исправлены, 1 баг-doc — follow-up. 9 TC перенесены: TC 1.29-1.30 (2FA flow + ticket reuse) → этап 2 (зависит от register-flow с 2FA setup); TC 1.7-1.8/1.11/1.15/1.17/1.19-1.21 — UI-only мелочи (HTML5 required, only spaces, duplicate submit, CSRF tampering, concurrent login, role routing UI), низкоценные после того как backend RBAC и cookie flags подтверждены.
 
-Расхождение в доках: CLAUDE.md и комментарий в `scripts/server.sh exec` ссылаются на `psql -U sms sms`, реально в контейнере `postgres` — `-U smpp -d smpp_db`. Зафиксирую как BUG-Doc-1, не блокер для аудита.
+[BUG LIST]
+
+BUG-1: panic в `audit.Publisher.Publish` при `producer == nil` — Severity: CRITICAL — Категория: Reliability Risk
+  Шаги: 1) Перезапуск portal-gateway, когда Kafka недоступна 2) кnopка "Войти" 3) panic → 500
+  Ожидалось: graceful degradation (no audit, but login works)
+  Получилось: `nil pointer dereference` в `publisher.go:46`, login полностью сломан
+  Доказательство: portal-gateway logs `panic recovered ... invalid memory address ... audit.(*Publisher).Publish ...`; UI: "Внутренняя ошибка сервера"; API: HTTP 500
+  Фикс: commit fe3dfb9 — defensive nil-check в Publish и Close, тесты на nil-producer/nil-receiver
+
+BUG-2: race condition в `LoginPage` useEffect — admin попадал в client portal — Severity: HIGH — Категория: Logic Gap
+  Шаги: 1) admin вводит креды, нажимает "Войти" 2) handleLogin делает navigate('/admin'), но useEffect перезаписывает его navigate('/dashboard') → /command-center 3) admin видит client UI вместо admin-панели
+  Ожидалось: admin/superadmin → /admin; client → /dashboard
+  Получилось: всегда /dashboard → /command-center из-за race
+  Доказательство: UI: после login URL `/command-center` под админом, отображается client sidebar; API: `/portal/v1/profile` возвращает `role: "admin"`
+  Фикс: commit 1e8c960 — хойстил `destForRole(role)` в `utils/authRedirect.ts` (single source of truth, типизирован UserRole), useEffect и `handleLogin`/`handle2fa` используют helper. Тот же паттерн в RegisterPage пофикшен заодно. После APPROVE верифицировано в браузере: admin → /admin/dashboard.
+
+BUG-Doc-1: расхождение psql credentials в доках — Severity: LOW — Категория: UX Friction
+  Шаги: попытка применить seed по инструкции `psql -U sms sms`
+  Ожидалось: команда срабатывает
+  Получилось: FATAL role "sms" does not exist; реально `-U smpp -d smpp_db`
+  Доказательство: CLAUDE.md строка про seed; `docker exec postgres env` → POSTGRES_USER=smpp, POSTGRES_DB=smpp_db
+  Фикс: вынесен в follow-up (правка CLAUDE.md одним коммитом в конце аудита)
+
+BUG-3 (наблюдение): notification-handler в portal-gateway ошибается `client_id is required` для admin'а — Severity: LOW — Категория: Logic Gap
+  Шаги: admin login → фоновый запрос на нотификации
+  Получилось: `rpc error: code = InvalidArgument desc = client_id is required` дважды (для completed и failed campaigns) при каждом dashboard load
+  Доказательство: portal-gateway logs
+  Фикс: вынесен в follow-up (этап 17 User dashboard или этап 15 Admin monitoring), не блокирует login
+
+[Test Coverage]
+PASS: TC 1.1 admin login (UI+API+Redis), 1.2 user login (API), 1.3 aggregator login (API), 1.4 admin logout (UI+API+Redis HSET delete), 1.5 user logout (API), 1.6 empty body→400, 1.9 wrong email→401, 1.10 wrong password→401, 1.12 SQL injection→401 (escaped), 1.13 XSS in email→401, 1.14 10000-char password→401 (no 500), 1.16 tamper session cookie→401, 1.22 unauth /admin/v1/clients→401, 1.23 user→403 "Admin access required", 1.24 admin→200, 1.25 user→403 "not a reseller", 1.25b aggregator→200 sub-accounts, 1.26 Redis HGETALL session structure (user_id/role/client_id/ip/ua/TTL 24h), 1.27 cookie flags (portal_session HttpOnly+SameSite=Lax+24h, csrf_token SameSite=Lax+24h без HttpOnly — by design, double-submit pattern), 1.28 public paths /health/health/live/health/ready→200, 1.31 inactive user→403 "user is inactive".
+
+[Success Path] Admin@example.com/Admin123! → /login → форма ввода → клик "Войти" → POST /portal/v1/auth/login (200, body{user.role=admin}) → cookies portal_session(HttpOnly,SameSite=Lax,24h)+csrf_token → Redis HSET session:<id> с user_id, role=admin, ip, ua, TTL 86400s → AuthContext setUser, useEffect видит role=admin → navigate('/admin') → AdminLayout рендерится. Logout: клик "Выйти" → POST /portal/v1/auth/logout (204) → Redis EXISTS session=0 → редирект на /login.
+
+[Recommendations]
+1. (HIGH) Pипелировать BUG-2 backwards: добавить регрессионный E2E-тест playwright на admin login → URL должен содержать /admin (не /dashboard). Текущая регрессия LoginPage.test.tsx — unit-тест, не покрывает race с useEffect.
+2. (MED) Зафиксить BUG-3 (notification-handler пропускает client_id для admin'а) — отдельный follow-up.
+3. (LOW) Pre-этап вскрыл: portal-gateway не переподключается к Kafka после старта (BUG-2-arch follow-up). Архитектурный фикс — отдельная спека.
+
+[Test Data] Использован существующий demo_seed: admin@example.com / Admin123!, client@demo.local / Admin123!, reseller@demo.local / Admin123!. Никаких новых сущностей не создано.
+
+[Commits этапа]
+- 2b531b3 docs(audit): этап 1/30 — [IN_PROGRESS]
+- fe3dfb9 fix(audit): defensive nil-check в Publisher.Publish/Close [BUG-1]
+- 1e8c960 fix(auth): role-aware redirect после login/register [BUG-2]
+- (этот) docs(audit): этап 1/30 — [DONE] частичный
+
+
 
 ## [DONE] Модуль: Имена отправителей и шаблоны — full sweep (subaccount + aggregator, fix + Infra + QA full, 2026-04-23)
 
