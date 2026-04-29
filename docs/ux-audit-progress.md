@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 14/30: Admin — users + settings (admin, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 13/30: Admin — webhooks + billing настройки (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API+frontend-types)
 
 [Summary] 25 TC прогнаны (12 webhooks + 13 billing). 8 функциональных багов найдены, 5 исправлены одним PR (BUG-38/39/41/45/46), 3 ушли в наблюдения по design-причинам. Один из фиксов — CRITICAL (BUG-41: эндпоинт пополнения принимал отрицательные суммы и фактически списывал баланс), один HIGH (BUG-38: вся страница /admin/webhooks была сломана из-за рассинхрона полей frontend↔backend).
