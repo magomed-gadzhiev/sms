@@ -190,7 +190,7 @@ func (h *OperatorTemplateHandlers) GetOperatorTemplate(w http.ResponseWriter, r 
 	respondJSON(w, http.StatusOK, row.toJSON())
 }
 
-type operatorTemplateRequest struct {
+type operatorTemplateCreateRequest struct {
 	Name         string   `json:"name"`
 	OperatorID   string   `json:"operator_id"`
 	SenderNameID string   `json:"sender_name_id"`
@@ -199,9 +199,23 @@ type operatorTemplateRequest struct {
 	Status       string   `json:"status"`
 }
 
+// operatorTemplateUpdateRequest использует *string для sender_name_id чтобы
+// различать три случая в PUT:
+//   - поле отсутствует / null → keep текущее значение
+//   - поле "" (пустая строка) → сбросить sender_name_id в NULL
+//   - поле "<uuid>" → установить новое значение
+type operatorTemplateUpdateRequest struct {
+	Name         string   `json:"name"`
+	OperatorID   string   `json:"operator_id"`
+	SenderNameID *string  `json:"sender_name_id"`
+	Body         string   `json:"body"`
+	Variables    []string `json:"variables"`
+	Status       string   `json:"status"`
+}
+
 // CreateOperatorTemplate обрабатывает POST /admin/v1/operator-templates
 func (h *OperatorTemplateHandlers) CreateOperatorTemplate(w http.ResponseWriter, r *http.Request) {
-	var req operatorTemplateRequest
+	var req operatorTemplateCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
@@ -240,30 +254,44 @@ func (h *OperatorTemplateHandlers) CreateOperatorTemplate(w http.ResponseWriter,
 // UpdateOperatorTemplate обрабатывает PUT /admin/v1/operator-templates/{id}
 func (h *OperatorTemplateHandlers) UpdateOperatorTemplate(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	var req operatorTemplateRequest
+	var req operatorTemplateUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
 		return
 	}
 	varsJSON, _ := json.Marshal(req.Variables)
 
-	// BUG-35: пустая строка sender_name_id не должна валиться 22P02 при partial update.
-	// Передаём как nil (NULL) — COALESCE сохранит текущее значение.
-	var senderNameIDArg interface{}
-	if req.SenderNameID != "" {
-		senderNameIDArg = req.SenderNameID
+	// Трёхзначная логика sender_name_id (см. doc у operatorTemplateUpdateRequest):
+	//   nil → senderNameAction='keep', SQL ветка оставит текущее значение
+	//   *"" → senderNameAction='clear', SQL ветка установит NULL
+	//   *"<uuid>" → senderNameAction='set', SQL ветка кастит и присвоит
+	var (
+		senderNameAction = "keep"
+		senderNameValue  interface{}
+	)
+	if req.SenderNameID != nil {
+		if *req.SenderNameID == "" {
+			senderNameAction = "clear"
+		} else {
+			senderNameAction = "set"
+			senderNameValue = *req.SenderNameID
+		}
 	}
 
 	res, err := h.db.ExecContext(r.Context(), `
 		UPDATE operator_templates
 		SET name           = COALESCE(NULLIF($2,''), name),
-		    sender_name_id = COALESCE($3::uuid, sender_name_id),
-		    body           = COALESCE(NULLIF($4,''), body),
-		    variables      = CASE WHEN $5 = '[]' OR $5 = 'null' THEN variables ELSE $5::jsonb END,
-		    status         = COALESCE(NULLIF($6,''), status),
+		    sender_name_id = CASE
+		        WHEN $3 = 'clear' THEN NULL
+		        WHEN $3 = 'set'   THEN $4::uuid
+		        ELSE sender_name_id
+		    END,
+		    body           = COALESCE(NULLIF($5,''), body),
+		    variables      = CASE WHEN $6 = '[]' OR $6 = 'null' THEN variables ELSE $6::jsonb END,
+		    status         = COALESCE(NULLIF($7,''), status),
 		    updated_at     = now()
 		WHERE id = $1::uuid
-	`, id, req.Name, senderNameIDArg, req.Body, string(varsJSON), req.Status)
+	`, id, req.Name, senderNameAction, senderNameValue, req.Body, string(varsJSON), req.Status)
 	if err != nil {
 		log.Error().Err(err).Msg("operator_templates: ошибка обновления")
 		respondError(w, shared.ErrInternalServer("Ошибка обновления"))
