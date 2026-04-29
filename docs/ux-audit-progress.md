@@ -2,7 +2,68 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 14/30: Admin — users + settings (admin, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 14/30: Admin — users + settings (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (API+infra)
+
+[Summary] 32 TC прогнаны (4 list+roles+permissions, 7 CreateUser/edge, 5 GetUser/UpdateUser, 3 Deactivate/Reset2FA/ResetPassword, 5 SystemDefaults, 3 RBAC, остальные boundary). 8 функциональных багов найдены, 6 исправлены одним PR (BUG-47/48/49/52/53/54), 2 ушли в наблюдения как накопительный паттерн. Среди исправлений два HIGH (BUG-53 кнопка "Сбросить 2FA" в admin была полностью сломана из-за ошибки в SQL repo, BUG-54 страница /admin/settings полностью сломана из-за неявного bytea→jsonb cast в pgx-stdlib).
+
+[BUG LIST]
+
+BUG-47: GET /admin/v1/users и /admin/v1/roles не клампят limit (паттерн BUG-33/46) — Severity: LOW — Категория: Performance / DoS-vector
+  Шаги: `curl /admin/v1/users?limit=99999` → HTTP 200 с `"limit":99999`. Параметр уходит в gRPC и SQL без ограничения.
+  Фикс: ea16048 (helper `clampPagination` из billing.go применён в `ListUsers` и `ListRoles`; `usersMaxListLimit = 200`).
+
+BUG-48: CreateUser принимает любую строку как email — Severity: HIGH — Категория: Functional / Data integrity
+  Шаги: `POST /admin/v1/users -d '{"email":"not-an-email",...}'` → HTTP 201 с битыми данными.
+  Доказательство (handler до фикса): только проверка `req.Email == ""` — никакой валидации формата.
+  Фикс: ea16048 (`validateUserEmail` через `net/mail.ParseAddress` + `addr.Address != email` для отсечения display-name синтаксиса).
+
+BUG-49: CreateUser принимает пароль из 1 символа — Severity: HIGH — Категория: Security / Authentication
+  Шаги: `POST /admin/v1/users -d '{"password":"a",...}'` → HTTP 201.
+  Фикс: ea16048 (`validateUserPassword`, минимум 8 символов).
+  Known gap: complexity (заглавные/цифры/спецсимволы) не проверяется. "12345678" пройдёт. Follow-up — добавить zxcvbn или regex `[A-Z]&[a-z]&[0-9]`.
+
+BUG-52: PUT /admin/v1/users/:id с partial body (только email) → 500 — Severity: HIGH — Категория: Functional / Schema drift (BUG-35 паттерн)
+  Шаги: `PUT /admin/v1/users/<id> -d '{"email":"x@y.com"}'` → HTTP 500.
+  Доказательство (auth-service log): `ERROR: insert or update on table "users" violates foreign key constraint "users_role_id_fkey" (SQLSTATE 23503)`. Пустой `role_id=""` уходит в gRPC и SQL UPDATE — auth_service.UpdateUser затирает все поля.
+  Фикс: ea16048 (handler декодирует поля как `*string`/`*bool`; pre-fetch текущего user'а через GetUser, незаполненные поля заполняются текущими значениями; client_id защищён nil-guard'ом в auth_service.UpdateUser строка 466).
+  Race-condition между GetUser и UpdateUser теоретически возможна, но окно ms — для админ-эндпоинта приемлемо. Корректная фиксация — FieldMask, инфраструктурный вопрос.
+
+BUG-53: POST /admin/v1/users/:id/reset-2fa → 500 для всех пользователей — Severity: HIGH — Категория: Functional / Schema mismatch
+  Шаги: `POST /admin/v1/users/<id>/reset-2fa` → HTTP 500 "Внутренняя ошибка сервера".
+  Доказательство (auth-service log): `ERROR: relation "totp_secrets" does not exist (SQLSTATE 42P01)`. UserRepository.ResetTOTP делает `DELETE FROM totp_secrets WHERE user_id = $1`. Такой таблицы нет: TOTP-секрет хранится в `users.totp_secret_encrypted` (миграция 000014), а recovery-коды в `totp_recovery_codes`.
+  Фикс: ea16048 (`ResetTOTP` теперь транзакция: `UPDATE users SET totp_secret_encrypted = NULL, totp_enabled = FALSE, totp_verified_at = NULL` + `DELETE FROM totp_recovery_codes WHERE user_id`).
+
+BUG-54: PUT /admin/v1/system/defaults/<key> → 500 для всех валидных значений — Severity: HIGH — Категория: Infrastructure / pgx + jsonb
+  Шаги: `PUT /admin/v1/system/defaults/rate_limit_per_second -d '{"value":100}'` → HTTP 500. Страница /admin/settings полностью неработающая — любое сохранение валит 500.
+  Доказательство (admin-gateway log после фикса логирования): `ERROR: invalid input syntax for type json (SQLSTATE 22P02)`. `database/sql` + pgx-stdlib передают `[]byte` как `bytea`, и Postgres не умеет неявно приводить bytea→jsonb. Прямой DB UPSERT с text-литералом тоже падает: `column "value" is of type jsonb but expression is of type text`.
+  Фикс: ea16048 (двойной фикс — `VALUES ($1, $2::jsonb, ...)` + конверсия `[]byte` → `string` в storage repo, чтобы pgx-stdlib шлёт значение как text, и явный cast отрабатывает). Также добавлено `log.Error().Err(err)` в handler — раньше ошибки repo не логировались, отсюда сложность диагностики.
+
+[Наблюдения / без фикса в этом этапе]
+
+- BUG-50: POST /admin/v1/users с дубликатом email → HTTP 500. auth-service: `ERROR: duplicate key value violates unique constraint "users_username_key" (SQLSTATE 23505)`. Должно быть 409 Conflict с конкретным сообщением. Паттерн BUG-9/13/17/28 — накопительный PR.
+- BUG-51: POST /admin/v1/users с несуществующим role_id (валидный UUID) → HTTP 500. auth-service: `users_role_id_fkey violation (SQLSTATE 23503)`. Должно быть 404 "роль не найдена" или 400 "invalid role". Паттерн BUG-9/13/17/28 — накопительный PR.
+- max_sub_accounts == 0 в seed: возможно случайный default, не баг — конфигурационный вопрос.
+- Password complexity gap: после BUG-49 принимается "12345678". Open вопрос: добавить zxcvbn-style проверку или оставить минимум-8-символов?
+- 2FA edge: backup-codes и TOTP secret хранятся раздельно — пара UPDATE/DELETE не атомарна на уровне домена. Проверка transaction-level (BUG-53 фикс) делает консистентным.
+
+[Success Path]
+Admin открывает /admin/users → видит список (clamp limit) → создаёт пользователя (валидируются email-формат и password ≥ 8) → редактирует partial (PATCH-like, без затирания других полей) → сбрасывает 2FA (корректные UPDATE+DELETE без ссылки на несуществующую таблицу) → деактивирует. /admin/settings → меняет любую настройку → 204 + значение в БД (после фикса bytea→jsonb cast).
+
+[Recommendations]
+1. **Накопительный PR на pgx error-mapping**: уже >11 файлов с паттерном (sender_names, client_configs, billing AddCredits/SetCreditLimit, contracts, contact, operator_templates, webhook FK, **users CreateUser duplicate + role_id FK**). Извлечь helper `mapPgxError(err) → AppError` в `internal/shared` и заменить во всех handler/gRPC слоях. CRITICAL: без этого UX будет регулярно валиться в "Внутренняя ошибка сервера" вместо 400/404/409.
+2. **Password complexity**: добавить zxcvbn (`github.com/trustelem/zxcvbn`) или хотя бы regex-проверку на наличие хотя бы одной заглавной/цифры/спецсимвола. Текущая проверка "8+ символов" пускает "12345678".
+3. **FieldMask для UpdateUserRequest**: текущий `*authv1.UpdateUserRequest` не различает "не передано" и "пустое". Pre-fetch в admin handler — workaround. Добавить `update_mask: google.protobuf.FieldMask` в proto и перейти на правильную семантику PATCH (этап рефакторинга, spec 017).
+
+[Test Data]
+- user `a0cb8e0f-d011-40b7-b6c3-23e138342e2f` создан в TC6 (qa+stage14_1777502797@audit.local), модифицирован TC13 (email=updated_partial_*), деактивирован TC17, реактивирован TC18-после-фикса, 2FA сброшен TC19-после-фикса.
+- user `e5ec81dc-91d8-4c05-b137-800360c043d0` создан в TC8 ДО фикса BUG-48 с битым email "not-an-email" — оставлен для регресс-проверки.
+- user `c743fc10-427e-4eea-9d24-9cf48d554c01` создан в TC10 ДО фикса BUG-49 с паролем "a" — оставлен для регресс-проверки.
+- system_defaults `rate_limit_per_second` менялся на 33→10 в TC29-recheck (восстановлено).
+- Регресс-тесты `TestValidateUserEmail/*` (8 cases) и `TestValidateUserPassword/*` (5 cases) в `internal/gateway/admin/handlers/users_test.go`.
+
+Коммиты:
+- b368174 docs(audit): этап 14/30 admin users+settings — [IN_PROGRESS]
+- ea16048 fix(admin): users/settings — clamp limit, email/password validation, partial PUT, ResetTOTP, jsonb cast [BUG-47/48/49/52/53/54 этап 14/30]
 
 ## [DONE] Этап 13/30: Admin — webhooks + billing настройки (admin, fix + Infrastructure + QA full, 2026-04-29) — частичный (API+frontend-types)
 
