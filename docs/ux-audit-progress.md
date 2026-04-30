@@ -2,7 +2,38 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 16/30: Admin — detalization (deprecated) (admin, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 16/30: Admin — detalization (deprecated) (admin, fix + Infrastructure + QA full, 2026-04-30) — корректность deprecation
+
+[Summary] 8 TC прогнаны (1 list, 1 get, 1 invalid filter, 1 limit clamp, 1 RBAC, 1 nav-проверка, 1 doc-grep, 1 deprecation header). Найден один баг (BUG-58: HTTP-уровень не сигнализировал об устаревании), исправлен. Deprecation работает корректно: UI-banner есть, nav-ссылка убрана, HTTP-headers теперь явные. Endpoint оставлен функциональным до отдельного cleanup-PR.
+
+[BUG LIST]
+
+BUG-58: GET /admin/v1/messages* без HTTP `Deprecation`/`Link` headers — Severity: LOW — Категория: Documentation / API contract
+  Шаги: `curl -i /admin/v1/messages` → ответ 200 без сигнала об устаревании. Внешние клиенты (если такие есть) не получают информации, что endpoint обслуживает удаляемый раздел /admin/detalization.
+  Фикс: 342bcc7 (helper `markDeprecated` ставит `Deprecation: true` + `Link: </admin/v1/messages>; rel="deprecation", </messages>; rel="successor-version"` на ListMessages и GetMessage).
+
+[Наблюдения / без фикса в этом этапе]
+
+- TC4 `/admin/v1/messages?date_from=not-a-date` → HTTP 500 (pgx parse error). Паттерн BUG-9/13/17/28 — но endpoint deprecated, фикс уйдёт в накопительный PR (если переживёт cleanup).
+- Reviewer-замечание: `Link: rel="deprecation"` ссылается на сам endpoint вместо документации об устаревании (RFC 8594 рекомендует ссылку на doc resource). Doc-страницы deprecation сейчас нет — будет добавлена при оформлении cleanup-PR.
+- Sunset header не ставлю — точной даты удаления нет, фиктивная дата вреднее отсутствия (клиенты могут закешировать).
+- Документы (`docs/superpowers/plans/2026-04-10-admin-phase2-reworks.md`, `docs/generate_aggregator_summary.py`, `docs/reports/2026-04-15-code-health.md`) содержат старые упоминания "Детализация" без deprecation-пометок. Это исторические планы, не оперативная документация — не трогаю.
+- backend handler работает напрямую с БД (`db *storage.DB`), не через gRPC analytics-service — это ускорит cleanup (нет proto-обязательств), но усложнит миграцию пользовательского трафика на /messages (другой источник данных).
+
+[Success Path]
+Admin не видит "Детализация" в nav AdminLayout. По прямому URL `/admin/detalization` страница открывается с amber-banner "Раздел устарел. Используйте /messages". Клик по ссылке ведёт на /messages (новая страница MessagesPage). HTTP-клиент при `GET /admin/v1/messages*` получает корректные данные + headers `Deprecation: true` и `Link: ... rel="successor-version"` указывающий на /messages.
+
+[Recommendations]
+1. **Cleanup-PR на удаление endpoint**: после 1-2 циклов сбора метрик использования (логи admin-gateway по path /admin/v1/messages) принять решение об удалении handler'а, route'а, frontend-страницы DetalizationPage и подкомпонентов SmsPreview/StatusTimeline. Удалить миграцию, если есть таблицы/views, использовавшиеся только этим разделом.
+2. **Sunset header**: при оформлении cleanup-PR установить дату удаления формата RFC 7231 HTTP-date.
+3. **Deprecation doc page**: сделать `/docs/api/deprecation/messages` с описанием миграции и обновить `Link` rel="deprecation" target.
+
+[Test Data]
+- Никаких mutation-операций на этом этапе. Семь TC read-only через curl + grep по фронтенду. БД не менялась.
+
+Коммиты:
+- 35f19ab docs(audit): этап 16/30 admin detalization (deprecated) — [IN_PROGRESS]
+- 342bcc7 fix(admin): detalization endpoints — Deprecation/Link headers [BUG-58 этап 16/30]
 
 ## [DONE] Этап 15/30: Admin — monitoring + analytics + audit-log (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (audit-log fixes, monitoring/analytics OK)
 
