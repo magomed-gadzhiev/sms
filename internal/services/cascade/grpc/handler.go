@@ -3,11 +3,14 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
@@ -82,16 +85,22 @@ func (s *Server) CreateDelivery(ctx context.Context, req *cascadev1.CreateDelive
 func (s *Server) GetDelivery(ctx context.Context, req *cascadev1.GetDeliveryRequest) (*cascadev1.DeliveryResponse, error) {
 	deliveryID, err := uuid.Parse(req.DeliveryId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid delivery_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid delivery_id format")
 	}
 	clientID, err := uuid.Parse(req.ClientId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid client_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
 	}
 
 	delivery, err := s.deliveries.GetDelivery(ctx, deliveryID, clientID)
 	if err != nil {
-		return nil, err
+		// Маппим domain-ошибки на gRPC коды, иначе остаются Unknown → 500
+		// на portal-gateway. Cross-tenant и not-exists свёрнуты в один
+		// NotFound, чтобы не подтверждать существование чужого delivery_id.
+		if errors.Is(err, domain.ErrDeliveryNotFound) {
+			return nil, status.Error(codes.NotFound, "delivery not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return deliveryToProto(delivery), nil
 }

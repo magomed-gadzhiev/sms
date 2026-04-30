@@ -156,8 +156,12 @@ func (h *ExportHandlers) runExportJob(jobID, clientID string, req startExportReq
 			if msg.CreatedAt != nil {
 				createdAt = msg.CreatedAt.AsTime().Format(time.RFC3339)
 			}
+			// CSV formula injection guard: re-use csvSanitize from messages.go
+			// (same package). Без префикса '\'' Excel/Calc исполняет ячейку, начинающуюся с
+			// =/+/-/@/tab, как формулу при открытии файла.
 			cw.Write([]string{
-				msg.MessageId, msg.Source, msg.Destination, msg.Text, msg.Status,
+				csvSanitize(msg.MessageId), csvSanitize(msg.Source), csvSanitize(msg.Destination),
+				csvSanitize(msg.Text), csvSanitize(msg.Status),
 				strconv.Itoa(int(msg.SegmentCount)), createdAt, deliveredAt,
 			})
 			totalWritten++

@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -271,6 +272,10 @@ func (h *MessageHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if id == "" {
 		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
+		return
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат ID сообщения"))
 		return
 	}
 

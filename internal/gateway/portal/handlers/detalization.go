@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +16,23 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// validateDateFilter accepts ISO date (YYYY-MM-DD) or RFC3339 timestamp.
+// Returns the canonical YYYY-MM-DD form if valid, or ("", error) if not.
+// SQL ниже подставляет это значение в `::timestamptz` cast — без pre-check
+// invalid input ломал запрос на этапе COUNT и возвращал 500.
+func validateDateFilter(s string) (string, error) {
+	if s == "" {
+		return "", nil
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t.Format("2006-01-02"), nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.Format("2006-01-02"), nil
+	}
+	return "", fmt.Errorf("invalid date format")
+}
 
 // ClientMessage is a single row returned by ListMessages.
 type ClientMessage struct {
@@ -70,9 +88,20 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 	q := r.URL.Query()
 	status      := q.Get("status")
 	destination := q.Get("destination")
-	dateFrom    := q.Get("date_from")
-	dateTo      := q.Get("date_to")
+	dateFromRaw := q.Get("date_from")
+	dateToRaw   := q.Get("date_to")
 	login       := q.Get("login")
+
+	dateFrom, err := validateDateFilter(dateFromRaw)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат date_from (ожидается YYYY-MM-DD)"))
+		return
+	}
+	dateTo, err := validateDateFilter(dateToRaw)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат date_to (ожидается YYYY-MM-DD)"))
+		return
+	}
 	operator    := q.Get("operator")
 	senderName  := q.Get("sender_name")
 	channel     := q.Get("channel")
@@ -301,6 +330,10 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 	id := mux.Vars(r)["id"]
 	if id == "" {
 		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
+		return
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат ID сообщения"))
 		return
 	}
 
