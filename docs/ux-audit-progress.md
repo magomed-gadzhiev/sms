@@ -2,6 +2,10 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 24/30: User — lookup + analytics (user, fix + Infrastructure + QA full, 2026-04-30)
+
+Скоуп: HLR-lookup (POST /portal/v1/lookup, GET /lookup/history, GET /lookup/stats, POST /lookup/bulk) и analytics (GET /portal/v1/analytics с timeline/by_country/cost/compare). Frontend: LookupPage.tsx + AnalyticsPage.tsx. Backend: internal/gateway/portal/handlers/{lookup.go,analytics.go} + internal/services/routing/{grpc,application}/. Lock-коммит ниже.
+
 ## [DONE] Этап 23/30: User — messages + cascade-history (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (4 бага исправлено: 1 CRITICAL + 3 HIGH)
 
 [Summary] 18 TC прогнаны через API+SQL: TC-1 happy list /detalization PASS; TC-2 cross-tenant /detalization/{c2 id} → 404 PASS; TC-3 invalid UUID на /detalization/{id} → 500 [BUG-69]; TC-4/5 invalid date_from/date_to → 500 [BUG-70]; TC-6 date_from > date_to → 200 empty PASS; TC-7 SQL inj в destination (через ILIKE %% — параметризовано) → пустой PASS; TC-8 status arbitrary → пустой PASS; TC-9 limit=0/-1/99999 → fallback 20 PASS; TC-10 offset=-1 clamp PASS, offset=999999 → empty PASS; TC-11 cross-tenant /portal/v1/messages/{c2 id} → 403 [observation: 403 leak'ает существование, должно быть 404]; TC-12 invalid UUID на /portal/v1/messages/{id} → 500 [BUG-69b]; TC-13 own quick-send GetMessage PASS; TC-14 cascade list /cascade/deliveries empty PASS; TC-15 cascade invalid UUID → 400 PASS (этап 20 фикс работает); TC-16 cascade GET random valid UUID → 500 [BUG-72]; TC-CSV-A legacy /messages/export — formula injection guard работает PASS; TC-CSV-B async /export/{id}/download — formula injection ОТСУТСТВУЕТ [BUG-71 CRITICAL]; TC-SSE without auth → 401 PASS; TC-SSE with auth → "Streaming не поддерживается" 500 (haproxy infra проблема dev-стенда, не аудит-баг).
