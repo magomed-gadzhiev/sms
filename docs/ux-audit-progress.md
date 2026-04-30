@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 23/30: User — messages + cascade-history (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 22/30: User — quick-send (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (2 бага исправлено)
 
 [Summary] 13 TC прогнаны через API+SQL (TC-1 happy path, TC-2 cross-tenant sender_name FORBIDDEN, TC-3/4 pending+rejected sender FORBIDDEN, TC-5 empty phone 400, TC-6a/b/c BOGUS/SQL/long phone — раньше 500, теперь 400, TC-6d phone "+1" — раньше 201 (queued), теперь 400, TC-7a/c text empty/over 1600 → 400, TC-8 empty source → 400, TC-9 numeric source bypass sender_names → 201 OK, TC-10 invalid JSON → 400, TC-11 source >20 chars + non-numeric → 403 sender not found, TC-12 idempotency — нет idempotency-key, двойной клик = 2 SMS, TC-13 rate-limit hammer — 30 reqs/sec проходят без 429 при rate_limit_per_second=10).
