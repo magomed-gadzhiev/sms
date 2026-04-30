@@ -2,7 +2,49 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 20/30: User — channels + delivery-strategies (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 20/30: User — channels + delivery-strategies (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (cascade hardening)
+
+[Summary] 12 TC прогнаны (5 admin channels/strategies CRUD + edge, 4 user cascade deliveries/stats/strategies, 3 RBAC + clamp). 3 функциональных бага найдены, все исправлены одним PR. Дизайн-док §4 строка 107 ошибочно помечает этот этап как "user" — фактически /admin/channels и /admin/delivery-strategies admin-only с `AdminRoleMiddleware`. User-сторона: только read-only `/cascade/strategies`, `/cascade/deliveries`, `/cascade/stats`.
+
+[BUG LIST]
+
+BUG-64: GetChannel/UpdateChannel/ToggleChannel/GetStrategy/UpdateStrategy/DeleteStrategy/GetDelivery → 500 на invalid UUID — Severity: HIGH — Категория: Functional / Validation
+  Шаги: `curl /portal/v1/admin/channels/not-a-uuid` → HTTP 500 "Внутренняя ошибка сервера". 7 точек в трёх handler-файлах (cascade_channels, cascade_strategies, cascade_deliveries).
+  Доказательство: handler передавал `mux.Vars(r)["id"]` напрямую в gRPC `&GetChannelRequest{ChannelId: id}`. gRPC возвращал Internal на parse-error.
+  Фикс: 51e47df (`uuid.Parse(id)` check на handler-уровне → 400 INVALID_INPUT с понятным сообщением).
+
+BUG-65: ListChannels/ListStrategies/ListStrategiesClient возвращали `null` для пустого списка — Severity: LOW — Категория: Functional / Schema drift (BUG-61 паттерн)
+  Шаги: `curl /portal/v1/admin/delivery-strategies` без записей → `{"strategies":null}`.
+  Фикс: 51e47df (`if x == nil { x = []*cascadev1.XResponse{} }` в трёх местах).
+
+BUG-66: 8 точек `http.Error(w, "...", 400)` в cascade-handlers возвращали plain-text — Severity: MED — Категория: Functional / Schema drift
+  Шаги: `POST /portal/v1/admin/channels -d '{}'` → response `channel_type and name are required` (text/plain), HTTP 400.
+  Доказательство: `http.Error()` пишет голую строку с заголовком `text/plain`. Frontend ожидает `application/json` с `{"error":{...}}`, парсит response.json() → крэш.
+  Фикс: 51e47df (заменено на `respondError(w, shared.ErrInvalidInput("..."))` → корректный JSON).
+
+[Наблюдения / без фикса в этом этапе]
+
+- TC12: `cascade/deliveries?per_page=99999` не возвращает поле `per_page` в ответе. Frontend узнать клампнутое значение нельзя. Минор UX, отдельный микро-фикс.
+- В репо `http.Error()` встречается ещё в 5+ местах handlers (`api_keys`, `notifications`, `quick_send` — не аудировано). Тот же паттерн BUG-66, накопительный PR.
+- Аналогично с `uuid.Parse` отсутствием на handler-уровне — в репо 434 вхождения `uuid.Parse` в handlers/, но не везде с pre-check. Систематический аудит — отдельный refactor.
+- Дизайн-док §4 строка 107 нужно поправить: "User: channels + delivery-strategies" → "Admin: channels + delivery-strategies (cascade)". Минор-doc-fix.
+- Cascade strategies на стенде пусты (0 записей в БД). Создание стратегий не покрыто mutation TC — поскольку нужны существующие channels (есть SMS, Max Messenger, flash_call) и operator-channel-support — слишком цепная подготовка для read-only этапа.
+
+[Success Path]
+Admin /admin/channels → видит 3 канала (sms/max_messenger/flash_call), создаёт/обновляет/toggle. /admin/delivery-strategies → CRUD стратегий с шагами (channel_id, step_order, timeout, billable). User /cascade/deliveries (history paged), /cascade/stats (channel-by-channel breakdown), /cascade/strategies (read-only активные). Все list-эндпоинты при пустом результате возвращают `[]` (не `null`). Все Get/Update/Delete возвращают 400 на невалидный UUID и корректный JSON 400 на missing fields.
+
+[Recommendations]
+1. **Накопительный PR на http.Error → respondError**: grep `http.Error` показывает остаток в 5+ файлах handlers. Привести к единому стилю.
+2. **uuid validation helper**: ввести общий `parseUUIDPath(r, "id") (uuid.UUID, *AppError)` после grep-аудита всех handlers (~48 файлов). Самостоятельный рефактор-этап.
+3. **Cascade strategies seed**: для регресса добавить 1-2 стратегии в `demo_seed.sql` (sequential SMS→Max → flash_call) — облегчит smoke-test cascade-feature.
+
+[Test Data]
+- 3 канала на стенде в seed (sms, max_messenger, flash_call). Не модифицировал.
+- 0 стратегий, 0 deliveries — normal для нового стенда.
+
+Коммиты:
+- 16d81bf docs(audit): этап 20/30 user channels+delivery-strategies — [IN_PROGRESS]
+- 51e47df fix(portal): cascade — UUID validation, JSON-error responses, nil-slice→[] [BUG-64/65/66 этап 20/30]
 
 ## [DONE] Этап 19/30: User — sender-names + templates (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (1 баг исправлен)
 
