@@ -1,11 +1,19 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// ErrValidation — sentinel-ошибка для всех клиент-side ошибок валидации
+// сообщения. Используется верхними слоями (gRPC server) для маппинга в
+// codes.InvalidArgument → HTTP 400 вместо обобщённого 500. Ранее validation-
+// errors заворачивались в codes.Internal, и юзер видел 500 на простую
+// опечатку номера/текста (BUG-A этап 22/30).
+var ErrValidation = errors.New("validation failed")
 
 // ValidationError представляет ошибку валидации
 type ValidationError struct {
@@ -62,7 +70,7 @@ func (v *MessageValidator) Validate(msg *Message) error {
 		for _, err := range errors {
 			messages = append(messages, err.Error())
 		}
-		return fmt.Errorf("validation failed: %s", strings.Join(messages, "; "))
+		return fmt.Errorf("%w: %s", ErrValidation, strings.Join(messages, "; "))
 	}
 
 	return nil
@@ -103,11 +111,15 @@ func (v *MessageValidator) validateDestination(destination string) *ValidationEr
 		}
 	}
 
-	// Проверка на допустимые символы (цифры, +, пробелы, дефисы)
-	hasDigit := false
+	// Проверка на допустимые символы (цифры, +, пробелы, дефисы) и подсчёт цифр.
+	// Минимум 4 цифры — нижняя граница для коротких кодов (UK 4 digit short
+	// codes). Без min-check API принимал "+1" (1 цифра) → сообщение уходило
+	// в pipeline, где роутер не находил оператора — silent drop / DLQ-spam
+	// (BUG-B этап 22/30).
+	digitCount := 0
 	for _, r := range destination {
 		if r >= '0' && r <= '9' {
-			hasDigit = true
+			digitCount++
 		} else if r != '+' && r != ' ' && r != '-' && r != '(' && r != ')' {
 			return &ValidationError{
 				Field:   "destination",
@@ -116,10 +128,10 @@ func (v *MessageValidator) validateDestination(destination string) *ValidationEr
 		}
 	}
 
-	if !hasDigit {
+	if digitCount < 4 {
 		return &ValidationError{
 			Field:   "destination",
-			Message: "destination must contain at least one digit",
+			Message: "destination must contain at least 4 digits",
 		}
 	}
 

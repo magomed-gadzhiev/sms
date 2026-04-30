@@ -14,6 +14,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/application"
+	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
@@ -127,6 +128,12 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 	// Отправляем сообщение
 	msg, err := s.messageService.SendMessage(ctx, clientID, req.Source, req.Destination, req.Text, options)
 	if err != nil {
+		// Validation-ошибки (плохой phone, текст, source) маппим в
+		// InvalidArgument → клиент получит HTTP 400 с осмысленным
+		// сообщением, а не обобщённый 500 (BUG-A этап 22/30).
+		if errors.Is(err, domain.ErrValidation) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		log.Error().Err(err).Msg("ошибка отправки сообщения")
 		return nil, status.Error(codes.Internal, err.Error())
 	}
