@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 18/30: User — companies + contacts + segments (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 17/30: User — dashboard + profile + balance (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (CRITICAL billing fix)
 
 [Summary] 14 TC прогнаны (1 dashboard, 4 profile GET/PUT/password/phone, 9 billing balance/transactions/top-up/threshold + RBAC). 2 функциональных бага найдены, оба исправлены одним PR. BUG-59 (CRITICAL) — реальное списание средств с баланса через user-портал TopUp с отрицательным amount. BUG-60 (HIGH) — accept negative threshold + 500 на non-numeric.
