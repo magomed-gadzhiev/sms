@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 22/30: User — quick-send (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 21/30: User — campaigns + campaign-schedules (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (1 CRITICAL + 1 HIGH исправлены)
 
 [Summary] 16 TC прогнаны (TC-1 list+filter+clamp, TC-2 GET edge UUID/404, TC-3 happy create, TC-4 invalid/non-existent contact_list_id, TC-6 schedule past/far-future, TC-7 state-machine pause/resume/cancel в draft, TC-8 update с cross-tenant + name-only, TC-9 schedules CRUD + bad frequency + missing cron, TC-10 cross-tenant contact_list_id, TC-10b cross-tenant template_id, TC-11 cross-tenant template_campaign_id в schedule, TC-12 BUG-65 nil-slice, TC-extended SetVariants/SetRetryConfig/RetryFailed cross-tenant). 1 CRITICAL баг найден (cross-tenant ownership), 1 HIGH (500 на bad UUID), фикс одним PR через /execute-with-review с code-reviewer APPROVED.
