@@ -31,9 +31,8 @@ var (
 		"90d": {},
 	}
 	allowedAnalyticsGroups = map[string]struct{}{
-		"day":     {},
-		"week":    {},
-		"country": {},
+		"day":  {},
+		"week": {},
 	}
 )
 
@@ -131,7 +130,7 @@ func (h *AnalyticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.Request)
 		groupBy = "day"
 	}
 	if _, exists := allowedAnalyticsGroups[groupBy]; !exists {
-		respondError(w, shared.ErrInvalidInput("Параметр group_by должен быть одним из: day, week, country"))
+		respondError(w, shared.ErrInvalidInput("Параметр group_by должен быть одним из: day, week"))
 		return
 	}
 
@@ -217,23 +216,9 @@ func (h *AnalyticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.Request)
 		timeline = append(timeline, entry)
 	}
 
-	// Получаем разбивку по странам (group_by=country не поддерживается напрямую,
-	// но если group_by=country был запрошен, groups уже содержит данные по странам)
+	// by_country пока не поддерживается (messages не содержит country-колонки;
+	// требует derive из destination prefix или join по operators).
 	byCountry := make([]map[string]interface{}, 0)
-	if groupBy == "country" {
-		for _, group := range statsResp.Groups {
-			entry := map[string]interface{}{
-				"country": group.Key,
-			}
-			if group.Stats != nil {
-				entry["sent"] = group.Stats.TotalSent
-				entry["delivered"] = group.Stats.TotalDelivered
-				entry["failed"] = group.Stats.TotalFailed
-				entry["delivery_rate"] = group.Stats.SuccessRate
-			}
-			byCountry = append(byCountry, entry)
-		}
-	}
 
 	// Comparison period (compare=true)
 	var prevTimeline []map[string]interface{}
@@ -309,6 +294,21 @@ func (h *AnalyticsHandlers) sumChargeAmount(
 			if rowsRead > maxChargeHistoryRows {
 				log.Warn().Int("rows", rowsRead).Msg("лимит чтения истории транзакций для аналитики достигнут")
 				return total.FloatString(2), currency, nil
+			}
+
+			// Defensive: billing-service GRPC GetTransactionHistory сейчас
+			// игнорирует фильтры TransactionType/From/To из proto-запроса
+			// (см. internal/services/billing/grpc/server.go::GetTransactionHistory),
+			// поэтому фильтруем повторно на стороне аналитики, иначе total_cost
+			// учитывает credits/refunds и выходит за границы периода.
+			if tx.Type != "charge" {
+				continue
+			}
+			if tx.CreatedAt != nil {
+				txTime := tx.CreatedAt.AsTime()
+				if txTime.Before(dateFrom) || txTime.After(dateTo) {
+					continue
+				}
 			}
 
 			if currency == "" && tx.Currency != "" {

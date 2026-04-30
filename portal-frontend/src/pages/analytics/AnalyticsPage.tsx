@@ -9,11 +9,10 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { StatCard } from '../../components/data/StatCard';
 import { DataTable, type Column } from '../../components/data/DataTable';
 
-type CountryEntry = { country: string; sent: number; delivered: number; failed: number; delivery_rate: number };
 type TimelineEntry = { period: string; sent: number; delivered: number; failed: number; delivery_rate: number };
 
 const PERIODS = ['7d', '30d', '90d'] as const;
-const GROUP_BY_OPTIONS = ['day', 'week', 'country'] as const;
+const GROUP_BY_OPTIONS = ['day', 'week'] as const;
 type Period = (typeof PERIODS)[number];
 type GroupBy = (typeof GROUP_BY_OPTIONS)[number];
 const MAX_CUSTOM_RANGE_DAYS = 366;
@@ -30,14 +29,6 @@ const timelineColumns: Column<TimelineEntry>[] = [
   { key: 'delivered', header: 'Доставлено' },
   { key: 'failed', header: 'Ошибки' },
   { key: 'delivery_rate', header: 'Доставляемость', render: (row) => <>{row.delivery_rate}%</> },
-];
-
-const countryColumns: Column<CountryEntry>[] = [
-  { key: 'country', header: 'Страна' },
-  { key: 'sent', header: 'Отправлено', sortable: true },
-  { key: 'delivered', header: 'Доставлено', sortable: true },
-  { key: 'failed', header: 'Ошибки', sortable: true },
-  { key: 'delivery_rate', header: 'Доставляемость', render: (row) => <>{row.delivery_rate}%</>, sortable: true },
 ];
 
 export function AnalyticsPage() {
@@ -124,7 +115,6 @@ export function AnalyticsPage() {
 
   const timeline = (data?.timeline ?? []) as TimelineEntry[];
   const prevTimeline = data?.previous_timeline ?? [];
-  const byCountry = (data?.by_country ?? []) as CountryEntry[];
 
   const mergedTimeline = useMemo(() => {
     const prevByPeriod = new Map(prevTimeline.map((entry) => [entry.period, entry]));
@@ -178,7 +168,6 @@ export function AnalyticsPage() {
               className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
               <option value="day">День</option>
               <option value="week">Неделя</option>
-              <option value="country">Страна</option>
             </select>
           </label>
           <label className="flex items-center gap-2 ml-2 text-sm cursor-pointer">
@@ -209,13 +198,13 @@ export function AnalyticsPage() {
           {/* Tabs */}
           <Tabs.Root defaultValue="timeline">
             <Tabs.List className="flex gap-1 mb-4 border-b border-gray-200">
-              {['timeline', 'countries'].map((tab) => (
+              {['timeline'].map((tab) => (
                 <Tabs.Trigger
                   key={tab}
                   value={tab}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary -mb-px"
                 >
-                  {tab === 'timeline' ? 'Хронология' : 'По странам'}
+                  Хронология
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
@@ -257,26 +246,6 @@ export function AnalyticsPage() {
               ) : (
                 <div className="py-8 text-center text-gray-500 text-sm">
                   Нет данных за выбранный период
-                </div>
-              )}
-            </Tabs.Content>
-
-            {/* Countries tab */}
-            <Tabs.Content value="countries">
-              {byCountry.length > 0 ? (
-                <DataTable<CountryEntry>
-                  columns={countryColumns}
-                  data={byCountry}
-                  total={byCountry.length}
-                  page={1}
-                  pageSize={byCountry.length}
-                  onPageChange={() => {}}
-                  keyField="country"
-                  tableLabel="Разбивка по странам"
-                />
-              ) : (
-                <div className="py-8 text-center text-gray-500 text-sm">
-                  Выберите группировку «Страна» для просмотра разбивки
                 </div>
               )}
             </Tabs.Content>

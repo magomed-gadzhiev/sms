@@ -183,22 +183,22 @@ const (
 
 // LookupLogEntry represents an audit log entry for an HLR lookup
 type LookupLogEntry struct {
-	ID              uuid.UUID
-	MSISDN          string
-	OperatorMCCMNC  string
-	OperatorName    string
-	NumberStatus    string
-	CountryCode     string
-	NumberType      string
-	IsPorted        bool
-	HLRProviderID   *uuid.UUID
-	Source          LookupSource
-	ClientID        uuid.UUID
-	Cached          bool
-	LatencyMs       int
-	RequestID       string
-	MessageID       *uuid.UUID
-	CreatedAt       time.Time
+	ID              uuid.UUID  `db:"id"`
+	MSISDN          string     `db:"msisdn"`
+	OperatorMCCMNC  string     `db:"operator_mccmnc"`
+	OperatorName    string     `db:"operator_name"`
+	NumberStatus    string     `db:"number_status"`
+	CountryCode     string     `db:"country_code"`
+	NumberType      string     `db:"number_type"`
+	IsPorted        bool       `db:"is_ported"`
+	HLRProviderID   *uuid.UUID `db:"hlr_provider_id"`
+	Source          LookupSource `db:"source"`
+	ClientID        uuid.UUID  `db:"client_id"`
+	Cached          bool       `db:"cached"`
+	LatencyMs       int        `db:"latency_ms"`
+	RequestID       string     `db:"request_id"`
+	MessageID       *uuid.UUID `db:"message_id"`
+	CreatedAt       time.Time  `db:"created_at"`
 }
 
 // NewLookupLogEntry creates a new lookup log entry from a LookupResult
