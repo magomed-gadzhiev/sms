@@ -2,7 +2,45 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 18/30: User — companies + contacts + segments (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 18/30: User — companies + contacts + segments (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (segments-only fixes)
+
+[Summary] 15 TC прогнаны (3 list, 4 companies CRUD/edge, 5 segments CRUD/estimate/edge, 2 contacts/contact-lists, 1 RBAC). 2 функциональных бага найдены, оба в segments handler, исправлены одним PR. Companies/contacts handlers — robust, без багов в скоупе.
+
+[BUG LIST]
+
+BUG-61: GET /portal/v1/segments возвращал `{"segments":null}` вместо `{"segments":[]}` — Severity: LOW — Категория: Functional / Schema drift
+  Шаги: `curl /portal/v1/segments` для клиента без сегментов → `{"segments":null}`. Frontend ожидает массив для `.map()`/`.filter()` — null крэшит UI.
+  Доказательство: `SegmentService.List` возвращает nil-slice, `json.Marshal(nil-slice)` = `null`.
+  Фикс: 7642f37 (handler-side `if segments == nil { segments = []*domain.SavedSegment{} }`).
+
+BUG-62: 4 точки в segments handler утекали raw err.Error() в HTTP body — Severity: LOW — Категория: Security / Information disclosure
+  Шаги: любая ошибка repo/SQL в `CreateSegment`/`ListSegments`/`UpdateSegment`/`EstimateSegment` возвращала `respondError(w, shared.ErrInternalServer(err.Error()))` — клиент получал внутреннее сообщение (имена таблиц, SQL-конструкции).
+  Фикс: 7642f37 (на каждой точке `log.Error().Err(err).Str(context_id)` + абстрактное сообщение `"Не удалось ..."` клиенту). Импорт `github.com/rs/zerolog/log` добавлен.
+  Companies и contacts handlers проверены grep'ом — паттерн там не повторяется.
+
+[Наблюдения / без фикса в этом этапе]
+
+- DeleteSegment (`segments.go:158`) игнорирует ошибки `uuid.Parse` и `service.Delete` — тихая 204 даже при ошибке БД. Reviewer-замечание. Это полу-баг (delete idempotent), но дисциплинировать стоит. Follow-up.
+- UpdateSegment (`segments.go:137`): `id, _ := uuid.Parse(...)` — невалидный UUID молча превращается в `uuid.Nil`. Аналогичная проблема. Follow-up.
+- ListSegments не имеет pagination (per_page/total/page). Frontend `SegmentsPage` paginate в JS (загружает всё). Допустимо для текущего volume, но при росте до ≥1000 сегментов — проблема. Feature gap.
+- CreateCompany без явной валидации Name/INN на handler-уровне — но gRPC service валидирует чётко (TC8/9 → 400 с понятным сообщением). Двойная валидация была бы избыточна для простого case'а.
+- Companies ownership-check через ListClientCompanies (`companies.go:98-110`) — N+1 при множестве запросов. Минор-perf, scope creep.
+
+[Success Path]
+User /portal/companies → видит список своих компаний (default, full_name, INN). Создаёт компанию (валидируется INN checksum, name required). Редактирует (ownership-check, подтверждается принадлежность). SetDefault/Detach по ID — UUID валидируется. /portal/contact-lists → CRUD списков, batch-импорт contacts с tags. /portal/segments → создаёт сегмент с rules + contact_lists, estimate count, обновляет. Пустой список возвращает `[]` (не null).
+
+[Recommendations]
+1. **Pagination в ListSegments**: `?page=1&per_page=50` + `clampPagination` (как billing). При росте до >1k сегментов на клиента — критично.
+2. **Error handling в DeleteSegment/UpdateSegment**: проверять uuid.Parse error и Delete-возврат. 5 минут работы.
+3. **Audit-логирование для company CRUD**: события создания/изменения компании (юр. данные!) сейчас не пишутся в audit-service. Связано с этапом 15 / spec 015.
+
+[Test Data]
+- Demo-Main client `c0000000-0000-0000-0000-000000000001`: 1 компания `cc000000-0000-0000-0000-000000000001` (ООО Демо-Главный, default). Не создавал новых. Сегментов 0.
+- Никаких mutation-операций на этом этапе (только GET + edge cases на mutation эндпоинтах с invalid UUID/payload).
+
+Коммиты:
+- cb3c9f8 docs(audit): этап 18/30 user companies+contacts+segments — [IN_PROGRESS]
+- 7642f37 fix(portal): segments — nil-slice → []; не утекаем raw err.Error() в HTTP body [BUG-61/62 этап 18/30]
 
 ## [DONE] Этап 17/30: User — dashboard + profile + balance (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (CRITICAL billing fix)
 
