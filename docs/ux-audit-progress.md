@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 19/30: User — sender-names + templates (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 18/30: User — companies + contacts + segments (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (segments-only fixes)
 
 [Summary] 15 TC прогнаны (3 list, 4 companies CRUD/edge, 5 segments CRUD/estimate/edge, 2 contacts/contact-lists, 1 RBAC). 2 функциональных бага найдены, оба в segments handler, исправлены одним PR. Companies/contacts handlers — robust, без багов в скоупе.
