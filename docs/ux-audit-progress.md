@@ -2,9 +2,75 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 24/30: User — lookup + analytics (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 24/30: User — lookup + analytics (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (3 бага исправлено: 3 HIGH)
 
-Скоуп: HLR-lookup (POST /portal/v1/lookup, GET /lookup/history, GET /lookup/stats, POST /lookup/bulk) и analytics (GET /portal/v1/analytics с timeline/by_country/cost/compare). Frontend: LookupPage.tsx + AnalyticsPage.tsx. Backend: internal/gateway/portal/handlers/{lookup.go,analytics.go} + internal/services/routing/{grpc,application}/. Lock-коммит ниже.
+[Summary] 12 TC прогнаны через API+SQL: TC-1 happy /lookup/history empty PASS; TC-2 /lookup/stats happy PASS; TC-3 POST /lookup happy → 503 (HLR-провайдер не настроен на dev стенде, ожидаемо); TC-4/5/6/7 phone validation (empty/BOGUS/+1/SQL inj) → 400 PASS (e164Regex отрабатывает); TC-A1 /analytics happy default PASS; TC-A2/A3/A4/A5/A6/A7 invalid period/group_by/half-dates/invalid date_from/inverted dates/range>366 → все 400 PASS (whitelist-валидация работает); TC-A8 compare=true PASS; TC-A9 include_cost=true → wrong total_cost [BUG-75]; TC-A10 invalid compare → 400 PASS; TC-A11 group_by=country → 500 [BUG-74]; TC-12 cross-tenant lookup_log → c1 не видит c2 строку PASS; TC-12c c1 list своих → 500 [BUG-73]; TC-13 GET /lookup/history после фикса → 200 с item PASS.
+
+3 HIGH исправлены одним PR через /execute-with-review (commit 669d961, code-reviewer APPROVED). Re-test всех 3 фиксов + cross-tenant регрессия PASS.
+
+[BUG LIST]
+
+BUG-73: GET /portal/v1/lookup/history → 500 при наличии любых строк в lookup_log клиента — Severity: HIGH — Категория: Functional / Silent feature breakage
+  Шаги: INSERT в lookup_log одной строки для client_id, GET /portal/v1/lookup/history с куки этого клиента
+  Ожидалось: 200 с items[]
+  Получалось: 500 "Внутренняя ошибка сервера". В логе: `rpc error: code = Internal desc = ошибка сканирования записи: missing destination name operator_mccmnc in *domain.LookupLogEntry`
+  Доказательство (API): TC-12c — после INSERT'а 55555555-... история падает в 500
+  Импакт: на проде с реальным HLR-провайдером эта фича вообще не работала бы. На dev стенде HLR-провайдер не настроен, lookup_log пустая, баг был замаскирован. Любой пользователь, успешно сделавший хоть один lookup, видит 500 на странице истории.
+  Фикс: 669d961 — `internal/services/routing/domain/hlr.go::LookupLogEntry` добавил db:-теги по схеме `migrations/000024_create_lookup_log.up.sql`.
+
+BUG-74: GET /portal/v1/analytics?group_by=country → 500 — Severity: HIGH — Категория: Functional / Schema mismatch
+  Шаги: GET /portal/v1/analytics?period=7d&group_by=country
+  Ожидалось: 200 с by_country[] либо 400 (если фича не поддерживается)
+  Получалось: 500 INTERNAL_ERROR. Лог analytics-service: `column "country" does not exist (SQLSTATE 42703)`. Backend whitelist принимал "country", SQL валился на отсутствующей колонке messages.country.
+  Доказательство (API): TC-A11 вывод выше
+  Импакт: frontend dropdown явно предлагает "Страна" с tab "По странам". User кликает → 500.
+  Фикс: 669d961 — убрал country из бэкенд-whitelist (`internal/gateway/portal/handlers/analytics.go::allowedAnalyticsGroups`); фронт `AnalyticsPage.tsx` — удалил option "Страна", tab "По странам", CountryEntry, countryColumns. Жертва: by-country фича удалена из UI; для возврата нужен derive country из destination prefix или join по operators (отдельный архитектурный PR).
+
+BUG-75: GET /portal/v1/analytics?include_cost=true возвращал произвольный total_cost (в т.ч. отрицательный) — Severity: HIGH — Категория: Functional / Silent contract break + UX
+  Шаги: создать любые credits/charges в transactions для клиента, GET /portal/v1/analytics?period=7d&include_cost=true
+  Ожидалось: total_cost = сумма charge-транзакций за период
+  Получалось: на dev стенде с 4 credits-транзакциями (-100, +5.5, 0, -100) total_cost="-194.50". Корень: `internal/services/billing/grpc/server.go::GetTransactionHistory:264` принимает proto-поля TransactionType/From/To, но сразу их отбрасывает: `s.billingService.GetTransactionHistory(ctx, clientID, limit, offset)`. analytics-handler наивно суммировал ВСЕ транзакции клиента независимо от типа и даты.
+  Доказательство (API): TC-A9 вывод выше; SQL transactions client=c1 показал 4 credits-строки.
+  Импакт: financial misrepresentation в user-facing dashboard. Никаких реальных денег не теряется (display-only), но user видит абсурдный total_cost (включая отрицательные значения от credits).
+  Фикс: 669d961 — defensive фильтр `tx.Type == "charge"` + диапазон дат в `sumChargeAmount`. Архитектурный фикс billing-service контракта (актуально применять proto-фильтры на стороне billing) вынесен в OBSERVATION-1.
+
+[OBSERVATION-1] billing-service gRPC GetTransactionHistory игнорирует TransactionType/From/To — Severity: MEDIUM — Категория: Contract / API consistency
+  Файл: `internal/services/billing/grpc/server.go:244-298`. Прото `GetTransactionHistoryRequest` объявляет TransactionType/From/To как фильтры. Хендлер их парсит из request, но не передаёт в `s.billingService.GetTransactionHistory(ctx, clientID, limit, offset)`. `BillingService.GetTransactionHistory(ctx, clientID, limit, offset)` сам не принимает фильтров. Любой gRPC-вызов с этими фильтрами получит ВСЮ историю клиента. Кандидаты ущерба: analytics (BUG-75 уже defensively обёрнут), любые external integrations через GetTransactionHistory. Фикс архитектурный: расширить сигнатуру BillingService.GetTransactionHistory + repo SQL WHERE-клаузу + handler передаёт filter через. Отдельный атомарный PR.
+
+[OBSERVATION-2] /portal/v1/lookup/history `from`/`to` filter молча игнорируется при невалидной дате — Severity: LOW — Категория: Inconsistent error mapping
+  В `internal/gateway/portal/handlers/lookup.go::GetLookupHistory:44-53` если `time.Parse(time.RFC3339, fromStr)` фейлится → fromStr просто не применяется, запрос отдаёт результат без фильтра. Аналитика handler 400'ит на ту же ошибку. Inconsistent UX. Накопительный паттерн с BUG-70 этапа 23.
+
+[OBSERVATION-3] /portal/v1/lookup/stats period silently defaults на "7d" при невалидном — Severity: LOW — Категория: Inconsistent validation
+  `lookup.go::GetLookupStats:262-275` принимает любую строку для `period`, не whitelist'ит. Возвращает 200 с period="haha" (проверено в TC-11). Сравните с analytics handler где невалидный period → 400. Cosmetic, можно объединить с OBSERVATION-2 в один cleanup-PR.
+
+[OBSERVATION-4] /portal/v1/lookup/history `page_size>100` молча клампится до 50 — Severity: LOW — Категория: BVA UX
+  `lookup.go::GetLookupHistory:73-77` при page_size>100 → ставит default 50 без сообщения. Не критично (silent clamp общепринят), но frontend получает другую страницу чем просил.
+
+[OBSERVATION-5] frontend `LookupPage.tsx::loadHistory:71-72` читает `resp.total` но backend отдаёт `total_count` — Severity: LOW — Категория: Pagination contract drift
+  `setHistoryTotal(resp.total || 0)` всегда даёт 0, потому что поле не существует. Pagination на странице lookup не работает корректно. Кандидат на отдельный mini-fix.
+
+[OBSERVATION-6] sumChargeAmount проверяет maxChargeHistoryRows ДО типового фильтра — Severity: LOW — Категория: Pre-existing risk amplified
+  Указан reviewer'ом: `analytics.go:294` cap считает все транзакции (включая non-charge которые potом отбрасываются). При большом количестве credits клиент может упереться в cap и недопосчитать total_cost. До OBSERVATION-1-фикса (билинг сам фильтрует) это amplified problem; после — проблема исчезает.
+
+[OBSERVATION-7] After remove "country", `Tabs.Root`/`Tabs.List` в AnalyticsPage.tsx стал degenerate (1 trigger) — Severity: COSMETIC
+  Указан reviewer'ом. Можно убрать tabs scaffold целиком, либо оставить (если планируется добавить новые tabs). Не блокирует.
+
+[Success Path]
+User /portal/lookup → POST /portal/v1/lookup {phone:"+79991110001"} → 503 на dev (provider not set) ИЛИ 200 с msisdn/operator на проде. GET /portal/v1/lookup/history → 200 с items[]. GET /portal/v1/lookup/stats?period=30d → 200 с total_lookups. User /portal/analytics → GET /portal/v1/analytics?period=7d&group_by=day&include_cost=true → 200 с timeline/summary/total_cost. group_by ∈ {day,week} (country удалён). compare=true → previous_timeline.
+
+[Recommendations]
+1. **Fix billing-service GRPC GetTransactionHistory contract** (OBSERVATION-1). Расширить сигнатуру BillingService.GetTransactionHistory(filters) + repo SQL filter + handler пробрасывает proto-поля. После этого можно убрать defensive фильтр в analytics.go (или оставить как defense-in-depth).
+2. **Lookup-validation cleanup PR** (OBSERVATION-2/3/4): валидировать from/to RFC3339 в /lookup/history → 400 на bad input; whitelist period в /lookup/stats; вернуть 400 на page_size>100 вместо silent clamp.
+3. **Frontend LookupPage.tsx pagination fix** (OBSERVATION-5): `resp.total_count` вместо `resp.total`. Пагинация в lookup-history безмолвно сломана.
+4. **Country support как фича** (BUG-74 жертва): если фича нужна — добавить колонку `country` в `messages` через миграцию (получая из destination prefix через country_codes таблицу) либо `LEFT JOIN operators ON messages.provider_id`. Отдельная инициатива.
+
+[Test Data]
+- Засеяны 2 lookup_log строки: 44444444-... (c2) и 55555555-... (c1). Оставлены для будущих регрессионных проверок.
+- Транзакции c1: 4 credits (-100, +5.5, 0, -100) — pre-existing с предыдущих этапов.
+- Балансы клиентов не изменились (никаких mutation'ов на /lookup т.к. провайдер 503).
+- Коммиты: d5d6a1d lock, 669d961 fix BUG-73/74/75, ниже close-коммит.
+
+
 
 ## [DONE] Этап 23/30: User — messages + cascade-history (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (4 бага исправлено: 1 CRITICAL + 3 HIGH)
 
