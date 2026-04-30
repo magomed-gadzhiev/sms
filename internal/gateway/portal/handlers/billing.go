@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"io"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -14,6 +15,39 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/payment"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
+
+// validatePositiveAmount — общая проверка amount для портального биллинга.
+// BUG-59: до фикса TopUp принимал "-100"/"abc"/"0"/"Inf" и пробрасывал в payment
+// session; затем callback вызывал AddCredits gRPC, который тоже не валидировал
+// (BUG-41 fix был только на admin HTTP-уровне) → реальное списание баланса.
+// Защиту держим на двух уровнях: handler (UX) + gRPC (defense-in-depth).
+func validatePositiveAmount(amount string) *shared.AppError {
+	v, ok := new(big.Float).SetString(amount)
+	if !ok {
+		return shared.ErrInvalidInput("amount должен быть числом")
+	}
+	if v.IsInf() {
+		return shared.ErrInvalidInput("amount не может быть Inf")
+	}
+	if v.Sign() <= 0 {
+		return shared.ErrInvalidInput("amount должен быть положительным")
+	}
+	return nil
+}
+
+func validateNonNegativeAmount(amount string) *shared.AppError {
+	v, ok := new(big.Float).SetString(amount)
+	if !ok {
+		return shared.ErrInvalidInput("значение должно быть числом")
+	}
+	if v.IsInf() {
+		return shared.ErrInvalidInput("значение не может быть Inf")
+	}
+	if v.Sign() < 0 {
+		return shared.ErrInvalidInput("значение не может быть отрицательным")
+	}
+	return nil
+}
 
 type BillingHandlers struct {
 	billingClient   billingv1.BillingServiceClient
@@ -132,6 +166,10 @@ func (h *BillingHandlers) TopUp(w http.ResponseWriter, r *http.Request) {
 		respondError(w, shared.ErrInvalidInput("Поле amount обязательно"))
 		return
 	}
+	if e := validatePositiveAmount(req.Amount); e != nil {
+		respondError(w, e)
+		return
+	}
 	if req.Currency == "" {
 		req.Currency = "RUB"
 	}
@@ -193,6 +231,10 @@ func (h *BillingHandlers) SetLowBalanceThreshold(w http.ResponseWriter, r *http.
 	}
 	if req.Threshold == "" {
 		respondError(w, shared.ErrInvalidInput("Поле threshold обязательно"))
+		return
+	}
+	if e := validateNonNegativeAmount(req.Threshold); e != nil {
+		respondError(w, e)
 		return
 	}
 	_, err := h.billingClient.SetLowBalanceThreshold(r.Context(), &billingv1.SetLowBalanceThresholdRequest{

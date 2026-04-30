@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"math/big"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -15,6 +16,39 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/billing/application"
 	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
+
+// validatePositiveDecimal — общая проверка денежной суммы (BUG-59 / повтор BUG-41).
+// До фикса BUG-41 защищал только admin HTTP-handler AddCredits, а gRPC принимал
+// "-100", "abc", "0", "Inf" — TopUpCallback из user-портала бил напрямую в gRPC,
+// баланс уменьшался на отрицательную сумму. Защита централизована здесь.
+func validatePositiveDecimal(amount string) error {
+	v, ok := new(big.Float).SetString(amount)
+	if !ok {
+		return status.Error(codes.InvalidArgument, "amount должен быть числом")
+	}
+	if v.IsInf() {
+		return status.Error(codes.InvalidArgument, "amount не может быть Inf")
+	}
+	if v.Sign() <= 0 {
+		return status.Error(codes.InvalidArgument, "amount должен быть положительным")
+	}
+	return nil
+}
+
+// validateNonNegativeDecimal допускает 0 (порог низкого баланса).
+func validateNonNegativeDecimal(amount string) error {
+	v, ok := new(big.Float).SetString(amount)
+	if !ok {
+		return status.Error(codes.InvalidArgument, "значение должно быть числом")
+	}
+	if v.IsInf() {
+		return status.Error(codes.InvalidArgument, "значение не может быть Inf")
+	}
+	if v.Sign() < 0 {
+		return status.Error(codes.InvalidArgument, "значение не может быть отрицательным")
+	}
+	return nil
+}
 
 // Server реализует gRPC сервис для биллинга
 type Server struct {
@@ -131,6 +165,9 @@ func (s *Server) AddCredits(ctx context.Context, req *billingv1.AddCreditsReques
 	}
 	if req.Amount == "" {
 		return nil, status.Error(codes.InvalidArgument, "amount is required")
+	}
+	if err := validatePositiveDecimal(req.Amount); err != nil {
+		return nil, err
 	}
 
 	clientID, err := uuid.Parse(req.ClientId)
@@ -488,6 +525,14 @@ func (s *Server) SetCreditLimit(ctx context.Context, req *billingv1.SetCreditLim
 func (s *Server) SetLowBalanceThreshold(ctx context.Context, req *billingv1.SetLowBalanceThresholdRequest) (*billingv1.SetLowBalanceThresholdResponse, error) {
 	if req.ClientId == "" {
 		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+	// BUG-60: до фикса принимались "-100" (порог-уведомление никогда не сработает)
+	// и "abc" (валится в Internal 500 на парсинге в SQL).
+	if req.Threshold == "" {
+		return nil, status.Error(codes.InvalidArgument, "threshold is required")
+	}
+	if err := validateNonNegativeDecimal(req.Threshold); err != nil {
+		return nil, err
 	}
 
 	clientID, err := uuid.Parse(req.ClientId)
