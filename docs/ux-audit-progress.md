@@ -2,7 +2,48 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 19/30: User — sender-names + templates (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 19/30: User — sender-names + templates (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (1 баг исправлен)
+
+[Summary] 18 TC прогнаны (7 sender-names list/get/create/update/edge/RBAC, 11 templates list/CRUD/render/edge/cross-tenant). 1 функциональный баг найден в templates handler, исправлен одним PR. Sender-names handler — robust (clamp limit, валидация ID, INN format checksum, статусы).
+
+[BUG LIST]
+
+BUG-63: CreateTemplate/UpdateTemplate принимали любую строку как traffic_type — Severity: MED — Категория: Functional / Schema validation
+  Шаги: `POST /portal/v1/templates -d '{"name":"x","body":"y","traffic_type":"BOGUS"}'` → HTTP 201, шаблон сохранён с `traffic_type=BOGUS` в БД.
+  Доказательство: на всех слоях (handler/gRPC/service/domain) валидация отсутствовала. Допустимые значения по docstring `domain.Template.TrafficType`: `authorization, transactional, service`. БД — varchar без CHECK constraint. Подтверждено grep по коду: `routing/domain.ValidTrafficType` уже имеет такой enum (3 значения), pipeline default = `transactional`, frontend `ConditionEditor.tsx` — 3 опции.
+  Влияние: тарификация по operator_template фильтрует по traffic_type — мусорные значения не попадают ни в один тариф (silent billing failure). Frontend ожидает enum; UI логика ломается на BOGUS.
+  Фикс: f48416b.
+    - `domain.AllowedTrafficTypes` map (3 значения, синхронизировано с routing).
+    - `domain.ErrInvalidTrafficType` + mapError → InvalidArgument в gRPC server.
+    - `application.validateTrafficType`: пустая строка OK (дефолтит в transactional), другое → wrapped error.
+    - Применён в CreateTemplate (после validateBody) и UpdateTemplate (внутри ветки `if trafficType != nil && != ""`).
+  После фикса: traffic_type=BOGUS → 400 "invalid traffic_type: must be one of authorization, transactional, service"; пустая строка → 201 (дефолтится).
+
+[Наблюдения / без фикса в этом этапе]
+
+- На стенде осталась запись `traffic_type=BOGUS` (template id `a8ebee55-...`, создана в TC16 ДО фикса). Update без явного trafficType её не валидирует — корректное поведение (фикс не должен ломать legacy данные). Cleanup-PR отдельно: либо `UPDATE templates SET traffic_type='transactional' WHERE traffic_type NOT IN (...)`, либо удаление мусорных записей.
+- Миграция `ALTER TABLE templates ADD CONSTRAINT traffic_type CHECK ...` — эскалация по §5.4 (миграция БД нужна для defense-in-depth). На стенде её сейчас нет, поэтому грязные данные могут возвращаться через прямой SQL. После cleanup стоит добавить.
+- Sender-names handler — `if id == ""` проверка, но без UUID format validation на handler-уровне. gRPC service делает `uuid.Parse` и возвращает корректные 400 — двойная проверка избыточна.
+- ListSenderNames clamp работает: per_page=99999 → 100. По parsePagination max 500, но gRPC client'ом видимо ещё клампится. Минор-difference UX, не баг.
+- Reseller (aggregator) endpoints `/portal/v1/sender-names/...` через `reseller_sender_names.go` не покрыты в этом этапе — относятся к этапу 26 (aggregator).
+- TemplatesPage в UI: рендеринг и редактирование, но не покрыто в TC18 (только API). Frontend проверка отдельная.
+
+[Success Path]
+User /portal/sender-names → видит свои зарегистрированные имена с фильтром по статусу. CreateSenderName с автовыбором default-компании (если есть только одна, или явно выбранная default — берётся, иначе ошибка с подсказкой). Update имени, Resubmit отклонённого. /portal/templates → CRUD, RenderTemplate валидирует variables. CreateTemplate теперь rejects невалидные traffic_type.
+
+[Recommendations]
+1. **Cleanup-PR на legacy traffic_type**: нормализовать существующий мусор в `templates.traffic_type` (`UPDATE WHERE NOT IN (3 valid)`), затем добавить миграцию CHECK constraint.
+2. **Унификация enum traffic_type**: завести общий пакет `internal/shared/types/traffic.go` или явно в `routing/domain` и импортировать в template-domain. Сейчас два места держат отдельные maps — расхождение неизбежно.
+3. **Validation для sender_name format**: handler принимает любую длину, gRPC валидирует "1-11 alphanumeric или 1-15 digits". Можно перенести в handler для UX (быстрая ошибка без trip к gRPC). Минор.
+
+[Test Data]
+- 1 шаблон с `traffic_type=BOGUS` (id `a8ebee55-939a-445b-8f97-359b3a7fc113`) — создан ДО фикса для регресс-проверки.
+- 1 валидный шаблон (id `bbe78035-95b3-496a-b291-5b79f5ebed86`) — после фикса с `transactional`.
+- 1 шаблон с пустым traffic_type → дефолт transactional (id `15ebcdf4-5e5c-4226-8bef-78f76a1c852f`).
+
+Коммиты:
+- 5d400a0 docs(audit): этап 19/30 user sender-names+templates — [IN_PROGRESS]
+- f48416b fix(template): валидация traffic_type enum [BUG-63 этап 19/30]
 
 ## [DONE] Этап 18/30: User — companies + contacts + segments (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (segments-only fixes)
 
