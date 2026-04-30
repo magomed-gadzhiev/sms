@@ -18,7 +18,21 @@ var (
 	ErrVariableValueTooLong  = errors.New("variable value exceeds maximum length")
 	ErrInvalidStatus         = errors.New("invalid template status for this operation")
 	ErrDuplicateTemplateName = errors.New("template with this name already exists")
+	ErrInvalidTrafficType    = errors.New("invalid traffic_type")
 )
+
+// AllowedTrafficTypes — допустимые значения traffic_type (BUG-63).
+// До фикса любая строка принималась и сохранялась в БД, нарушая enum-семантику
+// и потенциально ломая фильтрацию по типу трафика в тарификации.
+// Список синхронизирован с routing/domain.ValidTrafficType
+// (internal/services/routing/domain/route_types.go), pipeline default
+// "transactional" и frontend ConditionEditor.tsx — три значения.
+// Если когда-нибудь нужно добавить marketing/extensible — обновить ОБА enum'а.
+var AllowedTrafficTypes = map[string]struct{}{
+	"authorization": {},
+	"transactional": {},
+	"service":       {},
+}
 
 const (
 	StatusDraft             = "draft"

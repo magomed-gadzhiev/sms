@@ -377,6 +377,8 @@ func (s *Server) mapError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrInvalidTemplateBody):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrInvalidTrafficType):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrMissingVariables):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrRenderedTooLong):

@@ -38,6 +38,9 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, clientID uuid.UUID
 	if err := validateBody(body); err != nil {
 		return nil, err
 	}
+	if err := validateTrafficType(trafficType); err != nil {
+		return nil, err
+	}
 	if senderNameID != nil && s.senderNameRepo != nil {
 		if err := validateSenderNameForTemplate(ctx, s.senderNameRepo, *senderNameID, clientID); err != nil {
 			return nil, err
@@ -133,6 +136,9 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, id, clientID uuid.
 	}
 
 	if trafficType != nil && *trafficType != "" {
+		if err := validateTrafficType(*trafficType); err != nil {
+			return nil, err
+		}
 		existing.TrafficType = *trafficType
 	}
 
@@ -371,6 +377,18 @@ func validateName(name string) error {
 func validateBody(body string) error {
 	if body == "" || len(body) > domain.MaxBodyLength {
 		return fmt.Errorf("%w: must be 1-%d characters", domain.ErrInvalidTemplateBody, domain.MaxBodyLength)
+	}
+	return nil
+}
+
+// validateTrafficType (BUG-63): запрещаем произвольные строки.
+// Пустая строка допустима — service дефолтит её в "transactional".
+func validateTrafficType(trafficType string) error {
+	if trafficType == "" {
+		return nil
+	}
+	if _, ok := domain.AllowedTrafficTypes[trafficType]; !ok {
+		return fmt.Errorf("%w: must be one of authorization, transactional, service", domain.ErrInvalidTrafficType)
 	}
 	return nil
 }
