@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 25/30: User — api-keys + webhooks + notifications (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 24/30: User — lookup + analytics (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (3 бага исправлено: 3 HIGH)
 
 [Summary] 12 TC прогнаны через API+SQL: TC-1 happy /lookup/history empty PASS; TC-2 /lookup/stats happy PASS; TC-3 POST /lookup happy → 503 (HLR-провайдер не настроен на dev стенде, ожидаемо); TC-4/5/6/7 phone validation (empty/BOGUS/+1/SQL inj) → 400 PASS (e164Regex отрабатывает); TC-A1 /analytics happy default PASS; TC-A2/A3/A4/A5/A6/A7 invalid period/group_by/half-dates/invalid date_from/inverted dates/range>366 → все 400 PASS (whitelist-валидация работает); TC-A8 compare=true PASS; TC-A9 include_cost=true → wrong total_cost [BUG-75]; TC-A10 invalid compare → 400 PASS; TC-A11 group_by=country → 500 [BUG-74]; TC-12 cross-tenant lookup_log → c1 не видит c2 строку PASS; TC-12c c1 list своих → 500 [BUG-73]; TC-13 GET /lookup/history после фикса → 200 с item PASS.
