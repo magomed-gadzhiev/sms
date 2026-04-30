@@ -2,7 +2,67 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 23/30: User — messages + cascade-history (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 23/30: User — messages + cascade-history (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (4 бага исправлено: 1 CRITICAL + 3 HIGH)
+
+[Summary] 18 TC прогнаны через API+SQL: TC-1 happy list /detalization PASS; TC-2 cross-tenant /detalization/{c2 id} → 404 PASS; TC-3 invalid UUID на /detalization/{id} → 500 [BUG-69]; TC-4/5 invalid date_from/date_to → 500 [BUG-70]; TC-6 date_from > date_to → 200 empty PASS; TC-7 SQL inj в destination (через ILIKE %% — параметризовано) → пустой PASS; TC-8 status arbitrary → пустой PASS; TC-9 limit=0/-1/99999 → fallback 20 PASS; TC-10 offset=-1 clamp PASS, offset=999999 → empty PASS; TC-11 cross-tenant /portal/v1/messages/{c2 id} → 403 [observation: 403 leak'ает существование, должно быть 404]; TC-12 invalid UUID на /portal/v1/messages/{id} → 500 [BUG-69b]; TC-13 own quick-send GetMessage PASS; TC-14 cascade list /cascade/deliveries empty PASS; TC-15 cascade invalid UUID → 400 PASS (этап 20 фикс работает); TC-16 cascade GET random valid UUID → 500 [BUG-72]; TC-CSV-A legacy /messages/export — formula injection guard работает PASS; TC-CSV-B async /export/{id}/download — formula injection ОТСУТСТВУЕТ [BUG-71 CRITICAL]; TC-SSE without auth → 401 PASS; TC-SSE with auth → "Streaming не поддерживается" 500 (haproxy infra проблема dev-стенда, не аудит-баг).
+
+1 CRITICAL + 3 HIGH исправлены одним PR через /execute-with-review (commit bd106d5, code-reviewer APPROVED with caveats). Re-test всех 4 фиксов + регрессия PASS.
+
+[BUG LIST]
+
+BUG-71: CSV formula injection в async export /portal/v1/export/{id}/download — Severity: CRITICAL — Категория: Security / CVE-class formula injection
+  Шаги: засеять message с text='=cmd|''/c calc''!A1' (или любой текст начинающийся с =/+/-/@/tab) → POST /export/start → GET /export/{id}/download
+  Ожидалось: ячейка text в CSV префиксована апострофом, чтобы Excel/Calc трактовал как plain-text
+  Получалось: `aaaaaaaa-3333,DEMOQS,+79991110003,=cmd|'/c calc'!A1,delivered,...` — без префикса. При открытии экспорт-файла в Excel/Calc формула исполняется.
+  Доказательство (API): TC-CSV-B вывод выше; legacy /messages/export применяет csvSanitize, async /export/{id}/download — нет.
+  Импакт: атакующий с доступом к API/портал-аккаунту вставляет формулу в SMS-текст или sender, экспортирует, отправляет файл админу/реселлеру/клиенту → исполнение DDE/cmd при открытии.
+  Фикс: bd106d5 — `internal/gateway/portal/handlers/export.go::runExportJob` обернул msg.MessageId/Source/Destination/Text/Status через csvSanitize (переиспользована из messages.go того же пакета). Re-test: `'=cmd|...` теперь имеет ' префикс.
+
+BUG-69: GET /portal/v1/detalization/{id} с invalid UUID → 500 — Severity: HIGH — Категория: Functional / Error mapping (BUG-A pattern из этапа 22)
+  Шаги: GET /portal/v1/detalization/not-a-uuid
+  Ожидалось: 400 INVALID_INPUT
+  Получалось: 500 "Ошибка получения сообщения" (pgx cast-error на `WHERE m.id = $1::uuid`)
+  Фикс: bd106d5 — uuid.Parse pre-check в DetalizationHandlers::GetMessage → ErrInvalidInput → 400.
+
+BUG-69b: GET /portal/v1/messages/{id} (quick-send путь) с invalid UUID → 500 — Severity: HIGH — Категория: Functional / Error mapping (тот же паттерн)
+  Фикс: bd106d5 — uuid.Parse pre-check в MessageHandlers::GetMessage.
+
+BUG-70: GET /portal/v1/detalization?date_from=INVALID → 500 — Severity: HIGH — Категория: Functional / Error mapping
+  Шаги: GET /portal/v1/detalization?date_from=INVALID или ?date_to=2025-13-99
+  Получалось: 500 "ошибка подсчёта сообщений" (pgx ::timestamptz cast-error в countQuery до listQuery)
+  Фикс: bd106d5 — validateDateFilter (2006-01-02 либо RFC3339) в DetalizationHandlers::ListMessages, ErrInvalidInput при невалидном формате. Caveat от reviewer: RFC3339 с временем truncate'ится до даты — frontend шлёт 2006-01-02 (см. getDefaultDateRange в MessagesPage.tsx), регрессии нет.
+
+BUG-72: GET /portal/v1/cascade/deliveries/{random valid UUID} → 500 — Severity: HIGH — Категория: gRPC error mapping
+  Шаги: GET /portal/v1/cascade/deliveries/00000000-0000-0000-0000-000000000999
+  Получалось: 500 "Внутренняя ошибка сервера". В логе portal-gateway: `rpc error: code = Unknown desc = delivery not found`. Repo возвращал domain.ErrDeliveryNotFound, handler делал `return nil, err` → codes.Unknown → portal маппит в 500.
+  Фикс: bd106d5 — `internal/services/cascade/grpc/handler.go::GetDelivery` errors.Is(err, domain.ErrDeliveryNotFound) → codes.NotFound (404). Bad-UUID → codes.InvalidArgument. Cross-tenant и not-exists свёрнуты в один NotFound — иначе 403 vs 404 leak'нет чужие delivery_id (минимизация info-disclosure).
+
+[OBSERVATION-1] /portal/v1/messages/{cross-tenant id} → 403 вместо 404 — Severity: LOW — Категория: Information disclosure
+  Шаги: c1 запрашивает /portal/v1/messages/{c2 message id}
+  Поведение: SQL fast-path в GetMessage не находит (client_id != $2) → ErrNoRows → fallback getMessageViaGRPC → gRPC GetMessageStatus с clientID-mismatch отдаёт PermissionDenied → handler maps на 403 FORBIDDEN.
+  Импакт: атакующий перебором UUID может различить «не существует» от «чужое». UUID v4 — 122 бита случайности → перебор нереальный, но это нарушение принципа least disclosure. Так же как BUG-72 я свернул в 404 для cascade — для messages этот же фикс архитектурный (gRPC GetMessageStatus двухклассовая ошибка), не делал в этом этапе.
+
+[OBSERVATION-2] gRPC GetMessageHistory.Total = len(currentPage), не глобальный — Severity: LOW — Категория: Pagination correctness
+  В `internal/services/messaging/grpc/server.go:393-398` `Total: int32(len(protoMessages))` — это длина текущей страницы, не COUNT(*) по фильтру. Затрагивает legacy /portal/v1/messages list (handler messages.go::ListMessages) и /portal/v1/messages/export. Frontend MessagesPage НЕ использует этот endpoint (использует /detalization, у которого правильный total через COUNT(*)). Поэтому UI не сломан, но API контракт врёт. Кандидат на отдельный mini-fix (поправить gRPC server.go + добавить count-query в storage/repo).
+
+[OBSERVATION-3] Прочие http.Error plain-text в SSE handler — Severity: LOW — Категория: BUG-66 паттерн
+  `messages.go::StreamMessages` строки 558, 565 используют `http.Error(w, "...", 500)` — plain-text response, не JSON-error envelope. Накопительный паттерн, отдельный PR (по issue этапа 20).
+
+[OBSERVATION-4] CreateDelivery/ListDeliveries/etc в том же `internal/services/cascade/grpc/handler.go` всё ещё возвращают `fmt.Errorf("invalid client_id: %w", err)` — codes.Unknown на bad UUID. Тот же класс что фиксили в GetDelivery. Кандидат на bulk-PR по cascade-сервису (BUG-A pattern).
+
+[OBSERVATION-5] async export TTL — file_path в /tmp/ container'а удаляется после download (line 283 export.go). Если client скачал → ОК. Если не скачал в exportTTL=1h → файл остаётся (zombie /tmp/*.csv). Не критично, но накопится при долгом uptime. Оч. minor.
+
+[Success Path]
+User /portal/messages → GET /portal/v1/detalization?date_from=...&date_to=...&status=delivered → 200 с total + messages[]. Click на строку → /portal/messages/{id} → GET /portal/v1/detalization/{id} → 200 с DLR + billing деталями. Click "Экспорт" → POST /portal/v1/export/start → 202 {job_id} → poll /export/{job_id}/status → "ready" → GET /export/{job_id}/download → CSV-файл с применённой formula-injection защитой. Cascade history /portal/cascade-history → GET /portal/v1/cascade/deliveries → 200. Click delivery → GET /cascade/deliveries/{id} → 200 PROD-сценарий ИЛИ 404 если not-exists/cross-tenant. Invalid UUID на любом GetX → 400. Invalid date_from → 400.
+
+[Recommendations]
+1. **Свернуть /portal/v1/messages/{id} cross-tenant 403 → 404** (OBSERVATION-1). Архитектурный — gRPC GetMessageStatus в messaging-service сейчас отличает PermissionDenied от NotFound. Минимизация info-disclosure: оба → NotFound, как уже сделано в BUG-72.
+2. **Поправить gRPC GetMessageHistory.Total** на реальный COUNT(*) по фильтру (OBSERVATION-2). Затрагивает messaging-service repo + gRPC + handler. Сейчас legacy /messages list/export даёт неправильное total.
+3. **Bulk-fix BUG-A pattern в cascade gRPC handler** (OBSERVATION-4). 5+ методов всё ещё `fmt.Errorf` без gRPC-кода → 500 на bad-UUID и других domain-ошибках. Один атомарный PR.
+
+[Test Data]
+- Засеяны 3 messages (untracked в demo_seed): aaaaaaaa-1111 (c1, happy text), aaaaaaaa-2222 (c2, для cross-tenant), aaaaaaaa-3333 (c1, formula-injection text). Балансы Demo-Main 99805.50 ₽ / Demo-Reseller 50000.00 ₽ не изменились (никаких отправок не делал, INSERT'ил в БД напрямую — pipeline-sender лежит из-за pgbouncer DNS на dev стенде).
+- Коммиты: 272a8d4 lock, bd106d5 fix BUG-69/70/71/72, ниже close-коммит.
 
 ## [DONE] Этап 22/30: User — quick-send (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (2 бага исправлено)
 
