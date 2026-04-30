@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 16/30: Admin — detalization (deprecated) (admin, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 15/30: Admin — monitoring + analytics + audit-log (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (audit-log fixes, monitoring/analytics OK)
 
 [Summary] 18 TC прогнаны (1 monitoring realtime, 4 analytics stats/period/group_by/RBAC, 4 generate report/perfomance, 9 audit list+date+RBAC+immutability+SQL-проверка). 3 функциональных бага, все три исправлены одним PR (BUG-55/56/57). BUG-55 (HIGH) маскировал инфраструктурную ошибку — wiring AuditClient в admin-gateway полностью отсутствовал в коде main.go. BUG-57 (HIGH) — schema mismatch frontend↔backend: frontend AuditLogPage шёл с одним набором параметров, backend читал другой.
