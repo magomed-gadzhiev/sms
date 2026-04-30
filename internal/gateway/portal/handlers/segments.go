@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/services/contact/application"
@@ -60,7 +61,8 @@ func (h *SegmentHandlers) CreateSegment(w http.ResponseWriter, r *http.Request) 
 		Rules:          req.Rules,
 	}
 	if err := h.service.Create(r.Context(), seg); err != nil {
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("ошибка создания сегмента")
+		respondError(w, shared.ErrInternalServer("Не удалось создать сегмент"))
 		return
 	}
 	respondJSON(w, http.StatusCreated, seg)
@@ -74,8 +76,16 @@ func (h *SegmentHandlers) ListSegments(w http.ResponseWriter, r *http.Request) {
 	}
 	segments, err := h.service.List(r.Context(), clientID)
 	if err != nil {
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("ошибка списка сегментов")
+		respondError(w, shared.ErrInternalServer("Не удалось загрузить сегменты"))
 		return
+	}
+	// BUG-61: при пустом результате service.List возвращает nil-slice, и
+	// json.Marshal сериализует nil в `null`. Frontend ожидает массив для
+	// .map/.filter — `null` крэшит. Также не утекаем raw repo-error в ответ
+	// (information disclosure): подменяем на абстрактное сообщение, лог пишем.
+	if segments == nil {
+		segments = []*domain.SavedSegment{}
 	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{"segments": segments})
 }
@@ -132,7 +142,8 @@ func (h *SegmentHandlers) UpdateSegment(w http.ResponseWriter, r *http.Request) 
 		ContactListIDs: listIDs, Rules: req.Rules,
 	}
 	if err := h.service.Update(r.Context(), seg); err != nil {
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		log.Error().Err(err).Str("segment_id", id.String()).Msg("ошибка обновления сегмента")
+		respondError(w, shared.ErrInternalServer("Не удалось обновить сегмент"))
 		return
 	}
 	respondJSON(w, http.StatusOK, seg)
@@ -163,7 +174,8 @@ func (h *SegmentHandlers) EstimateSegment(w http.ResponseWriter, r *http.Request
 	}
 	count, err := h.service.EstimateCount(r.Context(), seg)
 	if err != nil {
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		log.Error().Err(err).Str("segment_id", id.String()).Msg("ошибка оценки размера сегмента")
+		respondError(w, shared.ErrInternalServer("Не удалось оценить размер сегмента"))
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]int32{"estimated_count": count})
