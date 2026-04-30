@@ -2,7 +2,52 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 21/30: User — campaigns + campaign-schedules (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 21/30: User — campaigns + campaign-schedules (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (1 CRITICAL + 1 HIGH исправлены)
+
+[Summary] 16 TC прогнаны (TC-1 list+filter+clamp, TC-2 GET edge UUID/404, TC-3 happy create, TC-4 invalid/non-existent contact_list_id, TC-6 schedule past/far-future, TC-7 state-machine pause/resume/cancel в draft, TC-8 update с cross-tenant + name-only, TC-9 schedules CRUD + bad frequency + missing cron, TC-10 cross-tenant contact_list_id, TC-10b cross-tenant template_id, TC-11 cross-tenant template_campaign_id в schedule, TC-12 BUG-65 nil-slice, TC-extended SetVariants/SetRetryConfig/RetryFailed cross-tenant). 1 CRITICAL баг найден (cross-tenant ownership), 1 HIGH (500 на bad UUID), фикс одним PR через /execute-with-review с code-reviewer APPROVED.
+
+[BUG LIST]
+
+BUG-67 + BUG-68: CreateCampaign/UpdateCampaign/SetVariants/SetRetryConfig/RetryFailed принимали любой UUID contact_list_id и template_id без ownership check на client_id — Severity: CRITICAL — Категория: Security / IDOR + Money-flow
+  Воспроизведение (на стенде): Demo-Main (`c0000000-...0001`) делал `POST /portal/v1/campaigns -d '{"contact_list_id":"<RESELLER's UUID>"}'` → HTTP 201, кампания записана с `client_id=Demo-Main` + `contact_list_id=Reseller's`. Аналогично для template_id.
+  Импакт ($): материализатор `cmd/services/campaign-service/materialize.go:195-203` фетчит контакты `WHERE c.contact_list_id = $1` без client_id-фильтра. На LaunchCampaign → SMS уходят на чужие номера, тарифицируются по Demo-Main (списание баланса атакующего за чужие контакты + leak PII Reseller'а + hijack sender reputation).
+  Forensic: на стенде нет уже существующих кросс-тенантских записей (SELECT с JOIN — 0 строк); миграция не требуется.
+  Эскалация: пользователю до фикса (как BUG-59); решение «всё на твоё усмотрение, минимальный фикс».
+  Фикс: 059720a.
+    - 4 новых sentinel errors в `domain/models.go`.
+    - 2 helper-метода `ContactListBelongsToClient`/`TemplateBelongsToClient` в `repository/campaign_repository.go` (SELECT EXISTS).
+    - Гейт в `application/campaign_service.go::CreateCampaign`+`UpdateCampaign`+`SetVariants`+`SetRetryConfig`+`RetryFailed`.
+    - mapError → InvalidArgument (bad UUID), NotFound (cross-tenant).
+  Code-review (superpowers:code-reviewer): APPROVED with caveats; reviewer flagged SetVariants/SetRetryConfig/RetryFailed как тот же класс — добавлены в этот же PR.
+
+BUG-А: invalid UUID format в contact_list_id/template_id → 500 ISE — Severity: HIGH — Категория: Functional / Error mapping (BUG-9/13/17/28/50/51 паттерн)
+  Шаги: `POST /portal/v1/campaigns -d '{"contact_list_id":"not-a-uuid"}'` → HTTP 500 "Внутренняя ошибка сервера".
+  Доказательство: ошибка `uuid.Parse` оборачивалась в `fmt.Errorf("invalid contact_list_id: %w")`, не матчилась в `mapError` → default → `codes.Internal`.
+  Фикс: 059720a (sentinel `ErrInvalidContactListID`/`ErrInvalidTemplateID` → `codes.InvalidArgument` → HTTP 400).
+
+[Наблюдения / без фикса в этом этапе]
+
+- TC-6 (scheduledAt в прошлое/далеко в будущее): handler принимает любой timestamp и сохраняет в draft. Реальный риск только при LaunchCampaign — там status-machine не пускает scheduled-кампанию мгновенно (она в draft, не в scheduled). По дизайну это OK, но frontend должен валидировать на форме (CampaignWizardPage) — проверить отдельным UX-этапом.
+- Cross-tenant защита в campaign_schedules.go — `Create` нативно делает `EXISTS(SELECT 1 FROM campaigns WHERE id=$1 AND client_id=$2)`. То есть schedule был защищён ИЗНАЧАЛЬНО. Аномалия: кампании менее защищены, чем расписания. Это observation о неконсистентности в кодовой базе.
+- Materializer (`cmd/services/campaign-service/materialize.go:195-203`) до сих пор фетчит контакты `WHERE c.contact_list_id = $1` без client_id-фильтра. После закрытия create-path-vector атака невозможна, но defense-in-depth (`AND contact_list_id IN (SELECT id FROM contact_lists WHERE client_id=$2)`) дешёвый и защитит от регрессии. Отдельный mini-PR.
+- BUG-65 паттерн (nil-slice): `GET /campaigns` и `GET /campaign-schedules` возвращают `[]` для пустого списка — норма ✓.
+- Сообщение об ошибке cross-tenant case `"contact_list_id does not belong to client не найден"` — `respondError` приклеивает «не найден» к message при NOT_FOUND. Косметика, отдельный текст.
+- Composite FK `(id, client_id) REFERENCES contact_lists(id, client_id)` — потребует миграции БД (UNIQUE на пару + ALTER TABLE), эскалация. Отложено как follow-up.
+
+[Success Path]
+User /portal/campaigns → видит [], total:0. POST /campaigns с валидным contact_list_id → 201, status=draft. Cross-tenant попытка → 404 NOT_FOUND `template_id/contact_list_id does not belong to client`. Bad UUID format → 400 INVALID_INPUT. PUT /campaigns/:id с cross-tenant contact_list → 404. PUT /:id/variants с cross-tenant template_id → 404. POST /:id/retry-config / retry с cross-tenant alt_template → 404. POST /:id/pause-resume-cancel в draft → 400 FailedPrecondition с понятным сообщением. Schedule CRUD: пустой список `{"schedules":[]}`, daily-frequency happy → 201, BOGUS-frequency → 400, custom без cron_expression → 400, cross-tenant template_campaign_id → 404 (защита handler'а нативно).
+
+[Recommendations]
+1. **Defense-in-depth materializer (mini-PR)**: добавить `AND contact_list_id IN (SELECT id FROM contact_lists WHERE client_id=$2)` в `processMaterializingCampaigns`. Cheap belt-and-suspenders.
+2. **Унифицировать cross-tenant pattern**: вытянуть `XBelongsToClient(ctx, xID, clientID) (bool, error)` в общий helper `internal/shared/security/ownership.go`. Сейчас в schedule handlers тоже EXISTS-логика, в campaign service другая. Систематический cross-tenant аудит handlers/ — кандидат на отдельный security-этап (есть 48 файлов handlers с 434 `uuid.Parse`).
+3. **Composite FK или DB CHECK**: ALTER TABLE campaigns ADD CONSTRAINT cl_owned CHECK (...) или композитный FK с UNIQUE. Требует миграции и согласования времени останова — отдельная задача.
+
+[Test Data]
+- На время тестов созданы: contact_list `1cc6dee9-...` Demo-Main, template `6bae15a2-...` Demo-Main, template `e513b431-...` Demo-Reseller (victim для cross-tenant), campaign `436aec8c-...` Demo-Main + variants. Все удалены после теста; `SELECT COUNT(*) FROM campaigns; campaign_schedules; contact_lists;` → 0/0/0.
+
+Коммиты:
+- e7cd17b docs(audit): этап 21/30 user campaigns+schedules — [IN_PROGRESS]
+- 059720a fix(campaign): cross-tenant guard на contact_list_id+template_id [BUG-67/68/A этап 21/30]
 
 ## [DONE] Этап 20/30: User — channels + delivery-strategies (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (cascade hardening)
 
