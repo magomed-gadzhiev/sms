@@ -23,9 +23,20 @@ func NewDetalizationHandlers(db *storage.DB) *DetalizationHandlers {
 	return &DetalizationHandlers{db: db}
 }
 
+// markDeprecated добавляет HTTP-заголовки RFC 8594 (Sunset) и draft Deprecation,
+// чтобы внешние клиенты узнавали об устаревании /admin/v1/messages*.
+// Раздел "Детализация" в UI заменён на /messages (см. MVP-feedback №10/11, 5424ee2);
+// endpoint оставлен функциональным до полного удаления отдельным cleanup-PR.
+// BUG-58.
+func markDeprecated(w http.ResponseWriter) {
+	w.Header().Set("Deprecation", "true")
+	w.Header().Set("Link", "</admin/v1/messages>; rel=\"deprecation\", </messages>; rel=\"successor-version\"")
+}
+
 // ListMessages обрабатывает GET /admin/v1/messages
 // Query params: client_id, status, source, destination, provider_id, date_from, date_to, limit, offset
 func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Request) {
+	markDeprecated(w)
 	q := r.URL.Query()
 	clientID := q.Get("client_id")
 	status := q.Get("status")
@@ -157,6 +168,7 @@ func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Reque
 
 // GetMessage обрабатывает GET /admin/v1/messages/{id}
 func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
+	markDeprecated(w)
 	id := mux.Vars(r)["id"]
 	if id == "" {
 		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
