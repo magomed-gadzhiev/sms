@@ -2,7 +2,50 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 15/30: Admin — monitoring + analytics + audit-log (admin, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 15/30: Admin — monitoring + analytics + audit-log (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (audit-log fixes, monitoring/analytics OK)
+
+[Summary] 18 TC прогнаны (1 monitoring realtime, 4 analytics stats/period/group_by/RBAC, 4 generate report/perfomance, 9 audit list+date+RBAC+immutability+SQL-проверка). 3 функциональных бага, все три исправлены одним PR (BUG-55/56/57). BUG-55 (HIGH) маскировал инфраструктурную ошибку — wiring AuditClient в admin-gateway полностью отсутствовал в коде main.go. BUG-57 (HIGH) — schema mismatch frontend↔backend: frontend AuditLogPage шёл с одним набором параметров, backend читал другой.
+
+[BUG LIST]
+
+BUG-55: AuditClient в admin-gateway всегда nil — Severity: HIGH — Категория: Infrastructure / Wiring
+  Шаги: открыть /admin/audit-log → пустой список без ошибки. `curl /admin/v1/audit` → HTTP 200 `{"entries":[],"total":0}`.
+  Доказательство (cmd/admin-gateway/main.go строки 74-84 ДО фикса): структура `admin.ServiceAddresses` инициализировалась без поля `Audit`. В `internal/gateway/admin/clients.go:169` проверка `if addresses.Audit != ""` всегда false → AuditClient оставался nil.
+  Фикс: 9f1d779 (добавлено `Audit: config.EnvOrDefault("AUDIT_SERVICE_ADDR", "localhost:9102")`. Также `AUDIT_SERVICE_ADDR=audit-service:9102` пропроброшен в env admin-gateway-1/2 в docker-compose.yml).
+
+BUG-56: AdminAuditHandlers.ListAuditLog тихо возвращал stub при nil-client — Severity: MED — Категория: Functional / UX deception
+  Шаги: при `auditClient == nil` handler возвращал `{entries:[],total:0,page:1,total_pages:0}` HTTP 200 без какого-либо сигнала.
+  Это маскировало BUG-55: UI показывал "записей нет" вместо реальной ошибки конфигурации. Параметры запроса даже не валидировались.
+  Фикс: 9f1d779 (явный 503 SERVICE_UNAVAILABLE + log.Error с подсказкой про AUDIT_SERVICE_ADDR).
+
+BUG-57: Frontend AuditLogPage и backend AuditHandler — schema mismatch — Severity: HIGH — Категория: Functional / Schema drift
+  Шаги: frontend `auditAdminApi.list({user_id, action, from, to, limit, offset})`. Backend читает `client_id, action, user_id, date_from, date_to, page, per_page` и возвращает `entries, total, page, total_pages`. Любые попытки фильтрации просто игнорировались.
+  Доказательство: api/admin.ts:520-523 ДО фикса слал `from/to/limit/offset`; handler audit.go:39-48 их не читает.
+  Фикс: 9f1d779 (api/admin.ts слой переписан на корректные параметры; AuditLogPage получил Select-фильтр Клиент, добавлен empty-state «Выберите клиента» при пустом client_id; обработчик ошибок показывает сообщение от backend, а не generic toast).
+
+[Наблюдения / без фикса в этом этапе]
+
+- audit_log таблица **пустая** в БД (0 строк). При выбранном client_id запрос корректный, но никаких записей не возвращается. Это отдельный архитектурный пробел: ни один admin-mutation handler не пишет в audit-сервис. Spec 015 (architecture-data-flows) предполагает audit-event на каждое изменение, но реально в код event-эмиссия не встроена. Эскалация — отдельный large refactoring tикет.
+- Admin global audit view не поддерживается в gRPC AuditService (требует tenant_id). Аналог BUG-38 (admin global webhook view). Если нужно — добавить отдельный gRPC method `ListAllAuditEntries` с pagination или sub-tenant filter.
+- TC14 GET /admin/v1/analytics/providers//performance (двойной слеш) → HTTP 301 redirect от mux. Минор UX, не реальный bug — frontend такой URL не делает.
+- TC16 generate report с format=bogus → 400 "from and to timestamps are required" (gRPC analytics service первой проверкой требует таймстампы). Сообщение не точное к ошибке, но валидация работает.
+- common.go::parsePagination clampит per_page>500 reset to default 50, не до 500. clampPagination из billing.go был бы корректнее (clamp до max). Минор, follow-up.
+
+[Success Path]
+Admin открывает /admin/monitoring → realtime-метрики, статус провайдеров, polling 10s. /admin/analytics → корректные ошибки на невалидных датах/UUID, GenerateReport валидирует report_type. /admin/audit-log → выбор клиента в фильтре → загрузка записей этого клиента (если они есть) с фильтрами user_id/action/resource_type/date_from/date_to. Пустой client_id → empty-state с подсказкой «Выберите клиента», без toast-spam.
+
+[Recommendations]
+1. **Audit event-emission**: внедрить запись в audit-service во все admin/portal mutation handler'ы (как cross-cutting middleware). Без этого БД остаётся пустой, и весь audit-log UI бесполезен. Это требует архитектурного решения и спеки.
+2. **Admin global view**: либо новый gRPC method `ListAllAuditEntries` с pagination, либо принять текущее ownership-модель (как webhook) и оставить tenant_id required.
+3. **Унификация pagination** в общей utility: `clampPagination` (billing) vs `parsePagination` (common) делают разные вещи. Привести к единому интерфейсу.
+
+[Test Data]
+- Selected client `c0000000-0000-0000-0000-000000000001` (Demo-Main) для проверки audit list — записи 0.
+- Никаких тестовых записей в audit_log не создавал (нет endpoint write-side, события не пишутся в принципе).
+
+Коммиты:
+- a30e786 docs(audit): этап 15/30 admin monitoring+analytics+audit-log — [IN_PROGRESS]
+- 9f1d779 fix(admin): audit-log — wire AuditClient + client_id filter в UI [BUG-55/56/57 этап 15/30]
 
 ## [DONE] Этап 14/30: Admin — users + settings (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (API+infra)
 
