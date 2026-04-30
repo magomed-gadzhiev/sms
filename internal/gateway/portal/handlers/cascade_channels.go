@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
 	maxmessenger "github.com/smpp-server/smpp-server/internal/services/cascade/channels/maxmessenger"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // CascadeChannelHandlers обрабатывает admin-запросы для управления каналами
@@ -27,14 +29,25 @@ func (h *CascadeChannelHandlers) ListChannels(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
+	// BUG-65: nil-slice → JSON `null` ломает frontend .map. Подменяем на пустой массив.
+	channels := resp.Channels
+	if channels == nil {
+		channels = []*cascadev1.ChannelResponse{}
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"channels": resp.Channels,
+		"channels": channels,
 	})
 }
 
 // GetChannel обрабатывает GET /admin/channels/{id}
 func (h *CascadeChannelHandlers) GetChannel(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	// BUG-64: до фикса invalid UUID уходил в gRPC, который возвращал Internal 500
+	// вместо InvalidArgument. Проверяем формат на handler-уровне.
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid channel_id format"))
+		return
+	}
 	resp, err := h.client.GetChannel(r.Context(), &cascadev1.GetChannelRequest{ChannelId: id})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -54,11 +67,12 @@ type createChannelRequest struct {
 func (h *CascadeChannelHandlers) CreateChannel(w http.ResponseWriter, r *http.Request) {
 	var req createChannelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		// BUG-66: до фикса http.Error возвращал plain-text, frontend крэшил JSON-парсер.
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
 		return
 	}
 	if req.ChannelType == "" || req.Name == "" {
-		http.Error(w, "channel_type and name are required", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("channel_type and name are required"))
 		return
 	}
 	if err := validateChannelConfig(req.ChannelType, req.ConfigJSON); err != nil {
@@ -87,9 +101,14 @@ type updateChannelRequest struct {
 // UpdateChannel обрабатывает PUT /admin/channels/{id}
 func (h *CascadeChannelHandlers) UpdateChannel(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid channel_id format"))
+		return
+	}
 	var req updateChannelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		// BUG-66: до фикса http.Error возвращал plain-text, frontend крэшил JSON-парсер.
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
 		return
 	}
 	// Для UpdateChannel нужен channel_type — загрузим канал
@@ -120,9 +139,14 @@ type toggleChannelRequest struct {
 // ToggleChannel обрабатывает PUT /admin/channels/{id}/toggle
 func (h *CascadeChannelHandlers) ToggleChannel(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid channel_id format"))
+		return
+	}
 	var req toggleChannelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		// BUG-66: до фикса http.Error возвращал plain-text, frontend крэшил JSON-парсер.
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
 		return
 	}
 	resp, err := h.client.ToggleChannel(r.Context(), &cascadev1.ToggleChannelRequest{

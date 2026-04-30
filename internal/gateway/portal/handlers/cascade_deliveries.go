@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
@@ -64,6 +65,10 @@ func (h *CascadeDeliveryHandlers) GetDelivery(w http.ResponseWriter, r *http.Req
 	}
 
 	deliveryID := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(deliveryID); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid delivery_id format"))
+		return
+	}
 	resp, err := h.client.GetDelivery(r.Context(), &cascadev1.GetDeliveryRequest{
 		DeliveryId: deliveryID,
 		ClientId:   clientID.String(),

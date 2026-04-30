@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // CascadeStrategyHandlers обрабатывает admin-запросы для управления стратегиями и OCS
@@ -29,8 +31,13 @@ func (h *CascadeStrategyHandlers) ListStrategies(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
+	// BUG-65: nil-slice → JSON `null` ломает frontend.
+	strategies := resp.Strategies
+	if strategies == nil {
+		strategies = []*cascadev1.StrategyResponse{}
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"strategies": resp.Strategies,
+		"strategies": strategies,
 	})
 }
 
@@ -43,14 +50,22 @@ func (h *CascadeStrategyHandlers) ListStrategiesClient(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
+	strategies := resp.Strategies
+	if strategies == nil {
+		strategies = []*cascadev1.StrategyResponse{}
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"strategies": resp.Strategies,
+		"strategies": strategies,
 	})
 }
 
 // GetStrategy обрабатывает GET /admin/delivery-strategies/{id}
 func (h *CascadeStrategyHandlers) GetStrategy(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid strategy_id format"))
+		return
+	}
 	resp, err := h.client.GetStrategy(r.Context(), &cascadev1.GetStrategyRequest{StrategyId: id})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -77,11 +92,11 @@ type createStrategyRequest struct {
 func (h *CascadeStrategyHandlers) CreateStrategy(w http.ResponseWriter, r *http.Request) {
 	var req createStrategyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
 		return
 	}
 	if req.Name == "" || req.Mode == "" {
-		http.Error(w, "name and mode are required", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("name and mode are required"))
 		return
 	}
 
@@ -110,9 +125,13 @@ func (h *CascadeStrategyHandlers) CreateStrategy(w http.ResponseWriter, r *http.
 // UpdateStrategy обрабатывает PUT /admin/delivery-strategies/{id}
 func (h *CascadeStrategyHandlers) UpdateStrategy(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid strategy_id format"))
+		return
+	}
 	var req createStrategyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
 		return
 	}
 
@@ -142,6 +161,10 @@ func (h *CascadeStrategyHandlers) UpdateStrategy(w http.ResponseWriter, r *http.
 // DeleteStrategy обрабатывает DELETE /admin/delivery-strategies/{id}
 func (h *CascadeStrategyHandlers) DeleteStrategy(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("invalid strategy_id format"))
+		return
+	}
 	resp, err := h.client.DeleteStrategy(r.Context(), &cascadev1.DeleteStrategyRequest{StrategyId: id})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -176,11 +199,11 @@ type updateOCSRequest struct {
 func (h *CascadeStrategyHandlers) UpdateOperatorChannelSupport(w http.ResponseWriter, r *http.Request) {
 	var req updateOCSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("invalid request body"))
 		return
 	}
 	if req.OperatorID == "" || req.ChannelType == "" {
-		http.Error(w, "operator_id and channel_type are required", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("operator_id and channel_type are required"))
 		return
 	}
 
