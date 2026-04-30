@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 17/30: User — dashboard + profile + balance (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 16/30: Admin — detalization (deprecated) (admin, fix + Infrastructure + QA full, 2026-04-30) — корректность deprecation
 
 [Summary] 8 TC прогнаны (1 list, 1 get, 1 invalid filter, 1 limit clamp, 1 RBAC, 1 nav-проверка, 1 doc-grep, 1 deprecation header). Найден один баг (BUG-58: HTTP-уровень не сигнализировал об устаревании), исправлен. Deprecation работает корректно: UI-banner есть, nav-ссылка убрана, HTTP-headers теперь явные. Endpoint оставлен функциональным до отдельного cleanup-PR.
