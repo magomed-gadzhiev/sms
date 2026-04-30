@@ -2,7 +2,55 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 17/30: User — dashboard + profile + balance (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 17/30: User — dashboard + profile + balance (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (CRITICAL billing fix)
+
+[Summary] 14 TC прогнаны (1 dashboard, 4 profile GET/PUT/password/phone, 9 billing balance/transactions/top-up/threshold + RBAC). 2 функциональных бага найдены, оба исправлены одним PR. BUG-59 (CRITICAL) — реальное списание средств с баланса через user-портал TopUp с отрицательным amount. BUG-60 (HIGH) — accept negative threshold + 500 на non-numeric.
+
+[BUG LIST]
+
+BUG-59: POST /portal/v1/billing/top-up принимал amount=-100/abc/0/Inf и реально списывал баланс через callback — Severity: CRITICAL — Категория: Security / Billing integrity (повтор BUG-41)
+  Шаги: `POST /portal/v1/billing/top-up -d '{"amount":"-100"}'` → HTTP 200 с payment_url. Открытие `payment_url` (callback) → HTTP 200. Баланс 99905.50 → 99805.50.
+  Доказательство: Stub-провайдер `internal/gateway/portal/payment/stub.go::HandleCallback` возвращает `Amount: req.Amount` без изменений. `BillingHandlers.TopUpCallback` (`internal/gateway/portal/handlers/billing.go:151-177`) вызывает `billingClient.AddCredits(ctx, AddCreditsRequest{Amount: result.Amount})`. **gRPC `s.AddCredits` НЕ валидировал amount** (BUG-41 fix этапа 13 был только на admin HTTP-уровне). Negative amount проходил до `BillingService.AddCredits` → `add(balance, amount)` через big.Float `+ -100` = `-100`.
+  Фикс: b109b03 (двухуровневая защита).
+    - `internal/services/billing/grpc/server.go::AddCredits`: helper `validatePositiveDecimal` (big.Float SetString → ok, IsInf, Sign() <= 0 → InvalidArgument).
+    - `internal/gateway/portal/handlers/billing.go::TopUp`: ранняя валидация `validatePositiveAmount` перед `paymentProvider.CreatePayment` (UX — ошибка возвращается сразу, не через payment session).
+    - Регресс-тесты `TestValidatePositiveAmount` (10 кейсов: empty/non-numeric/-100/0/+0/Inf/+Inf/NaN + 3 валидных).
+    - После фикса: amount=-100 → 400 "amount должен быть положительным"; amount=Inf → 400 "amount не может быть Inf"; amount=500 → 200 (валидно).
+
+BUG-60: PUT /portal/v1/billing/low-balance-threshold принимал threshold=-100 + 500 на abc — Severity: HIGH — Категория: Functional / Validation
+  Шаги: `PUT /low-balance-threshold -d '{"threshold":"-100"}'` → HTTP 200 success. `threshold=abc` → HTTP 500 "Внутренняя ошибка сервера" (паттерн BUG-9/13/17/28).
+  Доказательство: gRPC `SetLowBalanceThreshold` пропускал любую строку в `BillingService.SetLowBalanceThreshold` → SQL `numeric "-100"` или `numeric "abc"` → invalid syntax → 500.
+  Фикс: b109b03.
+    - gRPC: `validateNonNegativeDecimal` (Sign() < 0 → ошибка, NaN/Inf тоже).
+    - Portal handler: `validateNonNegativeAmount` ранее.
+    - 0 допускается (= выключение уведомлений).
+    - После фикса: threshold=-100 → 400 "значение не может быть отрицательным"; threshold=abc → 400 "значение должно быть числом"; threshold=0 → 200 (валидно).
+
+[Наблюдения / без фикса в этом этапе]
+
+- BUG-60a: TopUpCallback (`billing.go:172`) логирует ошибку AddCredits, но всё равно возвращает HTTP 200 status:ok. Если AddCredits падает (например, после моего фикса при amount=-100 от malicious payment provider), provider получит 200 и пометит платёж как успешный — а зачисления не будет. Reviewer-замечание: правильное решение — outbox pattern (callback пишет в `payment_events` → 200 → отдельный воркер ретраит AddCredits). Текущий стенд использует stub-провайдер, в проде эта дыра реальна. Эскалация на отдельный PR.
+- ChangePassword не проверяет complexity (только len ≥ 8). Тот же gap, что в admin BUG-49 — known follow-up.
+- UpdateProfile.phone проверяет только len ≤ 50, не формат. Минор.
+- VerifyTOTP не имеет видимого rate-limit/brute-force защиты на portal-уровне. Защита возможна на auth-service (TODO для security audit).
+- На стенде уже остались мусорные транзакции: до фикса BUG-59 проходили top-up amount=-100 → callback зачислил → балас 99805.50 (до фикса баланс был 99905.50). Не восстанавливаю — стенд dev, нет SLA.
+
+[Success Path]
+User открывает /portal/dashboard → балас, активные кампании, charts. /portal/profile → редактирует contact_person/phone (валидация >255/>50), меняет пароль (current+new ≥ 8), включает/выключает 2FA с подтверждением паролем. /portal/billing → balance, transactions list (paged), top-up amount > 0 (rejects -/0/abc/Inf/NaN), set low-balance-threshold ≥ 0 (валидируется).
+
+[Recommendations]
+1. **Outbox для payment callbacks**: текущий callback path при ошибке AddCredits возвращает 200 — потенциал для silent loss средств (BUG-60a). Outbox-таблица + воркер закроют это правильно.
+2. **Password complexity**: добавить zxcvbn в три места — admin CreateUser, user ChangePassword, user Register. Сейчас "12345678" принимается везде.
+3. **TopUp UX**: вернуть в payment_url расшифровку платёжного провайдера (карты, СБП) — сейчас всегда stub-callback URL даже в dev.
+4. **TOTP rate-limit**: ограничить попытки VerifyTOTP в auth-service (5 попыток на 5 минут).
+
+[Test Data]
+- Demo-Main client `c0000000-0000-0000-0000-000000000001`, balance ≈ 99805.50 (изменён ДО фикса BUG-59 через TopUp -100, не восстанавливался).
+- Регресс-тесты `TestValidatePositiveAmount` (11 cases с NaN) и `TestValidateNonNegativeAmount` (7 cases).
+- Профиль клиента обновлен через TC2: contact_person="Test User", phone="+79001234567".
+
+Коммиты:
+- 6149b4a docs(audit): этап 17/30 user dashboard+profile+balance — [IN_PROGRESS]
+- b109b03 fix(billing): валидация amount/threshold на gRPC + portal-handler [BUG-59/60 этап 17/30]
 
 ## [DONE] Этап 16/30: Admin — detalization (deprecated) (admin, fix + Infrastructure + QA full, 2026-04-30) — корректность deprecation
 
