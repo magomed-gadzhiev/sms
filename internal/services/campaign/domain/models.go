@@ -20,6 +20,10 @@ var (
 	ErrTooManyVariants       = errors.New("at most 5 variants allowed for A/B testing")
 	ErrWinnerAlreadySelected = errors.New("winner has already been selected")
 	ErrNoFailedRecipients    = errors.New("no failed recipients to retry")
+	ErrInvalidContactListID  = errors.New("invalid contact_list_id")
+	ErrInvalidTemplateID     = errors.New("invalid template_id")
+	ErrContactListNotOwned   = errors.New("contact_list_id does not belong to client")
+	ErrTemplateNotOwned      = errors.New("template_id does not belong to client")
 )
 
 // Campaign status constants

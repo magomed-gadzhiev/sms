@@ -221,6 +221,35 @@ func (r *CampaignRepository) Create(ctx context.Context, c *domain.Campaign) (*d
 	return row.toDomain(), nil
 }
 
+// ContactListBelongsToClient returns true iff the contact_list exists and is owned
+// by the given client. Used to prevent cross-tenant references at campaign creation
+// (BUG-67).
+func (r *CampaignRepository) ContactListBelongsToClient(ctx context.Context, listID, clientID uuid.UUID) (bool, error) {
+	var ok bool
+	err := r.db.QueryRowxContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM contact_lists WHERE id = $1 AND client_id = $2)`,
+		listID, clientID,
+	).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("check contact_list ownership: %w", err)
+	}
+	return ok, nil
+}
+
+// TemplateBelongsToClient returns true iff the template exists and is owned by the
+// given client. Used to prevent cross-tenant template references (BUG-68).
+func (r *CampaignRepository) TemplateBelongsToClient(ctx context.Context, tplID, clientID uuid.UUID) (bool, error) {
+	var ok bool
+	err := r.db.QueryRowxContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM templates WHERE id = $1 AND client_id = $2)`,
+		tplID, clientID,
+	).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("check template ownership: %w", err)
+	}
+	return ok, nil
+}
+
 // GetByID retrieves a campaign by ID and client ID.
 func (r *CampaignRepository) GetByID(ctx context.Context, id, clientID uuid.UUID) (*domain.Campaign, error) {
 	query := fmt.Sprintf(`SELECT %s FROM campaigns WHERE id = $1 AND client_id = $2`, campaignColumns)

@@ -539,6 +539,12 @@ func (s *Server) mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrNoFailedRecipients):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrInvalidContactListID),
+		errors.Is(err, domain.ErrInvalidTemplateID):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrContactListNotOwned),
+		errors.Is(err, domain.ErrTemplateNotOwned):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		s.logger.Error().Err(err).Msg("internal error")
 		return status.Error(codes.Internal, err.Error())

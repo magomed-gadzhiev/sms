@@ -39,6 +39,12 @@ func NewCampaignService(
 // --- Campaign CRUD ---
 
 // CreateCampaign creates a new campaign in draft status.
+//
+// Cross-tenant guard (BUG-67/68 этап 21/30): contact_list_id and template_id are
+// resolved against the caller's client_id. A reference to another tenant's resource
+// is rejected as NOT_FOUND, never accepted (which would let the materialization
+// worker fetch foreign contacts and bill the caller for sending to phones it does
+// not own).
 func (s *CampaignService) CreateCampaign(ctx context.Context, clientID uuid.UUID, name, contactListID, templateID, source, segmentRules string, segmentTags []string, sendRate int32, scheduledAt *time.Time, useSubscriberTimezone bool) (*domain.Campaign, error) {
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
@@ -46,7 +52,14 @@ func (s *CampaignService) CreateCampaign(ctx context.Context, clientID uuid.UUID
 
 	clID, err := uuid.Parse(contactListID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid contact_list_id: %w", err)
+		return nil, domain.ErrInvalidContactListID
+	}
+	owns, err := s.campaignRepo.ContactListBelongsToClient(ctx, clID, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if !owns {
+		return nil, domain.ErrContactListNotOwned
 	}
 
 	c := &domain.Campaign{
@@ -66,7 +79,14 @@ func (s *CampaignService) CreateCampaign(ctx context.Context, clientID uuid.UUID
 	if templateID != "" {
 		id, err := uuid.Parse(templateID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid template_id: %w", err)
+			return nil, domain.ErrInvalidTemplateID
+		}
+		owns, err := s.campaignRepo.TemplateBelongsToClient(ctx, id, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if !owns {
+			return nil, domain.ErrTemplateNotOwned
 		}
 		c.TemplateID = &id
 	}
@@ -130,14 +150,28 @@ func (s *CampaignService) UpdateCampaign(ctx context.Context, id, clientID uuid.
 	if contactListID != "" {
 		clID, err := uuid.Parse(contactListID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid contact_list_id: %w", err)
+			return nil, domain.ErrInvalidContactListID
+		}
+		owns, err := s.campaignRepo.ContactListBelongsToClient(ctx, clID, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if !owns {
+			return nil, domain.ErrContactListNotOwned
 		}
 		existing.ContactListID = clID
 	}
 	if templateID != "" {
 		tID, err := uuid.Parse(templateID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid template_id: %w", err)
+			return nil, domain.ErrInvalidTemplateID
+		}
+		owns, err := s.campaignRepo.TemplateBelongsToClient(ctx, tID, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if !owns {
+			return nil, domain.ErrTemplateNotOwned
 		}
 		existing.TemplateID = &tID
 	}
@@ -295,6 +329,20 @@ func (s *CampaignService) SetVariants(ctx context.Context, campaignID, clientID 
 		return nil, domain.ErrVariantPercentageSum
 	}
 
+	// Cross-tenant guard for variant template_id (BUG-68 follow-up): each variant
+	// can carry its own template_id; reject any that does not belong to this client.
+	for _, v := range variants {
+		if v.TemplateID != nil {
+			owns, err := s.campaignRepo.TemplateBelongsToClient(ctx, *v.TemplateID, clientID)
+			if err != nil {
+				return nil, err
+			}
+			if !owns {
+				return nil, domain.ErrTemplateNotOwned
+			}
+		}
+	}
+
 	// Set campaign_id on all variants
 	for i := range variants {
 		variants[i].CampaignID = campaignID
@@ -358,6 +406,23 @@ func (s *CampaignService) SetRetryConfig(ctx context.Context, campaignID, client
 		return nil, err
 	}
 
+	// Cross-tenant guard for AlternativeTemplateID (BUG-68 follow-up): retry config
+	// stores a template_id used on retry; ensure it belongs to this client before
+	// writing it to JSONB.
+	if rc != nil && rc.AlternativeTemplateID != "" {
+		tID, err := uuid.Parse(rc.AlternativeTemplateID)
+		if err != nil {
+			return nil, domain.ErrInvalidTemplateID
+		}
+		owns, err := s.campaignRepo.TemplateBelongsToClient(ctx, tID, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if !owns {
+			return nil, domain.ErrTemplateNotOwned
+		}
+	}
+
 	if err := s.campaignRepo.UpdateRetryConfig(ctx, c.ID, rc); err != nil {
 		return nil, err
 	}
@@ -370,6 +435,22 @@ func (s *CampaignService) RetryFailed(ctx context.Context, campaignID, clientID 
 	c, err := s.campaignRepo.GetByID(ctx, campaignID, clientID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Cross-tenant guard (BUG-68 follow-up): caller can swap the template used on
+	// retry; reject foreign template references before writing them to RetryConfig.
+	if alternativeTemplateID != "" {
+		tID, err := uuid.Parse(alternativeTemplateID)
+		if err != nil {
+			return nil, domain.ErrInvalidTemplateID
+		}
+		owns, err := s.campaignRepo.TemplateBelongsToClient(ctx, tID, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if !owns {
+			return nil, domain.ErrTemplateNotOwned
+		}
 	}
 
 	maxRetries := int32(3) // default
