@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 21/30: User — campaigns + campaign-schedules (user, fix + Infrastructure + QA full, 2026-04-30)
+
 ## [DONE] Этап 20/30: User — channels + delivery-strategies (admin, fix + Infrastructure + QA full, 2026-04-30) — частичный (cascade hardening)
 
 [Summary] 12 TC прогнаны (5 admin channels/strategies CRUD + edge, 4 user cascade deliveries/stats/strategies, 3 RBAC + clamp). 3 функциональных бага найдены, все исправлены одним PR. Дизайн-док §4 строка 107 ошибочно помечает этот этап как "user" — фактически /admin/channels и /admin/delivery-strategies admin-only с `AdminRoleMiddleware`. User-сторона: только read-only `/cascade/strategies`, `/cascade/deliveries`, `/cascade/stats`.
