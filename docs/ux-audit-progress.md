@@ -2,7 +2,49 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 22/30: User — quick-send (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 22/30: User — quick-send (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (2 бага исправлено)
+
+[Summary] 13 TC прогнаны через API+SQL (TC-1 happy path, TC-2 cross-tenant sender_name FORBIDDEN, TC-3/4 pending+rejected sender FORBIDDEN, TC-5 empty phone 400, TC-6a/b/c BOGUS/SQL/long phone — раньше 500, теперь 400, TC-6d phone "+1" — раньше 201 (queued), теперь 400, TC-7a/c text empty/over 1600 → 400, TC-8 empty source → 400, TC-9 numeric source bypass sender_names → 201 OK, TC-10 invalid JSON → 400, TC-11 source >20 chars + non-numeric → 403 sender not found, TC-12 idempotency — нет idempotency-key, двойной клик = 2 SMS, TC-13 rate-limit hammer — 30 reqs/sec проходят без 429 при rate_limit_per_second=10).
+
+1 HIGH + 1 MED исправлены через /execute-with-review (commit `0ad7953`, code-reviewer APPROVED). 2 observation (idempotency, rate-limit) — эскалированы пользователю как design-вопросы.
+
+[BUG LIST]
+BUG-A: validation→Internal error → HTTP 500 на user-input typos — Severity: HIGH — Категория: error-mapping/UX
+  Шаги: POST /portal/v1/messages с destination="BOGUS"
+  Ожидалось: 400 INVALID_INPUT (это ошибка пользователя)
+  Получалось: 500 "Внутренняя ошибка сервера" (валидатор messaging-service возвращал ошибку, gRPC server заворачивал в codes.Internal вместо InvalidArgument)
+  Доказательство (UI/API): TC-6a/b/c — `{"error":{"code":"INTERNAL_ERROR","message":"Внутренняя ошибка сервера"}}` HTTP 500
+  Доказательство (DB): N/A — ошибка на handler-уровне до Kafka
+  Фикс: `0ad7953` — `internal/services/messaging/domain/validation.go` добавил sentinel `ErrValidation`, обернул финальный error через `%w`. `internal/services/messaging/grpc/server.go` импорт domain + `errors.Is(err, domain.ErrValidation)` → `codes.InvalidArgument`. `respondGRPCError` уже маппит → 400. Re-test: BOGUS / SQL injection / long phone / over-text-limit → все 400.
+
+BUG-B: validateDestination принимал phone с 1 цифрой ("+1") — Severity: MEDIUM — Категория: input-validation/garbage-routing
+  Шаги: POST /portal/v1/messages с destination="+1"
+  Ожидалось: 400 (E.164 минимум 4 цифры — нижняя граница для коротких кодов)
+  Получалось: 201 queued — сообщение уходило в Kafka, роутер не находил оператора → silent drop / DLQ-spam (на dev стенде ничего не персистилось — pipeline-sender'ы упали из-за pgbouncer DNS, но в проде = мусор в DLQ + потенциальный noise в метриках)
+  Доказательство (API): TC-6d — `{"message_id":"49ba1c87-...","status":"queued"}` HTTP 201
+  Фикс: `0ad7953` — `validateDestination` заменил `hasDigit bool` на `digitCount int`, требует ≥4 цифр. RU короткие коды 100/112 не идут через user quick-send (внутренние/SMPP). UK 4-digit short codes — нижняя граница. Re-test: "+1" → 400 "destination must contain at least 4 digits".
+
+[OBSERVATION-1] Нет idempotency-key (BUG-E) — Severity: MEDIUM
+  Шаги: дважды POST /portal/v1/messages с одинаковым body
+  Поведение: оба запроса возвращают разные message_id, status=queued. Frontend prevention есть (`disabled={sending}`), но network retry / curl / двойной POST из второй вкладки → 2 SMS = 2 списания.
+  Эскалирован: требует дизайн-решение (Idempotency-Key header? requestId в payload? таблица идемпотентности?). Не фиксил в одиночку.
+
+[OBSERVATION-2] Нет rate-limit на REST quick-send (BUG-F) — Severity: MEDIUM
+  Шаги: 30 POST /messages с минимальными интервалами при rate_limit_per_second=10 на клиенте
+  Поведение: все 201, никаких 429. Rate-limit может применяться на pipeline-уровне (back-pressure), но не на API.
+  Эскалирован: нужен middleware на portal-gateway POST /messages с per-client token-bucket из `clients.rate_limit_per_second/minute/hour/day`. Архитектурное решение, требует middleware-стак.
+
+[Success Path] User вводит phone +79991110001, текст "Hello", выбирает approved sender DEMOQS, нажимает «Отправить» → confirm dialog → POST /messages → 201 queued. Frontend поллит /messages/:id каждые 3s до terminal-статуса (или 60 attempts × 3s = 3min timeout).
+
+[Recommendations]
+1. Локализация валидаторных сообщений messaging-service. Сейчас юзер видит `"destination must contain at least 4 digits"` в HTTP 400 — лучше чем 500, но всё ещё английский. Reviewer-флаг.
+2. Outer-wrap "validation failed: validation failed: ..." (двойной префикс) в `application/message_service.go:101` — косметика, отдельный фикс. Reviewer-флаг.
+3. Idempotency-key и rate-limit на /messages POST — обязательно для production. Сейчас защита на frontend disabled-button, что обходится curl/двойной вкладкой/network retry.
+
+[Test Data]
+- sender_names: 4 строки (DEMOQS approved, DEMOPEND pending, DEMOREJ rejected — все client_id=c0000000...001; RESLLRQS approved client_id=...002) — для cross-tenant, status-проверок и happy-path.
+- Балансы Demo-Main 99805.50 ₽ / Demo-Reseller 50000.00 ₽ не изменились (pipeline-sender лежит на dev стенде из-за pgbouncer DNS, тарификация не отрабатывала — это инфра стенда, не аудиторский баг).
+- Лог коммитов: `3176266` lock, `0ad7953` fix BUG-A/B, ниже close-коммит.
 
 ## [DONE] Этап 21/30: User — campaigns + campaign-schedules (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (1 CRITICAL + 1 HIGH исправлены)
 
