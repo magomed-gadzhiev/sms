@@ -25,22 +25,34 @@ func NewAdminAuditHandlers(auditClient auditv1.AuditServiceClient) *AdminAuditHa
 
 // ListAuditLog обрабатывает GET /admin/v1/audit
 // Admin видит все записи (без фильтрации по tenant_id).
+//
+// BUG-56: до фикса при `auditClient == nil` хендлер тихо возвращал пустой
+// список с HTTP 200 и без валидации параметров. Это маскировало конфигурационный
+// баг (отсутствие AUDIT_SERVICE_ADDR в admin-gateway env, BUG-55) — UI показывал
+// "записей нет" вместо "сервис недоступен". Теперь возвращаем 503 явно, чтобы
+// конфигурационная ошибка была видна сразу.
 func (h *AdminAuditHandlers) ListAuditLog(w http.ResponseWriter, r *http.Request) {
 	if h.auditClient == nil {
-		respondJSON(w, http.StatusOK, map[string]interface{}{
-			"entries":     []interface{}{},
-			"total":       0,
-			"page":        1,
-			"total_pages": 0,
-		})
+		log.Error().Msg("AdminAuditHandlers: auditClient не инициализирован — проверьте AUDIT_SERVICE_ADDR в env admin-gateway")
+		respondError(w, shared.ErrServiceUnavailable("Audit service не настроен"))
 		return
 	}
 
 	query := r.URL.Query()
 	page, perPage := parsePagination(r)
 
+	clientID := query.Get("client_id")
+	// gRPC AuditService.QueryAuditLog требует tenant_id (см. internal/services/audit/grpc/server.go).
+	// Admin global view (без tenant_id) на уровне gRPC не поддерживается — это
+	// архитектурное ограничение, аналог BUG-38 (admin global webhook view).
+	// Возвращаем понятное 400 вместо проброса сырого gRPC-сообщения.
+	if clientID == "" {
+		respondError(w, shared.ErrInvalidInput("укажите client_id — admin global view audit-лога не поддерживается"))
+		return
+	}
+
 	req := &auditv1.QueryAuditLogRequest{
-		TenantId: query.Get("client_id"), // опциональная фильтрация по клиенту
+		TenantId: clientID,
 		Action:   query.Get("action"),
 		UserId:   query.Get("user_id"),
 		Page:     page,

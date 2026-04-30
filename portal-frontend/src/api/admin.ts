@@ -518,8 +518,11 @@ export const hlrApi = {
 };
 
 export const auditAdminApi = {
-  list: (params?: { user_id?: string; action?: string; from?: string; to?: string; limit?: number; offset?: number }) =>
-    adminFetch<{ entries: AuditEntry[]; total: number; limit: number; offset: number }>(`/audit${qs(params || {})}`),
+  // BUG-57: backend читает client_id/date_from/date_to/page/per_page и возвращает
+  // entries/total/page/total_pages. Frontend ранее слал from/to/limit/offset и
+  // ожидал limit/offset в ответе — параметры просто игнорировались.
+  list: (params?: { client_id?: string; user_id?: string; action?: string; resource_type?: string; date_from?: string; date_to?: string; page?: number; per_page?: number }) =>
+    adminFetch<{ entries: AuditEntry[]; total: number; page: number; total_pages: number }>(`/audit${qs(params || {})}`),
 };
 
 // ── Extended Types ──

@@ -72,15 +72,18 @@ func main() {
 
 	// Получение адресов сервисов из переменных окружения или использование значений по умолчанию
 	serviceAddresses := admin.ServiceAddresses{
-		Auth:      config.EnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
-		Client:    config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
-		Provider:  config.EnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9090"),
-		Routing:   config.EnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
-		Analytics: config.EnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
-		Billing:   config.EnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
-		Webhook:   config.EnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
+		Auth:         config.EnvOrDefault("AUTH_SERVICE_ADDR", "localhost:9090"),
+		Client:       config.EnvOrDefault("CLIENT_SERVICE_ADDR", "localhost:9090"),
+		Provider:     config.EnvOrDefault("PROVIDER_SERVICE_ADDR", "localhost:9090"),
+		Routing:      config.EnvOrDefault("ROUTING_SERVICE_ADDR", "localhost:9090"),
+		Analytics:    config.EnvOrDefault("ANALYTICS_SERVICE_ADDR", "localhost:9090"),
+		Billing:      config.EnvOrDefault("BILLING_SERVICE_ADDR", "localhost:9090"),
+		Webhook:      config.EnvOrDefault("WEBHOOK_SERVICE_ADDR", "localhost:9098"),
 		Template:     config.EnvOrDefault("TEMPLATE_SERVICE_ADDR", "localhost:9099"),
 		Tarification: config.EnvOrDefault("TARIFICATION_SERVICE_ADDR", "localhost:9100"),
+		// BUG-55: до фикса поле Audit не пробрасывалось из env, AuditClient
+		// оставался nil, и /admin/audit-log всегда возвращал пустой список.
+		Audit: config.EnvOrDefault("AUDIT_SERVICE_ADDR", "localhost:9102"),
 	}
 
 	// Инициализация gRPC клиентов
