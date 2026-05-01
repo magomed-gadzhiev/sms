@@ -268,6 +268,36 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 - **cascade/grpc/handler.go: domain-sentinel mapping** — после C.6 (validation→InvalidArgument) остаётся следующий слой: `return nil, err` напрямую от application-сервисов в ~15 callsites (line 79, 140, 183, 213, 229, 247, 264, 277, 287, 303, 333, 364, 367, 377, 393, 426). Domain-sentinel'ы (`ErrChannelNotFound`, `ErrStrategyNotFound`, `ErrDeliveryNotFound` в не-Get методах, etc.) сейчас leak'ают как `codes.Unknown` → HTTP 500. Аналогично C.7 (errors.Is sweep), но scope: только cascade-сервис. Требует mini-PR с `errors.Is` mapping → `codes.NotFound`/`codes.AlreadyExists`/`codes.FailedPrecondition`. Кандидат на отдельный block (C.6b или часть C.7-extension).
 
+- **proto-инфра baseline-regen ожидает X3-коммит 2** — после установки Docker-based proto-regen pipeline (см. секцию ниже) smoke-test показал, что регенерация `auth.proto`+`client.proto` даёт **~1100 строк diff'а в .pb.go**: (a) cosmetic rename header `source:` (`api/proto/auth/auth.proto` → `auth.proto`, `client/client.proto` → `client.proto`), (b) cosmetic rename внутренних helper'ов (`file_api_proto_auth_auth_proto_*` → `file_auth_proto_*`, `file_client_client_proto_*` → `file_client_proto_*`), (c) **dead-RPC enablement**: `IncrementMonthlySMSUsage` определён в `api/proto/client/client.proto:60`, message types сгенерированы в `client.pb.go:2314+`, но gRPC-stub отсутствует в `client_grpc.pb.go` — забытый частичный регенерат прошлой сессии. Никто не вызывает этот RPC в Go-коде; `internal/services/client/grpc/server.go:21` embed'ит `UnimplementedClientServiceServer`, поэтому при добавлении RPC ответ будет `codes.Unimplemented` без break'а. Этот baseline-regen уйдёт отдельным коммитом (X3-2), затем content-изменения для A.1/D.1/RotateAPIKey пойдут как чистые diff'ы.
+
+- **Headers `source:` не воспроизводимы стандартным protoc** — текущие .pb.go файлы имели разнобой headers (`api/proto/auth/auth.proto`, `client/client.proto`, `auth.proto`, ...) — следствие того, что в прошлом регены делались разными командами/инструментами (возможно `buf` или ручное перемещение файлов). Реверс этих headers через `protoc --go_opt=paths=source_relative` невозможен. После baseline-regen все headers нормализуются на `<basename>.proto`. После этого `proto-regen.sh` идемпотентен.
+
+- **18 других .proto файлов не нормализованы** — текущий baseline-regen покрывает только auth и client (целевая работа A.1/D.1/RotateAPIKey). Остальные 18 (cascade, billing, tarification, webhook, audit, company, link, messaging, routing, provider, smpp, analytics, contact, campaign, template, sms, network_analytics, sender-name) остаются на разных версиях protoc-gen-go (v1.34.1, v1.36.11) и protoc (v3.21.12, v4.25.1, v6.31.1). `network_analytics` и `sender-name` вообще не имеют сгенерированных `.pb.go`. Если когда-нибудь захочется унифицировать — отдельная задача (Variant B/C из стратегического разговора), не блокирующая.
+
+---
+
+## Proto-regen инфраструктура (Variant A, 2026-05-02)
+
+Создан Docker-based pipeline для regen'а .proto файлов с pinned версиями инструментов.
+
+**Версии (фиксированы в `deployments/docker/proto-gen.Dockerfile`):**
+- `protoc` = v25.1 (=v4.25.1 в Go-плагин-нотации; release tag "v25.1" после major bump)
+- `protoc-gen-go` = v1.36.11
+- `protoc-gen-go-grpc` = v1.6.1
+
+Совпадают с текущими headers в `api/proto/{auth,client}v1/*.pb.go`.
+
+**Wrapper:** `scripts/proto-regen.sh`. Регистр target'ов в массиве `TARGETS`. Использование:
+- `./scripts/proto-regen.sh` — regen всех target'ов из реестра.
+- `./scripts/proto-regen.sh auth client` — regen конкретных target'ов.
+- `./scripts/proto-regen.sh --build` — пересобрать Docker-образ (после изменения Dockerfile).
+
+**Стратегия `proto_path_arg`:** для каждого target'а указываем директорию .proto (`api/proto/<dir>`) и basename (`<file>.proto`). Это даёт идемпотентный regen без подкаталогов в output. Жертва — header `source:` нормализуется на `<basename>.proto` (одностроковый cosmetic diff при первом regen).
+
+**MSYS-quirk fix:** на Windows/MSYS bash автоматически конвертирует POSIX-пути в Windows-пути, ломая `-w /src` Docker. Wrapper использует `MSYS_NO_PATHCONV=1` + `pwd -W` для корректной передачи Windows-form.
+
+**Расширение реестра:** добавить новый target = добавить строку `name|proto_relative_file|proto_path_arg|out_dir` в массив `TARGETS`. Пример для расширения на cascade: `"cascade|cascade.proto|api/proto/cascade|api/proto/cascadev1"`.
+
 ---
 
 ## Quality gates по сессии
