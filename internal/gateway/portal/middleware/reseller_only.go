@@ -25,6 +25,11 @@ import (
 // Сообщение об ошибке совпадает с handler-level checkReseller
 // ("доступ только для агрегаторов") — frontend и e2e-тесты опираются на
 // текст; менять формулировку — отдельный i18n PR.
+//
+// Возвращаем 403 Forbidden (а не 401 Unauthorized) — пользователь уже
+// аутентифицирован, не хватает только роли. До C.5 здесь был 401, что
+// заставляло api/client.ts редиректить sub-account на /login при попытке
+// открыть /reseller/* — бесконечный цикл (юзер уже залогинен).
 func ResellerOnlyMiddleware(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +53,7 @@ func ResellerOnlyMiddleware(pool *pgxpool.Pool) func(http.Handler) http.Handler 
 				`SELECT is_reseller FROM clients WHERE id = $1`, clientID,
 			).Scan(&isReseller)
 			if err != nil || !isReseller {
-				response.Error(w, shared.ErrUnauthorized("доступ только для агрегаторов"))
+				response.Error(w, shared.ErrForbidden("доступ только для агрегаторов"))
 				return
 			}
 

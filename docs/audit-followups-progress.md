@@ -86,7 +86,21 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 - **TC-AGG-5** — partner_id leak не закрыт. Status: **BLOCKED** до отдельного spec'a B.1.
 - **D.10 bundle** (api-keys/webhooks 4 минификса): не начат. RotateAPIKey требует proto regen → BLOCKED. UpdateAPIKey errors.Is, audit ClientID="", webhook signature replay test — самостоятельные мелкие задачи.
 
-## Накопительные паттерны (BLOCK C) — не начаты
+## Накопительные паттерны (BLOCK C)
+
+### [DONE] C.5 — 401→403 для /reseller/* (этап 27 obs-4) — сессия 2026-05-01 (вторая)
+
+**Изменения:**
+- `internal/gateway/portal/middleware/reseller_only.go:51` — `shared.ErrUnauthorized` → `shared.ErrForbidden` для `is_reseller=false`. Текст «доступ только для агрегаторов» сохранён. Случаи `!ok` от GetClientID и `pool == nil` не тронуты (401 и 500 соответственно — корректно).
+- `internal/gateway/portal/middleware/reseller_only_test.go` — 3 integration-теста: non-reseller→403, no-clientID→401, reseller→passthrough.
+
+**Зачем 403:** `portal-frontend/src/api/client.ts:37` редиректит на `/login` ровно при `status === 401`. Sub-account, попавший на `/reseller/*`, до C.5 ловил 401 → редирект → /login → дашборд → /reseller/* → бесконечный цикл.
+
+**Review:** 1 итерация → APPROVED.
+
+---
+
+## Накопительные паттерны (BLOCK C) — остатки
 
 - C.1 uuid.Parse без handler-pre-check (434 callsites, ~3-4 рабочих дня)
 - C.2 pgx error→500 sweep
