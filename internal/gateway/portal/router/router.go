@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/handlers"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
@@ -81,6 +82,7 @@ func SetupRouter(
 	wsMessagesHandlers *handlers.WsMessagesHandlers,
 	companyHandlers *handlers.CompanyHandlers,
 	referencesHandlers *handlers.ReferencesHandlers,
+	dbPool *pgxpool.Pool,
 ) *mux.Router {
 	router := mux.NewRouter()
 
@@ -441,6 +443,13 @@ func SetupRouter(
 
 	// Reseller moderation queue
 	reseller := protected.PathPrefix("/reseller").Subrouter()
+	// Closes BUG-82 этапа 27/30: до фикса группа network-statistics handlers
+	// (statistics, analytics-summary, monitoring, drilldown, export, views)
+	// не вызывала handler-level checkReseller — sub-account и обычный user
+	// получали leak агрегированной статистики parent'а через /reseller/*.
+	// Middleware на subrouter'е защищает от регрессии: новые endpoint'ы под
+	// /reseller/* автоматически получают guard.
+	reseller.Use(middleware.ResellerOnlyMiddleware(dbPool))
 	resellerOpRegs := reseller.PathPrefix("/operator-registrations").Subrouter()
 	resellerOpRegs.HandleFunc("", resellerHandlers.ListResellerOperatorRegistrations).Methods("GET")
 	resellerOpRegs.HandleFunc("/{id}/approve", resellerHandlers.ApproveResellerOperatorRegistration).Methods("POST")

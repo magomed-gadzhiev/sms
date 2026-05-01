@@ -365,6 +365,7 @@ func main() {
 		wsMessagesHandlers,
 		companyHandlers,
 		referencesHandlers,
+		dbPool,
 	)
 
 	// Регистрируем маршруты cascade webhook
