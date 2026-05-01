@@ -2,7 +2,53 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 30/30: E2E клиент→отправка→биллинг→отчёт (admin+user, fix + Infrastructure + QA full, 2026-05-01)
+## [DONE] Этап 30/30: E2E клиент→отправка→биллинг→отчёт (admin+user, fix + Infrastructure + QA full, 2026-05-01) — частичный, 0 фиксов, 1 OBSERVATION (dev-стенд блокирует full-pipeline E2E)
+
+[Summary] E2E flow прогнан до фазы Kafka publish:
+- **TC-E2E-1 (PASS)**: admin POST /admin/v1/clients `{name:"E2E-Stage30",email:"e2e30@audit.local"}` → 201 client_id; admin POST /admin/v1/users → 201 user_id (active=false); admin PUT /admin/v1/users/{id} `{active:true}` → 200; user login через portal → portal_session получен.
+- **TC-E2E-2 (PASS)**: admin POST /admin/v1/billing/clients/{id}/credits `{amount:"500",description:"E2E test top-up"}` → 200 `{"transaction_id":"…","new_balance":"500.000000","success":true}`; admin GET /admin/v1/billing/clients/{id}/balance → 500.0 RUB.
+- **TC-E2E-3 (PASS)**: user GET /portal/v1/dashboard → 200 balance=500; GET /portal/v1/billing/balance → 500 RUB; user POST /portal/v1/sender-names `{name:"E2E30"}` → 201 status=pending; admin POST /admin/v1/sender-names/{id}/approve → 200 status=approved; user GET /portal/v1/sender-names/{id} → status=approved.
+- **TC-E2E-4 (PARTIAL)**: user POST /portal/v1/messages `{destination:"+79991234567",source:"E2E30",text:"E2E test msg"}` → 201 `{message_id:"…",status:"queued"}`; messaging-service лог "сообщение опубликовано в kafka топик=sms.outgoing" — Kafka producer работает. **Pipeline router** консьюмит сообщение и пишет `no matching route found` `default_routes_checked=0` `operator_id=d0000000-0000-0000-0000-000000000001` — это resolved-operator-id, не существует в `operators` table; dev-стенд не имеет seed для full routing chain (все providers active=false, 0 platform_routes, 0 routes legacy table).
+- **TC-E2E-5..7 (BLOCKED)**: попытка вручную добавить platform_route + stub_provider_config + активировать Provider-MTS-RU не сработала — router всё равно не нашёл route, т.к. resolved operator_id (`d0000000-…`) не совпадает с реальным operator_id из operators table (`10000000-…`). Это значит resolver между destination prefix и operator_id использует другую таблицу/seed, отсутствующую на dev-стенде. GET /messages/{id} → 404 (сообщение не записалось в БД, т.к. pipeline-persist не получил routed-event).
+
+[BUG LIST]
+
+(пусто — фиксы этапа не проводились)
+
+[OBSERVATION-1 этапа 30] Dev-стенд не поддерживает full-pipeline E2E без ручной seed-настройки маршрутизации — Severity: HIGH — Категория: Infrastructure / Test environment
+  Все 5 providers (Provider-MTS-RU, Provider-Beeline-RU, Provider-Megafon-RU, Provider-Tele2-RU, Provider-I-Digital) `active=f` в `providers`. `platform_routes` и `routes` пустые. seed `aaaaaaaa-1111-...` сообщения в БД имеют `status=delivered` фиктивно (без прохождения pipeline). Реальный POST /portal/v1/messages → Kafka publish OK → pipeline-router → "no_route" → DLQ. Попытка вручную создать platform_route operator_id=`10000000-0000-0000-0000-000000000001` не помогла — router resolve'ит operator из destination через скрытый mapping и получает `d0000000-0000-0000-0000-000000000001`. Этот operator_id отсутствует в `operators` table — значит используется отдельный resolver (route_condition_groups? operator_prefixes?). Артефакт: dev environment не предоставляет offline-stub провайдера для тестирования pipeline → biling → DLR без реальных SMSC. Без этого E2E-этапы 30 и 8 (HTP pipeline) не воспроизводимы on-demand.
+  Импакт: 1) полная E2E-регрессия (создание клиента → отправка → биллинг debit → DLR → invoice) недоступна как acceptance-test для CI. 2) Любой fix-PR, ломающий router/sender/DLR pipeline, не будет пойман функциональным smoke-тестом — только unit/integration. 3) Этап 30 spec'a (full-cycle E2E) недостижим на текущем стенде; нужен либо seed-расширение (`test/load/fixtures/demo_seed.sql` обогатить активным stub-provider + platform_route + operator-prefix-mapping), либо отдельная feature seed-routes-script.
+  Рекомендация: добавить в `test/load/fixtures/demo_seed.sql` один stub-provider с `active=true` + соответствующий `platform_route` + `operator_prefixes` row для `+7999...` → operator_id, который существует в `operators`. Это — отдельная инициатива; не часть аудита.
+
+[Success Path]
+admin создаёт клиента и user'а через /admin/v1/clients + /admin/v1/users + activate. admin пополняет баланс через /admin/v1/billing/clients/{id}/credits. user логинится → видит баланс на /portal/dashboard и /portal/billing/balance. user создаёт sender-name pending → admin approve → status=approved. user POST /portal/v1/messages → 201 queued + Kafka publish (`sms.outgoing` topic, offset incremented). **Дальше pipeline на dev-стенде блокируется отсутствием seed routes (см. OBSERVATION-1). Реальная доставка не воспроизводится.**
+
+[Recommendations]
+1. **OBSERVATION-1 (HIGH архитектурный для dev environment)** — расширить seed-fixture stub-provider + platform_route + operator-prefix mapping чтобы новые E2E-сообщения проходили pipeline до status=delivered. Без этого E2E этапа 30 не воспроизводим без ручных SQL-изменений.
+2. **OBSERVATION-2 (для будущих E2E)** — оборачивать в e2e-test-suite (test/load или e2e/) автоматизированный сценарий "создать клиента → пополнить → отправить → проверить delivered → проверить debit → проверить admin detalization" чтобы регрессии на этом критичном пути отлавливались на CI.
+
+[Test Data]
+- Создавалось/удалялось: client `E2E-Stage30` (id `43f5b7e5-…`), user `e2e30` (id `197019f2-…`), sender_name `E2E30` (id `646c7e62-…`), 1 transaction (top-up 500 RUB), 1 platform_route + 1 stub_provider_config (для попытки разблокировать pipeline). Все cleanup'нуты: `DELETE platform_routes WHERE id=…; DELETE stub_provider_config; UPDATE providers active=false; DELETE users; DELETE sender_names; DELETE transactions; DELETE accounts; DELETE client_configs; DELETE clients;` — 9 rows affected.
+- 2 message-id (9d4a5b70-…, 71d70af4-…) DLQ-нулись в Kafka (не записались в `messages` table). Не требуют cleanup'a.
+- Demo-Reseller balance не затронут.
+- Коммиты: 345599f lock, ниже close-коммит. **Фикс-коммитов 0** (нечего фиксить — это infrastructure gap dev-стенда).
+
+---
+
+## ИТОГИ ПОЛНОГО АУДИТА (этапы 1-30)
+
+**Скоуп D завершён 2026-05-01.** 30/30 этапов имеют статус [DONE] (большинство — частичный с эскалациями/observations).
+
+**Багов найдено:** BUG-1..BUG-84 + BUG-A/B = ~86 unique bug-id, фиксов через `/execute-with-review` ≈ 30 коммитов (точное число — см. `git log --oneline | grep "^fix\|^docs(audit).*BUG-"`).
+
+**Эскалации, требующие решения пользователя** (см. также текст этапов 21-30):
+- BUG-83 (CRITICAL): API-key scope NOT enforced — privilege escalation на /portal/v1/campaigns/* (этап 28). 3 варианта фикса описаны.
+- OBS-3 этапа 27 / OBS-2 этапа 28 (HIGH архитектурный): network-analytics partner_id leak cross-aggregator. Требуется data-modeling решение.
+- OBS-5 этапа 29 (HIGH архитектурный): i18n покрывает только public-layer; portal/admin hardcoded RU. Если EN-портал в roadmap — refactor 130+ файлов.
+- OBS-1 этапа 30 (HIGH infrastructure): dev-стенд не поддерживает full-pipeline E2E.
+- Накопительные паттерны (см. CLAUDE.md для статуса): pgx error→500, jsonb []byte serialization, http.Error plain-text, uuid.Parse без pre-check, cross-tenant ownership на FK-fields, validation→500, 403 vs 404 info-disclosure, errors.Is sweep.
+
+**Финальный сводный коммит** (по §7 spec'a) — следующий после этого close-коммита.
 
 ## [DONE] Этап 29/30: Cross-cutting error states + i18n + a11y (все 4 роли, fix + Infrastructure + QA full, 2026-05-01) — частичный, 1 фикс (1 MEDIUM a11y), 4 OBSERVATION'а
 
