@@ -538,9 +538,11 @@ func TestAuthService(t *testing.T) {
 			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
 
 			keyID := uuid.New()
+			userID := uuid.New()
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(&domain.APIKey{ID: keyID, UserID: userID, Active: true}, nil)
 			apiKeyRepo.On("Revoke", ctx, keyID).Return(nil)
 
-			err := svc.RevokeAPIKey(ctx, keyID)
+			err := svc.RevokeAPIKey(ctx, keyID, userID)
 
 			require.NoError(t, err)
 			apiKeyRepo.AssertExpectations(t)
@@ -557,12 +559,35 @@ func TestAuthService(t *testing.T) {
 			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
 
 			keyID := uuid.New()
-			apiKeyRepo.On("Revoke", ctx, keyID).Return(authrepo.ErrAPIKeyNotFound)
+			userID := uuid.New()
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(nil, authrepo.ErrAPIKeyNotFound)
 
-			err := svc.RevokeAPIKey(ctx, keyID)
+			err := svc.RevokeAPIKey(ctx, keyID, userID)
 
 			assert.ErrorIs(t, err, authrepo.ErrAPIKeyNotFound)
 			apiKeyRepo.AssertExpectations(t)
+		})
+
+		t.Run("not owned returns ErrAPIKeyNotOwned", func(t *testing.T) {
+			userRepo := new(mocks.MockUserRepository)
+			apiKeyRepo := new(mocks.MockAPIKeyRepository)
+			refreshRepo := new(mocks.MockRefreshTokenRepository)
+			passwordHasher := new(mocks.MockPasswordHasher)
+			apiKeyGen := new(mocks.MockAPIKeyGenerator)
+
+			tokenService := newTestTokenService(t, refreshRepo)
+			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+
+			keyID := uuid.New()
+			ownerID := uuid.New()
+			attackerID := uuid.New()
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(&domain.APIKey{ID: keyID, UserID: ownerID, Active: true}, nil)
+
+			err := svc.RevokeAPIKey(ctx, keyID, attackerID)
+
+			assert.ErrorIs(t, err, application.ErrAPIKeyNotOwned)
+			apiKeyRepo.AssertExpectations(t)
+			apiKeyRepo.AssertNotCalled(t, "Revoke")
 		})
 	})
 

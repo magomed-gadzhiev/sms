@@ -166,6 +166,10 @@ func (s *Server) mapError(err error) error {
 		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, domain.ErrInvalidURL):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrPrivateURL):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrURLTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrInvalidEventType):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:

@@ -203,7 +203,7 @@ func TestAuthChain(t *testing.T) {
 		assert.ElementsMatch(t, scopes, storedKey.Scopes)
 
 		// Revoke the key and verify it can no longer authenticate.
-		err = authService.RevokeAPIKey(ctx, apiKeyObj.ID)
+		err = authService.RevokeAPIKey(ctx, apiKeyObj.ID, user.ID)
 		require.NoError(t, err, "revoking API key")
 
 		_, err = authService.AuthenticateByAPIKey(ctx, rawKey)

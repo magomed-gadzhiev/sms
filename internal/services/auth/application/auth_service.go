@@ -318,8 +318,15 @@ func (s *AuthService) CreateAPIKey(
 	return key, apiKey, nil
 }
 
-// RevokeAPIKey отзывает API ключ
-func (s *AuthService) RevokeAPIKey(ctx context.Context, keyID uuid.UUID) error {
+// RevokeAPIKey отзывает API ключ. Только владелец ключа может его отозвать.
+func (s *AuthService) RevokeAPIKey(ctx context.Context, keyID, userID uuid.UUID) error {
+	key, err := s.apiKeyRepo.GetByID(ctx, keyID)
+	if err != nil {
+		return err
+	}
+	if key.UserID != userID {
+		return ErrAPIKeyNotOwned
+	}
 	return s.apiKeyRepo.Revoke(ctx, keyID)
 }
 

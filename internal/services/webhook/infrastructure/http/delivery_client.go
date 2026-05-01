@@ -96,7 +96,7 @@ func ValidateURL(rawURL string) error {
 		return domain.ErrInvalidURL
 	}
 	if len(rawURL) > 2048 {
-		return fmt.Errorf("URL exceeds maximum length of 2048 characters")
+		return domain.ErrURLTooLong
 	}
 
 	host := u.Hostname()
@@ -104,13 +104,13 @@ func ValidateURL(rawURL string) error {
 	privateHosts := []string{"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 	for _, ph := range privateHosts {
 		if strings.EqualFold(host, ph) {
-			return fmt.Errorf("private/internal URLs are not allowed")
+			return domain.ErrPrivateURL
 		}
 	}
-	// Block 10.x, 172.16-31.x, 192.168.x
+	// Block 10.x, 172.16-31.x, 192.168.x, 169.254.x
 	ip := net.ParseIP(host)
 	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
-		return fmt.Errorf("private/internal IP addresses are not allowed")
+		return domain.ErrPrivateURL
 	}
 	return nil
 }

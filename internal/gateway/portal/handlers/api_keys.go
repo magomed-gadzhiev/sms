@@ -215,6 +215,7 @@ func (h *APIKeyHandlers) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.authClient.RevokeAPIKey(r.Context(), &authv1.RevokeAPIKeyRequest{
 		ApiKeyId: keyID,
+		UserId:   userID.String(),
 	})
 	if err != nil {
 		log.Error().Err(err).Str("api_key_id", keyID).Msg("ошибка отзыва API ключа")

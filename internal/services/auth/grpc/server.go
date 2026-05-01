@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -258,16 +259,27 @@ func (s *Server) RevokeAPIKey(ctx context.Context, req *authv1.RevokeAPIKeyReque
 	if req.ApiKeyId == "" {
 		return nil, status.Error(codes.InvalidArgument, "api_key_id is required")
 	}
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
 
 	keyID, err := uuid.Parse(req.ApiKeyId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid api_key_id format")
 	}
 
-	err = s.authService.RevokeAPIKey(ctx, keyID)
+	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
-		if err == authrepo.ErrAPIKeyNotFound {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = s.authService.RevokeAPIKey(ctx, keyID, userID)
+	if err != nil {
+		if errors.Is(err, authrepo.ErrAPIKeyNotFound) {
 			return nil, status.Error(codes.NotFound, "API key not found")
+		}
+		if errors.Is(err, application.ErrAPIKeyNotOwned) {
+			return nil, status.Error(codes.PermissionDenied, "API key does not belong to user")
 		}
 		log.Error().Err(err).Msg("ошибка отзыва API ключа")
 		return nil, status.Error(codes.Internal, "failed to revoke API key")

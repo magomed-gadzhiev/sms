@@ -612,6 +612,7 @@ func (x *CreateAPIKeyResponse) GetExpiresAt() *timestamppb.Timestamp {
 type RevokeAPIKeyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ApiKeyId      string                 `protobuf:"bytes,1,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"` // ID ключа для отзыва
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`         // ID владельца (для проверки ownership)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -649,6 +650,13 @@ func (*RevokeAPIKeyRequest) Descriptor() ([]byte, []int) {
 func (x *RevokeAPIKeyRequest) GetApiKeyId() string {
 	if x != nil {
 		return x.ApiKeyId
+	}
+	return ""
+}
+
+func (x *RevokeAPIKeyRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
 	}
 	return ""
 }

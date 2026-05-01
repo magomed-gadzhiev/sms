@@ -11,6 +11,8 @@ var (
 	ErrSubscriptionNotFound    = errors.New("subscription not found")
 	ErrMaxSubscriptionsReached = errors.New("maximum subscriptions per client reached")
 	ErrInvalidURL              = errors.New("invalid webhook URL: must be HTTPS")
+	ErrPrivateURL              = errors.New("invalid webhook URL: private/internal addresses are not allowed")
+	ErrURLTooLong              = errors.New("invalid webhook URL: exceeds maximum length of 2048 characters")
 	ErrInvalidEventType        = errors.New("invalid event type")
 )
 

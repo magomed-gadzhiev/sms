@@ -235,7 +235,7 @@ func TestAPIKeyHandlers(t *testing.T) {
 			userID := uuid.New()
 
 			authClient.On("RevokeAPIKey", mock.Anything, mock.MatchedBy(func(req *authv1.RevokeAPIKeyRequest) bool {
-				return req.ApiKeyId == "key-to-revoke"
+				return req.ApiKeyId == "key-to-revoke" && req.UserId == userID.String()
 			})).Return(&authv1.RevokeAPIKeyResponse{
 				Success: true,
 			}, nil)

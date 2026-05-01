@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
@@ -72,7 +73,7 @@ func (h *NotificationHandlers) GetNotifications(w http.ResponseWriter, r *http.R
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка получения уведомлений")
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		respondError(w, shared.ErrInternalServer("Ошибка получения уведомлений"))
 		return
 	}
 	defer rows.Close()
@@ -127,6 +128,11 @@ func (h *NotificationHandlers) MarkNotificationRead(w http.ResponseWriter, r *ht
 		respondError(w, shared.ErrInvalidInput("ID уведомления обязателен"))
 		return
 	}
+	notifID, err := uuid.Parse(id)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Некорректный ID уведомления"))
+		return
+	}
 
 	if h.pool == nil {
 		respondJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
@@ -135,11 +141,11 @@ func (h *NotificationHandlers) MarkNotificationRead(w http.ResponseWriter, r *ht
 
 	tag, err := h.pool.Exec(r.Context(),
 		`UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2`,
-		id, userID,
+		notifID, userID,
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка обновления уведомления")
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		respondError(w, shared.ErrInternalServer("Ошибка обновления уведомления"))
 		return
 	}
 	if tag.RowsAffected() == 0 {
@@ -169,7 +175,7 @@ func (h *NotificationHandlers) MarkAllNotificationsRead(w http.ResponseWriter, r
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка массового обновления уведомлений")
-		respondError(w, shared.ErrInternalServer(err.Error()))
+		respondError(w, shared.ErrInternalServer("Ошибка обновления уведомлений"))
 		return
 	}
 

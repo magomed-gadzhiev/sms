@@ -175,6 +175,7 @@ message CreateAPIKeyResponse {
 // RevokeAPIKeyRequest представляет запрос на отзыв API ключа
 message RevokeAPIKeyRequest {
   string api_key_id = 1;      // ID ключа для отзыва
+  string user_id = 2;         // ID владельца (для проверки ownership)
 }
 
 // RevokeAPIKeyResponse представляет ответ на отзыв API ключа
