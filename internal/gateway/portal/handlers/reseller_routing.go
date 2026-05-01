@@ -103,9 +103,13 @@ func (h *ResellerRoutingHandlers) ListNetworkRoutes(w http.ResponseWriter, r *ht
 
 	subAccountFilter := r.URL.Query().Get("sub_account_id")
 
+	// client_routes больше не содержит country_id напрямую — после миграции на
+	// route_condition_groups признак страны переехал туда. Возвращаем NULL для
+	// обратной совместимости с фронтом (NetworkRoutingPage отображает '—' при
+	// null), не блокируя страницу 500-кой как было раньше.
 	query := `SELECT cr.id, cr.client_id, c.name AS sub_account_name,
 	                 cr.provider_id, p.name AS provider_name,
-	                 cr.country_id, cr.operator_id, cr.priority, cr.active
+	                 NULL::uuid AS country_id, cr.operator_id, cr.priority, cr.active
 	          FROM client_routes cr
 	          JOIN clients c ON c.id = cr.client_id
 	          JOIN providers p ON p.id = cr.provider_id

@@ -38,3 +38,8 @@ func (m *MockSubAccountRepository) DeleteSubAccount(ctx context.Context, subAcco
 	args := m.Called(ctx, subAccountID)
 	return args.Error(0)
 }
+
+func (m *MockSubAccountRepository) ExistsByEmailUnderParent(ctx context.Context, parentID uuid.UUID, email string) (bool, error) {
+	args := m.Called(ctx, parentID, email)
+	return args.Bool(0), args.Error(1)
+}

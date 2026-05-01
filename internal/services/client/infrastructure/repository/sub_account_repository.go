@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -23,15 +24,20 @@ func NewSubAccountRepository(db *database.DB) *SubAccountRepository {
 	}
 }
 
-// ListByParentID получает список суб-аккаунтов по ID родительского клиента
+// ListByParentID получает список суб-аккаунтов по ID родительского клиента.
+// LEFT JOIN с client_configs нужен, чтобы заполнить domain.Client.Config —
+// иначе grpc-маппинг в SubAccount даёт DailyLimit=0, MonthlyLimit=0 даже если
+// в БД лимиты выставлены (rate_limit_per_day и settings.monthly_limit).
 func (r *SubAccountRepository) ListByParentID(ctx context.Context, parentID uuid.UUID) ([]*domain.Client, error) {
 	var clients []*domain.Client
 	query := `
-		SELECT id, name, COALESCE(email, ''), COALESCE(contact_person, ''), COALESCE(phone, ''), active, metadata,
-		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
-		FROM clients
-		WHERE parent_client_id = $1 AND active = true
-		ORDER BY created_at DESC
+		SELECT c.id, c.name, COALESCE(c.email, ''), COALESCE(c.contact_person, ''), COALESCE(c.phone, ''), c.active, c.metadata,
+		       c.parent_client_id, c.is_reseller, c.max_sub_accounts, c.created_at, c.updated_at,
+		       cfg.rate_limit_per_day, cfg.settings
+		FROM clients c
+		LEFT JOIN client_configs cfg ON cfg.client_id = c.id
+		WHERE c.parent_client_id = $1 AND c.active = true
+		ORDER BY c.created_at DESC
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, parentID)
@@ -42,14 +48,27 @@ func (r *SubAccountRepository) ListByParentID(ctx context.Context, parentID uuid
 
 	for rows.Next() {
 		var client domain.Client
+		var rateLimitPerDay sql.NullInt64
+		var settingsRaw sql.NullString
 		err := rows.Scan(
 			&client.ID, &client.Name, &client.Email, &client.ContactPerson, &client.Phone,
 			&client.Active, &client.Metadata,
 			&client.ParentClientID, &client.IsReseller, &client.MaxSubAccounts,
 			&client.CreatedAt, &client.UpdatedAt,
+			&rateLimitPerDay, &settingsRaw,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if rateLimitPerDay.Valid || settingsRaw.Valid {
+			client.Config = &domain.ClientConfig{
+				ClientID:        client.ID,
+				RateLimitPerDay: int(rateLimitPerDay.Int64),
+				Settings:        json.RawMessage("{}"),
+			}
+			if settingsRaw.Valid && settingsRaw.String != "" {
+				client.Config.Settings = json.RawMessage(settingsRaw.String)
+			}
 		}
 		clients = append(clients, &client)
 	}
@@ -59,6 +78,28 @@ func (r *SubAccountRepository) ListByParentID(ctx context.Context, parentID uuid
 	}
 
 	return clients, nil
+}
+
+// ExistsByEmailUnderParent проверяет, есть ли уже суб-аккаунт с таким
+// email у того же родителя — включая soft-deleted. UNIQUE constraint на
+// clients.email отсутствует (миграция требует эскалации), поэтому уникальность
+// проверяется на application-уровне. Race condition при двух параллельных POST
+// остаётся открытым — фиксируется в observation.
+//
+// Filter active=true НЕ ставим: иначе после delete+recreate с тем же email в
+// БД остаются 2 строки (одна inactive, одна active), и downstream login-by-email
+// получает ambiguity.
+func (r *SubAccountRepository) ExistsByEmailUnderParent(ctx context.Context, parentID uuid.UUID, email string) (bool, error) {
+	if email == "" {
+		return false, nil
+	}
+	var count int
+	query := `SELECT COUNT(*) FROM clients
+	          WHERE parent_client_id = $1 AND lower(email) = lower($2)`
+	if err := r.db.QueryRowContext(ctx, query, parentID, email).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // CountByParentID считает количество суб-аккаунтов для родительского клиента
@@ -76,14 +117,20 @@ func (r *SubAccountRepository) CountByParentID(ctx context.Context, parentID uui
 	return count, nil
 }
 
-// GetSubAccount получает суб-аккаунт с проверкой принадлежности к родителю
+// GetSubAccount получает суб-аккаунт с проверкой принадлежности к родителю.
+// LEFT JOIN с client_configs нужен, чтобы заполнить Config — см. комментарий
+// в ListByParentID.
 func (r *SubAccountRepository) GetSubAccount(ctx context.Context, subAccountID, parentID uuid.UUID) (*domain.Client, error) {
 	var client domain.Client
+	var rateLimitPerDay sql.NullInt64
+	var settingsRaw sql.NullString
 	query := `
-		SELECT id, name, COALESCE(email, ''), COALESCE(contact_person, ''), COALESCE(phone, ''), active, metadata,
-		       parent_client_id, is_reseller, max_sub_accounts, created_at, updated_at
-		FROM clients
-		WHERE id = $1 AND parent_client_id = $2
+		SELECT c.id, c.name, COALESCE(c.email, ''), COALESCE(c.contact_person, ''), COALESCE(c.phone, ''), c.active, c.metadata,
+		       c.parent_client_id, c.is_reseller, c.max_sub_accounts, c.created_at, c.updated_at,
+		       cfg.rate_limit_per_day, cfg.settings
+		FROM clients c
+		LEFT JOIN client_configs cfg ON cfg.client_id = c.id
+		WHERE c.id = $1 AND c.parent_client_id = $2
 	`
 
 	err := r.db.QueryRowContext(ctx, query, subAccountID, parentID).Scan(
@@ -91,12 +138,23 @@ func (r *SubAccountRepository) GetSubAccount(ctx context.Context, subAccountID, 
 		&client.Active, &client.Metadata,
 		&client.ParentClientID, &client.IsReseller, &client.MaxSubAccounts,
 		&client.CreatedAt, &client.UpdatedAt,
+		&rateLimitPerDay, &settingsRaw,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrClientNotFound
 		}
 		return nil, err
+	}
+	if rateLimitPerDay.Valid || settingsRaw.Valid {
+		client.Config = &domain.ClientConfig{
+			ClientID:        client.ID,
+			RateLimitPerDay: int(rateLimitPerDay.Int64),
+			Settings:        json.RawMessage("{}"),
+		}
+		if settingsRaw.Valid && settingsRaw.String != "" {
+			client.Config.Settings = json.RawMessage(settingsRaw.String)
+		}
 	}
 
 	return &client, nil

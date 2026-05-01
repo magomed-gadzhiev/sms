@@ -53,6 +53,7 @@ func TestSubAccountService(t *testing.T) {
 
 			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
 			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(2, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "sub@example.com").Return(false, nil)
 			env.clientRepo.On("Create", ctx, mock.MatchedBy(func(c *domain.Client) bool {
 				return c.Name == "Sub Account" &&
 					c.Email == "sub@example.com" &&
@@ -99,6 +100,7 @@ func TestSubAccountService(t *testing.T) {
 
 			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
 			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "sub@test.com").Return(false, nil)
 			env.clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(nil)
 			env.configRepo.On("Create", ctx, mock.MatchedBy(func(cfg *domain.ClientConfig) bool {
 				settings := cfg.GetSettings()
@@ -199,6 +201,58 @@ func TestSubAccountService(t *testing.T) {
 			env.configRepo.AssertExpectations(t)
 		})
 
+		t.Run("invalid_email_returns_ErrInvalidEmail", func(t *testing.T) {
+			env := newTestSubAccountService()
+			ctx := context.Background()
+			parentID := uuid.New()
+
+			parent := &domain.Client{ID: parentID, IsReseller: true, MaxSubAccounts: 10}
+
+			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
+			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+
+			result, err := env.svc.CreateSubAccount(ctx, parentID, "Sub", "notanemail", "P", 1000, 0)
+			assert.Nil(t, result)
+			assert.Equal(t, ErrInvalidEmail, err)
+			env.subAccountRepo.AssertNotCalled(t, "ExistsByEmailUnderParent", mock.Anything, mock.Anything, mock.Anything)
+			env.clientRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		})
+
+		t.Run("duplicate_email_returns_ErrEmailExists", func(t *testing.T) {
+			env := newTestSubAccountService()
+			ctx := context.Background()
+			parentID := uuid.New()
+
+			parent := &domain.Client{ID: parentID, IsReseller: true, MaxSubAccounts: 10}
+
+			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
+			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "dup@example.com").Return(true, nil)
+
+			result, err := env.svc.CreateSubAccount(ctx, parentID, "Sub", "dup@example.com", "P", 1000, 0)
+			assert.Nil(t, result)
+			assert.Equal(t, ErrEmailExists, err)
+			env.clientRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		})
+
+		t.Run("empty_email_skips_email_validation", func(t *testing.T) {
+			env := newTestSubAccountService()
+			ctx := context.Background()
+			parentID := uuid.New()
+
+			parent := &domain.Client{ID: parentID, IsReseller: true, MaxSubAccounts: 10}
+
+			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
+			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(nil)
+			env.configRepo.On("Create", ctx, mock.AnythingOfType("*domain.ClientConfig")).Return(nil)
+
+			result, err := env.svc.CreateSubAccount(ctx, parentID, "NoEmail", "", "", 0, 0)
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			env.subAccountRepo.AssertNotCalled(t, "ExistsByEmailUnderParent", mock.Anything, mock.Anything, mock.Anything)
+		})
+
 		t.Run("config_create_failure_logs_warning_but_returns_success", func(t *testing.T) {
 			env := newTestSubAccountService()
 			ctx := context.Background()
@@ -212,6 +266,7 @@ func TestSubAccountService(t *testing.T) {
 
 			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
 			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "sub@test.com").Return(false, nil)
 			env.clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(nil)
 			env.configRepo.On("Create", ctx, mock.AnythingOfType("*domain.ClientConfig")).Return(errors.New("db connection error"))
 

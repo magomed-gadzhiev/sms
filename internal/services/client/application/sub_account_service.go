@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +21,16 @@ var (
 	ErrNotReseller        = errors.New("client is not a reseller")
 	ErrMaxSubAccounts     = errors.New("maximum number of sub-accounts reached")
 	ErrSubAccountNotFound = errors.New("sub-account not found")
+	// ErrInvalidEmail / ErrEmailExists нужны, чтобы grpc-сервер мог отделить
+	// 400 INVALID_INPUT (битый формат) и 409 ALREADY_EXISTS (дубликат) от 500.
+	ErrInvalidEmail   = errors.New("invalid email format")
+	ErrEmailExists    = errors.New("email already used by another sub-account")
 )
+
+// emailRegex — простая проверка формата `local@domain.tld`. RFC-полный регекс
+// громоздкий и для UI-проверки избыточен; цель — отсеять явный мусор вроде
+// "notanemail", который сейчас принимается без вопросов.
+var emailRegex = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 
 // SubAccountRepositoryInterface определяет интерфейс для работы с суб-аккаунтами
 type SubAccountRepositoryInterface interface {
@@ -27,6 +38,7 @@ type SubAccountRepositoryInterface interface {
 	CountByParentID(ctx context.Context, parentID uuid.UUID) (int, error)
 	GetSubAccount(ctx context.Context, subAccountID, parentID uuid.UUID) (*domain.Client, error)
 	DeleteSubAccount(ctx context.Context, subAccountID uuid.UUID) error
+	ExistsByEmailUnderParent(ctx context.Context, parentID uuid.UUID, email string) (bool, error)
 }
 
 // SubAccountService предоставляет методы для управления суб-аккаунтами
@@ -83,6 +95,33 @@ func (s *SubAccountService) CreateSubAccount(
 	// Валидация
 	if name == "" {
 		return nil, ErrInvalidClientData
+	}
+	// Email опционален, но если передан — должен быть валидным форматом
+	// и уникальным в пределах родительского реселлера. Иначе раньше один
+	// агрегатор мог завести несколько субакков с одним email — это ломает
+	// возможность login/email-уведомлений и проходит валидацию проверкой
+	// "поле непустое" (см. handler-уровень).
+	//
+	// Нормализуем (trim + lower) ДО dup-check и до записи в БД, чтобы
+	// "Foo@x" и "foo@x" не создавали ambiguity. Без нормализации dup-check
+	// в SQL делает `lower(email) = lower($2)`, но запись могла оставаться
+	// в смешанном регистре, и downstream lookups (без lower) видели разные
+	// записи.
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email != "" {
+		if !emailRegex.MatchString(email) {
+			return nil, ErrInvalidEmail
+		}
+		// Не фильтруем active=true: soft-deleted субаккаунт держит email
+		// "забронированным" — иначе после delete+create под тем же email
+		// получаем 2 строки в БД и downstream login-by-email падает.
+		exists, err := s.subAccountRepo.ExistsByEmailUnderParent(ctx, parentClientID, email)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, ErrEmailExists
+		}
 	}
 
 	// Генерируем уникальный API key и secret — БД требует UNIQUE(api_key),

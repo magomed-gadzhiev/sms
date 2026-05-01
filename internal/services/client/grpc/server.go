@@ -314,6 +314,10 @@ func (s *Server) CreateSubAccount(ctx context.Context, req *clientv1.CreateSubAc
 			return nil, status.Error(codes.ResourceExhausted, "maximum number of sub-accounts reached")
 		case application.ErrInvalidClientData:
 			return nil, status.Error(codes.InvalidArgument, "invalid sub-account data")
+		case application.ErrInvalidEmail:
+			return nil, status.Error(codes.InvalidArgument, "invalid email format")
+		case application.ErrEmailExists:
+			return nil, status.Error(codes.AlreadyExists, "sub-account with this email already exists")
 		}
 		log.Error().Err(err).Msg("ошибка создания суб-аккаунта")
 		return nil, status.Error(codes.Internal, "failed to create sub-account")
