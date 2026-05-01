@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ func (s *Server) CreateClient(ctx context.Context, req *clientv1.CreateClientReq
 		metadata,
 	)
 	if err != nil {
-		if err == application.ErrInvalidClientData {
+		if errors.Is(err, application.ErrInvalidClientData) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		log.Error().Err(err).Msg("ошибка создания клиента")
@@ -109,7 +110,7 @@ func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientReq
 		metadata,
 	)
 	if err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления клиента")
@@ -130,7 +131,7 @@ func (s *Server) GetClient(ctx context.Context, req *clientv1.GetClientRequest) 
 
 	client, err := s.clientService.GetClient(ctx, clientID)
 	if err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения клиента")
@@ -186,7 +187,7 @@ func (s *Server) DeleteClient(ctx context.Context, req *clientv1.DeleteClientReq
 
 	err = s.clientService.DeleteClient(ctx, clientID)
 	if err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
 		log.Error().Err(err).Msg("ошибка удаления клиента")
@@ -207,7 +208,7 @@ func (s *Server) GetClientConfig(ctx context.Context, req *clientv1.GetClientCon
 
 	config, err := s.clientService.GetClientConfig(ctx, clientID)
 	if err != nil {
-		if err == application.ErrConfigNotFound {
+		if errors.Is(err, application.ErrConfigNotFound) {
 			return nil, status.Error(codes.NotFound, "client config not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения конфигурации клиента")
@@ -234,7 +235,7 @@ func (s *Server) UpdateClientConfig(ctx context.Context, req *clientv1.UpdateCli
 
 	err = s.clientService.UpdateClientConfig(ctx, clientID, config)
 	if err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления конфигурации клиента")
@@ -266,10 +267,10 @@ func (s *Server) UpdateClientRateLimits(ctx context.Context, req *clientv1.Updat
 
 	err = s.clientService.UpdateClientRateLimits(ctx, clientID, limits)
 	if err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
-		if err == application.ErrConfigNotFound {
+		if errors.Is(err, application.ErrConfigNotFound) {
 			return nil, status.Error(codes.NotFound, "client config not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления rate limits")
@@ -337,10 +338,10 @@ func (s *Server) ListSubAccounts(ctx context.Context, req *clientv1.ListSubAccou
 
 	subAccounts, err := s.subAccountService.ListSubAccounts(ctx, parentClientID)
 	if err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "parent client not found")
 		}
-		if err == application.ErrNotReseller {
+		if errors.Is(err, application.ErrNotReseller) {
 			return nil, status.Error(codes.PermissionDenied, "client is not a reseller")
 		}
 		log.Error().Err(err).Msg("ошибка получения списка суб-аккаунтов")
@@ -387,7 +388,7 @@ func (s *Server) GetSubAccount(ctx context.Context, req *clientv1.GetSubAccountR
 
 	subAccount, err := s.subAccountService.GetSubAccount(ctx, subAccountID, parentClientID)
 	if err != nil {
-		if err == application.ErrSubAccountNotFound {
+		if errors.Is(err, application.ErrSubAccountNotFound) {
 			return nil, status.Error(codes.NotFound, "sub-account not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения суб-аккаунта")
@@ -420,7 +421,7 @@ func (s *Server) DeleteSubAccount(ctx context.Context, req *clientv1.DeleteSubAc
 
 	err = s.subAccountService.DeleteSubAccount(ctx, subAccountID, parentClientID)
 	if err != nil {
-		if err == application.ErrSubAccountNotFound {
+		if errors.Is(err, application.ErrSubAccountNotFound) {
 			return nil, status.Error(codes.NotFound, "sub-account not found")
 		}
 		log.Error().Err(err).Msg("ошибка удаления суб-аккаунта")
@@ -459,7 +460,7 @@ func (s *Server) UpdateSubAccountLimits(ctx context.Context, req *clientv1.Updat
 		int(req.MonthlyLimit),
 	)
 	if err != nil {
-		if err == application.ErrSubAccountNotFound {
+		if errors.Is(err, application.ErrSubAccountNotFound) {
 			return nil, status.Error(codes.NotFound, "sub-account not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления лимитов суб-аккаунта")
@@ -479,7 +480,7 @@ func (s *Server) ToggleSandbox(ctx context.Context, req *clientv1.ToggleSandboxR
 	}
 
 	if err := s.clientService.ToggleSandbox(ctx, clientID, req.Enable); err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
 		log.Error().Err(err).Msg("ошибка изменения sandbox-режима")
@@ -511,7 +512,7 @@ func (s *Server) AssignPlan(ctx context.Context, req *clientv1.AssignPlanRequest
 	}
 
 	if err := s.clientService.AssignPlan(ctx, clientID, planID); err != nil {
-		if err == application.ErrClientNotFound {
+		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
 		}
 		log.Error().Err(err).Msg("ошибка назначения тарифного плана")

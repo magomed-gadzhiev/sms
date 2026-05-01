@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -670,7 +671,7 @@ func (s *BillingService) transferBalanceWithTx(
 
 	first, err := accRepo.GetByClientIDForUpdate(ctx, tx, firstID)
 	if err != nil {
-		if err == domain.ErrAccountNotFound && firstID == toClientID {
+		if errors.Is(err, domain.ErrAccountNotFound) && firstID == toClientID {
 			// Создаем счёт получателя внутри транзакции
 			first = domain.NewAccount(toClientID, currency)
 			createQuery := `INSERT INTO accounts (id, client_id, balance, currency, created_at, updated_at)
@@ -687,7 +688,7 @@ func (s *BillingService) transferBalanceWithTx(
 
 	second, err := accRepo.GetByClientIDForUpdate(ctx, tx, secondID)
 	if err != nil {
-		if err == domain.ErrAccountNotFound && secondID == toClientID {
+		if errors.Is(err, domain.ErrAccountNotFound) && secondID == toClientID {
 			second = domain.NewAccount(toClientID, currency)
 			createQuery := `INSERT INTO accounts (id, client_id, balance, currency, created_at, updated_at)
 				VALUES ($1, $2, $3, $4, $5, $6)`

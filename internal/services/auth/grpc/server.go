@@ -69,7 +69,7 @@ func (s *Server) Authenticate(ctx context.Context, req *authv1.AuthenticateReque
 	if req.ApiKey != "" {
 		user, err = s.authService.AuthenticateByAPIKey(ctx, req.ApiKey)
 		if err != nil {
-			if err == application.ErrAPIKeyInvalid {
+			if errors.Is(err, application.ErrAPIKeyInvalid) {
 				return nil, status.Error(codes.Unauthenticated, "invalid API key")
 			}
 			log.Error().Err(err).Msg("ошибка аутентификации по API ключу")
@@ -87,10 +87,10 @@ func (s *Server) Authenticate(ctx context.Context, req *authv1.AuthenticateReque
 			ctx, req.Username, req.Password,
 		)
 		if err != nil {
-			if err == application.ErrInvalidCredentials {
+			if errors.Is(err, application.ErrInvalidCredentials) {
 				return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 			}
-			if err == application.ErrUserInactive {
+			if errors.Is(err, application.ErrUserInactive) {
 				return nil, status.Error(codes.PermissionDenied, "user is inactive")
 			}
 			log.Error().Err(err).Msg("ошибка аутентификации по credentials")
@@ -156,7 +156,7 @@ func (s *Server) RefreshToken(ctx context.Context, req *authv1.RefreshTokenReque
 
 	accessToken, refreshToken, err := s.tokenService.RefreshToken(ctx, req.RefreshToken, getUserRole)
 	if err != nil {
-		if err == application.ErrInvalidToken {
+		if errors.Is(err, application.ErrInvalidToken) {
 			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
 		}
 		log.Error().Err(err).Msg("ошибка обновления токена")
@@ -412,13 +412,13 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 
 	err = s.authService.ChangePassword(ctx, userID, req.CurrentPassword, req.NewPassword)
 	if err != nil {
-		if err == application.ErrCurrentPasswordWrong {
+		if errors.Is(err, application.ErrCurrentPasswordWrong) {
 			return nil, status.Error(codes.Unauthenticated, "current password is incorrect")
 		}
-		if err == application.ErrPasswordTooShort {
+		if errors.Is(err, application.ErrPasswordTooShort) {
 			return nil, status.Error(codes.InvalidArgument, "password must be at least 8 characters")
 		}
-		if err == application.ErrPasswordSameAsOld {
+		if errors.Is(err, application.ErrPasswordSameAsOld) {
 			return nil, status.Error(codes.InvalidArgument, "new password must differ from current")
 		}
 		if err == authrepo.ErrUserNotFound {
@@ -455,7 +455,7 @@ func (s *Server) SetupTOTP(ctx context.Context, req *authv1.SetupTOTPRequest) (*
 
 	secret, qrURL, recoveryCodes, err := s.totpService.SetupTOTP(ctx, userID, user.Email)
 	if err != nil {
-		if err == domain.ErrTOTPAlreadyEnabled {
+		if errors.Is(err, domain.ErrTOTPAlreadyEnabled) {
 			return nil, status.Error(codes.AlreadyExists, "TOTP is already enabled")
 		}
 		log.Error().Err(err).Msg("ошибка настройки TOTP")
@@ -485,13 +485,13 @@ func (s *Server) VerifyTOTP(ctx context.Context, req *authv1.VerifyTOTPRequest) 
 
 	err = s.totpService.VerifyAndEnable(ctx, userID, req.TotpCode)
 	if err != nil {
-		if err == domain.ErrTOTPAlreadyEnabled {
+		if errors.Is(err, domain.ErrTOTPAlreadyEnabled) {
 			return nil, status.Error(codes.AlreadyExists, "TOTP is already enabled")
 		}
-		if err == domain.ErrTOTPNotEnabled {
+		if errors.Is(err, domain.ErrTOTPNotEnabled) {
 			return nil, status.Error(codes.FailedPrecondition, "TOTP setup not initiated")
 		}
-		if err == domain.ErrInvalidTOTPCode {
+		if errors.Is(err, domain.ErrInvalidTOTPCode) {
 			return &authv1.VerifyTOTPResponse{
 				Success:     false,
 				TotpEnabled: false,
@@ -523,7 +523,7 @@ func (s *Server) DisableTOTP(ctx context.Context, req *authv1.DisableTOTPRequest
 
 	err = s.totpService.Disable(ctx, userID, req.Password)
 	if err != nil {
-		if err == application.ErrPasswordMismatch {
+		if errors.Is(err, application.ErrPasswordMismatch) {
 			return nil, status.Error(codes.Unauthenticated, "invalid password")
 		}
 		if err == authrepo.ErrUserNotFound {
@@ -552,7 +552,7 @@ func (s *Server) RequestPasswordReset(ctx context.Context, req *authv1.RequestPa
 				Success: true,
 			}, nil
 		}
-		if err == application.ErrPasswordResetRateLimit {
+		if errors.Is(err, application.ErrPasswordResetRateLimit) {
 			return nil, status.Error(codes.ResourceExhausted, "too many reset requests")
 		}
 		log.Error().Err(err).Msg("ошибка запроса сброса пароля")
@@ -576,13 +576,13 @@ func (s *Server) ResetPassword(ctx context.Context, req *authv1.ResetPasswordReq
 
 	err := s.passwordResetService.ResetPassword(ctx, req.Token, req.NewPassword)
 	if err != nil {
-		if err == application.ErrPasswordResetInvalid {
+		if errors.Is(err, application.ErrPasswordResetInvalid) {
 			return nil, status.Error(codes.InvalidArgument, "invalid or expired reset token")
 		}
-		if err == domain.ErrPasswordResetTokenUsed {
+		if errors.Is(err, domain.ErrPasswordResetTokenUsed) {
 			return nil, status.Error(codes.InvalidArgument, "reset token already used")
 		}
-		if err == domain.ErrPasswordResetTokenExpired {
+		if errors.Is(err, domain.ErrPasswordResetTokenExpired) {
 			return nil, status.Error(codes.InvalidArgument, "reset token expired")
 		}
 		log.Error().Err(err).Msg("ошибка сброса пароля")
@@ -603,10 +603,10 @@ func (s *Server) LoginWithSession(ctx context.Context, req *authv1.LoginWithSess
 	// Аутентифицируем пользователя по credentials (без генерации JWT)
 	user, _, _, err := s.authService.AuthenticateByCredentials(ctx, req.Email, req.Password)
 	if err != nil {
-		if err == application.ErrInvalidCredentials {
+		if errors.Is(err, application.ErrInvalidCredentials) {
 			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 		}
-		if err == application.ErrUserInactive {
+		if errors.Is(err, application.ErrUserInactive) {
 			return nil, status.Error(codes.PermissionDenied, "user is inactive")
 		}
 		log.Error().Err(err).Msg("ошибка аутентификации при LoginWithSession")
@@ -867,7 +867,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 func (s *Server) isTOTPEnabled(ctx context.Context, userID uuid.UUID) bool {
 	// Пробуем валидировать с пустым кодом - если TOTP не включен, получим ErrTOTPNotEnabled
 	_, err := s.totpService.ValidateCode(ctx, userID, "000000")
-	if err == domain.ErrTOTPNotEnabled {
+	if errors.Is(err, domain.ErrTOTPNotEnabled) {
 		return false
 	}
 	// Если ошибка другая (включая "invalid code") - значит TOTP включен

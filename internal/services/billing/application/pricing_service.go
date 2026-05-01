@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,7 +69,7 @@ func (s *PricingService) GetPriceForDestination(
 ) (string, string, error) {
 	rule, err := s.pricingRepo.GetMatchingRule(ctx, clientID, destination)
 	if err != nil {
-		if err == domain.ErrPricingRuleNotFound {
+		if errors.Is(err, domain.ErrPricingRuleNotFound) {
 			// Возвращаем дефолтную цену
 			return "0.01", "RUB", nil
 		}

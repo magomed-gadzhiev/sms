@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -96,7 +97,7 @@ func (s *SenderService) DetermineSenderCategory(ctx context.Context, clientID, o
 	reg, err := s.regRepo.GetActiveByClientOperatorName(ctx, clientID, operatorID, senderName)
 	if err != nil {
 		// Если регистрация не найдена — shared
-		if err == domain.ErrSenderRegistrationNotFound {
+		if errors.Is(err, domain.ErrSenderRegistrationNotFound) {
 			return domain.CategoryShared, nil
 		}
 		return "", fmt.Errorf("failed to get sender registration: %w", err)

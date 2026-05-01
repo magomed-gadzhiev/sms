@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -108,7 +109,7 @@ func (s *Server) GetRoute(ctx context.Context, req *routingv1.GetRouteRequest) (
 
 	route, err := s.routingService.GetRoute(ctx, req.Destination, clientID)
 	if err != nil {
-		if err == domain.ErrNoMatchingRoute {
+		if errors.Is(err, domain.ErrNoMatchingRoute) {
 			return nil, status.Error(codes.NotFound, "no matching route found")
 		}
 		log.Error().Err(err).Msg("ошибка получения маршрута")
@@ -138,7 +139,7 @@ func (s *Server) SelectProvider(ctx context.Context, req *routingv1.SelectProvid
 
 	providerID, err := s.routingService.SelectProvider(ctx, route, clientID)
 	if err != nil {
-		if err == domain.ErrNoProviders {
+		if errors.Is(err, domain.ErrNoProviders) {
 			return nil, status.Error(codes.NotFound, "no available providers")
 		}
 		log.Error().Err(err).Msg("ошибка выбора провайдера")
@@ -273,7 +274,7 @@ func (s *Server) UpdateRoute(ctx context.Context, req *routingv1.UpdateRouteRequ
 
 	err = s.routingService.UpdateRoute(ctx, routeID, updates)
 	if err != nil {
-		if err == domain.ErrRouteNotFound {
+		if errors.Is(err, domain.ErrRouteNotFound) {
 			return nil, status.Error(codes.NotFound, "route not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления маршрута")
@@ -298,7 +299,7 @@ func (s *Server) DeleteRoute(ctx context.Context, req *routingv1.DeleteRouteRequ
 
 	err = s.routingService.DeleteRoute(ctx, routeID)
 	if err != nil {
-		if err == domain.ErrRouteNotFound {
+		if errors.Is(err, domain.ErrRouteNotFound) {
 			return nil, status.Error(codes.NotFound, "route not found")
 		}
 		log.Error().Err(err).Msg("ошибка удаления маршрута")
@@ -380,7 +381,7 @@ func (s *Server) GetCountry(ctx context.Context, req *routingv1.GetCountryReques
 
 	country, err := s.countryRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == domain.ErrCountryNotFound {
+		if errors.Is(err, domain.ErrCountryNotFound) {
 			return nil, status.Error(codes.NotFound, "country not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения страны")
@@ -428,7 +429,7 @@ func (s *Server) UpdateCountry(ctx context.Context, req *routingv1.UpdateCountry
 
 	country, err := s.countryRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == domain.ErrCountryNotFound {
+		if errors.Is(err, domain.ErrCountryNotFound) {
 			return nil, status.Error(codes.NotFound, "country not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения страны")
@@ -479,7 +480,7 @@ func (s *Server) CreateOperator(ctx context.Context, req *routingv1.CreateOperat
 	// Проверяем существование страны
 	_, err = s.countryRepo.GetByID(ctx, countryID)
 	if err != nil {
-		if err == domain.ErrCountryNotFound {
+		if errors.Is(err, domain.ErrCountryNotFound) {
 			return nil, status.Error(codes.NotFound, "country not found")
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -516,7 +517,7 @@ func (s *Server) GetOperator(ctx context.Context, req *routingv1.GetOperatorRequ
 
 	operator, err := s.operatorRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == domain.ErrOperatorNotFound {
+		if errors.Is(err, domain.ErrOperatorNotFound) {
 			return nil, status.Error(codes.NotFound, "operator not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения оператора")
@@ -573,7 +574,7 @@ func (s *Server) UpdateOperator(ctx context.Context, req *routingv1.UpdateOperat
 
 	operator, err := s.operatorRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == domain.ErrOperatorNotFound {
+		if errors.Is(err, domain.ErrOperatorNotFound) {
 			return nil, status.Error(codes.NotFound, "operator not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения оператора")
@@ -623,7 +624,7 @@ func (s *Server) CreateOperatorPrefix(ctx context.Context, req *routingv1.Create
 	// Проверяем существование оператора
 	_, err = s.operatorRepo.GetByID(ctx, operatorID)
 	if err != nil {
-		if err == domain.ErrOperatorNotFound {
+		if errors.Is(err, domain.ErrOperatorNotFound) {
 			return nil, status.Error(codes.NotFound, "operator not found")
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -677,7 +678,7 @@ func (s *Server) DeleteOperatorPrefix(ctx context.Context, req *routingv1.Delete
 	}
 
 	if err := s.prefixRepo.Delete(ctx, id); err != nil {
-		if err == domain.ErrPrefixNotFound {
+		if errors.Is(err, domain.ErrPrefixNotFound) {
 			return nil, status.Error(codes.NotFound, "prefix not found")
 		}
 		log.Error().Err(err).Msg("ошибка удаления префикса")
@@ -697,7 +698,7 @@ func (s *Server) ResolveOperator(ctx context.Context, req *routingv1.ResolveOper
 
 	result, err := s.operatorResolver.ResolveByNumber(ctx, req.PhoneNumber)
 	if err != nil {
-		if err == domain.ErrPrefixNotFound {
+		if errors.Is(err, domain.ErrPrefixNotFound) {
 			return nil, status.Error(codes.NotFound, "operator not found for this number")
 		}
 		log.Error().Err(err).Str("phone_number", req.PhoneNumber).Msg("ошибка определения оператора")
@@ -738,10 +739,10 @@ func (s *Server) NumberLookup(ctx context.Context, req *routingv1.NumberLookupRe
 		req.RequestId, domain.LookupSourceAPILookup, nil,
 	)
 	if err != nil {
-		if err == domain.ErrInvalidMSISDN {
+		if errors.Is(err, domain.ErrInvalidMSISDN) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		if err == domain.ErrHLRProviderUnavailable || err == domain.ErrHLRLookupFailed {
+		if errors.Is(err, domain.ErrHLRProviderUnavailable) || errors.Is(err, domain.ErrHLRLookupFailed) {
 			return nil, status.Error(codes.Unavailable, err.Error())
 		}
 		log.Error().Err(err).Str("msisdn", req.Msisdn).Msg("ошибка HLR lookup")
@@ -868,7 +869,7 @@ func (s *Server) UpdateHLRProvider(ctx context.Context, req *routingv1.UpdateHLR
 
 	provider, err := s.hlrProviderRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == domain.ErrHLRProviderNotFound {
+		if errors.Is(err, domain.ErrHLRProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "HLR провайдер не найден")
 		}
 		log.Error().Err(err).Msg("ошибка получения HLR-провайдера")
@@ -927,7 +928,7 @@ func (s *Server) DeleteHLRProvider(ctx context.Context, req *routingv1.DeleteHLR
 	}
 
 	if err := s.hlrProviderRepo.Delete(ctx, id); err != nil {
-		if err == domain.ErrHLRProviderNotFound {
+		if errors.Is(err, domain.ErrHLRProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "HLR провайдер не найден")
 		}
 		log.Error().Err(err).Msg("ошибка удаления HLR-провайдера")
@@ -955,7 +956,7 @@ func (s *Server) GetHLRProvider(ctx context.Context, req *routingv1.GetHLRProvid
 
 	provider, err := s.hlrProviderRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == domain.ErrHLRProviderNotFound {
+		if errors.Is(err, domain.ErrHLRProviderNotFound) {
 			return nil, status.Error(codes.NotFound, "HLR провайдер не найден")
 		}
 		log.Error().Err(err).Msg("ошибка получения HLR-провайдера")
@@ -1103,13 +1104,13 @@ func (s *Server) RouteMessageWithHLR(ctx context.Context, req *routingv1.RouteMe
 		existingRouteID, existingProviderID,
 	)
 	if err != nil {
-		if err == domain.ErrNumberInvalid {
+		if errors.Is(err, domain.ErrNumberInvalid) {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
-		if err == domain.ErrNoMatchingRoute {
+		if errors.Is(err, domain.ErrNoMatchingRoute) {
 			return nil, status.Error(codes.NotFound, "no matching route found")
 		}
-		if err == domain.ErrNoProviders {
+		if errors.Is(err, domain.ErrNoProviders) {
 			return nil, status.Error(codes.NotFound, "no available providers")
 		}
 		log.Error().Err(err).Msg("ошибка маршрутизации с HLR")

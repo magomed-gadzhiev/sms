@@ -120,7 +120,7 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 - C.2 pgx error→500 sweep
 - ~~C.3 http.Error plain-text sweep~~ — DONE (см. ниже)
 - C.6 validation→500 в gRPC servers
-- C.7 errors.Is sweep (полный — отдельно от D.10a точечного фикса)
+- ~~C.7 errors.Is sweep~~ — DONE (см. ниже)
 - C.8 403 vs 404 info-disclosure unify
 - ~~C.9 DNS-rebinding bypass~~ — DONE (см. ниже)
 - C.10 jsonb []byte serialization sweep
@@ -184,8 +184,29 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 ## Открытые observations (после сессии 2026-05-01 третьей)
 
 - **D.10 bundle остаток:** RotateAPIKey endpoint (BLOCKED — нужен proto regen), webhook signature replay test (нужен time-travel mock или integration-стенд).
-- **C.7 полный errors.Is sweep** — ~20 callsites в `auth/grpc/server.go` + 14 в `client/grpc/server.go`. Отдельная сессия.
 - **proto regen блокер:** A.1 финальная чистка (DBScopeLoader → proto-вариант), D.1 (is_reseller/max_sub_accounts mapping), RotateAPIKey — все упёрлись в недоступность protoc на Windows под Device Guard. Нужно стратегическое решение (CI-regen / accept gateway-side / разовый Linux-regen).
+
+---
+
+### [DONE] C.7 — application/domain `errors.Is` sweep — сессия 2026-05-01 (четвёртая)
+
+**Скоуп:** `err == application.Err*` и `err == domain.Err*` в gRPC servers и application services. Из плана §4 C.7 — этот блок про sentinel'ы из application/domain, без `sql.ErrNoRows`/`pgx.ErrNoRows`/`redis.Nil` (это C.2, ~75 callsites, отдельный block).
+
+**Изменения:**
+- `internal/services/auth/grpc/server.go` — 16 sentinel-callsites (application: ErrAPIKeyInvalid, ErrInvalidCredentials×2, ErrUserInactive×2, ErrInvalidToken, ErrCurrentPasswordWrong, ErrPasswordTooShort, ErrPasswordSameAsOld, ErrPasswordMismatch, ErrPasswordResetRateLimit, ErrPasswordResetInvalid; domain: ErrTOTPAlreadyEnabled×2, ErrTOTPNotEnabled×2, ErrInvalidTOTPCode, ErrPasswordResetTokenUsed, ErrPasswordResetTokenExpired).
+- `internal/services/client/grpc/server.go` — 14 sentinel-callsites (ErrInvalidClientData, ErrClientNotFound×8, ErrConfigNotFound×2, ErrNotReseller, ErrSubAccountNotFound×3). + import `errors`.
+- `internal/services/routing/grpc/server.go` — 22 sentinel-callsites (ErrNoMatchingRoute×2, ErrNoProviders×2, ErrRouteNotFound×2, ErrCountryNotFound×3, ErrOperatorNotFound×3, ErrPrefixNotFound×2, ErrInvalidMSISDN, ErrHLRProviderUnavailable+ErrHLRLookupFailed compound, ErrHLRProviderNotFound×3, ErrNumberInvalid). + import `errors`.
+- `internal/services/billing/application/billing_service.go` — 2 callsites (compound с `&& firstID/secondID == toClientID`). + import `errors`.
+- `internal/services/billing/application/pricing_service.go` — 1 callsite (ErrPricingRuleNotFound). + import `errors`.
+- `internal/services/tarification/application/sender_service.go` — 1 callsite (ErrSenderRegistrationNotFound). + import `errors`.
+
+Total: ~56 callsites в 6 файлах.
+
+**Acceptance:** `grep -rE "err == application\.Err\w+|err == domain\.Err\w+" internal/ --include="*.go"` → **0**.
+
+**Bonus-наблюдение reviewer'а:** `err == authrepo.ErrUserNotFound:421,529` — repo-sentinel, вне application/domain scope, не трогали (это потенциально часть C.2 или отдельный repo-cleanup).
+
+**Review:** APPROVED 1 итерация (reviewer проверил completeness, compound-case `||`/`&&` preservation, единичный `errors` import per file).
 
 ---
 
