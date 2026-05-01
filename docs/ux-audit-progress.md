@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 30/30: E2E клиент→отправка→биллинг→отчёт (admin+user, fix + Infrastructure + QA full, 2026-05-01)
+
 ## [DONE] Этап 29/30: Cross-cutting error states + i18n + a11y (все 4 роли, fix + Infrastructure + QA full, 2026-05-01) — частичный, 1 фикс (1 MEDIUM a11y), 4 OBSERVATION'а
 
 [Summary] Inventory portal-frontend (TS+React+Vite production-build, nginx-served): 1 ErrorBoundary в `src/components/ErrorBoundary.tsx` (root-level через main.tsx), 1 i18n setup (`src/i18n/index.ts`, ru.json 142 строки, en.json 64 строки) — покрывают только public-layer (lending, pricing, features, about, contact, blog, docs). 158 TSX-файлов с кириллицей. 376 useTranslation()-hits — преимущественно на public. portal/admin страницы — hardcoded RU без i18n.
