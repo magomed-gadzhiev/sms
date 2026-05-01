@@ -117,13 +117,14 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 ## Накопительные паттерны (BLOCK C) — остатки
 
 - C.1 uuid.Parse без handler-pre-check (434 callsites, ~3-4 рабочих дня)
-- C.2 pgx error→500 sweep
+- ~~C.2 errors.Is sweep для sql/pgx/redis sentinel'ов~~ — DONE (см. ниже)
 - ~~C.3 http.Error plain-text sweep~~ — DONE (см. ниже)
 - C.6 validation→500 в gRPC servers
-- ~~C.7 errors.Is sweep~~ — DONE (см. ниже)
+- ~~C.7 errors.Is sweep (application/domain)~~ — DONE (см. ниже)
 - C.8 403 vs 404 info-disclosure unify
 - ~~C.9 DNS-rebinding bypass~~ — DONE (см. ниже)
 - C.10 jsonb []byte serialization sweep
+- C.2-wrap (separate task): WrapNotFound helper + переход на shared.ErrNotFound — НЕ сделано (это «pgx error→500» из основного описания плана §C.2; текущий sweep закрыл только sentinel-comparison, не error-mapping)
 
 Объём — основной BLOCK плана. Делать batch'ами в отдельных сессиях.
 
@@ -181,10 +182,12 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 
 ---
 
-## Открытые observations (после сессии 2026-05-01 третьей)
+## Открытые observations (после сессии 2026-05-02)
 
 - **D.10 bundle остаток:** RotateAPIKey endpoint (BLOCKED — нужен proto regen), webhook signature replay test (нужен time-travel mock или integration-стенд).
 - **proto regen блокер:** A.1 финальная чистка (DBScopeLoader → proto-вариант), D.1 (is_reseller/max_sub_accounts mapping), RotateAPIKey — все упёрлись в недоступность protoc на Windows под Device Guard. Нужно стратегическое решение (CI-regen / accept gateway-side / разовый Linux-regen).
+- **C.2-wrap (отдельный остаток C.2):** WrapNotFound helper + переход на `shared.ErrNotFound` для GET /portal/v1/messages/{несуществующий-uuid} → 404 (а не 500). Текущий C.2 sweep закрыл только sentinel-comparison паттерн, не HTTP error-mapping. Скоуп: ~10 PR-фрагментов по репозиториям + handlers.
+- **authrepo.ErrUserNotFound (~2 callsite в auth/grpc/server.go):** repo-level sentinel, остался после C.7. Можно подобрать к C.2-wrap или как отдельный мини-PR.
 
 ---
 
@@ -210,10 +213,42 @@ Total: ~56 callsites в 6 файлах.
 
 ---
 
+### [DONE] C.2 — sql.ErrNoRows / pgx.ErrNoRows / redis.Nil sweep — сессия 2026-05-02
+
+**Скоуп:** все `if err == X { ... }` для трёх runtime sentinel'ов: `sql.ErrNoRows`, `pgx.ErrNoRows`, `redis.Nil`. Pre-flight grep дал 91 callsite в 54 файлах internal/.
+
+**Стратегия:** разбито на 3 batch'а по слоям, каждый — отдельный коммит + субагент-ревью + check.sh PASS + push.
+
+**Batch 1** (commit `1b3bb09`): `internal/storage/*` — 6 файлов legacy `database/sql` репозиториев, 15 callsites (всё sql.ErrNoRows). Добавлен `errors` import во все 6 файлов.
+
+**Batch 2** (commit `5024b1e`): `internal/services/*/infrastructure/repository/*` — 36 файлов DDD-репозиториев, 62 callsites (всё sql.ErrNoRows). Добавлен `errors` import в 27 файлов (9 уже имели). Затронуты модули: auth, billing, campaign, client, contact, messaging, routing, tarification, template, webhook.
+
+**Batch 3** (commit `8a1bf3a`): остаток — admin/handlers (5 файлов, 7× sql.ErrNoRows), portal sse/schedules (2× pgx.ErrNoRows), routing route_repo/hlr_cache (1× pgx + 1× redis.Nil), session_manager + usage_tracker + shared/cache (3× redis.Nil). 12 файлов, 14 callsites. Добавлен `errors` import в 11 файлов (session_manager уже имел).
+
+**Acceptance** (главное):
+```
+grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" internal/ --include="*.go" | wc -l
+0
+```
+
+**Скоуп явно НЕ затронул** (зафиксировано в каждом review-брифе как out-of-scope):
+- `application.Err*` / `domain.Err*` — закрыто C.7.
+- `authrepo.ErrUserNotFound` (auth/grpc/server.go:421,529) — repo-level sentinel, отдельная задача.
+- WrapNotFound helper / shared.ErrNotFound mapping — другая задача из основного описания плана §C.2 («pgx error→500»). Этот sweep закрыл только sentinel-comparison паттерн, не error-mapping в HTTP-ответ. Открытый item.
+
+**Особо ценно для redis.Nil:** go-redis v9 в pipeline-режимах оборачивает Nil — `errors.Is` это документированная идиома, sweep даёт защиту от silent skip cache-miss веток.
+
+**Жертвы:** один монолитный коммит (~91 правки в 54 файлах) был бы непрожёвываем для review-субагента. Разбиение на 3 batch'а добавило +2 ревью-цикла, но каждый прошёл APPROVED с первой итерации, completeness-grep отработал в каждом.
+
+**Review:** APPROVED 1 итерация × 3 batch'а.
+
+---
+
 ## Quality gates по сессии
 
 - `./scripts/check.sh` — PASS на всех коммитах. ESLint warnings без изменений (56, baseline 69).
 - Go-чеки: skipped локально (Device Guard). CI валидирует строго.
+- C.2 sweep (3 batch'а, 91 правка в 54 файлах): check.sh PASS после каждого batch'а. Final acceptance grep → 0.
 
 ---
 
