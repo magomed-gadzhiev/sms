@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 26/30: Aggregator — /network/* + sub-accounts (aggregator, fix + Infrastructure + QA full, 2026-05-01)
+
 ## [DONE] Этап 25/30: User — api-keys + webhooks + notifications (user, fix + Infrastructure + QA full, 2026-05-01) — частичный (3 бага исправлено: 1 CRITICAL + 2 HIGH)
 
 [Summary] 14 TC прогнаны через API+SQL: TC-1 c1 CreateAPIKey happy → 201 + plaintext key (one-shot) PASS; TC-2 c2 CreateAPIKey happy PASS; TC-3 plaintext в БД? — нет, key_hash=SHA-256/64 hex chars PASS; TC-4 c1 GET /api-keys/{c2 id} → 404 PASS (фильтрация через ListByUserID); TC-5 c1 PUT /api-keys/{c2 id} → 403 "not owned" PASS (UpdateAPIKey уже ownership-checked); **TC-6 c1 DELETE /api-keys/{c2 id} → 204 + БД active=false [BUG-76 CRITICAL IDOR]**; TC-7 invalid UUID на /api-keys/{x} DELETE → 400 PASS (auth-grpc проверяет); TC-W1 webhook https://localhost → 500 [BUG-77]; TC-W2/3/4 webhook 169.254/10.0/192.168 → 500 [тот же BUG-77]; TC-W5 webhook file://... → 400 PASS (scheme guard работает); TC-W6 webhook https://example.com — event_type=message.delivered → 400 (whitelist {delivered,failed,expired,rejected}) PASS; TC-W7 webhook example.com event_type=delivered → 201 + secret one-shot PASS; TC-W8 c1 cross-tenant DELETE c2 webhook → 404 PASS (webhook-service применяет client_id фильтр); TC-W9 webhook secret НЕ возвращается в list/get PASS; TC-N1 POST /notifications/not-a-uuid/read → 500 + raw "ERROR: invalid input syntax... (SQLSTATE 22P02)" в body [BUG-78].
