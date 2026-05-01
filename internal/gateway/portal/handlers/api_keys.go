@@ -128,7 +128,11 @@ func (h *APIKeyHandlers) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	// Публикуем audit event
 	if h.auditPublisher != nil {
-		event := audit.NewAuditEvent("", userID.String(), audit.ActionAPIKeyCreated, audit.ResourceAPIKey, resp.ApiKeyId)
+		clientIDStr := ""
+		if cid, ok := middleware.GetClientID(r.Context()); ok {
+			clientIDStr = cid.String()
+		}
+		event := audit.NewAuditEvent(clientIDStr, userID.String(), audit.ActionAPIKeyCreated, audit.ResourceAPIKey, resp.ApiKeyId)
 		event.IPAddress = getIPAddress(r)
 		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
 			log.Error().Err(err).Msg("ошибка публикации audit event")
@@ -225,7 +229,11 @@ func (h *APIKeyHandlers) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	// Публикуем audit event
 	if h.auditPublisher != nil {
-		event := audit.NewAuditEvent("", userID.String(), audit.ActionAPIKeyRevoked, audit.ResourceAPIKey, keyID)
+		clientIDStr := ""
+		if cid, ok := middleware.GetClientID(r.Context()); ok {
+			clientIDStr = cid.String()
+		}
+		event := audit.NewAuditEvent(clientIDStr, userID.String(), audit.ActionAPIKeyRevoked, audit.ResourceAPIKey, keyID)
 		event.IPAddress = getIPAddress(r)
 		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
 			log.Error().Err(err).Msg("ошибка публикации audit event")
@@ -311,9 +319,15 @@ func (h *APIKeyHandlers) UpdateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	// Публикуем audit event
 	if h.auditPublisher != nil {
-		event := audit.NewAuditEvent("", userID.String(), "api_key.updated", audit.ResourceAPIKey, keyID)
+		clientIDStr := ""
+		if cid, ok := middleware.GetClientID(r.Context()); ok {
+			clientIDStr = cid.String()
+		}
+		event := audit.NewAuditEvent(clientIDStr, userID.String(), audit.ActionAPIKeyUpdated, audit.ResourceAPIKey, keyID)
 		event.IPAddress = getIPAddress(r)
-		h.auditPublisher.Publish(r.Context(), event)
+		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
+			log.Error().Err(err).Msg("ошибка публикации audit event")
+		}
 	}
 
 	respondJSON(w, http.StatusOK, result)

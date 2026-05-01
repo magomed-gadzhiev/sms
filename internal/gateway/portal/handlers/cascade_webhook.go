@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 // CascadeWebhookHandlers обрабатывает входящие webhook от каналов (flash call, reverse call)
@@ -40,7 +41,7 @@ func (h *CascadeWebhookHandlers) FlashCallWebhook(w http.ResponseWriter, r *http
 	var body FlashCallWebhookBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		h.logger.Warn().Err(err).Str("attempt_id", attemptID).Msg("неверное тело webhook")
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		respondError(w, shared.ErrInvalidInput("неверное тело запроса"))
 		return
 	}
 
@@ -61,7 +62,7 @@ func (h *CascadeWebhookHandlers) FlashCallWebhook(w http.ResponseWriter, r *http
 
 	if err := h.producer.PublishAttemptResult(r.Context(), evt); err != nil {
 		h.logger.Error().Err(err).Str("attempt_id", attemptID).Msg("ошибка публикации результата flash call")
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		respondError(w, shared.ErrInternalServer("ошибка обработки webhook"))
 		return
 	}
 

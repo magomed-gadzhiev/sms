@@ -23,11 +23,36 @@ type DeliveryClient struct {
 	httpClient *http.Client
 }
 
-func NewDeliveryClient(timeout time.Duration) *DeliveryClient {
+// DeliveryOption configures a DeliveryClient.
+type DeliveryOption func(*deliveryConfig)
+
+type deliveryConfig struct {
+	allowPrivateIPs bool
+}
+
+// WithAllowPrivateIPs disables the private-IP guard in DialContext. ONLY for
+// tests that hit httptest.NewServer (which always binds to 127.0.0.1). Never
+// pass this in production: it re-opens the SSRF / DNS-rebinding hole.
+func WithAllowPrivateIPs() DeliveryOption {
+	return func(c *deliveryConfig) { c.allowPrivateIPs = true }
+}
+
+func NewDeliveryClient(timeout time.Duration, opts ...DeliveryOption) *DeliveryClient {
+	cfg := deliveryConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	var dialFn func(ctx context.Context, network, addr string) (net.Conn, error)
+	if cfg.allowPrivateIPs {
+		dialFn = dialer.DialContext
+	} else {
+		dialFn = safeDialContext(dialer)
+	}
+
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).DialContext,
+		DialContext:         dialFn,
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
 		IdleConnTimeout:     90 * time.Second,
@@ -86,7 +111,61 @@ func signPayload(payload []byte, secret string) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// ValidateURL checks that a URL is HTTPS and not targeting private IPs
+// isUnsafeIP reports whether ip points at a private/internal/loopback/link-local
+// address that webhook delivery must never reach.
+func isUnsafeIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() ||
+		ip.IsUnspecified()
+}
+
+// safeDialContext returns a DialContext that resolves the hostname at the moment
+// of dialling, rejects any private/internal address (closing the DNS-rebinding
+// gap between ValidateURL and the actual TCP connection), and then dials by
+// IP literal. The original hostname remains in req.URL, so HTTPS SNI and the
+// HTTP Host header are unaffected.
+func safeDialContext(base *net.Dialer) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		// addr already an IP literal — validate and dial directly.
+		if ip := net.ParseIP(host); ip != nil {
+			if isUnsafeIP(ip) {
+				return nil, domain.ErrPrivateURL
+			}
+			return base.DialContext(ctx, network, addr)
+		}
+
+		// Hostname: re-resolve here (separate call from ValidateURL to defend
+		// against DNS rebinding) and reject if any returned IP is private.
+		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("dns lookup failed: %w", err)
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no IPs resolved for %s", host)
+		}
+		for _, ipa := range ips {
+			if isUnsafeIP(ipa.IP) {
+				return nil, domain.ErrPrivateURL
+			}
+		}
+
+		ipAddr := net.JoinHostPort(ips[0].IP.String(), port)
+		return base.DialContext(ctx, network, ipAddr)
+	}
+}
+
+// ValidateURL checks that a URL is syntactically a public HTTPS endpoint.
+// It does NOT resolve DNS — that responsibility belongs to safeDialContext
+// at delivery time (single source of truth for IP-level checks, robust
+// against DNS rebinding between create and deliver).
 func ValidateURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -100,17 +179,18 @@ func ValidateURL(rawURL string) error {
 	}
 
 	host := u.Hostname()
-	// Block private/internal ranges
+	// Block obvious private/internal hostnames.
 	privateHosts := []string{"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 	for _, ph := range privateHosts {
 		if strings.EqualFold(host, ph) {
 			return domain.ErrPrivateURL
 		}
 	}
-	// Block 10.x, 172.16-31.x, 192.168.x, 169.254.x
-	ip := net.ParseIP(host)
-	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
-		return domain.ErrPrivateURL
+	// IP literal — block if private/loopback/link-local.
+	if ip := net.ParseIP(host); ip != nil {
+		if isUnsafeIP(ip) {
+			return domain.ErrPrivateURL
+		}
 	}
 	return nil
 }

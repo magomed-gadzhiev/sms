@@ -560,14 +560,14 @@ func (h *MessageHandlers) StreamMessages(w http.ResponseWriter, r *http.Request)
 	}
 
 	if h.sseHub == nil {
-		http.Error(w, "SSE недоступен", http.StatusServiceUnavailable)
+		respondError(w, shared.ErrServiceUnavailable("SSE недоступен"))
 		return
 	}
 
 	// Ensure the ResponseWriter supports flushing.
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "Streaming не поддерживается", http.StatusInternalServerError)
+		respondError(w, shared.ErrInternalServer("Streaming не поддерживается"))
 		return
 	}
 

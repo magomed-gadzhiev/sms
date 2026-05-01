@@ -118,16 +118,74 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 
 - C.1 uuid.Parse без handler-pre-check (434 callsites, ~3-4 рабочих дня)
 - C.2 pgx error→500 sweep
-- C.3 http.Error plain-text sweep (5 callsites)
-- C.4 Дублирующие handler-level checkReseller cleanup
-- C.5 401→403 для /reseller/*
+- ~~C.3 http.Error plain-text sweep~~ — DONE (см. ниже)
 - C.6 validation→500 в gRPC servers
-- C.7 errors.Is sweep
+- C.7 errors.Is sweep (полный — отдельно от D.10a точечного фикса)
 - C.8 403 vs 404 info-disclosure unify
-- C.9 DNS-rebinding bypass в webhook ValidateURL
+- ~~C.9 DNS-rebinding bypass~~ — DONE (см. ниже)
 - C.10 jsonb []byte serialization sweep
 
 Объём — основной BLOCK плана. Делать batch'ами в отдельных сессиях.
+
+---
+
+### [DONE] C.3 — http.Error plain-text sweep (5 callsites) — сессия 2026-05-01 (третья)
+
+**Изменения:**
+- `internal/gateway/portal/handlers/auth.go:326` — CSRF-ген ошибка → `shared.ErrInternalServer`.
+- `internal/gateway/portal/handlers/cascade_webhook.go:43,64` — invalid body → `ErrInvalidInput`; publish-error → `ErrInternalServer`. + import `shared`.
+- `internal/gateway/portal/handlers/messages.go:563,570` — SSE недоступен → `ErrServiceUnavailable`; flusher-fail → `ErrInternalServer`.
+- `internal/gateway/portal/handlers/ws_messages.go:53` — pre-upgrade unauthorized → `ErrUnauthorized`. + import `shared`.
+
+**Acceptance:** `grep -rn "http\.Error(" internal/gateway/portal/ --include="*.go"` → **0**.
+
+**Review:** APPROVED 1 итерация.
+
+---
+
+### [DONE] C.9 — DNS-rebinding защита через runtime safe-DialContext — сессия 2026-05-01 (третья)
+
+**Отступление от плана (§4 C.9):** план предписывал хранить resolved IP в `webhook_subscriptions.resolved_ip` (БД-миграция). Реализовано лучше — runtime защита без миграции:
+- `safeDialContext` resolve-ит hostname **на каждый dial** через `net.DefaultResolver.LookupIPAddr`, отбраковывает любой private/loopback/link-local/unspecified IP, далее dial по IP-литералу.
+- TLS SNI и HTTP Host header сохраняются (URL.Host остаётся hostname).
+- Закрывает rebinding-gap полностью (проверка происходит в момент TCP-dial).
+- Бонус: легитимные публичные домены с rotated IP не блокируются устаревшим saved_ip.
+
+**Изменения:**
+- `internal/services/webhook/infrastructure/http/delivery_client.go` — добавлены `safeDialContext`, `isUnsafeIP` helper, `WithAllowPrivateIPs()` test-only option (variadic). `NewDeliveryClient` по умолчанию ставит safe-dial. `ValidateURL` оставлен синтаксическим (HTTPS-схема, длина, IP-literal blocklist) — DNS-resolve вынесен на dial-time, single source of truth.
+- `internal/services/webhook/infrastructure/http/delivery_client_test.go` — добавлены 4 теста: `TestSafeDialContext_RejectsLoopbackIPLiteral`, `TestSafeDialContext_RejectsRFC1918IPLiterals` (включая 169.254.169.254 metadata + IPv6 ::1), `TestSafeDialContext_RejectsHostnameResolvingToLoopback`, `TestNewDeliveryClient_DefaultRejectsLoopback` (regression-guard на default-strict). Существующие httptest-based тесты получили `WithAllowPrivateIPs()` (httptest всегда на 127.0.0.1).
+
+**Жертвы:** +1 DNS-resolve на каждое webhook-delivery (ранее resolve был только разово в Transport-internal). Performance hit ~ms — приемлемо.
+
+**Review:** APPROVED 1 итерация.
+
+---
+
+### [DONE] D.10a — UpdateAPIKey gRPC handler errors.Is — сессия 2026-05-01 (третья)
+
+**Изменения:**
+- `internal/services/auth/grpc/server.go:362-368` — три `err == application.ErrAPIKey*` → `errors.Is(err, application.ErrAPIKey*)`. Скоуп точечный (D.10 пункт), полный sweep по auth/grpc и client/grpc (~20 callsites) — это C.7, отдельная задача.
+
+**Review:** APPROVED 1 итерация.
+
+---
+
+### [DONE] D.10b — API-key audit ClientID="" + ActionAPIKeyUpdated — сессия 2026-05-01 (третья)
+
+**Изменения:**
+- `internal/gateway/portal/handlers/api_keys.go` — Create/Revoke/Update теперь подтягивают clientID из `middleware.GetClientID(ctx)` и передают в `audit.NewAuditEvent`. Empty-string fallback оставлен (admin без clientID — реальный кейс по `session_auth.go:93`).
+- `internal/gateway/portal/handlers/api_keys.go::UpdateAPIKey` — string-literal action `"api_key.updated"` → константа `audit.ActionAPIKeyUpdated`. Игнорирование `Publish` error → логгирование (как в Create/Revoke, единообразие).
+- `internal/shared/audit/event.go:20` — добавлена `ActionAPIKeyUpdated = "api_key.updated"` константа.
+
+**Review:** APPROVED 1 итерация.
+
+---
+
+## Открытые observations (после сессии 2026-05-01 третьей)
+
+- **D.10 bundle остаток:** RotateAPIKey endpoint (BLOCKED — нужен proto regen), webhook signature replay test (нужен time-travel mock или integration-стенд).
+- **C.7 полный errors.Is sweep** — ~20 callsites в `auth/grpc/server.go` + 14 в `client/grpc/server.go`. Отдельная сессия.
+- **proto regen блокер:** A.1 финальная чистка (DBScopeLoader → proto-вариант), D.1 (is_reseller/max_sub_accounts mapping), RotateAPIKey — все упёрлись в недоступность protoc на Windows под Device Guard. Нужно стратегическое решение (CI-regen / accept gateway-side / разовый Linux-regen).
 
 ---
 

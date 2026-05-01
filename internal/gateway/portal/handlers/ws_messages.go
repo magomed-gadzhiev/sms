@@ -11,6 +11,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/sse"
+	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
 var wsUpgrader = websocket.Upgrader{
@@ -50,7 +51,7 @@ type wsMessageEvent struct {
 func (h *WsMessagesHandlers) StreamMessages(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
 	}
 

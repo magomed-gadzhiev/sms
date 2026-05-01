@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,7 +56,7 @@ func TestDeliver_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewDeliveryClient(5 * time.Second)
+	client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
 	sub := testSubscription(server.URL)
 	event := testEvent()
 
@@ -84,7 +86,7 @@ func TestDeliver_HMACSignature(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewDeliveryClient(5 * time.Second)
+	client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
 	sub := testSubscription(server.URL)
 	event := testEvent()
 
@@ -112,7 +114,7 @@ func TestDeliver_UsesPostMethod(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewDeliveryClient(5 * time.Second)
+	client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
 	err := client.Deliver(context.Background(), testSubscription(server.URL), testEvent())
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodPost, method)
@@ -141,7 +143,7 @@ func TestDeliver_Non2xxStatus(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewDeliveryClient(5 * time.Second)
+			client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
 			err := client.Deliver(context.Background(), testSubscription(server.URL), testEvent())
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "webhook delivery failed")
@@ -158,7 +160,7 @@ func TestDeliver_2xxStatusCodes(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewDeliveryClient(5 * time.Second)
+			client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
 			err := client.Deliver(context.Background(), testSubscription(server.URL), testEvent())
 			require.NoError(t, err)
 		})
@@ -166,7 +168,7 @@ func TestDeliver_2xxStatusCodes(t *testing.T) {
 }
 
 func TestDeliver_ConnectionRefused(t *testing.T) {
-	client := NewDeliveryClient(2 * time.Second)
+	client := NewDeliveryClient(2*time.Second, WithAllowPrivateIPs())
 	// Connect to a port that's certainly not listening
 	sub := testSubscription("https://127.0.0.1:1")
 	err := client.Deliver(context.Background(), sub, testEvent())
@@ -181,7 +183,7 @@ func TestDeliver_ContextCanceled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewDeliveryClient(10 * time.Second)
+	client := NewDeliveryClient(10*time.Second, WithAllowPrivateIPs())
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
@@ -200,7 +202,7 @@ func TestDeliver_DoesNotFollowRedirects(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewDeliveryClient(5 * time.Second)
+	client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
 	err := client.Deliver(context.Background(), testSubscription(server.URL), testEvent())
 	// 302 is not 2xx, so it should be an error
 	require.Error(t, err)
@@ -315,8 +317,56 @@ func TestValidateURL_AcceptsPublicIPs(t *testing.T) {
 // ─── NewDeliveryClient ──────────────────────────────────────────────────────
 
 func TestNewDeliveryClient_SetsTimeout(t *testing.T) {
-	client := NewDeliveryClient(15 * time.Second)
+	client := NewDeliveryClient(15*time.Second, WithAllowPrivateIPs())
 	assert.NotNil(t, client)
 	assert.NotNil(t, client.httpClient)
 	assert.Equal(t, 15*time.Second, client.httpClient.Timeout)
+}
+
+// ─── safeDialContext (DNS-rebinding guard) ──────────────────────────────────
+
+func TestSafeDialContext_RejectsLoopbackIPLiteral(t *testing.T) {
+	dial := safeDialContext(&net.Dialer{Timeout: time.Second})
+	_, err := dial(context.Background(), "tcp", "127.0.0.1:1")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, domain.ErrPrivateURL),
+		"expected ErrPrivateURL, got %v", err)
+}
+
+func TestSafeDialContext_RejectsRFC1918IPLiterals(t *testing.T) {
+	dial := safeDialContext(&net.Dialer{Timeout: time.Second})
+	addrs := []string{
+		"10.0.0.1:443",
+		"172.16.0.1:443",
+		"192.168.1.1:443",
+		"169.254.169.254:80", // AWS/GCP metadata
+		"[::1]:443",
+	}
+	for _, addr := range addrs {
+		t.Run(addr, func(t *testing.T) {
+			_, err := dial(context.Background(), "tcp", addr)
+			require.Error(t, err)
+			assert.True(t, errors.Is(err, domain.ErrPrivateURL),
+				"expected ErrPrivateURL, got %v", err)
+		})
+	}
+}
+
+func TestSafeDialContext_RejectsHostnameResolvingToLoopback(t *testing.T) {
+	dial := safeDialContext(&net.Dialer{Timeout: time.Second})
+	// localhost resolves to 127.0.0.1 / ::1 — must be rejected at dial time.
+	_, err := dial(context.Background(), "tcp", "localhost:443")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, domain.ErrPrivateURL),
+		"expected ErrPrivateURL, got %v", err)
+}
+
+func TestNewDeliveryClient_DefaultRejectsLoopback(t *testing.T) {
+	// Without WithAllowPrivateIPs the default DialContext blocks 127.0.0.1.
+	client := NewDeliveryClient(2 * time.Second)
+	sub := testSubscription("https://127.0.0.1:1")
+	err := client.Deliver(context.Background(), sub, testEvent())
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, domain.ErrPrivateURL),
+		"expected ErrPrivateURL, got %v", err)
 }

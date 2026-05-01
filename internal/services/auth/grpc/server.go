@@ -359,13 +359,13 @@ func (s *Server) UpdateAPIKey(ctx context.Context, req *authv1.UpdateAPIKeyReque
 
 	key, err := s.authService.UpdateAPIKey(ctx, keyID, userID, req.Name, req.Scopes, req.AllowedIps, expiresAt)
 	if err != nil {
-		if err == application.ErrAPIKeyNotFound {
+		if errors.Is(err, application.ErrAPIKeyNotFound) {
 			return nil, status.Error(codes.NotFound, "API key not found")
 		}
-		if err == application.ErrAPIKeyNotOwned {
+		if errors.Is(err, application.ErrAPIKeyNotOwned) {
 			return nil, status.Error(codes.PermissionDenied, "API key does not belong to user")
 		}
-		if err == application.ErrAPIKeyRevoked {
+		if errors.Is(err, application.ErrAPIKeyRevoked) {
 			return nil, status.Error(codes.FailedPrecondition, "API key is revoked")
 		}
 		log.Error().Err(err).Msg("ошибка обновления API ключа")

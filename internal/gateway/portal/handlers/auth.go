@@ -323,7 +323,7 @@ func setSessionCookies(w http.ResponseWriter, sessionID string) bool {
 	csrfBytes := make([]byte, 32)
 	if _, err := rand.Read(csrfBytes); err != nil {
 		// crypto/rand failure is a critical system error
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		respondError(w, shared.ErrInternalServer("ошибка генерации CSRF-токена"))
 		return false
 	}
 	csrfToken := hex.EncodeToString(csrfBytes)
