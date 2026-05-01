@@ -2,7 +2,84 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 26/30: Aggregator — /network/* + sub-accounts (aggregator, fix + Infrastructure + QA full, 2026-05-01)
+## [DONE] Этап 26/30: Aggregator — /network/* + sub-accounts (aggregator, fix + Infrastructure + QA full, 2026-05-01) — частичный (3 бага исправлено: 3 HIGH)
+
+[Summary] 30+ TC прогнаны через API+SQL: TC-1 list happy PASS; TC-2 cross-aggregator GET /sub-accounts/{other-sub-id} → 404 PASS; TC-3 invalid UUID → 400 PASS; TC-4 parent_client_id-injection в body → silently ignored, sub-account создан под self PASS; TC-5 happy CreateSubAccount + initial_balance transfer PASS; TC-6 max_sub_accounts: лимит 50, не достигли — пропущено; **TC-7 duplicate email POST → 201 [BUG-80]**; TC-7b empty email → 201 PASS (back-compat); **TC-7c invalid email "notanemail" → 201 [BUG-80]**; TC-8 happy balance transfer PASS; TC-9 negative amount → 400 PASS; TC-9b zero → 400 PASS; TC-9c NaN → 400 PASS; TC-10 amount > parent balance → 400 "insufficient balance" PASS; TC-11 cross-aggregator topup → 404 PASS; TC-CR-1..5 cross-aggregator IDOR (messages/analytics/api-keys/UpdateLimits/DELETE) → все 404 PASS; TC-CR-6/7 invalid UUID на /transfer и /limits → 400 PASS; TC-D1 reseller dashboard PASS; TC-D2..D5 sender-names/templates/moderation/op-registrations PASS; **TC-D7 GET /reseller/routing/routes → 500 "ERROR: column cr.country_id does not exist (SQLSTATE 42703)" [BUG-81]**; TC-D8 tariff-overview без sub_account_id → 400 PASS; TC-D11 tariff-overview happy PASS; TC-D14/15 invalid UUID на /reseller/sender-names/{x}/approve и /templates/{x}/approve → 404 "не найдено" вместо 400 (OBSERVATION pattern BUG-64); TC-D17 /network/tariffs/subaccounts-summary PASS; TC-D19 bulk-assign cross-tenant filter PASS; TC-12 transactions PASS; TC-12b/12c messages/analytics PASS; TC-13a/b/c api-keys/webhooks/campaigns sub-resource PASS; TC-L1 negative limits → 400 PASS; TC-L2 happy update → 200 PASS; **TC-L3 GET /sub-accounts (LIST) — daily_limit=0, monthly_limit=0 хотя в БД лимиты выставлены [BUG-79]**; TC-Q1/Q2 quota PASS (null OK для seed без plan); TC-N1..N3 analytics-summary/monitoring/drilldown PASS (drilldown требует slice_type — корректная валидация); TC-S1/S2 dashboard period=invalid и statistics date_from=not-a-date silent default (OBSERVATION).
+
+3 HIGH (BUG-79/80/81) исправлены одним PR через /execute-with-review (commit 59d4c37, 2 review-цикла, code-reviewer APPROVED после iter2 с email-нормализацией). Re-test всех 3 фиксов + регрессия PASS.
+
+[BUG LIST]
+
+BUG-79: GET /sub-accounts (LIST) и GET /sub-accounts/{id} возвращают daily_limit=0, monthly_limit=0 несмотря на установленные лимиты — Severity: HIGH — Категория: Functional / Data display
+  Шаги: c2 POST /sub-accounts {"name":"X","daily_limit":1000,"monthly_limit":10000} → 201 OK. Затем GET /sub-accounts/{id} → daily_limit:0, monthly_limit:0.
+  Ожидалось: daily_limit:1000, monthly_limit:10000.
+  Получалось: 0/0 для всех sub-accounts во всех ответах LIST/GET. БД при этом содержит rate_limit_per_day=1000 и settings={"monthly_limit":"10000"} в client_configs.
+  Корень: SubAccountRepository.ListByParentID/GetSubAccount делали SELECT только из `clients`, не из `client_configs` (отдельная таблица). domain.Client.Config оставался nil. internal/services/client/grpc/server.go::domainClientToSubAccount читает client.Config.RateLimitPerDay только если Config != nil → возвращал 0. UpdateLimits возвращает корректное значение, потому что свежесозданный protobuf формирует SubAccount с непустым Config.
+  Доказательство: TC-L3 + SQL запрос `SELECT cc.client_id, cc.rate_limit_per_day, cc.settings FROM client_configs cc` показывает реальные значения.
+  Импакт: пользователь устанавливает лимиты при создании суб-аккаунта (или через PUT /limits), затем UI всегда показывает 0/0 и не может проверить, что лимиты применены. Под-капотом лимиты в БД присутствуют и применяются на pipeline-уровне, но UX-обманка серьёзная: реселлер думает, что суб-аккаунт без ограничений.
+  Фикс: 59d4c37 — LEFT JOIN с client_configs в обоих SELECT (ListByParentID + GetSubAccount), scan rate_limit_per_day и settings (jsonb) → заполнение domain.Client.Config двумя полями, нужными mapper'у. sql.NullInt64/NullString для NULL-safety.
+
+BUG-80: CreateSubAccount принимает невалидный/дубликатный email — Severity: HIGH — Категория: Functional / Data integrity
+  Шаги:
+    a) c2 POST /sub-accounts {"name":"X","email":"notanemail"} → 201 (email "notanemail" сохранён в БД).
+    b) c2 POST /sub-accounts {"name":"X","email":"subby1@demo.local"}, c2 POST {"name":"Y","email":"subby1@demo.local"} → оба 201.
+  Ожидалось: a) 400 INVALID_INPUT "invalid email format"; b) второй POST → 409 CONFLICT.
+  Получалось: оба сценария принимаются без проверок.
+  Корень: handler validates только `name != ""`. SubAccountService не имел email regex и не имел uniqueness check; в БД нет UNIQUE constraint на (parent_client_id, email).
+  Доказательство: TC-7/7c — 4 sub-accounts с одинаковым email под одним parent в БД.
+  Импакт: 1) email используется для login суб-аккаунта (этап 27 проверка) → ambiguity; 2) email-уведомления (low-balance, security alerts) уйдут на одного из дубликатов случайно; 3) "notanemail" → undefined behaviour любого SMTP-клиента.
+  Фикс: 59d4c37 — emailRegex `^[^@\s]+@[^@\s]+\.[^@\s]+$`, ExistsByEmailUnderParent (lower(email) match без active=true filter — soft-deleted "бронирует" слот, иначе delete+recreate даёт 2 строки), trim+lowercase нормализация email до dup-check и до записи в БД (mixed-case "Foo@x" и "foo@x" больше не создают ambiguity). ErrInvalidEmail → codes.InvalidArgument → 400; ErrEmailExists → codes.AlreadyExists → 409.
+  TOCTOU race открыт (см. OBSERVATION-1).
+
+BUG-81: GET /portal/v1/reseller/routing/routes → 500 INTERNAL_ERROR на любом запросе — Severity: HIGH — Категория: Functional / SQL schema drift
+  Шаги: c2 GET /portal/v1/reseller/routing/routes (без параметров) → 500.
+  Ожидалось: 200 + список маршрутов (или []).
+  Получалось: 500 INTERNAL_ERROR. portal-gateway лог: `ERROR: column cr.country_id does not exist (SQLSTATE 42703)`.
+  Корень: handler SELECT `cr.country_id FROM client_routes cr`, но столбец `country_id` никогда не существовал в client_routes (см. migration 000038); признак страны живёт в `route_condition_groups`. Frontend NetworkRoutingPage.tsx ожидает `country_id: string | null` и рендерит '—' при null.
+  Доказательство: TC-D7 + лог + `\d client_routes`.
+  Импакт: страница /portal/network/routing полностью сломана для всех агрегаторов, т.к. это GET-запрос без параметров и любой aggregator со 0+ subaccounts и 0+ routes ловит 500. NetworkRoutingPage.tsx рендерит ошибочное состояние.
+  Фикс: 59d4c37 — `NULL::uuid AS country_id` в SELECT (backward-compat для frontend, который рендерит '—' при null). Honest JOIN с route_condition_groups → отдельная инициатива (см. OBSERVATION-2: clean JOIN, который выбирает одну страну на route, нетривиален — conditions[] разнородны: country/operator/sender_name/etc).
+
+[OBSERVATION-1] BUG-80 TOCTOU race (UNIQUE INDEX миграция эскалирована) — Severity: MEDIUM — Категория: Concurrency / Data integrity
+  Application-level dup-check имеет TOCTOU race: два параллельных POST с одинаковым email оба пройдут ExistsByEmailUnderParent и оба создадут sub-account. Реалистичная вероятность низкая (один оператор UI, один parent, один email, sub-millisecond окно), но это billing/identity surface. Правильное закрытие — partial UNIQUE INDEX `(parent_client_id, lower(email)) WHERE email IS NOT NULL`. Per spec §5.4 миграция БД требует эскалации пользователю — отдельный канал. Перед применением: pre-cleanup существующих дубликатов через `SELECT parent_client_id, lower(email), count(*) FROM clients WHERE parent_client_id IS NOT NULL AND email <> '' GROUP BY 1,2 HAVING count(*)>1`.
+
+[OBSERVATION-2] BUG-81 country_id "always NULL" — Severity: LOW — Категория: Feature gap (not regression)
+  После фикса GET /reseller/routing/routes возвращает 200 с `country_id: null` для всех routes — страница /portal/network/routing показывает '—' в колонке "Страна" вместо реальных значений. Это не регрессия (раньше было 500, страница вообще не рендерилась), но silent feature absence. Чтобы вернуть страну, нужен JOIN с route_condition_groups + выбор одной страны на route — нетривиально, поскольку conditions[] могут быть разнородные (country/operator/sender_name/etc). Кандидат на отдельный stage с дизайном.
+
+[OBSERVATION-3] BUG-64 pattern в reseller-moderation — Severity: COSMETIC — Категория: BUG-64 invalid-uuid-handler-precheck pattern
+  TC-D14/D15: /reseller/sender-names/not-a-uuid/approve и /reseller/templates/not-a-uuid/approve → 404 "не найдено" вместо 400 INVALID_INPUT. Pre-existing pattern с 434 вхождениями в 48 файлах — отдельный систематический refactor (см. progress-файл, "Накопительные паттерны").
+
+[OBSERVATION-4] /reseller/dashboard period=invalid silent default — Severity: COSMETIC — Категория: Validation
+  TC-S1: GET /reseller/dashboard?period=invalid → 200 + period:"today". Без 400 на whitelist — fallback. Не блокер, но непоследовательно с /analytics, который на этапе 24 жёстко 400 на invalid period (whitelist 7d/30d/90d/365d/custom).
+
+[OBSERVATION-5] /reseller/statistics date_from=not-a-date silent ignore — Severity: COSMETIC — Категория: Validation
+  TC-S2: GET /reseller/statistics?date_from=not-a-date → 200 (ошибка проигнорирована). Аналог BUG-74 но другой endpoint. Bundle с network-stats cleanup-PR (5 раундов в прошлом — 6-й накопительный pattern).
+
+[OBSERVATION-6] CreateSubAccount не возвращает password или способ логина — Severity: НЕ ПРОВЕРЕНО — Категория: UX / Onboarding
+  Response create_sub_account: {id,name,email,daily_limit,monthly_limit,...}. password не возвращается, email не отправляется (наблюдение через docker logs). Sub-account созданный через API не имеет login-credentials до тех пор, пока какой-то отдельный mechanism не присвоит password (welcome-email? отдельный admin-flow?). Это блокер для этапа 27 (subaccount login). Эскалация архитектурной фичи: либо password generates на бэке + email-flow, либо sub-account password-set отдельный endpoint.
+
+[OBSERVATION-7] BUG-67/68 cross-aggregator pattern для tariff/routing override — Severity: НЕ ПРОВЕРЕНО — Категория: Cross-aggregator IDOR
+  Tariff override и routing override через /reseller/tariff-templates/{id}/assign и /reseller/routing/bulk-assign — TC-D19 показал ownership-check на bulk-assign (cross-tenant sub_account_id отбрасывается с error "субаккаунт не найден"). Аналогичный check на /reseller/tariff-templates/{id}/assign/{sub_account_id} НЕ ПРОВЕРЕН — данных нет (templates пустые на стенде). Кандидат на расширение тестов когда стенд получит tariff-data.
+
+[OBSERVATION-8] Sub-account suspension не отключает SMPP-сессии и REST-токены — Severity: НЕ ПРОВЕРЕНО — Категория: Security / Session lifecycle
+  preexisting risk из плана этапа 26. Не воспроизведено: на стенде sub-accounts не имели активных SMPP сессий или REST API-key. Кандидат на E2E этапа 30.
+
+[OBSERVATION-9] Defense-in-depth: parent_client_id из body silently ignored — Severity: COSMETIC (positive but silent) — Категория: API contract clarity
+  TC-4: POST /sub-accounts с {"parent_client_id":"<other-reseller-id>","..."} → 201 + sub-account создан под self (parent из контекста сессии). handler не валидирует body parent_client_id и не возвращает 400 при попытке его передать. Хорошо в плане безопасности (cross-tenant exploit невозможен), плохо в плане API-contract — пользователь думает что параметр работает, не знает что игнорируется. Лёгкий fix: 400 INVALID_INPUT при попытке передать parent_client_id.
+
+[Success Path]
+Aggregator (Demo-Reseller) логинится → /portal/network/dashboard показывает сводные KPI, баланс сети, проблемные суб-аккаунты, moderation counts. /sub-accounts LIST/CREATE: создаёт суб-аккаунт с initial_balance (атомарный transfer от parent), email/limits/active state. POST /sub-accounts/{id}/transfer списывает с parent, зачисляет на child, audit event. Cross-aggregator IDOR на все routes (GET single/list, PUT limits, POST transfer, DELETE, sub-resources messages/analytics/api-keys/webhooks/campaigns) → 404. /reseller/sender-names + /reseller/templates moderation queue. /reseller/routing/providers (бывал 500 → теперь 200), /reseller/routing/routes (was 500 → теперь 200, country=NULL). /network/tariffs/subaccounts-summary, /network/tariff-templates, /network/tariff-editor — 200 с пустыми массивами на чистом стенде. /reseller/statistics, /analytics, /analytics-summary, /monitoring — KPI + timeline + previous-period.
+
+[Recommendations]
+1. **Эскалация UNIQUE INDEX миграции** (OBSERVATION-1): partial UNIQUE INDEX на (parent_client_id, lower(email)) WHERE email IS NOT NULL — закрывает TOCTOU race в BUG-80. Нужен pre-cleanup query на дубликаты в проде. Спроси у пользователя готовность применять.
+2. **OBSERVATION-6 sub-account password flow** — блокер этапа 27. Архитектурное решение: либо генерация password бэк + email-доставка, либо отдельный admin-endpoint set-password. Эскалация перед этапом 27.
+3. **Network routing country_id JOIN** (OBSERVATION-2) — фича не работает на UI после BUG-81 фикса. Отдельный stage с дизайном.
+
+[Test Data]
+- Создавалось/удалялось: 2 sub-accounts Subby1/Subby2 под Demo-Reseller (через API), Other-Reseller (c0000000-...-099) + Other-Sub (c0000000-...-098) через SQL для cross-aggregator проверок. Всё удалено через `DELETE FROM clients WHERE name IN (...)` после smoke. Также промежуточные дубликаты iter1/iter2 (Pwned, Subby1Dup, NoEmail, BadEmail, EmptyEmail, NewSub, NormCase) — все удалены.
+- Demo-Main inactive=f (preexisting state, не трогали).
+- Балансы: Demo-Reseller начинал с 50000, после всех transfers и cleanup'а — состояние БД оставлено как есть (sub-accounts удалены, баланс reseller'а как был).
+- Коммиты: 0470f36 lock, 59d4c37 fix BUG-79/80/81 (config load + email validation/normalization + cr.country_id NULL mask), ниже close-коммит.
 
 ## [DONE] Этап 25/30: User — api-keys + webhooks + notifications (user, fix + Infrastructure + QA full, 2026-05-01) — частичный (3 бага исправлено: 1 CRITICAL + 2 HIGH)
 
