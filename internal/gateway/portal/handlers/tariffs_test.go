@@ -154,6 +154,14 @@ func (m *mockClientServiceClient) ToggleSandbox(ctx context.Context, in *clientv
 	return args.Get(0).(*clientv1.ToggleSandboxResponse), args.Error(1)
 }
 
+func (m *mockClientServiceClient) IncrementMonthlySMSUsage(ctx context.Context, in *clientv1.IncrementMonthlySMSUsageRequest, opts ...grpc.CallOption) (*clientv1.IncrementMonthlySMSUsageResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*clientv1.IncrementMonthlySMSUsageResponse), args.Error(1)
+}
+
 // --- helpers ---
 
 func newTariffHandlersWithMocks(cc *mockClientServiceClient) *TariffHandlers {

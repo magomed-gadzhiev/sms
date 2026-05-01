@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: client/client.proto
+// source: client.proto
 
 package clientv1
 
@@ -19,22 +19,23 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ClientService_CreateClient_FullMethodName           = "/client.v1.ClientService/CreateClient"
-	ClientService_UpdateClient_FullMethodName           = "/client.v1.ClientService/UpdateClient"
-	ClientService_GetClient_FullMethodName              = "/client.v1.ClientService/GetClient"
-	ClientService_ListClients_FullMethodName            = "/client.v1.ClientService/ListClients"
-	ClientService_DeleteClient_FullMethodName           = "/client.v1.ClientService/DeleteClient"
-	ClientService_GetClientConfig_FullMethodName        = "/client.v1.ClientService/GetClientConfig"
-	ClientService_UpdateClientConfig_FullMethodName     = "/client.v1.ClientService/UpdateClientConfig"
-	ClientService_UpdateClientRateLimits_FullMethodName = "/client.v1.ClientService/UpdateClientRateLimits"
-	ClientService_CreateSubAccount_FullMethodName       = "/client.v1.ClientService/CreateSubAccount"
-	ClientService_ListSubAccounts_FullMethodName        = "/client.v1.ClientService/ListSubAccounts"
-	ClientService_GetSubAccount_FullMethodName          = "/client.v1.ClientService/GetSubAccount"
-	ClientService_DeleteSubAccount_FullMethodName       = "/client.v1.ClientService/DeleteSubAccount"
-	ClientService_UpdateSubAccountLimits_FullMethodName = "/client.v1.ClientService/UpdateSubAccountLimits"
-	ClientService_ListPlans_FullMethodName              = "/client.v1.ClientService/ListPlans"
-	ClientService_AssignPlan_FullMethodName             = "/client.v1.ClientService/AssignPlan"
-	ClientService_ToggleSandbox_FullMethodName          = "/client.v1.ClientService/ToggleSandbox"
+	ClientService_CreateClient_FullMethodName             = "/client.v1.ClientService/CreateClient"
+	ClientService_UpdateClient_FullMethodName             = "/client.v1.ClientService/UpdateClient"
+	ClientService_GetClient_FullMethodName                = "/client.v1.ClientService/GetClient"
+	ClientService_ListClients_FullMethodName              = "/client.v1.ClientService/ListClients"
+	ClientService_DeleteClient_FullMethodName             = "/client.v1.ClientService/DeleteClient"
+	ClientService_GetClientConfig_FullMethodName          = "/client.v1.ClientService/GetClientConfig"
+	ClientService_UpdateClientConfig_FullMethodName       = "/client.v1.ClientService/UpdateClientConfig"
+	ClientService_UpdateClientRateLimits_FullMethodName   = "/client.v1.ClientService/UpdateClientRateLimits"
+	ClientService_CreateSubAccount_FullMethodName         = "/client.v1.ClientService/CreateSubAccount"
+	ClientService_ListSubAccounts_FullMethodName          = "/client.v1.ClientService/ListSubAccounts"
+	ClientService_GetSubAccount_FullMethodName            = "/client.v1.ClientService/GetSubAccount"
+	ClientService_DeleteSubAccount_FullMethodName         = "/client.v1.ClientService/DeleteSubAccount"
+	ClientService_UpdateSubAccountLimits_FullMethodName   = "/client.v1.ClientService/UpdateSubAccountLimits"
+	ClientService_ListPlans_FullMethodName                = "/client.v1.ClientService/ListPlans"
+	ClientService_AssignPlan_FullMethodName               = "/client.v1.ClientService/AssignPlan"
+	ClientService_ToggleSandbox_FullMethodName            = "/client.v1.ClientService/ToggleSandbox"
+	ClientService_IncrementMonthlySMSUsage_FullMethodName = "/client.v1.ClientService/IncrementMonthlySMSUsage"
 )
 
 // ClientServiceClient is the client API for ClientService service.
@@ -75,6 +76,8 @@ type ClientServiceClient interface {
 	AssignPlan(ctx context.Context, in *AssignPlanRequest, opts ...grpc.CallOption) (*AssignPlanResponse, error)
 	// ToggleSandbox включает или отключает sandbox-режим для клиента
 	ToggleSandbox(ctx context.Context, in *ToggleSandboxRequest, opts ...grpc.CallOption) (*ToggleSandboxResponse, error)
+	// IncrementMonthlySMSUsage увеличивает счётчик использованных SMS за месяц
+	IncrementMonthlySMSUsage(ctx context.Context, in *IncrementMonthlySMSUsageRequest, opts ...grpc.CallOption) (*IncrementMonthlySMSUsageResponse, error)
 }
 
 type clientServiceClient struct {
@@ -245,6 +248,16 @@ func (c *clientServiceClient) ToggleSandbox(ctx context.Context, in *ToggleSandb
 	return out, nil
 }
 
+func (c *clientServiceClient) IncrementMonthlySMSUsage(ctx context.Context, in *IncrementMonthlySMSUsageRequest, opts ...grpc.CallOption) (*IncrementMonthlySMSUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IncrementMonthlySMSUsageResponse)
+	err := c.cc.Invoke(ctx, ClientService_IncrementMonthlySMSUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClientServiceServer is the server API for ClientService service.
 // All implementations must embed UnimplementedClientServiceServer
 // for forward compatibility.
@@ -283,6 +296,8 @@ type ClientServiceServer interface {
 	AssignPlan(context.Context, *AssignPlanRequest) (*AssignPlanResponse, error)
 	// ToggleSandbox включает или отключает sandbox-режим для клиента
 	ToggleSandbox(context.Context, *ToggleSandboxRequest) (*ToggleSandboxResponse, error)
+	// IncrementMonthlySMSUsage увеличивает счётчик использованных SMS за месяц
+	IncrementMonthlySMSUsage(context.Context, *IncrementMonthlySMSUsageRequest) (*IncrementMonthlySMSUsageResponse, error)
 	mustEmbedUnimplementedClientServiceServer()
 }
 
@@ -340,6 +355,9 @@ func (UnimplementedClientServiceServer) AssignPlan(context.Context, *AssignPlanR
 }
 func (UnimplementedClientServiceServer) ToggleSandbox(context.Context, *ToggleSandboxRequest) (*ToggleSandboxResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ToggleSandbox not implemented")
+}
+func (UnimplementedClientServiceServer) IncrementMonthlySMSUsage(context.Context, *IncrementMonthlySMSUsageRequest) (*IncrementMonthlySMSUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IncrementMonthlySMSUsage not implemented")
 }
 func (UnimplementedClientServiceServer) mustEmbedUnimplementedClientServiceServer() {}
 func (UnimplementedClientServiceServer) testEmbeddedByValue()                       {}
@@ -650,6 +668,24 @@ func _ClientService_ToggleSandbox_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientService_IncrementMonthlySMSUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IncrementMonthlySMSUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServiceServer).IncrementMonthlySMSUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientService_IncrementMonthlySMSUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServiceServer).IncrementMonthlySMSUsage(ctx, req.(*IncrementMonthlySMSUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClientService_ServiceDesc is the grpc.ServiceDesc for ClientService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -721,7 +757,11 @@ var ClientService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ToggleSandbox",
 			Handler:    _ClientService_ToggleSandbox_Handler,
 		},
+		{
+			MethodName: "IncrementMonthlySMSUsage",
+			Handler:    _ClientService_IncrementMonthlySMSUsage_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "client/client.proto",
+	Metadata: "client.proto",
 }
