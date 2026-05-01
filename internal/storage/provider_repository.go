@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -65,7 +66,7 @@ func (r *ProviderRepository) GetByID(ctx context.Context, id uuid.UUID) (*shared
 
 	err := r.db.GetContext(ctx, &provider, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -83,7 +84,7 @@ func (r *ProviderRepository) GetByName(ctx context.Context, name string) (*share
 
 	err := r.db.GetContext(ctx, &provider, query, name)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -260,7 +261,7 @@ func (r *ProviderRepository) GetByIDAndClientID(ctx context.Context, id, clientI
 		WHERE p.id = $1 AND cp.client_id = $2 AND cp.active = true`
 	err := r.db.GetContext(ctx, &provider, query, id, clientID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err

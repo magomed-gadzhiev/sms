@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -35,7 +36,7 @@ func (r *StubConfigRepository) GetByProviderID(ctx context.Context, providerID u
 		        dlr_delay_ms, dlr_success_rate, dlr_statuses
 		 FROM stub_provider_config WHERE provider_id = $1`, providerID,
 	).StructScan(&r2)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

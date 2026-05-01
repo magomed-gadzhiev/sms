@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -59,7 +60,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*shared.C
 		&allowedAddrsStr, &client.CreatedAt, &client.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -90,7 +91,7 @@ func (r *ClientRepository) GetByAPIKey(ctx context.Context, apiKey string) (*sha
 		&allowedAddrsStr, &client.CreatedAt, &client.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -177,7 +178,7 @@ func (r *ClientRepository) GetBalance(ctx context.Context, clientID uuid.UUID) (
 	query := `SELECT balance, currency FROM accounts WHERE client_id = $1`
 	err := r.db.QueryRowContext(ctx, query, clientID).Scan(&balance, &currency)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, "RUB", nil
 		}
 		return 0, "", err

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -24,7 +25,7 @@ func (q *LimitQuerierDB) GetClientProviderTPS(ctx context.Context, clientID, pro
 		`SELECT tps_limit FROM client_providers WHERE client_id=$1 AND provider_id=$2 AND active=true`,
 		clientID, providerID,
 	).Scan(&tps)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -50,7 +51,7 @@ func (q *LimitQuerierDB) GetTariffPlanDefaultTPS(ctx context.Context, clientID u
 		LIMIT 1`,
 		clientID,
 	).Scan(&tps)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -85,7 +86,7 @@ func (q *LimitQuerierDB) GetClientParentAndBudget(ctx context.Context, clientID 
 		`SELECT parent_client_id, allocated_tps_budget FROM clients WHERE id=$1`,
 		clientID,
 	).Scan(&parentID, &budget)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
 	if err != nil {

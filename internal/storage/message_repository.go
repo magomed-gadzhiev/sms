@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -72,7 +73,7 @@ func (r *MessageRepository) GetByID(ctx context.Context, id uuid.UUID) (*shared.
 
 	err := r.db.GetContext(ctx, &msg, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -90,7 +91,7 @@ func (r *MessageRepository) GetByMessageID(ctx context.Context, messageID string
 
 	err := r.db.GetContext(ctx, &msg, query, messageID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -108,7 +109,7 @@ func (r *MessageRepository) GetByExternalID(ctx context.Context, externalID stri
 
 	err := r.db.GetContext(ctx, &msg, query, externalID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -126,7 +127,7 @@ func (r *MessageRepository) GetBySMPPMessageID(ctx context.Context, smppMessageI
 
 	err := r.db.GetContext(ctx, &msg, query, smppMessageID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"regexp"
 	"strings"
 
@@ -36,7 +37,7 @@ func (r *RouteRepository) GetByID(ctx context.Context, id uuid.UUID) (*shared.Ro
 
 	err := r.db.GetContext(ctx, &route, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
