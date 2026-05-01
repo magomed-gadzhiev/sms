@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 
 export interface FilterOption {
@@ -22,6 +22,41 @@ interface Props {
   onReset: () => void;
 }
 
+function Field({ f, value, onChange }: { f: FilterDef; value: string; onChange: (v: string) => void }) {
+  const fieldId = useId();
+  if (f.type === 'select') {
+    return (
+      <div className="flex flex-col gap-1">
+        <label htmlFor={fieldId} className="text-xs text-gray-500 font-medium">{f.label}</label>
+        <select
+          id={fieldId}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="">Все</option>
+          {f.options?.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={fieldId} className="text-xs text-gray-500 font-medium">{f.label}</label>
+      <input
+        id={fieldId}
+        type={f.type === 'date' ? 'date' : 'text'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={f.placeholder}
+        className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+    </div>
+  );
+}
+
 export function MessageFilters({ primary, secondary, values, onSearch, onReset }: Props) {
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const [showExtra, setShowExtra] = useState(false);
@@ -39,37 +74,7 @@ export function MessageFilters({ primary, secondary, values, onSearch, onReset }
 
   const set = (key: string, val: string) => setDraft((prev) => ({ ...prev, [key]: val }));
 
-  const renderField = (f: FilterDef) => {
-    if (f.type === 'select') {
-      return (
-        <div key={f.key} className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500 font-medium">{f.label}</label>
-          <select
-            value={draft[f.key] ?? ''}
-            onChange={(e) => set(f.key, e.target.value)}
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">Все</option>
-            {f.options?.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-      );
-    }
-    return (
-      <div key={f.key} className="flex flex-col gap-1">
-        <label className="text-xs text-gray-500 font-medium">{f.label}</label>
-        <input
-          type={f.type === 'date' ? 'date' : 'text'}
-          value={draft[f.key] ?? ''}
-          onChange={(e) => set(f.key, e.target.value)}
-          placeholder={f.placeholder}
-          className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-    );
-  };
+  const renderField = (f: FilterDef) => <Field key={f.key} f={f} value={draft[f.key] ?? ''} onChange={(v) => set(f.key, v)} />;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">

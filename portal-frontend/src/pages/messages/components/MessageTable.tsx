@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { DetalizationMessage } from '../../../api/client';
 
@@ -121,6 +121,7 @@ export function MessageTable({
   data, total, page, pageSize, onPageChange, onPageSizeChange,
   visibleColumns, sort, onSort, onRowClick, loading,
 }: Props) {
+  const pageSizeId = useId();
   const cols = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -211,8 +212,9 @@ export function MessageTable({
 
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span>Строк на странице:</span>
+          <label htmlFor={pageSizeId}>Строк на странице:</label>
           <select
+            id={pageSizeId}
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className="border border-gray-300 rounded px-1 py-0.5 text-sm"

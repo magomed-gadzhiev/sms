@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -14,6 +14,8 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 export function NotificationSettingsPage() {
+  const newEmailId = useId();
+  const newEmailDescId = useId();
   const [settings, setSettings] = useState<NotifSetting[]>([]);
   const [extraEmails, setExtraEmails] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState('');
@@ -117,18 +119,22 @@ export function NotificationSettingsPage() {
 
         <div className="bg-white rounded-lg border p-4">
           <h3 className="font-medium mb-2">Дополнительные email для уведомлений</h3>
-          <p className="text-sm text-gray-500 mb-4">
+          <p id={newEmailDescId} className="text-sm text-gray-500 mb-4">
             Уведомления будут приходить на ваш email и дублироваться на указанные ниже
           </p>
-          <div className="flex gap-2 mb-3">
-            <Input
-              type="email"
-              placeholder="example@mail.ru"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addEmail()}
-              className="flex-1"
-            />
+          <div className="flex gap-2 mb-3 items-end">
+            <div className="flex-1 flex flex-col gap-1">
+              <label htmlFor={newEmailId} className="text-xs text-gray-500 font-medium">Email</label>
+              <Input
+                id={newEmailId}
+                type="email"
+                aria-describedby={newEmailDescId}
+                placeholder="example@mail.ru"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addEmail()}
+              />
+            </div>
             <Button variant="secondary" onClick={addEmail}>Добавить</Button>
           </div>
           {extraEmails.length > 0 ? (
