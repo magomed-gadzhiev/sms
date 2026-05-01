@@ -39,17 +39,15 @@ func NewResellerDashboardHandlers(
 	}
 }
 
+// checkReseller извлекает clientID из контекста. Исторически метод также
+// делал SQL-проверку is_reseller, но эта проверка дублирует
+// ResellerOnlyMiddleware (router.go:462) — middleware гарантирует, что сюда
+// приходят только реселлеры. Дубль удалён в C.4. Имя метода сохранено для
+// callsites; переименование в clientIDFromContext — отдельный stylistic PR.
 func (h *ResellerDashboardHandlers) checkReseller(w http.ResponseWriter, r *http.Request) (string, bool) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
-		return "", false
-	}
-	var isReseller bool
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT is_reseller FROM clients WHERE id = $1`, clientID,
-	).Scan(&isReseller); err != nil || !isReseller {
-		respondError(w, shared.ErrUnauthorized("доступ только для агрегаторов"))
 		return "", false
 	}
 	return clientID.String(), true

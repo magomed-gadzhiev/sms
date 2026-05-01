@@ -100,6 +100,20 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 
 ---
 
+### [DONE] C.4 — handler-level checkReseller cleanup — сессия 2026-05-01 (вторая)
+
+**Отступление от плана:** план §C.4 acceptance говорил «`grep checkReseller` → 0 callsites». Возражено: callsites используют возвращаемый clientID, простое удаление сломало бы handler'ы. Удалена только дублирующая SQL-проверка `is_reseller` (это и есть «мёртвый код» — middleware уже её делает). Метод `checkReseller` сохранён под историческим именем; переименование в `clientIDFromContext` — отдельный stylistic PR (§C.4.1).
+
+**Изменения:**
+- 8 файлов под `internal/gateway/portal/handlers/` (`reseller_dashboard.go`, `reseller_routing.go`, `reseller_tariffs.go`, `reseller_moderation.go`, `reseller_sender_names.go`, `reseller_templates.go`, `reseller_analytics.go`, `reseller_tariff_plans.go`) — удалён блок `var isReseller bool ... SELECT is_reseller ... return X, false`. Метод теперь только извлекает clientID. Canonical-комментарий в `reseller_dashboard.go`, остальные — short-pointer.
+- `reseller_analytics.go` + `cmd/portal-gateway/main.go:306` — удалено dead `pool *pgxpool.Pool` поле + параметр конструктора (после удаления is_reseller SQL pool там больше не используется).
+
+**Файлы, которые я НЕ трогал** (защита!): `network_tariff_bulk.go`, `network_tariff_editor.go`, `network_tariff_templates.go`, `network_tariffs_summary.go` — они под `protected` subrouter (router.go:428-452), не под `/reseller/*`. Их `checkReseller` — единственная защита, удаление сняло бы её.
+
+**Review:** 1 итерация → APPROVED with HIGH-note (deviation от plan acceptance — задокументировано выше) + MEDIUM (dead pool — пофикшен в той же итерации) + LOW (`reseller_moderation.go` interface{} return type — pre-existing, отдельный issue).
+
+---
+
 ## Накопительные паттерны (BLOCK C) — остатки
 
 - C.1 uuid.Parse без handler-pre-check (434 callsites, ~3-4 рабочих дня)

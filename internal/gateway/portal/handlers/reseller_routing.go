@@ -22,17 +22,11 @@ func NewResellerRoutingHandlers(pool *pgxpool.Pool, routingClient routingv1.Rout
 	return &ResellerRoutingHandlers{pool: pool, routingClient: routingClient}
 }
 
+// checkReseller — см. C.4 cleanup в reseller_dashboard.go.
 func (h *ResellerRoutingHandlers) checkReseller(w http.ResponseWriter, r *http.Request) (string, bool) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
-		return "", false
-	}
-	var isReseller bool
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT is_reseller FROM clients WHERE id = $1`, clientID,
-	).Scan(&isReseller); err != nil || !isReseller {
-		respondError(w, shared.ErrUnauthorized("доступ только для агрегаторов"))
 		return "", false
 	}
 	return clientID.String(), true

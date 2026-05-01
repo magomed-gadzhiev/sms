@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -16,34 +15,28 @@ import (
 )
 
 type ResellerAnalyticsHandlers struct {
-	pool            *pgxpool.Pool
 	analyticsClient analyticsv1.AnalyticsServiceClient
 	clientClient    clientv1.ClientServiceClient
 }
 
+// NewResellerAnalyticsHandlers конструктор. До C.4 принимал ещё pgxpool,
+// но единственный pool-консьюмер (SQL-проверка is_reseller в checkReseller)
+// был удалён как дубль ResellerOnlyMiddleware — поле больше не нужно.
 func NewResellerAnalyticsHandlers(
-	pool *pgxpool.Pool,
 	analyticsClient analyticsv1.AnalyticsServiceClient,
 	clientClient clientv1.ClientServiceClient,
 ) *ResellerAnalyticsHandlers {
 	return &ResellerAnalyticsHandlers{
-		pool:            pool,
 		analyticsClient: analyticsClient,
 		clientClient:    clientClient,
 	}
 }
 
+// checkReseller — см. C.4 cleanup в reseller_dashboard.go.
 func (h *ResellerAnalyticsHandlers) checkReseller(w http.ResponseWriter, r *http.Request) (string, bool) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
-		return "", false
-	}
-	var isReseller bool
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT is_reseller FROM clients WHERE id = $1`, clientID,
-	).Scan(&isReseller); err != nil || !isReseller {
-		respondError(w, shared.ErrUnauthorized("доступ только для агрегаторов"))
 		return "", false
 	}
 	return clientID.String(), true
