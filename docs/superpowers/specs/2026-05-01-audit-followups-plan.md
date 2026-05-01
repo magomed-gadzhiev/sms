@@ -268,7 +268,11 @@
 
 **Через:** `/execute-with-review`. Маленький PR.
 
-### C.6. validation→500 (BUG-A bulk fix)
+### C.6. validation→500 (BUG-A bulk fix) — [DONE] 2026-05-02 (commit `6a2380a`)
+
+Скоуп оказался уже плана: только cascade/grpc/handler.go (16 callsites). billing/tarification gRPC — чисты. internal/pipeline/ — Kafka-стадии, не gRPC, errors → DLQ (план ошибочно их упомянул). Подробности: `docs/audit-followups-progress.md`.
+
+
 
 **Pre-flight:** В pipeline/billing/tarification/cascade gRPC-server'ах — некоторые методы возвращают `fmt.Errorf("validation failed: %w", err)` без `codes.InvalidArgument` mapping → клиент получает 500. Этап 23 obs-4 содержит список (5+ методов в cascade).
 

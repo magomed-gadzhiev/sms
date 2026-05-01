@@ -244,11 +244,38 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 ---
 
+### [DONE] C.6 — validation→500 в cascade/grpc — сессия 2026-05-02
+
+**Pre-flight:** grep подтвердил скоуп резко уже плана. Validation→500 паттерн (`fmt.Errorf("invalid X: %w", err)` без gRPC-mapping) присутствует ТОЛЬКО в `internal/services/cascade/grpc/handler.go` (17 callsites). billing/grpc, tarification/grpc — чисты. `internal/pipeline/` — это Kafka-стадии, не gRPC сервер; их errors идут в DLQ, к gRPC-клиенту не доходят, **out-of-scope C.6** (план §4 C.6 ошибочно их упомянул).
+
+**Изменения** (commit `6a2380a`):
+- `internal/services/cascade/grpc/handler.go` — 16 callsites переведены на `status.Error(codes.InvalidArgument, ...)`. Showcase pattern (был только в `GetDelivery`, line 88, 92) распространён на остальные методы: CreateDelivery, ListDeliveries, GetDeliveryStats, GetChannel, CreateChannel, UpdateChannel, ToggleChannel, GetStrategy, CreateStrategy (mode + step), UpdateStrategy (id + step), DeleteStrategy, GetOperatorChannelSupport, UpdateOperatorChannelSupport.
+  - UUID-parse errors: message без `%v err` detail (uuid err'ы тривиальны: "invalid UUID format/length"). 13 callsites.
+  - Enum errors (`ChannelTypeFromString`, `mode.IsValid()`): `%v err` сохраняет bad value в message. 3 callsites.
+- `internal/services/cascade/grpc/handler_test.go` (новый) — `TestHandler_ValidationReturnsInvalidArgument`, table-driven, 17 sub-cases. Server{} с nil-сервисами работает: validation срабатывает до вызова application-сервисов.
+
+**Out-of-scope (явно)**:
+- `handler.go:79` — `fmt.Errorf("create delivery: %w", err)` это application-error fall-through от `s.cascade.CreateDelivery`, не validation. Требует `errors.Is` mapping для `domain.Err*` sentinel'ов.
+- Множество `return nil, err` в файле для Get/Update/Toggle/Delete операций (Channel/Strategy/OCS) — также пропускают application-level domain-sentinel'ы как `codes.Unknown` → HTTP 500 вместо корректного 404/409. Это аналогичная проблема, но scope другой: **открытое наблюдение, не в C.6**, см. ниже.
+
+**Acceptance:** `grep -rE "fmt\.Errorf.*[Ii]nvalid" internal/services/cascade/grpc/` → 0.
+
+**Review:** APPROVED 1 итерация (reviewer подтвердил semantic-выбор кодов, justified line 79 как out-of-scope, тест покрывает все changed callsites).
+
+---
+
+## Открытые observations (после сессии 2026-05-02, дополнение)
+
+- **cascade/grpc/handler.go: domain-sentinel mapping** — после C.6 (validation→InvalidArgument) остаётся следующий слой: `return nil, err` напрямую от application-сервисов в ~15 callsites (line 79, 140, 183, 213, 229, 247, 264, 277, 287, 303, 333, 364, 367, 377, 393, 426). Domain-sentinel'ы (`ErrChannelNotFound`, `ErrStrategyNotFound`, `ErrDeliveryNotFound` в не-Get методах, etc.) сейчас leak'ают как `codes.Unknown` → HTTP 500. Аналогично C.7 (errors.Is sweep), но scope: только cascade-сервис. Требует mini-PR с `errors.Is` mapping → `codes.NotFound`/`codes.AlreadyExists`/`codes.FailedPrecondition`. Кандидат на отдельный block (C.6b или часть C.7-extension).
+
+---
+
 ## Quality gates по сессии
 
 - `./scripts/check.sh` — PASS на всех коммитах. ESLint warnings без изменений (56, baseline 69).
 - Go-чеки: skipped локально (Device Guard). CI валидирует строго.
 - C.2 sweep (3 batch'а, 91 правка в 54 файлах): check.sh PASS после каждого batch'а. Final acceptance grep → 0.
+- C.6 (cascade validation→InvalidArgument): check.sh PASS, acceptance grep → 0 в cascade/grpc.
 
 ---
 
