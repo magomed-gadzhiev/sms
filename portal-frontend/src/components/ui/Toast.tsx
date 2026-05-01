@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useState, type ReactNode } from 'react';
+import { createContext, useContext, useCallback, useMemo, useState, type ReactNode } from 'react';
 import * as ToastPrimitive from '@radix-ui/react-toast';
 
 interface ToastItem {
@@ -36,11 +36,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const value: ToastContextValue = {
-    success: useCallback((m: string) => addToast('success', m), [addToast]),
-    error: useCallback((m: string) => addToast('error', m), [addToast]),
-    info: useCallback((m: string) => addToast('info', m), [addToast]),
-  };
+  const success = useCallback((m: string) => addToast('success', m), [addToast]);
+  const error = useCallback((m: string) => addToast('error', m), [addToast]);
+  const info = useCallback((m: string) => addToast('info', m), [addToast]);
+
+  // useMemo критичен: useToast() consumer'ы кладут результат в deps useEffect
+  // (например RequireRole/RequireReseller). Без memo каждый setToasts ре-рендерит
+  // провайдер, новый литерал value → consumer'ы видят новый ref → их useEffect
+  // зацикливается, выстреливая toast снова и снова.
+  const value: ToastContextValue = useMemo(() => ({ success, error, info }), [success, error, info]);
 
   return (
     <ToastContext.Provider value={value}>

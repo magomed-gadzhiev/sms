@@ -34,13 +34,22 @@ func NewProfileHandlers(
 	}
 }
 
-// updateProfileRequest представляет запрос на обновление профиля
+// updateProfileRequest представляет запрос на обновление профиля.
+//
+// Email и Name — read-only через этот endpoint (см. UpdateProfile). Семантика
+// указателей:
+//   - nil: поле отсутствует в JSON — валидно, обновляются только contact_person/phone.
+//   - non-nil (включая *Email == ""): клиент явно передал поле — отвергаем 400.
+//
+// Раньше поля silent-ignore'ились — клиент думал что email обновился (этап 27 obs-2).
 type updateProfileRequest struct {
-	ContactPerson string `json:"contact_person"`
-	Phone         string `json:"phone"`
+	ContactPerson string  `json:"contact_person"`
+	Phone         string  `json:"phone"`
+	Email         *string `json:"email,omitempty"`
+	Name          *string `json:"name,omitempty"`
 }
 
-// setupTOTPResponse представляет ответ настройки TOTP
+// verifyTOTPRequest представляет запрос на верификацию TOTP-кода
 type verifyTOTPRequest struct {
 	TOTPCode string `json:"totp_code"`
 }
@@ -164,6 +173,18 @@ func (h *ProfileHandlers) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	var req updateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	// Email/name через профильный endpoint не меняются — для email есть отдельный
+	// flow со сбросом 2FA и подтверждением, для name — клиентский handler. Раньше
+	// поля silent-ignore'ились, что вводило клиента в заблуждение (этап 27 obs-2).
+	if req.Email != nil {
+		respondError(w, shared.ErrInvalidInput("Поле email недоступно для изменения через профиль"))
+		return
+	}
+	if req.Name != nil {
+		respondError(w, shared.ErrInvalidInput("Поле name недоступно для изменения через профиль"))
 		return
 	}
 

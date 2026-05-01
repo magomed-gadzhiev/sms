@@ -19,6 +19,7 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
 import { PasswordResetPage } from './pages/auth/PasswordResetPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
+import { NotFoundPage } from './pages/NotFoundPage';
 const CommandCenter = lazy(() => import('./pages/CommandCenter').then((m) => ({ default: m.CommandCenter })));
 const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 import { MessagesPage } from './pages/messages/MessagesPage';
@@ -212,7 +213,7 @@ export function App() {
         path="/admin/*"
         element={
           <RequireRole role="admin">
-            <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading admin...</div>}>
+            <Suspense fallback={<div className="p-8 text-center text-gray-400">Загрузка...</div>}>
               <AdminLayout />
             </Suspense>
           </RequireRole>
@@ -248,7 +249,7 @@ export function App() {
         <Route path="operator-templates" element={<Suspense fallback={null}><AdminOperatorTemplatesPage /></Suspense>} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/command-center" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
