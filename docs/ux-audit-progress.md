@@ -2,7 +2,74 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 25/30: User — api-keys + webhooks + notifications (user, fix + Infrastructure + QA full, 2026-04-30)
+## [DONE] Этап 25/30: User — api-keys + webhooks + notifications (user, fix + Infrastructure + QA full, 2026-05-01) — частичный (3 бага исправлено: 1 CRITICAL + 2 HIGH)
+
+[Summary] 14 TC прогнаны через API+SQL: TC-1 c1 CreateAPIKey happy → 201 + plaintext key (one-shot) PASS; TC-2 c2 CreateAPIKey happy PASS; TC-3 plaintext в БД? — нет, key_hash=SHA-256/64 hex chars PASS; TC-4 c1 GET /api-keys/{c2 id} → 404 PASS (фильтрация через ListByUserID); TC-5 c1 PUT /api-keys/{c2 id} → 403 "not owned" PASS (UpdateAPIKey уже ownership-checked); **TC-6 c1 DELETE /api-keys/{c2 id} → 204 + БД active=false [BUG-76 CRITICAL IDOR]**; TC-7 invalid UUID на /api-keys/{x} DELETE → 400 PASS (auth-grpc проверяет); TC-W1 webhook https://localhost → 500 [BUG-77]; TC-W2/3/4 webhook 169.254/10.0/192.168 → 500 [тот же BUG-77]; TC-W5 webhook file://... → 400 PASS (scheme guard работает); TC-W6 webhook https://example.com — event_type=message.delivered → 400 (whitelist {delivered,failed,expired,rejected}) PASS; TC-W7 webhook example.com event_type=delivered → 201 + secret one-shot PASS; TC-W8 c1 cross-tenant DELETE c2 webhook → 404 PASS (webhook-service применяет client_id фильтр); TC-W9 webhook secret НЕ возвращается в list/get PASS; TC-N1 POST /notifications/not-a-uuid/read → 500 + raw "ERROR: invalid input syntax... (SQLSTATE 22P02)" в body [BUG-78].
+
+3 бага (1 CRITICAL + 2 HIGH) исправлены одним PR через /execute-with-review (commit d709daf, 2 review-цикла, code-reviewer APPROVED). Re-test всех 7 smoke-сценариев (a–g) PASS.
+
+[BUG LIST]
+
+BUG-76: cross-user DELETE /portal/v1/api-keys/{id} (IDOR) — Severity: CRITICAL — Категория: Security / Authorization bypass / Privilege escalation
+  Шаги: c1 (`d0000000-0000-0000-0000-000000000002`/Demo-Main) делает DELETE /portal/v1/api-keys/{c2-key-id} где c2-key — ключ Demo-Reseller (`d0000000-0000-0000-0000-000000000003`)
+  Ожидалось: 403 FORBIDDEN, ключ остаётся active
+  Получалось: 204 NoContent, БД `api_keys.active=false` для чужого ключа → SMPP/REST интеграции жертвы ломаются
+  Корень: `RevokeAPIKeyRequest.proto` содержал только `api_key_id`. `AuthService.RevokeAPIKey(ctx, keyID)` напрямую вызывал `apiKeyRepo.Revoke(ctx, keyID)` БЕЗ ownership-проверки. portal-gateway::RevokeAPIKey хендлер брал keyID из URL и слал в gRPC без передачи UserId. Аналогичный UpdateAPIKey уже проверял `key.UserID != userID → ErrAPIKeyNotOwned → PermissionDenied`, но Revoke остался незакрытым.
+  Доказательство: TC-6, см. в отчёте этапа выше.
+  Импакт: любой авторизованный портальный аккаунт, узнавший UUID чужого API-key (через лог-лик/скрин/socialing/перехват), мгновенно DoS'ит интеграцию жертвы. UUID v4 не подбирается, но boundary-trust между tenants нарушен по дизайну. Эскалировано пользователю ПЕРЕД фиксом per spec §5.4.
+  Фикс: d709daf — добавлено `string user_id = 2;` в `RevokeAPIKeyRequest`; `AuthService.RevokeAPIKey(ctx, keyID, userID)` GetByID → проверка `key.UserID != userID` → ErrAPIKeyNotOwned; gRPC server маппит в codes.PermissionDenied; portal-handler передаёт `UserId: userID.String()`. Тесты: новый "not owned returns ErrAPIKeyNotOwned" subtest с AssertNotCalled(t, "Revoke") + обновлены legacy 2-arg тесты до 3-arg сигнатуры (включая test/functional/auth_test.go).
+
+BUG-77: webhook URL → 500 вместо 400 при private/internal IP (BUG-A pattern в webhook-service) — Severity: HIGH — Категория: Functional / Error mapping
+  Шаги: POST /portal/v1/webhooks `{"url":"https://localhost:8081/x"}` (или 169.254.169.254, 10.0.0.1, 192.168.1.1, [::1])
+  Ожидалось: 400 INVALID_INPUT с понятным сообщением
+  Получалось: 500 INTERNAL_ERROR
+  Корень: SSRF guard ВЫПОЛНЯЕТСЯ в `internal/services/webhook/infrastructure/http/delivery_client.go::ValidateURL` (literal-IP блокируется через net.ParseIP + IsPrivate/IsLoopback/IsLinkLocalUnicast — 169.254 покрывается). Но возвращался `fmt.Errorf("private/internal …")` вместо domain-ошибки → `mapError` switch fallthrough → codes.Internal → 500.
+  Доказательство: webhook-service лог `private/internal IP addresses are not allowed` + curl выше.
+  Импакт: SSRF фактически блокируется (good defense-in-depth), но user видит "Внутренняя ошибка сервера" вместо понятной 400. Жертва: literal-IP блок есть, **DNS-rebinding bypass open** — `https://attacker-controlled.com → 169.254.169.254` пройдёт при первом resolve и ударит IMDS на доставке. Архитектурный фикс (re-resolve+check-IP перед каждым HTTP) вынесен в OBSERVATION.
+  Фикс: d709daf — добавлены `domain.ErrPrivateURL`, `domain.ErrURLTooLong`. ValidateURL возвращает их вместо fmt.Errorf-строк. mapError маппит обе в codes.InvalidArgument → 400.
+
+BUG-78: POST /portal/v1/notifications/{bad-uuid}/read → 500 + raw PostgreSQL error в response body — Severity: HIGH — Категория: Functional / BUG-64 pattern + Information leak
+  Шаги: POST /portal/v1/notifications/not-a-uuid/read с куки клиента
+  Ожидалось: 400 INVALID_INPUT
+  Получалось: 500 INTERNAL_ERROR + body `"ERROR: invalid input syntax for type uuid: \"not-a-uuid\" (SQLSTATE 22P02)"` — утечка SQLSTATE и схемы в публичный API
+  Корень: `notifications.go::MarkNotificationRead` передавал raw string `id` в pgx `WHERE id = $1` без uuid.Parse pre-check. Pgx ::uuid cast-ошибка → `shared.ErrInternalServer(err.Error())` → `err.Error()` шёл прямо в JSON-response.
+  Доказательство: TC-N1 вывод выше.
+  Импакт: 1) BUG-64 pattern (валидация → 500); 2) info-disclosure (PG-internals в публичном API); 3) аналогичные `err.Error()` ливы в `GetNotifications` и `MarkAllNotificationsRead`.
+  Фикс: d709daf — uuid.Parse pre-check в MarkNotificationRead → ErrInvalidInput. SQL получает `notifID uuid.UUID` (binary path, без cast). Все три обработчика (Get/MarkOne/MarkAll) очистили leak: `shared.ErrInternalServer("Ошибка ...")` без `err.Error()` (zerolog log пишет err внутрь, наружу не льёт).
+
+[OBSERVATION-1] webhook-service: DNS-rebinding bypass в ValidateURL — Severity: MEDIUM — Категория: SSRF defense-in-depth
+  ValidateURL делает `net.ParseIP(host)` — для hostname возвращает nil → IP-checks пропускаются. Атакующий контролирует DNS-record evil.example.com → resolve в 169.254.169.254 → POST /webhooks принимает URL с 201, на доставке webhook-service делает HTTP к 169.254.169.254 (AWS IMDS) → SSRF реальный. Фикс архитектурный: после Resolve брать IP, проверять IsPrivate/IsLoopback ДО каждого HTTP-вызова (а не только при создании). Также защита через DNS-pinning или whitelist. Отдельная инициатива.
+
+[OBSERVATION-2] API-key scope enforcement отсутствует полностью — Severity: HIGH (potential privilege escalation) — Категория: Architecture
+  `APIKeyAuthMiddleware` (internal/gateway/portal/middleware/api_key_auth.go) валидирует токен через authClient.ValidateToken но НЕ проверяет требуемый scope endpoint'а против `key.Scopes`. На практике сейчас mw подключён только к /campaigns subrouter (router.go:296), остальные endpoint'ы portal — session-only (Bearer auth даёт 401 "Сессия не найдена"), поэтому реальный exploit-surface маленький. Но если scope-enforcement не добавить до расширения mw на /messages, /webhooks etc — read_only ключ сможет POST'ить. Архитектурный PR.
+
+[OBSERVATION-3] API-key audit event с ClientID="" — Severity: LOW (preexisting) — Категория: Audit traceability
+  api_keys.go::CreateAPIKey/RevokeAPIKey/UpdateAPIKey публикуют audit event с `ClientID=""` (только UserID). audit_log таблица архитектурно пуста (spec-015 дыра). Failed attempts на cross-user revoke ТАКЖЕ не публикуются (audit-publish после `if err != nil { return }` блока). Несколько issues в одном:  empty ClientID, отсутствие отрицательного аудита, отсутствие запоминания неуспешных попыток. Связано с BUG-spec-015.
+
+[OBSERVATION-4] internal/services/auth/grpc/server.go:362-370 (UpdateAPIKey) — preexisting `==` sentinel pattern — Severity: COSMETIC
+  Из review iteration 2: UpdateAPIKey hander использует `err == ErrAPIKeyNotFound/NotOwned/Revoked` вместо errors.Is. Не security-проблема, но непоследовательно с RevokeAPIKey после фикса. Bundle с другими cleanup'ами в общий PR (BUG-66 паттерн, delivery_client.go invalid URL format etc).
+
+[OBSERVATION-5] Webhook GET /webhooks/{id} endpoint не зарегистрирован — Severity: COSMETIC
+  curl /portal/v1/webhooks/{id} GET → plain-text "404 page not found" (gorilla default), не JSON-error. Нет соответствующего handler'а — только LIST/CREATE/UPDATE/DELETE/TEST. Frontend WebhooksPage не нуждается (LIST даёт всё), но REST-API contract drift.
+
+[OBSERVATION-6] RotateAPIKey endpoint отсутствует (нет proto-RPC, нет handler'а) — Severity: LOW — Категория: Feature gap
+  Если фича заявлена в спеке (нет в текущих docs/specs/) — gap. Если не заявлена — не баг. user может workaround: revoke + create new.
+
+[OBSERVATION-7] Webhook secret signing — replay attack window — Severity: NOT TESTED
+  Не проверял: содержит ли X-Webhook-Signature timestamp (HMAC-SHA256 over payload+timestamp + window check на receiver). Если только sig(payload) — replay-атака возможна. Webhook-service domain.WebhookEvent имеет `Timestamp` в payload, но клиент должен сам проверять окно — это implementation detail клиента. Кандидат на отдельный security-review этап.
+
+[Success Path]
+User создаёт API-key через POST /portal/v1/api-keys → видит plaintext sk_live_... ОДИН раз → ListAPIKeys возвращает только prefix/last_used. Bearer auth на /portal/v1/campaigns endpoint валидирует ключ (но scope игнорируется). DELETE собственного ключа → 204. Cross-user DELETE → 403. Webhook https://example.com/hook + event_types=[delivered] → 201 + secret one-shot. Cross-tenant webhook ops → 404. Notifications happy: GET /notifications → list. POST /notifications/{valid-uuid}/read → 200/404.
+
+[Recommendations]
+1. **Запланировать архитектурный PR**: API-key scope enforcement (OBSERVATION-2) и DNS-rebinding защита в webhook (OBSERVATION-1). Оба — существенные security-improvements.
+2. **Накопительный cleanup-PR**: errors.Is sweep (OBSERVATION-4 + UpdateAPIKey + другие места), `delivery_client.go::ValidateURL` invalid-URL-format → domain.ErrInvalidURLFormat (вынесено reviewer'ом).
+3. **Audit emit на failed authorization**: cross-user revoke attempts должны попадать в audit-log с outcome=denied (после spec-015-фикса).
+
+[Test Data]
+- Создавалось/удалялось: 2-3 API-keys (`audit-c1-test`, `audit-c2-test`, `audit-c2-revoke-test`, `audit-c2-iter2`) + 3 webhooks (`https://example.com/hook`, `https://example.com/c2hook`, `https://example.com/regression-test`). Все cleanup'нуты SQL DELETE после smoke (см. финальный шаг).
+- Демо-баланс не затронут (никаких mutation на messages/billing).
+- Коммиты: 5fcc29e lock, d709daf fix BUG-76/77/78 (proto + handler + tests + duplicate dir cleanup), ниже close-коммит.
 
 ## [DONE] Этап 24/30: User — lookup + analytics (user, fix + Infrastructure + QA full, 2026-04-30) — частичный (3 бага исправлено: 3 HIGH)
 
