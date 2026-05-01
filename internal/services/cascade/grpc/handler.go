@@ -59,11 +59,11 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 func (s *Server) CreateDelivery(ctx context.Context, req *cascadev1.CreateDeliveryRequest) (*cascadev1.DeliveryResponse, error) {
 	clientID, err := uuid.Parse(req.ClientId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid client_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
 	}
 	strategyID, err := uuid.Parse(req.StrategyId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid strategy_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid strategy_id format")
 	}
 
 	var messageID *uuid.UUID
@@ -108,7 +108,7 @@ func (s *Server) GetDelivery(ctx context.Context, req *cascadev1.GetDeliveryRequ
 func (s *Server) ListDeliveries(ctx context.Context, req *cascadev1.ListDeliveriesRequest) (*cascadev1.ListDeliveriesResponse, error) {
 	clientID, err := uuid.Parse(req.ClientId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid client_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
 	}
 
 	filter := domain.DeliveryFilter{
@@ -153,7 +153,7 @@ func (s *Server) ListDeliveries(ctx context.Context, req *cascadev1.ListDeliveri
 func (s *Server) GetDeliveryStats(ctx context.Context, req *cascadev1.GetDeliveryStatsRequest) (*cascadev1.DeliveryStatsResponse, error) {
 	clientID, err := uuid.Parse(req.ClientId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid client_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid client_id format")
 	}
 
 	filter := domain.StatsFilter{
@@ -222,7 +222,7 @@ func (s *Server) ListChannels(ctx context.Context, _ *cascadev1.ListChannelsRequ
 func (s *Server) GetChannel(ctx context.Context, req *cascadev1.GetChannelRequest) (*cascadev1.ChannelResponse, error) {
 	id, err := uuid.Parse(req.ChannelId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid channel_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid channel_id format")
 	}
 	ch, err := s.channels.Get(ctx, id)
 	if err != nil {
@@ -234,7 +234,7 @@ func (s *Server) GetChannel(ctx context.Context, req *cascadev1.GetChannelReques
 func (s *Server) CreateChannel(ctx context.Context, req *cascadev1.CreateChannelRequest) (*cascadev1.ChannelResponse, error) {
 	ct, err := domain.ChannelTypeFromString(req.ChannelType)
 	if err != nil {
-		return nil, fmt.Errorf("invalid channel_type: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid channel_type: %v", err)
 	}
 
 	var config map[string]interface{}
@@ -252,7 +252,7 @@ func (s *Server) CreateChannel(ctx context.Context, req *cascadev1.CreateChannel
 func (s *Server) UpdateChannel(ctx context.Context, req *cascadev1.UpdateChannelRequest) (*cascadev1.ChannelResponse, error) {
 	id, err := uuid.Parse(req.ChannelId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid channel_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid channel_id format")
 	}
 
 	var config map[string]interface{}
@@ -270,7 +270,7 @@ func (s *Server) UpdateChannel(ctx context.Context, req *cascadev1.UpdateChannel
 func (s *Server) ToggleChannel(ctx context.Context, req *cascadev1.ToggleChannelRequest) (*cascadev1.ChannelResponse, error) {
 	id, err := uuid.Parse(req.ChannelId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid channel_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid channel_id format")
 	}
 	ch, err := s.channels.Toggle(ctx, id, req.Active)
 	if err != nil {
@@ -296,7 +296,7 @@ func (s *Server) ListStrategies(ctx context.Context, req *cascadev1.ListStrategi
 func (s *Server) GetStrategy(ctx context.Context, req *cascadev1.GetStrategyRequest) (*cascadev1.StrategyResponse, error) {
 	id, err := uuid.Parse(req.StrategyId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid strategy_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid strategy_id format")
 	}
 	str, err := s.strategies.Get(ctx, id)
 	if err != nil {
@@ -308,7 +308,7 @@ func (s *Server) GetStrategy(ctx context.Context, req *cascadev1.GetStrategyRequ
 func (s *Server) CreateStrategy(ctx context.Context, req *cascadev1.CreateStrategyRequest) (*cascadev1.StrategyResponse, error) {
 	mode := domain.StrategyMode(req.Mode)
 	if !mode.IsValid() {
-		return nil, fmt.Errorf("invalid mode: %s", req.Mode)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid mode: %s", req.Mode)
 	}
 
 	input := application.CreateStrategyInput{
@@ -319,7 +319,7 @@ func (s *Server) CreateStrategy(ctx context.Context, req *cascadev1.CreateStrate
 	for _, step := range req.Steps {
 		channelID, err := uuid.Parse(step.ChannelId)
 		if err != nil {
-			return nil, fmt.Errorf("invalid channel_id in step: %w", err)
+			return nil, status.Error(codes.InvalidArgument, "invalid channel_id format in step")
 		}
 		input.Steps = append(input.Steps, application.CreateStrategyStepInput{
 			ChannelID: channelID,
@@ -339,7 +339,7 @@ func (s *Server) CreateStrategy(ctx context.Context, req *cascadev1.CreateStrate
 func (s *Server) UpdateStrategy(ctx context.Context, req *cascadev1.UpdateStrategyRequest) (*cascadev1.StrategyResponse, error) {
 	id, err := uuid.Parse(req.StrategyId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid strategy_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid strategy_id format")
 	}
 
 	mode := domain.StrategyMode(req.Mode)
@@ -351,7 +351,7 @@ func (s *Server) UpdateStrategy(ctx context.Context, req *cascadev1.UpdateStrate
 	for _, step := range req.Steps {
 		channelID, err := uuid.Parse(step.ChannelId)
 		if err != nil {
-			return nil, fmt.Errorf("invalid channel_id in step: %w", err)
+			return nil, status.Error(codes.InvalidArgument, "invalid channel_id format in step")
 		}
 		input.Steps = append(input.Steps, application.CreateStrategyStepInput{
 			ChannelID: channelID,
@@ -371,7 +371,7 @@ func (s *Server) UpdateStrategy(ctx context.Context, req *cascadev1.UpdateStrate
 func (s *Server) DeleteStrategy(ctx context.Context, req *cascadev1.DeleteStrategyRequest) (*cascadev1.DeleteStrategyResponse, error) {
 	id, err := uuid.Parse(req.StrategyId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid strategy_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid strategy_id format")
 	}
 	if err := s.strategies.Delete(ctx, id); err != nil {
 		return &cascadev1.DeleteStrategyResponse{Success: false}, err
@@ -384,7 +384,7 @@ func (s *Server) GetOperatorChannelSupport(ctx context.Context, req *cascadev1.G
 	if req.OperatorId != "" {
 		id, err := uuid.Parse(req.OperatorId)
 		if err != nil {
-			return nil, fmt.Errorf("invalid operator_id: %w", err)
+			return nil, status.Error(codes.InvalidArgument, "invalid operator_id format")
 		}
 		operatorID = &id
 	}
@@ -409,11 +409,11 @@ func (s *Server) GetOperatorChannelSupport(ctx context.Context, req *cascadev1.G
 func (s *Server) UpdateOperatorChannelSupport(ctx context.Context, req *cascadev1.UpdateOCSRequest) (*cascadev1.UpdateOCSResponse, error) {
 	operatorID, err := uuid.Parse(req.OperatorId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid operator_id: %w", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid operator_id format")
 	}
 	ct, err := domain.ChannelTypeFromString(req.ChannelType)
 	if err != nil {
-		return nil, fmt.Errorf("invalid channel_type: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid channel_type: %v", err)
 	}
 
 	ocs := &domain.OperatorChannelSupport{
