@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -63,7 +64,7 @@ func (r *CountryRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		&country.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrCountryNotFound
 		}
 		return nil, err
@@ -91,7 +92,7 @@ func (r *CountryRepository) GetByISOCode(ctx context.Context, isoCode string) (*
 		&country.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrCountryNotFound
 		}
 		return nil, err

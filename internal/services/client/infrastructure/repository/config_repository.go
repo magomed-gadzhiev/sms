@@ -82,7 +82,7 @@ func (r *ConfigRepository) GetByClientID(ctx context.Context, clientID uuid.UUID
 		&config.Settings, &config.CreatedAt, &config.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrConfigNotFound
 		}
 		return nil, err

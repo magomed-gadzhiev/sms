@@ -97,7 +97,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 		&featuresJSON, &planActive,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrClientNotFound
 		}
 		return nil, fmt.Errorf("get client by id: %w", err)

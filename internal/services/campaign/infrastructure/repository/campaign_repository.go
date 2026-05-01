@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -256,7 +257,7 @@ func (r *CampaignRepository) GetByID(ctx context.Context, id, clientID uuid.UUID
 
 	var row campaignRow
 	err := r.db.QueryRowxContext(ctx, query, id, clientID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrCampaignNotFound
 	}
 	if err != nil {
@@ -343,7 +344,7 @@ func (r *CampaignRepository) Update(ctx context.Context, c *domain.Campaign) (*d
 		c.UseSubscriberTimezone,
 		c.ID, c.ClientID,
 	).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrCampaignNotFound
 	}
 	if err != nil {
@@ -522,7 +523,7 @@ func (r *CampaignRepository) GetABConfig(ctx context.Context, campaignID uuid.UU
 
 	var row abConfigRow
 	err := r.db.QueryRowxContext(ctx, query, campaignID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

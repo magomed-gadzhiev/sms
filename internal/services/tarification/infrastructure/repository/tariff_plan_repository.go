@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -72,7 +73,7 @@ func (r *TariffPlanRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 		&plan.Currency,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrTariffPlanNotFound
 		}
 		return nil, err
@@ -114,7 +115,7 @@ func (r *TariffPlanRepository) GetActiveByOperatorAndCategory(ctx context.Contex
 		&plan.Currency,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			if planActiveCache.Enabled() {
 				planActiveCache.Set(cacheKey, nil)
 			}

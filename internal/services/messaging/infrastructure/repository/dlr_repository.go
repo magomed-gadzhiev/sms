@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -62,7 +63,7 @@ func (r *DLRRepository) GetByMessageID(ctx context.Context, messageID uuid.UUID)
 	var sharedReceipts []shared.DLRReceipt
 	err := r.db.SelectContext(ctx, &sharedReceipts, query, messageID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []*domain.DLRReceipt{}, nil
 		}
 		return nil, err
@@ -102,7 +103,7 @@ func (r *DLRRepository) GetBySMPPMessageID(ctx context.Context, smppMessageID st
 	var sharedReceipt shared.DLRReceipt
 	err := r.db.GetContext(ctx, &sharedReceipt, query, smppMessageID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

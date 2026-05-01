@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -73,7 +74,7 @@ func (r *PricingRuleRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 		&rule.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrPricingRuleNotFound
 		}
 		return nil, err

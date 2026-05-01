@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -118,7 +119,7 @@ func (r *ImportRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.I
 
 	var row importRow
 	err := r.db.QueryRowxContext(ctx, query, id).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrImportNotFound
 	}
 	if err != nil {

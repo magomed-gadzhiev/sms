@@ -56,7 +56,7 @@ func (r *RefreshTokenRepository) GetByTokenHash(ctx context.Context, tokenHash s
 		&token.ExpiresAt, &token.Revoked, &token.RevokedAt, &token.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrRefreshTokenNotFound
 		}
 		return nil, err

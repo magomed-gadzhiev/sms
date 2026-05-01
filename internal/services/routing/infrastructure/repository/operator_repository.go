@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -88,7 +89,7 @@ func (r *OperatorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		&operator.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			if operatorByIDCache.Enabled() {
 				operatorByIDCache.Set(cacheKey, nil)
 			}
@@ -135,7 +136,7 @@ func (r *OperatorRepository) GetByCode(ctx context.Context, code string) (*domai
 		&operator.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			if operatorByCodeCache.Enabled() {
 				operatorByCodeCache.Set(code, nil)
 			}

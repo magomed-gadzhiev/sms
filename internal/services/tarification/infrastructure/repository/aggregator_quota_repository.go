@@ -48,7 +48,7 @@ func (r *AggregatorQuotaRepository) GetByID(ctx context.Context, id uuid.UUID) (
 		&q.OverageRate, &q.Currency, &q.AutoRenew, &q.Notified80Pct, &q.Notified100Pct,
 		&q.CreatedAt, &q.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return &q, err
@@ -69,7 +69,7 @@ func (r *AggregatorQuotaRepository) GetActive(ctx context.Context, aggregatorID 
 		&q.OverageRate, &q.Currency, &q.AutoRenew, &q.Notified80Pct, &q.Notified100Pct,
 		&q.CreatedAt, &q.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return &q, err

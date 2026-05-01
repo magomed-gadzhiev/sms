@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -55,7 +56,7 @@ func (r *TariffTierRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 		&tier.PricePerSegment,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrTariffTierNotFound
 		}
 		return nil, err

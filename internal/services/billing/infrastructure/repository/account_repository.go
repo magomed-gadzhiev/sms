@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,7 +70,7 @@ func (r *AccountRepository) GetByClientID(ctx context.Context, clientID uuid.UUI
 		&account.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrAccountNotFound
 		}
 		return nil, err
@@ -107,7 +108,7 @@ func (r *AccountRepository) GetByClientIDForUpdate(ctx context.Context, tx *sqlx
 		&account.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrAccountNotFound
 		}
 		return nil, err
@@ -191,7 +192,7 @@ func (r *AccountRepository) FreezeAccount(ctx context.Context, clientID uuid.UUI
 	var frozenAt time.Time
 	err := r.db.QueryRowContext(ctx, query, adminID, clientID).Scan(&frozenAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return time.Time{}, domain.ErrAccountNotFound
 		}
 		return time.Time{}, err

@@ -64,7 +64,7 @@ func (r *TOTPRepository) GetTOTPConfig(ctx context.Context, userID uuid.UUID) (*
 		&config.UserID, &config.SecretEncrypted, &config.Enabled, &config.VerifiedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrTOTPConfigNotFound
 		}
 		return nil, err

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -54,7 +55,7 @@ func (r *StatsRepository) GetLatestSnapshot(ctx context.Context, campaignID uuid
 		&snap.Sent, &snap.Delivered, &snap.Failed, &snap.Pending,
 		&snap.AvgDeliveryTimeMs, &snap.Cost,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

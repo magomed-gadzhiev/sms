@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -92,7 +93,7 @@ func (r *ContactRepository) GetByID(ctx context.Context, id, contactListID uuid.
 
 	var row contactRow
 	err := r.db.QueryRowxContext(ctx, query, id, contactListID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrContactNotFound
 	}
 	if err != nil {
@@ -169,7 +170,7 @@ func (r *ContactRepository) Update(ctx context.Context, c *domain.Contact) (*dom
 	err = r.db.QueryRowxContext(ctx, query,
 		c.Phone, string(attrsJSON), pq.StringArray(c.Tags), c.ID, c.ContactListID,
 	).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrContactNotFound
 	}
 	if err != nil {

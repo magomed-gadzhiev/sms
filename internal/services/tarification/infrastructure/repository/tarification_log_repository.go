@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -65,7 +66,7 @@ func (r *TarificationLogRepository) GetByIdempotencyKey(ctx context.Context, key
 		&log.IdempotencyKey, &log.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // не ошибка — ключ просто не найден
 		}
 		return nil, err
@@ -95,7 +96,7 @@ func (r *TarificationLogRepository) GetByMessageID(ctx context.Context, messageI
 		&log.IdempotencyKey, &log.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

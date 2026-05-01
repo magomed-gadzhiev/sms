@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,7 +53,7 @@ func (r *HierarchicalPeriodRepository) FindBestPeriod(
 		LIMIT 1`,
 		countryID, operatorID, senderCategory, trafficType, clientID, date,
 	).Scan(&result.PeriodID, &result.Strategy, &result.ScopePriority)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

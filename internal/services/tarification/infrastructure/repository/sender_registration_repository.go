@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -64,7 +65,7 @@ func (r *SenderRegistrationRepository) GetByID(ctx context.Context, id uuid.UUID
 		&reg.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrSenderRegistrationNotFound
 		}
 		return nil, err
@@ -129,7 +130,7 @@ func (r *SenderRegistrationRepository) GetActiveByClientOperatorName(ctx context
 		&reg.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrSenderRegistrationNotFound
 		}
 		return nil, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -135,7 +136,7 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 		&transaction.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrTransactionNotFound
 		}
 		return nil, err
@@ -257,7 +258,7 @@ func (r *TransactionRepository) GetByMessageID(ctx context.Context, messageID uu
 		&transaction.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrTransactionNotFound
 		}
 		return nil, err

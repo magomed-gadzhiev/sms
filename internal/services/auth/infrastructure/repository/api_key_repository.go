@@ -79,7 +79,7 @@ func (r *APIKeyRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 		pq.Array(&apiKey.AllowedIPs), &apiKey.CreatedAt, &apiKey.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAPIKeyNotFound
 		}
 		return nil, err
@@ -109,7 +109,7 @@ func (r *APIKeyRepository) GetByKeyHash(ctx context.Context, keyHash string) (*d
 		pq.Array(&apiKey.AllowedIPs), &apiKey.CreatedAt, &apiKey.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAPIKeyNotFound
 		}
 		return nil, err

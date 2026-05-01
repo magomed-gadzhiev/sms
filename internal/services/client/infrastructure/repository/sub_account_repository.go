@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -141,7 +142,7 @@ func (r *SubAccountRepository) GetSubAccount(ctx context.Context, subAccountID, 
 		&rateLimitPerDay, &settingsRaw,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrClientNotFound
 		}
 		return nil, err

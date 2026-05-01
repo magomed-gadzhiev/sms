@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -120,7 +121,7 @@ func (r *TemplateRepository) GetByID(ctx context.Context, id, clientID uuid.UUID
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, id, clientID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		if templateByIDCache.Enabled() {
 			templateByIDCache.Set(cacheKey, nil)
 		}
@@ -145,7 +146,7 @@ func (r *TemplateRepository) GetByIDAdmin(ctx context.Context, id uuid.UUID) (*d
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, id).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrTemplateNotFound
 	}
 	if err != nil {
@@ -221,7 +222,7 @@ func (r *TemplateRepository) Update(ctx context.Context, t *domain.Template) (*d
 	err := r.db.QueryRowxContext(ctx, query,
 		t.Name, t.Body, normalizeVariables(t.Variables), t.Status, rejReason, t.SenderNameID, t.TrafficType, t.ID, t.ClientID,
 	).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrTemplateNotFound
 	}
 	if err != nil {
@@ -246,7 +247,7 @@ func (r *TemplateRepository) UpdateStatus(ctx context.Context, id uuid.UUID, sta
 
 	var row templateRow
 	err := r.db.QueryRowxContext(ctx, query, status, rejReason, id).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrTemplateNotFound
 	}
 	if err != nil {

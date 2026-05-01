@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -69,7 +70,7 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id, clientID uuid.
 
 	var row subscriptionRow
 	err := r.db.QueryRowxContext(ctx, query, id, clientID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrSubscriptionNotFound
 	}
 	if err != nil {
@@ -129,7 +130,7 @@ func (r *SubscriptionRepository) Update(ctx context.Context, sub *domain.Subscri
 	err := r.db.QueryRowxContext(ctx, query,
 		sub.URL, pq.StringArray(sub.EventTypes), sub.Active, sub.ID, sub.ClientID,
 	).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrSubscriptionNotFound
 	}
 	if err != nil {

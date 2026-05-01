@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -58,7 +59,7 @@ func (r *PricingPeriodRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 		&period.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrPricingPeriodNotFound
 		}
 		return nil, err
@@ -84,7 +85,7 @@ func (r *PricingPeriodRepository) GetActiveByTariffPeriodID(ctx context.Context,
 		&period.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrPricingPeriodNotFound
 		}
 		return nil, err

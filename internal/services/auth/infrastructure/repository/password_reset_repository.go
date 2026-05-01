@@ -57,7 +57,7 @@ func (r *PasswordResetRepository) GetByTokenHash(ctx context.Context, tokenHash 
 		&token.ExpiresAt, &token.Used, &token.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrPasswordResetTokenNotFound
 		}
 		return nil, err

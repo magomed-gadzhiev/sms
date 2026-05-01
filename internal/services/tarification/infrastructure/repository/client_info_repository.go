@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ func (r *ClientInfoRepository) GetAccountInfo(ctx context.Context, clientID uuid
 		clientID,
 	).Scan(&info.ID, &info.AccountType, &parentID, &billingMode, &info.SpendingLimitMonthly, &info.SpendingLimitDaily)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("client info lookup: %w", err)

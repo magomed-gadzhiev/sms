@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -41,7 +42,7 @@ func (r *MessageRepository) GetEnrichment(ctx context.Context, messageID uuid.UU
 	err := r.db.QueryRowContext(ctx, query, messageID).Scan(
 		&clientID, &externalID, &source, &destination, &submittedAt, &segmentCount,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // message not found, caller handles this
 	}
 	if err != nil {

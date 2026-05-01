@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ func (r *PrepaidFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 		&fee.Amount, &fee.Currency, &fee.Charged, &fee.ChargedAt, &fee.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrPrepaidFeeNotFound
 		}
 		return nil, err
@@ -65,7 +66,7 @@ func (r *PrepaidFeeRepository) GetByPeriodID(ctx context.Context, tariffPeriodID
 		&fee.Amount, &fee.Currency, &fee.Charged, &fee.ChargedAt, &fee.CreatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

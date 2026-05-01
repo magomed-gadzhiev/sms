@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -51,7 +52,7 @@ func (r *AggregatorTariffRepository) GetForSubAccount(
 		&t.PricePerSegment, &t.Active, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("aggregator tariff lookup: %w", err)

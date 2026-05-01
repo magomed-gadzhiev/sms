@@ -64,7 +64,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 		&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
@@ -86,7 +86,7 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*d
 		&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
@@ -108,7 +108,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 		&user.RoleID, &user.Active, &user.ClientID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
@@ -183,7 +183,7 @@ func (r *UserRepository) getRoleByID(ctx context.Context, id uuid.UUID) (*domain
 		&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("role not found")
 		}
 		return nil, err

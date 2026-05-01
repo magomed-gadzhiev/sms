@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -70,7 +71,7 @@ func (r *ContactListRepository) GetByID(ctx context.Context, id, clientID uuid.U
 
 	var row contactListRow
 	err := r.db.QueryRowxContext(ctx, query, id, clientID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrContactListNotFound
 	}
 	if err != nil {
@@ -116,7 +117,7 @@ func (r *ContactListRepository) Update(ctx context.Context, cl *domain.ContactLi
 
 	var row contactListRow
 	err := r.db.QueryRowxContext(ctx, query, cl.Name, cl.Description, cl.ID, cl.ClientID).StructScan(&row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrContactListNotFound
 	}
 	if err != nil {

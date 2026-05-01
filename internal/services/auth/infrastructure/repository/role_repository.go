@@ -39,7 +39,7 @@ func (r *RoleRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Rol
 		&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrRoleNotFound
 		}
 		return nil, err
@@ -60,7 +60,7 @@ func (r *RoleRepository) GetByName(ctx context.Context, name string) (*domain.Ro
 		&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrRoleNotFound
 		}
 		return nil, err

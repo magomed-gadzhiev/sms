@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -83,7 +84,7 @@ func (r *UsageCounterRepository) IncrementAndGet(ctx context.Context, clientID, 
 		&counter.TariffPeriodID, &counter.SegmentCount, &counter.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrUsageCounterNotFound
 		}
 		return nil, err
