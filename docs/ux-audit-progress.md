@@ -2,7 +2,77 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
-## [IN_PROGRESS] Этап 29/30: Cross-cutting error states + i18n + a11y (все 4 роли, fix + Infrastructure + QA full, 2026-05-01)
+## [DONE] Этап 29/30: Cross-cutting error states + i18n + a11y (все 4 роли, fix + Infrastructure + QA full, 2026-05-01) — частичный, 1 фикс (1 MEDIUM a11y), 4 OBSERVATION'а
+
+[Summary] Inventory portal-frontend (TS+React+Vite production-build, nginx-served): 1 ErrorBoundary в `src/components/ErrorBoundary.tsx` (root-level через main.tsx), 1 i18n setup (`src/i18n/index.ts`, ru.json 142 строки, en.json 64 строки) — покрывают только public-layer (lending, pricing, features, about, contact, blog, docs). 158 TSX-файлов с кириллицей. 376 useTranslation()-hits — преимущественно на public. portal/admin страницы — hardcoded RU без i18n.
+
+TC-ERR (PASS/3 OBSERVATION'a):
+- TC-ERR-1 unknown URL `/this-route-does-not-exist` неаутентифицированный → /login (catch-all → /command-center → RequireAuth → /login). Аутентифицированный user → /command-center silently. Нет visible 404 страницы (App.tsx:251 catch-all = Navigate). OBSERVATION-1 (UX gap: silent redirect без feedback).
+- TC-ERR-2 `/messages/not-a-uuid` → инлайн-error "Неверный формат ID сообщения" + кнопка "Назад к сообщениям" PASS.
+- TC-ERR-3 user → `/admin/dashboard` → RequireRole (`src/components/RequireRole.tsx:18`) silently redirects to /dashboard (потом /command-center). Нет toast/banner "Доступ запрещён". OBSERVATION-2 (security UX gap: privilege denial silent).
+- ErrorBoundary fallback (`src/components/ErrorBoundary.tsx:24-30`) hardcoded RU "Что-то пошло не так / Перезагрузить страницу", без useTranslation. OBSERVATION-3 при добавлении en-locale.
+- Suspense fallback'и: `<RequireRole>` рендерит `<div className="p-8 text-center text-gray-400">Loading...</div>` — англоязычный hardcode (RequireRole.tsx:13, RequireReseller.tsx:13). Рядом RequireAuth (App.tsx:102) использует "Загрузка..." — несогласованно. OBSERVATION-4.
+
+TC-I18N (1 OBSERVATION):
+- ru.json/en.json содержат translation-keys только для landing/pricing/features/about/contact/blog/docs. Весь portal (campaigns, messages, billing, profile, settings, ...) и весь admin (clients, providers, ...) — hardcoded RU. Английская локаль для портала отсутствует. Не баг (фича не была запланирована для портала), но если в будущем понадобится EN-портал — это инициатива на отдельный спринт. OBSERVATION-5 (architecture gap, эскалация если запросят).
+- Backend error messages: backend возвращает RU-тексты (validation, BUG-A messages, "доступ только для агрегаторов") — frontend отображает как-есть. OK для RU-only продукта.
+
+TC-A11Y (1 BUG MEDIUM исправлен):
+- Скан 15 ключевых страниц через `document.querySelectorAll('input,select,textarea')` + label-association проверка: 13 input/select без programmatic association на 2 страницах:
+  - /messages (MessageFilters.tsx) — 7 input/select; pageSize select в MessageTable.tsx — 1
+  - /settings/notifications — 1 email input
+  - 2 false-positive (visible label text != programmatic) на /analytics — actually OK (input nested внутри `<label>` — implicit-label PASS)
+  - h1 hierarchy на всех 15 страницах: ровно 1 h1 PASS
+  - 0 кнопок без accessible name PASS
+  - 0 inputs с positive tabindex (anti-pattern) PASS
+  - 0 ссылок без текста PASS
+  - 0 img без alt PASS (img в принципе мало; иконки — `<svg>` декоративные)
+- BUG-84 исправлен через `/execute-with-review` (commit cd40293, 2 review-цикла, code-reviewer iter1 CHANGES_REQUESTED + iter2 APPROVED).
+- Modal (`src/components/ui/Modal.tsx`): использует Radix Dialog (focus trap, aria-modal, role=dialog встроены), aria-label="Закрыть" на close button — PASS.
+- Toast (`src/components/ui/Toast.tsx`): использует Radix Toast primitive (aria-live region встроен) — PASS.
+- SkipLink (`src/components/SkipLink.tsx` + UserLayout/NetworkLayout) — "Перейти к основному содержимому" корректно. PASS.
+- aria-current на NavLink/StepIndicator — PASS.
+
+[BUG LIST]
+
+BUG-84: WCAG 1.3.1 violation — `<label>` без htmlFor / `<input>+<select>` без id на /messages и /settings/notifications — Severity: MEDIUM — Категория: Accessibility / WCAG 1.3.1 (Info and Relationships) — ИСПРАВЛЕНО
+  Шаги: Playwright snapshot /portal/v1/messages → 8 inputs `id=""`, рядом `<label>` без htmlFor — скрин-ридер не свяжет. Аналогично 1 email-input на /settings/notifications.
+  Ожидалось: каждый visible label программно ассоциирован с control через htmlFor/id или вложенностью.
+  Получалось: 9 form controls без программной связи (visible label рядом, но AT не свяжет).
+  Корень: `MessageFilters.tsx::renderField` — inline closure рендерил `<label>{f.label}</label>` без htmlFor; `MessageTable.tsx:213-223` — page-size select имел рядом `<span>` (не `<label>`); `NotificationSettingsPage.tsx:124-132` — `<Input type="email">` без label-prop, только placeholder.
+  Доказательство: `document.querySelectorAll('input,select,textarea')` + проверка `document.querySelector(\`label[for="${id}"]\`)` + `i.closest('label')` дала 9 ассоциаций=0.
+  Импакт: пользователи скрин-ридеров (~7% всех пользователей с инвалидностью по WHO) на /messages не понимают что значит каждый select в FilterBar; на /settings/notifications email-форма "плавает" без accessible name. WCAG AA non-conformance.
+  Фикс: cd40293 — MessageFilters.tsx: вынесен Field-subcomponent с `useId()` per-field (hooks-rule violation если useId внутри map-callback); MessageTable.tsx: `<span>` → `<label htmlFor>` (WCAG 2.5.3 label-in-name PASS); NotificationSettingsPage.tsx: явный `<label>Email</label>` + `aria-describedby` к описанию (вместо дублирующего aria-label, который повторял `<h3>` heading).
+  Re-test: 8/8 inputs на /messages c programmatic association, 13/13 на /settings/notifications. UI рендерит без визуальных регрессий.
+
+[OBSERVATION-1 этапа 29] 404-fallback: catch-all `*` редиректит на /command-center без visible 404 — Severity: COSMETIC — Категория: UX
+  `App.tsx:251`: `<Route path="*" element={<Navigate to="/command-center" replace />} />`. Любой неизвестный URL аутентифицированного пользователя ведёт на dashboard без объяснения. Если пользователь кликнул deprecated-ссылку или /messages-typo — он теряет ориентацию. Лёгкий фикс: страница-заглушка `<NotFoundPage>` с heading "Страница не найдена" + кнопка "На главную".
+
+[OBSERVATION-2 этапа 29] /admin/* для не-admin user'а silent-redirect без feedback — Severity: MEDIUM — Категория: UX / Security feedback
+  `RequireRole.tsx:20`: `if (!hasAccess) return <Navigate to="/dashboard" replace />`. user, кликнувший admin-ссылку (например, в email-уведомлении или закладке после change-of-role), видит /command-center без объяснения. Симптом совпадает с "просто переключился на dashboard". Нужен toast `error("Доступ запрещён: требуется роль admin")` перед Navigate. Аналогично `RequireReseller.tsx:14`.
+
+[OBSERVATION-3 этапа 29] ErrorBoundary fallback hardcoded RU без i18n — Severity: COSMETIC — Категория: i18n
+  `ErrorBoundary.tsx:24-30`: жёсткие строки "Что-то пошло не так / Произошла непредвиденная ошибка / Перезагрузить страницу". useTranslation не вызывается. Если когда-нибудь добавится EN-локаль на портал — этот fallback останется RU. Бы lower-priority OBSERVATION (текущий продукт RU-only).
+
+[OBSERVATION-4 этапа 29] Несогласованные loading-fallback'и: "Loading..." vs "Загрузка..." — Severity: COSMETIC — Категория: UX consistency
+  `RequireRole.tsx:13` и `RequireReseller.tsx:13` — `Loading...` (англоязычно). `App.tsx:102` `RequireAuth` — `Загрузка...` (русский). `App.tsx:215` Suspense fallback admin layout — `Loading admin...`. Несогласованно: на одном экране пользователь видит русские "Загрузка..." на dashboard и английские "Loading..." при попытке перейти в admin. Требует унификации (RU как baseline + i18n-key для будущей локализации).
+
+[OBSERVATION-5 этапа 29] i18n покрывает только public-layer; portal/admin hardcoded RU — Severity: HIGH (architectural) — Категория: i18n / Architecture gap
+  Анализ: `grep -rE "[А-Яа-я]{4,}" portal-frontend/src --include="*.tsx" -l` → 158 TSX. Из них useTranslation покрывает <30 (public-страницы). Если потребуется EN-portal/admin — это перевод и refactor 130+ файлов. Не приоритет аудита, но фиксируется как фактическое состояние i18n-coverage.
+
+[Success Path]
+Все 4 роли логинятся → portal_session + ErrorBoundary на root уровне ловит uncaught throws (показывает RU fallback с reload-button). Caught errors внутри страниц показываются inline (например, /messages/{badUUID} → "Неверный формат ID"). Toast notifications через Radix (aria-live PASS). Modal через Radix Dialog (focus trap PASS). SkipLink (UserLayout/NetworkLayout) → "Перейти к основному содержимому" → main-content. NavLink имеет aria-current. h1 hierarchy на 15 страницах = 1 PASS. Form controls: после фикса BUG-84 на /messages и /settings/notifications все label программно связаны с input через htmlFor/id.
+
+[Recommendations]
+1. **OBSERVATION-2 (MEDIUM)** — добавить toast при отказе в RequireRole/RequireReseller (silent redirect → error feedback). Низкий риск, малый объём.
+2. **OBSERVATION-1 (COSMETIC)** — заменить catch-all redirect на NotFoundPage. UX nice-to-have.
+3. **OBSERVATION-5 (HIGH архитектурный)** — если EN-портал планируется в roadmap, начать с extract-strings рефакторинга (158 TSX → useTranslation + en/ru.json расширение). Без этого решения от пользователя — статус-кво.
+
+[Test Data]
+- Применённые фиксы: cd40293 (BUG-84). Контейнер portal-frontend пересобран (`docker compose build portal-frontend` + `up -d --force-recreate`).
+- Аккаунт для тестирования: client@demo.local / Admin123! (Demo-Main, regular user).
+- Playwright session — без долгосрочного состояния, тестовые ресурсы не создавались.
+- Коммиты: c627e57 lock, cd40293 fix BUG-84, ниже close-коммит.
 
 ## [DONE] Этап 28/30: Cross-cutting RBAC + права доступа (все 4 роли, fix + Infrastructure + QA full, 2026-05-01) — 0 фиксов, 1 CRITICAL эскалирован
 
