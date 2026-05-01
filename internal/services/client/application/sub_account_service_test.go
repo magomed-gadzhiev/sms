@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/smpp-server/smpp-server/internal/services/client/domain"
 	clientrepo "github.com/smpp-server/smpp-server/internal/services/client/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/services/client/mocks"
@@ -233,6 +234,76 @@ func TestSubAccountService(t *testing.T) {
 			assert.Nil(t, result)
 			assert.Equal(t, ErrEmailExists, err)
 			env.clientRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		})
+
+		t.Run("toctou_race_unique_violation_returns_ErrEmailExists", func(t *testing.T) {
+			// BUG-80 / D.6: when ExistsByEmailUnderParent returns false but
+			// concurrent request inserts the same (parent, email) before this
+			// goroutine reaches Create, the DB-level UNIQUE INDEX
+			// idx_clients_parent_email returns SQLSTATE 23505. Service must
+			// translate it to ErrEmailExists, not bubble up as 500 INTERNAL.
+			env := newTestSubAccountService()
+			ctx := context.Background()
+			parentID := uuid.New()
+
+			parent := &domain.Client{ID: parentID, IsReseller: true, MaxSubAccounts: 10}
+
+			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
+			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "race@example.com").Return(false, nil)
+			env.clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(&pgconn.PgError{
+				Code:           "23505",
+				ConstraintName: "idx_clients_parent_email",
+			})
+
+			result, err := env.svc.CreateSubAccount(ctx, parentID, "Sub", "race@example.com", "P", 1000, 0)
+			assert.Nil(t, result)
+			assert.Equal(t, ErrEmailExists, err)
+			env.configRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		})
+
+		t.Run("23505_on_other_constraint_does_not_mask_as_email_dup", func(t *testing.T) {
+			// Защита ConstraintName-guard'а: если 23505 пришёл от UNIQUE(api_key)
+			// (коллизия api_key, теоретически возможна), мы НЕ должны возвращать
+			// ErrEmailExists — это исказит причину ошибки и собьёт оператора.
+			env := newTestSubAccountService()
+			ctx := context.Background()
+			parentID := uuid.New()
+
+			parent := &domain.Client{ID: parentID, IsReseller: true, MaxSubAccounts: 10}
+
+			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
+			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "y@example.com").Return(false, nil)
+			apikeyErr := &pgconn.PgError{Code: "23505", ConstraintName: "clients_api_key_key"}
+			env.clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(apikeyErr)
+
+			result, err := env.svc.CreateSubAccount(ctx, parentID, "Sub", "y@example.com", "P", 1000, 0)
+			assert.Nil(t, result)
+			assert.NotEqual(t, ErrEmailExists, err)
+			assert.Same(t, apikeyErr, err)
+		})
+
+		t.Run("create_unrelated_pg_error_bubbles_up", func(t *testing.T) {
+			// Регрессионный guard: только 23505 на нашем индексе мапится в
+			// ErrEmailExists. Любая другая БД-ошибка (FK, generic, не наш
+			// constraint) должна пройти как-есть.
+			env := newTestSubAccountService()
+			ctx := context.Background()
+			parentID := uuid.New()
+
+			parent := &domain.Client{ID: parentID, IsReseller: true, MaxSubAccounts: 10}
+
+			env.clientRepo.On("GetByID", ctx, parentID).Return(parent, nil)
+			env.subAccountRepo.On("CountByParentID", ctx, parentID).Return(0, nil)
+			env.subAccountRepo.On("ExistsByEmailUnderParent", ctx, parentID, "x@example.com").Return(false, nil)
+			fkErr := &pgconn.PgError{Code: "23503", ConstraintName: "clients_plan_id_fkey"}
+			env.clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(fkErr)
+
+			result, err := env.svc.CreateSubAccount(ctx, parentID, "Sub", "x@example.com", "P", 1000, 0)
+			assert.Nil(t, result)
+			assert.NotEqual(t, ErrEmailExists, err)
+			assert.Same(t, fkErr, err)
 		})
 
 		t.Run("empty_email_skips_email_validation", func(t *testing.T) {

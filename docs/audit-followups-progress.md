@@ -68,11 +68,16 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 
 **TC-AGG-5 закрыт** — query-param утечка устранена и hierarchy aggregation работает.
 
-### [BLOCKED] D.6 — BUG-80 TOCTOU race + UNIQUE INDEX миграция
-БД-миграция: `CREATE UNIQUE INDEX ... ON clients (parent_client_id, lower(email)) WHERE active=true`. Применять — подтверждено пользователем.
-Не выполнил в этой сессии — миграции БД делаются осознанно, через `scripts/server.sh migrate` с проверкой данных перед апликацией. Создать миграционный файл + проверить что `(parent_client_id, lower(email))` не дублируется в активных строках сейчас (если дубли — миграция упадёт, нужен сначала dedup).
+### [BLOCKED→DONE] D.6 — BUG-80 TOCTOU race + UNIQUE INDEX — сессия 2026-05-01 (вторая)
 
-**Action для следующей сессии:** написать миграцию + idempotent-fix существующих дубликатов (если есть).
+**Отступление от плана:** план §D.6 предписывал `WHERE active=true`. Возражено и принято: индекс **БЕЗ** active-фильтра, симметричный существующему app-check'у (`ExistsByEmailUnderParent` тоже без active-фильтра). Это сохраняет product-семантику «email забронирован за parent навсегда, включая soft-deleted» (см. комментарий `sub_account_service.go:115-117`). `WHERE active=true` создал бы дыру: после soft-delete можно было бы создать второй active sub-account с тем же email → login-by-email вернул бы 2 строки.
+
+**Изменения:**
+- `migrations/000127_clients_parent_email_unique.up.sql/.down.sql` — `CREATE UNIQUE INDEX idx_clients_parent_email ON clients (parent_client_id, lower(email)) WHERE parent_client_id IS NOT NULL AND email IS NOT NULL AND email <> ''`. Pre-flight на локальном docker: 0 дубликатов.
+- `internal/services/client/application/sub_account_service.go` — после `clientRepo.Create`: `errors.As(err, &pgErr)` + `pgErr.Code == "23505" && pgErr.ConstraintName == "idx_clients_parent_email"` → `ErrEmailExists`. Закрывает gap между app-check и INSERT.
+- `internal/services/client/application/sub_account_service_test.go` — три новых mock-теста: race-fix (23505 на нашем индексе → ErrEmailExists), guard ConstraintName (23505 на api_key_key → bubble up), guard Code (23503 FK → bubble up).
+
+**Review:** 1 итерация → APPROVED.
 
 ---
 

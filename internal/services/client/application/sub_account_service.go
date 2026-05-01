@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/client/domain"
 	clientrepo "github.com/smpp-server/smpp-server/internal/services/client/infrastructure/repository"
@@ -152,8 +153,16 @@ func (s *SubAccountService) CreateSubAccount(
 		UpdatedAt:      time.Now(),
 	}
 
-	// Сохраняем суб-аккаунт
+	// Сохраняем суб-аккаунт. Между ExistsByEmailUnderParent и Create возможна
+	// гонка двух конкурентных CreateSubAccount с одним email — миграция 000127
+	// добавляет UNIQUE INDEX idx_clients_parent_email, который ловит дубликат
+	// атомарно. Маппим SQLSTATE 23505 в ErrEmailExists, чтобы grpc-сервер
+	// вернул ALREADY_EXISTS, а не INTERNAL.
 	if err := s.clientRepo.Create(ctx, subAccount); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_clients_parent_email" {
+			return nil, ErrEmailExists
+		}
 		return nil, err
 	}
 
