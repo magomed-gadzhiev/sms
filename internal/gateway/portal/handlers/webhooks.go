@@ -31,6 +31,40 @@ func NewWebhookHandlers(
 	}
 }
 
+// GetWebhook обрабатывает GET /webhooks/{id}.
+//
+// Возвращает одну webhook-подписку клиента. До 2026-05-01 endpoint не был
+// зарегистрирован — UI получал 404 plain-text (этап 25 obs-5 re-audit'a 2026-04-29).
+func (h *WebhookHandlers) GetWebhook(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		respondError(w, shared.ErrInvalidInput("id обязателен"))
+		return
+	}
+
+	resp, err := h.webhookClient.GetSubscription(r.Context(), &webhookv1.GetSubscriptionRequest{
+		Id:       id,
+		ClientId: clientID.String(),
+	})
+	if err != nil {
+		log.Error().Err(err).Str("webhook_id", id).Msg("ошибка получения webhook")
+		respondGRPCError(w, err)
+		return
+	}
+	if resp.Subscription == nil {
+		respondError(w, shared.ErrNotFound("webhook не найден"))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, portalSubscriptionToMap(resp.Subscription))
+}
+
 // ListWebhooks обрабатывает GET /webhooks
 func (h *WebhookHandlers) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())

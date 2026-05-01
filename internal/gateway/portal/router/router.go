@@ -168,6 +168,9 @@ func SetupRouter(
 	webhooks := protected.PathPrefix("/webhooks").Subrouter()
 	webhooks.HandleFunc("", webhookHandlers.CreateWebhook).Methods("POST")
 	webhooks.HandleFunc("", webhookHandlers.ListWebhooks).Methods("GET")
+	// D.9 (этап 25 obs-5 re-audit'a 2026-04-29): до фикса GET /{id} не был
+	// зарегистрирован, sub-аккаунты получали 404 plain-text. Сейчас — JSON-ответ.
+	webhooks.HandleFunc("/{id}", webhookHandlers.GetWebhook).Methods("GET")
 	webhooks.HandleFunc("/{id}", webhookHandlers.UpdateWebhook).Methods("PUT")
 	webhooks.HandleFunc("/{id}", webhookHandlers.DeleteWebhook).Methods("DELETE")
 	webhooks.HandleFunc("/{id}/test", webhookHandlers.TestWebhook).Methods("POST")
