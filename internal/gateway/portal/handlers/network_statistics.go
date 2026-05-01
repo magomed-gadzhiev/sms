@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,7 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
 	networkanalyticsv1 "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1"
@@ -24,11 +28,12 @@ const networkStatsTimeout = 10 * time.Second
 // NetworkStatisticsHandlers handles HTTP requests for network analytics endpoints.
 type NetworkStatisticsHandlers struct {
 	client networkanalyticsv1.NetworkAnalyticsServiceClient
+	pool   *pgxpool.Pool
 }
 
 // NewNetworkStatisticsHandlers creates a new NetworkStatisticsHandlers.
-func NewNetworkStatisticsHandlers(client networkanalyticsv1.NetworkAnalyticsServiceClient) *NetworkStatisticsHandlers {
-	return &NetworkStatisticsHandlers{client: client}
+func NewNetworkStatisticsHandlers(client networkanalyticsv1.NetworkAnalyticsServiceClient, pool *pgxpool.Pool) *NetworkStatisticsHandlers {
+	return &NetworkStatisticsHandlers{client: client, pool: pool}
 }
 
 // exportJobIDFromRequest extracts job_id from mux vars or URL path as fallback.
@@ -131,16 +136,40 @@ func writeJSON(w http.ResponseWriter, data interface{}) {
 	}
 }
 
-// partnerIDFromContext returns partner_id from authenticated context as int64.
-// The portal uses UUID-based client IDs; for the network analytics service we
-// accept an optional `partner_id` query parameter and fall back to 0.
-func partnerIDFromRequest(r *http.Request) int64 {
-	if v := r.URL.Query().Get("partner_id"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-			return n
-		}
+// resolvePartnerID returns the EFFECTIVE partner_id for the authenticated
+// client: for sub-accounts (parent_client_id IS NOT NULL) we collapse to the
+// parent's partner_id so reseller analytics include the entire account tree.
+// Direct clients (parent_client_id IS NULL) use their own partner_id. The
+// aggregation query in network_analytics service uses the same hierarchy
+// resolution — both sides must stay in sync.
+//
+// The `?partner_id=` query parameter is IGNORED — historically it was trusted
+// (TC-AGG-5 / B.1 leak); now scoping is derived from the session client_id only.
+//
+// Returns (partner_id, true) on success. On failure writes the response and
+// returns (0, false): caller must return immediately.
+func (h *NetworkStatisticsHandlers) resolvePartnerID(ctx context.Context, w http.ResponseWriter, clientID uuid.UUID) (int64, bool) {
+	if h.pool == nil {
+		respondError(w, shared.ErrInternalServer("База недоступна"))
+		return 0, false
 	}
-	return 0
+	var pid int64
+	err := h.pool.QueryRow(ctx, `
+		SELECT COALESCE(p.partner_id, c.partner_id)
+		FROM clients c
+		LEFT JOIN clients p ON p.id = c.parent_client_id
+		WHERE c.id = $1
+	`, clientID).Scan(&pid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+			return 0, false
+		}
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("network_statistics: resolve partner_id failed")
+		respondError(w, shared.ErrInternalServer("Не удалось разрешить partner_id"))
+		return 0, false
+	}
+	return pid, true
 }
 
 // userIDFromContext returns the authenticated user's numeric id.
@@ -158,7 +187,7 @@ func userIDFromContext(r *http.Request) int64 {
 
 // GetStatistics handles GET /network/statistics
 func (h *NetworkStatisticsHandlers) GetStatistics(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -170,8 +199,13 @@ func (h *NetworkStatisticsHandlers) GetStatistics(w http.ResponseWriter, r *http
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.GetStatistics(ctx, &networkanalyticsv1.StatisticsRequest{
-		PartnerId: partnerIDFromRequest(r),
+		PartnerId: partnerID,
 		Filter:    parseSharedFilter(r),
 	})
 	if err != nil {
@@ -185,7 +219,7 @@ func (h *NetworkStatisticsHandlers) GetStatistics(w http.ResponseWriter, r *http
 
 // GetAnalytics handles GET /network/analytics
 func (h *NetworkStatisticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -197,8 +231,13 @@ func (h *NetworkStatisticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.GetAnalyticsSummary(ctx, &networkanalyticsv1.AnalyticsRequest{
-		PartnerId: partnerIDFromRequest(r),
+		PartnerId: partnerID,
 		Filter:    parseSharedFilter(r),
 	})
 	if err != nil {
@@ -212,7 +251,7 @@ func (h *NetworkStatisticsHandlers) GetAnalytics(w http.ResponseWriter, r *http.
 
 // GetMonitoring handles GET /network/monitoring
 func (h *NetworkStatisticsHandlers) GetMonitoring(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -229,8 +268,13 @@ func (h *NetworkStatisticsHandlers) GetMonitoring(w http.ResponseWriter, r *http
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.GetMonitoringMetrics(ctx, &networkanalyticsv1.MonitoringRequest{
-		PartnerId:   partnerIDFromRequest(r),
+		PartnerId:   partnerID,
 		Filter:      parseSharedFilter(r),
 		HideHealthy: hideHealthy,
 	})
@@ -245,7 +289,7 @@ func (h *NetworkStatisticsHandlers) GetMonitoring(w http.ResponseWriter, r *http
 
 // GetDrillDown handles GET /network/drilldown
 func (h *NetworkStatisticsHandlers) GetDrillDown(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -259,8 +303,13 @@ func (h *NetworkStatisticsHandlers) GetDrillDown(w http.ResponseWriter, r *http.
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.GetDrillDown(ctx, &networkanalyticsv1.DrillDownRequest{
-		PartnerId:   partnerIDFromRequest(r),
+		PartnerId:   partnerID,
 		Filter:      parseSharedFilter(r),
 		SliceType:   q.Get("slice_type"),
 		SliceValue:  q.Get("slice_value"),
@@ -286,7 +335,7 @@ type startExportBody struct {
 
 // StartExport handles POST /network/export
 func (h *NetworkStatisticsHandlers) StartExport(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -304,8 +353,13 @@ func (h *NetworkStatisticsHandlers) StartExport(w http.ResponseWriter, r *http.R
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.StartExport(ctx, &networkanalyticsv1.ExportRequest{
-		PartnerId: partnerIDFromRequest(r),
+		PartnerId: partnerID,
 		Filter:    body.Filter,
 		Mode:      body.Mode,
 		Format:    body.Format,
@@ -416,7 +470,7 @@ func (h *NetworkStatisticsHandlers) DownloadExport(w http.ResponseWriter, r *htt
 
 // ListViews handles GET /network/views
 func (h *NetworkStatisticsHandlers) ListViews(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -428,8 +482,13 @@ func (h *NetworkStatisticsHandlers) ListViews(w http.ResponseWriter, r *http.Req
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.ListSavedViews(ctx, &networkanalyticsv1.ListViewsRequest{
-		PartnerId: partnerIDFromRequest(r),
+		PartnerId: partnerID,
 		UserId:    userIDFromContext(r),
 	})
 	if err != nil {
@@ -448,7 +507,7 @@ type saveViewBody struct {
 
 // SaveView handles POST /network/views
 func (h *NetworkStatisticsHandlers) SaveView(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -470,8 +529,13 @@ func (h *NetworkStatisticsHandlers) SaveView(w http.ResponseWriter, r *http.Requ
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	resp, err := h.client.SaveView(ctx, &networkanalyticsv1.SaveViewRequest{
-		PartnerId: partnerIDFromRequest(r),
+		PartnerId: partnerID,
 		UserId:    userIDFromContext(r),
 		View:      body.View,
 	})
@@ -486,7 +550,7 @@ func (h *NetworkStatisticsHandlers) SaveView(w http.ResponseWriter, r *http.Requ
 
 // DeleteView handles DELETE /network/views/{id}
 func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetClientID(r.Context())
+	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
 		return
@@ -509,9 +573,14 @@ func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Re
 	ctx, cancel := context.WithTimeout(r.Context(), networkStatsTimeout)
 	defer cancel()
 
+	partnerID, ok := h.resolvePartnerID(ctx, w, clientID)
+	if !ok {
+		return
+	}
+
 	_, err = h.client.DeleteView(ctx, &networkanalyticsv1.DeleteViewRequest{
 		Id:        id,
-		PartnerId: partnerIDFromRequest(r),
+		PartnerId: partnerID,
 		UserId:    userIDFromContext(r),
 	})
 	if err != nil {

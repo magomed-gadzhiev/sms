@@ -304,7 +304,7 @@ func main() {
 	networkTariffBulkHandler := handlers.NewNetworkTariffBulkHandler(dbPool, redisClient)
 	clientTariffsEffectiveHandler := handlers.NewClientTariffsEffectiveHandler(dbPool)
 	resellerAnalyticsHandlers := handlers.NewResellerAnalyticsHandlers(dbPool, serviceClients.AnalyticsClient, serviceClients.ClientClient)
-	networkStatsHandlers := handlers.NewNetworkStatisticsHandlers(serviceClients.NetworkAnalyticsClient)
+	networkStatsHandlers := handlers.NewNetworkStatisticsHandlers(serviceClients.NetworkAnalyticsClient, dbPool)
 
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(

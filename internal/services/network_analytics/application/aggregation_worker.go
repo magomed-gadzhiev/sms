@@ -36,9 +36,13 @@ func NewAggregationWorker(
 // rawAggQuery selects one hour's worth of message data grouped by all analytics
 // dimensions. Column names mirror the messages table schema; COALESCE guards
 // against NULL values in optional columns.
+// rawAggQuery resolves an "effective" partner_id: for sub-accounts
+// (clients.parent_client_id IS NOT NULL) we collapse to the parent's
+// partner_id so reseller analytics aggregate the entire account tree under
+// one bucket. Direct clients use their own partner_id. See B.1 fix.
 const rawAggQuery = `
 SELECT
-    0                                                          AS partner_id,
+    COALESCE(p.partner_id, c.partner_id, 0)                    AS partner_id,
     date_trunc('hour', m.created_at)                           AS hour,
     0::bigint                                                  AS provider_id,
     COALESCE(op.name, '')                                      AS operator,
@@ -59,6 +63,7 @@ SELECT
     0                                                          AS cost
 FROM messages m
 LEFT JOIN clients   c  ON c.id  = m.client_id
+LEFT JOIN clients   p  ON p.id  = c.parent_client_id
 LEFT JOIN operators op ON op.id = m.operator_id
 LEFT JOIN countries co ON co.id = m.country_id
 WHERE m.created_at >= $1 AND m.created_at < $2

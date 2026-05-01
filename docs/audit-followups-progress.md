@@ -49,15 +49,24 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 ### [BLOCKED] D.1 — /admin/v1/clients silent-ignore is_reseller/max_sub_accounts
 `clientv1.CreateClientRequest` и `UpdateClientRequest` proto не имеют полей `is_reseller`, `max_sub_accounts` (см. `api/proto/client/client.proto:64-72, 81-89`). Чистый фикс требует proto regen — тот же блокер, что A.1. Альтернатива — direct DB-update из gateway (layering violation, но прецедент есть в DBScopeLoader). Откладываю до сессии с рабочим protoc или явного решения о gateway-side подходе.
 
-### [BLOCKED] B.1 — partner_id leak (V3 deterministic mapping)
-Решение V3 принято, но требует:
-1. Миграция БД: `ALTER TABLE clients ADD COLUMN partner_id BIGINT UNIQUE` + backfill.
-2. Изменение pipeline-aggregator: при инсерте в `network_stats_hourly` резолвить client_id → partner_id через clients.
-3. Обновление network_statistics handler: фильтровать по partner_id текущего клиента, игнорировать `?partner_id=` query param.
+### [BLOCKED→DONE] B.1 — partner_id leak (V3 sequence mapping) — сессия 2026-05-01 (вторая)
+Принято: V3 SEQUENCE (вместо hash64), без отдельного spec'a — прямой код.
 
-Это отдельный spec по объёму. Не делаю в audit-followups, выношу: `2026-05-XX-network-analytics-tenant-isolation-design.md`.
+**Изменения:**
+- `migrations/000126_clients_partner_id.up.sql/.down.sql` — добавлена `clients.partner_id BIGINT NOT NULL` через `SEQUENCE clients_partner_id_seq START WITH 1`, UNIQUE INDEX, backfill через nextval, DELETE junk-bucket `network_stats_hourly WHERE partner_id=0`.
+- `internal/services/network_analytics/application/aggregation_worker.go` — rawAggQuery теперь `COALESCE(p.partner_id, c.partner_id, 0) AS partner_id` с LEFT JOIN parent. Hierarchy resolution: sub-account aggregates под partner_id парента.
+- `internal/gateway/portal/handlers/network_statistics.go` — новый метод `resolvePartnerID` с тем же hierarchy SQL, в struct добавлен `pool *pgxpool.Pool`. Все 8 callsites `partnerIDFromRequest(r)` → `partnerID, ok := h.resolvePartnerID(...)`. **Query-param `?partner_id=` полностью удалён.**
+- `cmd/portal-gateway/main.go:307` — проброс `dbPool` в конструктор.
+- `internal/gateway/portal/handlers/network_statistics_test.go` — 4 integration-тестa (build-tag `integration`): existing client → правильный partner_id; query-param ignored; sub-account → parent's partner_id; not-found → 401.
 
-**Временная защита** до закрытия (план §3.B.1 предписывал): пока не реализована — сейчас `partnerIDFromRequest` в `internal/gateway/portal/handlers/network_statistics.go` всё ещё доверяет query-param. **TC-AGG-5 НЕ закрыт.** Если уязвимость критична на проде — поднять отдельно как security-blocker.
+**Review:** 3 итерации `superpowers:code-reviewer`.
+- Итерация 1: CRITICAL — sub-account stats регресс (variant 2 принят) + HIGH stale-data в network_stats_hourly.
+- Итерация 2: hierarchy fix принят, новый HIGH — TRUNCATE в миграции destructive на проде.
+- Итерация 3: APPROVED — TRUNCATE → точечный DELETE WHERE partner_id=0.
+
+**Жертвы:** +1 SQL roundtrip на каждый network-statistics запрос (cache отложен); sequence раскрывает порядок регистрации (partner_id internal); down-migration теряет partner_id данные; тесты integration-only.
+
+**TC-AGG-5 закрыт** — query-param утечка устранена и hierarchy aggregation работает.
 
 ### [BLOCKED] D.6 — BUG-80 TOCTOU race + UNIQUE INDEX миграция
 БД-миграция: `CREATE UNIQUE INDEX ... ON clients (parent_client_id, lower(email)) WHERE active=true`. Применять — подтверждено пользователем.
