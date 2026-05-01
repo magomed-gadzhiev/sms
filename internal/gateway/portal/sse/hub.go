@@ -2,6 +2,7 @@ package sse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -133,7 +134,7 @@ func (h *Hub) lookupClientID(ctx context.Context, messageID string) (string, err
 	var clientID string
 	err := h.dbPool.QueryRow(ctx, "SELECT client_id FROM messages WHERE id = $1", messageID).Scan(&clientID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", nil
 		}
 		return "", fmt.Errorf("lookupClientID(%s): %w", messageID, err)

@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,7 +44,7 @@ func (c *HLRCacheImpl) Get(ctx context.Context, msisdn string) (*domain.LookupRe
 
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, nil // cache miss
 		}
 		return nil, fmt.Errorf("ошибка получения из кеша: %w", err)

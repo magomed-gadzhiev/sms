@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -163,7 +164,7 @@ func (h *ContractHandlers) GetContract(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	row, err := scanContract(h.db.QueryRowContext(r.Context(),
 		contractSelectQuery+` WHERE ct.id = $1::uuid`, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		respondError(w, shared.ErrNotFound("Договор не найден"))
 		return
 	}

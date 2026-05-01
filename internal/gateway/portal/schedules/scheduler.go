@@ -2,6 +2,7 @@ package schedules
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -83,7 +84,7 @@ func (s *Scheduler) run() {
 	// Process all due schedules one by one using atomic dequeue.
 	for {
 		sched, err := s.dequeueOne(ctx)
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return
 		}
 		if err != nil {

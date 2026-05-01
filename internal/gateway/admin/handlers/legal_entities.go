@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -101,7 +102,7 @@ func (h *LegalEntityHandlers) GetLegalEntity(w http.ResponseWriter, r *http.Requ
 		&row.ID, &row.INN, &row.Name, &row.FullName, &row.Address,
 		&row.Active, &row.CreatedAt, &row.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		respondError(w, shared.ErrNotFound("Юридическое лицо не найдено"))
 		return
 	}
@@ -179,7 +180,7 @@ func (h *LegalEntityHandlers) UpdateLegalEntity(w http.ResponseWriter, r *http.R
 		&row.ID, &row.INN, &row.Name, &row.FullName, &row.Address,
 		&row.Active, &row.CreatedAt, &row.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		respondError(w, shared.ErrNotFound("Юридическое лицо не найдено"))
 		return
 	}

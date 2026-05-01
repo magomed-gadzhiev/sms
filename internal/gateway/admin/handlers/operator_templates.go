@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -178,7 +179,7 @@ func (h *OperatorTemplateHandlers) GetOperatorTemplate(w http.ResponseWriter, r 
 	id := mux.Vars(r)["id"]
 	row, err := scanOperatorTemplate(h.db.QueryRowContext(r.Context(),
 		operatorTemplateSelectQuery+` WHERE ot.id = $1::uuid`, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		respondError(w, shared.ErrNotFound("Шаблон не найден"))
 		return
 	}
@@ -351,7 +352,7 @@ func (h *OperatorTemplateHandlers) loadModerationContext(r *http.Request, id str
 		LEFT JOIN clients c       ON c.id = sn.client_id
 		WHERE ot.id = $1
 	`, id).Scan(&status, &eligible)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, false, nil
 	}
 	if err != nil {

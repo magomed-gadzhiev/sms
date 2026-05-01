@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -232,7 +233,7 @@ func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request
 		&providerName, &routeName, &clientName, &clientID,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, shared.ErrNotFound("Сообщение не найдено"))
 			return
 		}

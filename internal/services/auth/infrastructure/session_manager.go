@@ -227,7 +227,7 @@ func (m *SessionManager) ValidateLoginTicket(ctx context.Context, ticket string)
 	// GetDel - атомарная операция: получить и удалить
 	userIDStr, err := m.redisClient.GetDel(ctx, redisKey).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return uuid.Nil, ErrLoginTicketNotFound
 		}
 		return uuid.Nil, fmt.Errorf("failed to validate login ticket: %w", err)

@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -36,7 +37,7 @@ func (t *UsageTracker) IncrementSMSCount(ctx context.Context, clientID uuid.UUID
 func (t *UsageTracker) GetMonthlySMSCount(ctx context.Context, clientID uuid.UUID) (int, error) {
 	key := t.monthlyKey(clientID)
 	val, err := t.redis.Get(ctx, key).Result()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return 0, nil
 	}
 	if err != nil {

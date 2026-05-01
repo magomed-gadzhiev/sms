@@ -3,6 +3,7 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -101,7 +102,7 @@ func (r *RouteRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.ClientRo
 		&route.Name, &route.Comment, &route.Status, &route.Share, &route.RouteType,
 		&route.CreatedAt, &route.UpdatedAt,
 	)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.ErrClientRouteNotFound
 	}
 	if err != nil {

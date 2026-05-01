@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -159,7 +160,7 @@ func (h *ConnectionsHandlers) GetConnection(w http.ResponseWriter, r *http.Reque
 		FROM providers
 		WHERE id = $1::uuid
 	`, id).Scan(&p.ID, &p.Name, &p.Host, &p.Port, &p.SystemID, &p.BindType, &p.MaxConnections, &p.Active, &p.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		respondError(w, shared.ErrNotFound("Провайдер не найден"))
 		return
 	}
