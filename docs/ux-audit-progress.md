@@ -2,6 +2,8 @@
 
 > Активный план аудита: [docs/superpowers/specs/2026-04-29-ux-full-reaudit-design.md](../superpowers/specs/2026-04-29-ux-full-reaudit-design.md). Скоуп D: 30 этапов, fix mode + Infrastructure Check + QA full.
 
+## [IN_PROGRESS] Этап 29/30: Cross-cutting error states + i18n + a11y (все 4 роли, fix + Infrastructure + QA full, 2026-05-01)
+
 ## [DONE] Этап 28/30: Cross-cutting RBAC + права доступа (все 4 роли, fix + Infrastructure + QA full, 2026-05-01) — 0 фиксов, 1 CRITICAL эскалирован
 
 [Summary] 35+ TC прогнаны через API+SQL под 4 ролями (admin@example.com, reseller@demo.local, client@demo.local, auditsub28@demo.local + второй ресселер AuditReseller2). Inventory middleware (portal/admin gateway router): SessionAuthMiddleware применяется ко всему `/portal/v1/*` кроме явно публичных (`/auth/login|register|password/*|2fa`, `/billing/top-up/callback`, `/plans`, `/health/*`); CSRFMiddleware на всех мутациях кроме API-key auth (по дизайну); ResellerOnlyMiddleware на `/reseller/*` subrouter (после BUG-82 этапа 27); AdminAuthMiddleware (admin-gateway) фильтрует role=admin/superadmin; AdminRoleMiddleware на portal-side `/portal/v1/admin/*` (cascade channels). API-key auth работает только на `/portal/v1/campaigns/*` через SessionOrAPIKeyMiddleware.
