@@ -54,6 +54,41 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 	cascadev1.RegisterStrategyAdminServiceServer(grpcServer, s)
 }
 
+// mapCascadeErr переводит domain-sentinel'ы из application-слоя в корректные
+// gRPC коды. Без этого `return nil, err` улетает как codes.Unknown → HTTP 500
+// на portal-gateway, хотя многие из них — клиентская семантика (404/409/400).
+//
+// Категории:
+//   - NotFound: ErrDeliveryNotFound, ErrStrategyNotFound, ErrChannelNotFound, ErrAttemptNotFound
+//   - AlreadyExists: ErrDuplicateChannelType, ErrDuplicateStrategyName, ErrAttemptAlreadyExists
+//   - FailedPrecondition: ErrStrategyHasActiveDeliveries, ErrChannelNotSupported,
+//     ErrInvalidTransition, ErrDeliveryConflict, ErrLateDuplicate
+//   - default: Internal (детали в лог через response.GRPCError, наружу — обобщённо).
+func mapCascadeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, domain.ErrDeliveryNotFound),
+		errors.Is(err, domain.ErrStrategyNotFound),
+		errors.Is(err, domain.ErrChannelNotFound),
+		errors.Is(err, domain.ErrAttemptNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrDuplicateChannelType),
+		errors.Is(err, domain.ErrDuplicateStrategyName),
+		errors.Is(err, domain.ErrAttemptAlreadyExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrStrategyHasActiveDeliveries),
+		errors.Is(err, domain.ErrChannelNotSupported),
+		errors.Is(err, domain.ErrInvalidTransition),
+		errors.Is(err, domain.ErrDeliveryConflict),
+		errors.Is(err, domain.ErrLateDuplicate):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}
+
 // ─── CascadeService ───────────────────────────────────────────────────────────
 
 func (s *Server) CreateDelivery(ctx context.Context, req *cascadev1.CreateDeliveryRequest) (*cascadev1.DeliveryResponse, error) {
@@ -76,7 +111,7 @@ func (s *Server) CreateDelivery(ctx context.Context, req *cascadev1.CreateDelive
 
 	delivery, err := s.cascade.CreateDelivery(ctx, clientID, strategyID, req.Recipient, req.Text, req.SenderName, req.RequestId, messageID)
 	if err != nil {
-		return nil, fmt.Errorf("create delivery: %w", err)
+		return nil, mapCascadeErr(err)
 	}
 
 	return deliveryToProto(delivery), nil
@@ -137,7 +172,7 @@ func (s *Server) ListDeliveries(ctx context.Context, req *cascadev1.ListDeliveri
 
 	deliveries, total, err := s.deliveries.ListDeliveries(ctx, filter)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 
 	resp := &cascadev1.ListDeliveriesResponse{
@@ -180,7 +215,7 @@ func (s *Server) GetDeliveryStats(ctx context.Context, req *cascadev1.GetDeliver
 
 	stats, err := s.deliveries.GetStats(ctx, filter)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 
 	resp := &cascadev1.DeliveryStatsResponse{
@@ -210,7 +245,7 @@ func (s *Server) GetDeliveryStats(ctx context.Context, req *cascadev1.GetDeliver
 func (s *Server) ListChannels(ctx context.Context, _ *cascadev1.ListChannelsRequest) (*cascadev1.ListChannelsResponse, error) {
 	channels, err := s.channels.List(ctx)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	resp := &cascadev1.ListChannelsResponse{}
 	for _, ch := range channels {
@@ -226,7 +261,7 @@ func (s *Server) GetChannel(ctx context.Context, req *cascadev1.GetChannelReques
 	}
 	ch, err := s.channels.Get(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return channelToProto(ch), nil
 }
@@ -244,7 +279,7 @@ func (s *Server) CreateChannel(ctx context.Context, req *cascadev1.CreateChannel
 
 	ch, err := s.channels.Create(ctx, ct, req.Name, req.Description, config)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return channelToProto(ch), nil
 }
@@ -262,7 +297,7 @@ func (s *Server) UpdateChannel(ctx context.Context, req *cascadev1.UpdateChannel
 
 	ch, err := s.channels.Update(ctx, id, req.Name, req.Description, config)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return channelToProto(ch), nil
 }
@@ -274,7 +309,7 @@ func (s *Server) ToggleChannel(ctx context.Context, req *cascadev1.ToggleChannel
 	}
 	ch, err := s.channels.Toggle(ctx, id, req.Active)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return channelToProto(ch), nil
 }
@@ -284,7 +319,7 @@ func (s *Server) ToggleChannel(ctx context.Context, req *cascadev1.ToggleChannel
 func (s *Server) ListStrategies(ctx context.Context, req *cascadev1.ListStrategiesRequest) (*cascadev1.ListStrategiesResponse, error) {
 	strategies, err := s.strategies.List(ctx, req.ActiveOnly)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	resp := &cascadev1.ListStrategiesResponse{}
 	for _, str := range strategies {
@@ -300,7 +335,7 @@ func (s *Server) GetStrategy(ctx context.Context, req *cascadev1.GetStrategyRequ
 	}
 	str, err := s.strategies.Get(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return strategyToProto(str), nil
 }
@@ -331,7 +366,7 @@ func (s *Server) CreateStrategy(ctx context.Context, req *cascadev1.CreateStrate
 
 	str, err := s.strategies.Create(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return strategyToProto(str), nil
 }
@@ -363,7 +398,7 @@ func (s *Server) UpdateStrategy(ctx context.Context, req *cascadev1.UpdateStrate
 
 	str, err := s.strategies.Update(ctx, id, input)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 	return strategyToProto(str), nil
 }
@@ -374,7 +409,7 @@ func (s *Server) DeleteStrategy(ctx context.Context, req *cascadev1.DeleteStrate
 		return nil, status.Error(codes.InvalidArgument, "invalid strategy_id format")
 	}
 	if err := s.strategies.Delete(ctx, id); err != nil {
-		return &cascadev1.DeleteStrategyResponse{Success: false}, err
+		return &cascadev1.DeleteStrategyResponse{Success: false}, mapCascadeErr(err)
 	}
 	return &cascadev1.DeleteStrategyResponse{Success: true}, nil
 }
@@ -391,7 +426,7 @@ func (s *Server) GetOperatorChannelSupport(ctx context.Context, req *cascadev1.G
 
 	entries, err := s.ocs.List(ctx, operatorID)
 	if err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 
 	resp := &cascadev1.GetOCSResponse{}
@@ -423,7 +458,7 @@ func (s *Server) UpdateOperatorChannelSupport(ctx context.Context, req *cascadev
 		Notes:       req.Notes,
 	}
 	if err := s.ocs.Upsert(ctx, ocs); err != nil {
-		return nil, err
+		return nil, mapCascadeErr(err)
 	}
 
 	return &cascadev1.UpdateOCSResponse{

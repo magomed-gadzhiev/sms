@@ -2,13 +2,62 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	cascadev1 "github.com/smpp-server/smpp-server/api/proto/cascadev1"
+	"github.com/smpp-server/smpp-server/internal/services/cascade/domain"
 )
+
+// TestMapCascadeErr проверяет, что domain-sentinel'ы корректно мапятся в gRPC коды
+// (regression-guard для C.6b — раньше эти ошибки уходили как codes.Unknown → 500).
+func TestMapCascadeErr(t *testing.T) {
+	tests := []struct {
+		name string
+		in   error
+		want codes.Code
+	}{
+		{"nil", nil, codes.OK},
+		{"DeliveryNotFound", domain.ErrDeliveryNotFound, codes.NotFound},
+		{"StrategyNotFound", domain.ErrStrategyNotFound, codes.NotFound},
+		{"ChannelNotFound", domain.ErrChannelNotFound, codes.NotFound},
+		{"AttemptNotFound", domain.ErrAttemptNotFound, codes.NotFound},
+		{"DuplicateChannelType", domain.ErrDuplicateChannelType, codes.AlreadyExists},
+		{"DuplicateStrategyName", domain.ErrDuplicateStrategyName, codes.AlreadyExists},
+		{"AttemptAlreadyExists", domain.ErrAttemptAlreadyExists, codes.AlreadyExists},
+		{"StrategyHasActiveDeliveries", domain.ErrStrategyHasActiveDeliveries, codes.FailedPrecondition},
+		{"ChannelNotSupported", domain.ErrChannelNotSupported, codes.FailedPrecondition},
+		{"InvalidTransition", domain.ErrInvalidTransition, codes.FailedPrecondition},
+		{"DeliveryConflict", domain.ErrDeliveryConflict, codes.FailedPrecondition},
+		{"LateDuplicate", domain.ErrLateDuplicate, codes.FailedPrecondition},
+		{"unknown error → Internal", errors.New("random db error"), codes.Internal},
+		// Wrapped через %w — errors.Is должен находить sentinel сквозь обёртку.
+		{"wrapped NotFound", fmt.Errorf("wrap: %w", domain.ErrStrategyNotFound), codes.NotFound},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := mapCascadeErr(tc.in)
+			if tc.want == codes.OK {
+				if got != nil {
+					t.Fatalf("expected nil, got %v", got)
+				}
+				return
+			}
+			st, ok := status.FromError(got)
+			if !ok {
+				t.Fatalf("expected gRPC status error, got %T: %v", got, got)
+			}
+			if st.Code() != tc.want {
+				t.Fatalf("expected %s, got %s (msg=%q)", tc.want, st.Code(), st.Message())
+			}
+		})
+	}
+}
 
 // TestHandler_ValidationReturnsInvalidArgument проверяет, что edge-валидация
 // в gRPC-handler'е возвращает codes.InvalidArgument (мапится gateway'ом в HTTP 400),
