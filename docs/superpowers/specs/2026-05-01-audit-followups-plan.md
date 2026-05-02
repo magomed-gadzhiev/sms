@@ -326,9 +326,9 @@
 
 ## 5. BLOCK D — открытые observations (1-2 PR)
 
-### D.1. /admin/v1/clients silent-ignore is_reseller/max_sub_accounts (этап 28 obs-6)
+### D.1. /admin/v1/clients silent-ignore is_reseller/max_sub_accounts (этап 28 obs-6) — [DONE] 2026-05-02 (commit `4092250`)
 
-`POST /admin/v1/clients` принимает body с `is_reseller:true,max_sub_accounts:5`, но БД сохраняет `is_reseller=f, max_sub_accounts=0`. Действие: в handler добавить proper field mapping. Один PR.
+Закрыто после X3 разблокировки proto regen. proto CreateClientRequest получил plain `bool/int32`, UpdateClientRequest — proto3 `optional` (pointer-style nil = не менять). Application+gRPC+admin handler+JSON DTO+ClientInfo response — все слои пробрасывают. Plus business rule `is_reseller=true ⇒ max_sub_accounts >= 1` (БД CHECK не ловит). Подробности: `docs/audit-followups-progress.md`.
 
 ### D.2. /admin denial silent-redirect без toast (этап 29 obs-2)
 

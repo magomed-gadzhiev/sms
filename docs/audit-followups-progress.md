@@ -305,6 +305,37 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 ---
 
+### [DONE] D.1 — is_reseller/max_sub_accounts mapping в admin client API — сессия 2026-05-02
+
+**Pre-flight:** этап 28 obs-6 показал silent-ignore — admin POST принимал поля, БД их не сохраняла. Корень: proto `CreateClientRequest`/`UpdateClientRequest` не имели полей. БД-столбцы (`migrations/000016`), domain.Client, repository, proto `ClientInfo` (read path) — всё уже было; missing был только write path в proto.
+
+**Архитектурные решения:**
+- proto Create: plain `bool`/`int32` (полное состояние при создании).
+- proto Update: `optional bool`/`optional int32` (proto3 has-accessor — pointer-style в Go, nil = не менять).
+- Business rule `is_reseller=true ⇒ max_sub_accounts >= 1` — application слой (БД CHECK ловит только top-level invariant).
+- Frontend admin UI вне scope D.1 (план явно "в handler добавить proper field mapping").
+
+**Изменения** (commit `4092250`):
+- `api/proto/client/client.proto`: +`is_reseller=8`/`max_sub_accounts=9` в Create (plain) и Update (optional).
+- `application.CreateClient`: расширена сигнатура. Валидация: negative + reseller-без-слотов → `ErrInvalidClientData`.
+- `application.UpdateClient`: расширена сигнатура (pointer-style). Validation на итоговом состоянии после применения PATCH.
+- `internal/services/client/grpc/server.go::UpdateClient`: добавлена ветка `errors.Is(err, ErrInvalidClientData) → InvalidArgument` (раньше 500; симметрично с CreateClient).
+- `internal/gateway/admin/handlers/clients.go`: +`IsReseller`/`MaxSubAccounts` в JSON DTO (Create/Update/ClientInfo). `Validate()` дублирует business rule для CreateClient short-circuit. UpdateClient handler short-circuit'ит на negative; reseller-инвариант делегирован application слою (handler не знает итогового состояния).
+- `clientInfoToResponse`: пробрасывает в GET response.
+- 9 test callsites обновлены под новую arity. 5 новых regression-тестов (Create + Update × negative + reseller-без-слотов).
+
+**Quality gates:** check.sh PASS, go test для затронутых пакетов PASS.
+
+**Review:** APPROVED после 1 итерации CHANGES_REQUESTED (нашёл missing `ErrInvalidClientData` mapping в UpdateClient gRPC + предложил business rule для reseller-без-слотов; оба исправлены).
+
+**Pre-existing observations (не блокеры D.1, зафиксированы как housekeeping):**
+- `api/proto/clientv1/client/client.pb.go` — stale duplicate (унаследовано от X3-2).
+- admin UpdateClient: `var active bool` always non-nil → PATCH без `active` сбрасывает active в false. Pre-existing, не D.1 регрессия.
+- DB CHECK leak (parent_client_id+is_reseller) → 500 вместо 400. Pre-existing.
+- `updates_fields` test coverage gap для IsReseller/MaxSubAccounts unchanged-when-nil.
+
+---
+
 ## Proto-regen инфраструктура (Variant A, 2026-05-02)
 
 Создан Docker-based pipeline для regen'а .proto файлов с pinned версиями инструментов.
