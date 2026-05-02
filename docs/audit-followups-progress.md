@@ -299,7 +299,7 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 **Quality gates:** `./scripts/check.sh` PASS, `go test` для затронутых пакетов PASS (auth/application, auth/grpc, portal/middleware).
 
-**Pre-existing наблюдение** (не блокер): `test/functional/tarification_test.go:411` имеет vet error `futureEnd time.Time vs *time.Time` — существует на чистом master без A.1 изменений (verified через `git stash` + `vet`). Кандидат на отдельный housekeeping fix.
+**Pre-existing наблюдение** (не блокер): ~~`test/functional/tarification_test.go:411` имеет vet error `futureEnd time.Time vs *time.Time` — существует на чистом master без A.1 изменений (verified через `git stash` + `vet`). Кандидат на отдельный housekeeping fix~~ — [DONE] commit `839dada` (2026-05-02). 1-символьный pointer-fix `futureEnd` → `&futureEnd`. Все 5 остальных CreatePeriod callsite'ов в файле уже передавали `&futureEnd` — line 411 единичный outlier. Reviewer APPROVED 1 итерация.
 
 **Review:** APPROVED после 1 цикла CHANGES_REQUESTED → fix functional-test callsites.
 
