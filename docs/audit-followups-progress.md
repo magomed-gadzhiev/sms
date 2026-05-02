@@ -336,6 +336,41 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 ---
 
+### [DONE] D.10 (часть) — RotateAPIKey endpoint — сессия 2026-05-02
+
+**Pre-flight:** этап 25 obs-6 — endpoint отсутствовал. После X3 разблокировки proto regen реализуется end-to-end.
+
+**Архитектурный выбор пользователя:** B (soft rotate с grace period) + II (sequential без транзакций).
+
+**Изменения** (commit `731d906`):
+- `migrations/000128`: + `api_keys.revoke_at TIMESTAMPTZ NULL` + partial index. Применена на sandbox (миграция 128/u).
+- `api/proto/auth/auth.proto`: + RPC `RotateAPIKey`, messages `RotateAPIKeyRequest/Response`, + `revoke_at` в `APIKeyInfo`.
+- `domain.APIKey`: + `RevokeAt *time.Time`, + `IsRevoked()`. `IsValid()` теперь учитывает revoke_at — lazy invalidation, без background worker'а.
+- `repo`: + `revoke_at` во всех SELECT/INSERT, + методы `SetRevokeAt`/`Delete` (Delete только для compensating-rollback).
+- `application.RotateAPIKey`: возвращает `(newKey, rawKey, oldRevokeAt, err)`. Sequential semantic: Create new → SetRevokeAt(old, now+24h). При падении SetRevokeAt — best-effort `Delete(new)`.
+- `gRPC server.RotateAPIKey`: маппит errors → InvalidArgument/NotFound/PermissionDenied/FailedPrecondition.
+- `portal HTTP`: `POST /api-keys/{id}/rotate` + audit `ActionAPIKeyRotated`. + `revoke_at` в ListAPIKeys JSON.
+- `frontend`: `apiKeysApi.rotate` + кнопка Rotate (disabled при `revoke_at != null`) + ConfirmDialog с предупреждением о 24h + Result modal с copy-кнопкой и timestamp'ом отключения.
+- 6 mock-файлов обновлены под новые interface-методы.
+- 4 unit-теста на `application.RotateAPIKey`: success (assert на oldRevokeAt ≈ now+24h), not_owned, revoked, compensating_delete.
+
+**Архитектурные жертвы:**
+- Soft rotate захардкожен на 24h (`APIKeyRotateGrace`). Конфигурируемость — отдельная задача.
+- `authCache` (TTL ~60s) не инвалидируется при rotate. Reviewer подтвердил: 60s << 24h grace, безопасно. Если grace когда-нибудь сократят до < TTL — нужна явная инвалидация.
+- Sequential без транзакций: window секунд "оба ключа активны" если Create→SetRevokeAt падает между шагами. Митигация — compensating Delete.
+
+**Quality gates:** check.sh PASS, targeted go test PASS.
+
+**Bundle статус (план §D.10):**
+- D.10a (UpdateAPIKey errors.Is) — DONE (commit 73194e7).
+- D.10b (audit ClientID="" + ActionAPIKeyUpdated) — DONE (73194e7).
+- RotateAPIKey — DONE этим коммитом.
+- Остаётся: webhook signature replay test (требует time-travel mock или integration-стенд) — отдельная задача.
+
+**Review:** APPROVED 1 итерация. Единственный nit (drift `OldKeyRevokeAt` от `time.Now()` recompute) исправлен в этом же коммите через возврат точного `revokeAt` из application.
+
+---
+
 ## Proto-regen инфраструктура (Variant A, 2026-05-02)
 
 Создан Docker-based pipeline для regen'а .proto файлов с pinned версиями инструментов.

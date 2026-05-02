@@ -366,6 +366,11 @@ Sub → 404 plain-text. Действие: зарегистрировать handl
 
 Bundle PR на api-keys/webhooks: 4 минификса.
 
+- D.10a (UpdateAPIKey errors.Is) — [DONE] commit `73194e7`.
+- D.10b (audit ClientID="" + ActionAPIKeyUpdated) — [DONE] commit `73194e7`.
+- RotateAPIKey endpoint — [DONE] 2026-05-02 commit `731d906` (soft rotate с 24h grace; lazy invalidation; sequential с compensating delete).
+- Webhook signature replay test — открытый item (требует time-travel mock или integration-стенд).
+
 ---
 
 ## 6. Порядок исполнения
