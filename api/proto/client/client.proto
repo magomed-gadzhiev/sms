@@ -69,6 +69,8 @@ message CreateClientRequest {
   bool active = 5;                // Активен ли клиент
   map<string, string> metadata = 6;  // Дополнительные метаданные
   bool is_sandbox = 7;            // Sandbox-режим (SMS идут на фиктивный провайдер)
+  bool is_reseller = 8;           // Является ли клиент реселлером (top-level only)
+  int32 max_sub_accounts = 9;     // Максимальное количество суб-аккаунтов (только для реселлеров)
 }
 
 // CreateClientResponse представляет ответ на создание клиента
@@ -77,7 +79,10 @@ message CreateClientResponse {
   google.protobuf.Timestamp created_at = 2;  // Время создания
 }
 
-// UpdateClientRequest представляет запрос на обновление клиента
+// UpdateClientRequest представляет запрос на обновление клиента.
+// Поля is_reseller и max_sub_accounts помечены optional — это даёт has-accessors
+// (HasIsReseller / HasMaxSubAccounts), чтобы distinguish "не передано" от
+// "передано false/0" (важно для отключения флага реселлера явным false).
 message UpdateClientRequest {
   string client_id = 1;           // ID клиента
   string name = 2;                // Название клиента (опционально)
@@ -86,6 +91,8 @@ message UpdateClientRequest {
   string phone = 5;               // Телефон (опционально)
   bool active = 6;                // Активен ли клиент (опционально)
   map<string, string> metadata = 7;  // Дополнительные метаданные (опционально)
+  optional bool is_reseller = 8;     // Реселлер-флаг (опционально; only top-level)
+  optional int32 max_sub_accounts = 9; // Лимит суб-аккаунтов (опционально)
 }
 
 // UpdateClientResponse представляет ответ на обновление клиента

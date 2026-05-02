@@ -24,16 +24,18 @@ const (
 
 // CreateClientRequest представляет запрос на создание клиента
 type CreateClientRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Название клиента
-	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`                                                                                 // Email клиента
-	ContactPerson string                 `protobuf:"bytes,3,opt,name=contact_person,json=contactPerson,proto3" json:"contact_person,omitempty"`                                            // Контактное лицо (опционально)
-	Phone         string                 `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`                                                                                 // Телефон (опционально)
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Активен ли клиент
-	Metadata      map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Дополнительные метаданные
-	IsSandbox     bool                   `protobuf:"varint,7,opt,name=is_sandbox,json=isSandbox,proto3" json:"is_sandbox,omitempty"`                                                       // Sandbox-режим (SMS идут на фиктивный провайдер)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Название клиента
+	Email          string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`                                                                                 // Email клиента
+	ContactPerson  string                 `protobuf:"bytes,3,opt,name=contact_person,json=contactPerson,proto3" json:"contact_person,omitempty"`                                            // Контактное лицо (опционально)
+	Phone          string                 `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`                                                                                 // Телефон (опционально)
+	Active         bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Активен ли клиент
+	Metadata       map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Дополнительные метаданные
+	IsSandbox      bool                   `protobuf:"varint,7,opt,name=is_sandbox,json=isSandbox,proto3" json:"is_sandbox,omitempty"`                                                       // Sandbox-режим (SMS идут на фиктивный провайдер)
+	IsReseller     bool                   `protobuf:"varint,8,opt,name=is_reseller,json=isReseller,proto3" json:"is_reseller,omitempty"`                                                    // Является ли клиент реселлером (top-level only)
+	MaxSubAccounts int32                  `protobuf:"varint,9,opt,name=max_sub_accounts,json=maxSubAccounts,proto3" json:"max_sub_accounts,omitempty"`                                      // Максимальное количество суб-аккаунтов (только для реселлеров)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateClientRequest) Reset() {
@@ -115,6 +117,20 @@ func (x *CreateClientRequest) GetIsSandbox() bool {
 	return false
 }
 
+func (x *CreateClientRequest) GetIsReseller() bool {
+	if x != nil {
+		return x.IsReseller
+	}
+	return false
+}
+
+func (x *CreateClientRequest) GetMaxSubAccounts() int32 {
+	if x != nil {
+		return x.MaxSubAccounts
+	}
+	return 0
+}
+
 // CreateClientResponse представляет ответ на создание клиента
 type CreateClientResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -168,18 +184,23 @@ func (x *CreateClientResponse) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// UpdateClientRequest представляет запрос на обновление клиента
+// UpdateClientRequest представляет запрос на обновление клиента.
+// Поля is_reseller и max_sub_accounts помечены optional — это даёт has-accessors
+// (HasIsReseller / HasMaxSubAccounts), чтобы distinguish "не передано" от
+// "передано false/0" (важно для отключения флага реселлера явным false).
 type UpdateClientRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`                                                           // ID клиента
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Название клиента (опционально)
-	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`                                                                                 // Email клиента (опционально)
-	ContactPerson string                 `protobuf:"bytes,4,opt,name=contact_person,json=contactPerson,proto3" json:"contact_person,omitempty"`                                            // Контактное лицо (опционально)
-	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`                                                                                 // Телефон (опционально)
-	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Активен ли клиент (опционально)
-	Metadata      map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Дополнительные метаданные (опционально)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ClientId       string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`                                                           // ID клиента
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Название клиента (опционально)
+	Email          string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`                                                                                 // Email клиента (опционально)
+	ContactPerson  string                 `protobuf:"bytes,4,opt,name=contact_person,json=contactPerson,proto3" json:"contact_person,omitempty"`                                            // Контактное лицо (опционально)
+	Phone          string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`                                                                                 // Телефон (опционально)
+	Active         bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Активен ли клиент (опционально)
+	Metadata       map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Дополнительные метаданные (опционально)
+	IsReseller     *bool                  `protobuf:"varint,8,opt,name=is_reseller,json=isReseller,proto3,oneof" json:"is_reseller,omitempty"`                                              // Реселлер-флаг (опционально; only top-level)
+	MaxSubAccounts *int32                 `protobuf:"varint,9,opt,name=max_sub_accounts,json=maxSubAccounts,proto3,oneof" json:"max_sub_accounts,omitempty"`                                // Лимит суб-аккаунтов (опционально)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateClientRequest) Reset() {
@@ -259,6 +280,20 @@ func (x *UpdateClientRequest) GetMetadata() map[string]string {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *UpdateClientRequest) GetIsReseller() bool {
+	if x != nil && x.IsReseller != nil {
+		return *x.IsReseller
+	}
+	return false
+}
+
+func (x *UpdateClientRequest) GetMaxSubAccounts() int32 {
+	if x != nil && x.MaxSubAccounts != nil {
+		return *x.MaxSubAccounts
+	}
+	return 0
 }
 
 // UpdateClientResponse представляет ответ на обновление клиента
@@ -2413,7 +2448,7 @@ var File_client_proto protoreflect.FileDescriptor
 
 const file_client_proto_rawDesc = "" +
 	"\n" +
-	"\fclient.proto\x12\tclient.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xba\x02\n" +
+	"\fclient.proto\x12\tclient.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x85\x03\n" +
 	"\x13CreateClientRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12%\n" +
@@ -2422,14 +2457,17 @@ const file_client_proto_rawDesc = "" +
 	"\x06active\x18\x05 \x01(\bR\x06active\x12H\n" +
 	"\bmetadata\x18\x06 \x03(\v2,.client.v1.CreateClientRequest.MetadataEntryR\bmetadata\x12\x1d\n" +
 	"\n" +
-	"is_sandbox\x18\a \x01(\bR\tisSandbox\x1a;\n" +
+	"is_sandbox\x18\a \x01(\bR\tisSandbox\x12\x1f\n" +
+	"\vis_reseller\x18\b \x01(\bR\n" +
+	"isReseller\x12(\n" +
+	"\x10max_sub_accounts\x18\t \x01(\x05R\x0emaxSubAccounts\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"n\n" +
 	"\x14CreateClientResponse\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x129\n" +
 	"\n" +
-	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb8\x02\n" +
+	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb2\x03\n" +
 	"\x13UpdateClientRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2437,10 +2475,15 @@ const file_client_proto_rawDesc = "" +
 	"\x0econtact_person\x18\x04 \x01(\tR\rcontactPerson\x12\x14\n" +
 	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x16\n" +
 	"\x06active\x18\x06 \x01(\bR\x06active\x12H\n" +
-	"\bmetadata\x18\a \x03(\v2,.client.v1.UpdateClientRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\a \x03(\v2,.client.v1.UpdateClientRequest.MetadataEntryR\bmetadata\x12$\n" +
+	"\vis_reseller\x18\b \x01(\bH\x00R\n" +
+	"isReseller\x88\x01\x01\x12-\n" +
+	"\x10max_sub_accounts\x18\t \x01(\x05H\x01R\x0emaxSubAccounts\x88\x01\x01\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"0\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x0e\n" +
+	"\f_is_resellerB\x13\n" +
+	"\x11_max_sub_accounts\"0\n" +
 	"\x14UpdateClientResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"/\n" +
 	"\x10GetClientRequest\x12\x1b\n" +
@@ -2763,6 +2806,7 @@ func file_client_proto_init() {
 	if File_client_proto != nil {
 		return
 	}
+	file_client_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

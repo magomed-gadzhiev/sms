@@ -40,12 +40,14 @@ func (h *ClientHandlers) CreateClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grpcReq := &clientv1.CreateClientRequest{
-		Name:         req.Name,
-		Email:        req.Email,
-		ContactPerson: req.ContactPerson,
-		Phone:        req.Phone,
-		Active:       req.Active,
-		Metadata:     req.Metadata,
+		Name:           req.Name,
+		Email:          req.Email,
+		ContactPerson:  req.ContactPerson,
+		Phone:          req.Phone,
+		Active:         req.Active,
+		IsReseller:     req.IsReseller,
+		MaxSubAccounts: req.MaxSubAccounts,
+		Metadata:       req.Metadata,
 	}
 
 	resp, err := h.clientClient.CreateClient(r.Context(), grpcReq)
@@ -149,6 +151,12 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.MaxSubAccounts != nil && *req.MaxSubAccounts < 0 {
+		respondError(w, shared.ErrInvalidInput("max_sub_accounts не может быть отрицательным"))
+		return
+	}
+	// Reseller-без-слотов проверяется на application-уровне (требует знания
+	// итогового состояния после применения PATCH; admin handler видит только delta).
 
 	var name, email, contactPerson, phone string
 	var active bool
@@ -169,13 +177,15 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grpcReq := &clientv1.UpdateClientRequest{
-		ClientId:      clientID,
-		Name:          name,
-		Email:         email,
-		ContactPerson: contactPerson,
-		Phone:         phone,
-		Active:        active,
-		Metadata:      req.Metadata,
+		ClientId:       clientID,
+		Name:           name,
+		Email:          email,
+		ContactPerson:  contactPerson,
+		Phone:          phone,
+		Active:         active,
+		IsReseller:     req.IsReseller,
+		MaxSubAccounts: req.MaxSubAccounts,
+		Metadata:       req.Metadata,
 	}
 
 	resp, err := h.clientClient.UpdateClient(r.Context(), grpcReq)
@@ -291,12 +301,14 @@ func (h *ClientHandlers) UpdateClientRateLimits(w http.ResponseWriter, r *http.R
 // Вспомогательные функции и типы
 
 type CreateClientRequest struct {
-	Name         string            `json:"name"`
-	Email        string            `json:"email"`
-	ContactPerson string           `json:"contact_person,omitempty"`
-	Phone        string            `json:"phone,omitempty"`
-	Active       bool              `json:"active"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	Name           string            `json:"name"`
+	Email          string            `json:"email"`
+	ContactPerson  string            `json:"contact_person,omitempty"`
+	Phone          string            `json:"phone,omitempty"`
+	Active         bool              `json:"active"`
+	IsReseller     bool              `json:"is_reseller,omitempty"`
+	MaxSubAccounts int32             `json:"max_sub_accounts,omitempty"`
+	Metadata       map[string]string `json:"metadata,omitempty"`
 }
 
 func (r *CreateClientRequest) Validate() error {
@@ -318,6 +330,12 @@ func (r *CreateClientRequest) Validate() error {
 	if err := validateTextField("phone", r.Phone, 50); err != nil {
 		return err
 	}
+	if r.MaxSubAccounts < 0 {
+		return shared.ErrInvalidInput("max_sub_accounts не может быть отрицательным")
+	}
+	if r.IsReseller && r.MaxSubAccounts < 1 {
+		return shared.ErrInvalidInput("реселлер требует max_sub_accounts >= 1")
+	}
 	return nil
 }
 
@@ -338,12 +356,14 @@ type CreateClientResponse struct {
 }
 
 type UpdateClientRequest struct {
-	Name         *string           `json:"name,omitempty"`
-	Email        *string           `json:"email,omitempty"`
-	ContactPerson *string          `json:"contact_person,omitempty"`
-	Phone        *string           `json:"phone,omitempty"`
-	Active       *bool             `json:"active,omitempty"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	Name           *string           `json:"name,omitempty"`
+	Email          *string           `json:"email,omitempty"`
+	ContactPerson  *string           `json:"contact_person,omitempty"`
+	Phone          *string           `json:"phone,omitempty"`
+	Active         *bool             `json:"active,omitempty"`
+	IsReseller     *bool             `json:"is_reseller,omitempty"`
+	MaxSubAccounts *int32            `json:"max_sub_accounts,omitempty"`
+	Metadata       map[string]string `json:"metadata,omitempty"`
 }
 
 type UpdateClientResponse struct {
@@ -355,16 +375,18 @@ type DeleteClientResponse struct {
 }
 
 type ClientInfo struct {
-	ClientID     string            `json:"client_id"`
-	Name         string            `json:"name"`
-	Email        string            `json:"email"`
-	ContactPerson string           `json:"contact_person"`
-	Phone        string            `json:"phone"`
-	Active       bool              `json:"active"`
-	RateLimits   RateLimits        `json:"rate_limits"`
-	Metadata     map[string]string `json:"metadata"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
+	ClientID       string            `json:"client_id"`
+	Name           string            `json:"name"`
+	Email          string            `json:"email"`
+	ContactPerson  string            `json:"contact_person"`
+	Phone          string            `json:"phone"`
+	Active         bool              `json:"active"`
+	IsReseller     bool              `json:"is_reseller"`
+	MaxSubAccounts int32             `json:"max_sub_accounts"`
+	RateLimits     RateLimits        `json:"rate_limits"`
+	Metadata       map[string]string `json:"metadata"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
 }
 
 type ListClientsResponse struct {
@@ -411,13 +433,15 @@ type ClientConfig struct {
 
 func clientInfoToResponse(c *clientv1.ClientInfo) ClientInfo {
 	info := ClientInfo{
-		ClientID:      c.ClientId,
-		Name:          c.Name,
-		Email:         c.Email,
-		ContactPerson: c.ContactPerson,
-		Phone:         c.Phone,
-		Active:        c.Active,
-		Metadata:      c.Metadata,
+		ClientID:       c.ClientId,
+		Name:           c.Name,
+		Email:          c.Email,
+		ContactPerson:  c.ContactPerson,
+		Phone:          c.Phone,
+		Active:         c.Active,
+		IsReseller:     c.IsReseller,
+		MaxSubAccounts: c.MaxSubAccounts,
+		Metadata:       c.Metadata,
 	}
 	
 	if c.CreatedAt != nil {

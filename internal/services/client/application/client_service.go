@@ -66,16 +66,28 @@ func NewClientService(
 	}
 }
 
-// CreateClient создает нового клиента
+// CreateClient создает нового клиента.
+// isReseller=true допустим только для top-level клиентов (parent_client_id IS NULL).
+// БД-инвариант защищён CHECK-constraint в migrations/000016_add_sub_accounts.up.sql.
 func (s *ClientService) CreateClient(
 	ctx context.Context,
 	name, email, contactPerson, phone string,
 	active bool,
 	isSandbox bool,
+	isReseller bool,
+	maxSubAccounts int,
 	metadata map[string]string,
 ) (*domain.Client, error) {
 	// Валидация
 	if name == "" {
+		return nil, ErrInvalidClientData
+	}
+	if maxSubAccounts < 0 {
+		return nil, ErrInvalidClientData
+	}
+	// Реселлер без слотов — мусорное состояние (флаг есть, толку нет). БД CHECK
+	// этого не ловит (constraint только для top-level invariant).
+	if isReseller && maxSubAccounts < 1 {
 		return nil, ErrInvalidClientData
 	}
 
@@ -91,17 +103,19 @@ func (s *ClientService) CreateClient(
 
 	// Создаем клиента
 	client := &domain.Client{
-		ID:            uuid.New(),
-		Name:          name,
-		APIKey:        "ak-" + hex.EncodeToString(apiKeyBytes),
-		Secret:        hex.EncodeToString(secretBytes),
-		Email:         email,
-		ContactPerson: contactPerson,
-		Phone:         phone,
-		Active:        active,
-		IsSandbox:     isSandbox,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:             uuid.New(),
+		Name:           name,
+		APIKey:         "ak-" + hex.EncodeToString(apiKeyBytes),
+		Secret:         hex.EncodeToString(secretBytes),
+		Email:          email,
+		ContactPerson:  contactPerson,
+		Phone:          phone,
+		Active:         active,
+		IsSandbox:      isSandbox,
+		IsReseller:     isReseller,
+		MaxSubAccounts: maxSubAccounts,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	// Устанавливаем метаданные
@@ -142,12 +156,16 @@ func (s *ClientService) CreateClient(
 	return client, nil
 }
 
-// UpdateClient обновляет клиента
+// UpdateClient обновляет клиента.
+// isReseller и maxSubAccounts опциональны — nil означает "не менять".
+// БД-инвариант (is_reseller только для top-level) защищён CHECK-constraint.
 func (s *ClientService) UpdateClient(
 	ctx context.Context,
 	clientID uuid.UUID,
 	name, email, contactPerson, phone *string,
 	active *bool,
+	isReseller *bool,
+	maxSubAccounts *int,
 	metadata map[string]string,
 ) (*domain.Client, error) {
 	// Получаем текущего клиента
@@ -174,6 +192,20 @@ func (s *ClientService) UpdateClient(
 	}
 	if active != nil {
 		client.Active = *active
+	}
+	if isReseller != nil {
+		client.IsReseller = *isReseller
+	}
+	if maxSubAccounts != nil {
+		if *maxSubAccounts < 0 {
+			return nil, ErrInvalidClientData
+		}
+		client.MaxSubAccounts = *maxSubAccounts
+	}
+	// Та же бизнес-инварианта что и в CreateClient: реселлер требует ≥1 слота.
+	// Проверяем итоговое состояние клиента (после применения PATCH-полей).
+	if client.IsReseller && client.MaxSubAccounts < 1 {
+		return nil, ErrInvalidClientData
 	}
 	if metadata != nil {
 		if err := client.SetMetadata(metadata); err != nil {

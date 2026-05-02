@@ -40,7 +40,7 @@ func TestClientService(t *testing.T) {
 					cfg.RateLimitPerDay == 10000
 			})).Return(nil)
 
-			client, err := svc.CreateClient(ctx, "Test Company", "test@example.com", "John Doe", "+79001234567", true, false, nil)
+			client, err := svc.CreateClient(ctx, "Test Company", "test@example.com", "John Doe", "+79001234567", true, false, false, 0, nil)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -70,7 +70,7 @@ func TestClientService(t *testing.T) {
 
 			configRepo.On("Create", ctx, mock.AnythingOfType("*domain.ClientConfig")).Return(nil)
 
-			client, err := svc.CreateClient(ctx, "Fintech Corp", "info@fintech.com", "Jane", "+79009876543", true, false, metadata)
+			client, err := svc.CreateClient(ctx, "Fintech Corp", "info@fintech.com", "Jane", "+79009876543", true, false, false, 0, metadata)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -89,7 +89,7 @@ func TestClientService(t *testing.T) {
 
 			ctx := context.Background()
 
-			client, err := svc.CreateClient(ctx, "", "test@example.com", "John", "+79001234567", true, false, nil)
+			client, err := svc.CreateClient(ctx, "", "test@example.com", "John", "+79001234567", true, false, false, 0, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -105,11 +105,36 @@ func TestClientService(t *testing.T) {
 
 			clientRepo.On("Create", ctx, mock.AnythingOfType("*domain.Client")).Return(assert.AnError)
 
-			client, err := svc.CreateClient(ctx, "Test", "test@example.com", "John", "+79001234567", true, false, nil)
+			client, err := svc.CreateClient(ctx, "Test", "test@example.com", "John", "+79001234567", true, false, false, 0, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
 			clientRepo.AssertExpectations(t)
+		})
+
+		t.Run("rejects_negative_max_sub_accounts", func(t *testing.T) {
+			clientRepo := new(mocks.MockClientRepository)
+			configRepo := new(mocks.MockConfigRepository)
+			svc := NewClientService(clientRepo, configRepo, nil)
+
+			client, err := svc.CreateClient(context.Background(), "X", "x@e.com", "", "", true, false, false, -1, nil)
+
+			require.Error(t, err)
+			assert.Nil(t, client)
+			assert.Equal(t, ErrInvalidClientData, err)
+		})
+
+		t.Run("rejects_reseller_without_slots", func(t *testing.T) {
+			// Реселлер с max_sub_accounts=0 — мусорное состояние.
+			clientRepo := new(mocks.MockClientRepository)
+			configRepo := new(mocks.MockConfigRepository)
+			svc := NewClientService(clientRepo, configRepo, nil)
+
+			client, err := svc.CreateClient(context.Background(), "Reseller", "r@e.com", "", "", true, false, true, 0, nil)
+
+			require.Error(t, err)
+			assert.Nil(t, client)
+			assert.Equal(t, ErrInvalidClientData, err)
 		})
 	})
 
@@ -240,7 +265,7 @@ func TestClientService(t *testing.T) {
 					c.Phone == "+79001111111"
 			})).Return(nil)
 
-			client, err := svc.UpdateClient(ctx, clientID, &newName, &newEmail, nil, nil, &newActive, nil)
+			client, err := svc.UpdateClient(ctx, clientID, &newName, &newEmail, nil, nil, &newActive, nil, nil, nil)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -262,7 +287,7 @@ func TestClientService(t *testing.T) {
 
 			clientRepo.On("GetByID", ctx, clientID).Return(nil, clientrepo.ErrClientNotFound)
 
-			client, err := svc.UpdateClient(ctx, clientID, &name, nil, nil, nil, nil, nil)
+			client, err := svc.UpdateClient(ctx, clientID, &name, nil, nil, nil, nil, nil, nil, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -295,7 +320,7 @@ func TestClientService(t *testing.T) {
 				return m["key"] == "value"
 			})).Return(nil)
 
-			client, err := svc.UpdateClient(ctx, clientID, nil, nil, nil, nil, nil, newMetadata)
+			client, err := svc.UpdateClient(ctx, clientID, nil, nil, nil, nil, nil, nil, nil, newMetadata)
 
 			require.NoError(t, err)
 			assert.NotNil(t, client)
@@ -324,7 +349,7 @@ func TestClientService(t *testing.T) {
 			clientRepo.On("GetByID", ctx, clientID).Return(existingClient, nil)
 			clientRepo.On("Update", ctx, mock.AnythingOfType("*domain.Client")).Return(assert.AnError)
 
-			client, err := svc.UpdateClient(ctx, clientID, &newName, nil, nil, nil, nil, nil)
+			client, err := svc.UpdateClient(ctx, clientID, &newName, nil, nil, nil, nil, nil, nil, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -342,7 +367,7 @@ func TestClientService(t *testing.T) {
 
 			clientRepo.On("GetByID", ctx, clientID).Return(nil, assert.AnError)
 
-			client, err := svc.UpdateClient(ctx, clientID, &name, nil, nil, nil, nil, nil)
+			client, err := svc.UpdateClient(ctx, clientID, &name, nil, nil, nil, nil, nil, nil, nil)
 
 			require.Error(t, err)
 			assert.Nil(t, client)
@@ -358,13 +383,15 @@ func TestClientService(t *testing.T) {
 			clientID := uuid.New()
 
 			existingClient := &domain.Client{
-				ID:            clientID,
-				Name:          "Old",
-				Email:         "old@test.com",
-				ContactPerson: "OldPerson",
-				Phone:         "+70000000000",
-				Active:        false,
-				Metadata:      json.RawMessage("{}"),
+				ID:             clientID,
+				Name:           "Old",
+				Email:          "old@test.com",
+				ContactPerson:  "OldPerson",
+				Phone:          "+70000000000",
+				Active:         false,
+				IsReseller:     false,
+				MaxSubAccounts: 0,
+				Metadata:       json.RawMessage("{}"),
 			}
 
 			newName := "New"
@@ -372,6 +399,8 @@ func TestClientService(t *testing.T) {
 			newContact := "NewPerson"
 			newPhone := "+71111111111"
 			newActive := true
+			newReseller := true
+			newMax := 5
 
 			clientRepo.On("GetByID", ctx, clientID).Return(existingClient, nil)
 			clientRepo.On("Update", ctx, mock.MatchedBy(func(c *domain.Client) bool {
@@ -379,10 +408,12 @@ func TestClientService(t *testing.T) {
 					c.Email == "new@test.com" &&
 					c.ContactPerson == "NewPerson" &&
 					c.Phone == "+71111111111" &&
-					c.Active == true
+					c.Active == true &&
+					c.IsReseller == true &&
+					c.MaxSubAccounts == 5
 			})).Return(nil)
 
-			client, err := svc.UpdateClient(ctx, clientID, &newName, &newEmail, &newContact, &newPhone, &newActive, nil)
+			client, err := svc.UpdateClient(ctx, clientID, &newName, &newEmail, &newContact, &newPhone, &newActive, &newReseller, &newMax, nil)
 
 			require.NoError(t, err)
 			assert.Equal(t, "New", client.Name)
@@ -390,6 +421,47 @@ func TestClientService(t *testing.T) {
 			assert.Equal(t, "NewPerson", client.ContactPerson)
 			assert.Equal(t, "+71111111111", client.Phone)
 			assert.True(t, client.Active)
+			assert.True(t, client.IsReseller)
+			assert.Equal(t, 5, client.MaxSubAccounts)
+		})
+
+		t.Run("rejects_negative_max_sub_accounts", func(t *testing.T) {
+			clientRepo := new(mocks.MockClientRepository)
+			configRepo := new(mocks.MockConfigRepository)
+			svc := NewClientService(clientRepo, configRepo, nil)
+
+			ctx := context.Background()
+			clientID := uuid.New()
+			negative := -1
+
+			clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{ID: clientID, Metadata: json.RawMessage("{}")}, nil)
+
+			client, err := svc.UpdateClient(ctx, clientID, nil, nil, nil, nil, nil, nil, &negative, nil)
+
+			require.Error(t, err)
+			assert.Nil(t, client)
+			assert.Equal(t, ErrInvalidClientData, err)
+		})
+
+		t.Run("rejects_reseller_without_slots", func(t *testing.T) {
+			// Бизнес-инвариант: реселлер требует max_sub_accounts >= 1.
+			// БД CHECK не ловит — это application-level rule.
+			clientRepo := new(mocks.MockClientRepository)
+			configRepo := new(mocks.MockConfigRepository)
+			svc := NewClientService(clientRepo, configRepo, nil)
+
+			ctx := context.Background()
+			clientID := uuid.New()
+			reseller := true
+			zeroSlots := 0
+
+			clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{ID: clientID, IsReseller: false, MaxSubAccounts: 0, Metadata: json.RawMessage("{}")}, nil)
+
+			client, err := svc.UpdateClient(ctx, clientID, nil, nil, nil, nil, nil, &reseller, &zeroSlots, nil)
+
+			require.Error(t, err)
+			assert.Nil(t, client)
+			assert.Equal(t, ErrInvalidClientData, err)
 		})
 	})
 

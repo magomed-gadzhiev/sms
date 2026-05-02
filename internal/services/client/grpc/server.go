@@ -53,6 +53,8 @@ func (s *Server) CreateClient(ctx context.Context, req *clientv1.CreateClientReq
 		req.Phone,
 		req.Active,
 		req.IsSandbox,
+		req.IsReseller,
+		int(req.MaxSubAccounts),
 		metadata,
 	)
 	if err != nil {
@@ -101,17 +103,34 @@ func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientReq
 	// и проверять через has_active или отдельное поле
 	active = &req.Active
 
+	// is_reseller / max_sub_accounts помечены `optional` в proto — pointer-style.
+	// nil = "не менять", non-nil = установить в указанное значение.
+	var isReseller *bool
+	var maxSubAccounts *int
+	if req.IsReseller != nil {
+		isReseller = req.IsReseller
+	}
+	if req.MaxSubAccounts != nil {
+		v := int(*req.MaxSubAccounts)
+		maxSubAccounts = &v
+	}
+
 	// Обновляем клиента
 	_, err = s.clientService.UpdateClient(
 		ctx,
 		clientID,
 		name, email, contactPerson, phone,
 		active,
+		isReseller,
+		maxSubAccounts,
 		metadata,
 	)
 	if err != nil {
 		if errors.Is(err, application.ErrClientNotFound) {
 			return nil, status.Error(codes.NotFound, "client not found")
+		}
+		if errors.Is(err, application.ErrInvalidClientData) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		log.Error().Err(err).Msg("ошибка обновления клиента")
 		return nil, status.Error(codes.Internal, "failed to update client")
