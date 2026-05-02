@@ -408,7 +408,7 @@ func TestTariffFullWorkflow(t *testing.T) {
 
 	futureStart := time.Now().AddDate(0, 1, 0)
 	futureEnd := time.Now().AddDate(0, 4, 0)
-	period, err := svc.CreatePeriod(ctx, plan.ID, futureStart, futureEnd)
+	period, err := svc.CreatePeriod(ctx, plan.ID, futureStart, &futureEnd)
 	require.NoError(t, err)
 
 	// Step 3: Create tiered pricing for the period.
