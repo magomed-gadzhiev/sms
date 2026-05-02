@@ -80,16 +80,17 @@ message CreateClientResponse {
 }
 
 // UpdateClientRequest представляет запрос на обновление клиента.
-// Поля is_reseller и max_sub_accounts помечены optional — это даёт has-accessors
-// (HasIsReseller / HasMaxSubAccounts), чтобы distinguish "не передано" от
-// "передано false/0" (важно для отключения флага реселлера явным false).
+// Поля active, is_reseller и max_sub_accounts помечены optional — это даёт
+// has-accessors, чтобы distinguish "не передано" от "передано false/0".
+// Без optional zero-value булевого поля приводит к молчаливой дезактивации
+// клиента при PATCH без active.
 message UpdateClientRequest {
   string client_id = 1;           // ID клиента
   string name = 2;                // Название клиента (опционально)
   string email = 3;               // Email клиента (опционально)
   string contact_person = 4;      // Контактное лицо (опционально)
   string phone = 5;               // Телефон (опционально)
-  bool active = 6;                // Активен ли клиент (опционально)
+  optional bool active = 6;       // Активен ли клиент (опционально)
   map<string, string> metadata = 7;  // Дополнительные метаданные (опционально)
   optional bool is_reseller = 8;     // Реселлер-флаг (опционально; only top-level)
   optional int32 max_sub_accounts = 9; // Лимит суб-аккаунтов (опционально)

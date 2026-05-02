@@ -159,7 +159,6 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	// итогового состояния после применения PATCH; admin handler видит только delta).
 
 	var name, email, contactPerson, phone string
-	var active bool
 	if req.Name != nil {
 		name = *req.Name
 	}
@@ -172,9 +171,6 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	if req.Phone != nil {
 		phone = *req.Phone
 	}
-	if req.Active != nil {
-		active = *req.Active
-	}
 
 	grpcReq := &clientv1.UpdateClientRequest{
 		ClientId:       clientID,
@@ -182,7 +178,7 @@ func (h *ClientHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
 		Email:          email,
 		ContactPerson:  contactPerson,
 		Phone:          phone,
-		Active:         active,
+		Active:         req.Active,
 		IsReseller:     req.IsReseller,
 		MaxSubAccounts: req.MaxSubAccounts,
 		Metadata:       req.Metadata,

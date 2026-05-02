@@ -262,6 +262,65 @@ func TestClientServer_UpdateClient(t *testing.T) {
 		assert.True(t, resp.Success)
 	})
 
+	// Regression: PATCH без active в proto3 c plain bool молча дезактивировал
+	// клиента (zero-value bool = false неотличим от "не передано"). После
+	// перехода на optional bool nil-поле должно оставлять Active как было.
+	t.Run("active=nil preserves existing active value", func(t *testing.T) {
+		clientRepo := new(mockClientRepo)
+		configRepo := new(mockConfigRepo)
+		srv := newTestClientServer(clientRepo, configRepo)
+
+		clientID := uuid.New()
+		existingClient := &domain.Client{
+			ID:     clientID,
+			Name:   "Old Name",
+			Active: true,
+		}
+
+		clientRepo.On("GetByID", mock.Anything, clientID).Return(existingClient, nil)
+		clientRepo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Client) bool {
+			return c.Active == true
+		})).Return(nil)
+
+		resp, err := srv.UpdateClient(context.Background(), &clientv1.UpdateClientRequest{
+			ClientId: clientID.String(),
+			Name:     "Updated Name",
+			// Active намеренно не устанавливается — должно остаться true.
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		clientRepo.AssertExpectations(t)
+	})
+
+	t.Run("active=false explicitly deactivates", func(t *testing.T) {
+		clientRepo := new(mockClientRepo)
+		configRepo := new(mockConfigRepo)
+		srv := newTestClientServer(clientRepo, configRepo)
+
+		clientID := uuid.New()
+		existingClient := &domain.Client{
+			ID:     clientID,
+			Name:   "Old Name",
+			Active: true,
+		}
+
+		clientRepo.On("GetByID", mock.Anything, clientID).Return(existingClient, nil)
+		clientRepo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Client) bool {
+			return c.Active == false
+		})).Return(nil)
+
+		falseVal := false
+		resp, err := srv.UpdateClient(context.Background(), &clientv1.UpdateClientRequest{
+			ClientId: clientID.String(),
+			Active:   &falseVal,
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		clientRepo.AssertExpectations(t)
+	})
+
 	t.Run("not found returns NotFound", func(t *testing.T) {
 		clientRepo := new(mockClientRepo)
 		configRepo := new(mockConfigRepo)

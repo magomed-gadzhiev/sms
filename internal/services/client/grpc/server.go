@@ -98,13 +98,10 @@ func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientReq
 	if req.Metadata != nil {
 		metadata = req.Metadata
 	}
-	// active всегда передаем, если указан (нужно различать false от не указанного)
-	// В proto3 это сложнее, но мы будем использовать значение по умолчанию false
-	// и проверять через has_active или отдельное поле
-	active = &req.Active
+	// active / is_reseller / max_sub_accounts помечены `optional` в proto —
+	// pointer-style. nil = "не менять", non-nil = установить в указанное значение.
+	active = req.Active
 
-	// is_reseller / max_sub_accounts помечены `optional` в proto — pointer-style.
-	// nil = "не менять", non-nil = установить в указанное значение.
 	var isReseller *bool
 	var maxSubAccounts *int
 	if req.IsReseller != nil {
