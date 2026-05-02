@@ -369,7 +369,7 @@ Bundle PR на api-keys/webhooks: 4 минификса.
 - D.10a (UpdateAPIKey errors.Is) — [DONE] commit `73194e7`.
 - D.10b (audit ClientID="" + ActionAPIKeyUpdated) — [DONE] commit `73194e7`.
 - RotateAPIKey endpoint — [DONE] 2026-05-02 commit `731d906` (soft rotate с 24h grace; lazy invalidation; sequential с compensating delete).
-- Webhook signature replay test — открытый item (требует time-travel mock или integration-стенд).
+- Webhook signature replay test — [DONE] 2026-05-02 commit `db79690` (Вариант 1: regression-guard на signing determinism + явная SECURITY LIMITATION в docstring; полноценный fix через timestamp в подписи отложен как отдельная security-задача из-за breaking change для existing receivers).
 
 ---
 

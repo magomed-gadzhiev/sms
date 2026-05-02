@@ -371,6 +371,33 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 ---
 
+### [DONE] D.10 (последний item) — Webhook signature replay test — сессия 2026-05-02
+
+**Pre-flight находка:** `signPayload` = `HMAC-SHA256(payload, secret)` без timestamp/nonce. Replay protection отсутствует на отправителе. Атакующий с перехваченным запросом может реплеить с валидной подписью; защита возможна только на receiver-side через `X-Webhook-ID` dedup.
+
+**Архитектурный выбор пользователя:** Вариант 1 — закрыть буквальную формулировку плана (тест на существующее поведение) + явная SECURITY LIMITATION в коде/доках. Полноценный fix (Stripe-style timestamp в подписи) — отдельная security-задача с migration window (breaking change для existing receiver verification кода).
+
+**Изменения** (commit `db79690`):
+- `delivery_client.go::signPayload`: расширенный docstring с разделом SECURITY LIMITATION — документирует отсутствие replay protection, митигацию через X-Webhook-ID dedup, план полноценного fix.
+- `delivery_client_test.go`: + `TestSignPayload_DeterministicAcrossTime` (100 вызовов → одинаковый output) + `TestDeliver_ReplayProducesIdenticalSignature` (3 Deliver вызова → 3 идентичных X-Webhook-Signature). Оба теста явно описывают что они подтверждают **limitation**, не корректность защиты.
+
+**Открытое security-наблюдение (не блокер audit-followups, отдельная задача):**
+- Полноценная replay protection через timestamp в подписи (Stripe-style: `HMAC(timestamp + "." + payload)`, `X-Webhook-Timestamp` header, ±5 мин окно на receiver). Breaking change для existing webhook-получателей. Требует migration window (например dual-sign: оба формата параллельно неделя, потом cutover).
+
+**Review:** APPROVED 1 итерация.
+
+---
+
+## D.10 bundle — финальный статус
+
+Все 4 items закрыты:
+- D.10a — UpdateAPIKey errors.Is (commit 73194e7).
+- D.10b — audit ClientID="" + ActionAPIKeyUpdated (73194e7).
+- RotateAPIKey endpoint (731d906) — soft rotate с 24h grace.
+- Webhook signature replay test (db79690) — regression-guard + SECURITY LIMITATION documented.
+
+---
+
 ## Proto-regen инфраструктура (Variant A, 2026-05-02)
 
 Создан Docker-based pipeline для regen'а .proto файлов с pinned версиями инструментов.
