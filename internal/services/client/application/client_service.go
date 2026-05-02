@@ -171,7 +171,7 @@ func (s *ClientService) UpdateClient(
 	// Получаем текущего клиента
 	client, err := s.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return nil, ErrClientNotFound
 		}
 		return nil, err
@@ -233,7 +233,7 @@ func (s *ClientService) UpdateClient(
 func (s *ClientService) GetClient(ctx context.Context, clientID uuid.UUID) (*domain.Client, error) {
 	client, err := s.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return nil, ErrClientNotFound
 		}
 		return nil, err
@@ -241,7 +241,7 @@ func (s *ClientService) GetClient(ctx context.Context, clientID uuid.UUID) (*dom
 
 	// Загружаем конфигурацию
 	config, err := s.configRepo.GetByClientID(ctx, clientID)
-	if err != nil && err != clientrepo.ErrConfigNotFound {
+	if err != nil && !errors.Is(err, clientrepo.ErrConfigNotFound) {
 		return nil, err
 	}
 	if config != nil {
@@ -270,7 +270,7 @@ func (s *ClientService) DeleteClient(ctx context.Context, clientID uuid.UUID) er
 func (s *ClientService) ToggleSandbox(ctx context.Context, clientID uuid.UUID, enable bool) error {
 	client, err := s.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return ErrClientNotFound
 		}
 		return err
@@ -284,7 +284,7 @@ func (s *ClientService) ToggleSandbox(ctx context.Context, clientID uuid.UUID, e
 func (s *ClientService) GetClientConfig(ctx context.Context, clientID uuid.UUID) (*domain.ClientConfig, error) {
 	config, err := s.configRepo.GetByClientID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrConfigNotFound {
+		if errors.Is(err, clientrepo.ErrConfigNotFound) {
 			return nil, ErrConfigNotFound
 		}
 		return nil, err
@@ -302,7 +302,7 @@ func (s *ClientService) UpdateClientConfig(
 	// Проверяем существование клиента
 	_, err := s.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return ErrClientNotFound
 		}
 		return err
@@ -326,7 +326,7 @@ func (s *ClientService) AssignPlan(ctx context.Context, clientID uuid.UUID, plan
 	// Проверяем что клиент существует
 	_, err := s.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return ErrClientNotFound
 		}
 		return err
@@ -351,7 +351,7 @@ func (s *ClientService) UpdateClientRateLimits(
 	// Проверяем существование клиента
 	_, err := s.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return ErrClientNotFound
 		}
 		return err
@@ -359,7 +359,7 @@ func (s *ClientService) UpdateClientRateLimits(
 
 	// Пробуем обновить
 	err = s.configRepo.UpdateRateLimits(ctx, clientID, limits)
-	if err == clientrepo.ErrConfigNotFound {
+	if errors.Is(err, clientrepo.ErrConfigNotFound) {
 		// Если конфигурации нет, создаем новую
 		config := &domain.ClientConfig{
 			ID:                 uuid.New(),

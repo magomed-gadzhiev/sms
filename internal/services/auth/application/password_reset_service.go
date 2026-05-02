@@ -50,7 +50,7 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) (
 	// Получаем пользователя по email
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return "", uuid.Nil, authrepo.ErrUserNotFound
 		}
 		return "", uuid.Nil, err
@@ -102,7 +102,7 @@ func (s *PasswordResetService) ResetPassword(ctx context.Context, tokenStr strin
 	// Получаем токен из БД
 	resetToken, err := s.resetRepo.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
-		if err == authrepo.ErrPasswordResetTokenNotFound {
+		if errors.Is(err, authrepo.ErrPasswordResetTokenNotFound) {
 			return ErrPasswordResetInvalid
 		}
 		return err

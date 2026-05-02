@@ -68,7 +68,7 @@ func NewTOTPService(
 func (s *TOTPService) SetupTOTP(ctx context.Context, userID uuid.UUID, accountName string) (string, string, []string, error) {
 	// Проверяем, не включен ли уже TOTP
 	config, err := s.totpRepo.GetTOTPConfig(ctx, userID)
-	if err != nil && err != authrepo.ErrTOTPConfigNotFound {
+	if err != nil && !errors.Is(err, authrepo.ErrTOTPConfigNotFound) {
 		return "", "", nil, err
 	}
 	if config != nil && config.IsEnabled() {
@@ -190,7 +190,7 @@ func (s *TOTPService) ValidateRecoveryCode(ctx context.Context, userID uuid.UUID
 
 	err := s.totpRepo.UseRecoveryCode(ctx, userID, codeHash)
 	if err != nil {
-		if err == authrepo.ErrRecoveryCodeNotFound {
+		if errors.Is(err, authrepo.ErrRecoveryCodeNotFound) {
 			return false, nil
 		}
 		return false, err

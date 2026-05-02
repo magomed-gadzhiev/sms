@@ -188,7 +188,7 @@ func (s *Server) GetPermissions(ctx context.Context, req *authv1.GetPermissionsR
 
 	user, err := s.userRepo.GetByIDWithRole(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		return nil, status.Error(codes.Internal, "failed to get user")
@@ -237,7 +237,7 @@ func (s *Server) CreateAPIKey(ctx context.Context, req *authv1.CreateAPIKeyReque
 
 	key, apiKey, err := s.authService.CreateAPIKey(ctx, userID, req.Name, expiresAt, req.Scopes, req.AllowedIps)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка создания API ключа")
@@ -473,7 +473,7 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 		if errors.Is(err, application.ErrPasswordSameAsOld) {
 			return nil, status.Error(codes.InvalidArgument, "new password must differ from current")
 		}
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка смены пароля")
@@ -499,7 +499,7 @@ func (s *Server) SetupTOTP(ctx context.Context, req *authv1.SetupTOTPRequest) (*
 	// Получаем пользователя для account name
 	user, err := s.userRepo.GetByIDWithRole(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		return nil, status.Error(codes.Internal, "failed to get user")
@@ -578,7 +578,7 @@ func (s *Server) DisableTOTP(ctx context.Context, req *authv1.DisableTOTPRequest
 		if errors.Is(err, application.ErrPasswordMismatch) {
 			return nil, status.Error(codes.Unauthenticated, "invalid password")
 		}
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка отключения TOTP")
@@ -599,7 +599,7 @@ func (s *Server) RequestPasswordReset(ctx context.Context, req *authv1.RequestPa
 	token, _, err := s.passwordResetService.RequestReset(ctx, req.Email)
 	if err != nil {
 		// Всегда возвращаем success=true для предотвращения перечисления email
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return &authv1.RequestPasswordResetResponse{
 				Success: true,
 			}, nil
@@ -747,7 +747,7 @@ func (s *Server) ValidateSession(ctx context.Context, req *authv1.ValidateSessio
 	// Загружаем информацию о пользователе
 	user, err := s.userRepo.GetByIDWithRole(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return &authv1.ValidateSessionResponse{
 				Valid: false,
 			}, nil
@@ -804,7 +804,7 @@ func (s *Server) RegisterClient(ctx context.Context, req *authv1.RegisterClientR
 	if err == nil {
 		return nil, status.Error(codes.AlreadyExists, "email already registered")
 	}
-	if err != authrepo.ErrUserNotFound {
+	if !errors.Is(err, authrepo.ErrUserNotFound) {
 		log.Error().Err(err).Msg("ошибка проверки email при регистрации")
 		return nil, status.Error(codes.Internal, "registration failed")
 	}
@@ -999,7 +999,7 @@ func (s *Server) UpdateUser(ctx context.Context, req *authv1.UpdateUserRequest) 
 		user, err = s.authService.UpdateUser(ctx, userID, req.Email, roleID, req.Active, clientID)
 	}
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления пользователя")
@@ -1024,7 +1024,7 @@ func (s *Server) DeactivateUser(ctx context.Context, req *authv1.DeactivateUserR
 
 	err = s.authService.DeactivateUser(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка деактивации пользователя")
@@ -1071,7 +1071,7 @@ func (s *Server) ResetUserPassword(ctx context.Context, req *authv1.ResetUserPas
 
 	tempPassword, err := s.authService.ResetUserPassword(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка сброса пароля пользователя")
@@ -1122,7 +1122,7 @@ func (s *Server) GetUser(ctx context.Context, req *authv1.GetUserRequest) (*auth
 
 	user, err := s.authService.GetUser(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения пользователя")
@@ -1174,7 +1174,7 @@ func (s *Server) UpdateRole(ctx context.Context, req *authv1.UpdateRoleRequest) 
 
 	role, err := s.authService.UpdateRole(ctx, roleID, req.Name, req.Description, permissionIDs)
 	if err != nil {
-		if err == authrepo.ErrRoleNotFound {
+		if errors.Is(err, authrepo.ErrRoleNotFound) {
 			return nil, status.Error(codes.NotFound, "role not found")
 		}
 		log.Error().Err(err).Msg("ошибка обновления роли")
@@ -1199,7 +1199,7 @@ func (s *Server) DeleteRole(ctx context.Context, req *authv1.DeleteRoleRequest) 
 
 	err = s.authService.DeleteRole(ctx, roleID)
 	if err != nil {
-		if err == authrepo.ErrRoleNotFound {
+		if errors.Is(err, authrepo.ErrRoleNotFound) {
 			return nil, status.Error(codes.NotFound, "role not found")
 		}
 		log.Error().Err(err).Msg("ошибка удаления роли")
@@ -1243,7 +1243,7 @@ func (s *Server) GetRole(ctx context.Context, req *authv1.GetRoleRequest) (*auth
 
 	role, err := s.authService.GetRole(ctx, roleID)
 	if err != nil {
-		if err == authrepo.ErrRoleNotFound {
+		if errors.Is(err, authrepo.ErrRoleNotFound) {
 			return nil, status.Error(codes.NotFound, "role not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения роли")
@@ -1290,7 +1290,7 @@ func (s *Server) GetUserPermissions(ctx context.Context, req *authv1.GetUserPerm
 
 	perms, role, err := s.authService.GetUserPermissions(ctx, userID)
 	if err != nil {
-		if err == authrepo.ErrUserNotFound {
+		if errors.Is(err, authrepo.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Error().Err(err).Msg("ошибка получения прав пользователя")

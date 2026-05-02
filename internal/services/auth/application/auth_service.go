@@ -109,7 +109,7 @@ func (s *AuthService) AuthenticateByCredentials(
 
 	// Пробуем сначала по username
 	user, err = s.userRepo.GetByUsername(ctx, usernameOrEmail)
-	if err != nil && err != authrepo.ErrUserNotFound {
+	if err != nil && !errors.Is(err, authrepo.ErrUserNotFound) {
 		return nil, "", "", err
 	}
 
@@ -117,7 +117,7 @@ func (s *AuthService) AuthenticateByCredentials(
 	if user == nil {
 		user, err = s.userRepo.GetByEmail(ctx, usernameOrEmail)
 		if err != nil {
-			if err == authrepo.ErrUserNotFound {
+			if errors.Is(err, authrepo.ErrUserNotFound) {
 				return nil, "", "", ErrInvalidCredentials
 			}
 			return nil, "", "", err
@@ -198,7 +198,7 @@ func (s *AuthService) AuthenticateByAPIKey(
 	// Получаем API ключ (Scopes загружаются вместе с ключом, см. GetByKeyHash).
 	key, err := s.apiKeyRepo.GetByKeyHash(ctx, keyHash)
 	if err != nil {
-		if err == authrepo.ErrAPIKeyNotFound {
+		if errors.Is(err, authrepo.ErrAPIKeyNotFound) {
 			return nil, nil, ErrAPIKeyInvalid
 		}
 		return nil, nil, err

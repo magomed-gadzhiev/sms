@@ -72,7 +72,7 @@ func (s *SubAccountService) CreateSubAccount(
 	// Получаем родительского клиента
 	parent, err := s.clientRepo.GetByID(ctx, parentClientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return nil, ErrClientNotFound
 		}
 		return nil, err
@@ -210,7 +210,7 @@ func (s *SubAccountService) ListSubAccounts(ctx context.Context, parentClientID 
 	// Проверяем существование родительского клиента
 	parent, err := s.clientRepo.GetByID(ctx, parentClientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return nil, ErrClientNotFound
 		}
 		return nil, err
@@ -227,7 +227,7 @@ func (s *SubAccountService) ListSubAccounts(ctx context.Context, parentClientID 
 func (s *SubAccountService) GetSubAccount(ctx context.Context, subAccountID, parentClientID uuid.UUID) (*domain.Client, error) {
 	subAccount, err := s.subAccountRepo.GetSubAccount(ctx, subAccountID, parentClientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return nil, ErrSubAccountNotFound
 		}
 		return nil, err
@@ -241,7 +241,7 @@ func (s *SubAccountService) DeleteSubAccount(ctx context.Context, subAccountID, 
 	// Проверяем, что суб-аккаунт принадлежит родителю
 	_, err := s.subAccountRepo.GetSubAccount(ctx, subAccountID, parentClientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return ErrSubAccountNotFound
 		}
 		return err
@@ -259,7 +259,7 @@ func (s *SubAccountService) UpdateSubAccountLimits(
 	// Проверяем принадлежность суб-аккаунта к родителю
 	subAccount, err := s.subAccountRepo.GetSubAccount(ctx, subAccountID, parentClientID)
 	if err != nil {
-		if err == clientrepo.ErrClientNotFound {
+		if errors.Is(err, clientrepo.ErrClientNotFound) {
 			return nil, ErrSubAccountNotFound
 		}
 		return nil, err
@@ -273,7 +273,7 @@ func (s *SubAccountService) UpdateSubAccountLimits(
 	// Получаем текущую конфигурацию для сохранения остальных полей
 	config, err := s.configRepo.GetByClientID(ctx, subAccountID)
 	if err != nil {
-		if err == clientrepo.ErrConfigNotFound {
+		if errors.Is(err, clientrepo.ErrConfigNotFound) {
 			// Создаем новую конфигурацию
 			config = &domain.ClientConfig{
 				ID:                  uuid.New(),

@@ -152,7 +152,7 @@ func (s *TokenService) RefreshToken(ctx context.Context, refreshTokenString stri
 	// Получаем refresh token из БД
 	refreshToken, err := s.refreshTokenRepo.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
-		if err == authrepo.ErrRefreshTokenNotFound {
+		if errors.Is(err, authrepo.ErrRefreshTokenNotFound) {
 			return "", "", ErrInvalidToken
 		}
 		return "", "", err
