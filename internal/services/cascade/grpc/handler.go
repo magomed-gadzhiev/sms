@@ -129,13 +129,9 @@ func (s *Server) GetDelivery(ctx context.Context, req *cascadev1.GetDeliveryRequ
 
 	delivery, err := s.deliveries.GetDelivery(ctx, deliveryID, clientID)
 	if err != nil {
-		// Маппим domain-ошибки на gRPC коды, иначе остаются Unknown → 500
-		// на portal-gateway. Cross-tenant и not-exists свёрнуты в один
+		// mapCascadeErr сворачивает cross-tenant и not-exists в один
 		// NotFound, чтобы не подтверждать существование чужого delivery_id.
-		if errors.Is(err, domain.ErrDeliveryNotFound) {
-			return nil, status.Error(codes.NotFound, "delivery not found")
-		}
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapCascadeErr(err)
 	}
 	return deliveryToProto(delivery), nil
 }
