@@ -187,7 +187,7 @@ Lock-механика: `[IN_PROGRESS]` перед началом задачи, `
 - **D.10 bundle остаток:** RotateAPIKey endpoint (BLOCKED — нужен proto regen), webhook signature replay test (нужен time-travel mock или integration-стенд).
 - **proto regen блокер:** A.1 финальная чистка (DBScopeLoader → proto-вариант), D.1 (is_reseller/max_sub_accounts mapping), RotateAPIKey — все упёрлись в недоступность protoc на Windows под Device Guard. Нужно стратегическое решение (CI-regen / accept gateway-side / разовый Linux-regen).
 - **C.2-wrap (отдельный остаток C.2):** WrapNotFound helper + переход на `shared.ErrNotFound` для GET /portal/v1/messages/{несуществующий-uuid} → 404 (а не 500). Текущий C.2 sweep закрыл только sentinel-comparison паттерн, не HTTP error-mapping. Скоуп: ~10 PR-фрагментов по репозиториям + handlers.
-- **authrepo.ErrUserNotFound (~2 callsite в auth/grpc/server.go):** repo-level sentinel, остался после C.7. Можно подобрать к C.2-wrap или как отдельный мини-PR.
+- ~~**authrepo.ErrUserNotFound (~2 callsite в auth/grpc/server.go):** repo-level sentinel, остался после C.7. Можно подобрать к C.2-wrap или как отдельный мини-PR~~ — [DONE] commit `f80a0d0` (2026-05-02). C.7-extension. Расширенный grep `err (==|!=) *repo.Err*` дал 39 callsites в 7 файлах (35 == + 4 !=, последние пропустил initial pre-flight grep — reviewer caught). Mechanical 1:1 rewrite, без изменений логики. Reviewer CHANGES_REQUESTED 5 пунктов (4 missing !=-callsites + grep coverage extension) → APPROVED.
 
 ---
 
