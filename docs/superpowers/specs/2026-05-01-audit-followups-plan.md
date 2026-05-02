@@ -25,7 +25,11 @@
 
 ## 2. BLOCK A — CRITICAL security (приоритет 1)
 
-### A.1. BUG-83: API-key scope enforcement на `/portal/v1/campaigns/*`
+### A.1. BUG-83: API-key scope enforcement на `/portal/v1/campaigns/*` — [DONE] 2026-05-02
+
+**Финальная чистка завершена** (commit `d5f0658`): proto-расширение `ValidateTokenResponse.scopes` через X3 pipeline разблокировало архитектурно правильное решение. `DBScopeLoader` workaround удалён (~90 строк), `RequireScopeByMethod` теперь читает scopes из context (положены `APIKeyAuthMiddleware` после ValidateToken). Дополнительный SQL-roundtrip устранён. Подробности: `docs/audit-followups-progress.md`.
+
+
 
 **Pre-flight:**
 - Прочесть `internal/gateway/portal/middleware/api_key_auth.go:47-122`, `internal/services/auth/domain/api_key.go:73-90` (HasScope), `internal/services/auth/infrastructure/repository/api_key_repository.go:251` (LoadScopes), `api/proto/authv1/auth.proto` (ValidateTokenResponse), `internal/gateway/portal/router/router.go:294-322` (campaigns subrouter).

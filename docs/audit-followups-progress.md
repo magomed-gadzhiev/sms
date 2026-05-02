@@ -276,6 +276,35 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 ---
 
+### [DONE] A.1 финальная чистка — DBScopeLoader removal — сессия 2026-05-02
+
+**Pre-flight:** TODO в `internal/gateway/portal/middleware/scope.go:40-44` явно описывал желаемое архитектурное решение — scopes из `ValidateTokenResponse.scopes` вместо второго SQL-запроса через `DBScopeLoader`. Блокер был proto regen (Device Guard), который разблокирован X3-1/X3-2.
+
+**Архитектурный выбор:** Variant B2 (scopes в context) + tuple-сигнатура AuthenticateByAPIKey (a). Подтверждено пользователем. Альтернативы — gRPC-side loader (B1, второй gRPC-roundtrip) и AuthResult-struct (b, premature abstraction) — отклонены.
+
+**Изменения** (commit `d5f0658`):
+- `api/proto/auth/auth.proto`: добавлено поле `repeated string scopes = 4;` в `ValidateTokenResponse`. Регенерировано через `./scripts/proto-regen.sh auth` — diff +14/-5, чистый additive.
+- `internal/services/auth/application/auth_service.go::AuthenticateByAPIKey`: сигнатура `(*User, error)` → `(*User, []string, error)`. Scopes уже загружались `apiKeyRepo.GetByKeyHash`, теперь возвращаются наружу. Cache hit/miss обновлены.
+- `internal/services/auth/grpc/server.go::ValidateToken`: после `AuthenticateByAPIKey` передаёт scopes в response. JWT path: scopes пусты (JWT не имеет scope-концепции).
+- `internal/gateway/portal/middleware/api_key_auth.go`: после `ValidateToken` кладёт `resp.Scopes` в context под `APIKeyScopesKey`.
+- `internal/gateway/portal/middleware/scope.go`: удалены `ScopeLoader` interface, `DBScopeLoader` struct, `NewDBScopeLoader`, `Load` (~90 строк). Удалены imports `crypto/sha256`, `encoding/hex`, `pgxpool`. `RequireScopeByMethod(loader, ...)` → `RequireScopeByMethod(...)` без loader-параметра. Read scopes — через `GetAPIKeyScopes(ctx)`. Контракт ошибок: scopes отсутствуют в context при `auth_method=api_key` → 401 (safe-default; инвариант `APIKeyAuthMiddleware` всегда обязан класть scopes).
+- `internal/gateway/portal/router/router.go:305`: `campaignsScopeLoader := middleware.NewDBScopeLoader(dbPool)` удалён.
+- `internal/gateway/portal/middleware/scope_test.go`: переписан с stub-loader на context-based setup. `KeyNotFound_401` → `NoScopesInContext_401` (regression-guard на инвариант), `LoaderError_500` удалён.
+- `internal/services/auth/application/auth_service_test.go`: 6 callsites обновлены под новую сигнатуру. Happy-path расширен `apiKey.Scopes = [...]` + assertion на возвращаемые scopes.
+- `test/functional/auth_test.go`: 3 callsites обновлены, добавлен `ElementsMatch` assertion на возвращаемый scopes (functional-тест на новый контракт; найден code-reviewer'ом, был bypass'ен под `//go:build functional` тегом и не виден в стандартном `./scripts/check.sh`).
+
+**Архитектурный выигрыш:** 0 дополнительных round-trip'ов. Scope'ы — часть auth-результата, едут в context рядом с `User`/`AuthMethod`/`APIKeyID`.
+
+**Жертвы:** смена контракта `RequireScopeByMethod` (loader → context). Тесты переписаны (12 sub-cases). Inлyrant: APIKeyAuthMiddleware обязан класть scopes — нарушение даёт 401 на любом auth_method=api_key запросе.
+
+**Quality gates:** `./scripts/check.sh` PASS, `go test` для затронутых пакетов PASS (auth/application, auth/grpc, portal/middleware).
+
+**Pre-existing наблюдение** (не блокер): `test/functional/tarification_test.go:411` имеет vet error `futureEnd time.Time vs *time.Time` — существует на чистом master без A.1 изменений (verified через `git stash` + `vet`). Кандидат на отдельный housekeeping fix.
+
+**Review:** APPROVED после 1 цикла CHANGES_REQUESTED → fix functional-test callsites.
+
+---
+
 ## Proto-regen инфраструктура (Variant A, 2026-05-02)
 
 Создан Docker-based pipeline для regen'а .proto файлов с pinned версиями инструментов.
