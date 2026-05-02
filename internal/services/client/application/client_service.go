@@ -207,6 +207,12 @@ func (s *ClientService) UpdateClient(
 	if client.IsReseller && client.MaxSubAccounts < 1 {
 		return nil, ErrInvalidClientData
 	}
+	// БД-инвариант chk_reseller_is_top_level: is_reseller=true допустим только
+	// для top-level (parent_client_id IS NULL). Без pre-validation БД CHECK
+	// проброс через repo даёт codes.Internal → HTTP 500. Здесь — 400 явно.
+	if client.IsReseller && client.ParentClientID != nil {
+		return nil, ErrInvalidClientData
+	}
 	if metadata != nil {
 		if err := client.SetMetadata(metadata); err != nil {
 			return nil, err

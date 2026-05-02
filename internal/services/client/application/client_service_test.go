@@ -463,6 +463,39 @@ func TestClientService(t *testing.T) {
 			assert.Nil(t, client)
 			assert.Equal(t, ErrInvalidClientData, err)
 		})
+
+		t.Run("rejects_reseller_on_subaccount", func(t *testing.T) {
+			// БД-инвариант chk_reseller_is_top_level: is_reseller=true допустим
+			// только для top-level (parent_client_id IS NULL). Без pre-validation
+			// CHECK violation в repo даёт codes.Internal → HTTP 500. С
+			// pre-validation — ErrInvalidClientData → HTTP 400.
+			clientRepo := new(mocks.MockClientRepository)
+			configRepo := new(mocks.MockConfigRepository)
+			svc := NewClientService(clientRepo, configRepo, nil)
+
+			ctx := context.Background()
+			clientID := uuid.New()
+			parentID := uuid.New()
+			reseller := true
+			tenSlots := 10
+
+			// Существующий клиент — суб-аккаунт (parent_client_id != NULL).
+			clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{
+				ID:              clientID,
+				ParentClientID:  &parentID,
+				IsReseller:      false,
+				MaxSubAccounts:  0,
+				Metadata:        json.RawMessage("{}"),
+			}, nil)
+
+			client, err := svc.UpdateClient(ctx, clientID, nil, nil, nil, nil, nil, &reseller, &tenSlots, nil)
+
+			require.Error(t, err)
+			assert.Nil(t, client)
+			assert.Equal(t, ErrInvalidClientData, err)
+			// Update не должен вызваться.
+			clientRepo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
+		})
 	})
 
 	t.Run("ListClients", func(t *testing.T) {
