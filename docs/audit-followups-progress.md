@@ -255,8 +255,8 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 - `internal/services/cascade/grpc/handler_test.go` (новый) — `TestHandler_ValidationReturnsInvalidArgument`, table-driven, 17 sub-cases. Server{} с nil-сервисами работает: validation срабатывает до вызова application-сервисов.
 
 **Out-of-scope (явно)**:
-- `handler.go:79` — `fmt.Errorf("create delivery: %w", err)` это application-error fall-through от `s.cascade.CreateDelivery`, не validation. Требует `errors.Is` mapping для `domain.Err*` sentinel'ов.
-- Множество `return nil, err` в файле для Get/Update/Toggle/Delete операций (Channel/Strategy/OCS) — также пропускают application-level domain-sentinel'ы как `codes.Unknown` → HTTP 500 вместо корректного 404/409. Это аналогичная проблема, но scope другой: **открытое наблюдение, не в C.6**, см. ниже.
+- ~~`handler.go:79` — `fmt.Errorf("create delivery: %w", err)` это application-error fall-through от `s.cascade.CreateDelivery`, не validation. Требует `errors.Is` mapping для `domain.Err*` sentinel'ов~~ — [DONE] commit `2a40dea` (2026-05-03). GetDelivery (последняя точка с handcrafted if-branch) переписан на `mapCascadeErr(err)`. Cross-tenant→NotFound инвариант сохранён. Sweep complete: 0 остатков handcrafted mapping в handler.go.
+- ~~Множество `return nil, err` в файле для Get/Update/Toggle/Delete операций (Channel/Strategy/OCS) — также пропускают application-level domain-sentinel'ы как `codes.Unknown` → HTTP 500 вместо корректного 404/409. Это аналогичная проблема, но scope другой: **открытое наблюдение, не в C.6**, см. ниже~~ — [DONE] см. ранее commit `7c1ed16` (C.6b) и сейчас `2a40dea`.
 
 **Acceptance:** `grep -rE "fmt\.Errorf.*[Ii]nvalid" internal/services/cascade/grpc/` → 0.
 
