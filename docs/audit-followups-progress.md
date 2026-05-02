@@ -330,7 +330,7 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 
 **Pre-existing observations (не блокеры D.1, зафиксированы как housekeeping):**
 - ~~`api/proto/clientv1/client/client.pb.go` — stale duplicate (унаследовано от X3-2)~~ — [DONE] commit `da450a7` (2026-05-02). `git rm -r api/proto/clientv1/client/`. Pre-flight: 0 импортов в .go/.sh/.proto, оба файла tracked dead code (37 типов vs 39 в актуальном). Reviewer APPROVED 1 итерация: подтвердил, что proto-regen.sh + Docker pipeline не воссоздают подкаталог.
-- admin UpdateClient: `var active bool` always non-nil → PATCH без `active` сбрасывает active в false. Pre-existing, не D.1 регрессия.
+- ~~admin UpdateClient: `var active bool` always non-nil → PATCH без `active` сбрасывает active в false. Pre-existing, не D.1 регрессия~~ — [DONE] commit `3e52acb` (2026-05-02). Variant A: `bool active` → `optional bool active` в proto + regen (wire-compatible: synthetic oneof, varint tag-6 не меняется). gRPC server и admin handler переведены на pointer pass-through. 2 новых regression-теста (active=nil preserves, active=false applies). Reviewer APPROVED 1 итерация: подтвердил wire-format, strict mock pin, консистентность с D.1.
 - DB CHECK leak (parent_client_id+is_reseller) → 500 вместо 400. Pre-existing.
 - `updates_fields` test coverage gap для IsReseller/MaxSubAccounts unchanged-when-nil.
 
