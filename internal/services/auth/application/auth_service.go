@@ -154,11 +154,12 @@ var ErrIPNotAllowed = errors.New("ip address not allowed")
 
 // AuthenticateByAPIKey аутентифицирует пользователя по API ключу.
 // requestIP — IP адрес запроса (опционально, пустая строка = без проверки).
+// Возвращает (user, scopes, err): scopes — список scope'ов API-ключа из api_key_scopes.
 func (s *AuthService) AuthenticateByAPIKey(
 	ctx context.Context,
 	apiKey string,
 	requestIP ...string,
-) (*domain.User, error) {
+) (*domain.User, []string, error) {
 	// Хешируем ключ для поиска
 	keyHash := s.hashAPIKey(apiKey)
 
@@ -178,7 +179,7 @@ func (s *AuthService) AuthenticateByAPIKey(
 			if !entry.key.IsValid() || !entry.user.IsActive() {
 				authCache.Invalidate(keyHash)
 			} else if ip != "" && !entry.key.IsIPAllowed(ip) {
-				return nil, ErrIPNotAllowed
+				return nil, nil, ErrIPNotAllowed
 			} else {
 				if entry.counter.Add(1)%lastUsedSampleDenominator == 0 {
 					go func(id uuid.UUID) {
@@ -189,29 +190,29 @@ func (s *AuthService) AuthenticateByAPIKey(
 						}
 					}(entry.key.ID)
 				}
-				return entry.user, nil
+				return entry.user, entry.key.Scopes, nil
 			}
 		}
 	}
 
-	// Получаем API ключ
+	// Получаем API ключ (Scopes загружаются вместе с ключом, см. GetByKeyHash).
 	key, err := s.apiKeyRepo.GetByKeyHash(ctx, keyHash)
 	if err != nil {
 		if err == authrepo.ErrAPIKeyNotFound {
-			return nil, ErrAPIKeyInvalid
+			return nil, nil, ErrAPIKeyInvalid
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Проверяем валидность ключа
 	if !key.IsValid() {
-		return nil, ErrAPIKeyInvalid
+		return nil, nil, ErrAPIKeyInvalid
 	}
 
 	// Проверяем IP whitelist
 	if ip != "" {
 		if !key.IsIPAllowed(ip) {
-			return nil, ErrIPNotAllowed
+			return nil, nil, ErrIPNotAllowed
 		}
 	}
 
@@ -223,19 +224,19 @@ func (s *AuthService) AuthenticateByAPIKey(
 	// Получаем пользователя с ролью и правами
 	user, err := s.userRepo.GetByIDWithRole(ctx, key.UserID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Проверяем активность пользователя
 	if !user.IsActive() {
-		return nil, ErrUserInactive
+		return nil, nil, ErrUserInactive
 	}
 
 	if authCache.Enabled() {
 		authCache.Set(keyHash, &cachedAuthEntry{key: key, user: user})
 	}
 
-	return user, nil
+	return user, key.Scopes, nil
 }
 
 type cachedAuthEntry struct {

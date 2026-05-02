@@ -67,7 +67,7 @@ func (s *Server) Authenticate(ctx context.Context, req *authv1.AuthenticateReque
 
 	// Аутентификация по API ключу
 	if req.ApiKey != "" {
-		user, err = s.authService.AuthenticateByAPIKey(ctx, req.ApiKey)
+		user, _, err = s.authService.AuthenticateByAPIKey(ctx, req.ApiKey)
 		if err != nil {
 			if errors.Is(err, application.ErrAPIKeyInvalid) {
 				return nil, status.Error(codes.Unauthenticated, "invalid API key")
@@ -121,10 +121,12 @@ func (s *Server) ValidateToken(ctx context.Context, req *authv1.ValidateTokenReq
 	}
 
 	// Пробуем валидировать как JWT токен
+	var scopes []string
 	user, err := s.authService.ValidateToken(ctx, req.Token)
 	if err != nil {
-		// Если не JWT, пробуем как API ключ
-		user, err = s.authService.AuthenticateByAPIKey(ctx, req.Token)
+		// Если не JWT, пробуем как API ключ. Для API-ключей возвращаем scopes;
+		// для JWT scopes пусты — JWT не имеет scope-концепции.
+		user, scopes, err = s.authService.AuthenticateByAPIKey(ctx, req.Token)
 		if err != nil {
 			return &authv1.ValidateTokenResponse{
 				Valid: false,
@@ -134,8 +136,9 @@ func (s *Server) ValidateToken(ctx context.Context, req *authv1.ValidateTokenReq
 	}
 
 	return &authv1.ValidateTokenResponse{
-		Valid: true,
-		User:  s.domainUserToProto(user),
+		Valid:  true,
+		User:   s.domainUserToProto(user),
+		Scopes: scopes,
 	}, nil
 }
 

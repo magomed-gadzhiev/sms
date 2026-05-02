@@ -298,16 +298,16 @@ func SetupRouter(
 	// Монтируем отдельно от `protected`, чтобы иметь свой auth-стек.
 	// CSRF применяется для session-запросов; для API-key запросов CSRF пропускается внутри middleware.
 	//
-	// BUG-83 fix (2026-05-01): для API-key auth дополнительно проверяем scope по
-	// HTTP-методу. GET → messages:read; POST/PUT/DELETE/PATCH → messages:send.
-	// Session-auth bypass'ит scope-проверку (cookie-аутентификация не подчиняется
-	// scope-ограничениям). См. middleware/scope.go.
-	campaignsScopeLoader := middleware.NewDBScopeLoader(dbPool)
+	// BUG-83 fix (2026-05-01) + A.1 финальная чистка (2026-05-02): для API-key auth
+	// проверяем scope по HTTP-методу. GET → messages:read; POST/PUT/DELETE/PATCH →
+	// messages:send. Session-auth bypass'ит scope-проверку. Scope'ы приходят в context
+	// из APIKeyAuthMiddleware (ValidateTokenResponse.scopes), без дополнительных
+	// SQL/gRPC-roundtrip'ов. См. middleware/scope.go.
 	campaigns := portalV1.PathPrefix("/campaigns").Subrouter()
 	campaigns.Use(sessionOrAPIKeyAuthMiddleware)
 	campaigns.Use(tenantLoggerMiddleware)
 	campaigns.Use(csrfMiddleware)
-	campaigns.Use(middleware.RequireScopeByMethod(campaignsScopeLoader, "messages:read", "messages:send"))
+	campaigns.Use(middleware.RequireScopeByMethod("messages:read", "messages:send"))
 	// Template preview (must be before /{id} routes)
 	campaigns.HandleFunc("/templates/preview", campaignHandlers.PreviewTemplate).Methods("POST")
 	campaigns.HandleFunc("", campaignHandlers.CreateCampaign).Methods("POST")

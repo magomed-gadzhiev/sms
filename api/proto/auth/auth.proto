@@ -130,6 +130,7 @@ message ValidateTokenResponse {
   bool valid = 1;             // Валидность токена
   UserInfo user = 2;          // Информация о пользователе (если токен валиден)
   string error = 3;           // Ошибка (если токен невалиден)
+  repeated string scopes = 4; // Scope'ы API-ключа (только для api_key path; пусто для JWT)
 }
 
 // RefreshTokenRequest представляет запрос на обновление токена

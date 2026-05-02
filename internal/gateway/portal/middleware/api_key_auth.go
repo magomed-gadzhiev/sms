@@ -108,6 +108,9 @@ func APIKeyAuthMiddleware(authClient authv1.AuthServiceClient) func(http.Handler
 			ctx = context.WithValue(ctx, RoleKey, role)
 			ctx = context.WithValue(ctx, AuthMethodKey, AuthMethodAPIKey)
 			ctx = context.WithValue(ctx, APIKeyIDKey, keyPrefix)
+			// Scopes приходят из auth-service (ValidateTokenResponse.scopes).
+			// RequireScopeByMethod читает их отсюда — без второго round-trip'а.
+			ctx = context.WithValue(ctx, APIKeyScopesKey, resp.Scopes)
 
 			log.Debug().
 				Str("user_id", userID.String()).

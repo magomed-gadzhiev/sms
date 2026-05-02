@@ -200,9 +200,10 @@ func (x *ValidateTokenRequest) GetToken() string {
 // ValidateTokenResponse представляет ответ на валидацию токена
 type ValidateTokenResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"` // Валидность токена
-	User          *UserInfo              `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`    // Информация о пользователе (если токен валиден)
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`  // Ошибка (если токен невалиден)
+	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`  // Валидность токена
+	User          *UserInfo              `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`     // Информация о пользователе (если токен валиден)
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`   // Ошибка (если токен невалиден)
+	Scopes        []string               `protobuf:"bytes,4,rep,name=scopes,proto3" json:"scopes,omitempty"` // Scope'ы API-ключа (только для api_key path; пусто для JWT)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -256,6 +257,13 @@ func (x *ValidateTokenResponse) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *ValidateTokenResponse) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
 }
 
 // RefreshTokenRequest представляет запрос на обновление токена
@@ -3991,11 +3999,12 @@ const file_auth_proto_rawDesc = "" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12%\n" +
 	"\x04user\x18\x04 \x01(\v2\x11.auth.v1.UserInfoR\x04user\",\n" +
 	"\x14ValidateTokenRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"j\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x82\x01\n" +
 	"\x15ValidateTokenResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12%\n" +
 	"\x04user\x18\x02 \x01(\v2\x11.auth.v1.UserInfoR\x04user\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\":\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12\x16\n" +
+	"\x06scopes\x18\x04 \x03(\tR\x06scopes\":\n" +
 	"\x13RefreshTokenRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x99\x01\n" +
 	"\x14RefreshTokenResponse\x12!\n" +

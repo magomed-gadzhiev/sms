@@ -231,6 +231,7 @@ func TestAuthService(t *testing.T) {
 				KeyPrefix: "sk_test_",
 				Active:    true,
 				ExpiresAt: nil, // no expiration
+				Scopes:    []string{"messages:read", "messages:send"},
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
@@ -241,10 +242,11 @@ func TestAuthService(t *testing.T) {
 			apiKeyRepo.On("UpdateLastUsed", ctx, keyID).Return(nil)
 			userRepo.On("GetByIDWithRole", ctx, userID).Return(user, nil)
 
-			resultUser, err := svc.AuthenticateByAPIKey(ctx, rawKey)
+			resultUser, scopes, err := svc.AuthenticateByAPIKey(ctx, rawKey)
 
 			require.NoError(t, err)
 			assert.Equal(t, userID, resultUser.ID)
+			assert.Equal(t, []string{"messages:read", "messages:send"}, scopes)
 
 			apiKeyRepo.AssertExpectations(t)
 			userRepo.AssertExpectations(t)
@@ -277,7 +279,7 @@ func TestAuthService(t *testing.T) {
 
 			apiKeyRepo.On("GetByKeyHash", ctx, keyHash).Return(apiKey, nil)
 
-			resultUser, err := svc.AuthenticateByAPIKey(ctx, rawKey)
+			resultUser, _, err := svc.AuthenticateByAPIKey(ctx, rawKey)
 
 			assert.ErrorIs(t, err, application.ErrAPIKeyInvalid)
 			assert.Nil(t, resultUser)
@@ -308,7 +310,7 @@ func TestAuthService(t *testing.T) {
 
 			apiKeyRepo.On("GetByKeyHash", ctx, keyHash).Return(apiKey, nil)
 
-			resultUser, err := svc.AuthenticateByAPIKey(ctx, rawKey)
+			resultUser, _, err := svc.AuthenticateByAPIKey(ctx, rawKey)
 
 			assert.ErrorIs(t, err, application.ErrAPIKeyInvalid)
 			assert.Nil(t, resultUser)
@@ -331,7 +333,7 @@ func TestAuthService(t *testing.T) {
 
 			apiKeyRepo.On("GetByKeyHash", ctx, keyHash).Return(nil, authrepo.ErrAPIKeyNotFound)
 
-			resultUser, err := svc.AuthenticateByAPIKey(ctx, rawKey)
+			resultUser, _, err := svc.AuthenticateByAPIKey(ctx, rawKey)
 
 			assert.ErrorIs(t, err, application.ErrAPIKeyInvalid)
 			assert.Nil(t, resultUser)
@@ -365,7 +367,7 @@ func TestAuthService(t *testing.T) {
 
 			apiKeyRepo.On("GetByKeyHash", ctx, keyHash).Return(apiKey, nil)
 
-			resultUser, err := svc.AuthenticateByAPIKey(ctx, rawKey, "192.168.1.1")
+			resultUser, _, err := svc.AuthenticateByAPIKey(ctx, rawKey, "192.168.1.1")
 
 			assert.ErrorIs(t, err, application.ErrIPNotAllowed)
 			assert.Nil(t, resultUser)
@@ -404,7 +406,7 @@ func TestAuthService(t *testing.T) {
 			apiKeyRepo.On("UpdateLastUsed", ctx, keyID).Return(nil)
 			userRepo.On("GetByIDWithRole", ctx, userID).Return(user, nil)
 
-			resultUser, err := svc.AuthenticateByAPIKey(ctx, rawKey)
+			resultUser, _, err := svc.AuthenticateByAPIKey(ctx, rawKey)
 
 			assert.ErrorIs(t, err, application.ErrUserInactive)
 			assert.Nil(t, resultUser)

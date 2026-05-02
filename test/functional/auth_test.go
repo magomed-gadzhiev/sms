@@ -187,10 +187,11 @@ func TestAuthChain(t *testing.T) {
 		require.NotNil(t, apiKeyObj)
 
 		// Authenticate by API key.
-		authedUser, err := authService.AuthenticateByAPIKey(ctx, rawKey)
+		authedUser, authedScopes, err := authService.AuthenticateByAPIKey(ctx, rawKey)
 		require.NoError(t, err, "authenticate by API key")
 		require.NotNil(t, authedUser)
 		assert.Equal(t, user.ID, authedUser.ID)
+		assert.ElementsMatch(t, scopes, authedScopes, "scopes must be returned to caller")
 
 		// Role and permissions must be loaded.
 		require.NotNil(t, authedUser.Role, "role must be loaded on API key auth")
@@ -206,11 +207,11 @@ func TestAuthChain(t *testing.T) {
 		err = authService.RevokeAPIKey(ctx, apiKeyObj.ID, user.ID)
 		require.NoError(t, err, "revoking API key")
 
-		_, err = authService.AuthenticateByAPIKey(ctx, rawKey)
+		_, _, err = authService.AuthenticateByAPIKey(ctx, rawKey)
 		assert.ErrorIs(t, err, application.ErrAPIKeyInvalid, "revoked key must fail")
 
 		// Authenticate with a made-up key must fail.
-		_, err = authService.AuthenticateByAPIKey(ctx, "sk_live_boguskey0000000000000000000")
+		_, _, err = authService.AuthenticateByAPIKey(ctx, "sk_live_boguskey0000000000000000000")
 		assert.ErrorIs(t, err, application.ErrAPIKeyInvalid, "invalid key must return ErrAPIKeyInvalid")
 	})
 }
