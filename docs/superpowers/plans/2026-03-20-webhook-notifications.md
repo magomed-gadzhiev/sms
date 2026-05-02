@@ -624,6 +624,11 @@ func NewDeliveryClient(timeout time.Duration) *DeliveryClient {
 	}
 }
 
+// UPDATED 2026-05-02: replay-protected variant — signature теперь включает
+// X-Webhook-Timestamp в HMAC. Этот блок ниже — историческая версия плана,
+// не копировать как reference. Актуальный код:
+// internal/services/webhook/infrastructure/http/delivery_client.go.
+
 // Deliver sends a webhook event to the subscription URL
 func (c *DeliveryClient) Deliver(ctx context.Context, sub *domain.Subscription, event *domain.WebhookEvent) error {
 	payload, err := json.Marshal(event)

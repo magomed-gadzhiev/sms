@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -81,12 +82,14 @@ func (c *DeliveryClient) Deliver(ctx context.Context, sub *domain.Subscription, 
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Sign payload with HMAC-SHA256
-	signature := signPayload(payload, sub.Secret)
+	// Replay-protected signature: timestamp + "." + payload, HMAC-SHA256.
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	signature := signPayload(timestamp, payload, sub.Secret)
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "SMS-Platform-Webhook/1.0")
 	req.Header.Set("X-Webhook-Signature", "sha256="+signature)
+	req.Header.Set("X-Webhook-Timestamp", timestamp)
 	req.Header.Set("X-Webhook-Event", event.EventType)
 	req.Header.Set("X-Webhook-ID", event.EventID)
 
@@ -105,24 +108,39 @@ func (c *DeliveryClient) Deliver(ctx context.Context, sub *domain.Subscription, 
 	return fmt.Errorf("webhook delivery failed: HTTP %d", resp.StatusCode)
 }
 
-// signPayload вычисляет HMAC-SHA256(payload, secret) и возвращает hex.
+// signPayload вычисляет HMAC-SHA256(timestamp + "." + payload, secret) и возвращает hex.
 //
-// SECURITY LIMITATION (открытое наблюдение, см. docs/audit-followups-progress.md
-// «webhook signature replay»): подпись детерминирована только от payload+secret —
-// timestamp/nonce НЕ включены. Это значит атакующий, перехвативший один доставленный
-// webhook (например через скомпрометированный TLS-прокси на стороне receiver'а или
-// логи), может бесконечно реплеить тот же запрос с валидной подписью.
+// Replay-protected: timestamp включён в подпись, поэтому одинаковый payload в
+// разное время даёт разную подпись. Атакующий, перехвативший delivery, не может
+// бесконечно реплеить — после истечения окна на receiver'е его запрос отклоняется.
 //
-// Митигация (на стороне receiver'а): использовать `X-Webhook-ID` (UUID каждого
-// события) как dedup-ключ — отбрасывать повторные delivery с тем же ID.
+// Receiver verification — реализация на стороне receiver'а (этот пакет
+// unexported, импортировать нельзя; reference показывает только идею):
 //
-// Полноценный fix требует Stripe-style включения timestamp в подпись:
-// HMAC(timestamp + "." + payload) + новый header X-Webhook-Timestamp + проверка
-// окна на receiver'е. Это breaking change для существующих integration'ов
-// (verification код у получателей перестанет работать), требует migration window.
-// Не делается в этом коммите — отдельная security-задача.
-func signPayload(payload []byte, secret string) string {
+//	ts := r.Header.Get("X-Webhook-Timestamp")
+//	sig := strings.TrimPrefix(r.Header.Get("X-Webhook-Signature"), "sha256=")
+//	now := time.Now().Unix()
+//	tsInt, _ := strconv.ParseInt(ts, 10, 64)
+//	if math.Abs(float64(now-tsInt)) > 300 { // ±5 минут
+//	    return errStaleTimestamp
+//	}
+//	body, _ := io.ReadAll(r.Body) // ВАЖНО: raw bytes, без re-marshal'а JSON
+//	mac := hmac.New(sha256.New, []byte(secret))
+//	mac.Write([]byte(ts)) // ВАЖНО: raw header-string, без re-format'а
+//	mac.Write([]byte("."))
+//	mac.Write(body)
+//	expected := hex.EncodeToString(mac.Sum(nil))
+//	if !hmac.Equal([]byte(sig), []byte(expected)) {
+//	    return errBadSignature
+//	}
+//
+// Защита через X-Webhook-ID dedup на receiver'е остаётся валидной добавкой:
+// X-Webhook-Timestamp окно ловит late replay, X-Webhook-ID ловит дубли в окне
+// (например при retry).
+func signPayload(timestamp string, payload []byte, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(timestamp))
+	mac.Write([]byte("."))
 	mac.Write(payload)
 	return hex.EncodeToString(mac.Sum(nil))
 }

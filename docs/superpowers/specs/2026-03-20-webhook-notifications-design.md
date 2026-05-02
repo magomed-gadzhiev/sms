@@ -186,13 +186,27 @@ service WebhookService {
 
 Fields `external_id`, `source`, `destination`, `submitted_at` are populated from the message enrichment DB lookup. `delivered_at` / `failed_at` come from the DLR/failed event timestamp. If `external_id` is empty in the original message, it is omitted from the payload (`omitempty`).
 
-### HMAC-SHA256 Signature
+### HMAC-SHA256 Signature (replay-protected)
 
-- Signed over raw JSON body using subscription `secret`
+- Signed over `<X-Webhook-Timestamp>` + `"."` + `<raw JSON body>` using subscription `secret`
 - Header: `X-Webhook-Signature: sha256=<hex-encoded-hmac>`
+- Header: `X-Webhook-Timestamp: <unix-seconds>` (входит в подпись; receiver обязан проверить окно ±5 минут)
 - Header: `X-Webhook-Event: <event_type>` (for filtering without parsing body)
 - Header: `X-Webhook-ID: <event_id>` (for client-side idempotency)
 - Header: `User-Agent: SMS-Platform-Webhook/1.0`
+
+**Receiver verification (reference):**
+1. Прочитать `X-Webhook-Timestamp`. Если `|now - ts| > 300` секунд — отклонить (stale/replay).
+2. Прочитать body как **raw bytes** до любого JSON-парсинга/нормализации.
+   Прочитать `X-Webhook-Signature`, отрезать префикс `sha256=`.
+3. Вычислить `expected = HMAC-SHA256(ts + "." + body, secret)`.
+   **ВАЖНО:** `ts` обязан быть raw header-string (`r.Header.Get("X-Webhook-Timestamp")`),
+   не parsed-then-reformatted. Re-format leading-zeros / целочисленных представлений
+   ломает подпись.
+   **ВАЖНО:** `body` обязан быть raw bytes как пришли. Re-marshal JSON
+   (другой порядок ключей / другой whitespace) даст другой HMAC.
+4. Сравнить через `hmac.Equal(sig, expected)` — отклонить если не совпадает.
+5. Дополнительно: dedup по `X-Webhook-ID` против повторного применения в окне.
 
 ### HTTP Request
 

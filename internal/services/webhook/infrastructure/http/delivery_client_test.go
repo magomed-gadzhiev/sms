@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -78,10 +79,13 @@ func TestDeliver_Success(t *testing.T) {
 }
 
 func TestDeliver_HMACSignature(t *testing.T) {
-	var signatureHeader string
+	var signatureHeader, timestampHeader string
+	var receivedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		signatureHeader = r.Header.Get("X-Webhook-Signature")
+		timestampHeader = r.Header.Get("X-Webhook-Timestamp")
+		receivedBody, _ = io.ReadAll(r.Body)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -90,17 +94,26 @@ func TestDeliver_HMACSignature(t *testing.T) {
 	sub := testSubscription(server.URL)
 	event := testEvent()
 
+	beforeUnix := time.Now().Unix()
 	err := client.Deliver(context.Background(), sub, event)
 	require.NoError(t, err)
+	afterUnix := time.Now().Unix()
 
-	// Verify signature format
-	assert.True(t, len(signatureHeader) > 7)
+	// Timestamp header in request window.
+	require.NotEmpty(t, timestampHeader)
+	tsInt, err := strconv.ParseInt(timestampHeader, 10, 64)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, tsInt, beforeUnix)
+	assert.LessOrEqual(t, tsInt, afterUnix)
+
+	// Signature header format and replay-protected content.
+	require.True(t, len(signatureHeader) > 7)
 	assert.Equal(t, "sha256=", signatureHeader[:7])
 
-	// Verify signature content matches expected HMAC
-	payload, _ := json.Marshal(event)
 	mac := hmac.New(sha256.New, []byte(sub.Secret))
-	mac.Write(payload)
+	mac.Write([]byte(timestampHeader))
+	mac.Write([]byte("."))
+	mac.Write(receivedBody)
 	expectedSig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 	assert.Equal(t, expectedSig, signatureHeader)
 }
@@ -212,71 +225,70 @@ func TestDeliver_DoesNotFollowRedirects(t *testing.T) {
 // ─── signPayload ────────────────────────────────────────────────────────────
 
 func TestSignPayload(t *testing.T) {
+	timestamp := "1700000000"
 	payload := []byte(`{"event":"test"}`)
 	secret := "my-secret"
 
-	sig := signPayload(payload, secret)
+	sig := signPayload(timestamp, payload, secret)
 
-	// Verify manually
+	// Verify manually: HMAC over (timestamp + "." + payload).
 	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(timestamp))
+	mac.Write([]byte("."))
 	mac.Write(payload)
 	expected := hex.EncodeToString(mac.Sum(nil))
 	assert.Equal(t, expected, sig)
 }
 
 func TestSignPayload_EmptySecret(t *testing.T) {
-	payload := []byte(`{"event":"test"}`)
-	sig := signPayload(payload, "")
+	sig := signPayload("1700000000", []byte(`{"event":"test"}`), "")
 	assert.NotEmpty(t, sig) // HMAC with empty key still produces output
 }
 
 func TestSignPayload_DifferentSecretsProduceDifferentSignatures(t *testing.T) {
+	ts := "1700000000"
 	payload := []byte(`{"same":"payload"}`)
-	sig1 := signPayload(payload, "secret-1")
-	sig2 := signPayload(payload, "secret-2")
+	sig1 := signPayload(ts, payload, "secret-1")
+	sig2 := signPayload(ts, payload, "secret-2")
 	assert.NotEqual(t, sig1, sig2)
 }
 
 func TestSignPayload_DifferentPayloadsProduceDifferentSignatures(t *testing.T) {
+	ts := "1700000000"
 	secret := "shared-secret"
-	sig1 := signPayload([]byte(`{"a":1}`), secret)
-	sig2 := signPayload([]byte(`{"b":2}`), secret)
+	sig1 := signPayload(ts, []byte(`{"a":1}`), secret)
+	sig2 := signPayload(ts, []byte(`{"b":2}`), secret)
 	assert.NotEqual(t, sig1, sig2)
 }
 
-// TestSignPayload_DeterministicAcrossTime — regression-guard для D.10 obs-7
-// («webhook signature replay не тестировалось»). Подпись зависит ТОЛЬКО от
-// (payload, secret) — времени, nonce'ов, других mutable inputs нет. Тест
-// формально доказывает: 100 вызовов с одинаковыми входами дают одинаковый
-// hex output.
-//
-// Это одновременно подтверждает SECURITY LIMITATION, задокументированную
-// в signPayload: атакующий, перехвативший один webhook-запрос, может
-// бесконечно реплеить ту же payload+signature пару — receiver не отличит
-// replay от оригинала средствами текущей signing scheme. Защита возможна
-// только на стороне receiver'а через X-Webhook-ID dedup. Полноценный fix
-// (timestamp в подписи) — отдельная security-задача с migration window.
-func TestSignPayload_DeterministicAcrossTime(t *testing.T) {
-	payload := []byte(`{"event":"sms.delivered","id":"evt-12345"}`)
-	secret := "long-lived-webhook-secret"
-
-	sig0 := signPayload(payload, secret)
-	for i := 0; i < 100; i++ {
-		sigN := signPayload(payload, secret)
-		if sigN != sig0 {
-			t.Fatalf("signPayload non-deterministic at iter %d: %s vs %s", i, sig0, sigN)
-		}
-	}
+// TestSignPayload_DifferentTimestampsProduceDifferentSignatures —
+// replay-protection regression-guard. Подпись от (ts1, payload, secret) НЕ
+// должна совпадать с подписью от (ts2, payload, secret) для ts1 != ts2.
+// Это гарантирует, что перехваченный delivery нельзя реплеить с подменённым
+// timestamp (receiver проверит окно ±5мин и отклонит stale).
+func TestSignPayload_DifferentTimestampsProduceDifferentSignatures(t *testing.T) {
+	payload := []byte(`{"event":"sms.delivered"}`)
+	secret := "shared-secret"
+	sig1 := signPayload("1700000000", payload, secret)
+	sig2 := signPayload("1700000060", payload, secret) // на 60 секунд позже
+	assert.NotEqual(t, sig1, sig2, "timestamp обязан входить в подпись — иначе replay тривиален")
 }
 
-// TestDeliver_ReplayProducesIdenticalSignature — end-to-end regression-guard:
-// два полных Deliver-вызова с одним и тем же event дают идентичный
-// X-Webhook-Signature header. Документирует, что replay тривиален —
-// перехваченный запрос можно повторно использовать с валидной подписью.
-func TestDeliver_ReplayProducesIdenticalSignature(t *testing.T) {
-	var captured []string
+// TestDeliver_DistinctTimestampsAndSignatures — end-to-end replay-protection
+// regression-guard: два Deliver-вызова с одним event дают РАЗНЫЕ подписи
+// (потому что timestamps отличаются). До A2 fix'а оба вызова давали
+// идентичную X-Webhook-Signature, что позволяло replay.
+func TestDeliver_DistinctTimestampsAndSignatures(t *testing.T) {
+	type capture struct {
+		sig string
+		ts  string
+	}
+	var captured []capture
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		captured = append(captured, r.Header.Get("X-Webhook-Signature"))
+		captured = append(captured, capture{
+			sig: r.Header.Get("X-Webhook-Signature"),
+			ts:  r.Header.Get("X-Webhook-Timestamp"),
+		})
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -285,14 +297,19 @@ func TestDeliver_ReplayProducesIdenticalSignature(t *testing.T) {
 	sub := testSubscription(server.URL)
 	event := testEvent()
 
-	// Делаем 3 идентичных delivery подряд.
-	for i := 0; i < 3; i++ {
-		require.NoError(t, client.Deliver(context.Background(), sub, event))
-	}
+	require.NoError(t, client.Deliver(context.Background(), sub, event))
+	// 2-секундный sleep гарантирует пересечение unix-секундной границы даже с
+	// учётом до 1с scheduler/GC-slip на нагруженном CI (1.1с было слишком тонко).
+	// TODO: лучшее долгосрочное решение — инжекция clock-интерфейса в
+	// DeliveryClient, чтобы тест мог детерминистично продвинуть время без sleep.
+	time.Sleep(2 * time.Second)
+	require.NoError(t, client.Deliver(context.Background(), sub, event))
 
-	require.Len(t, captured, 3)
-	assert.Equal(t, captured[0], captured[1], "replayed delivery должен иметь идентичную подпись")
-	assert.Equal(t, captured[1], captured[2])
+	require.Len(t, captured, 2)
+	require.NotEmpty(t, captured[0].ts)
+	require.NotEmpty(t, captured[1].ts)
+	assert.NotEqual(t, captured[0].ts, captured[1].ts, "timestamps должны различаться")
+	assert.NotEqual(t, captured[0].sig, captured[1].sig, "подписи должны различаться (replay-protected)")
 }
 
 // ─── ValidateURL ────────────────────────────────────────────────────────────
