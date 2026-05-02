@@ -234,7 +234,7 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 **Скоуп явно НЕ затронул** (зафиксировано в каждом review-брифе как out-of-scope):
 - `application.Err*` / `domain.Err*` — закрыто C.7.
 - `authrepo.ErrUserNotFound` (auth/grpc/server.go:421,529) — repo-level sentinel, отдельная задача.
-- WrapNotFound helper / shared.ErrNotFound mapping — другая задача из основного описания плана §C.2 («pgx error→500»). Этот sweep закрыл только sentinel-comparison паттерн, не error-mapping в HTTP-ответ. Открытый item.
+- ~~WrapNotFound helper / shared.ErrNotFound mapping — другая задача из основного описания плана §C.2 («pgx error→500»). Этот sweep закрыл только sentinel-comparison паттерн, не error-mapping в HTTP-ответ. Открытый item~~ — **NON-ISSUE** (audit 2026-05-03). Полный spot-fix audit 6 perceived-suspect portal handlers (detalization, messages, network_tariff_bulk/editor/templates, reseller_tariff_plans) показал **0 unprotected QueryRows**. Эвристика «QueryRow count > ErrNoRows-check count» давала false positives из-за INSERT RETURNING / SELECT EXISTS / SELECT COUNT (no not-found) и intentional patterns (`err != nil || mismatch → ErrNotFound` для cross-tenant conflation, optional joins с silent `if err == nil`). Helper не нужен — premature abstraction для already-corrected pattern. Code-changes not required.
 
 **Особо ценно для redis.Nil:** go-redis v9 в pipeline-режимах оборачивает Nil — `errors.Is` это документированная идиома, sweep даёт защиту от silent skip cache-miss веток.
 
