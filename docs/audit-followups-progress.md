@@ -382,7 +382,7 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 - `delivery_client_test.go`: + `TestSignPayload_DeterministicAcrossTime` (100 вызовов → одинаковый output) + `TestDeliver_ReplayProducesIdenticalSignature` (3 Deliver вызова → 3 идентичных X-Webhook-Signature). Оба теста явно описывают что они подтверждают **limitation**, не корректность защиты.
 
 **Открытое security-наблюдение (не блокер audit-followups, отдельная задача):**
-- Полноценная replay protection через timestamp в подписи (Stripe-style: `HMAC(timestamp + "." + payload)`, `X-Webhook-Timestamp` header, ±5 мин окно на receiver). Breaking change для existing webhook-получателей. Требует migration window (например dual-sign: оба формата параллельно неделя, потом cutover).
+- ~~Полноценная replay protection через timestamp в подписи (Stripe-style: `HMAC(timestamp + "." + payload)`, `X-Webhook-Timestamp` header, ±5 мин окно на receiver). Breaking change для existing webhook-получателей. Требует migration window (например dual-sign: оба формата параллельно неделя, потом cutover)~~ — [DONE] commit `16c488b` (2026-05-02). Migration стратегия: A2 flag day (подтверждено пользователем — нет внешних production receiver'ов). signPayload теперь принимает (timestamp, payload, secret) и HMAC over `<ts> + "." + <payload>`. Header X-Webhook-Timestamp добавлен. Старые regression-guard тесты D.10 (которые доказывали баг) удалены, заменены на TestSignPayload_DifferentTimestampsProduceDifferentSignatures + TestDeliver_DistinctTimestampsAndSignatures (с 2s sleep margin для CI scheduler slop). Receiver verification spec расширен в docs/superpowers/specs с raw-bytes/raw-string warnings. Reviewer CHANGES_REQUESTED 4 пункта → APPROVED.
 
 **Review:** APPROVED 1 итерация.
 
