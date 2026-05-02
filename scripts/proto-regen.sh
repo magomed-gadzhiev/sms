@@ -6,8 +6,8 @@
 #   ./scripts/proto-regen.sh auth client       # regen только auth и client
 #   ./scripts/proto-regen.sh --build           # пересобрать Docker-образ (после изменения Dockerfile)
 #
-# Targeted regen: только файлы из TARGETS массива. Полный regen (все 20 .proto) — отдельная
-# tech-debt задача (см. docs/audit-followups-progress.md «open observations»).
+# Targeted regen: только файлы из TARGETS массива. Все 21 .proto зарегистрированы
+# (proto-нормализация 2026-05-02, см. docs/audit-followups-progress.md).
 #
 # Каждый target — это запись `name|proto_relative_file|proto_path_arg|out_dir`:
 #   name              — короткое имя для CLI-аргумента и логов
@@ -37,8 +37,27 @@ readonly DOCKERFILE="deployments/docker/proto-gen.Dockerfile"
 # командами/инструментами в разное время). Первый regen каждого target'а даст
 # одно-двухстрочный cosmetic diff в header, далее regen идемпотентен.
 readonly -a TARGETS=(
+  "analytics|analytics.proto|api/proto/analytics|api/proto/analyticsv1"
+  "audit|audit.proto|api/proto/audit|api/proto/auditv1"
   "auth|auth.proto|api/proto/auth|api/proto/authv1"
+  "billing|billing.proto|api/proto/billing|api/proto/billingv1"
+  "campaign|campaign.proto|api/proto/campaign|api/proto/campaignv1"
+  "cascade|cascade.proto|api/proto/cascade|api/proto/cascadev1"
   "client|client.proto|api/proto/client|api/proto/clientv1"
+  "client-provider|client_provider.proto|api/proto/client-provider|api/proto/clientproviderv1"
+  "company|company.proto|api/proto/company|api/proto/companyv1"
+  "contact|contact.proto|api/proto/contact|api/proto/contactv1"
+  "link|link.proto|api/proto/link|api/proto/linkv1"
+  "messaging|messaging.proto|api/proto/messaging|api/proto/messagingv1"
+  "network_analytics|network_analytics.proto|api/proto/network_analytics|api/proto/networkanalyticsv1"
+  "provider|provider.proto|api/proto/provider|api/proto/providerv1"
+  "routing|routing.proto|api/proto/routing|api/proto/routingv1"
+  "sender_name|sender_name.proto|api/proto/sender-name|api/proto/sendernamev1"
+  "smpp|smpp.proto|api/proto/smpp|api/proto/smppv1"
+  "sms|sms.proto|api/proto|api/proto/smsv1"
+  "tarification|tarification.proto|api/proto/tarification|api/proto/tarificationv1"
+  "template|template.proto|api/proto/template|api/proto/templatev1"
+  "webhook|webhook.proto|api/proto/webhook|api/proto/webhookv1"
 )
 
 build_image() {

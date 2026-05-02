@@ -22,6 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// RoutingRule defines a single routing pattern with priority.
 type RoutingRule struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pattern       string                 `protobuf:"bytes,1,opt,name=pattern,proto3" json:"pattern,omitempty"`
@@ -74,6 +75,7 @@ func (x *RoutingRule) GetPriority() int32 {
 	return 0
 }
 
+// ClientProvider is the persisted SMPP provider configuration scoped to a client.
 type ClientProvider struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
