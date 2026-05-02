@@ -105,6 +105,22 @@ func (c *DeliveryClient) Deliver(ctx context.Context, sub *domain.Subscription, 
 	return fmt.Errorf("webhook delivery failed: HTTP %d", resp.StatusCode)
 }
 
+// signPayload вычисляет HMAC-SHA256(payload, secret) и возвращает hex.
+//
+// SECURITY LIMITATION (открытое наблюдение, см. docs/audit-followups-progress.md
+// «webhook signature replay»): подпись детерминирована только от payload+secret —
+// timestamp/nonce НЕ включены. Это значит атакующий, перехвативший один доставленный
+// webhook (например через скомпрометированный TLS-прокси на стороне receiver'а или
+// логи), может бесконечно реплеить тот же запрос с валидной подписью.
+//
+// Митигация (на стороне receiver'а): использовать `X-Webhook-ID` (UUID каждого
+// события) как dedup-ключ — отбрасывать повторные delivery с тем же ID.
+//
+// Полноценный fix требует Stripe-style включения timestamp в подпись:
+// HMAC(timestamp + "." + payload) + новый header X-Webhook-Timestamp + проверка
+// окна на receiver'е. Это breaking change для существующих integration'ов
+// (verification код у получателей перестанет работать), требует migration window.
+// Не делается в этом коммите — отдельная security-задача.
 func signPayload(payload []byte, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)

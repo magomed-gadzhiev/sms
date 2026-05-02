@@ -244,6 +244,57 @@ func TestSignPayload_DifferentPayloadsProduceDifferentSignatures(t *testing.T) {
 	assert.NotEqual(t, sig1, sig2)
 }
 
+// TestSignPayload_DeterministicAcrossTime — regression-guard для D.10 obs-7
+// («webhook signature replay не тестировалось»). Подпись зависит ТОЛЬКО от
+// (payload, secret) — времени, nonce'ов, других mutable inputs нет. Тест
+// формально доказывает: 100 вызовов с одинаковыми входами дают одинаковый
+// hex output.
+//
+// Это одновременно подтверждает SECURITY LIMITATION, задокументированную
+// в signPayload: атакующий, перехвативший один webhook-запрос, может
+// бесконечно реплеить ту же payload+signature пару — receiver не отличит
+// replay от оригинала средствами текущей signing scheme. Защита возможна
+// только на стороне receiver'а через X-Webhook-ID dedup. Полноценный fix
+// (timestamp в подписи) — отдельная security-задача с migration window.
+func TestSignPayload_DeterministicAcrossTime(t *testing.T) {
+	payload := []byte(`{"event":"sms.delivered","id":"evt-12345"}`)
+	secret := "long-lived-webhook-secret"
+
+	sig0 := signPayload(payload, secret)
+	for i := 0; i < 100; i++ {
+		sigN := signPayload(payload, secret)
+		if sigN != sig0 {
+			t.Fatalf("signPayload non-deterministic at iter %d: %s vs %s", i, sig0, sigN)
+		}
+	}
+}
+
+// TestDeliver_ReplayProducesIdenticalSignature — end-to-end regression-guard:
+// два полных Deliver-вызова с одним и тем же event дают идентичный
+// X-Webhook-Signature header. Документирует, что replay тривиален —
+// перехваченный запрос можно повторно использовать с валидной подписью.
+func TestDeliver_ReplayProducesIdenticalSignature(t *testing.T) {
+	var captured []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured = append(captured, r.Header.Get("X-Webhook-Signature"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewDeliveryClient(5*time.Second, WithAllowPrivateIPs())
+	sub := testSubscription(server.URL)
+	event := testEvent()
+
+	// Делаем 3 идентичных delivery подряд.
+	for i := 0; i < 3; i++ {
+		require.NoError(t, client.Deliver(context.Background(), sub, event))
+	}
+
+	require.Len(t, captured, 3)
+	assert.Equal(t, captured[0], captured[1], "replayed delivery должен иметь идентичную подпись")
+	assert.Equal(t, captured[1], captured[2])
+}
+
 // ─── ValidateURL ────────────────────────────────────────────────────────────
 
 func TestValidateURL_ValidHTTPS(t *testing.T) {
