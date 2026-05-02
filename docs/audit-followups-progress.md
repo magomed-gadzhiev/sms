@@ -329,7 +329,7 @@ grep -rE "err == sql\.ErrNoRows|err == pgx\.ErrNoRows|err == redis\.Nil" interna
 **Review:** APPROVED после 1 итерации CHANGES_REQUESTED (нашёл missing `ErrInvalidClientData` mapping в UpdateClient gRPC + предложил business rule для reseller-без-слотов; оба исправлены).
 
 **Pre-existing observations (не блокеры D.1, зафиксированы как housekeeping):**
-- `api/proto/clientv1/client/client.pb.go` — stale duplicate (унаследовано от X3-2).
+- ~~`api/proto/clientv1/client/client.pb.go` — stale duplicate (унаследовано от X3-2)~~ — [DONE] commit `da450a7` (2026-05-02). `git rm -r api/proto/clientv1/client/`. Pre-flight: 0 импортов в .go/.sh/.proto, оба файла tracked dead code (37 типов vs 39 в актуальном). Reviewer APPROVED 1 итерация: подтвердил, что proto-regen.sh + Docker pipeline не воссоздают подкаталог.
 - admin UpdateClient: `var active bool` always non-nil → PATCH без `active` сбрасывает active в false. Pre-existing, не D.1 регрессия.
 - DB CHECK leak (parent_client_id+is_reseller) → 500 вместо 400. Pre-existing.
 - `updates_fields` test coverage gap для IsReseller/MaxSubAccounts unchanged-when-nil.
