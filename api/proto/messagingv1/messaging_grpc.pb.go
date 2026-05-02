@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: messaging/messaging.proto
+// source: messaging.proto
 
 package messagingv1
 
@@ -19,13 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MessagingService_SendMessage_FullMethodName       = "/messaging.v1.MessagingService/SendMessage"
-	MessagingService_SendBatch_FullMethodName         = "/messaging.v1.MessagingService/SendBatch"
-	MessagingService_GetMessageStatus_FullMethodName  = "/messaging.v1.MessagingService/GetMessageStatus"
-	MessagingService_GetMessageHistory_FullMethodName = "/messaging.v1.MessagingService/GetMessageHistory"
-	MessagingService_ProcessDLR_FullMethodName        = "/messaging.v1.MessagingService/ProcessDLR"
-	MessagingService_CancelMessage_FullMethodName            = "/messaging.v1.MessagingService/CancelMessage"
-	MessagingService_ListScheduledMessages_FullMethodName    = "/messaging.v1.MessagingService/ListScheduledMessages"
+	MessagingService_SendMessage_FullMethodName           = "/messaging.v1.MessagingService/SendMessage"
+	MessagingService_SendBatch_FullMethodName             = "/messaging.v1.MessagingService/SendBatch"
+	MessagingService_GetMessageStatus_FullMethodName      = "/messaging.v1.MessagingService/GetMessageStatus"
+	MessagingService_GetMessageHistory_FullMethodName     = "/messaging.v1.MessagingService/GetMessageHistory"
+	MessagingService_ProcessDLR_FullMethodName            = "/messaging.v1.MessagingService/ProcessDLR"
+	MessagingService_CancelMessage_FullMethodName         = "/messaging.v1.MessagingService/CancelMessage"
+	MessagingService_ListScheduledMessages_FullMethodName = "/messaging.v1.MessagingService/ListScheduledMessages"
 )
 
 // MessagingServiceClient is the client API for MessagingService service.
@@ -363,5 +363,5 @@ var MessagingService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "messaging/messaging.proto",
+	Metadata: "messaging.proto",
 }

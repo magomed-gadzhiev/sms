@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: contact/contact.proto
+// source: contact.proto
 
 package contactv1
 
@@ -40,6 +40,9 @@ const (
 	ContactService_ListImports_FullMethodName         = "/contact.v1.ContactService/ListImports"
 	ContactService_PreviewSegment_FullMethodName      = "/contact.v1.ContactService/PreviewSegment"
 	ContactService_StreamSegment_FullMethodName       = "/contact.v1.ContactService/StreamSegment"
+	ContactService_AddOptOut_FullMethodName           = "/contact.v1.ContactService/AddOptOut"
+	ContactService_ListOptOuts_FullMethodName         = "/contact.v1.ContactService/ListOptOuts"
+	ContactService_RemoveOptOut_FullMethodName        = "/contact.v1.ContactService/RemoveOptOut"
 )
 
 // ContactServiceClient is the client API for ContactService service.
@@ -72,6 +75,10 @@ type ContactServiceClient interface {
 	// Segmentation
 	PreviewSegment(ctx context.Context, in *PreviewSegmentRequest, opts ...grpc.CallOption) (*SegmentPreview, error)
 	StreamSegment(ctx context.Context, in *StreamSegmentRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ContactBatch], error)
+	// Opt-out management
+	AddOptOut(ctx context.Context, in *AddOptOutRequest, opts ...grpc.CallOption) (*OptOutEntry, error)
+	ListOptOuts(ctx context.Context, in *ListOptOutsRequest, opts ...grpc.CallOption) (*OptOutPage, error)
+	RemoveOptOut(ctx context.Context, in *RemoveOptOutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type contactServiceClient struct {
@@ -291,6 +298,36 @@ func (c *contactServiceClient) StreamSegment(ctx context.Context, in *StreamSegm
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ContactService_StreamSegmentClient = grpc.ServerStreamingClient[ContactBatch]
 
+func (c *contactServiceClient) AddOptOut(ctx context.Context, in *AddOptOutRequest, opts ...grpc.CallOption) (*OptOutEntry, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OptOutEntry)
+	err := c.cc.Invoke(ctx, ContactService_AddOptOut_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contactServiceClient) ListOptOuts(ctx context.Context, in *ListOptOutsRequest, opts ...grpc.CallOption) (*OptOutPage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OptOutPage)
+	err := c.cc.Invoke(ctx, ContactService_ListOptOuts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contactServiceClient) RemoveOptOut(ctx context.Context, in *RemoveOptOutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ContactService_RemoveOptOut_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ContactServiceServer is the server API for ContactService service.
 // All implementations must embed UnimplementedContactServiceServer
 // for forward compatibility.
@@ -321,6 +358,10 @@ type ContactServiceServer interface {
 	// Segmentation
 	PreviewSegment(context.Context, *PreviewSegmentRequest) (*SegmentPreview, error)
 	StreamSegment(*StreamSegmentRequest, grpc.ServerStreamingServer[ContactBatch]) error
+	// Opt-out management
+	AddOptOut(context.Context, *AddOptOutRequest) (*OptOutEntry, error)
+	ListOptOuts(context.Context, *ListOptOutsRequest) (*OptOutPage, error)
+	RemoveOptOut(context.Context, *RemoveOptOutRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedContactServiceServer()
 }
 
@@ -390,6 +431,15 @@ func (UnimplementedContactServiceServer) PreviewSegment(context.Context, *Previe
 }
 func (UnimplementedContactServiceServer) StreamSegment(*StreamSegmentRequest, grpc.ServerStreamingServer[ContactBatch]) error {
 	return status.Error(codes.Unimplemented, "method StreamSegment not implemented")
+}
+func (UnimplementedContactServiceServer) AddOptOut(context.Context, *AddOptOutRequest) (*OptOutEntry, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddOptOut not implemented")
+}
+func (UnimplementedContactServiceServer) ListOptOuts(context.Context, *ListOptOutsRequest) (*OptOutPage, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOptOuts not implemented")
+}
+func (UnimplementedContactServiceServer) RemoveOptOut(context.Context, *RemoveOptOutRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveOptOut not implemented")
 }
 func (UnimplementedContactServiceServer) mustEmbedUnimplementedContactServiceServer() {}
 func (UnimplementedContactServiceServer) testEmbeddedByValue()                        {}
@@ -765,6 +815,60 @@ func _ContactService_StreamSegment_Handler(srv interface{}, stream grpc.ServerSt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ContactService_StreamSegmentServer = grpc.ServerStreamingServer[ContactBatch]
 
+func _ContactService_AddOptOut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddOptOutRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContactServiceServer).AddOptOut(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContactService_AddOptOut_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContactServiceServer).AddOptOut(ctx, req.(*AddOptOutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContactService_ListOptOuts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOptOutsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContactServiceServer).ListOptOuts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContactService_ListOptOuts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContactServiceServer).ListOptOuts(ctx, req.(*ListOptOutsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContactService_RemoveOptOut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveOptOutRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContactServiceServer).RemoveOptOut(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContactService_RemoveOptOut_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContactServiceServer).RemoveOptOut(ctx, req.(*RemoveOptOutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ContactService_ServiceDesc is the grpc.ServiceDesc for ContactService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -848,6 +952,18 @@ var ContactService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "PreviewSegment",
 			Handler:    _ContactService_PreviewSegment_Handler,
 		},
+		{
+			MethodName: "AddOptOut",
+			Handler:    _ContactService_AddOptOut_Handler,
+		},
+		{
+			MethodName: "ListOptOuts",
+			Handler:    _ContactService_ListOptOuts_Handler,
+		},
+		{
+			MethodName: "RemoveOptOut",
+			Handler:    _ContactService_RemoveOptOut_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -856,5 +972,5 @@ var ContactService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "contact/contact.proto",
+	Metadata: "contact.proto",
 }

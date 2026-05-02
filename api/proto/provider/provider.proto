@@ -5,7 +5,6 @@ package provider.v1;
 option go_package = "github.com/smpp-server/smpp-server/api/proto/providerv1";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 
 // ProviderService предоставляет методы для управления SMSC провайдерами
 service ProviderService {
@@ -29,14 +28,6 @@ service ProviderService {
 
   // SendToProvider отправляет сообщение через провайдера
   rpc SendToProvider(SendToProviderRequest) returns (SendToProviderResponse);
-
-  // ---- Client-Provider RPC ----
-  rpc CreateClientProvider(CreateClientProviderRequest) returns (ClientProvider);
-  rpc ListClientProviders(ListClientProvidersRequest) returns (ListClientProvidersResponse);
-  rpc GetClientProvider(GetClientProviderRequest) returns (ClientProvider);
-  rpc UpdateClientProvider(UpdateClientProviderRequest) returns (ClientProvider);
-  rpc DeleteClientProvider(DeleteClientProviderRequest) returns (google.protobuf.Empty);
-  rpc TestClientProviderConnection(TestConnectionRequest) returns (TestConnectionResponse);
 }
 
 // CreateProviderRequest представляет запрос на создание провайдера
@@ -161,83 +152,3 @@ message ProviderInfo {
   google.protobuf.Timestamp updated_at = 13;  // Время обновления
 }
 
-// ---- Client-Provider messages ----
-
-message RoutingRule {
-  string pattern  = 1;
-  int32  priority = 2;
-}
-
-message ClientProvider {
-  string id              = 1;
-  string client_id       = 2;
-  string name            = 3;
-  string description     = 4;
-  repeated string tags   = 5;
-  string host            = 6;
-  int32  port            = 7;
-  string system_id       = 8;
-  int32  bind_type       = 9;
-  int32  window_size     = 10;
-  int32  max_connections = 11;
-  int32  tps_limit       = 12;
-  bool   active          = 13;
-  repeated RoutingRule routing_rules = 14;
-  string created_at      = 15;
-  string updated_at      = 16;
-}
-
-message CreateClientProviderRequest {
-  string client_id       = 1;
-  string name            = 2;
-  string description     = 3;
-  repeated string tags   = 4;
-  string host            = 5;
-  int32  port            = 6;
-  string system_id       = 7;
-  string password        = 8;
-  int32  bind_type       = 9;
-  int32  window_size     = 10;
-  int32  max_connections = 11;
-  int32  tps_limit       = 12;
-  repeated RoutingRule routing_rules = 13;
-}
-
-message ListClientProvidersRequest  { string client_id = 1; }
-message ListClientProvidersResponse { repeated ClientProvider providers = 1; }
-
-message GetClientProviderRequest    { string id = 1; string client_id = 2; }
-
-message UpdateClientProviderRequest {
-  string id              = 1;
-  string client_id       = 2;
-  string name            = 3;
-  string description     = 4;
-  repeated string tags   = 5;
-  string host            = 6;
-  int32  port            = 7;
-  string system_id       = 8;
-  string password        = 9;
-  int32  bind_type       = 10;
-  int32  window_size     = 11;
-  int32  max_connections = 12;
-  int32  tps_limit       = 13;
-  repeated RoutingRule routing_rules = 14;
-}
-
-message DeleteClientProviderRequest { string id = 1; string client_id = 2; }
-
-message TestConnectionRequest {
-  string host      = 1;
-  int32  port      = 2;
-  string system_id = 3;
-  string password  = 4;
-  int32  bind_type = 5;
-}
-
-message TestConnectionResponse {
-  bool            success    = 1;
-  int64           latency_ms = 2;
-  repeated string log        = 3;
-  string          error      = 4;
-}

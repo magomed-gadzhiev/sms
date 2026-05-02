@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v4.25.1
-// source: cascade/cascade.proto
+// source: cascade.proto
 
 package cascadev1
 
@@ -18,10 +18,6 @@ import (
 // Requires gRPC-Go v1.64.0 or later.
 const _ = grpc.SupportPackageIsVersion9
 
-// ──────────────────────────────────────────────────────────────────────────
-//  CascadeService
-// ──────────────────────────────────────────────────────────────────────────
-
 const (
 	CascadeService_CreateDelivery_FullMethodName   = "/cascade.v1.CascadeService/CreateDelivery"
 	CascadeService_GetDelivery_FullMethodName      = "/cascade.v1.CascadeService/GetDelivery"
@@ -30,6 +26,8 @@ const (
 )
 
 // CascadeServiceClient is the client API for CascadeService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CascadeServiceClient interface {
 	CreateDelivery(ctx context.Context, in *CreateDeliveryRequest, opts ...grpc.CallOption) (*DeliveryResponse, error)
 	GetDelivery(ctx context.Context, in *GetDeliveryRequest, opts ...grpc.CallOption) (*DeliveryResponse, error)
@@ -126,6 +124,10 @@ type UnsafeCascadeServiceServer interface {
 }
 
 func RegisterCascadeServiceServer(s grpc.ServiceRegistrar, srv CascadeServiceServer) {
+	// If the following call panics, it indicates UnimplementedCascadeServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
@@ -229,12 +231,8 @@ var CascadeService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "cascade/cascade.proto",
+	Metadata: "cascade.proto",
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-//  ChannelAdminService
-// ──────────────────────────────────────────────────────────────────────────
 
 const (
 	ChannelAdminService_ListChannels_FullMethodName  = "/cascade.v1.ChannelAdminService/ListChannels"
@@ -245,6 +243,8 @@ const (
 )
 
 // ChannelAdminServiceClient is the client API for ChannelAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChannelAdminServiceClient interface {
 	ListChannels(ctx context.Context, in *ListChannelsRequest, opts ...grpc.CallOption) (*ListChannelsResponse, error)
 	GetChannel(ctx context.Context, in *GetChannelRequest, opts ...grpc.CallOption) (*ChannelResponse, error)
@@ -356,6 +356,10 @@ type UnsafeChannelAdminServiceServer interface {
 }
 
 func RegisterChannelAdminServiceServer(s grpc.ServiceRegistrar, srv ChannelAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedChannelAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
@@ -481,24 +485,22 @@ var ChannelAdminService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "cascade/cascade.proto",
+	Metadata: "cascade.proto",
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-//  StrategyAdminService
-// ──────────────────────────────────────────────────────────────────────────
-
 const (
-	StrategyAdminService_ListStrategies_FullMethodName            = "/cascade.v1.StrategyAdminService/ListStrategies"
-	StrategyAdminService_GetStrategy_FullMethodName               = "/cascade.v1.StrategyAdminService/GetStrategy"
-	StrategyAdminService_CreateStrategy_FullMethodName            = "/cascade.v1.StrategyAdminService/CreateStrategy"
-	StrategyAdminService_UpdateStrategy_FullMethodName            = "/cascade.v1.StrategyAdminService/UpdateStrategy"
-	StrategyAdminService_DeleteStrategy_FullMethodName            = "/cascade.v1.StrategyAdminService/DeleteStrategy"
-	StrategyAdminService_GetOperatorChannelSupport_FullMethodName = "/cascade.v1.StrategyAdminService/GetOperatorChannelSupport"
+	StrategyAdminService_ListStrategies_FullMethodName               = "/cascade.v1.StrategyAdminService/ListStrategies"
+	StrategyAdminService_GetStrategy_FullMethodName                  = "/cascade.v1.StrategyAdminService/GetStrategy"
+	StrategyAdminService_CreateStrategy_FullMethodName               = "/cascade.v1.StrategyAdminService/CreateStrategy"
+	StrategyAdminService_UpdateStrategy_FullMethodName               = "/cascade.v1.StrategyAdminService/UpdateStrategy"
+	StrategyAdminService_DeleteStrategy_FullMethodName               = "/cascade.v1.StrategyAdminService/DeleteStrategy"
+	StrategyAdminService_GetOperatorChannelSupport_FullMethodName    = "/cascade.v1.StrategyAdminService/GetOperatorChannelSupport"
 	StrategyAdminService_UpdateOperatorChannelSupport_FullMethodName = "/cascade.v1.StrategyAdminService/UpdateOperatorChannelSupport"
 )
 
 // StrategyAdminServiceClient is the client API for StrategyAdminService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StrategyAdminServiceClient interface {
 	ListStrategies(ctx context.Context, in *ListStrategiesRequest, opts ...grpc.CallOption) (*ListStrategiesResponse, error)
 	GetStrategy(ctx context.Context, in *GetStrategyRequest, opts ...grpc.CallOption) (*StrategyResponse, error)
@@ -640,6 +642,10 @@ type UnsafeStrategyAdminServiceServer interface {
 }
 
 func RegisterStrategyAdminServiceServer(s grpc.ServiceRegistrar, srv StrategyAdminServiceServer) {
+	// If the following call panics, it indicates UnimplementedStrategyAdminServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
@@ -809,5 +815,5 @@ var StrategyAdminService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "cascade/cascade.proto",
+	Metadata: "cascade.proto",
 }

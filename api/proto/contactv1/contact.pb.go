@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: contact/contact.proto
+// source: contact.proto
 
 package contactv1
 
@@ -40,7 +40,7 @@ type ContactList struct {
 
 func (x *ContactList) Reset() {
 	*x = ContactList{}
-	mi := &file_contact_contact_proto_msgTypes[0]
+	mi := &file_contact_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +52,7 @@ func (x *ContactList) String() string {
 func (*ContactList) ProtoMessage() {}
 
 func (x *ContactList) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[0]
+	mi := &file_contact_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +65,7 @@ func (x *ContactList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactList.ProtoReflect.Descriptor instead.
 func (*ContactList) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{0}
+	return file_contact_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ContactList) GetId() string {
@@ -128,7 +128,7 @@ type CreateContactListRequest struct {
 
 func (x *CreateContactListRequest) Reset() {
 	*x = CreateContactListRequest{}
-	mi := &file_contact_contact_proto_msgTypes[1]
+	mi := &file_contact_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -140,7 +140,7 @@ func (x *CreateContactListRequest) String() string {
 func (*CreateContactListRequest) ProtoMessage() {}
 
 func (x *CreateContactListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[1]
+	mi := &file_contact_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -153,7 +153,7 @@ func (x *CreateContactListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContactListRequest.ProtoReflect.Descriptor instead.
 func (*CreateContactListRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{1}
+	return file_contact_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateContactListRequest) GetClientId() string {
@@ -188,7 +188,7 @@ type ListContactListsRequest struct {
 
 func (x *ListContactListsRequest) Reset() {
 	*x = ListContactListsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[2]
+	mi := &file_contact_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -200,7 +200,7 @@ func (x *ListContactListsRequest) String() string {
 func (*ListContactListsRequest) ProtoMessage() {}
 
 func (x *ListContactListsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[2]
+	mi := &file_contact_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,7 +213,7 @@ func (x *ListContactListsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContactListsRequest.ProtoReflect.Descriptor instead.
 func (*ListContactListsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{2}
+	return file_contact_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ListContactListsRequest) GetClientId() string {
@@ -247,7 +247,7 @@ type ContactListPage struct {
 
 func (x *ContactListPage) Reset() {
 	*x = ContactListPage{}
-	mi := &file_contact_contact_proto_msgTypes[3]
+	mi := &file_contact_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -259,7 +259,7 @@ func (x *ContactListPage) String() string {
 func (*ContactListPage) ProtoMessage() {}
 
 func (x *ContactListPage) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[3]
+	mi := &file_contact_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -272,7 +272,7 @@ func (x *ContactListPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactListPage.ProtoReflect.Descriptor instead.
 func (*ContactListPage) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{3}
+	return file_contact_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ContactListPage) GetItems() []*ContactList {
@@ -299,7 +299,7 @@ type GetContactListRequest struct {
 
 func (x *GetContactListRequest) Reset() {
 	*x = GetContactListRequest{}
-	mi := &file_contact_contact_proto_msgTypes[4]
+	mi := &file_contact_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -311,7 +311,7 @@ func (x *GetContactListRequest) String() string {
 func (*GetContactListRequest) ProtoMessage() {}
 
 func (x *GetContactListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[4]
+	mi := &file_contact_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -324,7 +324,7 @@ func (x *GetContactListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactListRequest.ProtoReflect.Descriptor instead.
 func (*GetContactListRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{4}
+	return file_contact_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetContactListRequest) GetId() string {
@@ -353,7 +353,7 @@ type UpdateContactListRequest struct {
 
 func (x *UpdateContactListRequest) Reset() {
 	*x = UpdateContactListRequest{}
-	mi := &file_contact_contact_proto_msgTypes[5]
+	mi := &file_contact_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +365,7 @@ func (x *UpdateContactListRequest) String() string {
 func (*UpdateContactListRequest) ProtoMessage() {}
 
 func (x *UpdateContactListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[5]
+	mi := &file_contact_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,7 +378,7 @@ func (x *UpdateContactListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateContactListRequest.ProtoReflect.Descriptor instead.
 func (*UpdateContactListRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{5}
+	return file_contact_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateContactListRequest) GetId() string {
@@ -419,7 +419,7 @@ type DeleteContactListRequest struct {
 
 func (x *DeleteContactListRequest) Reset() {
 	*x = DeleteContactListRequest{}
-	mi := &file_contact_contact_proto_msgTypes[6]
+	mi := &file_contact_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -431,7 +431,7 @@ func (x *DeleteContactListRequest) String() string {
 func (*DeleteContactListRequest) ProtoMessage() {}
 
 func (x *DeleteContactListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[6]
+	mi := &file_contact_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -444,7 +444,7 @@ func (x *DeleteContactListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContactListRequest.ProtoReflect.Descriptor instead.
 func (*DeleteContactListRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{6}
+	return file_contact_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteContactListRequest) GetId() string {
@@ -476,7 +476,7 @@ type Attribute struct {
 
 func (x *Attribute) Reset() {
 	*x = Attribute{}
-	mi := &file_contact_contact_proto_msgTypes[7]
+	mi := &file_contact_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -488,7 +488,7 @@ func (x *Attribute) String() string {
 func (*Attribute) ProtoMessage() {}
 
 func (x *Attribute) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[7]
+	mi := &file_contact_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -501,7 +501,7 @@ func (x *Attribute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Attribute.ProtoReflect.Descriptor instead.
 func (*Attribute) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{7}
+	return file_contact_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Attribute) GetId() string {
@@ -555,7 +555,7 @@ type AttributeList struct {
 
 func (x *AttributeList) Reset() {
 	*x = AttributeList{}
-	mi := &file_contact_contact_proto_msgTypes[8]
+	mi := &file_contact_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -567,7 +567,7 @@ func (x *AttributeList) String() string {
 func (*AttributeList) ProtoMessage() {}
 
 func (x *AttributeList) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[8]
+	mi := &file_contact_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -580,7 +580,7 @@ func (x *AttributeList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttributeList.ProtoReflect.Descriptor instead.
 func (*AttributeList) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{8}
+	return file_contact_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AttributeList) GetAttributes() []*Attribute {
@@ -601,7 +601,7 @@ type SetListAttributesRequest struct {
 
 func (x *SetListAttributesRequest) Reset() {
 	*x = SetListAttributesRequest{}
-	mi := &file_contact_contact_proto_msgTypes[9]
+	mi := &file_contact_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -613,7 +613,7 @@ func (x *SetListAttributesRequest) String() string {
 func (*SetListAttributesRequest) ProtoMessage() {}
 
 func (x *SetListAttributesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[9]
+	mi := &file_contact_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -626,7 +626,7 @@ func (x *SetListAttributesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetListAttributesRequest.ProtoReflect.Descriptor instead.
 func (*SetListAttributesRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{9}
+	return file_contact_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SetListAttributesRequest) GetContactListId() string {
@@ -660,7 +660,7 @@ type GetListAttributesRequest struct {
 
 func (x *GetListAttributesRequest) Reset() {
 	*x = GetListAttributesRequest{}
-	mi := &file_contact_contact_proto_msgTypes[10]
+	mi := &file_contact_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -672,7 +672,7 @@ func (x *GetListAttributesRequest) String() string {
 func (*GetListAttributesRequest) ProtoMessage() {}
 
 func (x *GetListAttributesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[10]
+	mi := &file_contact_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -685,7 +685,7 @@ func (x *GetListAttributesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetListAttributesRequest.ProtoReflect.Descriptor instead.
 func (*GetListAttributesRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{10}
+	return file_contact_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetListAttributesRequest) GetContactListId() string {
@@ -718,7 +718,7 @@ type Contact struct {
 
 func (x *Contact) Reset() {
 	*x = Contact{}
-	mi := &file_contact_contact_proto_msgTypes[11]
+	mi := &file_contact_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -730,7 +730,7 @@ func (x *Contact) String() string {
 func (*Contact) ProtoMessage() {}
 
 func (x *Contact) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[11]
+	mi := &file_contact_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -743,7 +743,7 @@ func (x *Contact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Contact.ProtoReflect.Descriptor instead.
 func (*Contact) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{11}
+	return file_contact_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Contact) GetId() string {
@@ -808,7 +808,7 @@ type CreateContactRequest struct {
 
 func (x *CreateContactRequest) Reset() {
 	*x = CreateContactRequest{}
-	mi := &file_contact_contact_proto_msgTypes[12]
+	mi := &file_contact_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -820,7 +820,7 @@ func (x *CreateContactRequest) String() string {
 func (*CreateContactRequest) ProtoMessage() {}
 
 func (x *CreateContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[12]
+	mi := &file_contact_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -833,7 +833,7 @@ func (x *CreateContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContactRequest.ProtoReflect.Descriptor instead.
 func (*CreateContactRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{12}
+	return file_contact_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateContactRequest) GetContactListId() string {
@@ -885,7 +885,7 @@ type UpdateContactRequest struct {
 
 func (x *UpdateContactRequest) Reset() {
 	*x = UpdateContactRequest{}
-	mi := &file_contact_contact_proto_msgTypes[13]
+	mi := &file_contact_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -897,7 +897,7 @@ func (x *UpdateContactRequest) String() string {
 func (*UpdateContactRequest) ProtoMessage() {}
 
 func (x *UpdateContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[13]
+	mi := &file_contact_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -910,7 +910,7 @@ func (x *UpdateContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateContactRequest.ProtoReflect.Descriptor instead.
 func (*UpdateContactRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{13}
+	return file_contact_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateContactRequest) GetId() string {
@@ -966,7 +966,7 @@ type DeleteContactRequest struct {
 
 func (x *DeleteContactRequest) Reset() {
 	*x = DeleteContactRequest{}
-	mi := &file_contact_contact_proto_msgTypes[14]
+	mi := &file_contact_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -978,7 +978,7 @@ func (x *DeleteContactRequest) String() string {
 func (*DeleteContactRequest) ProtoMessage() {}
 
 func (x *DeleteContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[14]
+	mi := &file_contact_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -991,7 +991,7 @@ func (x *DeleteContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContactRequest.ProtoReflect.Descriptor instead.
 func (*DeleteContactRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{14}
+	return file_contact_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteContactRequest) GetId() string {
@@ -1029,7 +1029,7 @@ type ListContactsRequest struct {
 
 func (x *ListContactsRequest) Reset() {
 	*x = ListContactsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[15]
+	mi := &file_contact_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +1041,7 @@ func (x *ListContactsRequest) String() string {
 func (*ListContactsRequest) ProtoMessage() {}
 
 func (x *ListContactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[15]
+	mi := &file_contact_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +1054,7 @@ func (x *ListContactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContactsRequest.ProtoReflect.Descriptor instead.
 func (*ListContactsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{15}
+	return file_contact_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListContactsRequest) GetContactListId() string {
@@ -1109,7 +1109,7 @@ type ContactPage struct {
 
 func (x *ContactPage) Reset() {
 	*x = ContactPage{}
-	mi := &file_contact_contact_proto_msgTypes[16]
+	mi := &file_contact_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1121,7 +1121,7 @@ func (x *ContactPage) String() string {
 func (*ContactPage) ProtoMessage() {}
 
 func (x *ContactPage) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[16]
+	mi := &file_contact_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1134,7 +1134,7 @@ func (x *ContactPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactPage.ProtoReflect.Descriptor instead.
 func (*ContactPage) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{16}
+	return file_contact_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ContactPage) GetContacts() []*Contact {
@@ -1162,7 +1162,7 @@ type BatchUpsertContactsRequest struct {
 
 func (x *BatchUpsertContactsRequest) Reset() {
 	*x = BatchUpsertContactsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[17]
+	mi := &file_contact_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1174,7 +1174,7 @@ func (x *BatchUpsertContactsRequest) String() string {
 func (*BatchUpsertContactsRequest) ProtoMessage() {}
 
 func (x *BatchUpsertContactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[17]
+	mi := &file_contact_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1187,7 +1187,7 @@ func (x *BatchUpsertContactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchUpsertContactsRequest.ProtoReflect.Descriptor instead.
 func (*BatchUpsertContactsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{17}
+	return file_contact_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BatchUpsertContactsRequest) GetContactListId() string {
@@ -1222,7 +1222,7 @@ type ContactInput struct {
 
 func (x *ContactInput) Reset() {
 	*x = ContactInput{}
-	mi := &file_contact_contact_proto_msgTypes[18]
+	mi := &file_contact_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1234,7 @@ func (x *ContactInput) String() string {
 func (*ContactInput) ProtoMessage() {}
 
 func (x *ContactInput) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[18]
+	mi := &file_contact_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1247,7 @@ func (x *ContactInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactInput.ProtoReflect.Descriptor instead.
 func (*ContactInput) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{18}
+	return file_contact_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ContactInput) GetPhone() string {
@@ -1283,7 +1283,7 @@ type BatchResult struct {
 
 func (x *BatchResult) Reset() {
 	*x = BatchResult{}
-	mi := &file_contact_contact_proto_msgTypes[19]
+	mi := &file_contact_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1295,7 +1295,7 @@ func (x *BatchResult) String() string {
 func (*BatchResult) ProtoMessage() {}
 
 func (x *BatchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[19]
+	mi := &file_contact_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1308,7 +1308,7 @@ func (x *BatchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchResult.ProtoReflect.Descriptor instead.
 func (*BatchResult) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{19}
+	return file_contact_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *BatchResult) GetCreated() int32 {
@@ -1352,7 +1352,7 @@ type AddTagsRequest struct {
 
 func (x *AddTagsRequest) Reset() {
 	*x = AddTagsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[20]
+	mi := &file_contact_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1364,7 +1364,7 @@ func (x *AddTagsRequest) String() string {
 func (*AddTagsRequest) ProtoMessage() {}
 
 func (x *AddTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[20]
+	mi := &file_contact_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1377,7 +1377,7 @@ func (x *AddTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTagsRequest.ProtoReflect.Descriptor instead.
 func (*AddTagsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{20}
+	return file_contact_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AddTagsRequest) GetContactListId() string {
@@ -1420,7 +1420,7 @@ type RemoveTagsRequest struct {
 
 func (x *RemoveTagsRequest) Reset() {
 	*x = RemoveTagsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[21]
+	mi := &file_contact_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1432,7 +1432,7 @@ func (x *RemoveTagsRequest) String() string {
 func (*RemoveTagsRequest) ProtoMessage() {}
 
 func (x *RemoveTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[21]
+	mi := &file_contact_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1445,7 +1445,7 @@ func (x *RemoveTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveTagsRequest.ProtoReflect.Descriptor instead.
 func (*RemoveTagsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{21}
+	return file_contact_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RemoveTagsRequest) GetContactListId() string {
@@ -1486,7 +1486,7 @@ type ListTagsRequest struct {
 
 func (x *ListTagsRequest) Reset() {
 	*x = ListTagsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[22]
+	mi := &file_contact_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1498,7 +1498,7 @@ func (x *ListTagsRequest) String() string {
 func (*ListTagsRequest) ProtoMessage() {}
 
 func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[22]
+	mi := &file_contact_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1511,7 +1511,7 @@ func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsRequest.ProtoReflect.Descriptor instead.
 func (*ListTagsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{22}
+	return file_contact_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListTagsRequest) GetContactListId() string {
@@ -1537,7 +1537,7 @@ type TagList struct {
 
 func (x *TagList) Reset() {
 	*x = TagList{}
-	mi := &file_contact_contact_proto_msgTypes[23]
+	mi := &file_contact_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1549,7 +1549,7 @@ func (x *TagList) String() string {
 func (*TagList) ProtoMessage() {}
 
 func (x *TagList) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[23]
+	mi := &file_contact_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1562,7 +1562,7 @@ func (x *TagList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagList.ProtoReflect.Descriptor instead.
 func (*TagList) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{23}
+	return file_contact_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *TagList) GetTags() []string {
@@ -1587,7 +1587,7 @@ type StartImportRequest struct {
 
 func (x *StartImportRequest) Reset() {
 	*x = StartImportRequest{}
-	mi := &file_contact_contact_proto_msgTypes[24]
+	mi := &file_contact_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1599,7 +1599,7 @@ func (x *StartImportRequest) String() string {
 func (*StartImportRequest) ProtoMessage() {}
 
 func (x *StartImportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[24]
+	mi := &file_contact_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1612,7 +1612,7 @@ func (x *StartImportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartImportRequest.ProtoReflect.Descriptor instead.
 func (*StartImportRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{24}
+	return file_contact_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *StartImportRequest) GetContactListId() string {
@@ -1679,7 +1679,7 @@ type ImportJob struct {
 
 func (x *ImportJob) Reset() {
 	*x = ImportJob{}
-	mi := &file_contact_contact_proto_msgTypes[25]
+	mi := &file_contact_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1691,7 +1691,7 @@ func (x *ImportJob) String() string {
 func (*ImportJob) ProtoMessage() {}
 
 func (x *ImportJob) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[25]
+	mi := &file_contact_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1704,7 +1704,7 @@ func (x *ImportJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportJob.ProtoReflect.Descriptor instead.
 func (*ImportJob) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{25}
+	return file_contact_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ImportJob) GetId() string {
@@ -1816,7 +1816,7 @@ type GetImportStatusRequest struct {
 
 func (x *GetImportStatusRequest) Reset() {
 	*x = GetImportStatusRequest{}
-	mi := &file_contact_contact_proto_msgTypes[26]
+	mi := &file_contact_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1828,7 +1828,7 @@ func (x *GetImportStatusRequest) String() string {
 func (*GetImportStatusRequest) ProtoMessage() {}
 
 func (x *GetImportStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[26]
+	mi := &file_contact_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1841,7 +1841,7 @@ func (x *GetImportStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImportStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetImportStatusRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{26}
+	return file_contact_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetImportStatusRequest) GetId() string {
@@ -1877,7 +1877,7 @@ type ListImportsRequest struct {
 
 func (x *ListImportsRequest) Reset() {
 	*x = ListImportsRequest{}
-	mi := &file_contact_contact_proto_msgTypes[27]
+	mi := &file_contact_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1889,7 +1889,7 @@ func (x *ListImportsRequest) String() string {
 func (*ListImportsRequest) ProtoMessage() {}
 
 func (x *ListImportsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[27]
+	mi := &file_contact_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1902,7 +1902,7 @@ func (x *ListImportsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImportsRequest.ProtoReflect.Descriptor instead.
 func (*ListImportsRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{27}
+	return file_contact_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListImportsRequest) GetContactListId() string {
@@ -1943,7 +1943,7 @@ type ImportJobPage struct {
 
 func (x *ImportJobPage) Reset() {
 	*x = ImportJobPage{}
-	mi := &file_contact_contact_proto_msgTypes[28]
+	mi := &file_contact_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1955,7 +1955,7 @@ func (x *ImportJobPage) String() string {
 func (*ImportJobPage) ProtoMessage() {}
 
 func (x *ImportJobPage) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[28]
+	mi := &file_contact_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1968,7 +1968,7 @@ func (x *ImportJobPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportJobPage.ProtoReflect.Descriptor instead.
 func (*ImportJobPage) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{28}
+	return file_contact_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ImportJobPage) GetImports() []*ImportJob {
@@ -1997,7 +1997,7 @@ type SegmentRule struct {
 
 func (x *SegmentRule) Reset() {
 	*x = SegmentRule{}
-	mi := &file_contact_contact_proto_msgTypes[29]
+	mi := &file_contact_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2009,7 +2009,7 @@ func (x *SegmentRule) String() string {
 func (*SegmentRule) ProtoMessage() {}
 
 func (x *SegmentRule) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[29]
+	mi := &file_contact_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2022,7 +2022,7 @@ func (x *SegmentRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SegmentRule.ProtoReflect.Descriptor instead.
 func (*SegmentRule) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{29}
+	return file_contact_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SegmentRule) GetOperator() string {
@@ -2058,7 +2058,7 @@ type SegmentCondition struct {
 
 func (x *SegmentCondition) Reset() {
 	*x = SegmentCondition{}
-	mi := &file_contact_contact_proto_msgTypes[30]
+	mi := &file_contact_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2070,7 +2070,7 @@ func (x *SegmentCondition) String() string {
 func (*SegmentCondition) ProtoMessage() {}
 
 func (x *SegmentCondition) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[30]
+	mi := &file_contact_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2083,7 +2083,7 @@ func (x *SegmentCondition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SegmentCondition.ProtoReflect.Descriptor instead.
 func (*SegmentCondition) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{30}
+	return file_contact_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SegmentCondition) GetField() string {
@@ -2126,7 +2126,7 @@ type PreviewSegmentRequest struct {
 
 func (x *PreviewSegmentRequest) Reset() {
 	*x = PreviewSegmentRequest{}
-	mi := &file_contact_contact_proto_msgTypes[31]
+	mi := &file_contact_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2138,7 +2138,7 @@ func (x *PreviewSegmentRequest) String() string {
 func (*PreviewSegmentRequest) ProtoMessage() {}
 
 func (x *PreviewSegmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[31]
+	mi := &file_contact_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2151,7 +2151,7 @@ func (x *PreviewSegmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewSegmentRequest.ProtoReflect.Descriptor instead.
 func (*PreviewSegmentRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{31}
+	return file_contact_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PreviewSegmentRequest) GetContactListId() string {
@@ -2191,7 +2191,7 @@ type SegmentPreview struct {
 
 func (x *SegmentPreview) Reset() {
 	*x = SegmentPreview{}
-	mi := &file_contact_contact_proto_msgTypes[32]
+	mi := &file_contact_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2203,7 +2203,7 @@ func (x *SegmentPreview) String() string {
 func (*SegmentPreview) ProtoMessage() {}
 
 func (x *SegmentPreview) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[32]
+	mi := &file_contact_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2216,7 +2216,7 @@ func (x *SegmentPreview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SegmentPreview.ProtoReflect.Descriptor instead.
 func (*SegmentPreview) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{32}
+	return file_contact_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SegmentPreview) GetCount() int32 {
@@ -2238,7 +2238,7 @@ type StreamSegmentRequest struct {
 
 func (x *StreamSegmentRequest) Reset() {
 	*x = StreamSegmentRequest{}
-	mi := &file_contact_contact_proto_msgTypes[33]
+	mi := &file_contact_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2250,7 +2250,7 @@ func (x *StreamSegmentRequest) String() string {
 func (*StreamSegmentRequest) ProtoMessage() {}
 
 func (x *StreamSegmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[33]
+	mi := &file_contact_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2263,7 +2263,7 @@ func (x *StreamSegmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamSegmentRequest.ProtoReflect.Descriptor instead.
 func (*StreamSegmentRequest) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{33}
+	return file_contact_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *StreamSegmentRequest) GetContactListId() string {
@@ -2303,7 +2303,7 @@ type ContactBatch struct {
 
 func (x *ContactBatch) Reset() {
 	*x = ContactBatch{}
-	mi := &file_contact_contact_proto_msgTypes[34]
+	mi := &file_contact_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2315,7 +2315,7 @@ func (x *ContactBatch) String() string {
 func (*ContactBatch) ProtoMessage() {}
 
 func (x *ContactBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_contact_contact_proto_msgTypes[34]
+	mi := &file_contact_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2328,7 +2328,7 @@ func (x *ContactBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactBatch.ProtoReflect.Descriptor instead.
 func (*ContactBatch) Descriptor() ([]byte, []int) {
-	return file_contact_contact_proto_rawDescGZIP(), []int{34}
+	return file_contact_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ContactBatch) GetContacts() []*Contact {
@@ -2338,11 +2338,320 @@ func (x *ContactBatch) GetContacts() []*Contact {
 	return nil
 }
 
-var File_contact_contact_proto protoreflect.FileDescriptor
+// === Opt-out ===
+type OptOutEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Phone         string                 `protobuf:"bytes,3,opt,name=phone,proto3" json:"phone,omitempty"`
+	Keyword       string                 `protobuf:"bytes,4,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	OptedOutAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=opted_out_at,json=optedOutAt,proto3" json:"opted_out_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_contact_contact_proto_rawDesc = "" +
+func (x *OptOutEntry) Reset() {
+	*x = OptOutEntry{}
+	mi := &file_contact_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OptOutEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OptOutEntry) ProtoMessage() {}
+
+func (x *OptOutEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_contact_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OptOutEntry.ProtoReflect.Descriptor instead.
+func (*OptOutEntry) Descriptor() ([]byte, []int) {
+	return file_contact_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *OptOutEntry) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *OptOutEntry) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *OptOutEntry) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *OptOutEntry) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
+}
+
+func (x *OptOutEntry) GetOptedOutAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.OptedOutAt
+	}
+	return nil
+}
+
+type AddOptOutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Phone         string                 `protobuf:"bytes,2,opt,name=phone,proto3" json:"phone,omitempty"`
+	Keyword       string                 `protobuf:"bytes,3,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddOptOutRequest) Reset() {
+	*x = AddOptOutRequest{}
+	mi := &file_contact_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddOptOutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddOptOutRequest) ProtoMessage() {}
+
+func (x *AddOptOutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contact_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddOptOutRequest.ProtoReflect.Descriptor instead.
+func (*AddOptOutRequest) Descriptor() ([]byte, []int) {
+	return file_contact_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *AddOptOutRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *AddOptOutRequest) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *AddOptOutRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
+}
+
+type ListOptOutsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	Search        string                 `protobuf:"bytes,4,opt,name=search,proto3" json:"search,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOptOutsRequest) Reset() {
+	*x = ListOptOutsRequest{}
+	mi := &file_contact_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOptOutsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOptOutsRequest) ProtoMessage() {}
+
+func (x *ListOptOutsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contact_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOptOutsRequest.ProtoReflect.Descriptor instead.
+func (*ListOptOutsRequest) Descriptor() ([]byte, []int) {
+	return file_contact_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListOptOutsRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ListOptOutsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListOptOutsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListOptOutsRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+type OptOutPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*OptOutEntry         `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OptOutPage) Reset() {
+	*x = OptOutPage{}
+	mi := &file_contact_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OptOutPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OptOutPage) ProtoMessage() {}
+
+func (x *OptOutPage) ProtoReflect() protoreflect.Message {
+	mi := &file_contact_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OptOutPage.ProtoReflect.Descriptor instead.
+func (*OptOutPage) Descriptor() ([]byte, []int) {
+	return file_contact_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *OptOutPage) GetItems() []*OptOutEntry {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *OptOutPage) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type RemoveOptOutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveOptOutRequest) Reset() {
+	*x = RemoveOptOutRequest{}
+	mi := &file_contact_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveOptOutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveOptOutRequest) ProtoMessage() {}
+
+func (x *RemoveOptOutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contact_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveOptOutRequest.ProtoReflect.Descriptor instead.
+func (*RemoveOptOutRequest) Descriptor() ([]byte, []int) {
+	return file_contact_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *RemoveOptOutRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RemoveOptOutRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+var File_contact_proto protoreflect.FileDescriptor
+
+const file_contact_proto_rawDesc = "" +
 	"\n" +
-	"\x15contact/contact.proto\x12\n" +
+	"\rcontact.proto\x12\n" +
 	"contact.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x8d\x02\n" +
 	"\vContactList\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2533,7 +2842,30 @@ const file_contact_contact_proto_rawDesc = "" +
 	"\x05rules\x18\x03 \x01(\v2\x17.contact.v1.SegmentRuleR\x05rules\x12\x12\n" +
 	"\x04tags\x18\x04 \x03(\tR\x04tags\"?\n" +
 	"\fContactBatch\x12/\n" +
-	"\bcontacts\x18\x01 \x03(\v2\x13.contact.v1.ContactR\bcontacts2\x98\f\n" +
+	"\bcontacts\x18\x01 \x03(\v2\x13.contact.v1.ContactR\bcontacts\"\xa8\x01\n" +
+	"\vOptOutEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x14\n" +
+	"\x05phone\x18\x03 \x01(\tR\x05phone\x12\x18\n" +
+	"\akeyword\x18\x04 \x01(\tR\akeyword\x12<\n" +
+	"\fopted_out_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"optedOutAt\"_\n" +
+	"\x10AddOptOutRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x14\n" +
+	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x18\n" +
+	"\akeyword\x18\x03 \x01(\tR\akeyword\"w\n" +
+	"\x12ListOptOutsRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x16\n" +
+	"\x06search\x18\x04 \x01(\tR\x06search\"Q\n" +
+	"\n" +
+	"OptOutPage\x12-\n" +
+	"\x05items\x18\x01 \x03(\v2\x17.contact.v1.OptOutEntryR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"B\n" +
+	"\x13RemoveOptOutRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId2\xec\r\n" +
 	"\x0eContactService\x12R\n" +
 	"\x11CreateContactList\x12$.contact.v1.CreateContactListRequest\x1a\x17.contact.v1.ContactList\x12T\n" +
 	"\x10ListContactLists\x12#.contact.v1.ListContactListsRequest\x1a\x1b.contact.v1.ContactListPage\x12L\n" +
@@ -2555,22 +2887,25 @@ const file_contact_contact_proto_rawDesc = "" +
 	"\x0fGetImportStatus\x12\".contact.v1.GetImportStatusRequest\x1a\x15.contact.v1.ImportJob\x12H\n" +
 	"\vListImports\x12\x1e.contact.v1.ListImportsRequest\x1a\x19.contact.v1.ImportJobPage\x12O\n" +
 	"\x0ePreviewSegment\x12!.contact.v1.PreviewSegmentRequest\x1a\x1a.contact.v1.SegmentPreview\x12M\n" +
-	"\rStreamSegment\x12 .contact.v1.StreamSegmentRequest\x1a\x18.contact.v1.ContactBatch0\x01B8Z6github.com/smpp-server/smpp-server/api/proto/contactv1b\x06proto3"
+	"\rStreamSegment\x12 .contact.v1.StreamSegmentRequest\x1a\x18.contact.v1.ContactBatch0\x01\x12B\n" +
+	"\tAddOptOut\x12\x1c.contact.v1.AddOptOutRequest\x1a\x17.contact.v1.OptOutEntry\x12E\n" +
+	"\vListOptOuts\x12\x1e.contact.v1.ListOptOutsRequest\x1a\x16.contact.v1.OptOutPage\x12G\n" +
+	"\fRemoveOptOut\x12\x1f.contact.v1.RemoveOptOutRequest\x1a\x16.google.protobuf.EmptyB8Z6github.com/smpp-server/smpp-server/api/proto/contactv1b\x06proto3"
 
 var (
-	file_contact_contact_proto_rawDescOnce sync.Once
-	file_contact_contact_proto_rawDescData []byte
+	file_contact_proto_rawDescOnce sync.Once
+	file_contact_proto_rawDescData []byte
 )
 
-func file_contact_contact_proto_rawDescGZIP() []byte {
-	file_contact_contact_proto_rawDescOnce.Do(func() {
-		file_contact_contact_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_contact_contact_proto_rawDesc), len(file_contact_contact_proto_rawDesc)))
+func file_contact_proto_rawDescGZIP() []byte {
+	file_contact_proto_rawDescOnce.Do(func() {
+		file_contact_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_contact_proto_rawDesc), len(file_contact_proto_rawDesc)))
 	})
-	return file_contact_contact_proto_rawDescData
+	return file_contact_proto_rawDescData
 }
 
-var file_contact_contact_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
-var file_contact_contact_proto_goTypes = []any{
+var file_contact_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_contact_proto_goTypes = []any{
 	(*ContactList)(nil),                // 0: contact.v1.ContactList
 	(*CreateContactListRequest)(nil),   // 1: contact.v1.CreateContactListRequest
 	(*ListContactListsRequest)(nil),    // 2: contact.v1.ListContactListsRequest
@@ -2606,99 +2941,112 @@ var file_contact_contact_proto_goTypes = []any{
 	(*SegmentPreview)(nil),             // 32: contact.v1.SegmentPreview
 	(*StreamSegmentRequest)(nil),       // 33: contact.v1.StreamSegmentRequest
 	(*ContactBatch)(nil),               // 34: contact.v1.ContactBatch
-	(*timestamppb.Timestamp)(nil),      // 35: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),            // 36: google.protobuf.Struct
-	(*emptypb.Empty)(nil),              // 37: google.protobuf.Empty
+	(*OptOutEntry)(nil),                // 35: contact.v1.OptOutEntry
+	(*AddOptOutRequest)(nil),           // 36: contact.v1.AddOptOutRequest
+	(*ListOptOutsRequest)(nil),         // 37: contact.v1.ListOptOutsRequest
+	(*OptOutPage)(nil),                 // 38: contact.v1.OptOutPage
+	(*RemoveOptOutRequest)(nil),        // 39: contact.v1.RemoveOptOutRequest
+	(*timestamppb.Timestamp)(nil),      // 40: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),            // 41: google.protobuf.Struct
+	(*emptypb.Empty)(nil),              // 42: google.protobuf.Empty
 }
-var file_contact_contact_proto_depIdxs = []int32{
-	35, // 0: contact.v1.ContactList.created_at:type_name -> google.protobuf.Timestamp
-	35, // 1: contact.v1.ContactList.updated_at:type_name -> google.protobuf.Timestamp
+var file_contact_proto_depIdxs = []int32{
+	40, // 0: contact.v1.ContactList.created_at:type_name -> google.protobuf.Timestamp
+	40, // 1: contact.v1.ContactList.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: contact.v1.ContactListPage.items:type_name -> contact.v1.ContactList
 	7,  // 3: contact.v1.AttributeList.attributes:type_name -> contact.v1.Attribute
 	7,  // 4: contact.v1.SetListAttributesRequest.attributes:type_name -> contact.v1.Attribute
-	36, // 5: contact.v1.Contact.attributes:type_name -> google.protobuf.Struct
-	35, // 6: contact.v1.Contact.created_at:type_name -> google.protobuf.Timestamp
-	35, // 7: contact.v1.Contact.updated_at:type_name -> google.protobuf.Timestamp
-	36, // 8: contact.v1.CreateContactRequest.attributes:type_name -> google.protobuf.Struct
-	36, // 9: contact.v1.UpdateContactRequest.attributes:type_name -> google.protobuf.Struct
+	41, // 5: contact.v1.Contact.attributes:type_name -> google.protobuf.Struct
+	40, // 6: contact.v1.Contact.created_at:type_name -> google.protobuf.Timestamp
+	40, // 7: contact.v1.Contact.updated_at:type_name -> google.protobuf.Timestamp
+	41, // 8: contact.v1.CreateContactRequest.attributes:type_name -> google.protobuf.Struct
+	41, // 9: contact.v1.UpdateContactRequest.attributes:type_name -> google.protobuf.Struct
 	11, // 10: contact.v1.ContactPage.contacts:type_name -> contact.v1.Contact
 	18, // 11: contact.v1.BatchUpsertContactsRequest.contacts:type_name -> contact.v1.ContactInput
-	36, // 12: contact.v1.ContactInput.attributes:type_name -> google.protobuf.Struct
-	35, // 13: contact.v1.ImportJob.created_at:type_name -> google.protobuf.Timestamp
-	35, // 14: contact.v1.ImportJob.completed_at:type_name -> google.protobuf.Timestamp
+	41, // 12: contact.v1.ContactInput.attributes:type_name -> google.protobuf.Struct
+	40, // 13: contact.v1.ImportJob.created_at:type_name -> google.protobuf.Timestamp
+	40, // 14: contact.v1.ImportJob.completed_at:type_name -> google.protobuf.Timestamp
 	25, // 15: contact.v1.ImportJobPage.imports:type_name -> contact.v1.ImportJob
 	30, // 16: contact.v1.SegmentRule.conditions:type_name -> contact.v1.SegmentCondition
 	29, // 17: contact.v1.SegmentRule.nested:type_name -> contact.v1.SegmentRule
 	29, // 18: contact.v1.PreviewSegmentRequest.rules:type_name -> contact.v1.SegmentRule
 	29, // 19: contact.v1.StreamSegmentRequest.rules:type_name -> contact.v1.SegmentRule
 	11, // 20: contact.v1.ContactBatch.contacts:type_name -> contact.v1.Contact
-	1,  // 21: contact.v1.ContactService.CreateContactList:input_type -> contact.v1.CreateContactListRequest
-	2,  // 22: contact.v1.ContactService.ListContactLists:input_type -> contact.v1.ListContactListsRequest
-	4,  // 23: contact.v1.ContactService.GetContactList:input_type -> contact.v1.GetContactListRequest
-	5,  // 24: contact.v1.ContactService.UpdateContactList:input_type -> contact.v1.UpdateContactListRequest
-	6,  // 25: contact.v1.ContactService.DeleteContactList:input_type -> contact.v1.DeleteContactListRequest
-	9,  // 26: contact.v1.ContactService.SetListAttributes:input_type -> contact.v1.SetListAttributesRequest
-	10, // 27: contact.v1.ContactService.GetListAttributes:input_type -> contact.v1.GetListAttributesRequest
-	12, // 28: contact.v1.ContactService.CreateContact:input_type -> contact.v1.CreateContactRequest
-	13, // 29: contact.v1.ContactService.UpdateContact:input_type -> contact.v1.UpdateContactRequest
-	14, // 30: contact.v1.ContactService.DeleteContact:input_type -> contact.v1.DeleteContactRequest
-	15, // 31: contact.v1.ContactService.ListContacts:input_type -> contact.v1.ListContactsRequest
-	17, // 32: contact.v1.ContactService.BatchUpsertContacts:input_type -> contact.v1.BatchUpsertContactsRequest
-	20, // 33: contact.v1.ContactService.AddTags:input_type -> contact.v1.AddTagsRequest
-	21, // 34: contact.v1.ContactService.RemoveTags:input_type -> contact.v1.RemoveTagsRequest
-	22, // 35: contact.v1.ContactService.ListTags:input_type -> contact.v1.ListTagsRequest
-	24, // 36: contact.v1.ContactService.StartImport:input_type -> contact.v1.StartImportRequest
-	26, // 37: contact.v1.ContactService.GetImportStatus:input_type -> contact.v1.GetImportStatusRequest
-	27, // 38: contact.v1.ContactService.ListImports:input_type -> contact.v1.ListImportsRequest
-	31, // 39: contact.v1.ContactService.PreviewSegment:input_type -> contact.v1.PreviewSegmentRequest
-	33, // 40: contact.v1.ContactService.StreamSegment:input_type -> contact.v1.StreamSegmentRequest
-	0,  // 41: contact.v1.ContactService.CreateContactList:output_type -> contact.v1.ContactList
-	3,  // 42: contact.v1.ContactService.ListContactLists:output_type -> contact.v1.ContactListPage
-	0,  // 43: contact.v1.ContactService.GetContactList:output_type -> contact.v1.ContactList
-	0,  // 44: contact.v1.ContactService.UpdateContactList:output_type -> contact.v1.ContactList
-	37, // 45: contact.v1.ContactService.DeleteContactList:output_type -> google.protobuf.Empty
-	8,  // 46: contact.v1.ContactService.SetListAttributes:output_type -> contact.v1.AttributeList
-	8,  // 47: contact.v1.ContactService.GetListAttributes:output_type -> contact.v1.AttributeList
-	11, // 48: contact.v1.ContactService.CreateContact:output_type -> contact.v1.Contact
-	11, // 49: contact.v1.ContactService.UpdateContact:output_type -> contact.v1.Contact
-	37, // 50: contact.v1.ContactService.DeleteContact:output_type -> google.protobuf.Empty
-	16, // 51: contact.v1.ContactService.ListContacts:output_type -> contact.v1.ContactPage
-	19, // 52: contact.v1.ContactService.BatchUpsertContacts:output_type -> contact.v1.BatchResult
-	37, // 53: contact.v1.ContactService.AddTags:output_type -> google.protobuf.Empty
-	37, // 54: contact.v1.ContactService.RemoveTags:output_type -> google.protobuf.Empty
-	23, // 55: contact.v1.ContactService.ListTags:output_type -> contact.v1.TagList
-	25, // 56: contact.v1.ContactService.StartImport:output_type -> contact.v1.ImportJob
-	25, // 57: contact.v1.ContactService.GetImportStatus:output_type -> contact.v1.ImportJob
-	28, // 58: contact.v1.ContactService.ListImports:output_type -> contact.v1.ImportJobPage
-	32, // 59: contact.v1.ContactService.PreviewSegment:output_type -> contact.v1.SegmentPreview
-	34, // 60: contact.v1.ContactService.StreamSegment:output_type -> contact.v1.ContactBatch
-	41, // [41:61] is the sub-list for method output_type
-	21, // [21:41] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	40, // 21: contact.v1.OptOutEntry.opted_out_at:type_name -> google.protobuf.Timestamp
+	35, // 22: contact.v1.OptOutPage.items:type_name -> contact.v1.OptOutEntry
+	1,  // 23: contact.v1.ContactService.CreateContactList:input_type -> contact.v1.CreateContactListRequest
+	2,  // 24: contact.v1.ContactService.ListContactLists:input_type -> contact.v1.ListContactListsRequest
+	4,  // 25: contact.v1.ContactService.GetContactList:input_type -> contact.v1.GetContactListRequest
+	5,  // 26: contact.v1.ContactService.UpdateContactList:input_type -> contact.v1.UpdateContactListRequest
+	6,  // 27: contact.v1.ContactService.DeleteContactList:input_type -> contact.v1.DeleteContactListRequest
+	9,  // 28: contact.v1.ContactService.SetListAttributes:input_type -> contact.v1.SetListAttributesRequest
+	10, // 29: contact.v1.ContactService.GetListAttributes:input_type -> contact.v1.GetListAttributesRequest
+	12, // 30: contact.v1.ContactService.CreateContact:input_type -> contact.v1.CreateContactRequest
+	13, // 31: contact.v1.ContactService.UpdateContact:input_type -> contact.v1.UpdateContactRequest
+	14, // 32: contact.v1.ContactService.DeleteContact:input_type -> contact.v1.DeleteContactRequest
+	15, // 33: contact.v1.ContactService.ListContacts:input_type -> contact.v1.ListContactsRequest
+	17, // 34: contact.v1.ContactService.BatchUpsertContacts:input_type -> contact.v1.BatchUpsertContactsRequest
+	20, // 35: contact.v1.ContactService.AddTags:input_type -> contact.v1.AddTagsRequest
+	21, // 36: contact.v1.ContactService.RemoveTags:input_type -> contact.v1.RemoveTagsRequest
+	22, // 37: contact.v1.ContactService.ListTags:input_type -> contact.v1.ListTagsRequest
+	24, // 38: contact.v1.ContactService.StartImport:input_type -> contact.v1.StartImportRequest
+	26, // 39: contact.v1.ContactService.GetImportStatus:input_type -> contact.v1.GetImportStatusRequest
+	27, // 40: contact.v1.ContactService.ListImports:input_type -> contact.v1.ListImportsRequest
+	31, // 41: contact.v1.ContactService.PreviewSegment:input_type -> contact.v1.PreviewSegmentRequest
+	33, // 42: contact.v1.ContactService.StreamSegment:input_type -> contact.v1.StreamSegmentRequest
+	36, // 43: contact.v1.ContactService.AddOptOut:input_type -> contact.v1.AddOptOutRequest
+	37, // 44: contact.v1.ContactService.ListOptOuts:input_type -> contact.v1.ListOptOutsRequest
+	39, // 45: contact.v1.ContactService.RemoveOptOut:input_type -> contact.v1.RemoveOptOutRequest
+	0,  // 46: contact.v1.ContactService.CreateContactList:output_type -> contact.v1.ContactList
+	3,  // 47: contact.v1.ContactService.ListContactLists:output_type -> contact.v1.ContactListPage
+	0,  // 48: contact.v1.ContactService.GetContactList:output_type -> contact.v1.ContactList
+	0,  // 49: contact.v1.ContactService.UpdateContactList:output_type -> contact.v1.ContactList
+	42, // 50: contact.v1.ContactService.DeleteContactList:output_type -> google.protobuf.Empty
+	8,  // 51: contact.v1.ContactService.SetListAttributes:output_type -> contact.v1.AttributeList
+	8,  // 52: contact.v1.ContactService.GetListAttributes:output_type -> contact.v1.AttributeList
+	11, // 53: contact.v1.ContactService.CreateContact:output_type -> contact.v1.Contact
+	11, // 54: contact.v1.ContactService.UpdateContact:output_type -> contact.v1.Contact
+	42, // 55: contact.v1.ContactService.DeleteContact:output_type -> google.protobuf.Empty
+	16, // 56: contact.v1.ContactService.ListContacts:output_type -> contact.v1.ContactPage
+	19, // 57: contact.v1.ContactService.BatchUpsertContacts:output_type -> contact.v1.BatchResult
+	42, // 58: contact.v1.ContactService.AddTags:output_type -> google.protobuf.Empty
+	42, // 59: contact.v1.ContactService.RemoveTags:output_type -> google.protobuf.Empty
+	23, // 60: contact.v1.ContactService.ListTags:output_type -> contact.v1.TagList
+	25, // 61: contact.v1.ContactService.StartImport:output_type -> contact.v1.ImportJob
+	25, // 62: contact.v1.ContactService.GetImportStatus:output_type -> contact.v1.ImportJob
+	28, // 63: contact.v1.ContactService.ListImports:output_type -> contact.v1.ImportJobPage
+	32, // 64: contact.v1.ContactService.PreviewSegment:output_type -> contact.v1.SegmentPreview
+	34, // 65: contact.v1.ContactService.StreamSegment:output_type -> contact.v1.ContactBatch
+	35, // 66: contact.v1.ContactService.AddOptOut:output_type -> contact.v1.OptOutEntry
+	38, // 67: contact.v1.ContactService.ListOptOuts:output_type -> contact.v1.OptOutPage
+	42, // 68: contact.v1.ContactService.RemoveOptOut:output_type -> google.protobuf.Empty
+	46, // [46:69] is the sub-list for method output_type
+	23, // [23:46] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
-func init() { file_contact_contact_proto_init() }
-func file_contact_contact_proto_init() {
-	if File_contact_contact_proto != nil {
+func init() { file_contact_proto_init() }
+func file_contact_proto_init() {
+	if File_contact_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contact_contact_proto_rawDesc), len(file_contact_contact_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contact_proto_rawDesc), len(file_contact_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   35,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_contact_contact_proto_goTypes,
-		DependencyIndexes: file_contact_contact_proto_depIdxs,
-		MessageInfos:      file_contact_contact_proto_msgTypes,
+		GoTypes:           file_contact_proto_goTypes,
+		DependencyIndexes: file_contact_proto_depIdxs,
+		MessageInfos:      file_contact_proto_msgTypes,
 	}.Build()
-	File_contact_contact_proto = out.File
-	file_contact_contact_proto_goTypes = nil
-	file_contact_contact_proto_depIdxs = nil
+	File_contact_proto = out.File
+	file_contact_proto_goTypes = nil
+	file_contact_proto_depIdxs = nil
 }

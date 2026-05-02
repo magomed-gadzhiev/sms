@@ -110,18 +110,6 @@ func (m *mockRoutingClientForLookup) GetHLRProvider(ctx context.Context, in *rou
 func (m *mockRoutingClientForLookup) ListHLRProviders(ctx context.Context, in *routingv1.ListHLRProvidersRequest, opts ...grpc.CallOption) (*routingv1.ListHLRProvidersResponse, error) {
 	return nil, nil
 }
-func (m *mockRoutingClientForLookup) SetSmartRouteWeights(ctx context.Context, in *routingv1.SetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
-	return nil, nil
-}
-func (m *mockRoutingClientForLookup) GetSmartRouteWeights(ctx context.Context, in *routingv1.GetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
-	return nil, nil
-}
-func (m *mockRoutingClientForLookup) ListSmartRouteWeights(ctx context.Context, in *routingv1.ListSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.ListSmartRouteWeightsResponse, error) {
-	return nil, nil
-}
-func (m *mockRoutingClientForLookup) DeleteSmartRouteWeights(ctx context.Context, in *routingv1.DeleteSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.DeleteRouteResponse, error) {
-	return nil, nil
-}
 func (m *mockRoutingClientForLookup) GetLookupHistory(ctx context.Context, in *routingv1.GetLookupHistoryRequest, opts ...grpc.CallOption) (*routingv1.GetLookupHistoryResponse, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {

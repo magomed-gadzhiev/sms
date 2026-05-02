@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: messaging/messaging.proto
+// source: messaging.proto
 
 package messagingv1
 
@@ -47,7 +47,7 @@ type SendMessageRequest struct {
 
 func (x *SendMessageRequest) Reset() {
 	*x = SendMessageRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[0]
+	mi := &file_messaging_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -59,7 +59,7 @@ func (x *SendMessageRequest) String() string {
 func (*SendMessageRequest) ProtoMessage() {}
 
 func (x *SendMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[0]
+	mi := &file_messaging_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -72,7 +72,7 @@ func (x *SendMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendMessageRequest.ProtoReflect.Descriptor instead.
 func (*SendMessageRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{0}
+	return file_messaging_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SendMessageRequest) GetClientId() string {
@@ -202,7 +202,7 @@ type SendMessageResponse struct {
 
 func (x *SendMessageResponse) Reset() {
 	*x = SendMessageResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[1]
+	mi := &file_messaging_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -214,7 +214,7 @@ func (x *SendMessageResponse) String() string {
 func (*SendMessageResponse) ProtoMessage() {}
 
 func (x *SendMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[1]
+	mi := &file_messaging_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -227,7 +227,7 @@ func (x *SendMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendMessageResponse.ProtoReflect.Descriptor instead.
 func (*SendMessageResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{1}
+	return file_messaging_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SendMessageResponse) GetMessageId() string {
@@ -284,7 +284,7 @@ type SendBatchRequest struct {
 
 func (x *SendBatchRequest) Reset() {
 	*x = SendBatchRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[2]
+	mi := &file_messaging_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +296,7 @@ func (x *SendBatchRequest) String() string {
 func (*SendBatchRequest) ProtoMessage() {}
 
 func (x *SendBatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[2]
+	mi := &file_messaging_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +309,7 @@ func (x *SendBatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendBatchRequest.ProtoReflect.Descriptor instead.
 func (*SendBatchRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{2}
+	return file_messaging_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SendBatchRequest) GetClientId() string {
@@ -345,7 +345,7 @@ type SendBatchResponse struct {
 
 func (x *SendBatchResponse) Reset() {
 	*x = SendBatchResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[3]
+	mi := &file_messaging_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -357,7 +357,7 @@ func (x *SendBatchResponse) String() string {
 func (*SendBatchResponse) ProtoMessage() {}
 
 func (x *SendBatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[3]
+	mi := &file_messaging_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -370,7 +370,7 @@ func (x *SendBatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendBatchResponse.ProtoReflect.Descriptor instead.
 func (*SendBatchResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{3}
+	return file_messaging_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SendBatchResponse) GetResults() []*SendMessageResponse {
@@ -405,7 +405,7 @@ type GetMessageStatusRequest struct {
 
 func (x *GetMessageStatusRequest) Reset() {
 	*x = GetMessageStatusRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[4]
+	mi := &file_messaging_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -417,7 +417,7 @@ func (x *GetMessageStatusRequest) String() string {
 func (*GetMessageStatusRequest) ProtoMessage() {}
 
 func (x *GetMessageStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[4]
+	mi := &file_messaging_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -430,7 +430,7 @@ func (x *GetMessageStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMessageStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetMessageStatusRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{4}
+	return file_messaging_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetMessageStatusRequest) GetMessageId() string {
@@ -469,7 +469,7 @@ type GetMessageStatusResponse struct {
 
 func (x *GetMessageStatusResponse) Reset() {
 	*x = GetMessageStatusResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[5]
+	mi := &file_messaging_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -481,7 +481,7 @@ func (x *GetMessageStatusResponse) String() string {
 func (*GetMessageStatusResponse) ProtoMessage() {}
 
 func (x *GetMessageStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[5]
+	mi := &file_messaging_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +494,7 @@ func (x *GetMessageStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMessageStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetMessageStatusResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{5}
+	return file_messaging_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetMessageStatusResponse) GetMessageId() string {
@@ -604,7 +604,7 @@ type GetMessageHistoryRequest struct {
 
 func (x *GetMessageHistoryRequest) Reset() {
 	*x = GetMessageHistoryRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[6]
+	mi := &file_messaging_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -616,7 +616,7 @@ func (x *GetMessageHistoryRequest) String() string {
 func (*GetMessageHistoryRequest) ProtoMessage() {}
 
 func (x *GetMessageHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[6]
+	mi := &file_messaging_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -629,7 +629,7 @@ func (x *GetMessageHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMessageHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetMessageHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{6}
+	return file_messaging_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetMessageHistoryRequest) GetClientId() string {
@@ -694,7 +694,7 @@ type GetMessageHistoryResponse struct {
 
 func (x *GetMessageHistoryResponse) Reset() {
 	*x = GetMessageHistoryResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[7]
+	mi := &file_messaging_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -706,7 +706,7 @@ func (x *GetMessageHistoryResponse) String() string {
 func (*GetMessageHistoryResponse) ProtoMessage() {}
 
 func (x *GetMessageHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[7]
+	mi := &file_messaging_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -719,7 +719,7 @@ func (x *GetMessageHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMessageHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetMessageHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{7}
+	return file_messaging_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetMessageHistoryResponse) GetMessages() []*MessageInfo {
@@ -766,7 +766,7 @@ type ProcessDLRRequest struct {
 
 func (x *ProcessDLRRequest) Reset() {
 	*x = ProcessDLRRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[8]
+	mi := &file_messaging_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -778,7 +778,7 @@ func (x *ProcessDLRRequest) String() string {
 func (*ProcessDLRRequest) ProtoMessage() {}
 
 func (x *ProcessDLRRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[8]
+	mi := &file_messaging_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -791,7 +791,7 @@ func (x *ProcessDLRRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessDLRRequest.ProtoReflect.Descriptor instead.
 func (*ProcessDLRRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{8}
+	return file_messaging_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ProcessDLRRequest) GetMessageId() string {
@@ -854,7 +854,7 @@ type ProcessDLRResponse struct {
 
 func (x *ProcessDLRResponse) Reset() {
 	*x = ProcessDLRResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[9]
+	mi := &file_messaging_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +866,7 @@ func (x *ProcessDLRResponse) String() string {
 func (*ProcessDLRResponse) ProtoMessage() {}
 
 func (x *ProcessDLRResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[9]
+	mi := &file_messaging_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +879,7 @@ func (x *ProcessDLRResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessDLRResponse.ProtoReflect.Descriptor instead.
 func (*ProcessDLRResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{9}
+	return file_messaging_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ProcessDLRResponse) GetSuccess() bool {
@@ -921,7 +921,7 @@ type MessageInfo struct {
 
 func (x *MessageInfo) Reset() {
 	*x = MessageInfo{}
-	mi := &file_messaging_messaging_proto_msgTypes[10]
+	mi := &file_messaging_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +933,7 @@ func (x *MessageInfo) String() string {
 func (*MessageInfo) ProtoMessage() {}
 
 func (x *MessageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[10]
+	mi := &file_messaging_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +946,7 @@ func (x *MessageInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageInfo.ProtoReflect.Descriptor instead.
 func (*MessageInfo) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{10}
+	return file_messaging_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *MessageInfo) GetMessageId() string {
@@ -1071,7 +1071,7 @@ type CancelMessageRequest struct {
 
 func (x *CancelMessageRequest) Reset() {
 	*x = CancelMessageRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[11]
+	mi := &file_messaging_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1083,7 +1083,7 @@ func (x *CancelMessageRequest) String() string {
 func (*CancelMessageRequest) ProtoMessage() {}
 
 func (x *CancelMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[11]
+	mi := &file_messaging_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1096,7 +1096,7 @@ func (x *CancelMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelMessageRequest.ProtoReflect.Descriptor instead.
 func (*CancelMessageRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{11}
+	return file_messaging_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CancelMessageRequest) GetMessageId() string {
@@ -1122,7 +1122,7 @@ type CancelMessageResponse struct {
 
 func (x *CancelMessageResponse) Reset() {
 	*x = CancelMessageResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[12]
+	mi := &file_messaging_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1134,7 +1134,7 @@ func (x *CancelMessageResponse) String() string {
 func (*CancelMessageResponse) ProtoMessage() {}
 
 func (x *CancelMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[12]
+	mi := &file_messaging_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1147,7 +1147,7 @@ func (x *CancelMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelMessageResponse.ProtoReflect.Descriptor instead.
 func (*CancelMessageResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{12}
+	return file_messaging_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CancelMessageResponse) GetSuccess() bool {
@@ -1162,13 +1162,13 @@ type ListScheduledMessagesRequest struct {
 	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListScheduledMessagesRequest) Reset() {
 	*x = ListScheduledMessagesRequest{}
-	mi := &file_messaging_messaging_proto_msgTypes[13]
+	mi := &file_messaging_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1180,7 +1180,7 @@ func (x *ListScheduledMessagesRequest) String() string {
 func (*ListScheduledMessagesRequest) ProtoMessage() {}
 
 func (x *ListScheduledMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[13]
+	mi := &file_messaging_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1193,7 +1193,7 @@ func (x *ListScheduledMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScheduledMessagesRequest.ProtoReflect.Descriptor instead.
 func (*ListScheduledMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{13}
+	return file_messaging_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListScheduledMessagesRequest) GetClientId() string {
@@ -1223,13 +1223,13 @@ type ListScheduledMessagesResponse struct {
 	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	Offset        int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListScheduledMessagesResponse) Reset() {
 	*x = ListScheduledMessagesResponse{}
-	mi := &file_messaging_messaging_proto_msgTypes[14]
+	mi := &file_messaging_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1241,7 +1241,7 @@ func (x *ListScheduledMessagesResponse) String() string {
 func (*ListScheduledMessagesResponse) ProtoMessage() {}
 
 func (x *ListScheduledMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messaging_messaging_proto_msgTypes[14]
+	mi := &file_messaging_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1254,7 +1254,7 @@ func (x *ListScheduledMessagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScheduledMessagesResponse.ProtoReflect.Descriptor instead.
 func (*ListScheduledMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_messaging_messaging_proto_rawDescGZIP(), []int{14}
+	return file_messaging_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListScheduledMessagesResponse) GetMessages() []*MessageInfo {
@@ -1285,108 +1285,178 @@ func (x *ListScheduledMessagesResponse) GetOffset() int32 {
 	return 0
 }
 
-var File_messaging_messaging_proto protoreflect.FileDescriptor
+var File_messaging_proto protoreflect.FileDescriptor
 
-const file_messaging_messaging_proto_rawDesc = "" +
-	"\n\x19messaging/messaging.proto\x12\fmessaging.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x04\n" +
-	"\x12SendMessageRequest\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x16\n\x06source\x18\x02 \x01" +
-	"(\tR\x06source\x12 \n\vdestination\x18\x03 \x01(\tR\vdestination\x12\x12\n\x04text\x18\x04 \x01(\tR\x04" +
-	"text\x12\x1f\n\vexternal_id\x18\x05 \x01(\tR\nexternalId\x12\x1a\n\bpriority\x18\x06 \x01(\x05R\bpri" +
-	"ority\x12/\n\x13registered_delivery\x18\a \x01(\bR\x12registeredDelivery\x12C\n\x0fvalidity_period\x18" +
-	"\b \x01(\v2\x1a.google.protobuf.TimestampR\x0evalidityPeriod\x12!\n\fservice_type\x18\t \x01(\tR\vse" +
-	"rviceType\x12&\n\x0fsource_addr_ton\x18\n \x01(\x05R\rsourceAddrTon\x12&\n\x0fsource_addr_npi\x18\v " +
-	"\x01(\x05R\rsourceAddrNpi\x12\"\n\rdest_addr_ton\x18\f \x01(\x05R\vdestAddrTon\x12\"\n\rdest_addr_np" +
-	"i\x18\r \x01(\x05R\vdestAddrNpi\x12\x1f\n\vdata_coding\x18\x0e \x01(\x05R\ndataCoding\x12=\n\fschedu" +
-	"led_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12\x1d\n\nis_sandbox\x18\x10 \x01" +
-	"(\bR\tisSandbox\"\x81\x02\n\x13SendMessageResponse\x12\x1d\n\nmessage_id\x18\x01 \x01(\tR\tmessageId" +
-	"\x12\x16\n\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n\x05error\x18\x03 \x01(\tR\x05error\x129\n\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n\fscheduled_at\x18\x05 \x01" +
-	"(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12#\n\rsegment_count\x18\x06 \x01(\x05R\fsegmentCo" +
-	"unt\"\xac\x01\n\x10SendBatchRequest\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\bclientId\x12<\n\bmessages" +
-	"\x18\x02 \x03(\v2 .messaging.v1.SendMessageRequestR\bmessages\x12=\n\fscheduled_at\x18\x03 \x01(\v2\x1a" +
-	".google.protobuf.TimestampR\vscheduledAt\"\x98\x01\n\x11SendBatchResponse\x12;\n\aresults\x18\x01 \x03" +
-	"(\v2!.messaging.v1.SendMessageResponseR\aresults\x12#\n\rsuccess_count\x18\x02 \x01(\x05R\fsuccessCo" +
-	"unt\x12!\n\ffailed_count\x18\x03 \x01(\x05R\vfailedCount\"U\n\x17GetMessageStatusRequest\x12\x1d\n\n" +
-	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1b\n\tclient_id\x18\x02 \x01(\tR\bclientId\"\xf5\x04\n\x18" +
-	"GetMessageStatusResponse\x12\x1d\n\nmessage_id\x18\x01 \x01(\tR\tmessageId\x12\x16\n\x06status\x18\x02" +
-	" \x01(\tR\x06status\x12%\n\x0estatus_message\x18\x03 \x01(\tR\rstatusMessage\x129\n\ncreated_at\x18\x04" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n\fsubmitted_at\x18\x05 \x01(\v2\x1a.google" +
-	".protobuf.TimestampR\vsubmittedAt\x12=\n\fdelivered_at\x18\x06 \x01(\v2\x1a.google.protobuf.Timestam" +
-	"pR\vdeliveredAt\x127\n\tfailed_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\bfailedAt\x12&\n\x0f" +
-	"smpp_message_id\x18\b \x01(\tR\rsmppMessageId\x12\x1d\n\nerror_code\x18\t \x01(\tR\terrorCode\x12#\n" +
-	"\rerror_message\x18\n \x01(\tR\ferrorMessage\x12=\n\fscheduled_at\x18\v \x01(\v2\x1a.google.protobuf" +
-	".TimestampR\vscheduledAt\x12#\n\rsegment_count\x18\f \x01(\x05R\fsegmentCount\x129\n\nexpired_at\x18" +
-	"\r \x01(\v2\x1a.google.protobuf.TimestampR\texpiredAt\"\xfb\x01\n\x18GetMessageHistoryRequest\x12\x1b" +
-	"\n\tclient_id\x18\x01 \x01(\tR\bclientId\x12.\n\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.Timesta" +
-	"mpR\x04from\x12*\n\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x16\n\x06status\x18" +
-	"\x04 \x01(\tR\x06status\x12 \n\vdestination\x18\x05 \x01(\tR\vdestination\x12\x14\n\x05limit\x18\x06" +
-	" \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\a \x01(\x05R\x06offset\"\x96\x01\n\x19GetMessageHistory" +
-	"Response\x125\n\bmessages\x18\x01 \x03(\v2\x19.messaging.v1.MessageInfoR\bmessages\x12\x14\n\x05tota" +
-	"l\x18\x02 \x01(\x05R\x05total\x12\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18" +
-	"\x04 \x01(\x05R\x06offset\"\xee\x01\n\x11ProcessDLRRequest\x12\x1d\n\nmessage_id\x18\x01 \x01(\tR\tm" +
-	"essageId\x12&\n\x0fsmpp_message_id\x18\x02 \x01(\tR\rsmppMessageId\x12\x12\n\x04stat\x18\x03 \x01(\t" +
-	"R\x04stat\x127\n\tdone_date\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bdoneDate\x12\x10\n\x03e" +
-	"rr\x18\x05 \x01(\x05R\x03err\x12\x12\n\x04text\x18\x06 \x01(\tR\x04text\x12\x1f\n\vprovider_id\x18\a" +
-	" \x01(\tR\nproviderId\"U\n\x12ProcessDLRResponse\x12\x18\n\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
-	"\x0eupdated_status\x18\x02 \x01(\tR\rupdatedStatus\"\x9d\x05\n\vMessageInfo\x12\x1d\n\nmessage_id\x18" +
-	"\x01 \x01(\tR\tmessageId\x12\x1b\n\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x16\n\x06source\x18\x03" +
-	" \x01(\tR\x06source\x12 \n\vdestination\x18\x04 \x01(\tR\vdestination\x12\x12\n\x04text\x18\x05 \x01" +
-	"(\tR\x04text\x12\x16\n\x06status\x18\x06 \x01(\tR\x06status\x12\x1f\n\vexternal_id\x18\a \x01(\tR\ne" +
-	"xternalId\x129\n\ncreated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n\fsubmit" +
-	"ted_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAt\x12=\n\fdelivered_at\x18\n \x01(\v" +
-	"2\x1a.google.protobuf.TimestampR\vdeliveredAt\x127\n\tfailed_at\x18\v \x01(\v2\x1a.google.protobuf.T" +
-	"imestampR\bfailedAt\x12\x1f\n\vprovider_id\x18\f \x01(\tR\nproviderId\x12\x19\n\broute_id\x18\r \x01" +
-	"(\tR\arouteId\x12=\n\fscheduled_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12#" +
-	"\n\rsegment_count\x18\x0f \x01(\x05R\fsegmentCount\x129\n\nexpired_at\x18\x10 \x01(\v2\x1a.google.pr" +
-	"otobuf.TimestampR\texpiredAt\"R\n\x14CancelMessageRequest\x12\x1d\n\nmessage_id\x18\x01 \x01(\tR\tme" +
-	"ssageId\x12\x1b\n\tclient_id\x18\x02 \x01(\tR\bclientId\"1\n\x15CancelMessageResponse\x12\x18\n\asuc" +
-	"cess\x18\x01 \x01(\bR\asuccess\"i\n\x1cListScheduledMessagesRequest\x12\x1b\n\tclient_id\x18\x01 \x01" +
-	"(\tR\bclientId\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x03 \x01(\x05R" +
-	"\x06offset\"\x9a\x01\n\x1dListScheduledMessagesResponse\x125\n\bmessages\x18\x01 \x03(\v2\x19.messag" +
-	"ing.v1.MessageInfoR\bmessages\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n\x05limit\x18\x03" +
-	" \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x04 \x01(\x05R\x06offset2\x9a\x05\n\x10MessagingService" +
-	"\x12R\n\vSendMessage\x12 .messaging.v1.SendMessageRequest\x1a!.messaging.v1.SendMessageResponse\x12L" +
-	"\n\tSendBatch\x12\x1e.messaging.v1.SendBatchRequest\x1a\x1f.messaging.v1.SendBatchResponse\x12a\n\x10" +
-	"GetMessageStatus\x12%.messaging.v1.GetMessageStatusRequest\x1a&.messaging.v1.GetMessageStatusRespons" +
-	"e\x12d\n\x11GetMessageHistory\x12&.messaging.v1.GetMessageHistoryRequest\x1a'.messaging.v1.GetMessag" +
-	"eHistoryResponse\x12O\n\nProcessDLR\x12\x1f.messaging.v1.ProcessDLRRequest\x1a .messaging.v1.Process" +
-	"DLRResponse\x12X\n\rCancelMessage\x12\".messaging.v1.CancelMessageRequest\x1a#.messaging.v1.CancelMe" +
-	"ssageResponse\x12p\n\x15ListScheduledMessages\x12*.messaging.v1.ListScheduledMessagesRequest\x1a+.me" +
-	"ssaging.v1.ListScheduledMessagesResponseB:Z8github.com/smpp-server/smpp-server/api/proto/messagingv1" +
-	"b\x06proto3"
+const file_messaging_proto_rawDesc = "" +
+	"\n" +
+	"\x0fmessaging.proto\x12\fmessaging.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x04\n" +
+	"\x12SendMessageRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x16\n" +
+	"\x06source\x18\x02 \x01(\tR\x06source\x12 \n" +
+	"\vdestination\x18\x03 \x01(\tR\vdestination\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\x12\x1f\n" +
+	"\vexternal_id\x18\x05 \x01(\tR\n" +
+	"externalId\x12\x1a\n" +
+	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12/\n" +
+	"\x13registered_delivery\x18\a \x01(\bR\x12registeredDelivery\x12C\n" +
+	"\x0fvalidity_period\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x0evalidityPeriod\x12!\n" +
+	"\fservice_type\x18\t \x01(\tR\vserviceType\x12&\n" +
+	"\x0fsource_addr_ton\x18\n" +
+	" \x01(\x05R\rsourceAddrTon\x12&\n" +
+	"\x0fsource_addr_npi\x18\v \x01(\x05R\rsourceAddrNpi\x12\"\n" +
+	"\rdest_addr_ton\x18\f \x01(\x05R\vdestAddrTon\x12\"\n" +
+	"\rdest_addr_npi\x18\r \x01(\x05R\vdestAddrNpi\x12\x1f\n" +
+	"\vdata_coding\x18\x0e \x01(\x05R\n" +
+	"dataCoding\x12=\n" +
+	"\fscheduled_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12\x1d\n" +
+	"\n" +
+	"is_sandbox\x18\x10 \x01(\bR\tisSandbox\"\x81\x02\n" +
+	"\x13SendMessageResponse\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n" +
+	"\fscheduled_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12#\n" +
+	"\rsegment_count\x18\x06 \x01(\x05R\fsegmentCount\"\xac\x01\n" +
+	"\x10SendBatchRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12<\n" +
+	"\bmessages\x18\x02 \x03(\v2 .messaging.v1.SendMessageRequestR\bmessages\x12=\n" +
+	"\fscheduled_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\"\x98\x01\n" +
+	"\x11SendBatchResponse\x12;\n" +
+	"\aresults\x18\x01 \x03(\v2!.messaging.v1.SendMessageResponseR\aresults\x12#\n" +
+	"\rsuccess_count\x18\x02 \x01(\x05R\fsuccessCount\x12!\n" +
+	"\ffailed_count\x18\x03 \x01(\x05R\vfailedCount\"U\n" +
+	"\x17GetMessageStatusRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\"\xf5\x04\n" +
+	"\x18GetMessageStatusResponse\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12%\n" +
+	"\x0estatus_message\x18\x03 \x01(\tR\rstatusMessage\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n" +
+	"\fsubmitted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAt\x12=\n" +
+	"\fdelivered_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vdeliveredAt\x127\n" +
+	"\tfailed_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\bfailedAt\x12&\n" +
+	"\x0fsmpp_message_id\x18\b \x01(\tR\rsmppMessageId\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\t \x01(\tR\terrorCode\x12#\n" +
+	"\rerror_message\x18\n" +
+	" \x01(\tR\ferrorMessage\x12=\n" +
+	"\fscheduled_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12#\n" +
+	"\rsegment_count\x18\f \x01(\x05R\fsegmentCount\x129\n" +
+	"\n" +
+	"expired_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\texpiredAt\"\xfb\x01\n" +
+	"\x18GetMessageHistoryRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12.\n" +
+	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
+	"\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12 \n" +
+	"\vdestination\x18\x05 \x01(\tR\vdestination\x12\x14\n" +
+	"\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\a \x01(\x05R\x06offset\"\x96\x01\n" +
+	"\x19GetMessageHistoryResponse\x125\n" +
+	"\bmessages\x18\x01 \x03(\v2\x19.messaging.v1.MessageInfoR\bmessages\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\xee\x01\n" +
+	"\x11ProcessDLRRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12&\n" +
+	"\x0fsmpp_message_id\x18\x02 \x01(\tR\rsmppMessageId\x12\x12\n" +
+	"\x04stat\x18\x03 \x01(\tR\x04stat\x127\n" +
+	"\tdone_date\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bdoneDate\x12\x10\n" +
+	"\x03err\x18\x05 \x01(\x05R\x03err\x12\x12\n" +
+	"\x04text\x18\x06 \x01(\tR\x04text\x12\x1f\n" +
+	"\vprovider_id\x18\a \x01(\tR\n" +
+	"providerId\"U\n" +
+	"\x12ProcessDLRResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
+	"\x0eupdated_status\x18\x02 \x01(\tR\rupdatedStatus\"\x9d\x05\n" +
+	"\vMessageInfo\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x16\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12 \n" +
+	"\vdestination\x18\x04 \x01(\tR\vdestination\x12\x12\n" +
+	"\x04text\x18\x05 \x01(\tR\x04text\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1f\n" +
+	"\vexternal_id\x18\a \x01(\tR\n" +
+	"externalId\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n" +
+	"\fsubmitted_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAt\x12=\n" +
+	"\fdelivered_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\vdeliveredAt\x127\n" +
+	"\tfailed_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\bfailedAt\x12\x1f\n" +
+	"\vprovider_id\x18\f \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\broute_id\x18\r \x01(\tR\arouteId\x12=\n" +
+	"\fscheduled_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12#\n" +
+	"\rsegment_count\x18\x0f \x01(\x05R\fsegmentCount\x129\n" +
+	"\n" +
+	"expired_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\texpiredAt\"R\n" +
+	"\x14CancelMessageRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\"1\n" +
+	"\x15CancelMessageResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"i\n" +
+	"\x1cListScheduledMessagesRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\x9a\x01\n" +
+	"\x1dListScheduledMessagesResponse\x125\n" +
+	"\bmessages\x18\x01 \x03(\v2\x19.messaging.v1.MessageInfoR\bmessages\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset2\x9a\x05\n" +
+	"\x10MessagingService\x12R\n" +
+	"\vSendMessage\x12 .messaging.v1.SendMessageRequest\x1a!.messaging.v1.SendMessageResponse\x12L\n" +
+	"\tSendBatch\x12\x1e.messaging.v1.SendBatchRequest\x1a\x1f.messaging.v1.SendBatchResponse\x12a\n" +
+	"\x10GetMessageStatus\x12%.messaging.v1.GetMessageStatusRequest\x1a&.messaging.v1.GetMessageStatusResponse\x12d\n" +
+	"\x11GetMessageHistory\x12&.messaging.v1.GetMessageHistoryRequest\x1a'.messaging.v1.GetMessageHistoryResponse\x12O\n" +
+	"\n" +
+	"ProcessDLR\x12\x1f.messaging.v1.ProcessDLRRequest\x1a .messaging.v1.ProcessDLRResponse\x12X\n" +
+	"\rCancelMessage\x12\".messaging.v1.CancelMessageRequest\x1a#.messaging.v1.CancelMessageResponse\x12p\n" +
+	"\x15ListScheduledMessages\x12*.messaging.v1.ListScheduledMessagesRequest\x1a+.messaging.v1.ListScheduledMessagesResponseB:Z8github.com/smpp-server/smpp-server/api/proto/messagingv1b\x06proto3"
 
 var (
-	file_messaging_messaging_proto_rawDescOnce sync.Once
-	file_messaging_messaging_proto_rawDescData []byte
+	file_messaging_proto_rawDescOnce sync.Once
+	file_messaging_proto_rawDescData []byte
 )
 
-func file_messaging_messaging_proto_rawDescGZIP() []byte {
-	file_messaging_messaging_proto_rawDescOnce.Do(func() {
-		file_messaging_messaging_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_messaging_messaging_proto_rawDesc), len(file_messaging_messaging_proto_rawDesc)))
+func file_messaging_proto_rawDescGZIP() []byte {
+	file_messaging_proto_rawDescOnce.Do(func() {
+		file_messaging_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_messaging_proto_rawDesc), len(file_messaging_proto_rawDesc)))
 	})
-	return file_messaging_messaging_proto_rawDescData
+	return file_messaging_proto_rawDescData
 }
 
-var file_messaging_messaging_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
-var file_messaging_messaging_proto_goTypes = []any{
-	(*SendMessageRequest)(nil),              // 0: messaging.v1.SendMessageRequest
-	(*SendMessageResponse)(nil),             // 1: messaging.v1.SendMessageResponse
-	(*SendBatchRequest)(nil),                // 2: messaging.v1.SendBatchRequest
-	(*SendBatchResponse)(nil),               // 3: messaging.v1.SendBatchResponse
-	(*GetMessageStatusRequest)(nil),         // 4: messaging.v1.GetMessageStatusRequest
-	(*GetMessageStatusResponse)(nil),        // 5: messaging.v1.GetMessageStatusResponse
-	(*GetMessageHistoryRequest)(nil),        // 6: messaging.v1.GetMessageHistoryRequest
-	(*GetMessageHistoryResponse)(nil),       // 7: messaging.v1.GetMessageHistoryResponse
-	(*ProcessDLRRequest)(nil),               // 8: messaging.v1.ProcessDLRRequest
-	(*ProcessDLRResponse)(nil),              // 9: messaging.v1.ProcessDLRResponse
-	(*MessageInfo)(nil),                     // 10: messaging.v1.MessageInfo
-	(*CancelMessageRequest)(nil),            // 11: messaging.v1.CancelMessageRequest
-	(*CancelMessageResponse)(nil),           // 12: messaging.v1.CancelMessageResponse
-	(*ListScheduledMessagesRequest)(nil),    // 13: messaging.v1.ListScheduledMessagesRequest
-	(*ListScheduledMessagesResponse)(nil),   // 14: messaging.v1.ListScheduledMessagesResponse
-	(*timestamppb.Timestamp)(nil),           // 15: google.protobuf.Timestamp
+var file_messaging_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_messaging_proto_goTypes = []any{
+	(*SendMessageRequest)(nil),            // 0: messaging.v1.SendMessageRequest
+	(*SendMessageResponse)(nil),           // 1: messaging.v1.SendMessageResponse
+	(*SendBatchRequest)(nil),              // 2: messaging.v1.SendBatchRequest
+	(*SendBatchResponse)(nil),             // 3: messaging.v1.SendBatchResponse
+	(*GetMessageStatusRequest)(nil),       // 4: messaging.v1.GetMessageStatusRequest
+	(*GetMessageStatusResponse)(nil),      // 5: messaging.v1.GetMessageStatusResponse
+	(*GetMessageHistoryRequest)(nil),      // 6: messaging.v1.GetMessageHistoryRequest
+	(*GetMessageHistoryResponse)(nil),     // 7: messaging.v1.GetMessageHistoryResponse
+	(*ProcessDLRRequest)(nil),             // 8: messaging.v1.ProcessDLRRequest
+	(*ProcessDLRResponse)(nil),            // 9: messaging.v1.ProcessDLRResponse
+	(*MessageInfo)(nil),                   // 10: messaging.v1.MessageInfo
+	(*CancelMessageRequest)(nil),          // 11: messaging.v1.CancelMessageRequest
+	(*CancelMessageResponse)(nil),         // 12: messaging.v1.CancelMessageResponse
+	(*ListScheduledMessagesRequest)(nil),  // 13: messaging.v1.ListScheduledMessagesRequest
+	(*ListScheduledMessagesResponse)(nil), // 14: messaging.v1.ListScheduledMessagesResponse
+	(*timestamppb.Timestamp)(nil),         // 15: google.protobuf.Timestamp
 }
-var file_messaging_messaging_proto_depIdxs = []int32{
+var file_messaging_proto_depIdxs = []int32{
 	15, // 0: messaging.v1.SendMessageRequest.validity_period:type_name -> google.protobuf.Timestamp
 	15, // 1: messaging.v1.SendMessageRequest.scheduled_at:type_name -> google.protobuf.Timestamp
 	15, // 2: messaging.v1.SendMessageResponse.created_at:type_name -> google.protobuf.Timestamp
@@ -1432,27 +1502,26 @@ var file_messaging_messaging_proto_depIdxs = []int32{
 	0,  // [0:24] is the sub-list for field type_name
 }
 
-func init() { file_messaging_messaging_proto_init() }
-func file_messaging_messaging_proto_init() {
-	if File_messaging_messaging_proto != nil {
+func init() { file_messaging_proto_init() }
+func file_messaging_proto_init() {
+	if File_messaging_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_messaging_messaging_proto_rawDesc), len(file_messaging_messaging_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_messaging_proto_rawDesc), len(file_messaging_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_messaging_messaging_proto_goTypes,
-		DependencyIndexes: file_messaging_messaging_proto_depIdxs,
-		MessageInfos:      file_messaging_messaging_proto_msgTypes,
+		GoTypes:           file_messaging_proto_goTypes,
+		DependencyIndexes: file_messaging_proto_depIdxs,
+		MessageInfos:      file_messaging_proto_msgTypes,
 	}.Build()
-	File_messaging_messaging_proto = out.File
-	file_messaging_messaging_proto_goTypes = nil
-	file_messaging_messaging_proto_depIdxs = nil
+	File_messaging_proto = out.File
+	file_messaging_proto_goTypes = nil
+	file_messaging_proto_depIdxs = nil
 }
-

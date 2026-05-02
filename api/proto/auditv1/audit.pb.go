@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v4.25.1
-// source: audit/audit.proto
+// source: audit.proto
 
 package auditv1
 
@@ -38,7 +38,7 @@ type QueryAuditLogRequest struct {
 
 func (x *QueryAuditLogRequest) Reset() {
 	*x = QueryAuditLogRequest{}
-	mi := &file_audit_audit_proto_msgTypes[0]
+	mi := &file_audit_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -50,7 +50,7 @@ func (x *QueryAuditLogRequest) String() string {
 func (*QueryAuditLogRequest) ProtoMessage() {}
 
 func (x *QueryAuditLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_audit_proto_msgTypes[0]
+	mi := &file_audit_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -63,7 +63,7 @@ func (x *QueryAuditLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAuditLogRequest.ProtoReflect.Descriptor instead.
 func (*QueryAuditLogRequest) Descriptor() ([]byte, []int) {
-	return file_audit_audit_proto_rawDescGZIP(), []int{0}
+	return file_audit_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *QueryAuditLogRequest) GetTenantId() string {
@@ -128,7 +128,7 @@ type QueryAuditLogResponse struct {
 
 func (x *QueryAuditLogResponse) Reset() {
 	*x = QueryAuditLogResponse{}
-	mi := &file_audit_audit_proto_msgTypes[1]
+	mi := &file_audit_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -140,7 +140,7 @@ func (x *QueryAuditLogResponse) String() string {
 func (*QueryAuditLogResponse) ProtoMessage() {}
 
 func (x *QueryAuditLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_audit_proto_msgTypes[1]
+	mi := &file_audit_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -153,7 +153,7 @@ func (x *QueryAuditLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAuditLogResponse.ProtoReflect.Descriptor instead.
 func (*QueryAuditLogResponse) Descriptor() ([]byte, []int) {
-	return file_audit_audit_proto_rawDescGZIP(), []int{1}
+	return file_audit_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *QueryAuditLogResponse) GetEntries() []*AuditLogEntry {
@@ -202,7 +202,7 @@ type AuditLogEntry struct {
 
 func (x *AuditLogEntry) Reset() {
 	*x = AuditLogEntry{}
-	mi := &file_audit_audit_proto_msgTypes[2]
+	mi := &file_audit_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -214,7 +214,7 @@ func (x *AuditLogEntry) String() string {
 func (*AuditLogEntry) ProtoMessage() {}
 
 func (x *AuditLogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_audit_proto_msgTypes[2]
+	mi := &file_audit_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -227,7 +227,7 @@ func (x *AuditLogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditLogEntry.ProtoReflect.Descriptor instead.
 func (*AuditLogEntry) Descriptor() ([]byte, []int) {
-	return file_audit_audit_proto_rawDescGZIP(), []int{2}
+	return file_audit_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AuditLogEntry) GetId() string {
@@ -293,11 +293,11 @@ func (x *AuditLogEntry) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-var File_audit_audit_proto protoreflect.FileDescriptor
+var File_audit_proto protoreflect.FileDescriptor
 
-const file_audit_audit_proto_rawDesc = "" +
+const file_audit_proto_rawDesc = "" +
 	"\n" +
-	"\x11audit/audit.proto\x12\baudit.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x81\x02\n" +
+	"\vaudit.proto\x12\baudit.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x81\x02\n" +
 	"\x14QueryAuditLogRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\tR\x06action\x12\x17\n" +
@@ -329,25 +329,25 @@ const file_audit_audit_proto_rawDesc = "" +
 	"\rQueryAuditLog\x12\x1e.audit.v1.QueryAuditLogRequest\x1a\x1f.audit.v1.QueryAuditLogResponseB6Z4github.com/smpp-server/smpp-server/api/proto/auditv1b\x06proto3"
 
 var (
-	file_audit_audit_proto_rawDescOnce sync.Once
-	file_audit_audit_proto_rawDescData []byte
+	file_audit_proto_rawDescOnce sync.Once
+	file_audit_proto_rawDescData []byte
 )
 
-func file_audit_audit_proto_rawDescGZIP() []byte {
-	file_audit_audit_proto_rawDescOnce.Do(func() {
-		file_audit_audit_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_audit_audit_proto_rawDesc), len(file_audit_audit_proto_rawDesc)))
+func file_audit_proto_rawDescGZIP() []byte {
+	file_audit_proto_rawDescOnce.Do(func() {
+		file_audit_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_audit_proto_rawDesc), len(file_audit_proto_rawDesc)))
 	})
-	return file_audit_audit_proto_rawDescData
+	return file_audit_proto_rawDescData
 }
 
-var file_audit_audit_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_audit_audit_proto_goTypes = []any{
+var file_audit_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_audit_proto_goTypes = []any{
 	(*QueryAuditLogRequest)(nil),  // 0: audit.v1.QueryAuditLogRequest
 	(*QueryAuditLogResponse)(nil), // 1: audit.v1.QueryAuditLogResponse
 	(*AuditLogEntry)(nil),         // 2: audit.v1.AuditLogEntry
 	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
-var file_audit_audit_proto_depIdxs = []int32{
+var file_audit_proto_depIdxs = []int32{
 	3, // 0: audit.v1.QueryAuditLogRequest.date_from:type_name -> google.protobuf.Timestamp
 	3, // 1: audit.v1.QueryAuditLogRequest.date_to:type_name -> google.protobuf.Timestamp
 	2, // 2: audit.v1.QueryAuditLogResponse.entries:type_name -> audit.v1.AuditLogEntry
@@ -361,26 +361,26 @@ var file_audit_audit_proto_depIdxs = []int32{
 	0, // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_audit_audit_proto_init() }
-func file_audit_audit_proto_init() {
-	if File_audit_audit_proto != nil {
+func init() { file_audit_proto_init() }
+func file_audit_proto_init() {
+	if File_audit_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_audit_audit_proto_rawDesc), len(file_audit_audit_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_audit_proto_rawDesc), len(file_audit_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_audit_audit_proto_goTypes,
-		DependencyIndexes: file_audit_audit_proto_depIdxs,
-		MessageInfos:      file_audit_audit_proto_msgTypes,
+		GoTypes:           file_audit_proto_goTypes,
+		DependencyIndexes: file_audit_proto_depIdxs,
+		MessageInfos:      file_audit_proto_msgTypes,
 	}.Build()
-	File_audit_audit_proto = out.File
-	file_audit_audit_proto_goTypes = nil
-	file_audit_audit_proto_depIdxs = nil
+	File_audit_proto = out.File
+	file_audit_proto_goTypes = nil
+	file_audit_proto_depIdxs = nil
 }

@@ -136,20 +136,6 @@ func (m *mockRoutingClientForHLR) ListHLRProviders(ctx context.Context, in *rout
 	return args.Get(0).(*routingv1.ListHLRProvidersResponse), args.Error(1)
 }
 
-// Smart route weight stubs (interface compliance; feature removed)
-func (m *mockRoutingClientForHLR) SetSmartRouteWeights(ctx context.Context, in *routingv1.SetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
-	return nil, nil
-}
-func (m *mockRoutingClientForHLR) GetSmartRouteWeights(ctx context.Context, in *routingv1.GetSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.SmartRouteWeightProto, error) {
-	return nil, nil
-}
-func (m *mockRoutingClientForHLR) ListSmartRouteWeights(ctx context.Context, in *routingv1.ListSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.ListSmartRouteWeightsResponse, error) {
-	return nil, nil
-}
-func (m *mockRoutingClientForHLR) DeleteSmartRouteWeights(ctx context.Context, in *routingv1.DeleteSmartRouteWeightsRequest, opts ...grpc.CallOption) (*routingv1.DeleteRouteResponse, error) {
-	return nil, nil
-}
-
 // Client-provider assignment stubs
 func (m *mockRoutingClientForHLR) AssignProviderToClient(ctx context.Context, in *routingv1.AssignProviderRequest, opts ...grpc.CallOption) (*routingv1.ClientProviderProto, error) {
 	return nil, nil
