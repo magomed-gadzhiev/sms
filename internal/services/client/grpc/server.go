@@ -80,7 +80,6 @@ func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientReq
 
 	// Подготавливаем параметры для обновления
 	var name, email, contactPerson, phone *string
-	var active *bool
 	var metadata map[string]string
 
 	if req.Name != "" {
@@ -99,14 +98,12 @@ func (s *Server) UpdateClient(ctx context.Context, req *clientv1.UpdateClientReq
 		metadata = req.Metadata
 	}
 	// active / is_reseller / max_sub_accounts помечены `optional` в proto —
-	// pointer-style. nil = "не менять", non-nil = установить в указанное значение.
-	active = req.Active
+	// pointer-style pass-through. nil = "не менять", non-nil = установить.
+	active := req.Active
+	isReseller := req.IsReseller
 
-	var isReseller *bool
+	// max_sub_accounts требует int32 → int конверсии, поэтому через ветку.
 	var maxSubAccounts *int
-	if req.IsReseller != nil {
-		isReseller = req.IsReseller
-	}
 	if req.MaxSubAccounts != nil {
 		v := int(*req.MaxSubAccounts)
 		maxSubAccounts = &v
