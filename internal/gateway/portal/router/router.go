@@ -163,6 +163,7 @@ func SetupRouter(
 	apiKeys.HandleFunc("/{id}", apiKeyHandlers.GetAPIKey).Methods("GET")
 	apiKeys.HandleFunc("/{id}", apiKeyHandlers.UpdateAPIKey).Methods("PUT")
 	apiKeys.HandleFunc("/{id}", apiKeyHandlers.RevokeAPIKey).Methods("DELETE")
+	apiKeys.HandleFunc("/{id}/rotate", apiKeyHandlers.RotateAPIKey).Methods("POST")
 
 	// Webhooks endpoints
 	webhooks := protected.PathPrefix("/webhooks").Subrouter()

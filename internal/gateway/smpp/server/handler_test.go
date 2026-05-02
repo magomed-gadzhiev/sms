@@ -57,6 +57,10 @@ func (m *mockAuthClient) RevokeAPIKey(ctx context.Context, in *authv1.RevokeAPIK
 	return nil, nil
 }
 
+func (m *mockAuthClient) RotateAPIKey(ctx context.Context, in *authv1.RotateAPIKeyRequest, opts ...grpc.CallOption) (*authv1.RotateAPIKeyResponse, error) {
+	return nil, nil
+}
+
 func (m *mockAuthClient) ListAPIKeys(ctx context.Context, in *authv1.ListAPIKeysRequest, opts ...grpc.CallOption) (*authv1.ListAPIKeysResponse, error) {
 	return nil, nil
 }

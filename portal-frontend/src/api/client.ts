@@ -164,6 +164,7 @@ export interface APIKeyInfo {
   created_at: string;
   expires_at?: string;
   last_used_at?: string;
+  revoke_at?: string;
 }
 
 export interface CreateAPIKeyRequest {
@@ -180,6 +181,14 @@ export interface CreateAPIKeyResponse {
   expires_at?: string;
 }
 
+export interface RotateAPIKeyResponse {
+  api_key: string;
+  api_key_id: string;
+  created_at: string;
+  expires_at?: string;
+  old_key_revoke_at?: string;
+}
+
 export const apiKeysApi = {
   list: () => apiFetch<{ keys: APIKeyInfo[] }>('/api-keys'),
   create: (data: CreateAPIKeyRequest) =>
@@ -188,6 +197,8 @@ export const apiKeysApi = {
   get: (id: string) => apiFetch<APIKeyInfo>(`/api-keys/${id}`),
   update: (id: string, data: { name: string; scopes: string[]; allowed_ips: string[]; expires_at?: string }) =>
     apiFetch<APIKeyInfo>(`/api-keys/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  rotate: (id: string) =>
+    apiFetch<RotateAPIKeyResponse>(`/api-keys/${id}/rotate`, { method: 'POST' }),
 };
 
 // Webhooks API

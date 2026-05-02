@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/internal/services/auth/domain"
@@ -53,6 +54,16 @@ func (m *MockAPIKeyRepository) UpdateLastUsed(ctx context.Context, id uuid.UUID)
 }
 
 func (m *MockAPIKeyRepository) Revoke(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockAPIKeyRepository) SetRevokeAt(ctx context.Context, id uuid.UUID, revokeAt time.Time) error {
+	args := m.Called(ctx, id, revokeAt)
+	return args.Error(0)
+}
+
+func (m *MockAPIKeyRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }

@@ -27,6 +27,7 @@ const (
 	AuthService_RevokeAPIKey_FullMethodName         = "/auth.v1.AuthService/RevokeAPIKey"
 	AuthService_ListAPIKeys_FullMethodName          = "/auth.v1.AuthService/ListAPIKeys"
 	AuthService_UpdateAPIKey_FullMethodName         = "/auth.v1.AuthService/UpdateAPIKey"
+	AuthService_RotateAPIKey_FullMethodName         = "/auth.v1.AuthService/RotateAPIKey"
 	AuthService_ChangePassword_FullMethodName       = "/auth.v1.AuthService/ChangePassword"
 	AuthService_SetupTOTP_FullMethodName            = "/auth.v1.AuthService/SetupTOTP"
 	AuthService_VerifyTOTP_FullMethodName           = "/auth.v1.AuthService/VerifyTOTP"
@@ -75,6 +76,9 @@ type AuthServiceClient interface {
 	ListAPIKeys(ctx context.Context, in *ListAPIKeysRequest, opts ...grpc.CallOption) (*ListAPIKeysResponse, error)
 	// UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)
 	UpdateAPIKey(ctx context.Context, in *UpdateAPIKeyRequest, opts ...grpc.CallOption) (*UpdateAPIKeyResponse, error)
+	// RotateAPIKey генерирует новый ключ для того же слота (имя/scopes/IPs/expires_at).
+	// Старый ключ помечается soft-revoke'ом с grace-периодом (см. application.APIKeyRotateGrace).
+	RotateAPIKey(ctx context.Context, in *RotateAPIKeyRequest, opts ...grpc.CallOption) (*RotateAPIKeyResponse, error)
 	// ChangePassword меняет пароль пользователя (требует текущий пароль)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
 	// SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
@@ -207,6 +211,16 @@ func (c *authServiceClient) UpdateAPIKey(ctx context.Context, in *UpdateAPIKeyRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateAPIKeyResponse)
 	err := c.cc.Invoke(ctx, AuthService_UpdateAPIKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RotateAPIKey(ctx context.Context, in *RotateAPIKeyRequest, opts ...grpc.CallOption) (*RotateAPIKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RotateAPIKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_RotateAPIKey_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -475,6 +489,9 @@ type AuthServiceServer interface {
 	ListAPIKeys(context.Context, *ListAPIKeysRequest) (*ListAPIKeysResponse, error)
 	// UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)
 	UpdateAPIKey(context.Context, *UpdateAPIKeyRequest) (*UpdateAPIKeyResponse, error)
+	// RotateAPIKey генерирует новый ключ для того же слота (имя/scopes/IPs/expires_at).
+	// Старый ключ помечается soft-revoke'ом с grace-периодом (см. application.APIKeyRotateGrace).
+	RotateAPIKey(context.Context, *RotateAPIKeyRequest) (*RotateAPIKeyResponse, error)
 	// ChangePassword меняет пароль пользователя (требует текущий пароль)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
 	// SetupTOTP генерирует TOTP секрет, возвращает секрет + QR URI + коды восстановления
@@ -556,6 +573,9 @@ func (UnimplementedAuthServiceServer) ListAPIKeys(context.Context, *ListAPIKeysR
 }
 func (UnimplementedAuthServiceServer) UpdateAPIKey(context.Context, *UpdateAPIKeyRequest) (*UpdateAPIKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateAPIKey not implemented")
+}
+func (UnimplementedAuthServiceServer) RotateAPIKey(context.Context, *RotateAPIKeyRequest) (*RotateAPIKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RotateAPIKey not implemented")
 }
 func (UnimplementedAuthServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
@@ -790,6 +810,24 @@ func _AuthService_UpdateAPIKey_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).UpdateAPIKey(ctx, req.(*UpdateAPIKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RotateAPIKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RotateAPIKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RotateAPIKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RotateAPIKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RotateAPIKey(ctx, req.(*RotateAPIKeyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1264,6 +1302,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateAPIKey",
 			Handler:    _AuthService_UpdateAPIKey_Handler,
+		},
+		{
+			MethodName: "RotateAPIKey",
+			Handler:    _AuthService_RotateAPIKey_Handler,
 		},
 		{
 			MethodName: "ChangePassword",

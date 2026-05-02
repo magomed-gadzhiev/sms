@@ -43,6 +43,10 @@ type APIKeyRepository interface {
 	Update(ctx context.Context, apiKey *domain.APIKey) error
 	UpdateLastUsed(ctx context.Context, id uuid.UUID) error
 	Revoke(ctx context.Context, id uuid.UUID) error
+	// SetRevokeAt используется RotateAPIKey для soft-rotate (grace period).
+	SetRevokeAt(ctx context.Context, id uuid.UUID, revokeAt time.Time) error
+	// Delete — physical delete для compensating-rollback в RotateAPIKey.
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // RefreshTokenRepository интерфейс для работы с refresh токенами

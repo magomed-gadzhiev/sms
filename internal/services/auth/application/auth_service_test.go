@@ -593,6 +593,131 @@ func TestAuthService(t *testing.T) {
 		})
 	})
 
+	t.Run("RotateAPIKey", func(t *testing.T) {
+
+		t.Run("success creates new key and soft-revokes old", func(t *testing.T) {
+			userRepo := new(mocks.MockUserRepository)
+			apiKeyRepo := new(mocks.MockAPIKeyRepository)
+			refreshRepo := new(mocks.MockRefreshTokenRepository)
+			passwordHasher := new(mocks.MockPasswordHasher)
+			apiKeyGen := new(mocks.MockAPIKeyGenerator)
+
+			tokenService := newTestTokenService(t, refreshRepo)
+			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+
+			keyID := uuid.New()
+			userID := uuid.New()
+			expiresAt := time.Now().Add(30 * 24 * time.Hour)
+			oldKey := &domain.APIKey{
+				ID:         keyID,
+				UserID:     userID,
+				Name:       "Slot",
+				Active:     true,
+				ExpiresAt:  &expiresAt,
+				Scopes:     []string{"messages:read"},
+				AllowedIPs: []string{"10.0.0.1"},
+			}
+
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(oldKey, nil)
+			apiKeyGen.On("GenerateAPIKey").Return("sk_test_newrawkey", nil)
+			apiKeyGen.On("GetKeyPrefix", "sk_test_newrawkey").Return("sk_test_")
+			apiKeyRepo.On("Create", ctx, mock.MatchedBy(func(k *domain.APIKey) bool {
+				return k.Name == "Slot" &&
+					k.UserID == userID &&
+					k.Active == true &&
+					len(k.Scopes) == 1 && k.Scopes[0] == "messages:read" &&
+					len(k.AllowedIPs) == 1 && k.AllowedIPs[0] == "10.0.0.1" &&
+					k.ExpiresAt != nil && k.ExpiresAt.Equal(expiresAt)
+			})).Return(nil)
+			apiKeyRepo.On("SetRevokeAt", ctx, keyID, mock.AnythingOfType("time.Time")).Return(nil)
+
+			newKey, rawKey, oldRevokeAt, err := svc.RotateAPIKey(ctx, keyID, userID)
+
+			require.NoError(t, err)
+			require.NotNil(t, newKey)
+			assert.Equal(t, "sk_test_newrawkey", rawKey)
+			assert.NotEqual(t, keyID, newKey.ID, "new key must have different ID")
+			assert.Equal(t, "Slot", newKey.Name)
+			assert.WithinDuration(t, time.Now().Add(application.APIKeyRotateGrace), oldRevokeAt, 5*time.Second, "oldRevokeAt must be ~now+grace")
+			apiKeyRepo.AssertExpectations(t)
+			apiKeyGen.AssertExpectations(t)
+		})
+
+		t.Run("not owned returns ErrAPIKeyNotOwned", func(t *testing.T) {
+			userRepo := new(mocks.MockUserRepository)
+			apiKeyRepo := new(mocks.MockAPIKeyRepository)
+			refreshRepo := new(mocks.MockRefreshTokenRepository)
+			passwordHasher := new(mocks.MockPasswordHasher)
+			apiKeyGen := new(mocks.MockAPIKeyGenerator)
+
+			tokenService := newTestTokenService(t, refreshRepo)
+			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+
+			keyID := uuid.New()
+			ownerID := uuid.New()
+			attackerID := uuid.New()
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(&domain.APIKey{ID: keyID, UserID: ownerID, Active: true}, nil)
+
+			newKey, rawKey, _, err := svc.RotateAPIKey(ctx, keyID, attackerID)
+
+			assert.ErrorIs(t, err, application.ErrAPIKeyNotOwned)
+			assert.Nil(t, newKey)
+			assert.Empty(t, rawKey)
+			apiKeyRepo.AssertNotCalled(t, "Create")
+			apiKeyRepo.AssertNotCalled(t, "SetRevokeAt")
+		})
+
+		t.Run("revoked key returns ErrAPIKeyRevoked", func(t *testing.T) {
+			userRepo := new(mocks.MockUserRepository)
+			apiKeyRepo := new(mocks.MockAPIKeyRepository)
+			refreshRepo := new(mocks.MockRefreshTokenRepository)
+			passwordHasher := new(mocks.MockPasswordHasher)
+			apiKeyGen := new(mocks.MockAPIKeyGenerator)
+
+			tokenService := newTestTokenService(t, refreshRepo)
+			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+
+			keyID := uuid.New()
+			userID := uuid.New()
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(&domain.APIKey{ID: keyID, UserID: userID, Active: false}, nil)
+
+			newKey, _, _, err := svc.RotateAPIKey(ctx, keyID, userID)
+
+			assert.ErrorIs(t, err, application.ErrAPIKeyRevoked)
+			assert.Nil(t, newKey)
+			apiKeyRepo.AssertNotCalled(t, "Create")
+			apiKeyRepo.AssertNotCalled(t, "SetRevokeAt")
+		})
+
+		t.Run("setrevokeat fails triggers compensating delete", func(t *testing.T) {
+			userRepo := new(mocks.MockUserRepository)
+			apiKeyRepo := new(mocks.MockAPIKeyRepository)
+			refreshRepo := new(mocks.MockRefreshTokenRepository)
+			passwordHasher := new(mocks.MockPasswordHasher)
+			apiKeyGen := new(mocks.MockAPIKeyGenerator)
+
+			tokenService := newTestTokenService(t, refreshRepo)
+			svc := application.NewAuthServiceWithDeps(userRepo, apiKeyRepo, tokenService, passwordHasher, apiKeyGen)
+
+			keyID := uuid.New()
+			userID := uuid.New()
+			apiKeyRepo.On("GetByID", ctx, keyID).Return(&domain.APIKey{ID: keyID, UserID: userID, Active: true}, nil)
+			apiKeyGen.On("GenerateAPIKey").Return("sk_test_newrawkey", nil)
+			apiKeyGen.On("GetKeyPrefix", "sk_test_newrawkey").Return("sk_test_")
+			apiKeyRepo.On("Create", ctx, mock.AnythingOfType("*domain.APIKey")).Return(nil)
+			apiKeyRepo.On("SetRevokeAt", ctx, keyID, mock.AnythingOfType("time.Time")).Return(errors.New("db down"))
+			// Compensating delete должна быть вызвана:
+			apiKeyRepo.On("Delete", ctx, mock.AnythingOfType("uuid.UUID")).Return(nil)
+
+			newKey, _, _, err := svc.RotateAPIKey(ctx, keyID, userID)
+
+			require.Error(t, err)
+			assert.Nil(t, newKey)
+			apiKeyRepo.AssertExpectations(t)
+			apiKeyRepo.AssertCalled(t, "Delete", ctx, mock.AnythingOfType("uuid.UUID"))
+		})
+	})
+
 	t.Run("ListAPIKeys", func(t *testing.T) {
 
 		t.Run("returns keys for user", func(t *testing.T) {

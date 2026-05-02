@@ -73,6 +73,9 @@ func (h *APIKeyHandlers) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 		if key.LastUsedAt != nil {
 			keys[i]["last_used_at"] = key.LastUsedAt.AsTime()
 		}
+		if key.RevokeAt != nil {
+			keys[i]["revoke_at"] = key.RevokeAt.AsTime()
+		}
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
@@ -241,6 +244,65 @@ func (h *APIKeyHandlers) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// RotateAPIKey обрабатывает POST /api-keys/{id}/rotate.
+// Генерирует новый ключ для того же слота, помечает старый soft-revoke'ом
+// с grace-периодом (см. application.APIKeyRotateGrace = 24h).
+// Возвращает новый ключ (raw, единственный раз).
+func (h *APIKeyHandlers) RotateAPIKey(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+
+	keyID := mux.Vars(r)["id"]
+	if keyID == "" {
+		respondError(w, shared.ErrInvalidInput("ID ключа обязателен"))
+		return
+	}
+
+	resp, err := h.authClient.RotateAPIKey(r.Context(), &authv1.RotateAPIKeyRequest{
+		ApiKeyId: keyID,
+		UserId:   userID.String(),
+	})
+	if err != nil {
+		log.Error().Err(err).Str("api_key_id", keyID).Msg("ошибка ротации API ключа")
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Audit event с target = новый key_id (старый ID — в metadata).
+	if h.auditPublisher != nil {
+		clientIDStr := ""
+		if cid, ok := middleware.GetClientID(r.Context()); ok {
+			clientIDStr = cid.String()
+		}
+		event := audit.NewAuditEvent(clientIDStr, userID.String(), audit.ActionAPIKeyRotated, audit.ResourceAPIKey, resp.ApiKeyId)
+		event.IPAddress = getIPAddress(r)
+		event.Details = map[string]any{
+			"old_key_id": keyID,
+		}
+		if err := h.auditPublisher.Publish(r.Context(), event); err != nil {
+			log.Error().Err(err).Msg("ошибка публикации audit event")
+		}
+	}
+
+	result := map[string]interface{}{
+		"api_key":    resp.ApiKey,
+		"api_key_id": resp.ApiKeyId,
+	}
+	if resp.CreatedAt != nil {
+		result["created_at"] = resp.CreatedAt.AsTime()
+	}
+	if resp.ExpiresAt != nil {
+		result["expires_at"] = resp.ExpiresAt.AsTime()
+	}
+	if resp.OldKeyRevokeAt != nil {
+		result["old_key_revoke_at"] = resp.OldKeyRevokeAt.AsTime()
+	}
+	respondJSON(w, http.StatusOK, result)
 }
 
 // updateAPIKeyRequest представляет запрос на обновление API ключа

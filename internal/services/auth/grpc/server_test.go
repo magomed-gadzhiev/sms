@@ -132,6 +132,16 @@ func (m *mockAPIKeyRepo) Revoke(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
+func (m *mockAPIKeyRepo) SetRevokeAt(ctx context.Context, id uuid.UUID, revokeAt time.Time) error {
+	args := m.Called(ctx, id, revokeAt)
+	return args.Error(0)
+}
+
+func (m *mockAPIKeyRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 type mockRefreshTokenRepo struct {
 	mock.Mock
 }

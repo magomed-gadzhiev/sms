@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
-import { apiKeysApi, ApiError, type APIKeyInfo, type CreateAPIKeyResponse } from '../../api/client';
+import { apiKeysApi, ApiError, type APIKeyInfo, type CreateAPIKeyResponse, type RotateAPIKeyResponse } from '../../api/client';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -44,6 +44,12 @@ export function APIKeysPage() {
 
   // Revoke confirmation
   const [revokeId, setRevokeId] = useState<string | null>(null);
+
+  // Rotate state
+  const [rotateId, setRotateId] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
+  const [rotatedKey, setRotatedKey] = useState<RotateAPIKeyResponse | null>(null);
+  const [rotateCopied, setRotateCopied] = useState(false);
 
   // Detail/Edit modal
   const [detailKey, setDetailKey] = useState<APIKeyInfo | null>(null);
@@ -125,6 +131,30 @@ export function APIKeysPage() {
     }
   }
 
+  async function handleRotate(id: string) {
+    setError('');
+    setRotating(true);
+    try {
+      const resp = await apiKeysApi.rotate(id);
+      setRotateId(null);
+      setRotatedKey(resp);
+      await loadKeys();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Не удалось ротировать API ключ');
+      setRotateId(null);
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  function handleCopyRotatedKey() {
+    if (rotatedKey) {
+      navigator.clipboard.writeText(rotatedKey.api_key);
+      setRotateCopied(true);
+      setTimeout(() => setRotateCopied(false), 2000);
+    }
+  }
+
   function handleCopyKey() {
     if (createdKey) {
       navigator.clipboard.writeText(createdKey.api_key);
@@ -196,6 +226,7 @@ export function APIKeysPage() {
 
   const handleOpenDetail = useCallback((key: APIKeyInfo) => openDetailModal(key), []);
   const handleRevokeClick = useCallback((key: APIKeyInfo) => setRevokeId(key.id), []);
+  const handleRotateClick = useCallback((key: APIKeyInfo) => setRotateId(key.id), []);
 
   const columns = useMemo<Column<APIKeyInfo>[]>(() => [
     { key: 'name', header: 'Название' },
@@ -361,6 +392,47 @@ export function APIKeysPage() {
         confirmLabel="Да, отозвать"
       />
 
+      {/* Rotate confirmation dialog */}
+      <ConfirmDialog
+        open={rotateId !== null}
+        onConfirm={() => rotateId && handleRotate(rotateId)}
+        onCancel={() => setRotateId(null)}
+        title="Ротировать API ключ"
+        description="Будет создан новый API ключ с теми же scope'ами и настройками. Старый ключ продолжит работать в течение 24 часов, после чего перестанет действовать. Подмените ключ во всех ваших интеграциях."
+        confirmLabel={rotating ? 'Ротация...' : 'Да, ротировать'}
+      />
+
+      {/* Rotated key shown once */}
+      <Modal
+        open={rotatedKey !== null}
+        onClose={() => setRotatedKey(null)}
+        title="Новый API ключ создан"
+      >
+        {rotatedKey && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Скопируйте новый ключ сейчас. Он показывается только один раз. Старый ключ продолжит работать ещё 24 часа для безопасной подмены в интеграциях.
+            </p>
+            <div className="bg-gray-100 p-3 rounded font-mono text-sm break-all">
+              {rotatedKey.api_key}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleCopyRotatedKey}>
+                {rotateCopied ? 'Скопировано' : 'Скопировать'}
+              </Button>
+              <Button variant="secondary" onClick={() => setRotatedKey(null)}>
+                Готово
+              </Button>
+            </div>
+            {rotatedKey.old_key_revoke_at && (
+              <p className="text-xs text-gray-500">
+                Старый ключ перестанет работать: {new Date(rotatedKey.old_key_revoke_at).toLocaleString('ru-RU')}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
+
       {/* Detail / Edit modal */}
       <Modal
         open={detailKey !== null}
@@ -507,14 +579,26 @@ export function APIKeysPage() {
         onRowClick={handleOpenDetail}
         rowActions={(key) =>
           key.active ? (
-            <Button
-              variant="danger"
-              size="sm"
-              aria-label={`Отозвать API ключ ${key.name}`}
-              onClick={() => handleRevokeClick(key)}
-            >
-              Отозвать
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={`Ротировать API ключ ${key.name}`}
+                onClick={() => handleRotateClick(key)}
+                disabled={!!key.revoke_at}
+                title={key.revoke_at ? 'Ключ уже в процессе ротации' : 'Сгенерировать новый ключ; старый перестанет работать через 24 часа'}
+              >
+                Ротировать
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                aria-label={`Отозвать API ключ ${key.name}`}
+                onClick={() => handleRevokeClick(key)}
+              >
+                Отозвать
+              </Button>
+            </div>
           ) : null
         }
       />

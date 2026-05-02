@@ -32,6 +32,10 @@ service AuthService {
   // UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)
   rpc UpdateAPIKey(UpdateAPIKeyRequest) returns (UpdateAPIKeyResponse);
 
+  // RotateAPIKey генерирует новый ключ для того же слота (имя/scopes/IPs/expires_at).
+  // Старый ключ помечается soft-revoke'ом с grace-периодом (см. application.APIKeyRotateGrace).
+  rpc RotateAPIKey(RotateAPIKeyRequest) returns (RotateAPIKeyResponse);
+
   // ChangePassword меняет пароль пользователя (требует текущий пароль)
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
 
@@ -173,6 +177,23 @@ message CreateAPIKeyResponse {
   google.protobuf.Timestamp expires_at = 4;  // Время истечения
 }
 
+// RotateAPIKeyRequest представляет запрос на ротацию API ключа
+message RotateAPIKeyRequest {
+  string api_key_id = 1;      // ID ключа для ротации
+  string user_id = 2;         // ID владельца (для проверки ownership)
+}
+
+// RotateAPIKeyResponse представляет ответ на ротацию API ключа.
+// Возвращает новый ключ (raw, единственный раз). Старый помечен soft-revoke'ом
+// с grace-периодом — продолжает работать до revoke_at.
+message RotateAPIKeyResponse {
+  string api_key = 1;                              // Новый API ключ (raw)
+  string api_key_id = 2;                           // ID нового ключа
+  google.protobuf.Timestamp created_at = 3;        // Время создания нового
+  google.protobuf.Timestamp expires_at = 4;        // Время истечения нового (наследовано от старого)
+  google.protobuf.Timestamp old_key_revoke_at = 5; // Когда старый ключ перестанет работать
+}
+
 // RevokeAPIKeyRequest представляет запрос на отзыв API ключа
 message RevokeAPIKeyRequest {
   string api_key_id = 1;      // ID ключа для отзыва
@@ -230,6 +251,7 @@ message APIKeyInfo {
   google.protobuf.Timestamp last_used_at = 7;  // Время последнего использования
   repeated string scopes = 8; // Права доступа
   repeated string allowed_ips = 9; // Разрешенные IP адреса
+  google.protobuf.Timestamp revoke_at = 10;  // Soft-rotate cutoff (NULL = не в ротации)
 }
 
 // SetupTOTPRequest представляет запрос на настройку TOTP

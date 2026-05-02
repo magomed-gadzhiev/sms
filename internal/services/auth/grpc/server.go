@@ -328,11 +328,60 @@ func (s *Server) ListAPIKeys(ctx context.Context, req *authv1.ListAPIKeysRequest
 		if key.LastUsedAt != nil {
 			apiKeys[i].LastUsedAt = timestamppb.New(*key.LastUsedAt)
 		}
+		if key.RevokeAt != nil {
+			apiKeys[i].RevokeAt = timestamppb.New(*key.RevokeAt)
+		}
 	}
 
 	return &authv1.ListAPIKeysResponse{
 		Keys: apiKeys,
 	}, nil
+}
+
+// RotateAPIKey генерирует новый ключ для того же слота, помечает старый
+// soft-revoke'ом с grace-периодом. См. application.RotateAPIKey.
+func (s *Server) RotateAPIKey(ctx context.Context, req *authv1.RotateAPIKeyRequest) (*authv1.RotateAPIKeyResponse, error) {
+	if req.ApiKeyId == "" {
+		return nil, status.Error(codes.InvalidArgument, "api_key_id is required")
+	}
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	keyID, err := uuid.Parse(req.ApiKeyId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid api_key_id format")
+	}
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	newKey, rawKey, oldRevokeAt, err := s.authService.RotateAPIKey(ctx, keyID, userID)
+	if err != nil {
+		if errors.Is(err, authrepo.ErrAPIKeyNotFound) {
+			return nil, status.Error(codes.NotFound, "API key not found")
+		}
+		if errors.Is(err, application.ErrAPIKeyNotOwned) {
+			return nil, status.Error(codes.PermissionDenied, "API key does not belong to user")
+		}
+		if errors.Is(err, application.ErrAPIKeyRevoked) {
+			return nil, status.Error(codes.FailedPrecondition, "cannot rotate revoked or expired key")
+		}
+		log.Error().Err(err).Msg("ошибка ротации API ключа")
+		return nil, status.Error(codes.Internal, "failed to rotate API key")
+	}
+
+	resp := &authv1.RotateAPIKeyResponse{
+		ApiKey:         rawKey,
+		ApiKeyId:       newKey.ID.String(),
+		CreatedAt:      timestamppb.New(newKey.CreatedAt),
+		OldKeyRevokeAt: timestamppb.New(oldRevokeAt),
+	}
+	if newKey.ExpiresAt != nil {
+		resp.ExpiresAt = timestamppb.New(*newKey.ExpiresAt)
+	}
+	return resp, nil
 }
 
 // UpdateAPIKey обновляет API ключ (имя, scopes, IP, срок действия)

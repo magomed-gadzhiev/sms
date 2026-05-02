@@ -17,6 +17,10 @@ type APIKey struct {
 	Active     bool       `json:"active" db:"active"`
 	ExpiresAt  *time.Time `json:"expires_at,omitempty" db:"expires_at"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty" db:"last_used_at"`
+	// RevokeAt — момент soft-rotate cutoff. NULL = не в процессе ротации.
+	// Если не NULL и < NOW — ключ считается невалидным (IsValid=false), даже
+	// если active=true. До RevokeAt ключ продолжает работать (grace period).
+	RevokeAt   *time.Time `json:"revoke_at,omitempty" db:"revoke_at"`
 	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 
@@ -33,9 +37,20 @@ func (k *APIKey) IsExpired() bool {
 	return time.Now().After(*k.ExpiresAt)
 }
 
-// IsValid проверяет, валиден ли ключ (активен и не истек)
+// IsRevoked проверяет, истёк ли soft-rotate grace period.
+// Возвращает true, если RevokeAt установлен и уже прошёл — ключ должен
+// считаться невалидным даже если Active=true (Active обнуляется лениво
+// при следующем audit/housekeeping проходе).
+func (k *APIKey) IsRevoked() bool {
+	if k.RevokeAt == nil {
+		return false
+	}
+	return time.Now().After(*k.RevokeAt)
+}
+
+// IsValid проверяет, валиден ли ключ (активен, не истёк, не отозван rotate'ом).
 func (k *APIKey) IsValid() bool {
-	return k.Active && !k.IsExpired()
+	return k.Active && !k.IsExpired() && !k.IsRevoked()
 }
 
 // IsIPAllowed проверяет, разрешён ли IP адрес для данного ключа.

@@ -43,6 +43,9 @@ func (s *stubAuthClient) CreateAPIKey(ctx context.Context, in *authv1.CreateAPIK
 func (s *stubAuthClient) RevokeAPIKey(ctx context.Context, in *authv1.RevokeAPIKeyRequest, opts ...grpc.CallOption) (*authv1.RevokeAPIKeyResponse, error) {
 	return nil, nil
 }
+func (s *stubAuthClient) RotateAPIKey(ctx context.Context, in *authv1.RotateAPIKeyRequest, opts ...grpc.CallOption) (*authv1.RotateAPIKeyResponse, error) {
+	return nil, nil
+}
 func (s *stubAuthClient) ListAPIKeys(ctx context.Context, in *authv1.ListAPIKeysRequest, opts ...grpc.CallOption) (*authv1.ListAPIKeysResponse, error) {
 	return nil, nil
 }

@@ -18,6 +18,7 @@ const (
 	ActionAPIKeyCreated = "api_key.created"
 	ActionAPIKeyRevoked = "api_key.revoked"
 	ActionAPIKeyUpdated = "api_key.updated"
+	ActionAPIKeyRotated = "api_key.rotated"
 
 	ActionWebhookCreated  = "webhook.created"
 	ActionWebhookUpdated  = "webhook.updated"

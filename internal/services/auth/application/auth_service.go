@@ -331,6 +331,83 @@ func (s *AuthService) RevokeAPIKey(ctx context.Context, keyID, userID uuid.UUID)
 	return s.apiKeyRepo.Revoke(ctx, keyID)
 }
 
+// APIKeyRotateGrace — окно, в течение которого старый ключ продолжает работать
+// после rotate. Даёт integration время атомарно подменить ключ во всех клиентах
+// без выпадающих requests. Захардкожено; если когда-нибудь понадобится
+// конфигурируемость — извлечь в config.
+const APIKeyRotateGrace = 24 * time.Hour
+
+// RotateAPIKey генерирует новый ключ для того же логического слота, помечает
+// старый soft-revoke'ом с grace-периодом APIKeyRotateGrace. Возвращает new key
+// (raw, единственный раз) + revokeAt старого ключа.
+//
+// Sequential semantic: Create new → SetRevokeAt(old, now+grace). Если SetRevokeAt
+// падает — best-effort cleanup (Delete new) чтобы не оставлять orphan ключ.
+// Window inconsistency между шагами секунды — оба ключа active, не security
+// угроза (новый только что вернулся клиенту, старый ещё валиден).
+//
+// Только владелец может ротировать. Revoked/expired ключи не ротируются —
+// нечего ротировать (нужно создать новый явно).
+func (s *AuthService) RotateAPIKey(
+	ctx context.Context,
+	keyID, userID uuid.UUID,
+) (newKey *domain.APIKey, rawKey string, oldKeyRevokeAt time.Time, err error) {
+	old, err := s.apiKeyRepo.GetByID(ctx, keyID)
+	if err != nil {
+		return nil, "", time.Time{}, err
+	}
+	if old.UserID != userID {
+		return nil, "", time.Time{}, ErrAPIKeyNotOwned
+	}
+	if !old.IsValid() {
+		return nil, "", time.Time{}, ErrAPIKeyRevoked
+	}
+
+	// Генерируем новый ключ.
+	rawKey, err = s.apiKeyGenerator.GenerateAPIKey()
+	if err != nil {
+		return nil, "", time.Time{}, err
+	}
+	keyHash := s.hashAPIKey(rawKey)
+	keyPrefix := s.apiKeyGenerator.GetKeyPrefix(rawKey)
+
+	// Копируем slot-параметры со старого ключа.
+	newKey = &domain.APIKey{
+		ID:         uuid.New(),
+		UserID:     old.UserID,
+		Name:       old.Name,
+		KeyHash:    keyHash,
+		KeyPrefix:  keyPrefix,
+		Active:     true,
+		ExpiresAt:  old.ExpiresAt,
+		Scopes:     old.Scopes,
+		AllowedIPs: old.AllowedIPs,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	if err := s.apiKeyRepo.Create(ctx, newKey); err != nil {
+		return nil, "", time.Time{}, err
+	}
+
+	// Soft-revoke старого: revoke_at = now + grace. Если падает — откатываем
+	// созданный новый ключ, чтобы не оставлять orphan активным.
+	revokeAt := time.Now().Add(APIKeyRotateGrace)
+	if err := s.apiKeyRepo.SetRevokeAt(ctx, keyID, revokeAt); err != nil {
+		// Compensating cleanup: best-effort. Если и Delete упадёт — orphan
+		// останется в БД; админ должен будет revoke вручную. Логируем.
+		if delErr := s.apiKeyRepo.Delete(ctx, newKey.ID); delErr != nil {
+			log.Error().
+				Err(delErr).
+				Str("orphan_key_id", newKey.ID.String()).
+				Msg("rotate compensating delete failed: orphan key created but old not revoked")
+		}
+		return nil, "", time.Time{}, err
+	}
+
+	return newKey, rawKey, revokeAt, nil
+}
+
 // ListAPIKeys получает список API ключей пользователя
 func (s *AuthService) ListAPIKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	return s.apiKeyRepo.ListByUserID(ctx, userID)
