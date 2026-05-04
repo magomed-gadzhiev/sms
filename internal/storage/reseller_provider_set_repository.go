@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,7 +50,7 @@ func (r *ResellerProviderSetRepository) GetByID(ctx context.Context, id uuid.UUI
 		`SELECT id, reseller_id, name, is_default, created_at, updated_at
 		 FROM reseller_provider_sets WHERE id = $1`, id,
 	).Scan(&s.ID, &s.ResellerID, &s.Name, &s.IsDefault, &s.CreatedAt, &s.UpdatedAt)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	return &s, err
