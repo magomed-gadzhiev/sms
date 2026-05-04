@@ -82,6 +82,11 @@ func SetupRouter(
 	wsMessagesHandlers *handlers.WsMessagesHandlers,
 	companyHandlers *handlers.CompanyHandlers,
 	referencesHandlers *handlers.ReferencesHandlers,
+	networkProvidersHandlers *handlers.NetworkProvidersHandlers,
+	networkProviderSetsHandlers *handlers.NetworkProviderSetsHandlers,
+	networkProviderSetItemsHandlers *handlers.NetworkProviderSetItemsHandlers,
+	networkAssignmentsHandlers *handlers.NetworkAssignmentsHandlers,
+	subAccountNetworkOverridesHandlers *handlers.SubAccountNetworkOverridesHandlers,
 	dbPool *pgxpool.Pool,
 ) *mux.Router {
 	router := mux.NewRouter()
@@ -193,6 +198,13 @@ func SetupRouter(
 	subAccounts.HandleFunc("/{id}/api-keys", subAccountHandlers.GetSubAccountAPIKeys).Methods("GET")
 	subAccounts.HandleFunc("/{id}/webhooks", subAccountHandlers.GetSubAccountWebhooks).Methods("GET")
 	subAccounts.HandleFunc("/{id}/campaigns", subAccountHandlers.GetSubAccountCampaigns).Methods("GET")
+
+	// Sub-account network overrides (Plan 1 — Task 11 wiring).
+	// Specific path with /{provider_id} registered first so gorilla/mux does not
+	// confuse it with the parent /provider-overrides route on routing decisions.
+	subAccounts.HandleFunc("/{id}/network/provider-overrides/{provider_id}", subAccountNetworkOverridesHandlers.DeleteProviderOverride).Methods("DELETE")
+	subAccounts.HandleFunc("/{id}/network/provider-overrides", subAccountNetworkOverridesHandlers.AddProviderOverride).Methods("POST")
+	subAccounts.HandleFunc("/{id}/network/overview", subAccountNetworkOverridesHandlers.Overview).Methods("GET")
 
 	// Sub-account routing (reseller management)
 	subAccounts.HandleFunc("/{id}/providers", subAccountRoutingHandlers.AssignProvider).Methods("POST")
@@ -485,6 +497,27 @@ func SetupRouter(
 	resellerTpl.HandleFunc("/{id}/approve", resellerTemplateHandlers.ApproveResellerTemplate).Methods("POST")
 	resellerTpl.HandleFunc("/{id}/reject", resellerTemplateHandlers.RejectResellerTemplate).Methods("POST")
 	resellerTpl.HandleFunc("/{id}/request-revision", resellerTemplateHandlers.RequestRevisionResellerTemplate).Methods("POST")
+
+	// Reseller network management (Plan 1 — Task 11 wiring)
+	network := reseller.PathPrefix("/network").Subrouter()
+
+	network.HandleFunc("/providers", networkProvidersHandlers.List).Methods("GET")
+	network.HandleFunc("/providers", networkProvidersHandlers.Create).Methods("POST")
+	network.HandleFunc("/providers/{id}", networkProvidersHandlers.Update).Methods("PUT")
+	network.HandleFunc("/providers/{id}", networkProvidersHandlers.Delete).Methods("DELETE")
+
+	network.HandleFunc("/provider-sets", networkProviderSetsHandlers.List).Methods("GET")
+	network.HandleFunc("/provider-sets", networkProviderSetsHandlers.Create).Methods("POST")
+	network.HandleFunc("/provider-sets/{id}", networkProviderSetsHandlers.Update).Methods("PUT")
+	network.HandleFunc("/provider-sets/{id}", networkProviderSetsHandlers.Delete).Methods("DELETE")
+	network.HandleFunc("/provider-sets/{id}/items", networkProviderSetItemsHandlers.ListItems).Methods("GET")
+	network.HandleFunc("/provider-sets/{id}/items", networkProviderSetItemsHandlers.PutItems).Methods("PUT")
+
+	// /assignments/bulk must be registered before /assignments/{client_id} so
+	// gorilla/mux does not match the literal path against the {client_id} pattern.
+	network.HandleFunc("/assignments", networkAssignmentsHandlers.List).Methods("GET")
+	network.HandleFunc("/assignments/bulk", networkAssignmentsHandlers.Bulk).Methods("POST")
+	network.HandleFunc("/assignments/{client_id}", networkAssignmentsHandlers.PutOne).Methods("PUT")
 
 	// Reseller routing overview
 	resellerRouting := reseller.PathPrefix("/routing").Subrouter()

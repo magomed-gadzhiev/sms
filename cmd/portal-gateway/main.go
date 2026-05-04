@@ -32,6 +32,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/audit"
+	networksvc "github.com/smpp-server/smpp-server/internal/services/network"
 	routinginfra "github.com/smpp-server/smpp-server/internal/services/routing/infrastructure"
 	maxmessenger "github.com/smpp-server/smpp-server/internal/services/cascade/channels/maxmessenger"
 	cascadekafka "github.com/smpp-server/smpp-server/internal/services/cascade/infrastructure/kafka"
@@ -306,6 +307,14 @@ func main() {
 	resellerAnalyticsHandlers := handlers.NewResellerAnalyticsHandlers(serviceClients.AnalyticsClient, serviceClients.ClientClient)
 	networkStatsHandlers := handlers.NewNetworkStatisticsHandlers(serviceClients.NetworkAnalyticsClient, dbPool)
 
+	// Plan 1: aggregator routing management (Task 11 wiring)
+	providerSetMaterializer := networksvc.NewProviderSetMaterializer(dbPool)
+	networkProvidersHandlers := handlers.NewNetworkProvidersHandlers(dbPool)
+	networkProviderSetsHandlers := handlers.NewNetworkProviderSetsHandlers(dbPool, providerSetMaterializer)
+	networkProviderSetItemsHandlers := handlers.NewNetworkProviderSetItemsHandlers(dbPool, providerSetMaterializer)
+	networkAssignmentsHandlers := handlers.NewNetworkAssignmentsHandlers(dbPool, providerSetMaterializer)
+	subAccountNetworkOverridesHandlers := handlers.NewSubAccountNetworkOverridesHandlers(dbPool)
+
 	// Настройка HTTP роутера
 	router := portalrouter.SetupRouter(
 		healthChecker,
@@ -365,6 +374,11 @@ func main() {
 		wsMessagesHandlers,
 		companyHandlers,
 		referencesHandlers,
+		networkProvidersHandlers,
+		networkProviderSetsHandlers,
+		networkProviderSetItemsHandlers,
+		networkAssignmentsHandlers,
+		subAccountNetworkOverridesHandlers,
 		dbPool,
 	)
 
