@@ -265,9 +265,13 @@ func (h *NetworkProvidersHandlers) Delete(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInternalServer("ошибка чтения провайдера"))
 		return
 	}
-	if ownership != "private" || sourceClientID == nil || *sourceClientID != resellerID {
-		// Платформенный или чужой private — оба запрещены, отдаём 403.
-		respondError(w, shared.ErrForbidden("нельзя удалить"))
+	if ownership == "platform" {
+		respondError(w, shared.ErrForbidden("нельзя удалить платформенный провайдер"))
+		return
+	}
+	if sourceClientID == nil || *sourceClientID != resellerID {
+		// Чужой private — 404, чтобы не светить факт существования.
+		respondError(w, shared.ErrNotFound("провайдер"))
 		return
 	}
 

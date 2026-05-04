@@ -14,6 +14,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/storage"
+	"github.com/smpp-server/smpp-server/internal/storage/storagetest"
 )
 
 // withReseller кладёт client_id в context (заменяет session middleware в тесте).
@@ -25,14 +26,14 @@ func withReseller(r *http.Request, clientID uuid.UUID) *http.Request {
 // TestNetworkProviders_List_ReturnsPlatformAndPrivate — реселлер видит и
 // platform, и свой private; чужой private — не видит.
 func TestNetworkProviders_List_ReturnsPlatformAndPrivate(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	otherReseller := storage.SeedTestReseller(t, pool)
+	resellerID := storagetest.SeedReseller(t, pool)
+	otherReseller := storagetest.SeedReseller(t, pool)
 
-	platformID := storage.SeedTestProvider(t, pool, "PlatformA")
-	privateID := storage.SeedTestProviderPrivate(t, pool, "PrivateB", resellerID)
-	foreignPrivate := storage.SeedTestProviderPrivate(t, pool, "ForeignC", otherReseller)
+	platformID := storagetest.SeedProvider(t, pool, "PlatformA")
+	privateID := storagetest.SeedProviderPrivate(t, pool, "PrivateB", resellerID)
+	foreignPrivate := storagetest.SeedProviderPrivate(t, pool, "ForeignC", otherReseller)
 
 	h := NewNetworkProvidersHandlers(pool)
 	req := httptest.NewRequest("GET", "/portal/v1/reseller/network/providers", nil)
@@ -59,7 +60,7 @@ func TestNetworkProviders_List_ReturnsPlatformAndPrivate(t *testing.T) {
 
 // TestNetworkProviders_List_Unauthorized — без client_id в контексте → 401.
 func TestNetworkProviders_List_Unauthorized(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
 
 	h := NewNetworkProvidersHandlers(pool)
@@ -71,9 +72,9 @@ func TestNetworkProviders_List_Unauthorized(t *testing.T) {
 
 // TestNetworkProviders_Create_PrivateOnly — POST создаёт private-провайдера.
 func TestNetworkProviders_Create_PrivateOnly(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
+	resellerID := storagetest.SeedReseller(t, pool)
 
 	h := NewNetworkProvidersHandlers(pool)
 
@@ -107,9 +108,9 @@ func TestNetworkProviders_Create_PrivateOnly(t *testing.T) {
 
 // TestNetworkProviders_Create_InvalidInput — без обязательных полей → 400.
 func TestNetworkProviders_Create_InvalidInput(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
+	resellerID := storagetest.SeedReseller(t, pool)
 
 	h := NewNetworkProvidersHandlers(pool)
 	body := `{"name":"","smpp_host":"","system_id":""}`
@@ -122,10 +123,10 @@ func TestNetworkProviders_Create_InvalidInput(t *testing.T) {
 
 // TestNetworkProviders_Update_RejectPlatform — PUT на platform-провайдера → 403.
 func TestNetworkProviders_Update_RejectPlatform(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	platformID := storage.SeedTestProvider(t, pool, "Plat")
+	resellerID := storagetest.SeedReseller(t, pool)
+	platformID := storagetest.SeedProvider(t, pool, "Plat")
 
 	h := NewNetworkProvidersHandlers(pool)
 	body := `{"name":"hacked","smpp_host":"x","system_id":"y"}`
@@ -139,10 +140,10 @@ func TestNetworkProviders_Update_RejectPlatform(t *testing.T) {
 
 // TestNetworkProviders_Update_OwnPrivate — PUT на свой private → 200.
 func TestNetworkProviders_Update_OwnPrivate(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	priv := storage.SeedTestProviderPrivate(t, pool, "Own", resellerID)
+	resellerID := storagetest.SeedReseller(t, pool)
+	priv := storagetest.SeedProviderPrivate(t, pool, "Own", resellerID)
 
 	h := NewNetworkProvidersHandlers(pool)
 	uniqueName := "Renamed-" + uuid.New().String()[:8]
@@ -168,11 +169,11 @@ func TestNetworkProviders_Update_OwnPrivate(t *testing.T) {
 
 // TestNetworkProviders_Update_RejectForeignPrivate — PUT на чужой private → 404.
 func TestNetworkProviders_Update_RejectForeignPrivate(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	otherReseller := storage.SeedTestReseller(t, pool)
-	foreign := storage.SeedTestProviderPrivate(t, pool, "Foreign", otherReseller)
+	resellerID := storagetest.SeedReseller(t, pool)
+	otherReseller := storagetest.SeedReseller(t, pool)
+	foreign := storagetest.SeedProviderPrivate(t, pool, "Foreign", otherReseller)
 
 	h := NewNetworkProvidersHandlers(pool)
 	body := `{"name":"steal","smpp_host":"x","system_id":"y"}`
@@ -186,10 +187,10 @@ func TestNetworkProviders_Update_RejectForeignPrivate(t *testing.T) {
 
 // TestNetworkProviders_Delete_409IfUsedInSet — DELETE private, который в set'е → 409.
 func TestNetworkProviders_Delete_409IfUsedInSet(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	priv := storage.SeedTestProviderPrivate(t, pool, "P", resellerID)
+	resellerID := storagetest.SeedReseller(t, pool)
+	priv := storagetest.SeedProviderPrivate(t, pool, "P", resellerID)
 
 	setRepo := storage.NewResellerProviderSetRepository(pool)
 	itemsRepo := storage.NewResellerProviderSetItemsRepository(pool)
@@ -209,12 +210,43 @@ func TestNetworkProviders_Delete_409IfUsedInSet(t *testing.T) {
 	require.Contains(t, w.Body.String(), "used_in_provider_sets")
 }
 
+// TestNetworkProviders_Delete_409IfUsedInOverride — DELETE private, выставленного
+// override'ом суб-аккаунту → 409 + body содержит used_in_overrides.
+func TestNetworkProviders_Delete_409IfUsedInOverride(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	priv := storagetest.SeedProviderPrivate(t, pool, "Override", resellerID)
+
+	// Прямой INSERT в client_providers — override от агрегатора суб-аккаунту.
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO client_providers (client_id, provider_id, ownership)
+		 VALUES ($1, $2, 'private')`,
+		subID, priv,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM client_providers WHERE client_id=$1 AND provider_id=$2`, subID, priv)
+	})
+
+	h := NewNetworkProvidersHandlers(pool)
+	req := httptest.NewRequest("DELETE", "/portal/v1/reseller/network/providers/"+priv.String(), nil)
+	req = mux.SetURLVars(req, map[string]string{"id": priv.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "used_in_overrides")
+}
+
 // TestNetworkProviders_Delete_RejectPlatform — DELETE platform → 403.
 func TestNetworkProviders_Delete_RejectPlatform(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	platformID := storage.SeedTestProvider(t, pool, "Plat")
+	resellerID := storagetest.SeedReseller(t, pool)
+	platformID := storagetest.SeedProvider(t, pool, "Plat")
 
 	h := NewNetworkProvidersHandlers(pool)
 	req := httptest.NewRequest("DELETE", "/portal/v1/reseller/network/providers/"+platformID.String(), nil)
@@ -225,12 +257,30 @@ func TestNetworkProviders_Delete_RejectPlatform(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, w.Code)
 }
 
+// TestNetworkProviders_Delete_RejectForeignPrivate — DELETE чужой private → 404
+// (не светим существование).
+func TestNetworkProviders_Delete_RejectForeignPrivate(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	otherReseller := storagetest.SeedReseller(t, pool)
+	foreign := storagetest.SeedProviderPrivate(t, pool, "Foreign", otherReseller)
+
+	h := NewNetworkProvidersHandlers(pool)
+	req := httptest.NewRequest("DELETE", "/portal/v1/reseller/network/providers/"+foreign.String(), nil)
+	req = mux.SetURLVars(req, map[string]string{"id": foreign.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
 // TestNetworkProviders_Delete_NotInUse — DELETE private не-использованного → 204.
 func TestNetworkProviders_Delete_NotInUse(t *testing.T) {
-	pool, cleanup := storage.SetupTestDBExposed(t)
+	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
-	resellerID := storage.SeedTestReseller(t, pool)
-	priv := storage.SeedTestProviderPrivate(t, pool, "Free", resellerID)
+	resellerID := storagetest.SeedReseller(t, pool)
+	priv := storagetest.SeedProviderPrivate(t, pool, "Free", resellerID)
 
 	h := NewNetworkProvidersHandlers(pool)
 	req := httptest.NewRequest("DELETE", "/portal/v1/reseller/network/providers/"+priv.String(), nil)

@@ -1,14 +1,14 @@
-package storage
-
-// Cross-package test fixtures.
+// Package storagetest содержит экспортированные хелперы для интеграционных
+// тестов, использующих реальную БД из TEST_DATABASE_URL.
 //
-// Эти функции — экспортированные обёртки над приватными помощниками из
-// `test_helpers_test.go`. Файл НЕ имеет суффикса `_test.go`, чтобы быть
-// видимым из тестов других пакетов (handlers, services и т.п.).
+// Пакет вынесен из `internal/storage/`, чтобы зависимости от `testing` и
+// `testify` не утекали в production-бинарники (cmd/api, cmd/portal-gateway
+// и др.), которые импортируют internal/storage.
 //
-// ВАЖНО: код выполняет реальные INSERT'ы в TEST_DATABASE_URL и должен
+// Все функции выполняют реальные INSERT'ы в TEST_DATABASE_URL и должны
 // использоваться ТОЛЬКО в тестах. Каждая функция помечена `t.Helper()` и
-// регистрирует cleanup.
+// регистрирует cleanup через t.Cleanup.
+package storagetest
 
 import (
 	"context"
@@ -21,10 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// SetupTestDBExposed — экспортированная версия setupTestDB.
-// Возвращает пул к TEST_DATABASE_URL и cleanup. Если переменная не задана —
-// тест пропускается через t.Skip.
-func SetupTestDBExposed(t *testing.T) (*pgxpool.Pool, func()) {
+// SetupTestDB открывает пул к TEST_DATABASE_URL и возвращает cleanup.
+// Если переменная не задана — тест пропускается через t.Skip.
+func SetupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -36,9 +35,9 @@ func SetupTestDBExposed(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
-// SeedTestReseller вставляет минимального клиента-агрегатора (is_reseller=true).
+// SeedReseller вставляет минимального клиента-агрегатора (is_reseller=true).
 // Удаление регистрируется через t.Cleanup. Возвращает UUID нового клиента.
-func SeedTestReseller(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+func SeedReseller(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 
@@ -59,7 +58,7 @@ func SeedTestReseller(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 		fmt.Sprintf("reseller-%s@test.local", suffix),
 		planID,
 	)
-	require.NoError(t, err, "SeedTestReseller INSERT failed")
+	require.NoError(t, err, "SeedReseller INSERT failed")
 
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(),
@@ -73,9 +72,9 @@ func SeedTestReseller(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	return id
 }
 
-// SeedTestSubAccount вставляет суб-аккаунт (parent_client_id = resellerID).
+// SeedSubAccount вставляет суб-аккаунт (parent_client_id = resellerID).
 // Удаление регистрируется через t.Cleanup. Возвращает UUID нового клиента.
-func SeedTestSubAccount(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID) uuid.UUID {
+func SeedSubAccount(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 
@@ -97,7 +96,7 @@ func SeedTestSubAccount(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID) 
 		planID,
 		resellerID,
 	)
-	require.NoError(t, err, "SeedTestSubAccount INSERT failed")
+	require.NoError(t, err, "SeedSubAccount INSERT failed")
 
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(),
@@ -111,10 +110,10 @@ func SeedTestSubAccount(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID) 
 	return id
 }
 
-// SeedTestProvider вставляет минимального платформенного провайдера
+// SeedProvider вставляет минимального платформенного провайдера
 // (ownership='platform' по дефолту миграции 000132).
 // name используется как суффикс, чтобы избежать конфликтов UNIQUE-индекса providers.name.
-func SeedTestProvider(t *testing.T, pool *pgxpool.Pool, name string) uuid.UUID {
+func SeedProvider(t *testing.T, pool *pgxpool.Pool, name string) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 
@@ -127,7 +126,7 @@ func SeedTestProvider(t *testing.T, pool *pgxpool.Pool, name string) uuid.UUID {
 		 VALUES ($1, $2, 'localhost', 2775, 'test', 'test', 'transceiver', 'platform')`,
 		id, uniqueName,
 	)
-	require.NoError(t, err, "SeedTestProvider INSERT failed")
+	require.NoError(t, err, "SeedProvider INSERT failed")
 
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(),
@@ -137,9 +136,9 @@ func SeedTestProvider(t *testing.T, pool *pgxpool.Pool, name string) uuid.UUID {
 	return id
 }
 
-// SeedTestProviderPrivate вставляет private-провайдера, принадлежащего агрегатору.
+// SeedProviderPrivate вставляет private-провайдера, принадлежащего агрегатору.
 // ownership='private', source_client_id=resellerID.
-func SeedTestProviderPrivate(t *testing.T, pool *pgxpool.Pool, name string, resellerID uuid.UUID) uuid.UUID {
+func SeedProviderPrivate(t *testing.T, pool *pgxpool.Pool, name string, resellerID uuid.UUID) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 
@@ -152,7 +151,7 @@ func SeedTestProviderPrivate(t *testing.T, pool *pgxpool.Pool, name string, rese
 		 VALUES ($1, $2, 'localhost', 2775, 'test', 'test', 'transceiver', 'private', $3)`,
 		id, uniqueName, resellerID,
 	)
-	require.NoError(t, err, "SeedTestProviderPrivate INSERT failed")
+	require.NoError(t, err, "SeedProviderPrivate INSERT failed")
 
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(),
