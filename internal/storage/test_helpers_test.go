@@ -79,8 +79,8 @@ func seedTestSubAccount(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID) 
 	id := uuid.New()
 	suffix := id.String()[:8]
 	_, err = pool.Exec(ctx,
-		`INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id, parent_client_id)
-		 VALUES ($1, $2, $3, 'secret', $4, true, false, $5, $6)`,
+		`INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id, parent_client_id, account_type)
+		 VALUES ($1, $2, $3, 'secret', $4, true, false, $5, $6, 'sub_account')`,
 		id,
 		fmt.Sprintf("test-subaccount-%s", suffix),
 		fmt.Sprintf("apikey-sub-%s", suffix),
