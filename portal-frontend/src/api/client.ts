@@ -1652,3 +1652,202 @@ export const networkTariffsApi = {
       body: JSON.stringify(body),
     }),
 };
+
+// =============================================================================
+// Network Routing (Plan 1 — providers, provider-sets, assignments, overrides)
+// =============================================================================
+
+export interface NetworkProvider {
+  id: string;
+  name: string;
+  ownership: 'platform' | 'private';
+  smpp_host: string | null;
+  smpp_port: number | null;
+  system_id: string | null;
+  system_type: string | null;
+  active: boolean;
+}
+
+export interface NetworkProviderSet {
+  id: string;
+  name: string;
+  is_default: boolean;
+  item_count: number;
+  assigned_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NetworkProviderSetItem {
+  id: string;
+  provider_id: string;
+  provider_name: string;
+  priority: number;
+  expose_cost: boolean;
+  expose_provider_name: boolean;
+}
+
+export interface NetworkAssignment {
+  client_id: string;
+  sub_account_name: string;
+  provider_set_id: string | null;
+  provider_set_name: string | null;
+  route_set_id: string | null;
+  route_set_name: string | null;
+  has_overrides: boolean;
+  validation_status: 'ok' | 'unassigned' | 'conflict';
+}
+
+export interface NetworkBulkAssignResult {
+  client_id: string;
+  status: 'ok' | 'error';
+  error?: string;
+}
+
+export interface NetworkProviderOverride {
+  provider_id: string;
+  name: string;
+  priority: number;
+  ownership: string;
+}
+
+export interface NetworkSubAccountOverview {
+  provider_set: { id: string; name: string } | null;
+  route_set: null;
+  provider_overrides: NetworkProviderOverride[];
+  route_overrides: unknown[];
+}
+
+export const networkApi = {
+  // ── Providers ──────────────────────────────────────────────────────────────
+
+  /** GET /reseller/network/providers — platform + reseller's private providers */
+  listProviders: () =>
+    apiFetch<{ providers: NetworkProvider[] }>('/reseller/network/providers'),
+
+  /** POST /reseller/network/providers — create a private provider */
+  createProvider: (data: {
+    name: string;
+    smpp_host: string;
+    smpp_port: number;
+    system_id: string;
+    password: string;
+    system_type?: string;
+  }) =>
+    apiFetch<NetworkProvider>('/reseller/network/providers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** PUT /reseller/network/providers/{id} — update a private provider */
+  updateProvider: (id: string, data: {
+    name: string;
+    smpp_host: string;
+    smpp_port: number;
+    system_id: string;
+    password?: string;
+    system_type?: string;
+  }) =>
+    apiFetch<{ id: string }>(`/reseller/network/providers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  /** DELETE /reseller/network/providers/{id} — remove a private provider */
+  deleteProvider: (id: string) =>
+    apiFetch<void>(`/reseller/network/providers/${id}`, { method: 'DELETE' }),
+
+  // ── Provider Sets ──────────────────────────────────────────────────────────
+
+  /** GET /reseller/network/provider-sets */
+  listProviderSets: () =>
+    apiFetch<{ provider_sets: NetworkProviderSet[] }>('/reseller/network/provider-sets'),
+
+  /** POST /reseller/network/provider-sets */
+  createProviderSet: (data: { name: string; is_default?: boolean }) =>
+    apiFetch<NetworkProviderSet>('/reseller/network/provider-sets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** PUT /reseller/network/provider-sets/{id} */
+  updateProviderSet: (id: string, data: { name: string; is_default?: boolean }) =>
+    apiFetch<{ id: string }>(`/reseller/network/provider-sets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  /** DELETE /reseller/network/provider-sets/{id} */
+  deleteProviderSet: (id: string) =>
+    apiFetch<void>(`/reseller/network/provider-sets/${id}`, { method: 'DELETE' }),
+
+  // ── Provider Set Items ─────────────────────────────────────────────────────
+
+  /** GET /reseller/network/provider-sets/{id}/items */
+  listProviderSetItems: (setId: string) =>
+    apiFetch<{ items: NetworkProviderSetItem[] }>(`/reseller/network/provider-sets/${setId}/items`),
+
+  /** PUT /reseller/network/provider-sets/{id}/items — atomic replace */
+  putProviderSetItems: (setId: string, items: Array<{
+    provider_id: string;
+    priority: number;
+    expose_cost: boolean;
+    expose_provider_name: boolean;
+  }>) =>
+    apiFetch<{ set_id: string; count: number }>(`/reseller/network/provider-sets/${setId}/items`, {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    }),
+
+  // ── Assignments ────────────────────────────────────────────────────────────
+
+  /** GET /reseller/network/assignments — all sub-accounts with assignment state */
+  listAssignments: () =>
+    apiFetch<{ assignments: NetworkAssignment[] }>('/reseller/network/assignments'),
+
+  /** PUT /reseller/network/assignments/{client_id} — assign/unassign one sub-account */
+  putAssignment: (clientId: string, data: {
+    provider_set_id: string | null;
+    route_set_id?: string | null;
+  }) =>
+    apiFetch<{ client_id: string }>(`/reseller/network/assignments/${clientId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  /** POST /reseller/network/assignments/bulk — assign/unassign multiple sub-accounts */
+  bulkAssign: (data: {
+    client_ids: string[];
+    provider_set_id: string | null;
+    route_set_id?: string | null;
+  }) =>
+    apiFetch<{ results: NetworkBulkAssignResult[] }>('/reseller/network/assignments/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // ── Sub-Account Network (overview + overrides) ─────────────────────────────
+
+  /** GET /sub-accounts/{id}/network/overview */
+  getSubAccountNetworkOverview: (subAccountId: string) =>
+    apiFetch<NetworkSubAccountOverview>(`/sub-accounts/${subAccountId}/network/overview`),
+
+  /** POST /sub-accounts/{id}/network/provider-overrides — add provider override */
+  addProviderOverride: (subAccountId: string, data: {
+    provider_id: string;
+    priority: number;
+    expose_cost: boolean;
+    expose_provider_name: boolean;
+  }) =>
+    apiFetch<{ client_id: string; provider_id: string }>(
+      `/sub-accounts/${subAccountId}/network/provider-overrides`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  /** DELETE /sub-accounts/{id}/network/provider-overrides/{provider_id} */
+  deleteProviderOverride: (subAccountId: string, providerId: string) =>
+    apiFetch<void>(
+      `/sub-accounts/${subAccountId}/network/provider-overrides/${providerId}`,
+      { method: 'DELETE' },
+    ),
+};
