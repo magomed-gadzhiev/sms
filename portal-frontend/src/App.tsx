@@ -61,9 +61,9 @@ import { RoutingPage } from './pages/routing/RoutingPage';
 import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
-import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
 import { ProvidersCatalogPage } from './pages/network/ProvidersCatalogPage';
 import { ProviderSetsPage } from './pages/network/ProviderSetsPage';
+import { AssignmentsPage } from './pages/network/AssignmentsPage';
 import { NetworkTariffsListPage } from './pages/network/NetworkTariffsListPage';
 import { NetworkTariffTemplatesPage } from './pages/network/NetworkTariffTemplatesPage';
 import { NetworkTariffEditorPage } from './pages/network/NetworkTariffEditorPage';
@@ -199,7 +199,8 @@ export function App() {
           <Route path="sub-accounts" element={<SubAccountsListPage />} />
           <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
           <Route path="moderation" element={<ModerationPage />} />
-          <Route path="routing" element={<NetworkRoutingPage />} />
+          <Route path="assignments" element={<AssignmentsPage />} />
+          <Route path="routing" element={<Navigate to="/network/assignments" replace />} />
           <Route path="providers" element={<ProvidersCatalogPage />} />
           <Route path="provider-sets" element={<ProviderSetsPage />} />
           <Route path="tariffs" element={<NetworkTariffsListPage />} />
