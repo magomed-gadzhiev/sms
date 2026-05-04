@@ -11,10 +11,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
@@ -120,26 +122,43 @@ type putAssignmentReq struct {
 
 // verifySubAccountOwnership возвращает 404, если client_id не суб-аккаунт текущего
 // reseller'а. 404 (не 403) — чтобы не светить наличие чужих client_id.
+// Connection / scan errors отделяются и возвращают 500, чтобы не маскировать
+// инфраструктурные сбои под "не найдено".
 func (h *NetworkAssignmentsHandlers) verifySubAccountOwnership(ctx context.Context, resellerID, clientID uuid.UUID) *shared.AppError {
 	var parent uuid.UUID
 	err := h.pool.QueryRow(ctx,
 		`SELECT parent_client_id FROM clients WHERE id = $1 AND parent_client_id IS NOT NULL`,
 		clientID,
 	).Scan(&parent)
-	if err != nil || parent != resellerID {
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return shared.ErrNotFound("суб-аккаунт")
+		}
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("verifySubAccountOwnership query")
+		return shared.ErrInternalServer("verify sub-account ownership")
+	}
+	if parent != resellerID {
 		return shared.ErrNotFound("суб-аккаунт")
 	}
 	return nil
 }
 
 // verifyProviderSetOwnership возвращает 404, если provider-set не принадлежит reseller'у.
+// Connection / scan errors отделяются и возвращают 500.
 func (h *NetworkAssignmentsHandlers) verifyProviderSetOwnership(ctx context.Context, resellerID, setID uuid.UUID) *shared.AppError {
 	var owner uuid.UUID
 	err := h.pool.QueryRow(ctx,
 		`SELECT reseller_id FROM reseller_provider_sets WHERE id = $1`,
 		setID,
 	).Scan(&owner)
-	if err != nil || owner != resellerID {
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return shared.ErrNotFound("provider-set")
+		}
+		log.Error().Err(err).Str("provider_set_id", setID.String()).Msg("verifyProviderSetOwnership query")
+		return shared.ErrInternalServer("verify provider-set ownership")
+	}
+	if owner != resellerID {
 		return shared.ErrNotFound("provider-set")
 	}
 	return nil
@@ -150,6 +169,18 @@ func (h *NetworkAssignmentsHandlers) verifyProviderSetOwnership(ctx context.Cont
 // UPSERT в subaccount_routing_assignment + materialize в client_providers.
 // Если provider_set_id == null — стираем inherited записи у суб-аккаунта.
 // route_set_id игнорируется (Plan 2).
+//
+// КОНТРАКТ ATOMICITY:
+//  1. UPSERT subaccount_routing_assignment — отдельная транзакция.
+//  2. materializer.ApplyToClient — отдельная транзакция (сама атомарна,
+//     см. provider_set_materializer.go).
+//  3. Между шагами есть eventual-consistency окно: если materialize падает,
+//     SRA row уже committed → ответ 500. Frontend должен retry'ить тот же PUT —
+//     операция идемпотентна (UPSERT не меняется, ApplyToClient повторно очищает
+//     inherited и переписывает заново).
+//  4. Пока retry не сделан — `validation_status='ok'` в List врёт. Принимаем
+//     как ограничение Plan 1; в Plan 2 — обернём в общую tx с savepoints, либо
+//     добавим background reconciler.
 func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Request) {
 	resellerID, ok := middleware.GetClientID(r.Context())
 	if !ok || resellerID == uuid.Nil {
@@ -187,6 +218,7 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 	}
 	// route_set_id игнорируется в Plan 1.
 
+	// TODO(plan2): сохранять route_set_id из EXCLUDED при PATCH-семантике, когда добавится route-set
 	if _, err := h.pool.Exec(r.Context(), `
 		INSERT INTO subaccount_routing_assignment (client_id, provider_set_id, route_set_id, assigned_at)
 		VALUES ($1, $2, NULL, now())
@@ -234,6 +266,12 @@ type bulkResultItem struct {
 // Не атомарен per-client: каждый ID обрабатывается независимо.
 // Чужой sub-account / упавший UPSERT / упавший materialize → status='error' для конкретного,
 // остальные продолжают обрабатываться. Provider-set ownership проверяется один раз в начале.
+//
+// УПОЛНОМОЧЕННАЯ JIT-консистентность per-client (см. PutOne): для каждого client_id
+// UPSERT в SRA и materialize ApplyToClient — две независимые транзакции. При сбое
+// materialize SRA уже committed → этот client получает status='error', но row
+// остаётся. Frontend должен retry'ить bulk (или PutOne для упавших) — операция
+// идемпотентна. Plan 2: общая tx с savepoints либо background reconciler.
 func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request) {
 	resellerID, ok := middleware.GetClientID(r.Context())
 	if !ok || resellerID == uuid.Nil {
@@ -272,6 +310,7 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "not your sub-account"})
 			continue
 		}
+		// TODO(plan2): сохранять route_set_id из EXCLUDED при PATCH-семантике, когда добавится route-set
 		if _, err := h.pool.Exec(r.Context(), `
 			INSERT INTO subaccount_routing_assignment (client_id, provider_set_id, route_set_id, assigned_at)
 			VALUES ($1, $2, NULL, now())
