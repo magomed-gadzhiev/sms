@@ -18,6 +18,7 @@ export function ProviderSetsPage() {
   const [selectedID, setSelectedID] = useState<string | null>(null);
   const [items, setItems] = useState<NetworkProviderSetItem[]>([]);
   const [allProviders, setAllProviders] = useState<NetworkProvider[]>([]);
+  const [nameDraft, setNameDraft] = useState('');
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -63,6 +64,10 @@ export function ProviderSetsPage() {
 
   const selected = sets.find((s) => s.id === selectedID) || null;
 
+  useEffect(() => {
+    setNameDraft(selected?.name ?? '');
+  }, [selected?.id, selected?.name]);
+
   const create = async () => {
     if (!createName.trim()) {
       toast.error('Введите имя');
@@ -91,6 +96,7 @@ export function ProviderSetsPage() {
     if (!selected || name === selected.name) return;
     if (!name.trim()) {
       toast.error('Имя не может быть пустым');
+      setNameDraft(selected.name);
       return;
     }
     try {
@@ -101,6 +107,7 @@ export function ProviderSetsPage() {
       reloadSets();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка');
+      setNameDraft(selected.name);
     }
   };
 
@@ -252,9 +259,9 @@ export function ProviderSetsPage() {
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex-1 min-w-[200px]">
                   <Input
-                    key={selected.id}
-                    defaultValue={selected.name}
-                    onBlur={(e) => renameSelected(e.target.value)}
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onBlur={() => renameSelected(nameDraft)}
                   />
                 </div>
                 <label className="flex items-center gap-2 text-sm text-gray-700">
