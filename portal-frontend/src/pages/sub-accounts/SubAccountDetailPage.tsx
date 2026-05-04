@@ -10,8 +10,9 @@ import { StatusBadge, Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
+import { SubAccountNetworkSection } from './SubAccountNetworkSection';
 
-type TabName = 'overview' | 'messages' | 'campaigns' | 'transactions' | 'analytics' | 'api-keys' | 'webhooks';
+type TabName = 'overview' | 'messages' | 'campaigns' | 'transactions' | 'analytics' | 'network' | 'api-keys' | 'webhooks';
 
 const TABS: { key: TabName; label: string }[] = [
   { key: 'overview', label: 'Обзор' },
@@ -19,6 +20,7 @@ const TABS: { key: TabName; label: string }[] = [
   { key: 'campaigns', label: 'Кампании' },
   { key: 'transactions', label: 'Транзакции' },
   { key: 'analytics', label: 'Аналитика' },
+  { key: 'network', label: 'Сеть' },
   { key: 'api-keys', label: 'API Ключи' },
   { key: 'webhooks', label: 'Вебхуки' },
 ];
@@ -169,6 +171,7 @@ export function SubAccountDetailPage() {
       {activeTab === 'campaigns' && <CampaignsTab subAccountId={id!} />}
       {activeTab === 'transactions' && id && <TransactionsTab subAccountId={id} />}
       {activeTab === 'analytics' && id && <AnalyticsTab subAccountId={id} />}
+      {activeTab === 'network' && id && <SubAccountNetworkSection subAccountID={id} subAccountName={detail.name} />}
       {activeTab === 'api-keys' && <APIKeysTab keys={detail.api_keys || []} />}
       {activeTab === 'webhooks' && <WebhooksTab webhooks={detail.webhooks || []} />}
     </div>
