@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
@@ -196,6 +197,11 @@ func (h *NetworkProviderSetsHandlers) Create(w http.ResponseWriter, r *http.Requ
 		resellerID, req.Name, req.IsDefault,
 	).Scan(&id, &createdAt, &updatedAt)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			respondError(w, shared.ErrConflict("provider-set с таким именем уже существует"))
+			return
+		}
 		log.Error().Err(err).Msg("provider-sets create insert")
 		respondError(w, shared.ErrInternalServer("ошибка создания provider-set"))
 		return
@@ -270,6 +276,11 @@ func (h *NetworkProviderSetsHandlers) Update(w http.ResponseWriter, r *http.Requ
 		`UPDATE reseller_provider_sets SET name=$1, is_default=$2, updated_at=now() WHERE id=$3`,
 		req.Name, req.IsDefault, id)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			respondError(w, shared.ErrConflict("provider-set с таким именем уже существует"))
+			return
+		}
 		log.Error().Err(err).Msg("provider-sets update")
 		respondError(w, shared.ErrInternalServer("ошибка обновления"))
 		return

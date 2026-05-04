@@ -169,6 +169,72 @@ func TestProviderSets_OwnershipCheck_404(t *testing.T) {
 	require.Equal(t, otherReseller, ownerID)
 }
 
+// TestProviderSets_Create_DuplicateName_409 — Create с именем, которое уже
+// существует у того же reseller'а, должен возвращать 409, не 500.
+func TestProviderSets_Create_DuplicateName_409(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+
+	h := NewNetworkProviderSetsHandlers(pool, nil)
+	name := uniqSetName("dup")
+
+	// Первый Create — должен пройти.
+	body := `{"name":"` + name + `","is_default":false}`
+	req := httptest.NewRequest("POST", "/portal/v1/reseller/network/provider-sets", strings.NewReader(body))
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "first create body: %s", w.Body.String())
+
+	// Второй Create с тем же именем — должен вернуть 409.
+	body = `{"name":"` + name + `","is_default":false}`
+	req = httptest.NewRequest("POST", "/portal/v1/reseller/network/provider-sets", strings.NewReader(body))
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.Create(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "duplicate create body: %s", w.Body.String())
+}
+
+// TestProviderSets_List_Empty — reseller без sets получает 200 с пустым массивом,
+// не null.
+func TestProviderSets_List_Empty(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+
+	h := NewNetworkProviderSetsHandlers(pool, nil)
+	req := httptest.NewRequest("GET", "/portal/v1/reseller/network/provider-sets", nil)
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.List(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	var resp struct {
+		ProviderSets []providerSetOut `json:"provider_sets"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.NotNil(t, resp.ProviderSets, "provider_sets не должен быть null")
+	require.Len(t, resp.ProviderSets, 0, "provider_sets должен быть пустым массивом")
+}
+
+// TestProviderSets_Update_NonexistentID_404 — PUT с несуществующим UUID → 404.
+func TestProviderSets_Update_NonexistentID_404(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+
+	h := NewNetworkProviderSetsHandlers(pool, nil)
+	randomID := uuid.New()
+	body := `{"name":"ghost","is_default":false}`
+	req := httptest.NewRequest("PUT", "/portal/v1/reseller/network/provider-sets/"+randomID.String(), strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": randomID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Update(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code, "body: %s", w.Body.String())
+}
+
 // TestProviderSets_Create_DefaultUniqueness — Create с is_default=true когда
 // уже есть default → старый default снимается транзакционно, новый становится
 // default. Уникальность гарантируется uq_reseller_provider_sets_default.
