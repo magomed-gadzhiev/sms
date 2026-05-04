@@ -5,26 +5,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // ProviderSetMaterializer материализует provider-set агрегатора в client_providers суб-аккаунта.
 // При применении: записи ownership='inherited' удаляются и пересоздаются из items;
 // записи ownership='private' (override) не затрагиваются.
 type ProviderSetMaterializer struct {
-	pool      *pgxpool.Pool
-	setRepo   *storage.ResellerProviderSetRepository
-	itemsRepo *storage.ResellerProviderSetItemsRepository
+	pool *pgxpool.Pool
 }
 
 // NewProviderSetMaterializer конструирует сервис.
-func NewProviderSetMaterializer(
-	pool *pgxpool.Pool,
-	setRepo *storage.ResellerProviderSetRepository,
-	itemsRepo *storage.ResellerProviderSetItemsRepository,
-) *ProviderSetMaterializer {
-	return &ProviderSetMaterializer{pool: pool, setRepo: setRepo, itemsRepo: itemsRepo}
+func NewProviderSetMaterializer(pool *pgxpool.Pool) *ProviderSetMaterializer {
+	return &ProviderSetMaterializer{pool: pool}
 }
 
 // ApplyToClient материализует provider-set в client_providers под транзакцией.
@@ -46,8 +38,11 @@ func (m *ProviderSetMaterializer) ApplyToClient(ctx context.Context, clientID uu
 	}
 
 	// Шаг 2: вставить новые inherited-записи из items, если set указан.
-	// NOT EXISTS исключает provider_id, у которых уже есть private override,
-	// ON CONFLICT DO NOTHING — страховка на случай гонки.
+	// NOT EXISTS исключает provider_id, у которых уже есть private override.
+	// ON CONFLICT DO NOTHING: при существующей записи с ownership='platform' для того же
+	// (client_id, provider_id) — inherited не вставляется. Platform-записи редки в reseller-сценарии
+	// (только для самостоятельных клиентов вне иерархии), но если они есть — выигрывают.
+	// private-записи отфильтрованы NOT EXISTS выше.
 	if providerSetID != nil {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO client_providers
@@ -74,8 +69,12 @@ func (m *ProviderSetMaterializer) ApplyToClient(ctx context.Context, clientID uu
 	return tx.Commit(ctx)
 }
 
-// ApplyToAllSubscribers пересчитывает материализацию для всех суб-аккаунтов,
-// назначенных на данный provider-set. Вызывается при изменении items в set'е.
+// ApplyToAllSubscribers применяет provider-set ко всем суб-аккаунтам, подписанным на него.
+// Использует **per-client транзакции** — не атомарна для всей пачки.
+// Partial failure: при ошибке у клиента N итерация прерывается, клиенты [0..N-1] уже COMMIT'нуты,
+// клиент N и [N+1..end] не материализованы. Caller отвечает за retry / откат на уровне выше.
+// Этот выбор сделан осознанно — единая транзакция на 1000+ суб-аккаунтов даёт долгий lock и риск
+// OOM на батче. См. spec §4.7 «Атомарная транзакция для bulk на 100+ — долгий запрос».
 func (m *ProviderSetMaterializer) ApplyToAllSubscribers(ctx context.Context, providerSetID uuid.UUID) error {
 	rows, err := m.pool.Query(ctx,
 		`SELECT client_id FROM subaccount_routing_assignment WHERE provider_set_id = $1`,

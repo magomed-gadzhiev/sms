@@ -22,7 +22,7 @@ func TestMaterializer_Apply_CreatesInheritedRows(t *testing.T) {
 
 	setRepo := storage.NewResellerProviderSetRepository(pool)
 	itemsRepo := storage.NewResellerProviderSetItemsRepository(pool)
-	mat := NewProviderSetMaterializer(pool, setRepo, itemsRepo)
+	mat := NewProviderSetMaterializer(pool)
 
 	ctx := context.Background()
 	set, err := setRepo.Create(ctx, resellerID, "S", false)
@@ -69,7 +69,7 @@ func TestMaterializer_Apply_PreservesPrivateOverrides(t *testing.T) {
 
 	setRepo := storage.NewResellerProviderSetRepository(pool)
 	itemsRepo := storage.NewResellerProviderSetItemsRepository(pool)
-	mat := NewProviderSetMaterializer(pool, setRepo, itemsRepo)
+	mat := NewProviderSetMaterializer(pool)
 
 	set, err := setRepo.Create(ctx, resellerID, "S", false)
 	require.NoError(t, err)
@@ -119,9 +119,7 @@ func TestMaterializer_Apply_NilSet_ClearsInherited(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setRepo := storage.NewResellerProviderSetRepository(pool)
-	itemsRepo := storage.NewResellerProviderSetItemsRepository(pool)
-	mat := NewProviderSetMaterializer(pool, setRepo, itemsRepo)
+	mat := NewProviderSetMaterializer(pool)
 
 	require.NoError(t, mat.ApplyToClient(ctx, subID, nil))
 
