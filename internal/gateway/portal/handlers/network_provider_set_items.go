@@ -10,6 +10,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
+
+const maxProviderSetItems = 100
 
 // NetworkProviderSetItemsHandlers обрабатывает /portal/v1/reseller/network/provider-sets/{id}/items.
 type NetworkProviderSetItemsHandlers struct {
@@ -184,6 +187,10 @@ func (h *NetworkProviderSetItemsHandlers) PutItems(w http.ResponseWriter, r *htt
 	var req putItemsReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, shared.ErrInvalidInput("Невалидный JSON"))
+		return
+	}
+	if len(req.Items) > maxProviderSetItems {
+		respondError(w, shared.ErrInvalidInput(fmt.Sprintf("too many items (max %d)", maxProviderSetItems)))
 		return
 	}
 

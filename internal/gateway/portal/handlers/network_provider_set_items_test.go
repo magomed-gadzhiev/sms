@@ -218,6 +218,32 @@ func TestProviderSetItems_PUT_ForeignPrivateProvider_403(t *testing.T) {
 	require.Len(t, items, 0, "items не должны быть записаны при ошибке валидации")
 }
 
+// TestProviderSetItems_PUT_UnknownProvider_400 — несуществующий provider_id → 400.
+func TestProviderSetItems_PUT_UnknownProvider_400(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+
+	setRepo := storage.NewResellerProviderSetRepository(pool)
+	set, err := setRepo.Create(context.Background(), resellerID, uniqSetName("UnknownProv"), false)
+	require.NoError(t, err)
+
+	unknownID := uuid.New() // произвольный UUID, которого нет в providers
+
+	mat := network.NewProviderSetMaterializer(pool)
+	h := NewNetworkProviderSetItemsHandlers(pool, mat)
+
+	body := `{"items":[{"provider_id":"` + unknownID.String() + `","priority":10,"expose_cost":false,"expose_provider_name":false}]}`
+	req := httptest.NewRequest("PUT", "/portal/v1/reseller/network/provider-sets/"+set.ID.String()+"/items", strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": set.ID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.PutItems(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code, "body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), unknownID.String(), "ответ должен содержать неизвестный provider_id")
+}
+
 // TestProviderSetItems_PUT_TriggersMaterialization — назначаем set суб-аккаунту,
 // потом PUT items → у суб-аккаунта появятся inherited записи в client_providers.
 func TestProviderSetItems_PUT_TriggersMaterialization(t *testing.T) {
