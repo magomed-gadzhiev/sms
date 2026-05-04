@@ -63,6 +63,43 @@ func seedTestReseller(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	return id
 }
 
+// seedTestSubAccount вставляет суб-аккаунт (parent_client_id = resellerID) и регистрирует его
+// удаление через t.Cleanup. Возвращает UUID нового клиента.
+func seedTestSubAccount(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+
+	// Берём тот же план, что у агрегатора.
+	var planID uuid.UUID
+	err := pool.QueryRow(ctx,
+		`SELECT id FROM subscription_plans ORDER BY monthly_price_rub LIMIT 1`,
+	).Scan(&planID)
+	require.NoError(t, err, "нет ни одного subscription_plan")
+
+	id := uuid.New()
+	suffix := id.String()[:8]
+	_, err = pool.Exec(ctx,
+		`INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id, parent_client_id)
+		 VALUES ($1, $2, $3, 'secret', $4, true, false, $5, $6)`,
+		id,
+		fmt.Sprintf("test-subaccount-%s", suffix),
+		fmt.Sprintf("apikey-sub-%s", suffix),
+		fmt.Sprintf("sub-%s@test.local", suffix),
+		planID,
+		resellerID,
+	)
+	require.NoError(t, err, "seedTestSubAccount INSERT failed")
+
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM subaccount_routing_assignment WHERE client_id = $1`, id)
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM clients WHERE id = $1`, id)
+	})
+
+	return id
+}
+
 // seedTestProvider вставляет минимального провайдера и регистрирует его удаление через t.Cleanup.
 // name используется как суффикс, чтобы избежать конфликтов UNIQUE-индекса providers.name.
 func seedTestProvider(t *testing.T, pool *pgxpool.Pool, name string) uuid.UUID {
