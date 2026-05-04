@@ -62,3 +62,28 @@ func seedTestReseller(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 
 	return id
 }
+
+// seedTestProvider вставляет минимального провайдера и регистрирует его удаление через t.Cleanup.
+// name используется как суффикс, чтобы избежать конфликтов UNIQUE-индекса providers.name.
+func seedTestProvider(t *testing.T, pool *pgxpool.Pool, name string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+
+	id := uuid.New()
+	suffix := id.String()[:8]
+	uniqueName := fmt.Sprintf("test-provider-%s-%s", name, suffix)
+
+	_, err := pool.Exec(ctx,
+		`INSERT INTO providers (id, name, host, port, system_id, password, bind_type)
+		 VALUES ($1, $2, 'localhost', 2775, 'test', 'test', 'transceiver')`,
+		id, uniqueName,
+	)
+	require.NoError(t, err, "seedTestProvider INSERT failed")
+
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM providers WHERE id = $1`, id)
+	})
+
+	return id
+}
