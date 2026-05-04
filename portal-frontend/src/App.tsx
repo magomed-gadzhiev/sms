@@ -62,6 +62,7 @@ import { QuickSendPage } from './pages/quick-send/QuickSendPage';
 import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 import { NetworkRoutingPage } from './pages/network/NetworkRoutingPage';
+import { ProvidersCatalogPage } from './pages/network/ProvidersCatalogPage';
 import { NetworkTariffsListPage } from './pages/network/NetworkTariffsListPage';
 import { NetworkTariffTemplatesPage } from './pages/network/NetworkTariffTemplatesPage';
 import { NetworkTariffEditorPage } from './pages/network/NetworkTariffEditorPage';
@@ -198,6 +199,7 @@ export function App() {
           <Route path="sub-accounts/:id" element={<SubAccountDetailPage />} />
           <Route path="moderation" element={<ModerationPage />} />
           <Route path="routing" element={<NetworkRoutingPage />} />
+          <Route path="providers" element={<ProvidersCatalogPage />} />
           <Route path="tariffs" element={<NetworkTariffsListPage />} />
           <Route path="tariffs/templates" element={<NetworkTariffTemplatesPage />} />
           <Route path="tariffs/editor/:id" element={<NetworkTariffEditorPage />} />
