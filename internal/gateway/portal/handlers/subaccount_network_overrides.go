@@ -68,8 +68,8 @@ type addProviderOverrideReq struct {
 //   - провайдер должен принадлежать reseller'у (platform OR private с source_client_id == reseller).
 //   - чужой private → 403; несуществующий провайдер → 404; чужой суб-аккаунт → 404.
 //   - если запись (cp.client_id, cp.provider_id) уже существует (любой ownership) → 409
-//     с details JSON `{"kind":"already_present","ownership":"<...>"}`. Изменение параметров
-//     inherited-провайдера должно идти через provider-set, а не через override.
+//     с details JSON `{"kind":"already_present","ownership":"<...>"}`. Message branched:
+//     для inherited подсказываем менять provider-set; для private — нейтральное "уже добавлен".
 //   - INSERT ownership='private' active=true.
 func (h *SubAccountNetworkOverridesHandlers) AddProviderOverride(w http.ResponseWriter, r *http.Request) {
 	resellerID, ok := middleware.GetClientID(r.Context())
@@ -119,38 +119,47 @@ func (h *SubAccountNetworkOverridesHandlers) AddProviderOverride(w http.Response
 		return
 	}
 
-	// Уже ли есть запись (любой ownership) для этого sub+provider?
-	var existing string
-	err = h.pool.QueryRow(r.Context(),
-		`SELECT ownership FROM client_providers WHERE client_id = $1 AND provider_id = $2`,
-		subID, provID,
-	).Scan(&existing)
+	// Atomic upsert-style: пытаемся вставить ON CONFLICT DO NOTHING RETURNING id.
+	// Если RETURNING пустой (pgx.ErrNoRows) — конфликт; делаем второй запрос
+	// чтобы узнать ownership и вернуть нужный 409 message. Это устраняет TOCTOU
+	// race между pre-check SELECT и INSERT.
+	var insertedID uuid.UUID
+	err = h.pool.QueryRow(r.Context(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, shared_priority, expose_cost, expose_provider_name, active)
+		VALUES ($1, $2, 'private', $3, $4, $5, true)
+		ON CONFLICT (client_id, provider_id) DO NOTHING
+		RETURNING id`,
+		subID, provID, req.Priority, req.ExposeCost, req.ExposeProviderName,
+	).Scan(&insertedID)
 	if err == nil {
+		respondJSON(w, http.StatusCreated, map[string]interface{}{
+			"client_id":   subID.String(),
+			"provider_id": provID.String(),
+		})
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Конфликт — fetch existing ownership для details/message branching.
+		var existing string
+		if err2 := h.pool.QueryRow(r.Context(),
+			`SELECT ownership FROM client_providers WHERE client_id = $1 AND provider_id = $2`,
+			subID, provID,
+		).Scan(&existing); err2 != nil {
+			log.Error().Err(err2).Str("sub_id", subID.String()).Str("provider_id", provID.String()).Msg("conflict lookup")
+			respondError(w, shared.ErrInternalServer("conflict lookup"))
+			return
+		}
+		msg := "Провайдер уже добавлен этому суб-аккаунту"
+		if existing == "inherited" {
+			msg = "Этот провайдер уже доступен через шаблон. Чтобы изменить параметры — измени provider-set."
+		}
 		respondError(w,
-			shared.ErrConflict("Этот провайдер уже доступен через шаблон. Чтобы изменить параметры — измени provider-set.").
+			shared.ErrConflict(msg).
 				WithDetails(`{"kind":"already_present","ownership":"`+existing+`"}`))
 		return
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		log.Error().Err(err).Str("sub_id", subID.String()).Str("provider_id", provID.String()).Msg("existing override lookup")
-		respondError(w, shared.ErrInternalServer("existing override lookup"))
-		return
-	}
-
-	if _, err := h.pool.Exec(r.Context(), `
-		INSERT INTO client_providers (client_id, provider_id, ownership, shared_priority, expose_cost, expose_provider_name, active)
-		VALUES ($1, $2, 'private', $3, $4, $5, true)`,
-		subID, provID, req.Priority, req.ExposeCost, req.ExposeProviderName,
-	); err != nil {
-		log.Error().Err(err).Str("sub_id", subID.String()).Str("provider_id", provID.String()).Msg("override insert")
-		respondError(w, shared.ErrInternalServer("insert override"))
-		return
-	}
-
-	respondJSON(w, http.StatusCreated, map[string]interface{}{
-		"client_id":   subID.String(),
-		"provider_id": provID.String(),
-	})
+	log.Error().Err(err).Str("sub_id", subID.String()).Str("provider_id", provID.String()).Msg("override insert")
+	respondError(w, shared.ErrInternalServer("insert override"))
 }
 
 // DeleteProviderOverride DELETE /portal/v1/reseller/sub-accounts/{id}/network/provider-overrides/{provider_id}.

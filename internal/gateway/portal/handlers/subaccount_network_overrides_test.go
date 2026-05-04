@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
@@ -74,6 +75,63 @@ func TestProviderOverride_Add_409IfInherited(t *testing.T) {
 	require.Contains(t, w.Body.String(), "уже доступен через шаблон")
 	require.Contains(t, w.Body.String(), "already_present")
 	require.Contains(t, w.Body.String(), "inherited")
+}
+
+// TestProviderOverride_Add_NonExistentProvider_404 — POST с UUID провайдера,
+// которого нет в БД → 404, message содержит "провайдер".
+func TestProviderOverride_Add_NonExistentProvider_404(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	bogusProv := uuid.New()
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+	body := `{"provider_id":"` + bogusProv.String() + `","priority":50}`
+	req := httptest.NewRequest("POST", "/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/provider-overrides", strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddProviderOverride(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code, "несуществующий provider → 404, body: %s", w.Body.String())
+	require.Contains(t, strings.ToLower(w.Body.String()), "провайдер")
+}
+
+// TestProviderOverride_Add_AfterDelete_201 — Add → Delete → Add: последний должен
+// вернуть 201 (lifecycle: после удаления private override можно добавить заново).
+func TestProviderOverride_Add_AfterDelete_201(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provB := storagetest.SeedProvider(t, pool, "OverrideAfterDelete")
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+
+	// 1) Add.
+	body := `{"provider_id":"` + provB.String() + `","priority":50}`
+	req := httptest.NewRequest("POST", "/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/provider-overrides", strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddProviderOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "первый Add: %s", w.Body.String())
+
+	// 2) Delete.
+	req = httptest.NewRequest("DELETE", "/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/provider-overrides/"+provB.String(), nil)
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String(), "provider_id": provB.String()})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.DeleteProviderOverride(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code, "Delete: %s", w.Body.String())
+
+	// 3) Add повторно — должен вернуть 201 (не 409).
+	req = httptest.NewRequest("POST", "/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/provider-overrides", strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.AddProviderOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "повторный Add после Delete должен быть 201, body: %s", w.Body.String())
 }
 
 // TestProviderOverride_Add_ForeignSubAccount_404 — попытка добавить override
