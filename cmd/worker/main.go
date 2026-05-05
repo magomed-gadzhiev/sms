@@ -251,6 +251,13 @@ func main() {
 	<-quit
 	log.Info().Msg("получен сигнал остановки, выполняется graceful shutdown")
 
+	// Plan 5 Task 4 (B1): сначала остановить SRA retry-loop. Plan 4 поставил
+	// `defer retryCancel()` в начале main(), но defer LIFO исполнялся ПОСЛЕ
+	// consumer.Close() и dbPool.Close() — тик retry-loop'а мог попасть на
+	// закрытый pool и нашуметь error-логом. Явный cancel здесь гарантирует
+	// порядок; deferred cancel выше остаётся idempotent safety-net.
+	retryCancel()
+
 	// Закрытие consumer
 	if err := consumer.Close(); err != nil {
 		log.Error().Err(err).Msg("ошибка закрытия consumer")
