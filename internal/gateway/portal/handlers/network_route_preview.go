@@ -163,6 +163,9 @@ func (h *NetworkRoutePreviewHandlers) Preview(w http.ResponseWriter, r *http.Req
 				}
 			}
 			rows.Close()
+			if err := rows.Err(); err != nil {
+				log.Warn().Err(err).Msg("preview provider names partial read")
+			}
 		} else {
 			log.Warn().Err(qerr).Msg("preview provider names lookup")
 		}
