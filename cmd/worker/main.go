@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
@@ -16,6 +17,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/router"
+	networksvc "github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/smsc"
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -92,6 +94,24 @@ func main() {
 			}
 		}
 	}
+
+	// SRA retry loop (Plan 4 Task 6) — каждые 60s повторяет ApplyAssignmentMaterializers
+	// для строк с last_materialize_error_at IS NOT NULL. Закрывает gap из Plan 3 Task 4
+	// (committed-but-unmaterialized SRA остаётся неприменённым до перезапуска).
+	// Worker'у достаточно отдельного pgxpool для retry'ев — остальные стадии используют *sql.DB.
+	dbPool, poolErr := pgxpool.New(ctx, cfg.Database.GetDSN())
+	if poolErr != nil {
+		log.Fatal().Err(poolErr).Msg("ошибка создания pgxpool для SRA retry loop")
+	}
+	defer dbPool.Close()
+
+	routeSetItemsRepo := storage.NewResellerRouteSetItemsRepository(dbPool)
+	providerMat := networksvc.NewProviderSetMaterializer(dbPool)
+	routeMat := networksvc.NewRouteSetMaterializer(dbPool, routeSetItemsRepo)
+
+	retryCtx, retryCancel := context.WithCancel(ctx)
+	defer retryCancel()
+	go networksvc.RunRetryLoop(retryCtx, dbPool, providerMat, routeMat, 60*time.Second)
 
 	// Подключение к billing-service gRPC
 	billingAddr := os.Getenv("BILLING_SERVICE_ADDR")
