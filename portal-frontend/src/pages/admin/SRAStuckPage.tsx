@@ -118,7 +118,7 @@ export function SRAStuckPage() {
                   <td className="px-4 py-3 text-gray-700 max-w-xs">
                     <span
                       className="block truncate"
-                      title={row.last_materialize_error_text ?? ''}
+                      title={row.last_materialize_error_text ?? undefined}
                     >
                       {row.last_materialize_error_text ?? '—'}
                     </span>

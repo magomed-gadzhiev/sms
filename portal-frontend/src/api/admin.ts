@@ -1011,6 +1011,10 @@ export interface SRAStuckRow {
   last_materialize_error_text: string | null;
 }
 
+// sraStuckApi uses apiFetch (portal-gateway, /portal/v1) instead of adminFetch
+// (admin-gateway, /admin/v1) because the SRA-stuck endpoints are registered
+// under the portal-gateway protected admin subrouter (see internal/gateway/portal/handlers/sra_stuck.go).
+// The handlers enforce admin role via middleware.AdminRoleMiddleware on the route group.
 export const sraStuckApi = {
   list: () => apiFetch<{ rows: SRAStuckRow[] }>('/admin/network/sra-stuck'),
   reset: (clientId: string) =>

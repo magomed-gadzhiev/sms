@@ -103,4 +103,10 @@ describe('SRAStuckPage', () => {
     expect(listMock).toHaveBeenCalledTimes(1);
     expect(toastSuccessMock).not.toHaveBeenCalled();
   });
+
+  it('renders error state when list fetch fails', async () => {
+    listMock.mockRejectedValue(new Error('network down'));
+    renderPage();
+    expect(await screen.findByText(/network down/i)).toBeInTheDocument();
+  });
 });
