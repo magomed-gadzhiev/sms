@@ -123,3 +123,49 @@ func TestRetryPendingOnce_RouteFails_RecordsRetryRouteCounter(t *testing.T) {
 		"MaterializeFailureTotal{kind=route,source=retry} must bump on retry-tick route failure")
 }
 
+func TestRetryPendingOnce_SkipsRowsAtCap(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+
+	// Row A: below cap — should be picked up and succeed (error_at cleared).
+	clientA := storagetest.SeedSubAccount(t, pool, resellerID)
+	psA := storagetest.SeedProviderSet(t, pool, resellerID, "ps-cap-below")
+	rsA := storagetest.SeedRouteSet(t, pool, resellerID, "rs-cap-below")
+	storagetest.SeedSRAErrorStateWithCount(t, pool, clientA, &psA, &rsA, "below cap", 99)
+
+	// Row B: at cap — must be skipped entirely (error_at preserved).
+	clientB := storagetest.SeedSubAccount(t, pool, resellerID)
+	psB := storagetest.SeedProviderSet(t, pool, resellerID, "ps-cap-at")
+	rsB := storagetest.SeedRouteSet(t, pool, resellerID, "rs-cap-at")
+	storagetest.SeedSRAErrorStateWithCount(t, pool, clientB, &psB, &rsB, "at cap", 100)
+
+	pm := &recordingProviderApplier{}
+	rm := &recordingRouteApplier{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	require.NoError(t, RetryPendingOnce(ctx, pool, pm, rm))
+
+	// Row A must be cleared (materializer succeeded).
+	var errAtA *time.Time
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT last_materialize_error_at FROM subaccount_routing_assignment WHERE client_id=$1`,
+		clientA,
+	).Scan(&errAtA))
+	assert.Nil(t, errAtA, "row A (retry_count=99) must have error_at cleared after success")
+
+	// Row B must remain untouched (skipped by WHERE materialize_retry_count < 100).
+	var errAtB *time.Time
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT last_materialize_error_at FROM subaccount_routing_assignment WHERE client_id=$1`,
+		clientB,
+	).Scan(&errAtB))
+	assert.NotNil(t, errAtB, "row B (retry_count=100) must remain with error_at set (skipped by cap)")
+
+	// SRARetryGiveUpGauge must reflect at least 1 give-up row (row B).
+	giveUp := testutil.ToFloat64(SRARetryGiveUpGauge)
+	assert.GreaterOrEqual(t, giveUp, float64(1), "SRARetryGiveUpGauge must be >= 1 (row B at cap)")
+}
+

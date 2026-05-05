@@ -9,26 +9,31 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// RetryPendingOnce читает все SRA-rows с last_materialize_error_at IS NOT NULL
-// и пробует применить материализацию повторно через ApplyAssignmentMaterializers.
-// Idempotent: при per-row сбое retry-state остаётся записанным
-// (last_materialize_error_at обновится на now()), что приведёт к повторной
-// попытке на следующем тике; при success — retry-state очищается helper'ом.
+// RetryPendingOnce читает SRA-rows с last_materialize_error_at IS NOT NULL
+// и materialize_retry_count < 100 (cap) и пробует применить материализацию
+// повторно через ApplyAssignmentMaterializers. Idempotent: при per-row сбое
+// retry-state остаётся записанным (last_materialize_error_at обновится на now()),
+// что приведёт к повторной попытке на следующем тике; при success —
+// retry-state очищается helper'ом.
 //
 // Возвращает error только при невозможности прочитать pending-rows
 // (ошибка соединения с БД и т.п.); per-row сбои логируются, но не возвращаются.
 //
 // LIMIT 100 — мягкий потолок на объём одного тика. Если pending-очередь
 // длиннее, остаток обработается на следующих тиках (ORDER BY error_at ASC →
-// самые старые в первую очередь).
+// самые старые в первую очередь). Cap=100 по retry_count: один тик = ~1 минута,
+// row висящая 100 минут — реальный broken state; такие rows excluded из SELECT
+// и сигнализируются через SRARetryGiveUpGauge для ops.
 //
 // Plan 4 Task 6: закрывает gap из Plan 3 Task 4 — committed-but-unmaterialized
 // SRA остаётся неприменённым до перезапуска worker'а.
+// Plan 6 Task 2: добавлен WHERE materialize_retry_count < 100 и give-up gauge.
 func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplier, rm RouteApplier) error {
 	rows, err := pool.Query(ctx, `
 		SELECT client_id, provider_set_id, route_set_id
 		  FROM subaccount_routing_assignment
 		 WHERE last_materialize_error_at IS NOT NULL
+		   AND materialize_retry_count < 100
 		 ORDER BY last_materialize_error_at ASC
 		 LIMIT 100`)
 	if err != nil {
@@ -53,6 +58,16 @@ func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplie
 		return err
 	}
 
+	var giveUpCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM subaccount_routing_assignment
+		  WHERE last_materialize_error_at IS NOT NULL
+		    AND materialize_retry_count >= 100`).Scan(&giveUpCount); err != nil {
+		log.Warn().Err(err).Msg("SRA give-up count query failed")
+	} else {
+		SRARetryGiveUpGauge.Set(float64(giveUpCount))
+	}
+
 	SRAPendingRetryGauge.Set(float64(len(batch)))
 
 	// Plan 5 Task 4 (B4): backlog signal. Batch == LIMIT means there may be more
@@ -65,13 +80,12 @@ func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplie
 			Msg("SRA retry backlog at LIMIT — overflow possible, increase tick frequency or investigate stuck rows")
 	}
 
-	// Plan 5 Task 4 (B2): per-row defer/recover. Without this, a panic inside
-	// a materializer (e.g. nil-deref in pgx scan) would kill the worker
-	// process — and worker has no `restart: unless-stopped` in compose. The
-	// row stays in pending state and is retried on the next tick; the panic
-	// is counted as MaterializeFailureTotal{operation=retry_panic,source=retry}
-	// so ops can alert on it as a hard signal distinct from regular
-	// materialize-failures.
+	// Plan 5 Task 4 (B2): per-row defer/recover. Per-row scope means a panic
+	// inside a materializer (e.g. nil-deref in pgx scan) doesn't kill the loop —
+	// remaining rows are still processed. Per-row defer/recover: panic в
+	// materializer'е считается как failure (counted as
+	// MaterializeFailureTotal{operation=retry_panic,source=retry}); per-row
+	// scope значит loop продолжает обработку остальных rows.
 	for _, p := range batch {
 		func(p pending) {
 			defer func() {

@@ -57,3 +57,20 @@ var SRARetryBacklogOverflowTotal = promauto.NewCounter(
 		Help:      "RetryPendingOnce ticks where batch reached LIMIT 100 (possible backlog overflow). Sustained increases imply pending queue exceeds tick capacity.",
 	},
 )
+
+// SRARetryGiveUpGauge — count of SRA rows whose materialize_retry_count has
+// reached the cap (>=100). These rows are no longer auto-retried by retry_loop;
+// ops must investigate root cause and reset via the admin endpoint
+// (POST /admin/network/sra-stuck/{client_id}/reset).
+//
+// Plan 6 Task 2 (A5-extended): without this gauge, stuck rows would silently
+// accumulate while MaterializeFailureTotal{source=retry} kept incrementing
+// linearly forever. The cap+gauge pair gives ops a clear "manual attention
+// required" signal distinct from rate-of-failure metrics.
+var SRARetryGiveUpGauge = promauto.NewGauge(
+	prometheus.GaugeOpts{
+		Namespace: "portal",
+		Name:      "sra_retry_give_up_count",
+		Help:      "Number of SRA rows with materialize_retry_count >= 100 (cap reached, no longer auto-retried). Ops must reset via /admin/network/sra-stuck/{client_id}/reset endpoint after fixing root cause.",
+	},
+)

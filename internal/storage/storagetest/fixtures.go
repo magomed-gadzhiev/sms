@@ -191,6 +191,28 @@ func SeedSRAErrorState(t *testing.T, pool *pgxpool.Pool, clientID uuid.UUID, pro
 	require.NoError(t, err, "SeedSRAErrorState INSERT failed")
 }
 
+// SeedSRAErrorStateWithCount — то же что SeedSRAErrorState, но позволяет задать
+// произвольный materialize_retry_count. Нужен для тестов retry-cap логики (Plan 6
+// Task 2), где требуется row с count=99 (below cap) и row с count=100 (at cap).
+func SeedSRAErrorStateWithCount(t *testing.T, pool *pgxpool.Pool, clientID uuid.UUID, providerSetID, routeSetID *uuid.UUID, errText string, retryCount int) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO subaccount_routing_assignment
+		   (client_id, provider_set_id, route_set_id, assigned_at,
+		    last_materialize_error_at, last_materialize_error_text, materialize_retry_count)
+		 VALUES ($1, $2, $3, now(), now(), $4, $5)
+		 ON CONFLICT (client_id) DO UPDATE SET
+		    provider_set_id = EXCLUDED.provider_set_id,
+		    route_set_id = EXCLUDED.route_set_id,
+		    last_materialize_error_at = EXCLUDED.last_materialize_error_at,
+		    last_materialize_error_text = EXCLUDED.last_materialize_error_text,
+		    materialize_retry_count = EXCLUDED.materialize_retry_count`,
+		clientID, providerSetID, routeSetID, errText, retryCount,
+	)
+	require.NoError(t, err, "SeedSRAErrorStateWithCount INSERT failed")
+}
+
 // SeedProviderSet вставляет минимальный provider-set агрегатора и регистрирует cleanup.
 func SeedProviderSet(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID, name string) uuid.UUID {
 	t.Helper()
