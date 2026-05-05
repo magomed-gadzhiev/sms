@@ -282,6 +282,8 @@ export const auditApi = {
   },
   getNetworkLog: (params: {
     resource_type?: string;
+    user_id?: string;
+    action?: string;
     date_from?: string;
     date_to?: string;
     page?: number;
@@ -289,6 +291,8 @@ export const auditApi = {
   }) => {
     const qs = new URLSearchParams();
     if (params.resource_type) qs.set('resource_type', params.resource_type);
+    if (params.user_id) qs.set('user_id', params.user_id);
+    if (params.action) qs.set('action', params.action);
     if (params.date_from) qs.set('date_from', params.date_from);
     if (params.date_to) qs.set('date_to', params.date_to);
     if (params.page) qs.set('page', String(params.page));

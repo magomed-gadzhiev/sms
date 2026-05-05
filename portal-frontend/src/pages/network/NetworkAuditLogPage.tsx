@@ -41,6 +41,8 @@ export function NetworkAuditLogPage() {
   const toast = useToast();
   const [entries, setEntries] = useState<NetworkAuditLogEntry[]>([]);
   const [resourceType, setResourceType] = useState<string>('');
+  const [userID, setUserID] = useState<string>('');
+  const [action, setAction] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [page, setPage] = useState<number>(1);
@@ -54,6 +56,8 @@ export function NetworkAuditLogPage() {
     auditApi
       .getNetworkLog({
         resource_type: resourceType || undefined,
+        user_id: userID || undefined,
+        action: action || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         page,
@@ -75,7 +79,7 @@ export function NetworkAuditLogPage() {
     return () => {
       cancelled = true;
     };
-  }, [resourceType, dateFrom, dateTo, page, toast]);
+  }, [resourceType, userID, action, dateFrom, dateTo, page, toast]);
 
   return (
     <div className="max-w-6xl">
@@ -107,6 +111,49 @@ export function NetworkAuditLogPage() {
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label
+            htmlFor="action-filter"
+            className="block text-xs text-gray-600 mb-1"
+          >
+            Действие
+          </label>
+          <select
+            id="action-filter"
+            value={action}
+            onChange={(e) => {
+              setAction(e.target.value);
+              setPage(1);
+            }}
+            className="border rounded px-3 py-2"
+          >
+            <option value="">Все действия</option>
+            {Object.entries(ACTION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label
+            htmlFor="user-id-filter"
+            className="block text-xs text-gray-600 mb-1"
+          >
+            User ID
+          </label>
+          <input
+            id="user-id-filter"
+            type="text"
+            value={userID}
+            onChange={(e) => {
+              setUserID(e.target.value);
+              setPage(1);
+            }}
+            placeholder="UUID"
+            className="border rounded px-3 py-2 font-mono text-xs"
+          />
         </div>
         <div>
           <label
