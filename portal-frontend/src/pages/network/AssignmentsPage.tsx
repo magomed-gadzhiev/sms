@@ -119,12 +119,22 @@ export function AssignmentsPage() {
         route_set_id: bulkRouteSetID || null,
       });
       const ok = r.results.filter((x) => x.status === 'ok').length;
+      const partial = r.results.filter((x) => x.status === 'partial').length;
       const conflictCount = r.results.filter((x) => x.status === 'conflict').length;
+      const errorCount = r.results.filter((x) => x.status === 'error').length;
       const total = r.results.length;
       if (ok === total) {
         toast.success(`Назначено: ${ok} из ${total}`);
       } else {
-        toast.success(`Назначено: ${ok} из ${total}; конфликтов: ${conflictCount}`);
+        const parts: string[] = [`OK: ${ok}/${total}`];
+        if (partial > 0) parts.push(`частично (повторим автоматически): ${partial}`);
+        if (conflictCount > 0) parts.push(`конфликтов: ${conflictCount}`);
+        if (errorCount > 0) parts.push(`ошибок: ${errorCount}`);
+        toast.info(parts.join('; '));
+        const partialRows = r.results.filter((x) => x.status === 'partial');
+        if (partialRows.length > 0) {
+          console.warn('Partial-failure rows:', partialRows);
+        }
       }
       setSelected(new Set());
       setBulkSetID('');

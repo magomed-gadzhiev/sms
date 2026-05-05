@@ -104,11 +104,16 @@ export function SubAccountNetworkSection({ subAccountID, subAccountName }: Props
   async function changeSet() {
     setSavingSet(true);
     try {
-      await networkApi.putAssignment(subAccountID, {
+      const result = await networkApi.putAssignment(subAccountID, {
         provider_set_id: newSetID || null,
         route_set_id: overview?.route_set?.id ?? null,
       });
-      toast.success('Provider-set обновлён');
+      if (result.warnings && result.warnings.length > 0) {
+        const summary = result.warnings.map((w) => `${w.step}: ${w.error}`).join('; ');
+        toast.info(`Provider-set сохранён, но материализация частично не удалась: ${summary}. Повторим автоматически.`);
+      } else {
+        toast.success('Provider-set обновлён');
+      }
       setChangeSetOpen(false);
       await loadOverview();
     } catch (err) {
@@ -121,11 +126,16 @@ export function SubAccountNetworkSection({ subAccountID, subAccountName }: Props
   async function changeRouteSet() {
     setSavingRouteSet(true);
     try {
-      await networkApi.putAssignment(subAccountID, {
+      const result = await networkApi.putAssignment(subAccountID, {
         provider_set_id: overview?.provider_set?.id ?? null,
         route_set_id: newRouteSetID || null,
       });
-      toast.success('Route-set обновлён');
+      if (result.warnings && result.warnings.length > 0) {
+        const summary = result.warnings.map((w) => `${w.step}: ${w.error}`).join('; ');
+        toast.info(`Route-set сохранён, но материализация частично не удалась: ${summary}. Повторим автоматически.`);
+      } else {
+        toast.success('Route-set обновлён');
+      }
       setChangeRouteSetOpen(false);
       await loadOverview();
     } catch (err) {

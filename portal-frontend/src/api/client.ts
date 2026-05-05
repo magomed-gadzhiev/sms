@@ -1686,8 +1686,9 @@ export interface NetworkAssignment {
 
 export interface NetworkBulkAssignResult {
   client_id: string;
-  status: 'ok' | 'error' | 'conflict';
+  status: 'ok' | 'partial' | 'error' | 'conflict';
   error?: string;
+  warnings?: Array<{ step: string; error: string }>;
 }
 
 export interface NetworkProviderOverride {
@@ -1854,10 +1855,10 @@ export const networkApi = {
     provider_set_id: string | null;
     route_set_id?: string | null;
   }) =>
-    apiFetch<{ client_id: string }>(`/reseller/network/assignments/${clientId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+    apiFetch<{ client_id: string; warnings?: Array<{ step: string; error: string }> }>(
+      `/reseller/network/assignments/${clientId}`,
+      { method: 'PUT', body: JSON.stringify(data) },
+    ),
 
   /** POST /reseller/network/assignments/bulk — assign/unassign multiple sub-accounts */
   bulkAssign: (data: {
