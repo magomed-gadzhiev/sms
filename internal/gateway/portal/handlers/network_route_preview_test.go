@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -65,11 +66,10 @@ func uniqOperatorCode(prefix string) string {
 
 // uniqISO — UNIQUE INDEX на countries.iso_code (VARCHAR(2)).
 // 26*26=676 комбинаций; используем хвост наносекунд → 2 буквы A-Z.
-var isoSeq int64
+var isoSeq atomic.Int64
 
 func uniqISO() string {
-	n := time.Now().UnixNano() + isoSeq
-	isoSeq++
+	n := time.Now().UnixNano() + isoSeq.Add(1)
 	a := byte('A' + (n/26)%26)
 	b := byte('A' + n%26)
 	return string([]byte{a, b})
