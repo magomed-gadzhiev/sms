@@ -162,26 +162,51 @@ func SeedProviderPrivate(t *testing.T, pool *pgxpool.Pool, name string, reseller
 }
 
 // SeedSRAErrorState инициализирует subaccount_routing_assignment row для уже
-// существующего sub-account'а: provider/route IDs = NULL, last_materialize_error_at
-// = now(), error_text = errText. Используется тестами retry-логики.
+// существующего sub-account'а: provider_set_id/route_set_id = переданные ID
+// (могут быть nil), last_materialize_error_at = now(), error_text = errText.
+// Используется тестами retry-логики.
+//
+// ВАЖНО: при providerSetID=nil И routeSetID=nil триггер trg_sra_orphan_cleanup
+// (миграция 000140) удалит row при следующем UPDATE. Тесты, проверяющие
+// retry-state после UPDATE, должны передавать хотя бы один не-nil set ID.
 //
 // Cleanup идёт через SeedSubAccount — он удаляет SRA row при teardown,
 // поэтому собственного Cleanup эта функция не регистрирует.
-func SeedSRAErrorState(t *testing.T, pool *pgxpool.Pool, clientID uuid.UUID, errText string) {
+func SeedSRAErrorState(t *testing.T, pool *pgxpool.Pool, clientID uuid.UUID, providerSetID, routeSetID *uuid.UUID, errText string) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := pool.Exec(ctx,
 		`INSERT INTO subaccount_routing_assignment
 		   (client_id, provider_set_id, route_set_id, assigned_at,
 		    last_materialize_error_at, last_materialize_error_text, materialize_retry_count)
-		 VALUES ($1, NULL, NULL, now(), now(), $2, 1)
+		 VALUES ($1, $2, $3, now(), now(), $4, 1)
 		 ON CONFLICT (client_id) DO UPDATE SET
+		    provider_set_id = EXCLUDED.provider_set_id,
+		    route_set_id = EXCLUDED.route_set_id,
 		    last_materialize_error_at = EXCLUDED.last_materialize_error_at,
 		    last_materialize_error_text = EXCLUDED.last_materialize_error_text,
 		    materialize_retry_count = subaccount_routing_assignment.materialize_retry_count + 1`,
-		clientID, errText,
+		clientID, providerSetID, routeSetID, errText,
 	)
 	require.NoError(t, err, "SeedSRAErrorState INSERT failed")
+}
+
+// SeedProviderSet вставляет минимальный provider-set агрегатора и регистрирует cleanup.
+func SeedProviderSet(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID, name string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	id := uuid.New()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO reseller_provider_sets (id, reseller_id, name, is_default)
+		 VALUES ($1, $2, $3, false)`,
+		id, resellerID, name,
+	)
+	require.NoError(t, err, "SeedProviderSet INSERT failed")
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM reseller_provider_sets WHERE id = $1`, id)
+	})
+	return id
 }
 
 // SeedRouteSet вставляет минимальный route-set агрегатора и регистрирует cleanup.
