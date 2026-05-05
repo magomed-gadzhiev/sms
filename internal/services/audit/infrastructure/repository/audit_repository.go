@@ -74,7 +74,7 @@ func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters *domain.Aud
 
 	// Query entries
 	query := fmt.Sprintf(
-		`SELECT id, tenant_id, user_id, action, resource_type, resource_id,
+		`SELECT id, tenant_id, COALESCE(user_id::text, '') AS user_id, action, resource_type, resource_id,
 		        COALESCE(details, '{}') as details, COALESCE(ip_address::text, '') as ip_address, created_at
 		 FROM audit_log %s
 		 ORDER BY created_at DESC
