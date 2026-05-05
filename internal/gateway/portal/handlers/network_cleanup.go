@@ -85,16 +85,23 @@ func (h *NetworkCleanupHandlers) RouteCleanup(w http.ResponseWriter, r *http.Req
 		respondError(w, shared.ErrInternalServer("query"))
 		return
 	}
+	var scanErr error
 	func() {
 		defer rows.Close()
 		for rows.Next() {
 			var id uuid.UUID
 			if err := rows.Scan(&id); err != nil {
+				scanErr = err
 				return
 			}
 			affectedSetIDs = append(affectedSetIDs, id)
 		}
 	}()
+	if scanErr != nil {
+		log.Error().Err(scanErr).Msg("route-cleanup affected sets scan")
+		respondError(w, shared.ErrInternalServer("scan"))
+		return
+	}
 	if err := rows.Err(); err != nil {
 		log.Error().Err(err).Msg("route-cleanup affected sets rows.Err")
 		respondError(w, shared.ErrInternalServer("rows"))

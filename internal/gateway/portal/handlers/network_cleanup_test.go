@@ -71,3 +71,55 @@ func TestRouteCleanup_RemovesOrphanItems(t *testing.T) {
 		resellerID, provA).Scan(&overridesLeft))
 	require.Equal(t, 0, overridesLeft)
 }
+
+// TestRouteCleanup_DoesNotTouchOtherResellerData — cross-reseller изоляция:
+// два reseller'а имеют свои route-set'ы с тем же provider_id. Cleanup от reseller'а A
+// удаляет только items в его route-set'е, items reseller'а B остаются нетронутыми.
+func TestRouteCleanup_DoesNotTouchOtherResellerData(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+
+	resellerA := storagetest.SeedReseller(t, pool)
+	resellerB := storagetest.SeedReseller(t, pool)
+	provA := storagetest.SeedProvider(t, pool, "CleanupShared")
+	rsA := storagetest.SeedRouteSet(t, pool, resellerA, "RS-A")
+	rsB := storagetest.SeedRouteSet(t, pool, resellerB, "RS-B")
+	storagetest.SeedRouteSetItem(t, pool, rsA, provA, 10, nil)
+	storagetest.SeedRouteSetItem(t, pool, rsB, provA, 10, nil)
+
+	rsItems := storage.NewResellerRouteSetItemsRepository(pool)
+	mat := network.NewRouteSetMaterializer(pool, rsItems)
+	h := NewNetworkCleanupHandlers(pool, mat)
+
+	body := fmt.Sprintf(`{"provider_id":"%s"}`, provA.String())
+	req := httptest.NewRequest("POST", "/portal/v1/reseller/network/route-cleanup", strings.NewReader(body))
+	req = withReseller(req, resellerA)
+	w := httptest.NewRecorder()
+	h.RouteCleanup(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	var resp struct {
+		RemovedRouteSetItems int `json:"removed_route_set_items"`
+		RemovedOverrides     int `json:"removed_overrides"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, 1, resp.RemovedRouteSetItems, "у A должен быть удалён ровно 1 item")
+
+	// A: items с этим провайдером не осталось.
+	var aLeft int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM reseller_route_set_items i
+		 JOIN reseller_route_sets s ON s.id = i.set_id
+		 WHERE s.reseller_id = $1 AND i.provider_id = $2`,
+		resellerA, provA).Scan(&aLeft))
+	require.Equal(t, 0, aLeft)
+
+	// B: item остался нетронутым.
+	var bLeft int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM reseller_route_set_items i
+		 JOIN reseller_route_sets s ON s.id = i.set_id
+		 WHERE s.reseller_id = $1 AND i.provider_id = $2`,
+		resellerB, provA).Scan(&bLeft))
+	require.Equal(t, 1, bLeft, "item reseller'а B должен остаться")
+}
