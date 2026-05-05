@@ -1,6 +1,7 @@
 groups:
   - name: sra-aggregator
-    interval: 1m
+    # interval inherits global evaluation_interval (15s) — критичный SRARetryPanic
+    # должен fire'ить в течение 15 секунд от первого panic'а, не 1 минуты.
     rules:
       # SRA-row застряла в give-up (manual ops attention требуется).
       - alert: SRARetryGiveUpRows
@@ -25,7 +26,7 @@ groups:
           severity: warning
           team: ops
         annotations:
-          summary: "SRA materialize initial-failure rate > 5%/min"
+          summary: "SRA materialize initial-failure rate > 0.05 events/sec (~3/min)"
           description: |
             Materializer ApplyToClient failures during PUT/Bulk handlers
             (operation={{ $labels.operation }}). Rate {{ printf "%.2f" $value }}/sec.
