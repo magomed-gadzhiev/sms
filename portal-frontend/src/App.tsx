@@ -65,6 +65,7 @@ import { ProvidersCatalogPage } from './pages/network/ProvidersCatalogPage';
 import { ProviderSetsPage } from './pages/network/ProviderSetsPage';
 import { RouteSetsPage } from './pages/network/RouteSetsPage';
 import { AssignmentsPage } from './pages/network/AssignmentsPage';
+import { NetworkAuditLogPage } from './pages/network/NetworkAuditLogPage';
 import { NetworkTariffsListPage } from './pages/network/NetworkTariffsListPage';
 import { NetworkTariffTemplatesPage } from './pages/network/NetworkTariffTemplatesPage';
 import { NetworkTariffEditorPage } from './pages/network/NetworkTariffEditorPage';
@@ -209,6 +210,7 @@ export function App() {
           <Route path="tariffs/templates" element={<NetworkTariffTemplatesPage />} />
           <Route path="tariffs/editor/:id" element={<NetworkTariffEditorPage />} />
           <Route path="statistics" element={<Suspense fallback={null}><NetworkStatisticsPage /></Suspense>} />
+          <Route path="audit-log" element={<NetworkAuditLogPage />} />
         </Route>
 
         {/* Backward compat redirects */}

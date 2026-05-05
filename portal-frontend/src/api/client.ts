@@ -257,10 +257,46 @@ export const subAccountsApi = {
 };
 
 // Audit API
+export interface NetworkAuditLogEntry {
+  id: string;
+  user_id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  details: string; // JSON string from backend
+  ip_address: string;
+  created_at: string;
+}
+
+export interface NetworkAuditLogResponse {
+  entries: NetworkAuditLogEntry[];
+  total: number;
+  page: number;
+  total_pages: number;
+}
+
 export const auditApi = {
   list: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<unknown>(`/audit-log?${qs}`);
+  },
+  getNetworkLog: (params: {
+    resource_type?: string;
+    date_from?: string;
+    date_to?: string;
+    page?: number;
+    per_page?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.resource_type) qs.set('resource_type', params.resource_type);
+    if (params.date_from) qs.set('date_from', params.date_from);
+    if (params.date_to) qs.set('date_to', params.date_to);
+    if (params.page) qs.set('page', String(params.page));
+    if (params.per_page) qs.set('per_page', String(params.per_page));
+    const query = qs.toString();
+    return apiFetch<NetworkAuditLogResponse>(
+      `/audit-log${query ? '?' + query : ''}`,
+    );
   },
 };
 
