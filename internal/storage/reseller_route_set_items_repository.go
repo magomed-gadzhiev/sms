@@ -179,7 +179,7 @@ func (r *ResellerRouteSetItemsRepository) CreateFull(ctx context.Context, setID 
 	return &in, nil
 }
 
-func (r *ResellerRouteSetItemsRepository) UpdateFull(ctx context.Context, itemID uuid.UUID, in RouteSetItemFull) error {
+func (r *ResellerRouteSetItemsRepository) UpdateFull(ctx context.Context, setID, itemID uuid.UUID, in RouteSetItemFull) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil { return err }
 	defer tx.Rollback(ctx) //nolint:errcheck
@@ -187,8 +187,8 @@ func (r *ResellerRouteSetItemsRepository) UpdateFull(ctx context.Context, itemID
 		`UPDATE reseller_route_set_items
 		 SET name=NULLIF($1,''), comment=NULLIF($2,''), provider_id=$3,
 		     priority=$4, share=$5, route_type=$6, status=$7, updated_at=now()
-		 WHERE id=$8`,
-		in.Name, in.Comment, in.ProviderID, in.Priority, in.Share, in.RouteType, in.Status, itemID)
+		 WHERE id=$8 AND set_id=$9`,
+		in.Name, in.Comment, in.ProviderID, in.Priority, in.Share, in.RouteType, in.Status, itemID, setID)
 	if err != nil { return err }
 	if tag.RowsAffected() == 0 { return ErrNotFound }
 	if _, err := tx.Exec(ctx, `DELETE FROM route_set_condition_groups WHERE item_id = $1`, itemID); err != nil { return err }
@@ -226,8 +226,8 @@ func writeGroupsAndSchedules(ctx context.Context, tx pgx.Tx, itemID uuid.UUID, g
 	return nil
 }
 
-func (r *ResellerRouteSetItemsRepository) Delete(ctx context.Context, itemID uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM reseller_route_set_items WHERE id = $1`, itemID)
+func (r *ResellerRouteSetItemsRepository) Delete(ctx context.Context, setID, itemID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM reseller_route_set_items WHERE id = $1 AND set_id = $2`, itemID, setID)
 	if err != nil { return err }
 	if tag.RowsAffected() == 0 { return ErrNotFound }
 	return nil

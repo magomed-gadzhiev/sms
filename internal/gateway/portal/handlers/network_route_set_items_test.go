@@ -125,6 +125,59 @@ func TestRouteSetItems_Create_409_ProviderNotInSet(t *testing.T) {
 	require.Equal(t, 0, cnt)
 }
 
+func TestRouteSetItems_Create_TriggersMaterialization(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "A")
+
+	// provider-set с провайдером A.
+	psRepo := storage.NewResellerProviderSetRepository(pool)
+	psItems := storage.NewResellerProviderSetItemsRepository(pool)
+	ps, err := psRepo.Create(ctx, resellerID, uniqRSItemsName("PS"), false)
+	require.NoError(t, err)
+	require.NoError(t, psItems.ReplaceItems(ctx, ps.ID, []storage.ProviderSetItemInput{
+		{ProviderID: provA, ExposeProviderName: true},
+	}))
+
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRSItemsName("RS"))
+
+	// Привязать суб-аккаунт к provider-set'у и route-set'у.
+	_, err = pool.Exec(ctx,
+		`INSERT INTO subaccount_routing_assignment (client_id, provider_set_id, route_set_id)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (client_id) DO UPDATE SET provider_set_id=EXCLUDED.provider_set_id, route_set_id=EXCLUDED.route_set_id`,
+		subID, ps.ID, rsID)
+	require.NoError(t, err)
+
+	rsItems := storage.NewResellerRouteSetItemsRepository(pool)
+	mat := network.NewRouteSetMaterializer(pool, rsItems)
+	validator := network.NewConflictValidator(psItems, rsItems)
+	h := NewNetworkRouteSetItemsHandlers(pool, mat, validator)
+
+	body := fmt.Sprintf(`{"name":"r1","provider_id":"%s","priority":10,"share":100,"route_type":"sms","status":"active"}`, provA.String())
+	req := httptest.NewRequest("POST", "/portal/v1/reseller/network/route-sets/"+rsID.String()+"/items", strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": rsID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "body: %s", w.Body.String())
+
+	// Должна материализоваться ровно одна template-route с провайдером A.
+	var cnt int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT count(*) FROM client_routes WHERE client_id=$1 AND source='template'`, subID).Scan(&cnt))
+	require.Equal(t, 1, cnt)
+
+	var providerID uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT provider_id FROM client_routes WHERE client_id=$1 AND source='template'`, subID).Scan(&providerID))
+	require.Equal(t, provA, providerID)
+}
+
 func TestRouteSetItems_Reorder(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()

@@ -82,7 +82,7 @@ func TestRouteSetItems_UpdateFull_ReplacesGroupsAndSchedules(t *testing.T) {
 		ConditionGroups: []storage.RouteSetConditionGroup{{LogicOp: "IF", Conditions: []storage.RouteSetCondition{{Type: "country", Value: "RU"}}}},
 	})
 	require.NoError(t, err)
-	require.NoError(t, itemsRepo.UpdateFull(ctx, created.ID, storage.RouteSetItemFull{
+	require.NoError(t, itemsRepo.UpdateFull(ctx, set.ID, created.ID, storage.RouteSetItemFull{
 		Name: "v2", ProviderID: prov, Priority: 20, Share: 100, RouteType: "sms", Status: "active",
 		ConditionGroups: []storage.RouteSetConditionGroup{{LogicOp: "IF", Conditions: []storage.RouteSetCondition{{Type: "country", Value: "KZ"}}}},
 	}))
@@ -154,7 +154,7 @@ func TestRouteSetItems_UpdateFull_NotFound(t *testing.T) {
 	defer cleanup()
 	prov := storagetest.SeedProvider(t, pool, "P")
 	itemsRepo := storage.NewResellerRouteSetItemsRepository(pool)
-	err := itemsRepo.UpdateFull(context.Background(), uuid.New(), storage.RouteSetItemFull{
+	err := itemsRepo.UpdateFull(context.Background(), uuid.New(), uuid.New(), storage.RouteSetItemFull{
 		ProviderID: prov, Share: 100, RouteType: "sms", Status: "active",
 	})
 	require.ErrorIs(t, err, storage.ErrNotFound)
@@ -164,6 +164,6 @@ func TestRouteSetItems_Delete_NotFound(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
 	itemsRepo := storage.NewResellerRouteSetItemsRepository(pool)
-	err := itemsRepo.Delete(context.Background(), uuid.New())
+	err := itemsRepo.Delete(context.Background(), uuid.New(), uuid.New())
 	require.ErrorIs(t, err, storage.ErrNotFound)
 }

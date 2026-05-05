@@ -460,7 +460,7 @@ func (h *NetworkRouteSetItemsHandlers) Update(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := h.itemsRepo.UpdateFull(r.Context(), itemID, full); err != nil {
+	if err := h.itemsRepo.UpdateFull(r.Context(), setID, itemID, full); err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			respondError(w, shared.ErrNotFound("item"))
 			return
@@ -501,7 +501,7 @@ func (h *NetworkRouteSetItemsHandlers) Delete(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := h.itemsRepo.Delete(r.Context(), itemID); err != nil {
+	if err := h.itemsRepo.Delete(r.Context(), setID, itemID); err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			respondError(w, shared.ErrNotFound("item"))
 			return
