@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -53,12 +54,17 @@ func TestApplyAssignmentMaterializers_ProviderFails_RecordsError(t *testing.T) {
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, "rs-pfail")
 	storagetest.SeedSRAErrorState(t, pool, clientID, &psID, &rsID, "")
 
+	beforeProv := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("provider", "initial"))
 	w := ApplyAssignmentMaterializers(context.Background(), pool,
 		stubProviderApplier{err: errors.New("boom")}, stubRouteApplier{},
 		clientID, &psID, &rsID, "initial")
 	require.Len(t, w, 1)
 	assert.Equal(t, "provider_materialize", w[0]["step"])
 	assert.Contains(t, w[0]["error"], "boom")
+
+	afterProv := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("provider", "initial"))
+	assert.Equal(t, float64(1), afterProv-beforeProv,
+		"MaterializeFailureTotal{kind=provider,source=initial} must bump by 1")
 
 	var errText *string
 	require.NoError(t, pool.QueryRow(context.Background(),
@@ -78,11 +84,20 @@ func TestApplyAssignmentMaterializers_BothFail_RecordsBoth(t *testing.T) {
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, "rs-bothfail")
 	storagetest.SeedSRAErrorState(t, pool, clientID, &psID, &rsID, "")
 
+	beforeProv := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("provider", "initial"))
+	beforeRoute := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("route", "initial"))
 	w := ApplyAssignmentMaterializers(context.Background(), pool,
 		stubProviderApplier{err: errors.New("p")},
 		stubRouteApplier{err: errors.New("r")},
 		clientID, &psID, &rsID, "initial")
 	assert.Len(t, w, 2)
+
+	afterProv := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("provider", "initial"))
+	afterRoute := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("route", "initial"))
+	assert.Equal(t, float64(1), afterProv-beforeProv,
+		"MaterializeFailureTotal{kind=provider,source=initial} must bump by 1")
+	assert.Equal(t, float64(1), afterRoute-beforeRoute,
+		"MaterializeFailureTotal{kind=route,source=initial} must bump by 1")
 
 	var retryCount int
 	require.NoError(t, pool.QueryRow(context.Background(),

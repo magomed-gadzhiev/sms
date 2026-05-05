@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -76,7 +77,12 @@ func TestRetryPendingOnce_KeepsErrorOnContinuedFailure(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	beforeProvRetry := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("provider", "retry"))
 	require.NoError(t, RetryPendingOnce(ctx, pool, pm, rm))
+
+	afterProvRetry := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("provider", "retry"))
+	assert.GreaterOrEqual(t, afterProvRetry-beforeProvRetry, float64(1),
+		"MaterializeFailureTotal{kind=provider,source=retry} must bump on retry-tick failure")
 
 	var retryCount int
 	require.NoError(t, pool.QueryRow(ctx,
