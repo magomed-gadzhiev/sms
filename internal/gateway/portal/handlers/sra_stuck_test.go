@@ -69,7 +69,8 @@ func TestSRAStuck_List_OnlyStuck(t *testing.T) {
 }
 
 // TestSRAStuck_List_OrderByErrorAt — 2 stuck-строки; проверяем ORDER BY last_materialize_error_at ASC.
-// Старейшая ошибка должна идти первой.
+// Старейшая ошибка должна идти первой. Тест фильтрует глобальный результат по двум известным
+// client_id (глобальная БД может содержать stuck-строки от других тестов).
 func TestSRAStuck_List_OrderByErrorAt(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
@@ -78,16 +79,17 @@ func TestSRAStuck_List_OrderByErrorAt(t *testing.T) {
 	subFirst := storagetest.SeedSubAccount(t, pool, resellerID)
 	subSecond := storagetest.SeedSubAccount(t, pool, resellerID)
 
-	// subFirst получает более старый error_at через прямой UPDATE после seed.
+	// subFirst получает error_at в прошлом, subSecond — свежую.
+	// UPDATE напрямую — SeedSRAErrorStateWithCount использует now(), потом
+	// корректируем subFirst назад.
 	storagetest.SeedSRAErrorStateWithCount(t, pool, subFirst, nil, nil, "err-first", 100)
 	storagetest.SeedSRAErrorStateWithCount(t, pool, subSecond, nil, nil, "err-second", 100)
 
-	// Сдвигаем subFirst назад во времени, чтобы убедиться в порядке.
 	_, err := pool.Exec(t.Context(),
 		`UPDATE subaccount_routing_assignment
-		    SET last_materialize_error_at = $1
-		  WHERE client_id = $2`,
-		time.Now().Add(-2*time.Hour), subFirst,
+		    SET last_materialize_error_at = NOW() - INTERVAL '2 hours'
+		  WHERE client_id = $1`,
+		subFirst,
 	)
 	require.NoError(t, err)
 
@@ -101,20 +103,34 @@ func TestSRAStuck_List_OrderByErrorAt(t *testing.T) {
 		Rows []sraStuckRow `json:"rows"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	require.Len(t, resp.Rows, 2)
-	require.Equal(t, subFirst.String(), resp.Rows[0].ClientID, "subFirst (старый) должен быть первым")
-	require.Equal(t, subSecond.String(), resp.Rows[1].ClientID)
+
+	// Отфильтровываем только строки данного теста из глобального результата.
+	var filtered []sraStuckRow
+	known := map[string]bool{subFirst.String(): true, subSecond.String(): true}
+	for _, row := range resp.Rows {
+		if known[row.ClientID] {
+			filtered = append(filtered, row)
+		}
+	}
+	require.Len(t, filtered, 2, "оба seeded row должны быть в ответе")
+	require.Equal(t, subFirst.String(), filtered[0].ClientID, "subFirst (старый) должен быть первым")
+	require.Equal(t, subSecond.String(), filtered[1].ClientID)
 }
 
 // TestSRAStuck_Reset_Success — stuck-строка (retry=120): POST reset → 200,
 // в БД materialize_retry_count=0, error_at=NULL, error_text=NULL.
+//
+// ВАЖНО: SRA row засевается с ненулевым provider_set_id, чтобы триггер
+// trg_sra_orphan_cleanup (миграция 000140) не удалил row при UPDATE:
+// триггер удаляет row только когда ОБА set_id NULL после UPDATE.
 func TestSRAStuck_Reset_Success(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
 
 	resellerID := storagetest.SeedReseller(t, pool)
 	subID := storagetest.SeedSubAccount(t, pool, resellerID)
-	storagetest.SeedSRAErrorStateWithCount(t, pool, subID, nil, nil, "stuck-error", 120)
+	setID := storagetest.SeedProviderSet(t, pool, resellerID, "stuck-reset-set")
+	storagetest.SeedSRAErrorStateWithCount(t, pool, subID, &setID, nil, "stuck-error", 120)
 
 	h := NewSRAStuckHandlers(pool)
 	req := httptest.NewRequest(http.MethodPost, "/portal/v1/admin/network/sra-stuck/"+subID.String()+"/reset", nil)
