@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -115,4 +116,49 @@ func TestResellerOnlyMiddleware_Reseller_Passthrough(t *testing.T) {
 
 	assert.True(t, called)
 	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+// TestResellerOnly_AppliedToSubAccountsRouterPattern — гарантирует, что
+// ResellerOnlyMiddleware можно навесить на subrouter в стиле /sub-accounts/*
+// и он действительно блокирует non-reseller'ов. Регрессионный тест для Plan 3
+// Task 3 (defence-in-depth: до этого защита /sub-accounts/* шла только через
+// per-handler verifyOwnership).
+func TestResellerOnly_AppliedToSubAccountsRouterPattern(t *testing.T) {
+	pool := resellerOnlyTestPool(t)
+	ctx := context.Background()
+
+	// Обычный клиент (не reseller) — мirror seeding pattern из
+	// TestResellerOnlyMiddleware_NonReseller_Returns403.
+	clientID := uuid.New()
+	var planID uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM subscription_plans ORDER BY monthly_price_rub LIMIT 1`).Scan(&planID))
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO clients (id, name, api_key, secret, email, active, is_reseller, plan_id)
+		VALUES ($1, $2, $3, 'secret', $4, true, false, $5)`,
+		clientID,
+		fmt.Sprintf("non-reseller-sub-%s", uuid.NewString()[:8]),
+		fmt.Sprintf("apikey-nrs-%s", clientID),
+		fmt.Sprintf("nrs-%s@t.local", uuid.NewString()[:8]),
+		planID,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM clients WHERE id = $1`, clientID) })
+
+	r := mux.NewRouter()
+	subRouter := r.PathPrefix("/sub-accounts").Subrouter()
+	subRouter.Use(ResellerOnlyMiddleware(pool))
+	called := false
+	subRouter.HandleFunc("", func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}).Methods("GET")
+
+	req := httptest.NewRequest(http.MethodGet, "/sub-accounts", nil)
+	req = req.WithContext(context.WithValue(req.Context(), ClientIDKey, clientID))
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusForbidden, rr.Code, "non-reseller must be 403 on /sub-accounts subrouter")
+	assert.False(t, called, "next handler must not be invoked for non-reseller")
 }

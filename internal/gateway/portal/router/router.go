@@ -189,6 +189,11 @@ func SetupRouter(
 
 	// Sub-accounts endpoints
 	subAccounts := protected.PathPrefix("/sub-accounts").Subrouter()
+	// Plan 3 Task 3: defence-in-depth — middleware на subrouter'е гарантирует,
+	// что новые endpoint'ы под /sub-accounts/* автоматически получают reseller-guard.
+	// До Plan 3 защита шла только через verifyOwnership в каждом handler'е (404
+	// на чужих) — defence-by-accident, один пропущенный verify = leak.
+	subAccounts.Use(middleware.ResellerOnlyMiddleware(dbPool))
 	subAccounts.HandleFunc("", subAccountHandlers.ListSubAccounts).Methods("GET")
 	subAccounts.HandleFunc("", subAccountHandlers.CreateSubAccount).Methods("POST")
 	subAccounts.HandleFunc("/{id}", subAccountHandlers.GetSubAccount).Methods("GET")
