@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { useToast } from '../../components/ui/Toast';
 import { networkApi, ApiError } from '../../api/client';
+import { notifyAssignmentResult } from '../sub-accounts/notifyAssignmentResult';
 import type {
   NetworkAssignment,
   NetworkProviderSet,
@@ -77,12 +78,10 @@ export function AssignmentsPage() {
         provider_set_id: providerSetID,
         route_set_id: routeSetID,
       });
-      if (result.warnings && result.warnings.length > 0) {
-        const summary = result.warnings.map((w) => `${w.step}: ${w.error}`).join('; ');
-        toast.info(`Назначение сохранено, но материализация частично не удалась: ${summary}. Повторим автоматически.`);
-      } else {
-        toast.success('Назначение сохранено');
-      }
+      notifyAssignmentResult(toast, result, 'Назначение', {
+        successMessage: 'Назначение сохранено',
+        partialPrefix: 'Назначение сохранено, но материализация частично не удалась',
+      });
       reload();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка');

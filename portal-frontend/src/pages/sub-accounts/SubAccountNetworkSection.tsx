@@ -15,6 +15,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Badge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import { RouteRuleDrawer } from '../../components/network/RouteRuleDrawer';
+import { notifyAssignmentResult } from './notifyAssignmentResult';
 
 interface Props {
   subAccountID: string;
@@ -108,12 +109,7 @@ export function SubAccountNetworkSection({ subAccountID, subAccountName }: Props
         provider_set_id: newSetID || null,
         route_set_id: overview?.route_set?.id ?? null,
       });
-      if (result.warnings && result.warnings.length > 0) {
-        const summary = result.warnings.map((w) => `${w.step}: ${w.error}`).join('; ');
-        toast.info(`Provider-set сохранён, но материализация частично не удалась: ${summary}. Повторим автоматически.`);
-      } else {
-        toast.success('Provider-set обновлён');
-      }
+      notifyAssignmentResult(toast, result, 'Provider-set');
       setChangeSetOpen(false);
       await loadOverview();
     } catch (err) {
@@ -130,12 +126,7 @@ export function SubAccountNetworkSection({ subAccountID, subAccountName }: Props
         provider_set_id: overview?.provider_set?.id ?? null,
         route_set_id: newRouteSetID || null,
       });
-      if (result.warnings && result.warnings.length > 0) {
-        const summary = result.warnings.map((w) => `${w.step}: ${w.error}`).join('; ');
-        toast.info(`Route-set сохранён, но материализация частично не удалась: ${summary}. Повторим автоматически.`);
-      } else {
-        toast.success('Route-set обновлён');
-      }
+      notifyAssignmentResult(toast, result, 'Route-set');
       setChangeRouteSetOpen(false);
       await loadOverview();
     } catch (err) {
