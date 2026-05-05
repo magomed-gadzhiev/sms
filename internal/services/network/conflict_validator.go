@@ -19,6 +19,21 @@ func NewConflictValidator(ps *storage.ResellerProviderSetItemsRepository, rs *st
 	return &ConflictValidator{psItems: ps, rsItems: rs}
 }
 
+// missingProviders — in-memory set diff: rsIDs \ psIDs.
+func missingProviders(psIDs, rsIDs []uuid.UUID) []uuid.UUID {
+	psSet := make(map[uuid.UUID]struct{}, len(psIDs))
+	for _, id := range psIDs {
+		psSet[id] = struct{}{}
+	}
+	var missing []uuid.UUID
+	for _, id := range rsIDs {
+		if _, ok := psSet[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	return missing
+}
+
 // MissingProviders — provider_id'ы, упомянутые в route-set, но отсутствующие в provider-set.
 // Если provider-set пустой — все провайдеры route-set считаются missing.
 func (v *ConflictValidator) MissingProviders(ctx context.Context, providerSetID, routeSetID uuid.UUID) ([]uuid.UUID, error) {
@@ -30,18 +45,7 @@ func (v *ConflictValidator) MissingProviders(ctx context.Context, providerSetID,
 	if err != nil {
 		return nil, err
 	}
-
-	psSet := make(map[uuid.UUID]struct{}, len(psIDs))
-	for _, id := range psIDs {
-		psSet[id] = struct{}{}
-	}
-	var missing []uuid.UUID
-	for _, id := range rsIDs {
-		if _, ok := psSet[id]; !ok {
-			missing = append(missing, id)
-		}
-	}
-	return missing, nil
+	return missingProviders(psIDs, rsIDs), nil
 }
 
 // MissingProvidersByIDs — то же, но обрабатывает nil-указатели.
@@ -58,5 +62,9 @@ func (v *ConflictValidator) MissingProvidersByIDs(ctx context.Context, providerS
 	if providerSetID == nil {
 		return rsIDs, nil
 	}
-	return v.MissingProviders(ctx, *providerSetID, *routeSetID)
+	psIDs, err := v.psItems.ListProvidersInSet(ctx, *providerSetID)
+	if err != nil {
+		return nil, err
+	}
+	return missingProviders(psIDs, rsIDs), nil
 }
