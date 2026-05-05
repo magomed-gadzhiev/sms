@@ -62,7 +62,6 @@ func SetupRouter(
 	resellerSenderNameHandlers *handlers.ResellerSenderNameHandlers,
 	resellerTemplateHandlers *handlers.ResellerTemplateHandlers,
 	resellerDashboardHandlers *handlers.ResellerDashboardHandlers,
-	resellerRoutingHandlers *handlers.ResellerRoutingHandlers,
 	resellerTariffHandlers *handlers.ResellerTariffHandlers,
 	resellerTariffPlanHandlers *handlers.ResellerTariffPlanHandlers,
 	networkTariffsSummaryHandler *handlers.NetworkTariffsSummaryHandler,
@@ -86,6 +85,10 @@ func SetupRouter(
 	networkProviderSetsHandlers *handlers.NetworkProviderSetsHandlers,
 	networkProviderSetItemsHandlers *handlers.NetworkProviderSetItemsHandlers,
 	networkAssignmentsHandlers *handlers.NetworkAssignmentsHandlers,
+	networkRouteSetsHandlers *handlers.NetworkRouteSetsHandlers,
+	networkRouteSetItemsHandlers *handlers.NetworkRouteSetItemsHandlers,
+	networkRoutePreviewHandlers *handlers.NetworkRoutePreviewHandlers,
+	networkCleanupHandlers *handlers.NetworkCleanupHandlers,
 	subAccountNetworkOverridesHandlers *handlers.SubAccountNetworkOverridesHandlers,
 	dbPool *pgxpool.Pool,
 ) *mux.Router {
@@ -524,11 +527,23 @@ func SetupRouter(
 	network.HandleFunc("/assignments/bulk/dry-run", networkAssignmentsHandlers.BulkDryRun).Methods("POST")
 	network.HandleFunc("/assignments/{client_id}", networkAssignmentsHandlers.PutOne).Methods("PUT")
 
-	// Reseller routing overview
-	resellerRouting := reseller.PathPrefix("/routing").Subrouter()
-	resellerRouting.HandleFunc("/providers", resellerRoutingHandlers.ListNetworkProviders).Methods("GET")
-	resellerRouting.HandleFunc("/routes", resellerRoutingHandlers.ListNetworkRoutes).Methods("GET")
-	resellerRouting.HandleFunc("/bulk-assign", resellerRoutingHandlers.BulkAssignProvider).Methods("POST")
+	// Plan 2 Task 15: route-sets CRUD
+	network.HandleFunc("/route-sets", networkRouteSetsHandlers.List).Methods("GET")
+	network.HandleFunc("/route-sets", networkRouteSetsHandlers.Create).Methods("POST")
+	network.HandleFunc("/route-sets/{id}", networkRouteSetsHandlers.Update).Methods("PUT")
+	network.HandleFunc("/route-sets/{id}", networkRouteSetsHandlers.Delete).Methods("DELETE")
+
+	// Items: специфичные пути ПЕРЕД /{item_id}
+	network.HandleFunc("/route-sets/{id}/items/reorder", networkRouteSetItemsHandlers.Reorder).Methods("PUT")
+	network.HandleFunc("/route-sets/{id}/items/{item_id}/duplicate", networkRouteSetItemsHandlers.Duplicate).Methods("POST")
+	network.HandleFunc("/route-sets/{id}/items/{item_id}", networkRouteSetItemsHandlers.Update).Methods("PUT")
+	network.HandleFunc("/route-sets/{id}/items/{item_id}", networkRouteSetItemsHandlers.Delete).Methods("DELETE")
+	network.HandleFunc("/route-sets/{id}/items", networkRouteSetItemsHandlers.List).Methods("GET")
+	network.HandleFunc("/route-sets/{id}/items", networkRouteSetItemsHandlers.Create).Methods("POST")
+
+	// Preview + cleanup
+	network.HandleFunc("/route-sets/{id}/preview", networkRoutePreviewHandlers.Preview).Methods("POST")
+	network.HandleFunc("/route-cleanup", networkCleanupHandlers.RouteCleanup).Methods("POST")
 
 	// Reseller tariffs
 	resellerTariffs := reseller.PathPrefix("/tariffs").Subrouter()

@@ -297,7 +297,6 @@ func main() {
 	resellerSenderNameHandlers := handlers.NewResellerSenderNameHandlers(dbPool, serviceClients.SenderNameClient)
 	resellerTemplateHandlers := handlers.NewResellerTemplateHandlers(dbPool, serviceClients.TemplateClient)
 	resellerDashboardHandlers := handlers.NewResellerDashboardHandlers(dbPool, serviceClients.BillingClient, serviceClients.AnalyticsClient, serviceClients.ClientClient)
-	resellerRoutingHandlers := handlers.NewResellerRoutingHandlers(dbPool, serviceClients.RoutingClient)
 	resellerTariffHandlers := handlers.NewResellerTariffHandlers(dbPool)
 	resellerTariffPlanHandlers := handlers.NewResellerTariffPlanHandlers(dbPool)
 	networkTariffsSummaryHandler := handlers.NewNetworkTariffsSummaryHandler(dbPool, redisClient)
@@ -319,6 +318,10 @@ func main() {
 	networkProviderSetsHandlers := handlers.NewNetworkProviderSetsHandlers(dbPool, providerSetMaterializer)
 	networkProviderSetItemsHandlers := handlers.NewNetworkProviderSetItemsHandlers(dbPool, providerSetMaterializer)
 	networkAssignmentsHandlers := handlers.NewNetworkAssignmentsHandlers(dbPool, providerSetMaterializer, routeSetMaterializer, conflictValidator)
+	networkRouteSetsHandlers := handlers.NewNetworkRouteSetsHandlers(dbPool, routeSetMaterializer)
+	networkRouteSetItemsHandlers := handlers.NewNetworkRouteSetItemsHandlers(dbPool, routeSetMaterializer, conflictValidator)
+	networkRoutePreviewHandlers := handlers.NewNetworkRoutePreviewHandlers(dbPool)
+	networkCleanupHandlers := handlers.NewNetworkCleanupHandlers(dbPool, routeSetMaterializer)
 	subAccountNetworkOverridesHandlers := handlers.NewSubAccountNetworkOverridesHandlers(dbPool)
 
 	// Настройка HTTP роутера
@@ -360,7 +363,6 @@ func main() {
 		resellerSenderNameHandlers,
 		resellerTemplateHandlers,
 		resellerDashboardHandlers,
-		resellerRoutingHandlers,
 		resellerTariffHandlers,
 		resellerTariffPlanHandlers,
 		networkTariffsSummaryHandler,
@@ -384,6 +386,10 @@ func main() {
 		networkProviderSetsHandlers,
 		networkProviderSetItemsHandlers,
 		networkAssignmentsHandlers,
+		networkRouteSetsHandlers,
+		networkRouteSetItemsHandlers,
+		networkRoutePreviewHandlers,
+		networkCleanupHandlers,
 		subAccountNetworkOverridesHandlers,
 		dbPool,
 	)
