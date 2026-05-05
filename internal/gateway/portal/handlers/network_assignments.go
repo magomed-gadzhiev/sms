@@ -162,29 +162,6 @@ type putAssignmentReq struct {
 	RouteSetID    *string `json:"route_set_id"`
 }
 
-// verifySubAccountOwnership возвращает 404, если client_id не суб-аккаунт текущего
-// reseller'а. 404 (не 403) — чтобы не светить наличие чужих client_id.
-// Connection / scan errors отделяются и возвращают 500, чтобы не маскировать
-// инфраструктурные сбои под "не найдено".
-func (h *NetworkAssignmentsHandlers) verifySubAccountOwnership(ctx context.Context, resellerID, clientID uuid.UUID) *shared.AppError {
-	var parent uuid.UUID
-	err := h.pool.QueryRow(ctx,
-		`SELECT parent_client_id FROM clients WHERE id = $1 AND parent_client_id IS NOT NULL`,
-		clientID,
-	).Scan(&parent)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return shared.ErrNotFound("суб-аккаунт")
-		}
-		log.Error().Err(err).Str("client_id", clientID.String()).Msg("verifySubAccountOwnership query")
-		return shared.ErrInternalServer("verify sub-account ownership")
-	}
-	if parent != resellerID {
-		return shared.ErrNotFound("суб-аккаунт")
-	}
-	return nil
-}
-
 // parseAndVerifySetIDs парсит provider_set_id / route_set_id из тела запроса и
 // проверяет, что оба принадлежат текущему reseller'у. nil/"" → возвращает (nil, nil, nil).
 // Чужой / несуществующий ID → 404. Невалидный UUID → 400.
@@ -267,7 +244,7 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 		respondError(w, shared.ErrInvalidInput("client_id"))
 		return
 	}
-	if appErr := h.verifySubAccountOwnership(r.Context(), resellerID, clientID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, clientID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
@@ -432,7 +409,7 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "invalid id"})
 			continue
 		}
-		if appErr := h.verifySubAccountOwnership(r.Context(), resellerID, cid); appErr != nil {
+		if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, cid); appErr != nil {
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "not your sub-account"})
 			continue
 		}
@@ -535,7 +512,7 @@ func (h *NetworkAssignmentsHandlers) BulkDryRun(w http.ResponseWriter, r *http.R
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "invalid id"})
 			continue
 		}
-		if appErr := h.verifySubAccountOwnership(r.Context(), resellerID, cid); appErr != nil {
+		if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, cid); appErr != nil {
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "not your sub-account"})
 			continue
 		}

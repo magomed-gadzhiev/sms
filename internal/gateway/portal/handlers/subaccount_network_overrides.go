@@ -34,29 +34,6 @@ func NewSubAccountNetworkOverridesHandlers(pool *pgxpool.Pool) *SubAccountNetwor
 	return &SubAccountNetworkOverridesHandlers{pool: pool}
 }
 
-// verifyOwnership возвращает 404, если subID не суб-аккаунт текущего reseller'а.
-// 404 (а не 403) — чтобы не светить наличие чужих client_id.
-// pgx.ErrNoRows → 404; прочие ошибки → 500 (инфраструктура не должна
-// маскироваться под "не найдено").
-func (h *SubAccountNetworkOverridesHandlers) verifyOwnership(ctx context.Context, resellerID, subID uuid.UUID) *shared.AppError {
-	var parent uuid.UUID
-	err := h.pool.QueryRow(ctx,
-		`SELECT parent_client_id FROM clients WHERE id = $1 AND parent_client_id IS NOT NULL`,
-		subID,
-	).Scan(&parent)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return shared.ErrNotFound("суб-аккаунт")
-		}
-		log.Error().Err(err).Str("sub_id", subID.String()).Msg("verifyOwnership query")
-		return shared.ErrInternalServer("verify sub-account ownership")
-	}
-	if parent != resellerID {
-		return shared.ErrNotFound("суб-аккаунт")
-	}
-	return nil
-}
-
 // addProviderOverrideReq — тело POST /sub-accounts/{id}/network/provider-overrides.
 type addProviderOverrideReq struct {
 	ProviderID         string `json:"provider_id"`
@@ -85,7 +62,7 @@ func (h *SubAccountNetworkOverridesHandlers) AddProviderOverride(w http.Response
 		respondError(w, shared.ErrInvalidInput("id"))
 		return
 	}
-	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, subID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
@@ -185,7 +162,7 @@ func (h *SubAccountNetworkOverridesHandlers) DeleteProviderOverride(w http.Respo
 		respondError(w, shared.ErrInvalidInput("provider_id"))
 		return
 	}
-	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, subID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
@@ -235,7 +212,7 @@ func (h *SubAccountNetworkOverridesHandlers) Overview(w http.ResponseWriter, r *
 		respondError(w, shared.ErrInvalidInput("id"))
 		return
 	}
-	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, subID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
@@ -371,7 +348,7 @@ func (h *SubAccountNetworkOverridesHandlers) AddRouteOverride(w http.ResponseWri
 		respondError(w, shared.ErrInvalidInput("id"))
 		return
 	}
-	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, subID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
@@ -486,7 +463,7 @@ func (h *SubAccountNetworkOverridesHandlers) UpdateRouteOverride(w http.Response
 		respondError(w, shared.ErrInvalidInput("route_id"))
 		return
 	}
-	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, subID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
@@ -634,7 +611,7 @@ func (h *SubAccountNetworkOverridesHandlers) DeleteRouteOverride(w http.Response
 		respondError(w, shared.ErrInvalidInput("route_id"))
 		return
 	}
-	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+	if appErr := middleware.VerifySubAccountOwnership(r.Context(), h.pool, resellerID, subID); appErr != nil {
 		respondError(w, appErr)
 		return
 	}
