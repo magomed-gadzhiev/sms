@@ -33,16 +33,20 @@ func TestQueryAuditLog_FilterByResourceType_AndTenantScope(t *testing.T) {
 	tenantA := "11111111-1111-1111-1111-111111111111"
 	tenantB := "22222222-2222-2222-2222-222222222222"
 
+	// Fixed user UUIDs so user_id is non-NULL (repo scans into string, can't handle NULL).
+	userA := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	userB := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
 	// Seed: tenant A — 2 route_set + 1 provider_set; tenant B — 3 route_set.
 	_, err := db.Exec(
-		`INSERT INTO audit_log (tenant_id, action, resource_type, resource_id) VALUES
-		 ($1, 'create', 'route_set', 'rs-a-1'),
-		 ($1, 'update', 'route_set', 'rs-a-2'),
-		 ($1, 'create', 'provider_set', 'ps-a-1'),
-		 ($2, 'create', 'route_set', 'rs-b-1'),
-		 ($2, 'create', 'route_set', 'rs-b-2'),
-		 ($2, 'create', 'route_set', 'rs-b-3')`,
-		tenantA, tenantB,
+		`INSERT INTO audit_log (tenant_id, user_id, action, resource_type, resource_id) VALUES
+		 ($1, $3, 'create', 'route_set', 'rs-a-1'),
+		 ($1, $3, 'update', 'route_set', 'rs-a-2'),
+		 ($1, $3, 'create', 'provider_set', 'ps-a-1'),
+		 ($2, $4, 'create', 'route_set', 'rs-b-1'),
+		 ($2, $4, 'create', 'route_set', 'rs-b-2'),
+		 ($2, $4, 'create', 'route_set', 'rs-b-3')`,
+		tenantA, tenantB, userA, userB,
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() {
