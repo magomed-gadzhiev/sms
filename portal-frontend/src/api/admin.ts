@@ -1,4 +1,5 @@
 import { getCookie } from '../utils/cookies';
+import { apiFetch } from './client';
 
 const API_BASE = '/admin/v1';
 
@@ -998,4 +999,20 @@ export const operatorTemplatesApi = {
     status?: string;
   }) => adminFetch<OperatorTemplate>(`/operator-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => adminFetch<void>(`/operator-templates/${id}`, { method: 'DELETE' }),
+};
+
+export interface SRAStuckRow {
+  client_id: string;
+  client_email: string;
+  provider_set_id: string | null;
+  route_set_id: string | null;
+  materialize_retry_count: number;
+  last_materialize_error_at: string | null;
+  last_materialize_error_text: string | null;
+}
+
+export const sraStuckApi = {
+  list: () => apiFetch<{ rows: SRAStuckRow[] }>('/admin/network/sra-stuck'),
+  reset: (clientId: string) =>
+    apiFetch<{ ok: boolean }>(`/admin/network/sra-stuck/${clientId}/reset`, { method: 'POST' }),
 };

@@ -99,6 +99,7 @@ const AdminLegalEntitiesPage = lazy(() => import('./pages/admin/legal-entities/L
 const AdminContractsPage = lazy(() => import('./pages/admin/contracts/ContractsPage').then((m) => ({ default: m.ContractsPage })));
 const AdminOperatorTemplatesPage = lazy(() => import('./pages/admin/operator-templates/OperatorTemplatesPage').then((m) => ({ default: m.OperatorTemplatesPage })));
 const AdminConnectionsPage = lazy(() => import('./pages/admin/connections/ConnectionsPage').then((m) => ({ default: m.ConnectionsPage })));
+const AdminSRAStuckPage = lazy(() => import('./pages/admin/SRAStuckPage').then((m) => ({ default: m.SRAStuckPage })));
 
 function RequireAuth() {
   const { isAuthenticated, loading } = useAuth();
@@ -256,6 +257,7 @@ export function App() {
         <Route path="legal-entities" element={<Suspense fallback={null}><AdminLegalEntitiesPage /></Suspense>} />
         <Route path="contracts" element={<Suspense fallback={null}><AdminContractsPage /></Suspense>} />
         <Route path="operator-templates" element={<Suspense fallback={null}><AdminOperatorTemplatesPage /></Suspense>} />
+        <Route path="sra-stuck" element={<Suspense fallback={null}><AdminSRAStuckPage /></Suspense>} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

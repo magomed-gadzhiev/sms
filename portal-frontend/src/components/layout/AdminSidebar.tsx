@@ -66,6 +66,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
       { path: '/admin/analytics', label: '\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430', icon: '\u{1F4C8}', resource: 'analytics' },
       { path: '/admin/monitoring', label: '\u041C\u043E\u043D\u0438\u0442\u043E\u0440\u0438\u043D\u0433', icon: '\u26A1', resource: 'analytics' },
       { path: '/admin/audit', label: '\u0410\u0443\u0434\u0438\u0442', icon: '\u{1F4DC}', resource: 'audit' },
+      { path: '/admin/sra-stuck', label: 'SRA stuck rows', icon: '\u{1F6A8}', resource: 'audit' },
     ],
   },
   {
