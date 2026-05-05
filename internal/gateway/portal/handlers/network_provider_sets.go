@@ -213,14 +213,9 @@ func (h *NetworkProviderSetsHandlers) Create(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "create",
 		ResourceType: "provider_set",
 		ResourceID:   id.String(),
@@ -311,14 +306,9 @@ func (h *NetworkProviderSetsHandlers) Update(w http.ResponseWriter, r *http.Requ
 		respondError(w, shared.ErrInternalServer("ошибка commit"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "update",
 		ResourceType: "provider_set",
 		ResourceID:   id.String(),
@@ -371,14 +361,9 @@ func (h *NetworkProviderSetsHandlers) Delete(w http.ResponseWriter, r *http.Requ
 		respondError(w, shared.ErrInternalServer("ошибка удаления"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "delete",
 		ResourceType: "provider_set",
 		ResourceID:   id.String(),

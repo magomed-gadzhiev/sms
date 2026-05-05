@@ -365,14 +365,9 @@ func (h *NetworkProviderSetItemsHandlers) PutItems(w http.ResponseWriter, r *htt
 		}
 	}
 
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "update",
 		ResourceType: "provider_set",
 		ResourceID:   setID.String(),

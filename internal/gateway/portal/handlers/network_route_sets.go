@@ -199,14 +199,9 @@ func (h *NetworkRouteSetsHandlers) Create(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "create",
 		ResourceType: "route_set",
 		ResourceID:   id.String(),
@@ -293,14 +288,9 @@ func (h *NetworkRouteSetsHandlers) Update(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInternalServer("ошибка commit"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "update",
 		ResourceType: "route_set",
 		ResourceID:   id.String(),
@@ -353,14 +343,9 @@ func (h *NetworkRouteSetsHandlers) Delete(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInternalServer("ошибка удаления"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "delete",
 		ResourceType: "route_set",
 		ResourceID:   id.String(),

@@ -319,11 +319,6 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 	if len(warnings) > 0 {
 		resp["warnings"] = warnings
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	auditDetails := map[string]interface{}{}
 	if psUUID != nil {
 		auditDetails["provider_set_id"] = psUUID.String()
@@ -340,7 +335,7 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "update",
 		ResourceType: "assignment",
 		ResourceID:   clientID.String(),
@@ -476,11 +471,6 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 			errorCount++
 		}
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	summary := map[string]interface{}{
 		"client_count":   len(req.ClientIDs),
 		"ok_count":       okCount,
@@ -500,7 +490,7 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "bulk",
 		ResourceType: "assignment",
 		ResourceID:   "bulk",

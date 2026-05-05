@@ -112,14 +112,9 @@ func (h *SubAccountNetworkOverridesHandlers) AddProviderOverride(w http.Response
 		subID, provID, req.Priority, req.ExposeCost, req.ExposeProviderName,
 	).Scan(&insertedID)
 	if err == nil {
-		userID, _ := middleware.GetUserID(r.Context())
-		var userIDPtr *uuid.UUID
-		if userID != uuid.Nil {
-			userIDPtr = &userID
-		}
 		_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 			TenantID:     resellerID,
-			UserID:       userIDPtr,
+			UserID:       userIDFromCtx(r.Context()),
 			Action:       "create",
 			ResourceType: "provider_override",
 			ResourceID:   subID.String() + ":" + provID.String(),
@@ -200,14 +195,9 @@ func (h *SubAccountNetworkOverridesHandlers) DeleteProviderOverride(w http.Respo
 		respondError(w, shared.ErrNotFound("override"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "delete",
 		ResourceType: "provider_override",
 		ResourceID:   subID.String() + ":" + provID.String(),
@@ -477,14 +467,9 @@ func (h *SubAccountNetworkOverridesHandlers) AddRouteOverride(w http.ResponseWri
 		respondError(w, shared.ErrInternalServer("commit"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "create",
 		ResourceType: "route_override",
 		ResourceID:   routeID.String(),
@@ -644,14 +629,9 @@ func (h *SubAccountNetworkOverridesHandlers) UpdateRouteOverride(w http.Response
 		respondError(w, shared.ErrInternalServer("commit"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "update",
 		ResourceType: "route_override",
 		ResourceID:   routeID.String(),
@@ -702,14 +682,9 @@ func (h *SubAccountNetworkOverridesHandlers) DeleteRouteOverride(w http.Response
 		respondError(w, shared.ErrNotFound("override"))
 		return
 	}
-	userID, _ := middleware.GetUserID(r.Context())
-	var userIDPtr *uuid.UUID
-	if userID != uuid.Nil {
-		userIDPtr = &userID
-	}
 	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
 		TenantID:     resellerID,
-		UserID:       userIDPtr,
+		UserID:       userIDFromCtx(r.Context()),
 		Action:       "delete",
 		ResourceType: "route_override",
 		ResourceID:   routeID.String(),
