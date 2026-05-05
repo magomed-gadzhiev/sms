@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,12 +31,14 @@ func TestQueryAuditLog_FilterByResourceType_AndTenantScope(t *testing.T) {
 
 	repo := NewAuditRepository(db)
 
-	tenantA := "11111111-1111-1111-1111-111111111111"
-	tenantB := "22222222-2222-2222-2222-222222222222"
+	// Random tenant/user UUIDs per run — avoids cross-run row accumulation
+	// when t.Cleanup fails to fire (process killed, partition rotated, etc.).
+	tenantA := uuid.NewString()
+	tenantB := uuid.NewString()
 
-	// Fixed user UUIDs so user_id is non-NULL (repo scans into string, can't handle NULL).
-	userA := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-	userB := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	// Non-NULL user_id required: repo scans into string, can't handle NULL.
+	userA := uuid.NewString()
+	userB := uuid.NewString()
 
 	// Seed: tenant A — 2 route_set + 1 provider_set; tenant B — 3 route_set.
 	_, err := db.Exec(
