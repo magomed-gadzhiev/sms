@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smpp-server/smpp-server/internal/storage"
@@ -45,9 +46,12 @@ func TestRouteSetRepo_ListByReseller(t *testing.T) {
 	r2 := storagetest.SeedReseller(t, pool)
 	repo := storage.NewResellerRouteSetRepository(pool)
 	ctx := context.Background()
-	repo.Create(ctx, r1, "S1", false) //nolint:errcheck
-	repo.Create(ctx, r1, "S2", false) //nolint:errcheck
-	repo.Create(ctx, r2, "Other", false) //nolint:errcheck
+	_, err := repo.Create(ctx, r1, "S1", false)
+	require.NoError(t, err)
+	_, err = repo.Create(ctx, r1, "S2", false)
+	require.NoError(t, err)
+	_, err = repo.Create(ctx, r2, "Other", false)
+	require.NoError(t, err)
 	list, err := repo.ListByReseller(ctx, r1)
 	require.NoError(t, err)
 	require.Len(t, list, 2)
@@ -59,13 +63,39 @@ func TestRouteSetRepo_UpdateAndDelete(t *testing.T) {
 	resellerID := storagetest.SeedReseller(t, pool)
 	repo := storage.NewResellerRouteSetRepository(pool)
 	ctx := context.Background()
-	s, _ := repo.Create(ctx, resellerID, "old", false)
+	s, err := repo.Create(ctx, resellerID, "old", false)
+	require.NoError(t, err)
 	require.NoError(t, repo.Update(ctx, s.ID, "new", true))
-	got, _ := repo.GetByID(ctx, s.ID)
+	got, err := repo.GetByID(ctx, s.ID)
+	require.NoError(t, err)
 	require.Equal(t, "new", got.Name)
 	require.True(t, got.IsDefault)
 
 	require.NoError(t, repo.Delete(ctx, s.ID))
-	_, err := repo.GetByID(ctx, s.ID)
+	_, err = repo.GetByID(ctx, s.ID)
+	require.ErrorIs(t, err, storage.ErrNotFound)
+}
+
+func TestRouteSetRepo_GetByID_NotFound(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	repo := storage.NewResellerRouteSetRepository(pool)
+	_, err := repo.GetByID(context.Background(), uuid.New())
+	require.ErrorIs(t, err, storage.ErrNotFound)
+}
+
+func TestRouteSetRepo_Update_NotFound(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	repo := storage.NewResellerRouteSetRepository(pool)
+	err := repo.Update(context.Background(), uuid.New(), "x", false)
+	require.ErrorIs(t, err, storage.ErrNotFound)
+}
+
+func TestRouteSetRepo_Delete_NotFound(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	repo := storage.NewResellerRouteSetRepository(pool)
+	err := repo.Delete(context.Background(), uuid.New())
 	require.ErrorIs(t, err, storage.ErrNotFound)
 }
