@@ -110,6 +110,13 @@ func (h *SRAStuckHandlers) List(w http.ResponseWriter, r *http.Request) {
 // Clears the error state for a stuck row, allowing the pipeline to retry.
 // Returns 404 if the row does not exist, 409 if the row is not in stuck state
 // (retry_count < 100) — ops must not blindly reset active retry state and lose diagnostics.
+//
+// Caveat: if the row has provider_set_id IS NULL AND route_set_id IS NULL at
+// reset time, trigger trg_sra_orphan_cleanup (migration 000140) deletes the
+// row rather than leaving it reset — handler returns 200 OK but the row is
+// gone. Such NULL/NULL combination should be unreachable in practice (a stuck
+// row is stuck because materialization failed, which requires non-null set_id),
+// but it is not enforced by a DB constraint.
 func (h *SRAStuckHandlers) Reset(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	clientIDStr := vars["client_id"]
