@@ -44,3 +44,16 @@ var SRAPendingRetryGauge = promauto.NewGauge(
 		Help:      "Number of subaccount_routing_assignment rows pending materialize retry.",
 	},
 )
+
+// SRARetryBacklogOverflowTotal — count of RetryPendingOnce ticks where the
+// batch reached the LIMIT 100 cap. Sustained increases imply pending queue
+// exceeds tick capacity (1m * 100 = 6000/h ceiling). Plan 5 Task 4 (B4):
+// gauge alone underreports backlog beyond 100; this counter gives ops a
+// trend-line for "tick is at capacity".
+var SRARetryBacklogOverflowTotal = promauto.NewCounter(
+	prometheus.CounterOpts{
+		Namespace: "portal",
+		Name:      "sra_retry_backlog_overflow_total",
+		Help:      "RetryPendingOnce ticks where batch reached LIMIT 100 (possible backlog overflow). Sustained increases imply pending queue exceeds tick capacity.",
+	},
+)

@@ -55,18 +55,46 @@ func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplie
 
 	SRAPendingRetryGauge.Set(float64(len(batch)))
 
+	// Plan 5 Task 4 (B4): backlog signal. Batch == LIMIT means there may be more
+	// pending rows than this tick can drain; ops needs a counter, not just a
+	// gauge capped at 100, to see "always at limit" trend.
+	if len(batch) >= 100 {
+		SRARetryBacklogOverflowTotal.Inc()
+		log.Warn().
+			Int("batch_size", len(batch)).
+			Msg("SRA retry backlog at LIMIT — overflow possible, increase tick frequency or investigate stuck rows")
+	}
+
+	// Plan 5 Task 4 (B2): per-row defer/recover. Without this, a panic inside
+	// a materializer (e.g. nil-deref in pgx scan) would kill the worker
+	// process — and worker has no `restart: unless-stopped` in compose. The
+	// row stays in pending state and is retried on the next tick; the panic
+	// is counted as MaterializeFailureTotal{operation=retry_panic,source=retry}
+	// so ops can alert on it as a hard signal distinct from regular
+	// materialize-failures.
 	for _, p := range batch {
-		warnings := ApplyAssignmentMaterializers(ctx, pool, pm, rm, p.clientID, p.providerSet, p.routeSet, "retry")
-		if len(warnings) == 0 {
-			log.Info().
-				Str("client_id", p.clientID.String()).
-				Msg("SRA retry succeeded — materialization applied, retry-state cleared")
-		} else {
-			log.Warn().
-				Str("client_id", p.clientID.String()).
-				Int("warnings", len(warnings)).
-				Msg("SRA retry still failing — retry-state preserved for next tick")
-		}
+		func(p pending) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error().
+						Interface("panic", r).
+						Str("client_id", p.clientID.String()).
+						Msg("SRA retry per-row panic — counted as failure, loop continues")
+					MaterializeFailureTotal.WithLabelValues("retry_panic", "retry").Inc()
+				}
+			}()
+			warnings := ApplyAssignmentMaterializers(ctx, pool, pm, rm, p.clientID, p.providerSet, p.routeSet, "retry")
+			if len(warnings) == 0 {
+				log.Info().
+					Str("client_id", p.clientID.String()).
+					Msg("SRA retry succeeded — materialization applied, retry-state cleared")
+			} else {
+				log.Warn().
+					Str("client_id", p.clientID.String()).
+					Int("warnings", len(warnings)).
+					Msg("SRA retry still failing — retry-state preserved for next tick")
+			}
+		}(p)
 	}
 	return nil
 }
