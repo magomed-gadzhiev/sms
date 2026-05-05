@@ -386,9 +386,18 @@ func (h *SubAccountNetworkOverridesHandlers) AddRouteOverride(w http.ResponseWri
 		return
 	}
 
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		log.Error().Err(err).Msg("route override begin tx")
+		respondError(w, shared.ErrInternalServer("tx"))
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck
+
 	// Pre-validation (spec §6.2 точка 4): провайдер должен быть доступен суб-аккаунту.
+	// Проверка внутри транзакции — устраняет TOCTOU между check и INSERT.
 	var available bool
-	if err := h.pool.QueryRow(r.Context(),
+	if err := tx.QueryRow(r.Context(),
 		`SELECT EXISTS(SELECT 1 FROM client_providers
 		              WHERE client_id = $1 AND provider_id = $2 AND active = true)`,
 		subID, full.ProviderID,
@@ -402,14 +411,6 @@ func (h *SubAccountNetworkOverridesHandlers) AddRouteOverride(w http.ResponseWri
 			WithDetails(`{"kind":"route_provider_not_available"}`))
 		return
 	}
-
-	tx, err := h.pool.Begin(r.Context())
-	if err != nil {
-		log.Error().Err(err).Msg("route override begin tx")
-		respondError(w, shared.ErrInternalServer("tx"))
-		return
-	}
-	defer tx.Rollback(r.Context()) //nolint:errcheck
 
 	// owner_type='subaccount', owner_id=subID — обязательны (chk_owner_id, миграция 000137).
 	var routeID uuid.UUID
@@ -501,9 +502,17 @@ func (h *SubAccountNetworkOverridesHandlers) UpdateRouteOverride(w http.Response
 		return
 	}
 
-	// Provider availability check тот же — на случай, если provider изменили.
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		log.Error().Err(err).Msg("route override update begin tx")
+		respondError(w, shared.ErrInternalServer("tx"))
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck
+
+	// Provider availability check внутри транзакции (TOCTOU fix).
 	var available bool
-	if err := h.pool.QueryRow(r.Context(),
+	if err := tx.QueryRow(r.Context(),
 		`SELECT EXISTS(SELECT 1 FROM client_providers
 		              WHERE client_id = $1 AND provider_id = $2 AND active = true)`,
 		subID, full.ProviderID,
@@ -518,25 +527,26 @@ func (h *SubAccountNetworkOverridesHandlers) UpdateRouteOverride(w http.Response
 		return
 	}
 
-	tx, err := h.pool.Begin(r.Context())
-	if err != nil {
-		log.Error().Err(err).Msg("route override update begin tx")
-		respondError(w, shared.ErrInternalServer("tx"))
-		return
-	}
-	defer tx.Rollback(r.Context()) //nolint:errcheck
-
 	// owner_type/owner_id уже выставлены при INSERT — не трогаем.
-	if _, err := tx.Exec(r.Context(),
+	// Defensive scoping: AND client_id + AND source='override' (как в Delete) —
+	// гарантирует, что concurrent delete или скрещенный route_id ≠ нашему sub
+	// не приведут к UPDATE чужой строки.
+	tag, err := tx.Exec(r.Context(),
 		`UPDATE client_routes
 		   SET provider_id = $1, priority = $2, name = NULLIF($3,''), comment = NULLIF($4,''),
 		       status = $5, share = $6, route_type = $7, updated_at = now()
-		 WHERE id = $8`,
+		 WHERE id = $8 AND client_id = $9 AND source = 'override'`,
 		full.ProviderID, full.Priority, full.Name, full.Comment,
-		full.Status, full.Share, full.RouteType, routeID,
-	); err != nil {
+		full.Status, full.Share, full.RouteType, routeID, subID,
+	)
+	if err != nil {
 		log.Error().Err(err).Str("route_id", routeID.String()).Msg("route override update")
 		respondError(w, shared.ErrInternalServer("update"))
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		// concurrent delete или строка не подходит под scoped WHERE — 404.
+		respondError(w, shared.ErrNotFound("override"))
 		return
 	}
 

@@ -510,3 +510,180 @@ func TestOverview_IncludesRouteSetAndOverrides(t *testing.T) {
 	require.Equal(t, provA.String(), resp.RouteOverrides[0]["provider_id"])
 	require.Equal(t, "ovrd", resp.RouteOverrides[0]["name"])
 }
+
+// TestRouteOverride_Update_OK — PUT /route-overrides/{route_id} меняет priority,
+// БД-строка обновлена, status 200.
+func TestRouteOverride_Update_OK(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "RouteOverrideUpdOK")
+
+	// Provider должен быть доступен суб-аккаунту.
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subID, provA, resellerID)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+
+	// Создаём override через handler.
+	addBody := fmt.Sprintf(`{
+		"name":"orig","provider_id":"%s","priority":10,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provA.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(addBody))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "Add: %s", w.Body.String())
+
+	var addResp struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &addResp))
+	routeID := addResp.ID
+
+	// PUT — меняем priority на 99.
+	updBody := fmt.Sprintf(`{
+		"name":"orig","provider_id":"%s","priority":99,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provA.String())
+	req = httptest.NewRequest("PUT",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides/"+routeID,
+		strings.NewReader(updBody))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String(), "route_id": routeID})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.UpdateRouteOverride(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "Update: %s", w.Body.String())
+
+	// Verify: priority обновлён в БД.
+	var priority int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT priority FROM client_routes WHERE id = $1`, routeID,
+	).Scan(&priority))
+	require.Equal(t, 99, priority)
+}
+
+// TestRouteOverride_Update_404IfWrongSubAccount — reseller B пытается обновить
+// override-маршрут суб-аккаунта reseller'а A → 404 (cross-account).
+func TestRouteOverride_Update_404IfWrongSubAccount(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerA := storagetest.SeedReseller(t, pool)
+	resellerB := storagetest.SeedReseller(t, pool)
+	subA := storagetest.SeedSubAccount(t, pool, resellerA)
+	subB := storagetest.SeedSubAccount(t, pool, resellerB)
+	provA := storagetest.SeedProvider(t, pool, "RouteOverrideCross")
+
+	// Provider доступен subA.
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subA, provA, resellerA)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+
+	// resellerA создаёт override на subA.
+	addBody := fmt.Sprintf(`{
+		"name":"a-route","provider_id":"%s","priority":10,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provA.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subA.String()+"/network/route-overrides",
+		strings.NewReader(addBody))
+	req = mux.SetURLVars(req, map[string]string{"id": subA.String()})
+	req = withReseller(req, resellerA)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "Add: %s", w.Body.String())
+
+	var addResp struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &addResp))
+	routeID := addResp.ID
+
+	// resellerB пытается PUT на subB, передавая routeID от subA.
+	// verifyOwnership пройдёт (subB принадлежит resellerB), но scoped WHERE
+	// вернёт 0 rows → handler должен вернуть 404 (через pre-flight lookup
+	// или через RowsAffected==0).
+	updBody := fmt.Sprintf(`{
+		"name":"hijacked","provider_id":"%s","priority":99,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provA.String())
+	req = httptest.NewRequest("PUT",
+		"/portal/v1/reseller/sub-accounts/"+subB.String()+"/network/route-overrides/"+routeID,
+		strings.NewReader(updBody))
+	req = mux.SetURLVars(req, map[string]string{"id": subB.String(), "route_id": routeID})
+	req = withReseller(req, resellerB)
+	w = httptest.NewRecorder()
+	h.UpdateRouteOverride(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code, "cross-account → 404, body: %s", w.Body.String())
+
+	// Verify: оригинальная строка не тронута (priority остался 10, name 'a-route').
+	var priority int
+	var name string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT priority, COALESCE(name,'') FROM client_routes WHERE id = $1`, routeID,
+	).Scan(&priority, &name))
+	require.Equal(t, 10, priority)
+	require.Equal(t, "a-route", name)
+}
+
+// TestRouteOverride_Delete_OK — DELETE /route-overrides/{route_id} → 204; row gone.
+func TestRouteOverride_Delete_OK(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "RouteOverrideDelOK")
+
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subID, provA, resellerID)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+
+	// Создаём override.
+	addBody := fmt.Sprintf(`{
+		"name":"to-delete","provider_id":"%s","priority":10,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provA.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(addBody))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "Add: %s", w.Body.String())
+
+	var addResp struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &addResp))
+	routeID := addResp.ID
+
+	// DELETE.
+	req = httptest.NewRequest("DELETE",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides/"+routeID, nil)
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String(), "route_id": routeID})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.DeleteRouteOverride(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code, "Delete: %s", w.Body.String())
+
+	// Verify: 0 rows.
+	var count int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM client_routes WHERE id = $1`, routeID,
+	).Scan(&count))
+	require.Equal(t, 0, count)
+}
