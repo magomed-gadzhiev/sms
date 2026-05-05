@@ -1,0 +1,62 @@
+groups:
+  - name: sra-aggregator
+    interval: 1m
+    rules:
+      # SRA-row застряла в give-up (manual ops attention требуется).
+      - alert: SRARetryGiveUpRows
+        expr: portal_sra_retry_give_up_count > 0
+        for: 10m
+        labels:
+          severity: warning
+          team: ops
+        annotations:
+          summary: "{{ $value }} SRA rows reached retry-cap=100"
+          description: |
+            Subaccount routing assignment row(s) have materialize_retry_count >= 100
+            and are no longer auto-retried. Check /admin/sra-stuck in portal,
+            investigate root cause, then click Reset to resume retries.
+          runbook: "https://internal/runbooks/sra-stuck"
+
+      # Initial-failure rate (real degradation signal, не retry-loop noise).
+      - alert: SRAMaterializeInitialFailureRate
+        expr: rate(portal_materialize_failure_total{source="initial"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: ops
+        annotations:
+          summary: "SRA materialize initial-failure rate > 5%/min"
+          description: |
+            Materializer ApplyToClient failures during PUT/Bulk handlers
+            (operation={{ $labels.operation }}). Rate {{ printf "%.2f" $value }}/sec.
+            Check portal-gateway logs for errors. retry-loop will pick these up
+            within 1 minute (cap=100).
+
+      # Backlog overflow — sustained sign that retry tick capacity недостаточна.
+      - alert: SRARetryBacklogOverflow
+        expr: rate(portal_sra_retry_backlog_overflow_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+          team: ops
+        annotations:
+          summary: "SRA retry backlog overflowing"
+          description: |
+            RetryPendingOnce reached LIMIT 100 batch in last 15 min. Pending
+            queue exceeds tick capacity (1m * 100 = 6000/h ceiling). Possible
+            causes: bulk-failure event, slow materializer, or stuck rows
+            accumulating below cap. Check portal_sra_pending_retry_count gauge.
+
+      # Panic в retry-loop — signal hard failure (per-row recover, но возможен общий тренд).
+      - alert: SRARetryPanic
+        expr: increase(portal_materialize_failure_total{operation="retry_panic"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: ops
+        annotations:
+          summary: "Panic в SRA retry-loop"
+          description: |
+            Per-row defer/recover поймал panic в materializer. Loop продолжает
+            работу, но это hard signal — типично nil-deref в pgx Scan или
+            corrupted DB state. Проверь worker logs за последние 15 минут.
