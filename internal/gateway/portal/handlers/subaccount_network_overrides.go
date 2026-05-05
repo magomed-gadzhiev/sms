@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -412,6 +413,26 @@ func (h *SubAccountNetworkOverridesHandlers) AddRouteOverride(w http.ResponseWri
 		return
 	}
 
+	// Pre-check duplicate signature: после drop'а uq_cell_provider (миграция 000138/000139)
+	// единственная защита от смыслового дубликата — handler-уровень. Считаем signature
+	// от (provider_id, route_type, condition_groups) и ищем существующий override
+	// с тем же signature внутри транзакции (TOCTOU-safe).
+	sig := network.RouteSignature(full)
+	existingID, dupErr := findDuplicateOverrideSignature(r.Context(), tx, subID, sig, uuid.Nil)
+	if dupErr != nil {
+		log.Error().Err(dupErr).Str("sub_id", subID.String()).Msg("route override duplicate-check")
+		respondError(w, shared.ErrInternalServer("duplicate-check"))
+		return
+	}
+	if existingID != uuid.Nil {
+		details, _ := json.Marshal(map[string]interface{}{
+			"kind":        "duplicate_route_signature",
+			"existing_id": existingID.String(),
+		})
+		respondError(w, shared.ErrConflict("Такой override уже существует").WithDetails(string(details)))
+		return
+	}
+
 	// owner_type='subaccount', owner_id=subID — обязательны (chk_owner_id, миграция 000137).
 	var routeID uuid.UUID
 	err = tx.QueryRow(r.Context(),
@@ -527,6 +548,23 @@ func (h *SubAccountNetworkOverridesHandlers) UpdateRouteOverride(w http.Response
 		return
 	}
 
+	// Pre-check duplicate signature (исключая текущий routeID, который мы апдейтим).
+	sig := network.RouteSignature(full)
+	existingID, dupErr := findDuplicateOverrideSignature(r.Context(), tx, subID, sig, routeID)
+	if dupErr != nil {
+		log.Error().Err(dupErr).Str("sub_id", subID.String()).Msg("route override update duplicate-check")
+		respondError(w, shared.ErrInternalServer("duplicate-check"))
+		return
+	}
+	if existingID != uuid.Nil {
+		details, _ := json.Marshal(map[string]interface{}{
+			"kind":        "duplicate_route_signature",
+			"existing_id": existingID.String(),
+		})
+		respondError(w, shared.ErrConflict("Такой override уже существует").WithDetails(string(details)))
+		return
+	}
+
 	// owner_type/owner_id уже выставлены при INSERT — не трогаем.
 	// Defensive scoping: AND client_id + AND source='override' (как в Delete) —
 	// гарантирует, что concurrent delete или скрещенный route_id ≠ нашему sub
@@ -615,6 +653,71 @@ func (h *SubAccountNetworkOverridesHandlers) DeleteRouteOverride(w http.Response
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// findDuplicateOverrideSignature ищет в транзакции override-маршруты sub-аккаунта
+// с тем же signature, что и кандидат на INSERT/UPDATE. excludeID — route, который
+// мы апдейтим (исключается из поиска); uuid.Nil = ничего не исключать.
+//
+// Возвращает (uuid.Nil, nil) если дубликата нет.
+func findDuplicateOverrideSignature(ctx context.Context, tx pgx.Tx, subID uuid.UUID, candidateSig string, excludeID uuid.UUID) (uuid.UUID, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT cr.id, cr.provider_id, cr.route_type,
+		       COALESCE(json_agg(json_build_object(
+		         'group_index', g.group_index,
+		         'logic_op',    g.logic_op,
+		         'conditions',  COALESCE((SELECT json_agg(json_build_object('type', c.condition_type, 'value', c.condition_value) ORDER BY c.condition_type, c.condition_value) FROM route_conditions c WHERE c.group_id = g.id), '[]'::json)
+		       ) ORDER BY g.group_index) FILTER (WHERE g.id IS NOT NULL), '[]'::json)
+		FROM client_routes cr
+		LEFT JOIN route_condition_groups g ON g.route_id = cr.id
+		WHERE cr.client_id = $1 AND cr.source = 'override' AND ($2::uuid IS NULL OR cr.id <> $2)
+		GROUP BY cr.id, cr.provider_id, cr.route_type`,
+		subID, nullableUUID(excludeID),
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, provID uuid.UUID
+		var routeType string
+		var groupsJSON []byte
+		if err := rows.Scan(&id, &provID, &routeType, &groupsJSON); err != nil {
+			return uuid.Nil, err
+		}
+		var rawGroups []struct {
+			GroupIndex int16  `json:"group_index"`
+			LogicOp    string `json:"logic_op"`
+			Conditions []struct {
+				Type  string `json:"type"`
+				Value string `json:"value"`
+			} `json:"conditions"`
+		}
+		if err := json.Unmarshal(groupsJSON, &rawGroups); err != nil {
+			return uuid.Nil, err
+		}
+		item := storage.RouteSetItemFull{ProviderID: provID, RouteType: routeType}
+		for _, g := range rawGroups {
+			grp := storage.RouteSetConditionGroup{GroupIndex: g.GroupIndex, LogicOp: g.LogicOp}
+			for _, c := range g.Conditions {
+				grp.Conditions = append(grp.Conditions, storage.RouteSetCondition{Type: c.Type, Value: c.Value})
+			}
+			item.ConditionGroups = append(item.ConditionGroups, grp)
+		}
+		if network.RouteSignature(item) == candidateSig {
+			return id, nil
+		}
+	}
+	return uuid.Nil, rows.Err()
+}
+
+// nullableUUID возвращает nil interface если id == uuid.Nil, иначе сам id.
+// Нужно чтобы $2::uuid IS NULL ветка корректно работала.
+func nullableUUID(id uuid.UUID) interface{} {
+	if id == uuid.Nil {
+		return nil
+	}
+	return id
 }
 
 // writeRouteGroupsAndSchedules вставляет condition_groups/conditions + schedules.
