@@ -1696,11 +1696,12 @@ export interface NetworkAssignment {
   route_set_name: string | null;
   has_overrides: boolean;
   validation_status: 'ok' | 'unassigned' | 'conflict';
+  validation_error?: string;
 }
 
 export interface NetworkBulkAssignResult {
   client_id: string;
-  status: 'ok' | 'error';
+  status: 'ok' | 'error' | 'conflict';
   error?: string;
 }
 
@@ -1713,9 +1714,67 @@ export interface NetworkProviderOverride {
 
 export interface NetworkSubAccountOverview {
   provider_set: { id: string; name: string } | null;
-  route_set: null;
+  route_set: { id: string; name: string } | null;
   provider_overrides: NetworkProviderOverride[];
-  route_overrides: unknown[];
+  route_overrides: NetworkRouteOverride[];
+}
+
+export interface RouteCondition {
+  type: 'operator' | 'country' | 'traffic_type' | 'paid_name' | 'regex';
+  value: string;
+}
+
+export interface RouteConditionGroup {
+  logic_op: 'IF' | 'AND' | 'AND_NOT' | 'OR' | 'OR_NOT';
+  conditions: RouteCondition[];
+}
+
+export interface RouteSchedule {
+  date_from?: string | null;
+  date_to?: string | null;
+  time_from?: string | null;
+  time_to?: string | null;
+  weekdays: number;
+  timezone: string;
+}
+
+export interface NetworkRouteSet {
+  id: string;
+  name: string;
+  is_default: boolean;
+  item_count: number;
+  assigned_count: number;
+}
+
+export interface NetworkRouteSetItem {
+  id: string;
+  name: string;
+  comment: string;
+  provider_id: string;
+  provider_name: string;
+  priority: number;
+  share: number;
+  route_type: string;
+  status: 'active' | 'inactive';
+  condition_groups: RouteConditionGroup[];
+  schedules: RouteSchedule[];
+}
+
+export interface RoutePreviewMatch {
+  matched_item_id: string;
+  item_name: string;
+  provider_id: string;
+  provider_name: string;
+  priority: number;
+}
+
+export interface NetworkRouteOverride {
+  id: string;
+  name: string;
+  provider_id: string;
+  provider_name: string;
+  priority: number;
+  status: string;
 }
 
 export const networkApi = {
@@ -1848,6 +1907,95 @@ export const networkApi = {
   deleteProviderOverride: (subAccountId: string, providerId: string) =>
     apiFetch<void>(
       `/sub-accounts/${subAccountId}/network/provider-overrides/${providerId}`,
+      { method: 'DELETE' },
+    ),
+
+  // ── Route Sets ─────────────────────────────────────────────────────────────
+
+  listRouteSets: () =>
+    apiFetch<{ route_sets: NetworkRouteSet[] }>('/reseller/network/route-sets'),
+  createRouteSet: (data: { name: string; is_default?: boolean }) =>
+    apiFetch<{ id: string; name: string; is_default: boolean }>(
+      '/reseller/network/route-sets',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  updateRouteSet: (id: string, data: { name: string; is_default: boolean }) =>
+    apiFetch<{ id: string }>(`/reseller/network/route-sets/${id}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+  deleteRouteSet: (id: string) =>
+    apiFetch<void>(`/reseller/network/route-sets/${id}`, { method: 'DELETE' }),
+
+  // ── Route Set Items ────────────────────────────────────────────────────────
+
+  listRouteSetItems: (setId: string) =>
+    apiFetch<{ items: NetworkRouteSetItem[] }>(
+      `/reseller/network/route-sets/${setId}/items`,
+    ),
+  createRouteSetItem: (setId: string, data: Omit<NetworkRouteSetItem, 'id' | 'provider_name'>) =>
+    apiFetch<{ id: string }>(`/reseller/network/route-sets/${setId}/items`, {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+  updateRouteSetItem: (setId: string, itemId: string, data: Omit<NetworkRouteSetItem, 'id' | 'provider_name'>) =>
+    apiFetch<{ id: string }>(`/reseller/network/route-sets/${setId}/items/${itemId}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+  deleteRouteSetItem: (setId: string, itemId: string) =>
+    apiFetch<void>(`/reseller/network/route-sets/${setId}/items/${itemId}`, {
+      method: 'DELETE',
+    }),
+  duplicateRouteSetItem: (setId: string, itemId: string) =>
+    apiFetch<{ id: string }>(`/reseller/network/route-sets/${setId}/items/${itemId}/duplicate`, {
+      method: 'POST',
+    }),
+  reorderRouteSetItems: (setId: string, items: Array<{ item_id: string; priority: number }>) =>
+    apiFetch<{ set_id: string }>(`/reseller/network/route-sets/${setId}/items/reorder`, {
+      method: 'PUT', body: JSON.stringify({ items }),
+    }),
+
+  // ── Preview ────────────────────────────────────────────────────────────────
+
+  previewRouteSet: (setId: string, data: { phone: string; sender_id: string; traffic_type: string }) =>
+    apiFetch<{ matches: RoutePreviewMatch[] }>(
+      `/reseller/network/route-sets/${setId}/preview`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  // ── Bulk Dry Run ───────────────────────────────────────────────────────────
+
+  bulkAssignDryRun: (data: {
+    client_ids: string[];
+    provider_set_id: string | null;
+    route_set_id?: string | null;
+  }) =>
+    apiFetch<{ results: NetworkBulkAssignResult[] }>(
+      '/reseller/network/assignments/bulk/dry-run',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  // ── Cleanup ────────────────────────────────────────────────────────────────
+
+  routeCleanup: (data: { provider_id: string }) =>
+    apiFetch<{ removed_route_set_items: number; removed_overrides: number }>(
+      '/reseller/network/route-cleanup',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  // ── Sub-account route overrides ────────────────────────────────────────────
+
+  addRouteOverride: (subAccountId: string, data: Omit<NetworkRouteSetItem, 'id' | 'provider_name'>) =>
+    apiFetch<{ id: string }>(
+      `/sub-accounts/${subAccountId}/network/route-overrides`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  updateRouteOverride: (subAccountId: string, routeId: string, data: Omit<NetworkRouteSetItem, 'id' | 'provider_name'>) =>
+    apiFetch<{ id: string }>(
+      `/sub-accounts/${subAccountId}/network/route-overrides/${routeId}`,
+      { method: 'PUT', body: JSON.stringify(data) },
+    ),
+  deleteRouteOverride: (subAccountId: string, routeId: string) =>
+    apiFetch<void>(
+      `/sub-accounts/${subAccountId}/network/route-overrides/${routeId}`,
       { method: 'DELETE' },
     ),
 };
