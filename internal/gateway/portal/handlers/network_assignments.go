@@ -19,7 +19,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
-	portal "github.com/smpp-server/smpp-server/internal/gateway/portal"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/shared"
@@ -315,24 +314,7 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	warnings := []map[string]string{}
-	if err := h.providerMat.ApplyToClient(r.Context(), clientID, psUUID); err != nil {
-		log.Error().Err(err).Str("client_id", clientID.String()).Msg("assignments provider materialize partial-failure")
-		portal.MaterializeFailureTotal.WithLabelValues("provider").Inc()
-		warnings = append(warnings, map[string]string{
-			"step":  "provider_materialize",
-			"error": err.Error(),
-		})
-	}
-	if err := h.routeMat.ApplyToClient(r.Context(), clientID, rsUUID); err != nil {
-		log.Error().Err(err).Str("client_id", clientID.String()).Msg("assignments route materialize partial-failure")
-		portal.MaterializeFailureTotal.WithLabelValues("route").Inc()
-		warnings = append(warnings, map[string]string{
-			"step":  "route_materialize",
-			"error": err.Error(),
-		})
-	}
-
+	warnings := network.ApplyAssignmentMaterializers(r.Context(), h.pool, h.providerMat, h.routeMat, clientID, psUUID, rsUUID)
 	resp := map[string]interface{}{"client_id": clientID.String()}
 	if len(warnings) > 0 {
 		resp["warnings"] = warnings
@@ -444,17 +426,7 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 		}
 		// Plan 3 Task 4: materialize-сбой после committed SRA → status="partial"+warnings,
 		// Prometheus counter alerter'у. Frontend ретраит идемпотентно.
-		warnings := []map[string]string{}
-		if err := h.providerMat.ApplyToClient(r.Context(), cid, psUUID); err != nil {
-			log.Error().Err(err).Str("client_id", cid.String()).Msg("assignments bulk provider materialize partial-failure")
-			portal.MaterializeFailureTotal.WithLabelValues("provider").Inc()
-			warnings = append(warnings, map[string]string{"step": "provider_materialize", "error": err.Error()})
-		}
-		if err := h.routeMat.ApplyToClient(r.Context(), cid, rsUUID); err != nil {
-			log.Error().Err(err).Str("client_id", cid.String()).Msg("assignments bulk route materialize partial-failure")
-			portal.MaterializeFailureTotal.WithLabelValues("route").Inc()
-			warnings = append(warnings, map[string]string{"step": "route_materialize", "error": err.Error()})
-		}
+		warnings := network.ApplyAssignmentMaterializers(r.Context(), h.pool, h.providerMat, h.routeMat, cid, psUUID, rsUUID)
 		status := "ok"
 		if len(warnings) > 0 {
 			status = "partial"

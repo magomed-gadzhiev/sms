@@ -63,18 +63,9 @@ var (
 		},
 		[]string{"operation"}, // create, delete, transfer
 	)
-
-	// MaterializeFailureTotal — счётчик partial-failure'ов в materializer'ах
-	// (provider_set / route_set ApplyToClient). Plan 3 Task 4: SRA committed,
-	// materialize failed → 200+warnings вместо 500; этот counter alerter'у
-	// сообщает реальную деградацию (вместо ложного 500-spike, который раньше
-	// генерировался при retry-able сбое и сбивал SLO-алерты).
-	MaterializeFailureTotal = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "portal",
-			Name:      "materialize_failure_total",
-			Help:      "Materializer ApplyToClient partial-failures (SRA committed, materialize failed)",
-		},
-		[]string{"operation"}, // provider, route
-	)
 )
+
+// NB: MaterializeFailureTotal перенесён в internal/services/network/metrics.go
+// в Plan 4 Task 5 — устранение циклического импорта между этим пакетом и
+// helper'ом ApplyAssignmentMaterializers. Namespace "portal" сохранён, метрика
+// в Grafana по-прежнему доступна как portal_materialize_failure_total.

@@ -161,6 +161,29 @@ func SeedProviderPrivate(t *testing.T, pool *pgxpool.Pool, name string, reseller
 	return id
 }
 
+// SeedSRAErrorState инициализирует subaccount_routing_assignment row для уже
+// существующего sub-account'а: provider/route IDs = NULL, last_materialize_error_at
+// = now(), error_text = errText. Используется тестами retry-логики.
+//
+// Cleanup идёт через SeedSubAccount — он удаляет SRA row при teardown,
+// поэтому собственного Cleanup эта функция не регистрирует.
+func SeedSRAErrorState(t *testing.T, pool *pgxpool.Pool, clientID uuid.UUID, errText string) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO subaccount_routing_assignment
+		   (client_id, provider_set_id, route_set_id, assigned_at,
+		    last_materialize_error_at, last_materialize_error_text, materialize_retry_count)
+		 VALUES ($1, NULL, NULL, now(), now(), $2, 1)
+		 ON CONFLICT (client_id) DO UPDATE SET
+		    last_materialize_error_at = EXCLUDED.last_materialize_error_at,
+		    last_materialize_error_text = EXCLUDED.last_materialize_error_text,
+		    materialize_retry_count = subaccount_routing_assignment.materialize_retry_count + 1`,
+		clientID, errText,
+	)
+	require.NoError(t, err, "SeedSRAErrorState INSERT failed")
+}
+
 // SeedRouteSet вставляет минимальный route-set агрегатора и регистрирует cleanup.
 func SeedRouteSet(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID, name string) uuid.UUID {
 	t.Helper()
