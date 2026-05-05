@@ -176,6 +176,47 @@ func TestSRAStuck_Reset_NotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, w.Code, "body: %s", w.Body.String())
 }
 
+// TestSRAStuck_Reset_AuditLog — успешный reset пишет запись в audit_log с корректными полями.
+func TestSRAStuck_Reset_AuditLog(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	setID := storagetest.SeedProviderSet(t, pool, resellerID, "audit-log-test-set")
+	storagetest.SeedSRAErrorStateWithCount(t, pool, subID, &setID, nil, "stuck-for-audit", 120)
+
+	h := NewSRAStuckHandlers(pool)
+	req := httptest.NewRequest(http.MethodPost, "/portal/v1/admin/network/sra-stuck/"+subID.String()+"/reset", nil)
+	req = mux.SetURLVars(req, map[string]string{"client_id": subID.String()})
+	w := httptest.NewRecorder()
+	h.Reset(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	// Verify audit_log entry was written.
+	var action, resourceType, resourceID string
+	var detailsJSON []byte
+	err := pool.QueryRow(t.Context(), `
+		SELECT action, resource_type, resource_id, details
+		FROM audit_log
+		WHERE resource_id = $1
+		  AND resource_type = 'subaccount_routing_assignment'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, subID.String()).Scan(&action, &resourceType, &resourceID, &detailsJSON)
+	require.NoError(t, err, "audit_log entry должна существовать после reset")
+
+	require.Equal(t, "sra_stuck_reset", action)
+	require.Equal(t, "subaccount_routing_assignment", resourceType)
+	require.Equal(t, subID.String(), resourceID)
+
+	var details map[string]interface{}
+	require.NoError(t, json.Unmarshal(detailsJSON, &details))
+	require.EqualValues(t, 120, details["retry_count_before"], "retry_count_before должен отражать значение до reset")
+	require.Equal(t, setID.String(), details["provider_set_id"], "provider_set_id должен быть в details")
+}
+
 // TestSRAStuck_Reset_NotStuck — строка существует, но retry_count=50 (не stuck).
 // POST reset → 409 Conflict. Сброс активного retry-state был бы ошибкой оператора
 // и уничтожил бы диагностику.

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
@@ -126,13 +127,24 @@ func (h *SRAStuckHandlers) Reset(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
 
+	// Fetch current state for the 409-guard and audit details.
+	// parent_client_id is the owning reseller — used as tenant_id in audit_log.
+	// COALESCE: if the client is itself a top-level account (no parent), use client_id.
 	var retryCount int
+	var providerSetID, routeSetID *uuid.UUID
+	var errorText *string
+	var tenantID uuid.UUID
 	err = tx.QueryRow(r.Context(), `
-		SELECT materialize_retry_count
-		FROM subaccount_routing_assignment
-		WHERE client_id = $1
-		FOR UPDATE
-	`, clientID).Scan(&retryCount)
+		SELECT sra.materialize_retry_count,
+		       sra.provider_set_id,
+		       sra.route_set_id,
+		       sra.last_materialize_error_text,
+		       COALESCE(c.parent_client_id, sra.client_id) AS tenant_id
+		FROM subaccount_routing_assignment sra
+		JOIN clients c ON c.id = sra.client_id
+		WHERE sra.client_id = $1
+		FOR UPDATE OF sra
+	`, clientID).Scan(&retryCount, &providerSetID, &routeSetID, &errorText, &tenantID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			respondError(w, shared.ErrNotFound("row не найден"))
@@ -166,6 +178,29 @@ func (h *SRAStuckHandlers) Reset(w http.ResponseWriter, r *http.Request) {
 		respondError(w, shared.ErrInternalServer("не удалось зафиксировать транзакцию"))
 		return
 	}
+
+	// Audit log — non-fatal; mutation is already committed.
+	auditDetails := map[string]interface{}{
+		"retry_count_before": retryCount,
+	}
+	if providerSetID != nil {
+		auditDetails["provider_set_id"] = providerSetID.String()
+	}
+	if routeSetID != nil {
+		auditDetails["route_set_id"] = routeSetID.String()
+	}
+	if errorText != nil {
+		auditDetails["error_text_before"] = *errorText
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     tenantID,
+		UserID:       userIDFromCtx(r.Context()),
+		Action:       "sra_stuck_reset",
+		ResourceType: "subaccount_routing_assignment",
+		ResourceID:   clientID.String(),
+		Details:      auditDetails,
+		IPAddress:    r.RemoteAddr,
+	})
 
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
