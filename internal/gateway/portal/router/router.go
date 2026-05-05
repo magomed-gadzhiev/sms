@@ -740,3 +740,20 @@ func RegisterCascadeAdminRoutes(
 	admin.HandleFunc("/operator-channel-support", strategies.GetOperatorChannelSupport).Methods("GET")
 	admin.HandleFunc("/operator-channel-support", strategies.UpdateOperatorChannelSupport).Methods("PUT")
 }
+
+// RegisterSRAStuckRoutes добавляет admin-маршруты для просмотра и сброса
+// stuck-строк subaccount_routing_assignment (retry_count >= 100).
+func RegisterSRAStuckRoutes(
+	router *mux.Router,
+	sessionAuthMiddleware func(http.Handler) http.Handler,
+	csrfMiddleware func(http.Handler) http.Handler,
+	h *handlers.SRAStuckHandlers,
+) {
+	admin := router.PathPrefix("/portal/v1/admin").Subrouter()
+	admin.Use(sessionAuthMiddleware)
+	admin.Use(middleware.AdminRoleMiddleware)
+	admin.Use(csrfMiddleware)
+
+	admin.HandleFunc("/network/sra-stuck", h.List).Methods("GET")
+	admin.HandleFunc("/network/sra-stuck/{client_id}/reset", h.Reset).Methods("POST")
+}

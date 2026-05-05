@@ -423,6 +423,10 @@ func main() {
 		logger.Warn().Err(err).Msg("не удалось открыть sqlx соединение, quota handlers будут недоступны")
 	}
 
+	// Регистрируем admin-маршруты для SRA stuck-строк
+	sraStuckHandlers := handlers.NewSRAStuckHandlers(dbPool)
+	portalrouter.RegisterSRAStuckRoutes(router, sessionAuthMw, csrfMw, sraStuckHandlers)
+
 	// Добавляем Prometheus metrics endpoint
 	if cfg.Monitoring.Prometheus.Enabled {
 		router.Handle(cfg.Monitoring.Prometheus.Path, promhttp.Handler()).Methods("GET")
