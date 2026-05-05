@@ -170,11 +170,15 @@ func loadSchedulesTx(ctx context.Context, tx pgx.Tx, itemID uuid.UUID) ([]storag
 // client_routes.operator_id оставлен NULL (миграция 080 разрешает NULL); матчинг идёт через condition_groups.
 func insertRouteFromItem(ctx context.Context, tx pgx.Tx, clientID uuid.UUID, item storage.RouteSetItemFull) error {
 	var routeID uuid.UUID
+	// owner_type/owner_id обязательны (route_owner_type enum, NOT NULL + chk_owner_id).
+	// Materialized template-routes принадлежат суб-аккаунту: owner_type='subaccount', owner_id=clientID.
 	err := tx.QueryRow(ctx,
 		`INSERT INTO client_routes
 			(client_id, operator_id, provider_id, priority, weight, active,
-			 name, comment, status, share, route_type, source)
-		 VALUES ($1, NULL, $2, $3, 1, true, NULLIF($4,''), NULLIF($5,''), $6, $7, $8, 'template')
+			 name, comment, status, share, route_type, source,
+			 owner_type, owner_id)
+		 VALUES ($1, NULL, $2, $3, 1, true, NULLIF($4,''), NULLIF($5,''), $6, $7, $8, 'template',
+		         'subaccount', $1)
 		 RETURNING id`,
 		clientID, item.ProviderID, item.Priority, item.Name, item.Comment,
 		item.Status, item.Share, item.RouteType,

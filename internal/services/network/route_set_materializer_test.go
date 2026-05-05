@@ -54,8 +54,8 @@ func TestRouteMaterializer_Apply_PreservesOverrides(t *testing.T) {
 
 	// Manually insert an override route
 	_, err := pool.Exec(context.Background(),
-		`INSERT INTO client_routes (client_id, provider_id, priority, weight, active, name, status, share, route_type, source)
-		 VALUES ($1, $2, 99, 1, true, 'override-route', 'active', 100, 'sms', 'override')`,
+		`INSERT INTO client_routes (client_id, provider_id, priority, weight, active, name, status, share, route_type, source, owner_type, owner_id)
+		 VALUES ($1, $2, 99, 1, true, 'override-route', 'active', 100, 'sms', 'override', 'subaccount', $1)`,
 		subID, provB)
 	require.NoError(t, err)
 
