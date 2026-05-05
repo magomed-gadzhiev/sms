@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { DragEvent } from 'react';
+import { Info } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -323,10 +324,22 @@ export function RouteSetsPage() {
 
               {/* Preview */}
               <details className="border border-gray-200 rounded">
-                <summary className="cursor-pointer p-3 text-sm text-gray-600 hover:bg-gray-50">
-                  Превью маршрутизации
+                <summary className="cursor-pointer p-3 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+                  <span>Превью маршрутизации</span>
+                  <span
+                    className="inline-flex items-center text-amber-600"
+                    title="Preview не проверяет соответствие условий по оператору и country-prefix в полном объёме. В реальном пайплайне маршрутизация может отличаться. Используйте preview как ориентир, не как enforcement."
+                    aria-label="Preview не проверяет соответствие условий по оператору и country-prefix в полном объёме. В реальном пайплайне маршрутизация может отличаться. Используйте preview как ориентир, не как enforcement."
+                  >
+                    <Info size={14} />
+                  </span>
                 </summary>
                 <div className="p-3 space-y-3 border-t border-gray-100">
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                    Preview — ориентир, не enforcement. Условия по оператору и country-prefix
+                    проверяются упрощённо (без JOIN на таблицу operators); реальная маршрутизация
+                    в пайплайне может отличаться.
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <Input
                       label="Телефон"
