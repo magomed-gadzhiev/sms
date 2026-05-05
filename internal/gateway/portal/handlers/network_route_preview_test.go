@@ -63,6 +63,18 @@ func uniqOperatorCode(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
 }
 
+// uniqISO — UNIQUE INDEX на countries.iso_code (VARCHAR(2)).
+// 26*26=676 комбинаций; используем хвост наносекунд → 2 буквы A-Z.
+var isoSeq int64
+
+func uniqISO() string {
+	n := time.Now().UnixNano() + isoSeq
+	isoSeq++
+	a := byte('A' + (n/26)%26)
+	b := byte('A' + n%26)
+	return string([]byte{a, b})
+}
+
 // TestPreview_MatchesByCountry — item с условием country=KZ матчит +7-номер
 // (KZ — единственная country с phone_code='7' в seed; см. resolve_country_iso_by_phone).
 func TestPreview_MatchesByCountry(t *testing.T) {
@@ -131,7 +143,7 @@ func TestPreview_OperatorCondition_MatchesByPhonePrefix(t *testing.T) {
 
 	// Prefix '7912' (длиннее KZ '7') — longest-prefix-match его выберет.
 	// phone_code VARCHAR(5), prefix VARCHAR(15) — 4 символа влезают везде.
-	countryID := seedCountryWithPhoneCode(t, pool, "ZZ", "7912")
+	countryID := seedCountryWithPhoneCode(t, pool, uniqISO(), "7912")
 	opID := seedOperatorWithPrefix(t, pool, countryID, uniqOperatorCode("OP"), "7912")
 
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
@@ -185,13 +197,14 @@ func TestPreview_CountryCondition_LookupsCountriesTable(t *testing.T) {
 	resellerID := storagetest.SeedReseller(t, pool)
 	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
 
-	// ISO 'ZZ' c уникальным phone_code '88812' — отсутствует в seed countries.
+	// Уникальный iso c phone_code '88812' — отсутствует в seed countries.
 	// Длиннее любого '8'-кода, longest-match его выберет даже если другие '8' есть.
-	seedCountryWithPhoneCode(t, pool, "ZZ", "88812")
+	iso := uniqISO()
+	seedCountryWithPhoneCode(t, pool, iso, "88812")
 
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
 	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10,
-		[][2]string{{"country", "ZZ"}})
+		[][2]string{{"country", iso}})
 
 	h := NewNetworkRoutePreviewHandlers(pool)
 
