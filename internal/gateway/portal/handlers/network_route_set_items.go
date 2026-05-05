@@ -408,6 +408,24 @@ func (h *NetworkRouteSetItemsHandlers) Create(w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "create",
+		ResourceType: "route_set_item",
+		ResourceID:   created.ID.String(),
+		Details: map[string]interface{}{
+			"set_id":      setID.String(),
+			"name":        full.Name,
+			"provider_id": full.ProviderID.String(),
+		},
+		IPAddress: r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusCreated, map[string]interface{}{"id": created.ID.String()})
 }
 
@@ -476,6 +494,24 @@ func (h *NetworkRouteSetItemsHandlers) Update(w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "update",
+		ResourceType: "route_set_item",
+		ResourceID:   itemID.String(),
+		Details: map[string]interface{}{
+			"set_id":      setID.String(),
+			"name":        full.Name,
+			"provider_id": full.ProviderID.String(),
+		},
+		IPAddress: r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusOK, map[string]interface{}{"id": itemID.String()})
 }
 
@@ -517,6 +553,20 @@ func (h *NetworkRouteSetItemsHandlers) Delete(w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "delete",
+		ResourceType: "route_set_item",
+		ResourceID:   itemID.String(),
+		Details:      map[string]interface{}{"set_id": setID.String()},
+		IPAddress:    r.RemoteAddr,
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -577,6 +627,23 @@ func (h *NetworkRouteSetItemsHandlers) Duplicate(w http.ResponseWriter, r *http.
 			return
 		}
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "create",
+		ResourceType: "route_set_item",
+		ResourceID:   created.ID.String(),
+		Details: map[string]interface{}{
+			"set_id":         setID.String(),
+			"source_item_id": srcID.String(),
+		},
+		IPAddress: r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusCreated, map[string]interface{}{"id": created.ID.String()})
 }
 
@@ -634,5 +701,19 @@ func (h *NetworkRouteSetItemsHandlers) Reorder(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "reorder",
+		ResourceType: "route_set",
+		ResourceID:   setID.String(),
+		Details:      map[string]interface{}{"item_count": len(entries)},
+		IPAddress:    r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusOK, map[string]interface{}{"set_id": setID.String()})
 }

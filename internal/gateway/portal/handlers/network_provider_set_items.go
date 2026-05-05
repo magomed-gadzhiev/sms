@@ -365,6 +365,21 @@ func (h *NetworkProviderSetItemsHandlers) PutItems(w http.ResponseWriter, r *htt
 		}
 	}
 
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "update",
+		ResourceType: "provider_set",
+		ResourceID:   setID.String(),
+		Details:      map[string]interface{}{"items_count": len(parsed)},
+		IPAddress:    r.RemoteAddr,
+	})
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"set_id": setID.String(),
 		"count":  len(parsed),

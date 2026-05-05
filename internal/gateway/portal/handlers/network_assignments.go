@@ -319,6 +319,34 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 	if len(warnings) > 0 {
 		resp["warnings"] = warnings
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	auditDetails := map[string]interface{}{}
+	if psUUID != nil {
+		auditDetails["provider_set_id"] = psUUID.String()
+	} else {
+		auditDetails["provider_set_id"] = nil
+	}
+	if rsUUID != nil {
+		auditDetails["route_set_id"] = rsUUID.String()
+	} else {
+		auditDetails["route_set_id"] = nil
+	}
+	if len(warnings) > 0 {
+		auditDetails["warnings_count"] = len(warnings)
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "update",
+		ResourceType: "assignment",
+		ResourceID:   clientID.String(),
+		Details:      auditDetails,
+		IPAddress:    r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusOK, resp)
 }
 
@@ -433,6 +461,52 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 		}
 		results = append(results, bulkResultItem{ClientID: idStr, Status: status, Warnings: warnings})
 	}
+
+	// Audit one summary event per Bulk (per-client events were considered too noisy).
+	var okCount, partialCount, conflictCount, errorCount int
+	for _, item := range results {
+		switch item.Status {
+		case "ok":
+			okCount++
+		case "partial":
+			partialCount++
+		case "conflict":
+			conflictCount++
+		case "error":
+			errorCount++
+		}
+	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	summary := map[string]interface{}{
+		"client_count":   len(req.ClientIDs),
+		"ok_count":       okCount,
+		"partial_count":  partialCount,
+		"conflict_count": conflictCount,
+		"error_count":    errorCount,
+	}
+	if psUUID != nil {
+		summary["provider_set_id"] = psUUID.String()
+	} else {
+		summary["provider_set_id"] = nil
+	}
+	if rsUUID != nil {
+		summary["route_set_id"] = rsUUID.String()
+	} else {
+		summary["route_set_id"] = nil
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "bulk",
+		ResourceType: "assignment",
+		ResourceID:   "bulk",
+		Details:      summary,
+		IPAddress:    r.RemoteAddr,
+	})
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{"results": results})
 }

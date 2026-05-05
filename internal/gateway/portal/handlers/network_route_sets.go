@@ -199,6 +199,21 @@ func (h *NetworkRouteSetsHandlers) Create(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "create",
+		ResourceType: "route_set",
+		ResourceID:   id.String(),
+		Details:      map[string]interface{}{"name": req.Name, "is_default": req.IsDefault},
+		IPAddress:    r.RemoteAddr,
+	})
+
 	respondJSON(w, http.StatusCreated, routeSetOut{
 		ID:            id.String(),
 		Name:          req.Name,
@@ -278,6 +293,20 @@ func (h *NetworkRouteSetsHandlers) Update(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInternalServer("ошибка commit"))
 		return
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "update",
+		ResourceType: "route_set",
+		ResourceID:   id.String(),
+		Details:      map[string]interface{}{"name": req.Name, "is_default": req.IsDefault},
+		IPAddress:    r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusOK, map[string]interface{}{"id": id.String()})
 }
 
@@ -324,5 +353,19 @@ func (h *NetworkRouteSetsHandlers) Delete(w http.ResponseWriter, r *http.Request
 		respondError(w, shared.ErrInternalServer("ошибка удаления"))
 		return
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "delete",
+		ResourceType: "route_set",
+		ResourceID:   id.String(),
+		Details:      map[string]interface{}{"id": id.String()},
+		IPAddress:    r.RemoteAddr,
+	})
 	w.WriteHeader(http.StatusNoContent)
 }

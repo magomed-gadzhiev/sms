@@ -213,6 +213,21 @@ func (h *NetworkProviderSetsHandlers) Create(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "create",
+		ResourceType: "provider_set",
+		ResourceID:   id.String(),
+		Details:      map[string]interface{}{"name": req.Name, "is_default": req.IsDefault},
+		IPAddress:    r.RemoteAddr,
+	})
+
 	respondJSON(w, http.StatusCreated, providerSetOut{
 		ID:            id.String(),
 		Name:          req.Name,
@@ -296,6 +311,20 @@ func (h *NetworkProviderSetsHandlers) Update(w http.ResponseWriter, r *http.Requ
 		respondError(w, shared.ErrInternalServer("ошибка commit"))
 		return
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "update",
+		ResourceType: "provider_set",
+		ResourceID:   id.String(),
+		Details:      map[string]interface{}{"name": req.Name, "is_default": req.IsDefault},
+		IPAddress:    r.RemoteAddr,
+	})
 	respondJSON(w, http.StatusOK, map[string]interface{}{"id": id.String()})
 }
 
@@ -342,5 +371,19 @@ func (h *NetworkProviderSetsHandlers) Delete(w http.ResponseWriter, r *http.Requ
 		respondError(w, shared.ErrInternalServer("ошибка удаления"))
 		return
 	}
+	userID, _ := middleware.GetUserID(r.Context())
+	var userIDPtr *uuid.UUID
+	if userID != uuid.Nil {
+		userIDPtr = &userID
+	}
+	_ = network.RecordAuditEvent(r.Context(), h.pool, network.AuditEvent{
+		TenantID:     resellerID,
+		UserID:       userIDPtr,
+		Action:       "delete",
+		ResourceType: "provider_set",
+		ResourceID:   id.String(),
+		Details:      map[string]interface{}{"id": id.String()},
+		IPAddress:    r.RemoteAddr,
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
