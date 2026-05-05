@@ -1,17 +1,67 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smpp-server/smpp-server/internal/storage/storagetest"
 )
+
+// seedCountryWithPhoneCode вставляет country с заданным phone_code, регистрирует cleanup.
+func seedCountryWithPhoneCode(t *testing.T, pool *pgxpool.Pool, iso, phoneCode string) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO countries (id, name, iso_code, phone_code, currency)
+		 VALUES ($1, $2, $3, $4, 'USD')`,
+		id, "TestCountry-"+iso, iso, phoneCode,
+	)
+	require.NoError(t, err, "seed country failed")
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM countries WHERE id = $1`, id)
+	})
+	return id
+}
+
+// seedOperatorWithPrefix вставляет operator + prefix, регистрирует cleanup.
+func seedOperatorWithPrefix(t *testing.T, pool *pgxpool.Pool, countryID uuid.UUID, code, prefix string) uuid.UUID {
+	t.Helper()
+	opID := uuid.New()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO operators (id, country_id, name, code, active)
+		 VALUES ($1, $2, $3, $4, true)`,
+		opID, countryID, "TestOp-"+code, code,
+	)
+	require.NoError(t, err, "seed operator failed")
+	prefixID := uuid.New()
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO operator_prefixes (id, operator_id, prefix, priority, active)
+		 VALUES ($1, $2, $3, 0, true)`,
+		prefixID, opID, prefix,
+	)
+	require.NoError(t, err, "seed operator_prefix failed")
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM operator_prefixes WHERE id = $1`, prefixID)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM operators WHERE id = $1`, opID)
+	})
+	return opID
+}
+
+// uniqOperatorCode — UNIQUE INDEX на operators.code; сделать тест-стабильным.
+func uniqOperatorCode(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
+}
 
 // TestPreview_MatchesByCountry — item с условием country=RU матчит +7-номер.
 func TestPreview_MatchesByCountry(t *testing.T) {
@@ -67,4 +117,113 @@ func TestPreview_NoMatch_DifferentCountry(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	require.Empty(t, resp.Matches)
+}
+
+// TestPreview_OperatorCondition_MatchesByPhonePrefix — Plan 5 D8.
+// item с условием operator=<uuid> матчит phone, чей prefix принадлежит этому operator'у;
+// чужой phone — нет.
+func TestPreview_OperatorCondition_MatchesByPhonePrefix(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
+
+	// Уникальный prefix '7912345' — длиннее любого seed-а, longest-prefix-match его выберет.
+	countryID := seedCountryWithPhoneCode(t, pool, "ZZ", "7912345")
+	opID := seedOperatorWithPrefix(t, pool, countryID, uniqOperatorCode("OP"), "7912345")
+
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
+	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10,
+		[][2]string{{"operator", opID.String()}})
+
+	h := NewNetworkRoutePreviewHandlers(pool)
+
+	// Phone matching prefix '7912345' → operator-condition match.
+	body := `{"phone":"79123456789","sender_id":"X","traffic_type":"transactional"}`
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/network/route-sets/"+rsID.String()+"/preview",
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": rsID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Preview(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	var resp struct {
+		Matches []struct {
+			ItemID string `json:"matched_item_id"`
+		} `json:"matches"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Matches, 1, "expected match for phone with operator prefix")
+
+	// Phone NOT matching prefix → no match.
+	body2 := `{"phone":"19999999999","sender_id":"X","traffic_type":"transactional"}`
+	req2 := httptest.NewRequest("POST",
+		"/portal/v1/reseller/network/route-sets/"+rsID.String()+"/preview",
+		strings.NewReader(body2))
+	req2 = mux.SetURLVars(req2, map[string]string{"id": rsID.String()})
+	req2 = withReseller(req2, resellerID)
+	w2 := httptest.NewRecorder()
+	h.Preview(w2, req2)
+	require.Equal(t, http.StatusOK, w2.Code, "body: %s", w2.Body.String())
+
+	var resp2 struct {
+		Matches []interface{} `json:"matches"`
+	}
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &resp2))
+	require.Empty(t, resp2.Matches, "phone without matching operator prefix should not match")
+}
+
+// TestPreview_CountryCondition_LookupsCountriesTable — Plan 5 D9.
+// country-condition resolved через countries.phone_code lookup, не in-memory map.
+func TestPreview_CountryCondition_LookupsCountriesTable(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
+
+	// ISO 'ZZ' c уникальным phone_code '88812' — отсутствует в seed countries.
+	// Длиннее любого '8'-кода, longest-match его выберет даже если другие '8' есть.
+	seedCountryWithPhoneCode(t, pool, "ZZ", "88812")
+
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
+	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10,
+		[][2]string{{"country", "ZZ"}})
+
+	h := NewNetworkRoutePreviewHandlers(pool)
+
+	// +88812 — match.
+	body := `{"phone":"+8881234567","sender_id":"X","traffic_type":"transactional"}`
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/network/route-sets/"+rsID.String()+"/preview",
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": rsID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Preview(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	var resp struct {
+		Matches []interface{} `json:"matches"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Matches, 1, "expected DB-resolved country match for +88812")
+
+	// +99912 — другая страна, no match.
+	body2 := `{"phone":"+9991234567","sender_id":"X","traffic_type":"transactional"}`
+	req2 := httptest.NewRequest("POST",
+		"/portal/v1/reseller/network/route-sets/"+rsID.String()+"/preview",
+		strings.NewReader(body2))
+	req2 = mux.SetURLVars(req2, map[string]string{"id": rsID.String()})
+	req2 = withReseller(req2, resellerID)
+	w2 := httptest.NewRecorder()
+	h.Preview(w2, req2)
+	require.Equal(t, http.StatusOK, w2.Code, "body: %s", w2.Body.String())
+
+	var resp2 struct {
+		Matches []interface{} `json:"matches"`
+	}
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &resp2))
+	require.Empty(t, resp2.Matches)
 }

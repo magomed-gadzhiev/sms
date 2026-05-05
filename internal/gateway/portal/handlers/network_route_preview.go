@@ -5,10 +5,13 @@ package handlers
 // POST {phone, sender_id, traffic_type} → []{matched_item_id, item_name,
 // provider_id, provider_name, priority} в порядке приоритета items.
 //
-// Жертва: country определяется простым prefix-mapping'ом по телефону —
-// для preview достаточно, реальный pipeline берёт из таблицы operators.
+// Country/operator resolution идёт через SQL-функции
+// resolve_country_iso_by_phone / resolve_operator_id_by_phone (миграция 000143).
+// Жертва: 1 SQL round-trip на preview-запрос; для preview ок, hot-path pipeline
+// не затронут.
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"regexp"
@@ -41,37 +44,34 @@ func NewNetworkRoutePreviewHandlers(pool *pgxpool.Pool) *NetworkRoutePreviewHand
 	}
 }
 
-// phonePrefixes — упрощённое определение страны по началу номера.
-// Реальный matching в pipeline идёт из operators-таблицы по prefix.
-var phonePrefixes = map[string]string{
-	"7": "RU", "375": "BY", "380": "UA", "996": "KG",
-	"998": "UZ", "992": "TJ", "993": "TM", "994": "AZ",
-	"995": "GE", "374": "AM", "1": "US", "44": "GB", "49": "DE",
-	"33": "FR", "39": "IT", "34": "ES", "86": "CN", "91": "IN",
-}
-
-// countryByPhone определяет ISO-код страны по телефону. "" — если не угадали.
-func countryByPhone(phone string) string {
+// resolveCountryAndOperator делает один SQL-вызов к двум plpgsql-функциям
+// (resolve_country_iso_by_phone, resolve_operator_id_by_phone), реализующим
+// longest-prefix-match по countries.phone_code и operator_prefixes.prefix.
+//
+// KZ vs RU: countries.phone_code='7' принадлежит KZ; для RU отдельной строки
+// нет (см. seed). Если SQL когда-нибудь вернёт RU и второй цифрой 6/7 — патчим
+// на KZ (страховка на случай миграции seed'а).
+func (h *NetworkRoutePreviewHandlers) resolveCountryAndOperator(ctx context.Context, phone string) (countryISO string, operatorID uuid.UUID) {
 	clean := strings.TrimPrefix(strings.TrimSpace(phone), "+")
-	// Сначала проверяем 3-значные префиксы (более специфичные), потом 1-2.
-	// Простая стратегия: пройти все, выбрать самый длинный матчующий.
-	bestPrefix, bestCode := "", ""
-	for prefix, code := range phonePrefixes {
-		if strings.HasPrefix(clean, prefix) && len(prefix) > len(bestPrefix) {
-			bestPrefix = prefix
-			bestCode = code
-		}
+	if clean == "" {
+		return "", uuid.Nil
 	}
-	if bestCode == "" {
-		return ""
+	row := h.pool.QueryRow(ctx, `
+		SELECT COALESCE(resolve_country_iso_by_phone($1), ''),
+		       resolve_operator_id_by_phone($1)`, clean)
+	var iso string
+	var opID *uuid.UUID
+	if err := row.Scan(&iso, &opID); err != nil {
+		log.Warn().Err(err).Str("phone", phone).Msg("preview resolve country/operator failed")
+		return "", uuid.Nil
 	}
-	// Уточнение для KZ vs RU: оба +7, но KZ начинается с 76/77.
-	if bestCode == "RU" && len(clean) >= 2 {
-		if clean[1] == '6' || clean[1] == '7' {
-			return "KZ"
-		}
+	if iso == "RU" && len(clean) >= 2 && (clean[1] == '6' || clean[1] == '7') {
+		iso = "KZ"
 	}
-	return bestCode
+	if opID == nil {
+		return iso, uuid.Nil
+	}
+	return iso, *opID
 }
 
 type previewReq struct {
@@ -120,7 +120,7 @@ func (h *NetworkRoutePreviewHandlers) Preview(w http.ResponseWriter, r *http.Req
 	}
 
 	now := time.Now()
-	country := countryByPhone(req.Phone)
+	country, operatorID := h.resolveCountryAndOperator(r.Context(), req.Phone)
 
 	// Сначала отфильтровать matched items, чтобы потом одним запросом
 	// подтянуть имена провайдеров.
@@ -132,7 +132,7 @@ func (h *NetworkRoutePreviewHandlers) Preview(w http.ResponseWriter, r *http.Req
 		if it.Status != "active" {
 			continue
 		}
-		if !matchesConditions(it.ConditionGroups, country, req.TrafficType, req.SenderID, req.Phone) {
+		if !matchesConditions(it.ConditionGroups, country, req.TrafficType, req.SenderID, req.Phone, operatorID) {
 			continue
 		}
 		if !matchesSchedules(it.Schedules, now) {
@@ -188,14 +188,14 @@ func (h *NetworkRoutePreviewHandlers) Preview(w http.ResponseWriter, r *http.Req
 // matchesConditions оценивает группы условий. Группы комбинируются по
 // logic_op первой группы; в практике используется одна группа с logic_op=IF.
 // Пустой список — match всегда (item без ограничений).
-func matchesConditions(groups []storage.RouteSetConditionGroup, country, trafficType, senderID, phone string) bool {
+func matchesConditions(groups []storage.RouteSetConditionGroup, country, trafficType, senderID, phone string, operatorID uuid.UUID) bool {
 	if len(groups) == 0 {
 		return true
 	}
 	for _, g := range groups {
 		groupResult := true
 		for _, c := range g.Conditions {
-			if !evalCondition(c, country, trafficType, senderID, phone) {
+			if !evalCondition(c, country, trafficType, senderID, phone, operatorID) {
 				groupResult = false
 				break
 			}
@@ -222,9 +222,10 @@ func matchesConditions(groups []storage.RouteSetConditionGroup, country, traffic
 	return true
 }
 
-// evalCondition оценивает одно условие. operator-matching отложен (требует
-// таблицы operators) — в preview всегда true.
-func evalCondition(c storage.RouteSetCondition, country, trafficType, senderID, phone string) bool {
+// evalCondition оценивает одно условие. operator-matching реализован через
+// resolveCountryAndOperator (longest-prefix-match по operator_prefixes).
+// c.Value для type=operator — UUID оператора.
+func evalCondition(c storage.RouteSetCondition, country, trafficType, senderID, phone string, operatorID uuid.UUID) bool {
 	switch c.Type {
 	case "country":
 		return c.Value == country
@@ -239,7 +240,10 @@ func evalCondition(c storage.RouteSetCondition, country, trafficType, senderID, 
 		}
 		return re.MatchString(phone)
 	case "operator":
-		return true
+		if operatorID == uuid.Nil {
+			return false
+		}
+		return strings.EqualFold(c.Value, operatorID.String())
 	}
 	return false
 }
