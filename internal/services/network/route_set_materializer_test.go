@@ -95,6 +95,46 @@ func TestRouteMaterializer_Apply_NilSet_ClearsTemplate(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
+func TestRouteMaterializer_Apply_CopiesSchedules(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "A")
+
+	setID := storagetest.SeedRouteSet(t, pool, resellerID, "RS")
+	itemID := storagetest.SeedRouteSetItem(t, pool, setID, provA, 10, nil)
+
+	// Schedule: будни 09:00–18:00 Europe/Moscow. weekdays=31 (Mon..Fri = bits 0..4).
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO route_set_schedules (item_id, time_from, time_to, weekdays, timezone)
+		 VALUES ($1, '09:00'::time, '18:00'::time, 31, 'Europe/Moscow')`, itemID)
+	require.NoError(t, err)
+
+	itemsRepo := storage.NewResellerRouteSetItemsRepository(pool)
+	mat := network.NewRouteSetMaterializer(pool, itemsRepo)
+	require.NoError(t, mat.ApplyToClient(context.Background(), subID, &setID))
+
+	var count int
+	var timeFrom, timeTo, timezone string
+	var weekdays int16
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM route_schedules rs
+		 JOIN client_routes cr ON cr.id = rs.route_id
+		 WHERE cr.client_id = $1`, subID).Scan(&count))
+	require.Equal(t, 1, count)
+
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT rs.time_from::text, rs.time_to::text, rs.weekdays, rs.timezone
+		 FROM route_schedules rs
+		 JOIN client_routes cr ON cr.id = rs.route_id
+		 WHERE cr.client_id = $1`, subID).Scan(&timeFrom, &timeTo, &weekdays, &timezone))
+	require.Equal(t, "09:00:00", timeFrom)
+	require.Equal(t, "18:00:00", timeTo)
+	require.Equal(t, int16(31), weekdays)
+	require.Equal(t, "Europe/Moscow", timezone)
+}
+
 func TestRouteMaterializer_ApplyToAllSubscribers(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
