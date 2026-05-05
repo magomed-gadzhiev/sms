@@ -100,3 +100,26 @@ func TestRetryPendingOnce_KeepsErrorOnContinuedFailure(t *testing.T) {
 	assert.Contains(t, *errText, "still broken")
 }
 
+func TestRetryPendingOnce_RouteFails_RecordsRetryRouteCounter(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	clientID := storagetest.SeedSubAccount(t, pool, resellerID)
+	psID := storagetest.SeedProviderSet(t, pool, resellerID, "ps-retry-route-fail")
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, "rs-retry-route-fail")
+	storagetest.SeedSRAErrorState(t, pool, clientID, &psID, &rsID, "first failure")
+
+	pm := &recordingProviderApplier{}
+	rm := &recordingRouteApplier{err: errors.New("route still broken")}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	beforeRouteRetry := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("route", "retry"))
+	require.NoError(t, RetryPendingOnce(ctx, pool, pm, rm))
+
+	afterRouteRetry := testutil.ToFloat64(MaterializeFailureTotal.WithLabelValues("route", "retry"))
+	assert.GreaterOrEqual(t, afterRouteRetry-beforeRouteRetry, float64(1),
+		"MaterializeFailureTotal{kind=route,source=retry} must bump on retry-tick route failure")
+}
+
