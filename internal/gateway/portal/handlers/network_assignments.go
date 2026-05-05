@@ -314,7 +314,7 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	warnings := network.ApplyAssignmentMaterializers(r.Context(), h.pool, h.providerMat, h.routeMat, clientID, psUUID, rsUUID)
+	warnings := network.ApplyAssignmentMaterializers(r.Context(), h.pool, h.providerMat, h.routeMat, clientID, psUUID, rsUUID, "initial")
 	resp := map[string]interface{}{"client_id": clientID.String()}
 	if len(warnings) > 0 {
 		resp["warnings"] = warnings
@@ -449,7 +449,7 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 		}
 		// Plan 3 Task 4: materialize-сбой после committed SRA → status="partial"+warnings,
 		// Prometheus counter alerter'у. Frontend ретраит идемпотентно.
-		warnings := network.ApplyAssignmentMaterializers(r.Context(), h.pool, h.providerMat, h.routeMat, cid, psUUID, rsUUID)
+		warnings := network.ApplyAssignmentMaterializers(r.Context(), h.pool, h.providerMat, h.routeMat, cid, psUUID, rsUUID, "initial")
 		status := "ok"
 		if len(warnings) > 0 {
 			status = "partial"

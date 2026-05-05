@@ -14,13 +14,20 @@ import (
 // для устранения циклического импорта (helper в этом пакете → metrics; handlers
 // → этот пакет → handlers недопустим). Namespace "portal" сохранён, чтобы
 // существующие Grafana-запросы не сломались.
+// Plan 5 Task 2 (A5): добавлен label `source` (initial|retry). Initial — первый
+// PUT/Bulk-сбой материализации (новая деградация); retry — per-tick re-attempt
+// retry_loop'ом по уже стоящему stuck-row (амплификатор cardinality, не новый
+// сбой). Ops-алёрты должны фильтровать `source="initial"`, иначе stuck row на
+// неделю → ~10K инкрементов и alert-fatigue. Grafana-дашборды без фильтра
+// автоматически суммируют initial+retry — для total-counter это корректно, но
+// rate()-панели надо пересмотреть.
 var MaterializeFailureTotal = promauto.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "portal",
 		Name:      "materialize_failure_total",
-		Help:      "Materializer ApplyToClient partial-failures (SRA committed, materialize failed)",
+		Help:      "Materializer ApplyToClient partial-failures (SRA committed, materialize failed). Label source=initial|retry distinguishes first-time PUT/Bulk failures from retry-loop ticks for the same stuck row.",
 	},
-	[]string{"operation"}, // provider, route
+	[]string{"operation", "source"}, // operation: provider|route; source: initial|retry
 )
 
 // SRAPendingRetryGauge — count of subaccount_routing_assignment rows with

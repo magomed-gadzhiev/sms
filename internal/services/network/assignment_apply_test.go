@@ -33,7 +33,7 @@ func TestApplyAssignmentMaterializers_BothSucceed_ClearsError(t *testing.T) {
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, "rs-success")
 	storagetest.SeedSRAErrorState(t, pool, clientID, &psID, &rsID, "old failure")
 
-	w := ApplyAssignmentMaterializers(context.Background(), pool, stubProviderApplier{}, stubRouteApplier{}, clientID, &psID, &rsID)
+	w := ApplyAssignmentMaterializers(context.Background(), pool, stubProviderApplier{}, stubRouteApplier{}, clientID, &psID, &rsID, "initial")
 	assert.Empty(t, w)
 
 	var errText *string
@@ -55,7 +55,7 @@ func TestApplyAssignmentMaterializers_ProviderFails_RecordsError(t *testing.T) {
 
 	w := ApplyAssignmentMaterializers(context.Background(), pool,
 		stubProviderApplier{err: errors.New("boom")}, stubRouteApplier{},
-		clientID, &psID, &rsID)
+		clientID, &psID, &rsID, "initial")
 	require.Len(t, w, 1)
 	assert.Equal(t, "provider_materialize", w[0]["step"])
 	assert.Contains(t, w[0]["error"], "boom")
@@ -81,7 +81,7 @@ func TestApplyAssignmentMaterializers_BothFail_RecordsBoth(t *testing.T) {
 	w := ApplyAssignmentMaterializers(context.Background(), pool,
 		stubProviderApplier{err: errors.New("p")},
 		stubRouteApplier{err: errors.New("r")},
-		clientID, &psID, &rsID)
+		clientID, &psID, &rsID, "initial")
 	assert.Len(t, w, 2)
 
 	var retryCount int

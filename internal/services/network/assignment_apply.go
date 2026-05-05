@@ -27,6 +27,11 @@ type RouteApplier interface {
 //
 // Helper заменяет 4 дубликата из network_assignments.go (PutOne provider/route и
 // Bulk provider/route), накопившиеся в Plan 3 Task 4.
+//
+// Параметр `source` (Plan 5 Task 2 / A5) — "initial" для вызовов из portal
+// handlers (PutOne / Bulk), "retry" для вызовов из retry_loop. Разводит
+// MaterializeFailureTotal так, чтобы ops-алёрт по rate(...{source="initial"}[5m])
+// не получал шум от per-tick re-attempts по уже стоящему stuck-row.
 func ApplyAssignmentMaterializers(
 	ctx context.Context,
 	pool *pgxpool.Pool,
@@ -35,16 +40,17 @@ func ApplyAssignmentMaterializers(
 	clientID uuid.UUID,
 	providerSetID *uuid.UUID,
 	routeSetID *uuid.UUID,
+	source string,
 ) []map[string]string {
 	warnings := []map[string]string{}
 	if err := pm.ApplyToClient(ctx, clientID, providerSetID); err != nil {
 		log.Error().Err(err).Str("client_id", clientID.String()).Msg("provider materialize partial-failure")
-		MaterializeFailureTotal.WithLabelValues("provider").Inc()
+		MaterializeFailureTotal.WithLabelValues("provider", source).Inc()
 		warnings = append(warnings, map[string]string{"step": "provider_materialize", "error": err.Error()})
 	}
 	if err := rm.ApplyToClient(ctx, clientID, routeSetID); err != nil {
 		log.Error().Err(err).Str("client_id", clientID.String()).Msg("route materialize partial-failure")
-		MaterializeFailureTotal.WithLabelValues("route").Inc()
+		MaterializeFailureTotal.WithLabelValues("route", source).Inc()
 		warnings = append(warnings, map[string]string{"step": "route_materialize", "error": err.Error()})
 	}
 
