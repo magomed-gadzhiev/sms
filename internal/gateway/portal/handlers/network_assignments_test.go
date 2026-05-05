@@ -461,6 +461,92 @@ func TestAssignments_PutOne_BothMaterializersRun(t *testing.T) {
 	require.Equal(t, 1, routes, "должна появиться 1 template route-row")
 }
 
+// fakeFailingProviderMat — мок, всегда возвращает ошибку. Используется для
+// проверки partial-failure pattern в PutOne/Bulk (Plan 3 Task 4): SRA committed,
+// materialize failed → 200 + warnings вместо 500.
+type fakeFailingProviderMat struct{}
+
+func (fakeFailingProviderMat) ApplyToClient(ctx context.Context, clientID uuid.UUID, providerSetID *uuid.UUID) error {
+	return fmt.Errorf("simulated provider materialize failure")
+}
+
+// fakeOkRouteMat — пустой мок, всегда успешен. Используется в паре с failing
+// provider mat, чтобы изолировать ровно один failure-channel.
+type fakeOkRouteMat struct{}
+
+func (fakeOkRouteMat) ApplyToClient(ctx context.Context, clientID uuid.UUID, routeSetID *uuid.UUID) error {
+	return nil
+}
+
+// TestAssignments_PutOne_ProviderMaterializeFailure_Returns200WithWarning —
+// partial-failure pattern (Plan 3 Task 4): когда provider materializer падает
+// после committed SRA UPSERT'а, handler возвращает 200 + warnings (не 500),
+// а SRA-запись остаётся в БД (frontend ретраит идемпотентно).
+func TestAssignments_PutOne_ProviderMaterializeFailure_Returns200WithWarning(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+
+	setRepo := storage.NewResellerProviderSetRepository(pool)
+	set, err := setRepo.Create(context.Background(), resellerID, uniqSetName("Partial"), false)
+	require.NoError(t, err)
+
+	h := NewNetworkAssignmentsHandlers(pool, fakeFailingProviderMat{}, fakeOkRouteMat{}, nil)
+
+	body := `{"provider_set_id":"` + set.ID.String() + `","route_set_id":null}`
+	req := httptest.NewRequest("PUT", "/portal/v1/reseller/network/assignments/"+subID.String(), strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"client_id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.PutOne(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "partial-failure → 200, не 500; body=%s", w.Body.String())
+	require.Contains(t, w.Body.String(), "warnings")
+	require.Contains(t, w.Body.String(), "provider_materialize")
+
+	// SRA должна быть committed несмотря на materialize-сбой —
+	// это и есть смысл partial: запись есть, нужен retry для materialize.
+	var psRow uuid.UUID
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT provider_set_id FROM subaccount_routing_assignment WHERE client_id = $1`,
+		subID,
+	).Scan(&psRow))
+	require.Equal(t, set.ID, psRow, "SRA должна быть committed даже при materialize-сбое")
+}
+
+// TestAssignments_Bulk_ProviderMaterializeFailure_Returns200WithPartial —
+// аналог partial-failure для Bulk: per-row status="partial" + warnings,
+// HTTP остаётся 200 (Plan 3 Task 4).
+func TestAssignments_Bulk_ProviderMaterializeFailure_Returns200WithPartial(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	sub1 := storagetest.SeedSubAccount(t, pool, resellerID)
+
+	setRepo := storage.NewResellerProviderSetRepository(pool)
+	set, err := setRepo.Create(context.Background(), resellerID, uniqSetName("BulkPartial"), false)
+	require.NoError(t, err)
+
+	h := NewNetworkAssignmentsHandlers(pool, fakeFailingProviderMat{}, fakeOkRouteMat{}, nil)
+
+	body := `{"client_ids":["` + sub1.String() + `"],"provider_set_id":"` + set.ID.String() + `","route_set_id":null}`
+	req := httptest.NewRequest("POST", "/portal/v1/reseller/network/assignments/bulk", strings.NewReader(body))
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Bulk(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	var resp struct {
+		Results []bulkResultItem `json:"results"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Results, 1)
+	require.Equal(t, "partial", resp.Results[0].Status, "materialize-сбой → status='partial'")
+	require.NotEmpty(t, resp.Results[0].Warnings, "warnings должны содержать step=provider_materialize")
+	require.Equal(t, "provider_materialize", resp.Results[0].Warnings[0]["step"])
+}
+
 // TestAssignments_BulkDryRun — 2 sub-аккаунта, route-set ссылается на провайдера вне provider-set →
 // все возвращаются как status='conflict' без мутаций.
 func TestAssignments_BulkDryRun(t *testing.T) {

@@ -19,16 +19,31 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
+	portal "github.com/smpp-server/smpp-server/internal/gateway/portal"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 
+// ProviderMaterializer — узкий interface для подмены ProviderSetMaterializer'а
+// в тестах (failing-mock для partial-failure scenarios, Plan 3 Task 4).
+// Production реализация: *network.ProviderSetMaterializer удовлетворяет
+// автоматически (метод ApplyToClient с такой же сигнатурой).
+type ProviderMaterializer interface {
+	ApplyToClient(ctx context.Context, clientID uuid.UUID, providerSetID *uuid.UUID) error
+}
+
+// RouteMaterializer — узкий interface для подмены RouteSetMaterializer'а
+// в тестах. Production реализация: *network.RouteSetMaterializer.
+type RouteMaterializer interface {
+	ApplyToClient(ctx context.Context, clientID uuid.UUID, routeSetID *uuid.UUID) error
+}
+
 // NetworkAssignmentsHandlers обрабатывает /portal/v1/reseller/network/assignments.
 type NetworkAssignmentsHandlers struct {
 	pool        *pgxpool.Pool
-	providerMat *network.ProviderSetMaterializer
-	routeMat    *network.RouteSetMaterializer
+	providerMat ProviderMaterializer
+	routeMat    RouteMaterializer
 	validator   *network.ConflictValidator
 }
 
@@ -37,8 +52,8 @@ type NetworkAssignmentsHandlers struct {
 // при попытке материализации/валидации (использовать только в тестах, где конкретный пайплайн не задействован).
 func NewNetworkAssignmentsHandlers(
 	pool *pgxpool.Pool,
-	pm *network.ProviderSetMaterializer,
-	rm *network.RouteSetMaterializer,
+	pm ProviderMaterializer,
+	rm RouteMaterializer,
 	v *network.ConflictValidator,
 ) *NetworkAssignmentsHandlers {
 	return &NetworkAssignmentsHandlers{pool: pool, providerMat: pm, routeMat: rm, validator: v}
@@ -309,14 +324,12 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Misconfiguration (nil materializer) — это 500 (не partial-failure: пайплайн
+	// собран неправильно, retry не поможет). Реальный ApplyToClient'овый сбой,
+	// напротив, идемпотентно ретраится → 200 + warnings (Plan 3 Task 4).
 	if h.providerMat == nil {
 		log.Error().Str("client_id", clientID.String()).Msg("assignments PutOne: providerMat is nil")
 		respondError(w, shared.ErrInternalServer("provider materializer not configured"))
-		return
-	}
-	if err := h.providerMat.ApplyToClient(r.Context(), clientID, psUUID); err != nil {
-		log.Error().Err(err).Str("client_id", clientID.String()).Msg("assignments provider materialize")
-		respondError(w, shared.ErrInternalServer("provider materialize"))
 		return
 	}
 	if h.routeMat == nil {
@@ -324,13 +337,30 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 		respondError(w, shared.ErrInternalServer("route materializer not configured"))
 		return
 	}
+
+	warnings := []map[string]string{}
+	if err := h.providerMat.ApplyToClient(r.Context(), clientID, psUUID); err != nil {
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("assignments provider materialize partial-failure")
+		portal.MaterializeFailureTotal.WithLabelValues("provider").Inc()
+		warnings = append(warnings, map[string]string{
+			"step":  "provider_materialize",
+			"error": err.Error(),
+		})
+	}
 	if err := h.routeMat.ApplyToClient(r.Context(), clientID, rsUUID); err != nil {
-		log.Error().Err(err).Str("client_id", clientID.String()).Msg("assignments route materialize")
-		respondError(w, shared.ErrInternalServer("route materialize"))
-		return
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("assignments route materialize partial-failure")
+		portal.MaterializeFailureTotal.WithLabelValues("route").Inc()
+		warnings = append(warnings, map[string]string{
+			"step":  "route_materialize",
+			"error": err.Error(),
+		})
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{"client_id": clientID.String()})
+	resp := map[string]interface{}{"client_id": clientID.String()}
+	if len(warnings) > 0 {
+		resp["warnings"] = warnings
+	}
+	respondJSON(w, http.StatusOK, resp)
 }
 
 // bulkReq — тело POST /reseller/network/assignments/bulk и /bulk/dry-run.
@@ -341,11 +371,13 @@ type bulkReq struct {
 }
 
 // bulkResultItem — элемент response.results.
-// Status: "ok" | "error" | "conflict".
+// Status: "ok" | "partial" | "error" | "conflict".
+// "partial" (Plan 3 Task 4) — SRA committed, materialize failed; warnings содержит детали.
 type bulkResultItem struct {
-	ClientID string `json:"client_id"`
-	Status   string `json:"status"`
-	Error    string `json:"error,omitempty"`
+	ClientID string              `json:"client_id"`
+	Status   string              `json:"status"`
+	Error    string              `json:"error,omitempty"`
+	Warnings []map[string]string `json:"warnings,omitempty"`
 }
 
 // Bulk POST /portal/v1/reseller/network/assignments/bulk
@@ -424,25 +456,33 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "upsert failed"})
 			continue
 		}
+		// Misconfiguration (nil) → status="error" (config issue, не partial-failure).
 		if h.providerMat == nil {
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "provider materializer not configured"})
-			continue
-		}
-		if err := h.providerMat.ApplyToClient(r.Context(), cid, psUUID); err != nil {
-			log.Error().Err(err).Str("client_id", cid.String()).Msg("assignments bulk provider materialize")
-			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "provider materialize failed"})
 			continue
 		}
 		if h.routeMat == nil {
 			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "route materializer not configured"})
 			continue
 		}
-		if err := h.routeMat.ApplyToClient(r.Context(), cid, rsUUID); err != nil {
-			log.Error().Err(err).Str("client_id", cid.String()).Msg("assignments bulk route materialize")
-			results = append(results, bulkResultItem{ClientID: idStr, Status: "error", Error: "route materialize failed"})
-			continue
+		// Plan 3 Task 4: materialize-сбой после committed SRA → status="partial"+warnings,
+		// Prometheus counter alerter'у. Frontend ретраит идемпотентно.
+		warnings := []map[string]string{}
+		if err := h.providerMat.ApplyToClient(r.Context(), cid, psUUID); err != nil {
+			log.Error().Err(err).Str("client_id", cid.String()).Msg("assignments bulk provider materialize partial-failure")
+			portal.MaterializeFailureTotal.WithLabelValues("provider").Inc()
+			warnings = append(warnings, map[string]string{"step": "provider_materialize", "error": err.Error()})
 		}
-		results = append(results, bulkResultItem{ClientID: idStr, Status: "ok"})
+		if err := h.routeMat.ApplyToClient(r.Context(), cid, rsUUID); err != nil {
+			log.Error().Err(err).Str("client_id", cid.String()).Msg("assignments bulk route materialize partial-failure")
+			portal.MaterializeFailureTotal.WithLabelValues("route").Inc()
+			warnings = append(warnings, map[string]string{"step": "route_materialize", "error": err.Error()})
+		}
+		status := "ok"
+		if len(warnings) > 0 {
+			status = "partial"
+		}
+		results = append(results, bulkResultItem{ClientID: idStr, Status: status, Warnings: warnings})
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{"results": results})
