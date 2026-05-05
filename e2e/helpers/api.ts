@@ -276,24 +276,6 @@ export class ApiHelper {
     }
   }
 
-  // --- Reseller Routing ---
-  async listNetworkProviders(params: Record<string, string> = {}) {
-    const qs = new URLSearchParams(params).toString();
-    const res = await this.fetch(`/reseller/routing/providers${qs ? '?' + qs : ''}`);
-    return res.json();
-  }
-
-  async listNetworkRoutes(params: Record<string, string> = {}) {
-    const qs = new URLSearchParams(params).toString();
-    const res = await this.fetch(`/reseller/routing/routes${qs ? '?' + qs : ''}`);
-    return res.json();
-  }
-
-  async bulkAssignProvider(data: { sub_account_ids: string[]; provider_id: string; priority?: number }) {
-    const res = await this.fetch('/reseller/routing/bulk-assign', { method: 'POST', data });
-    return res.json();
-  }
-
   // --- Reseller Dashboard ---
   async getResellerDashboard(period = 'today') {
     const res = await this.fetch(`/reseller/dashboard?period=${period}`);

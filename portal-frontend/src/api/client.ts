@@ -1315,21 +1315,6 @@ export const resellerApi = {
       body: JSON.stringify({ note }),
     }),
 
-  // --- Routing ---
-  listNetworkProviders: (params?: { sub_account_id?: string }) => {
-    const qs = params?.sub_account_id ? `?sub_account_id=${params.sub_account_id}` : '';
-    return apiFetch<{ providers: unknown[]; total: number }>(`/reseller/routing/providers${qs}`);
-  },
-  listNetworkRoutes: (params?: { sub_account_id?: string }) => {
-    const qs = params?.sub_account_id ? `?sub_account_id=${params.sub_account_id}` : '';
-    return apiFetch<{ routes: unknown[]; total: number }>(`/reseller/routing/routes${qs}`);
-  },
-  bulkAssignProvider: (data: { sub_account_ids: string[]; provider_id: string; priority?: number }) =>
-    apiFetch<{ results: unknown[] }>('/reseller/routing/bulk-assign', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
   // --- Tariffs ---
   listTariffs: (params?: { sub_account_id?: string }) => {
     const qs = params?.sub_account_id ? `?sub_account_id=${params.sub_account_id}` : '';
