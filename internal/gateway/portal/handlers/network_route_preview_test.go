@@ -141,10 +141,13 @@ func TestPreview_OperatorCondition_MatchesByPhonePrefix(t *testing.T) {
 	resellerID := storagetest.SeedReseller(t, pool)
 	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
 
-	// Prefix '7912' (длиннее KZ '7') — longest-prefix-match его выберет.
-	// phone_code VARCHAR(5), prefix VARCHAR(15) — 4 символа влезают везде.
-	countryID := seedCountryWithPhoneCode(t, pool, uniqISO(), "7912")
-	opID := seedOperatorWithPrefix(t, pool, countryID, uniqOperatorCode("OP"), "7912")
+	// Уникальный prefix на основе времени — UNIQUE INDEX на operator_prefixes.prefix.
+	// Должен быть достаточно длинным (>1 символа), чтобы не конфликтовать с seed
+	// и быть выбранным longest-prefix-match'ем.
+	uniqPrefix := fmt.Sprintf("79%d", time.Now().UnixNano()%100000)
+	uniqPhoneCode := uniqPrefix[:5] // VARCHAR(5)
+	countryID := seedCountryWithPhoneCode(t, pool, uniqISO(), uniqPhoneCode)
+	opID := seedOperatorWithPrefix(t, pool, countryID, uniqOperatorCode("OP"), uniqPrefix)
 
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
 	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10,
@@ -152,8 +155,8 @@ func TestPreview_OperatorCondition_MatchesByPhonePrefix(t *testing.T) {
 
 	h := NewNetworkRoutePreviewHandlers(pool)
 
-	// Phone matching prefix '7912345' → operator-condition match.
-	body := `{"phone":"79123456789","sender_id":"X","traffic_type":"transactional"}`
+	// Phone matching prefix → operator-condition match.
+	body := fmt.Sprintf(`{"phone":"%s4567890","sender_id":"X","traffic_type":"transactional"}`, uniqPrefix)
 	req := httptest.NewRequest("POST",
 		"/portal/v1/reseller/network/route-sets/"+rsID.String()+"/preview",
 		strings.NewReader(body))
@@ -197,10 +200,11 @@ func TestPreview_CountryCondition_LookupsCountriesTable(t *testing.T) {
 	resellerID := storagetest.SeedReseller(t, pool)
 	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
 
-	// Уникальный iso c phone_code '88812' — отсутствует в seed countries.
-	// Длиннее любого '8'-кода, longest-match его выберет даже если другие '8' есть.
+	// Уникальный 5-значный phone_code (VARCHAR(5)). 88-prefix не конфликтует
+	// с seed countries (KZ='7', UA='380'). Длиннее всего seed → longest-match.
+	uniqPhoneCode := fmt.Sprintf("88%03d", time.Now().UnixNano()%1000)
 	iso := uniqISO()
-	seedCountryWithPhoneCode(t, pool, iso, "88812")
+	seedCountryWithPhoneCode(t, pool, iso, uniqPhoneCode)
 
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
 	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10,
@@ -208,8 +212,8 @@ func TestPreview_CountryCondition_LookupsCountriesTable(t *testing.T) {
 
 	h := NewNetworkRoutePreviewHandlers(pool)
 
-	// +88812 — match.
-	body := `{"phone":"+8881234567","sender_id":"X","traffic_type":"transactional"}`
+	// Phone с этим prefix — match.
+	body := fmt.Sprintf(`{"phone":"+%s34567","sender_id":"X","traffic_type":"transactional"}`, uniqPhoneCode)
 	req := httptest.NewRequest("POST",
 		"/portal/v1/reseller/network/route-sets/"+rsID.String()+"/preview",
 		strings.NewReader(body))
