@@ -63,6 +63,7 @@ import { ModerationPage } from './pages/network/ModerationPage';
 import { NetworkDashboardPage } from './pages/network/NetworkDashboardPage';
 import { ProvidersCatalogPage } from './pages/network/ProvidersCatalogPage';
 import { ProviderSetsPage } from './pages/network/ProviderSetsPage';
+import { RouteSetsPage } from './pages/network/RouteSetsPage';
 import { AssignmentsPage } from './pages/network/AssignmentsPage';
 import { NetworkTariffsListPage } from './pages/network/NetworkTariffsListPage';
 import { NetworkTariffTemplatesPage } from './pages/network/NetworkTariffTemplatesPage';
@@ -203,6 +204,7 @@ export function App() {
           <Route path="routing" element={<Navigate to="/network/assignments" replace />} />
           <Route path="providers" element={<ProvidersCatalogPage />} />
           <Route path="provider-sets" element={<ProviderSetsPage />} />
+          <Route path="route-sets" element={<RouteSetsPage />} />
           <Route path="tariffs" element={<NetworkTariffsListPage />} />
           <Route path="tariffs/templates" element={<NetworkTariffTemplatesPage />} />
           <Route path="tariffs/editor/:id" element={<NetworkTariffEditorPage />} />

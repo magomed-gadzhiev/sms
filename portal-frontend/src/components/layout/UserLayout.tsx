@@ -94,6 +94,7 @@ function buildNetworkNavGroups(moderationCount: number): NavGroup[] {
         },
         { path: '/network/providers', label: 'Провайдеры' },
         { path: '/network/provider-sets', label: 'Provider-sets' },
+        { path: '/network/route-sets', label: 'Route-sets' },
         { path: '/network/assignments', label: 'Назначения' },
         { path: '/network/tariffs', label: 'Тарифы' },
         { path: '/network/statistics', label: 'Статистика' },
