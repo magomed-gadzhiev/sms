@@ -53,6 +53,8 @@ func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplie
 		return err
 	}
 
+	SRAPendingRetryGauge.Set(float64(len(batch)))
+
 	for _, p := range batch {
 		warnings := ApplyAssignmentMaterializers(ctx, pool, pm, rm, p.clientID, p.providerSet, p.routeSet)
 		if len(warnings) == 0 {
