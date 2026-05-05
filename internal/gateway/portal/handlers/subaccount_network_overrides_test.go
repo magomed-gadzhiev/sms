@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -358,4 +359,154 @@ func TestProviderOverview_NoAssignment(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	require.Nil(t, resp.ProviderSet)
 	require.Empty(t, resp.ProviderOverrides)
+}
+
+// overviewRespV2 — расширенная форма ответа Overview с route_set/route_overrides
+// (Plan 2 Task 14). Отдельный тип, чтобы не ломать assertions старых тестов.
+type overviewRespV2 struct {
+	ProviderSet *struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"provider_set"`
+	RouteSet *struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"route_set"`
+	ProviderOverrides []providerOverrideOut    `json:"provider_overrides"`
+	RouteOverrides    []map[string]interface{} `json:"route_overrides"`
+}
+
+// TestRouteOverride_Add_OK — POST route-override с доступным провайдером → 201;
+// в client_routes появилась запись с source='override' и owner_type='subaccount'.
+func TestRouteOverride_Add_OK(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "RouteOverrideAddOK")
+
+	// Делаем provider доступным суб-аккаунту: client_providers row (любой ownership).
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subID, provA, resellerID)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+	body := fmt.Sprintf(`{
+		"name":"override-1","provider_id":"%s","priority":50,"share":100,
+		"route_type":"sms","status":"active",
+		"condition_groups":[{"logic_op":"IF","conditions":[{"type":"country","value":"RU"}]}]
+	}`, provA.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "body: %s", w.Body.String())
+
+	// Verify: client_routes row создан с source='override', owner_type='subaccount'.
+	var count int
+	var ownerType string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM client_routes
+		 WHERE client_id = $1 AND source = 'override'`, subID,
+	).Scan(&count))
+	require.Equal(t, 1, count)
+
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT owner_type::text FROM client_routes
+		 WHERE client_id = $1 AND source = 'override' LIMIT 1`, subID,
+	).Scan(&ownerType))
+	require.Equal(t, "subaccount", ownerType)
+}
+
+// TestRouteOverride_Add_409IfProviderUnavailable — провайдер не привязан к
+// суб-аккаунту → 409 с kind=route_provider_not_available.
+func TestRouteOverride_Add_409IfProviderUnavailable(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provB := storagetest.SeedProvider(t, pool, "RouteOverrideUnavail") // не в client_providers
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+	body := fmt.Sprintf(`{
+		"name":"x","provider_id":"%s","priority":1,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provB.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "route_provider_not_available")
+
+	// Verify: route не создан.
+	var count int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM client_routes WHERE client_id = $1`, subID,
+	).Scan(&count))
+	require.Equal(t, 0, count)
+}
+
+// TestOverview_IncludesRouteSetAndOverrides — Overview возвращает route_set
+// (по subaccount_routing_assignment) и список route_overrides.
+func TestOverview_IncludesRouteSetAndOverrides(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqSetName("OverviewRS"))
+
+	// Назначаем route-set суб-аккаунту.
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO subaccount_routing_assignment (client_id, route_set_id)
+		VALUES ($1, $2)
+		ON CONFLICT (client_id) DO UPDATE SET route_set_id = EXCLUDED.route_set_id`,
+		subID, rsID)
+	require.NoError(t, err)
+
+	// Создаём один override-маршрут (через handler — заодно проверяем, что Add
+	// корректно создаёт строку, видимую через Overview).
+	provA := storagetest.SeedProvider(t, pool, "OverviewOverrideProv")
+	_, err = pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subID, provA, resellerID)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+	body := fmt.Sprintf(`{
+		"name":"ovrd","provider_id":"%s","priority":42,"share":100,
+		"route_type":"sms","status":"active"
+	}`, provA.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "AddRouteOverride: %s", w.Body.String())
+
+	// GET overview.
+	req = httptest.NewRequest("GET",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/overview", nil)
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.Overview(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+
+	var resp overviewRespV2
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.NotNil(t, resp.RouteSet, "route_set должен быть заполнен")
+	require.Equal(t, rsID.String(), resp.RouteSet.ID)
+	require.Len(t, resp.RouteOverrides, 1, "ровно один override-маршрут")
+	require.Equal(t, provA.String(), resp.RouteOverrides[0]["provider_id"])
+	require.Equal(t, "ovrd", resp.RouteOverrides[0]["name"])
 }

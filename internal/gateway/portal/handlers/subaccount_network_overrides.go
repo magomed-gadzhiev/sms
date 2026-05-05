@@ -2,8 +2,9 @@ package handlers
 
 // /sub-accounts/{id}/network/* — overview + provider override CRUD на уровне суб-аккаунта.
 //
-// Plan 1: только провайдеры. route_set / route_overrides всегда возвращаются null/[]
-// до Plan 2 (когда появятся reseller_route_sets).
+// Plan 2: добавлены route-overrides (POST/PUT/DELETE) и расширение Overview
+// полями route_set + route_overrides (JOIN через subaccount_routing_assignment
+// и client_routes WHERE source='override').
 
 import (
 	"context"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
 // SubAccountNetworkOverridesHandlers обслуживает /portal/v1/reseller/sub-accounts/{id}/network/*.
@@ -282,10 +284,356 @@ func (h *SubAccountNetworkOverridesHandlers) Overview(w http.ResponseWriter, r *
 		return
 	}
 
+	// route_set — текущий назначенный route-set (или nil).
+	var routeSet *setRef
+	var rsID, rsName string
+	err = h.pool.QueryRow(r.Context(), `
+		SELECT rs.id::text, rs.name
+		FROM subaccount_routing_assignment sra
+		JOIN reseller_route_sets rs ON rs.id = sra.route_set_id
+		WHERE sra.client_id = $1`, subID,
+	).Scan(&rsID, &rsName)
+	if err == nil {
+		routeSet = &setRef{ID: rsID, Name: rsName}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		log.Error().Err(err).Str("sub_id", subID.String()).Msg("overview route_set query")
+		respondError(w, shared.ErrInternalServer("query route_set"))
+		return
+	}
+
+	// route_overrides — список override-маршрутов суб-аккаунта.
+	overrideRows, err := h.pool.Query(r.Context(), `
+		SELECT cr.id::text, COALESCE(cr.name, ''), cr.provider_id::text, p.name,
+		       cr.priority, cr.status
+		FROM client_routes cr
+		JOIN providers p ON p.id = cr.provider_id
+		WHERE cr.client_id = $1 AND cr.source = 'override'
+		ORDER BY cr.priority DESC`, subID)
+	if err != nil {
+		log.Error().Err(err).Str("sub_id", subID.String()).Msg("overview route_overrides query")
+		respondError(w, shared.ErrInternalServer("query route_overrides"))
+		return
+	}
+	defer overrideRows.Close()
+	routeOverrides := []map[string]interface{}{}
+	for overrideRows.Next() {
+		var rid, name, pid, pname, status string
+		var priority int
+		if err := overrideRows.Scan(&rid, &name, &pid, &pname, &priority, &status); err != nil {
+			log.Error().Err(err).Str("sub_id", subID.String()).Msg("overview route_overrides scan")
+			respondError(w, shared.ErrInternalServer("scan route_overrides"))
+			return
+		}
+		routeOverrides = append(routeOverrides, map[string]interface{}{
+			"id":            rid,
+			"name":          name,
+			"provider_id":   pid,
+			"provider_name": pname,
+			"priority":      priority,
+			"status":        status,
+		})
+	}
+	if err := overrideRows.Err(); err != nil {
+		log.Error().Err(err).Str("sub_id", subID.String()).Msg("overview route_overrides rows.Err")
+		respondError(w, shared.ErrInternalServer("rows route_overrides"))
+		return
+	}
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"provider_set":       providerSet,
-		"route_set":          nil,           // Plan 2
+		"route_set":          routeSet,
 		"provider_overrides": overrides,
-		"route_overrides":    []interface{}{}, // Plan 2
+		"route_overrides":    routeOverrides,
 	})
+}
+
+// addRouteOverrideReq — тело POST/PUT route-override.
+// Переиспользует itemIn из network_route_set_items.go: тот же набор полей
+// (provider_id, priority, share, route_type, status, condition_groups, schedules).
+type addRouteOverrideReq struct {
+	itemIn
+}
+
+// AddRouteOverride POST /portal/v1/reseller/sub-accounts/{id}/network/route-overrides.
+//
+// Создаёт client_routes row с source='override', owner_type='subaccount', owner_id=subID,
+// operator_id=NULL. Provider_id обязан присутствовать в client_providers данного суб-аккаунта
+// (любой ownership, active=true) — иначе 409 {kind:"route_provider_not_available"}.
+func (h *SubAccountNetworkOverridesHandlers) AddRouteOverride(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := middleware.GetClientID(r.Context())
+	if !ok || resellerID == uuid.Nil {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	subID, perr := uuid.Parse(mux.Vars(r)["id"])
+	if perr != nil {
+		respondError(w, shared.ErrInvalidInput("id"))
+		return
+	}
+	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+		respondError(w, appErr)
+		return
+	}
+
+	var req addRouteOverrideReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Невалидный JSON"))
+		return
+	}
+	full, err := parseItemIn(req.itemIn)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput(err.Error()))
+		return
+	}
+
+	// Pre-validation (spec §6.2 точка 4): провайдер должен быть доступен суб-аккаунту.
+	var available bool
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM client_providers
+		              WHERE client_id = $1 AND provider_id = $2 AND active = true)`,
+		subID, full.ProviderID,
+	).Scan(&available); err != nil {
+		log.Error().Err(err).Str("sub_id", subID.String()).Str("provider_id", full.ProviderID.String()).Msg("route override availability check")
+		respondError(w, shared.ErrInternalServer("availability check"))
+		return
+	}
+	if !available {
+		respondError(w, shared.ErrConflict("провайдер недоступен этому суб-аккаунту").
+			WithDetails(`{"kind":"route_provider_not_available"}`))
+		return
+	}
+
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		log.Error().Err(err).Msg("route override begin tx")
+		respondError(w, shared.ErrInternalServer("tx"))
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck
+
+	// owner_type='subaccount', owner_id=subID — обязательны (chk_owner_id, миграция 000137).
+	var routeID uuid.UUID
+	err = tx.QueryRow(r.Context(),
+		`INSERT INTO client_routes
+		   (client_id, operator_id, provider_id, priority, weight, active,
+		    name, comment, status, share, route_type, source,
+		    owner_type, owner_id)
+		 VALUES ($1, NULL, $2, $3, 1, true, NULLIF($4,''), NULLIF($5,''), $6, $7, $8, 'override',
+		         'subaccount', $1)
+		 RETURNING id`,
+		subID, full.ProviderID, full.Priority, full.Name, full.Comment,
+		full.Status, full.Share, full.RouteType,
+	).Scan(&routeID)
+	if err != nil {
+		log.Error().Err(err).Str("sub_id", subID.String()).Msg("route override insert")
+		respondError(w, shared.ErrInternalServer("insert"))
+		return
+	}
+
+	if err := writeRouteGroupsAndSchedules(r.Context(), tx, routeID, full); err != nil {
+		log.Error().Err(err).Str("route_id", routeID.String()).Msg("route override children insert")
+		respondError(w, shared.ErrInternalServer("groups/schedules"))
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		log.Error().Err(err).Msg("route override commit")
+		respondError(w, shared.ErrInternalServer("commit"))
+		return
+	}
+	respondJSON(w, http.StatusCreated, map[string]interface{}{"id": routeID.String()})
+}
+
+// UpdateRouteOverride PUT /portal/v1/reseller/sub-accounts/{id}/network/route-overrides/{route_id}.
+//
+// Full replace: UPDATE поля + DELETE+re-INSERT condition_groups/schedules.
+// 404 если route не принадлежит этому суб-аккаунту или source != 'override'.
+func (h *SubAccountNetworkOverridesHandlers) UpdateRouteOverride(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := middleware.GetClientID(r.Context())
+	if !ok || resellerID == uuid.Nil {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	subID, perr := uuid.Parse(mux.Vars(r)["id"])
+	if perr != nil {
+		respondError(w, shared.ErrInvalidInput("id"))
+		return
+	}
+	routeID, perr := uuid.Parse(mux.Vars(r)["route_id"])
+	if perr != nil {
+		respondError(w, shared.ErrInvalidInput("route_id"))
+		return
+	}
+	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+		respondError(w, appErr)
+		return
+	}
+
+	// Verify route принадлежит этому sub-account и source='override'.
+	var src string
+	err := h.pool.QueryRow(r.Context(),
+		`SELECT source FROM client_routes WHERE id = $1 AND client_id = $2`,
+		routeID, subID,
+	).Scan(&src)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("override"))
+			return
+		}
+		log.Error().Err(err).Str("route_id", routeID.String()).Msg("route override lookup")
+		respondError(w, shared.ErrInternalServer("lookup"))
+		return
+	}
+	if src != "override" {
+		// template-маршруты редактируются только через route-set; не светим существование.
+		respondError(w, shared.ErrNotFound("override"))
+		return
+	}
+
+	var req addRouteOverrideReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Невалидный JSON"))
+		return
+	}
+	full, err := parseItemIn(req.itemIn)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput(err.Error()))
+		return
+	}
+
+	// Provider availability check тот же — на случай, если provider изменили.
+	var available bool
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM client_providers
+		              WHERE client_id = $1 AND provider_id = $2 AND active = true)`,
+		subID, full.ProviderID,
+	).Scan(&available); err != nil {
+		log.Error().Err(err).Msg("route override update availability check")
+		respondError(w, shared.ErrInternalServer("availability check"))
+		return
+	}
+	if !available {
+		respondError(w, shared.ErrConflict("провайдер недоступен этому суб-аккаунту").
+			WithDetails(`{"kind":"route_provider_not_available"}`))
+		return
+	}
+
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		log.Error().Err(err).Msg("route override update begin tx")
+		respondError(w, shared.ErrInternalServer("tx"))
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck
+
+	// owner_type/owner_id уже выставлены при INSERT — не трогаем.
+	if _, err := tx.Exec(r.Context(),
+		`UPDATE client_routes
+		   SET provider_id = $1, priority = $2, name = NULLIF($3,''), comment = NULLIF($4,''),
+		       status = $5, share = $6, route_type = $7, updated_at = now()
+		 WHERE id = $8`,
+		full.ProviderID, full.Priority, full.Name, full.Comment,
+		full.Status, full.Share, full.RouteType, routeID,
+	); err != nil {
+		log.Error().Err(err).Str("route_id", routeID.String()).Msg("route override update")
+		respondError(w, shared.ErrInternalServer("update"))
+		return
+	}
+
+	// route_conditions удалятся CASCADE при DELETE route_condition_groups.
+	if _, err := tx.Exec(r.Context(),
+		`DELETE FROM route_condition_groups WHERE route_id = $1`, routeID); err != nil {
+		log.Error().Err(err).Msg("route override delete groups")
+		respondError(w, shared.ErrInternalServer("del groups"))
+		return
+	}
+	if _, err := tx.Exec(r.Context(),
+		`DELETE FROM route_schedules WHERE route_id = $1`, routeID); err != nil {
+		log.Error().Err(err).Msg("route override delete schedules")
+		respondError(w, shared.ErrInternalServer("del schedules"))
+		return
+	}
+	if err := writeRouteGroupsAndSchedules(r.Context(), tx, routeID, full); err != nil {
+		log.Error().Err(err).Str("route_id", routeID.String()).Msg("route override children re-insert")
+		respondError(w, shared.ErrInternalServer("groups/schedules"))
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		log.Error().Err(err).Msg("route override update commit")
+		respondError(w, shared.ErrInternalServer("commit"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"id": routeID.String()})
+}
+
+// DeleteRouteOverride DELETE /portal/v1/reseller/sub-accounts/{id}/network/route-overrides/{route_id}.
+//
+// Удаляет ТОЛЬКО override-маршрут (template — только через route-set).
+func (h *SubAccountNetworkOverridesHandlers) DeleteRouteOverride(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := middleware.GetClientID(r.Context())
+	if !ok || resellerID == uuid.Nil {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+	subID, perr := uuid.Parse(mux.Vars(r)["id"])
+	if perr != nil {
+		respondError(w, shared.ErrInvalidInput("id"))
+		return
+	}
+	routeID, perr := uuid.Parse(mux.Vars(r)["route_id"])
+	if perr != nil {
+		respondError(w, shared.ErrInvalidInput("route_id"))
+		return
+	}
+	if appErr := h.verifyOwnership(r.Context(), resellerID, subID); appErr != nil {
+		respondError(w, appErr)
+		return
+	}
+	tag, err := h.pool.Exec(r.Context(),
+		`DELETE FROM client_routes
+		 WHERE id = $1 AND client_id = $2 AND source = 'override'`,
+		routeID, subID,
+	)
+	if err != nil {
+		log.Error().Err(err).Str("route_id", routeID.String()).Msg("route override delete")
+		respondError(w, shared.ErrInternalServer("delete"))
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		respondError(w, shared.ErrNotFound("override"))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// writeRouteGroupsAndSchedules вставляет condition_groups/conditions + schedules.
+// Используется и в Add, и в Update (после DELETE старых дочерних строк).
+func writeRouteGroupsAndSchedules(ctx context.Context, tx pgx.Tx, routeID uuid.UUID, full storage.RouteSetItemFull) error {
+	for idx, g := range full.ConditionGroups {
+		var gid int64
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO route_condition_groups (route_id, group_index, logic_op)
+			 VALUES ($1, $2, $3) RETURNING id`,
+			routeID, int16(idx), g.LogicOp,
+		).Scan(&gid); err != nil {
+			return err
+		}
+		for _, c := range g.Conditions {
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO route_conditions (group_id, condition_type, condition_value)
+				 VALUES ($1, $2, $3)`, gid, c.Type, c.Value); err != nil {
+				return err
+			}
+		}
+	}
+	for _, s := range full.Schedules {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO route_schedules (route_id, date_from, date_to, time_from, time_to, weekdays, timezone)
+			 VALUES ($1, $2, $3, $4::time, $5::time, $6, $7)`,
+			routeID, s.DateFrom, s.DateTo, s.TimeFrom, s.TimeTo, s.Weekdays, s.Timezone); err != nil {
+			return err
+		}
+	}
+	return nil
 }

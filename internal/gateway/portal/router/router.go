@@ -205,6 +205,10 @@ func SetupRouter(
 	subAccounts.HandleFunc("/{id}/network/provider-overrides/{provider_id}", subAccountNetworkOverridesHandlers.DeleteProviderOverride).Methods("DELETE")
 	subAccounts.HandleFunc("/{id}/network/provider-overrides", subAccountNetworkOverridesHandlers.AddProviderOverride).Methods("POST")
 	subAccounts.HandleFunc("/{id}/network/overview", subAccountNetworkOverridesHandlers.Overview).Methods("GET")
+	// Plan 2 Task 14: route-overrides (специфичные пути с {route_id} раньше parent'ов).
+	subAccounts.HandleFunc("/{id}/network/route-overrides/{route_id}", subAccountNetworkOverridesHandlers.UpdateRouteOverride).Methods("PUT")
+	subAccounts.HandleFunc("/{id}/network/route-overrides/{route_id}", subAccountNetworkOverridesHandlers.DeleteRouteOverride).Methods("DELETE")
+	subAccounts.HandleFunc("/{id}/network/route-overrides", subAccountNetworkOverridesHandlers.AddRouteOverride).Methods("POST")
 
 	// Sub-account routing (reseller management)
 	subAccounts.HandleFunc("/{id}/providers", subAccountRoutingHandlers.AssignProvider).Methods("POST")
