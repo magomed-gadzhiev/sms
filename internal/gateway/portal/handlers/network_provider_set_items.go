@@ -248,6 +248,97 @@ func (h *NetworkProviderSetItemsHandlers) PutItems(w http.ResponseWriter, r *htt
 		}
 	}
 
+	// Шаг 2.5: diff-check — какие провайдеры удаляются этим PUT, и не используются ли
+	// они в route-set'ах или override-маршрутах подписанных на этот set суб-аккаунтов.
+	existingItems, err := h.itemsRepo.ListBySet(r.Context(), setID)
+	if err != nil {
+		log.Error().Err(err).Str("set_id", setID.String()).Msg("provider-set-items diff list existing")
+		respondError(w, shared.ErrInternalServer("ошибка чтения текущих items"))
+		return
+	}
+	newProviders := make(map[uuid.UUID]struct{}, len(parsed))
+	for _, it := range parsed {
+		newProviders[it.ProviderID] = struct{}{}
+	}
+	var removingIDs []uuid.UUID
+	for _, it := range existingItems {
+		if _, kept := newProviders[it.ProviderID]; !kept {
+			removingIDs = append(removingIDs, it.ProviderID)
+		}
+	}
+
+	type routeConflict struct {
+		ProviderID string `json:"provider_id"`
+		ClientID   string `json:"client_id"`
+		ClientName string `json:"client_name"`
+		RouteName  string `json:"route_name"`
+		Source     string `json:"source"` // "route_set_item" | "override"
+	}
+	var conflicts []routeConflict
+	for _, rid := range removingIDs {
+		// Использование в route-set items, назначенных подписанным на этот provider-set
+		// суб-аккаунтам.
+		rows, err := h.pool.Query(r.Context(), `
+			SELECT $1::uuid, sra.client_id, COALESCE(c.name, c.email),
+			       COALESCE(i.name, '(без имени)'), 'route_set_item'
+			  FROM subaccount_routing_assignment sra
+			  JOIN clients c ON c.id = sra.client_id
+			  JOIN reseller_route_set_items i ON i.set_id = sra.route_set_id
+			 WHERE sra.provider_set_id = $2 AND i.provider_id = $1`,
+			rid, setID)
+		if err != nil {
+			log.Error().Err(err).Msg("provider-set-items diff route_set query")
+			respondError(w, shared.ErrInternalServer("ошибка проверки route-set conflicts"))
+			return
+		}
+		for rows.Next() {
+			var c routeConflict
+			if scanErr := rows.Scan(&c.ProviderID, &c.ClientID, &c.ClientName, &c.RouteName, &c.Source); scanErr != nil {
+				rows.Close()
+				log.Error().Err(scanErr).Msg("provider-set-items diff route_set scan")
+				respondError(w, shared.ErrInternalServer("ошибка чтения route-set conflicts"))
+				return
+			}
+			conflicts = append(conflicts, c)
+		}
+		rows.Close()
+
+		// Использование в override-маршрутах подписанных суб-аккаунтов.
+		rows2, err := h.pool.Query(r.Context(), `
+			SELECT $1::uuid, sra.client_id, COALESCE(c.name, c.email),
+			       COALESCE(cr.name, '(override)'), 'override'
+			  FROM subaccount_routing_assignment sra
+			  JOIN clients c ON c.id = sra.client_id
+			  JOIN client_routes cr ON cr.client_id = sra.client_id
+			 WHERE sra.provider_set_id = $2 AND cr.provider_id = $1 AND cr.source = 'override'`,
+			rid, setID)
+		if err != nil {
+			log.Error().Err(err).Msg("provider-set-items diff override query")
+			respondError(w, shared.ErrInternalServer("ошибка проверки override conflicts"))
+			return
+		}
+		for rows2.Next() {
+			var c routeConflict
+			if scanErr := rows2.Scan(&c.ProviderID, &c.ClientID, &c.ClientName, &c.RouteName, &c.Source); scanErr != nil {
+				rows2.Close()
+				log.Error().Err(scanErr).Msg("provider-set-items diff override scan")
+				respondError(w, shared.ErrInternalServer("ошибка чтения override conflicts"))
+				return
+			}
+			conflicts = append(conflicts, c)
+		}
+		rows2.Close()
+	}
+	if len(conflicts) > 0 {
+		details, _ := json.Marshal(map[string]interface{}{
+			"kind":  "provider_used_in_routes",
+			"items": conflicts,
+		})
+		respondError(w, shared.ErrConflict("удаляемые провайдеры используются в маршрутах подписанных суб-аккаунтов").
+			WithDetails(string(details)))
+		return
+	}
+
 	// Шаг 3: атомарная замена items.
 	if err := h.itemsRepo.ReplaceItems(r.Context(), setID, parsed); err != nil {
 		log.Error().Err(err).Str("set_id", setID.String()).Msg("provider-set-items replace")

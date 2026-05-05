@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -312,4 +313,55 @@ func TestProviderSetItems_PUT_TriggersMaterialization(t *testing.T) {
 	require.True(t, byID[provA].ExposeCost)
 	require.Equal(t, 5, byID[provB].Priority)
 	require.False(t, byID[provB].ExposeCost)
+}
+
+// TestProviderSetItems_PUT_409IfRemovingProviderUsedInSubscriberRoutes —
+// нельзя убрать провайдера из provider-set'а, если он используется в route-set'е,
+// назначенном суб-аккаунту, подписанному на этот provider-set.
+func TestProviderSetItems_PUT_409IfRemovingProviderUsedInSubscriberRoutes(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "DiffA")
+	provB := storagetest.SeedProvider(t, pool, "DiffB")
+
+	psRepo := storage.NewResellerProviderSetRepository(pool)
+	itemsRepo := storage.NewResellerProviderSetItemsRepository(pool)
+	ps, err := psRepo.Create(context.Background(), resellerID, uniqSetName("DiffPS"), false)
+	require.NoError(t, err)
+	require.NoError(t, itemsRepo.ReplaceItems(context.Background(), ps.ID, []storage.ProviderSetItemInput{
+		{ProviderID: provA, Priority: 10, ExposeCost: false, ExposeProviderName: true},
+		{ProviderID: provB, Priority: 5, ExposeCost: false, ExposeProviderName: true},
+	}))
+
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, "DiffRS-"+uuid.New().String()[:8])
+	storagetest.SeedRouteSetItem(t, pool, rsID, provB, 10, nil)
+
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO subaccount_routing_assignment (client_id, provider_set_id, route_set_id)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (client_id) DO UPDATE SET provider_set_id = EXCLUDED.provider_set_id,
+		                                        route_set_id    = EXCLUDED.route_set_id`,
+		subID, ps.ID, rsID)
+	require.NoError(t, err)
+
+	mat := network.NewProviderSetMaterializer(pool)
+	h := NewNetworkProviderSetItemsHandlers(pool, mat)
+
+	// PUT — оставляем только provA, убираем provB. provB используется в route-set'е,
+	// назначенном subID (который подписан на этот provider-set) → 409.
+	body := fmt.Sprintf(`{"items":[{"provider_id":"%s","priority":1,"expose_cost":false,"expose_provider_name":true}]}`, provA.String())
+	req := httptest.NewRequest("PUT", "/portal/v1/reseller/network/provider-sets/"+ps.ID.String()+"/items", strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": ps.ID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.PutItems(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "provider_used_in_routes")
+
+	// items не изменились (всё ещё A и B).
+	items, err := itemsRepo.ListBySet(context.Background(), ps.ID)
+	require.NoError(t, err)
+	require.Len(t, items, 2)
 }

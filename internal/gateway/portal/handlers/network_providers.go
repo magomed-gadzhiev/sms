@@ -311,6 +311,42 @@ func (h *NetworkProvidersHandlers) Delete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Используется в route-set'ах этого reseller'а?
+	var usedInRouteItems int
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT count(*)
+		   FROM reseller_route_set_items i
+		   JOIN reseller_route_sets rs ON rs.id = i.set_id
+		  WHERE rs.reseller_id = $1 AND i.provider_id = $2`,
+		resellerID, id).Scan(&usedInRouteItems); err != nil {
+		log.Error().Err(err).Msg("network providers delete usedInRouteItems")
+		respondError(w, shared.ErrInternalServer("ошибка проверки route-set"))
+		return
+	}
+	if usedInRouteItems > 0 {
+		respondError(w, shared.ErrConflict(fmt.Sprintf("используется в %d правилах route-set", usedInRouteItems)).
+			WithDetails(`{"kind":"provider_used_in_routes","scope":"route_set"}`))
+		return
+	}
+
+	// Используется как override-маршрут у суб-аккаунтов этого reseller'а?
+	var usedInOverrides int
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT count(*)
+		   FROM client_routes cr
+		   JOIN clients c ON c.id = cr.client_id
+		  WHERE c.parent_client_id = $1 AND cr.provider_id = $2 AND cr.source = 'override'`,
+		resellerID, id).Scan(&usedInOverrides); err != nil {
+		log.Error().Err(err).Msg("network providers delete usedInOverrides")
+		respondError(w, shared.ErrInternalServer("ошибка проверки override-маршрутов"))
+		return
+	}
+	if usedInOverrides > 0 {
+		respondError(w, shared.ErrConflict(fmt.Sprintf("используется в %d override-маршрутах", usedInOverrides)).
+			WithDetails(`{"kind":"provider_used_in_routes","scope":"override"}`))
+		return
+	}
+
 	if _, err := h.pool.Exec(r.Context(), `DELETE FROM providers WHERE id=$1`, id); err != nil {
 		log.Error().Err(err).Msg("network providers delete")
 		respondError(w, shared.ErrInternalServer("ошибка удаления"))

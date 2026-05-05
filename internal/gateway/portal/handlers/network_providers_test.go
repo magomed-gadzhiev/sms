@@ -241,6 +241,58 @@ func TestNetworkProviders_Delete_409IfUsedInOverride(t *testing.T) {
 	require.Contains(t, w.Body.String(), "used_in_overrides")
 }
 
+// TestProviders_Delete_409IfUsedInRouteSet — DELETE private, который используется
+// в reseller_route_set_items этого reseller'а → 409 + provider_used_in_routes.
+func TestProviders_Delete_409IfUsedInRouteSet(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	priv := storagetest.SeedProviderPrivate(t, pool, "RouteSetUsedP", resellerID)
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, "RS-"+uuid.New().String()[:8])
+	storagetest.SeedRouteSetItem(t, pool, rsID, priv, 10, nil)
+
+	h := NewNetworkProvidersHandlers(pool)
+	req := httptest.NewRequest("DELETE", "/portal/v1/reseller/network/providers/"+priv.String(), nil)
+	req = mux.SetURLVars(req, map[string]string{"id": priv.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "provider_used_in_routes")
+	require.Contains(t, w.Body.String(), "route_set")
+}
+
+// TestProviders_Delete_409IfUsedInOverrideRoute — DELETE private, выставленного
+// override-маршрутом суб-аккаунту → 409 + provider_used_in_routes scope=override.
+func TestProviders_Delete_409IfUsedInOverrideRoute(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	priv := storagetest.SeedProviderPrivate(t, pool, "OverRouteP", resellerID)
+
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO client_routes
+		   (client_id, provider_id, priority, weight, active, name, status, share, route_type, source, owner_type, owner_id)
+		 VALUES ($1, $2, 10, 1, true, 'over', 'active', 100, 'sms', 'override', 'subaccount', $1)`,
+		subID, priv)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM client_routes WHERE client_id=$1 AND provider_id=$2`, subID, priv)
+	})
+
+	h := NewNetworkProvidersHandlers(pool)
+	req := httptest.NewRequest("DELETE", "/portal/v1/reseller/network/providers/"+priv.String(), nil)
+	req = mux.SetURLVars(req, map[string]string{"id": priv.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "provider_used_in_routes")
+	require.Contains(t, w.Body.String(), "override")
+}
+
 // TestNetworkProviders_Delete_RejectPlatform — DELETE platform → 403.
 func TestNetworkProviders_Delete_RejectPlatform(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
