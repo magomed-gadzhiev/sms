@@ -220,12 +220,13 @@ func TestAssignments_PutOne_NullProviderSet_ClearsInherited(t *testing.T) {
 	).Scan(&count))
 	require.Equal(t, 0, count, "после null — inherited стёрта")
 
-	// SRA запись осталась с provider_set_id NULL.
-	var hasRow bool
+	// SRA-запись удалена orphan-cleanup триггером (Plan 3 Task 6): после PUT
+	// и provider_set_id, и route_set_id стали NULL → AFTER UPDATE trigger DELETEs row.
+	var sraCount int
 	require.NoError(t, pool.QueryRow(context.Background(),
-		`SELECT EXISTS(SELECT 1 FROM subaccount_routing_assignment WHERE client_id=$1 AND provider_set_id IS NULL)`, subID,
-	).Scan(&hasRow))
-	require.True(t, hasRow, "SRA-запись с NULL provider_set_id должна остаться")
+		`SELECT count(*) FROM subaccount_routing_assignment WHERE client_id=$1`, subID,
+	).Scan(&sraCount))
+	require.Equal(t, 0, sraCount, "SRA-запись должна быть удалена orphan-cleanup триггером, когда оба поля NULL")
 }
 
 // TestAssignments_PutOne_ForeignSet_404 — назначить чужой provider-set → 404.
