@@ -18,6 +18,7 @@ import (
 	grpcapi "github.com/smpp-server/smpp-server/internal/api/grpc"
 
 	linkv1 "github.com/smpp-server/smpp-server/api/proto/linkv1"
+	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/services/link/application"
 	linkgrpc "github.com/smpp-server/smpp-server/internal/services/link/grpc"
 	"github.com/smpp-server/smpp-server/internal/services/link/infrastructure/repository"
@@ -46,9 +47,7 @@ func main() {
 	defer pool.Close()
 
 	// Redis
-	rdb := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", envOrDefault("REDIS_HOST", "redis"), envOrDefault("REDIS_PORT", "6379")),
-	})
+	rdb := redis.NewClient(config.RedisOptionsFromEnv())
 
 	// Repositories
 	linkRepo := repository.NewLinkRepository(pool)

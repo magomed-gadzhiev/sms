@@ -225,6 +225,9 @@ func Load(configPath string) (*Config, error) {
 			v.Set("redis.port", p)
 		}
 	}
+	if password := os.Getenv("REDIS_PASSWORD"); password != "" {
+		v.Set("redis.password", password)
+	}
 
 	// Kafka
 	if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {

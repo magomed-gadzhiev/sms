@@ -105,23 +105,10 @@ func main() {
 	healthChecker := monitoring.NewHealthChecker("portal-gateway", cfg.Service.Version)
 
 	// Создание Redis клиента для сессий
-	redisAddr := config.EnvOrDefault("REDIS_ADDR", "localhost:6379")
-	redisPassword := config.EnvOrDefault("REDIS_PASSWORD", "")
-	redisDB := 0
-	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
-		if db, err := strconv.Atoi(dbStr); err == nil {
-			redisDB = db
-		}
-	}
-
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: redisPassword,
-		DB:       redisDB,
-	})
+	redisClient := redis.NewClient(config.RedisOptionsFromEnv())
 	defer redisClient.Close()
 
-	logger.Info().Str("addr", redisAddr).Msg("Redis клиент создан")
+	logger.Info().Msg("Redis клиент создан")
 
 	// Создание пула PostgreSQL для прямых запросов (сегменты и т.д.)
 	dbDSN := os.Getenv("DATABASE_URL")

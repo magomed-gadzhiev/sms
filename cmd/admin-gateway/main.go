@@ -143,10 +143,7 @@ func main() {
 	adminOpRegHandlers := handlers.NewAdminOperatorRegistrationHandlers(adminDB)
 
 	// Redis client для ConnectionsHandlers
-	redisDSN := config.EnvOrDefault("REDIS_ADDR", "localhost:6379")
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisDSN,
-	})
+	redisClient := redis.NewClient(config.RedisOptionsFromEnv())
 	defer redisClient.Close()
 
 	platformRoutesHandlers := handlers.NewPlatformRoutesHandlers(adminDB)

@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	networkanalyticsv1 "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1"
+	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/services/network_analytics/application"
 	networkgrpc "github.com/smpp-server/smpp-server/internal/services/network_analytics/grpc"
 	"github.com/smpp-server/smpp-server/internal/services/network_analytics/infrastructure/repository"
@@ -32,7 +33,6 @@ func main() {
 	viper.AutomaticEnv()
 	viper.SetDefault("GRPC_PORT", "50060")
 	viper.SetDefault("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/sms?sslmode=disable")
-	viper.SetDefault("REDIS_URL", "redis://localhost:6379/0")
 	viper.SetDefault("EXPORT_DIR", "/exports")
 
 	// PostgreSQL
@@ -44,11 +44,7 @@ func main() {
 	log.Info().Msg("Connected to PostgreSQL")
 
 	// Redis
-	redisOpts, err := redis.ParseURL(viper.GetString("REDIS_URL"))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse Redis URL")
-	}
-	redisClient := redis.NewClient(redisOpts)
+	redisClient := redis.NewClient(config.RedisOptionsFromEnv())
 	defer redisClient.Close()
 	if err := redisClient.Ping(context.Background()).Err(); err != nil {
 		log.Warn().Err(err).Msg("Redis ping failed (continuing without real-time metrics)")

@@ -116,14 +116,7 @@ func main() {
 	passwordResetService := application.NewPasswordResetService(passwordResetRepo, userRepo, passwordHasher)
 
 	// Инициализация Redis и Session Manager
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: os.Getenv("REDIS_PASSWORD"),
-	})
+	redisClient := redis.NewClient(config.RedisOptionsFromEnv())
 	defer redisClient.Close()
 
 	sessionManager := authinfra.NewSessionManager(redisClient, db, 10)
