@@ -84,3 +84,36 @@ func TestQueryAuditLog_FilterByResourceType_AndTenantScope(t *testing.T) {
 		assert.Equal(t, tenantB, e.TenantID)
 	}
 }
+
+// Regression A4: domain.AuditLogEntry.UserID is plain string. NULL user_id rows
+// (system/background writers without auth-context) crashed Scan with
+// "converting NULL to string is unsupported" → 500 on /audit/network.
+// COALESCE in SELECT must produce empty string for NULL.
+func TestQueryAuditLog_NullUserID_Scans(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	repo := NewAuditRepository(db)
+
+	tenantID := uuid.NewString()
+
+	_, err := db.ExecContext(context.Background(), `
+		INSERT INTO audit_log (tenant_id, user_id, action, resource_type, resource_id, details, ip_address, created_at)
+		VALUES ($1, NULL, 'system', 'route_set', 'rs-null-1', '{}', NULL, now())`,
+		tenantID,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = db.Exec(`DELETE FROM audit_log WHERE tenant_id = $1`, tenantID)
+	})
+
+	entries, total, err := repo.QueryAuditLog(context.Background(), &domain.AuditLogFilters{
+		TenantID: tenantID,
+		Page:     1,
+		PerPage:  10,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "", entries[0].UserID, "NULL user_id must scan as empty string")
+}
