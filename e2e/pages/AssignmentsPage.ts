@@ -16,14 +16,25 @@ export class AssignmentsPage {
     await expect(this.page.locator('h1, h2').filter({ hasText: 'Назначения суб-аккаунтам' }).first()).toBeVisible();
   }
 
-  /** Назначает provider-set первому суб-аккаунту через inline-select. */
-  async assignFirstSubAccount(providerSetName: string) {
+  /**
+   * Назначает provider-set (и опционально route-set) первому суб-аккаунту через inline-select'ы.
+   * В Plan 2 в каждой строке два select'а — выбираем по aria-label префиксу.
+   */
+  async assignFirstSubAccount(providerSetName: string, routeSetName?: string) {
     const firstRow = this.page.locator('tbody tr').first();
     await expect(firstRow).toBeVisible({ timeout: 8_000 });
-    const select = firstRow.locator('select');
-    await select.selectOption({ label: new RegExp(escapeRegex(providerSetName)) });
-    // Toast "Назначение сохранено"
+
+    const providerSelect = firstRow.locator('select[aria-label^="Provider-set для"]').first();
+    await providerSelect.selectOption({ label: new RegExp(escapeRegex(providerSetName)) });
     await expect(this.page.locator('text=Назначение сохранено').first()).toBeVisible({ timeout: 8_000 });
+
+    if (routeSetName) {
+      const routeSelect = firstRow.locator('select[aria-label^="Route-set для"]').first();
+      await routeSelect.selectOption({ label: new RegExp(escapeRegex(routeSetName)) });
+      // Toast "Назначение сохранено" может уже висеть от первого назначения — ждём ещё одно появление.
+      await this.page.waitForTimeout(300);
+      await expect(this.page.locator('text=Назначение сохранено').first()).toBeVisible({ timeout: 8_000 });
+    }
   }
 
   /** Имя суб-аккаунта в первой строке (для последующего ассерта). */
