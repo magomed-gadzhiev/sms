@@ -73,11 +73,16 @@ export function AssignmentsPage() {
     routeSetID: string | null,
   ) => {
     try {
-      await networkApi.putAssignment(clientID, {
+      const result = await networkApi.putAssignment(clientID, {
         provider_set_id: providerSetID,
         route_set_id: routeSetID,
       });
-      toast.success('Назначение сохранено');
+      if (result.warnings && result.warnings.length > 0) {
+        const summary = result.warnings.map((w) => `${w.step}: ${w.error}`).join('; ');
+        toast.info(`Назначение сохранено, но материализация частично не удалась: ${summary}. Повторим автоматически.`);
+      } else {
+        toast.success('Назначение сохранено');
+      }
       reload();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Ошибка');
