@@ -69,7 +69,7 @@ skills/                    # локальные skills для Claude
 
 ## Code Style
 
-Go 1.24.0: стандартные конвенции (`go vet`, `go fmt`). TypeScript: ESLint baseline 69 warnings (см. ниже).
+Go 1.24.0: стандартные конвенции (`go vet`, `go fmt`). TypeScript: ESLint baseline 51 warnings (см. ниже).
 
 ## Server Management
 
@@ -138,11 +138,11 @@ git commit --no-verify -m "<сообщение>
 
 ### Ratchet на ESLint warnings
 
-Baseline 2026-04-18: 69 warnings (в основном `no-explicit-any`, `exhaustive-deps`).
+Baseline 2026-05-05: 51 warnings (в основном `no-explicit-any`, `exhaustive-deps`) — после Plan 3 hardening.
 
-Гейт в `package.json` lint-команде и в `scripts/check.sh` настроен на `--max-warnings=69`.
+Гейт в `package.json` lint-команде, в `scripts/check.sh` и в `.github/workflows/ci.yml` настроен на `--max-warnings=51`.
 
-**Правило:** любой новый PR может только **уменьшить** число warnings, не увеличить. При устранении warnings обновляй цифру вниз (и в package.json, и в check.sh). Новые warnings не добавляются.
+**Правило:** любой новый PR может только **уменьшить** число warnings, не увеличить. При устранении warnings обновляй цифру вниз (в package.json, check.sh и ci.yml). Новые warnings не добавляются.
 
 ### Go-чеки на Windows под Device Guard
 

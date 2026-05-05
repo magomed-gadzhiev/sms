@@ -60,8 +60,8 @@ if [ -d portal-frontend ]; then
     fi
 
     step "tsc --noEmit" npx --no-install tsc --noEmit
-    # max-warnings=56 is the frozen baseline from 2026-04-22 — ratchet down as warnings are fixed.
-    step "eslint"       npx --no-install eslint . --max-warnings=56
+    # max-warnings=51 is the frozen baseline from 2026-05-05 (Plan 3 Task 9) — ratchet down as warnings are fixed.
+    step "eslint"       npx --no-install eslint . --max-warnings=51
 
     if [ "$WITH_TESTS" = "1" ] && npm run | grep -q '^  test$'; then
         step "frontend tests" npm test -- --run
