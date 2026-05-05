@@ -748,6 +748,126 @@ func TestAddRouteOverride_DifferentConditionsSameProvider_Returns201(t *testing.
 	require.Equal(t, 2, count)
 }
 
+// TestUpdateRouteOverride_SameSignature_Returns200 — Plan 3 Task 2 review.
+// PUT override с теми же conditions, что и существующая → 200. Валидирует, что
+// excludeID в findDuplicateOverrideSignature корректно исключает обновляемую
+// строку из поиска дубликатов (иначе self-conflict → 409).
+func TestUpdateRouteOverride_SameSignature_Returns200(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "RouteOverrideUpdSameSig")
+
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subID, provA, resellerID)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+	body := fmt.Sprintf(`{
+		"name":"same-sig","provider_id":"%s","priority":50,"share":100,
+		"route_type":"sms","status":"active",
+		"condition_groups":[{"logic_op":"AND","conditions":[{"type":"country","value":"RU"}]}]
+	}`, provA.String())
+
+	// Создаём override.
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "Add: %s", w.Body.String())
+
+	var addResp struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &addResp))
+	routeID := addResp.ID
+
+	// PUT с теми же conditions → должен быть 200, а не 409.
+	req = httptest.NewRequest("PUT",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides/"+routeID,
+		strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String(), "route_id": routeID})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.UpdateRouteOverride(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "PUT с теми же conditions должен быть 200 (excludeID исключает self), body: %s", w.Body.String())
+}
+
+// TestUpdateRouteOverride_ConflictsWithSibling_Returns409 — Plan 3 Task 2 review.
+// PUT override меняющий conditions на conditions ДРУГОГО существующего override → 409
+// duplicate_route_signature. Валидирует, что excludeID не исключает чужие строки.
+func TestUpdateRouteOverride_ConflictsWithSibling_Returns409(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "RouteOverrideUpdSibling")
+
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO client_providers (client_id, provider_id, ownership, source_client_id, shared_priority, active)
+		VALUES ($1, $2, 'inherited', $3, 10, true)`, subID, provA, resellerID)
+	require.NoError(t, err)
+
+	h := NewSubAccountNetworkOverridesHandlers(pool)
+
+	// Override A: country=RU.
+	bodyRU := fmt.Sprintf(`{
+		"name":"sib-RU","provider_id":"%s","priority":50,"share":100,
+		"route_type":"sms","status":"active",
+		"condition_groups":[{"logic_op":"AND","conditions":[{"type":"country","value":"RU"}]}]
+	}`, provA.String())
+	req := httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(bodyRU))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "Add A (RU): %s", w.Body.String())
+
+	// Override B: country=BY.
+	bodyBY := fmt.Sprintf(`{
+		"name":"sib-BY","provider_id":"%s","priority":50,"share":100,
+		"route_type":"sms","status":"active",
+		"condition_groups":[{"logic_op":"AND","conditions":[{"type":"country","value":"BY"}]}]
+	}`, provA.String())
+	req = httptest.NewRequest("POST",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides",
+		strings.NewReader(bodyBY))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String()})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.AddRouteOverride(w, req)
+	require.Equal(t, http.StatusCreated, w.Code, "Add B (BY): %s", w.Body.String())
+
+	var bResp struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &bResp))
+	routeBID := bResp.ID
+
+	// PUT B с conditions=RU → должен конфликтовать с A → 409.
+	updBody := fmt.Sprintf(`{
+		"name":"sib-BY","provider_id":"%s","priority":50,"share":100,
+		"route_type":"sms","status":"active",
+		"condition_groups":[{"logic_op":"AND","conditions":[{"type":"country","value":"RU"}]}]
+	}`, provA.String())
+	req = httptest.NewRequest("PUT",
+		"/portal/v1/reseller/sub-accounts/"+subID.String()+"/network/route-overrides/"+routeBID,
+		strings.NewReader(updBody))
+	req = mux.SetURLVars(req, map[string]string{"id": subID.String(), "route_id": routeBID})
+	req = withReseller(req, resellerID)
+	w = httptest.NewRecorder()
+	h.UpdateRouteOverride(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "PUT B → conditions A должен быть 409, body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "duplicate_route_signature")
+}
+
 // TestRouteOverride_Delete_OK — DELETE /route-overrides/{route_id} → 204; row gone.
 func TestRouteOverride_Delete_OK(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)

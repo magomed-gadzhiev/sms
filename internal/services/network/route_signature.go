@@ -28,8 +28,11 @@ func RouteSignature(item storage.RouteSetItemFull) string {
 	b.WriteString("|")
 	for idx, g := range item.ConditionGroups {
 		b.WriteString("g")
-		// Используем idx, а не g.GroupIndex — для override item'ов без БД-id поле GroupIndex = 0
-		// у всех групп; idx из массива — единственный надёжный порядок.
+		// Используем idx из позиции массива — array order это единственный канонический
+		// источник порядка групп. Каллеры (parseItemIn, materializer-load) могут заполнять
+		// g.GroupIndex по-разному (от idx до DB-id), но позиция в массиве всегда совпадает
+		// со смысловым порядком — гарантирует одинаковую signature для одинаковых правил
+		// независимо от того, откуда RouteSetItemFull собран.
 		b.WriteString(strconv.Itoa(idx))
 		b.WriteString(":")
 		b.WriteString(g.LogicOp)
