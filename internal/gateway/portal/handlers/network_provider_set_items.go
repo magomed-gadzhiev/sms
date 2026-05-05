@@ -302,6 +302,11 @@ func (h *NetworkProviderSetItemsHandlers) PutItems(w http.ResponseWriter, r *htt
 			conflicts = append(conflicts, c)
 		}
 		rows.Close()
+		if err := rows.Err(); err != nil {
+			log.Error().Err(err).Msg("provider-set-items diff route_set rows")
+			respondError(w, shared.ErrInternalServer("ошибка чтения route-set conflicts"))
+			return
+		}
 
 		// Использование в override-маршрутах подписанных суб-аккаунтов.
 		rows2, err := h.pool.Query(r.Context(), `
@@ -328,6 +333,11 @@ func (h *NetworkProviderSetItemsHandlers) PutItems(w http.ResponseWriter, r *htt
 			conflicts = append(conflicts, c)
 		}
 		rows2.Close()
+		if err := rows2.Err(); err != nil {
+			log.Error().Err(err).Msg("provider-set-items diff override rows")
+			respondError(w, shared.ErrInternalServer("ошибка чтения override conflicts"))
+			return
+		}
 	}
 	if len(conflicts) > 0 {
 		details, _ := json.Marshal(map[string]interface{}{
