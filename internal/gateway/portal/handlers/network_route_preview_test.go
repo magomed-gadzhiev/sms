@@ -63,14 +63,15 @@ func uniqOperatorCode(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
 }
 
-// TestPreview_MatchesByCountry — item с условием country=RU матчит +7-номер.
+// TestPreview_MatchesByCountry — item с условием country=KZ матчит +7-номер
+// (KZ — единственная country с phone_code='7' в seed; см. resolve_country_iso_by_phone).
 func TestPreview_MatchesByCountry(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
 	resellerID := storagetest.SeedReseller(t, pool)
 	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
-	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10, [][2]string{{"country", "RU"}})
+	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10, [][2]string{{"country", "KZ"}})
 
 	h := NewNetworkRoutePreviewHandlers(pool)
 	body := `{"phone":"79991234567","sender_id":"TestSender","traffic_type":"transactional"}`
@@ -128,9 +129,10 @@ func TestPreview_OperatorCondition_MatchesByPhonePrefix(t *testing.T) {
 	resellerID := storagetest.SeedReseller(t, pool)
 	provA := storagetest.SeedProvider(t, pool, "A-"+uniqRouteSetName(""))
 
-	// Уникальный prefix '7912345' — длиннее любого seed-а, longest-prefix-match его выберет.
-	countryID := seedCountryWithPhoneCode(t, pool, "ZZ", "7912345")
-	opID := seedOperatorWithPrefix(t, pool, countryID, uniqOperatorCode("OP"), "7912345")
+	// Prefix '7912' (длиннее KZ '7') — longest-prefix-match его выберет.
+	// phone_code VARCHAR(5), prefix VARCHAR(15) — 4 символа влезают везде.
+	countryID := seedCountryWithPhoneCode(t, pool, "ZZ", "7912")
+	opID := seedOperatorWithPrefix(t, pool, countryID, uniqOperatorCode("OP"), "7912")
 
 	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqRouteSetName("RS"))
 	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10,
