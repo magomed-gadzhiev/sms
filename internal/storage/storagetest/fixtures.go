@@ -160,3 +160,57 @@ func SeedProviderPrivate(t *testing.T, pool *pgxpool.Pool, name string, reseller
 
 	return id
 }
+
+// SeedRouteSet вставляет минимальный route-set агрегатора и регистрирует cleanup.
+func SeedRouteSet(t *testing.T, pool *pgxpool.Pool, resellerID uuid.UUID, name string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	id := uuid.New()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO reseller_route_sets (id, reseller_id, name, is_default)
+		 VALUES ($1, $2, $3, false)`,
+		id, resellerID, name,
+	)
+	require.NoError(t, err, "SeedRouteSet INSERT failed")
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(),
+			`DELETE FROM reseller_route_sets WHERE id = $1`, id)
+	})
+	return id
+}
+
+// SeedRouteSetItem вставляет item с одной группой условий (logic_op='IF').
+// conditions: список (type, value); если пуст — item без условий (always-match).
+func SeedRouteSetItem(t *testing.T, pool *pgxpool.Pool, setID, providerID uuid.UUID, priority int, conditions [][2]string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	require.NoError(t, err)
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	itemID := uuid.New()
+	_, err = tx.Exec(ctx,
+		`INSERT INTO reseller_route_set_items (id, set_id, name, provider_id, priority, share, route_type, status)
+		 VALUES ($1, $2, 'test-item', $3, $4, 100, 'sms', 'active')`,
+		itemID, setID, providerID, priority,
+	)
+	require.NoError(t, err)
+	if len(conditions) > 0 {
+		var groupID int64
+		err = tx.QueryRow(ctx,
+			`INSERT INTO route_set_condition_groups (item_id, group_index, logic_op)
+			 VALUES ($1, 0, 'IF') RETURNING id`,
+			itemID,
+		).Scan(&groupID)
+		require.NoError(t, err)
+		for _, c := range conditions {
+			_, err = tx.Exec(ctx,
+				`INSERT INTO route_set_conditions (group_id, condition_type, condition_value)
+				 VALUES ($1, $2, $3)`, groupID, c[0], c[1])
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, tx.Commit(ctx))
+	// cleanup идёт через CASCADE FK при удалении reseller_route_sets в SeedRouteSet
+	return itemID
+}
