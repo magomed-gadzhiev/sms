@@ -118,6 +118,8 @@ func (h *NetworkAssignmentsHandlers) List(w http.ResponseWriter, r *http.Request
 					missing, vErr := h.validator.MissingProviders(r.Context(), psUUID, rsUUID)
 					if vErr != nil {
 						log.Error().Err(vErr).Str("client_id", a.ClientID).Msg("assignments list validate")
+						a.ValidationStatus = "error"
+						a.ValidationError = vErr.Error()
 					} else if len(missing) > 0 {
 						a.ValidationStatus = "conflict"
 						a.ValidationError = fmt.Sprintf("маршрут использует %d провайдер(ов) вне provider-set", len(missing))
@@ -267,8 +269,10 @@ func (h *NetworkAssignmentsHandlers) PutOne(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Pre-validation conflict (только если оба set'а назначены и validator подключён).
-	if psUUID != nil && rsUUID != nil {
+	// Pre-validation conflict (запускаем всегда, когда задан route-set; nil PS обрабатывается
+	// валидатором как "все провайдеры route-set'а — missing", что ловит invariant §6.1:
+	// route-set нельзя материализовать без provider-set'а).
+	if rsUUID != nil {
 		if h.validator == nil {
 			log.Error().Str("client_id", clientID.String()).Msg("assignments PutOne: validator is nil")
 			respondError(w, shared.ErrInternalServer("validator not configured"))
@@ -372,7 +376,7 @@ func (h *NetworkAssignmentsHandlers) Bulk(w http.ResponseWriter, r *http.Request
 		conflictExists bool
 		missingCount   int
 	)
-	if psUUID != nil && rsUUID != nil {
+	if rsUUID != nil {
 		if h.validator == nil {
 			respondError(w, shared.ErrInternalServer("validator not configured"))
 			return
@@ -468,7 +472,7 @@ func (h *NetworkAssignmentsHandlers) BulkDryRun(w http.ResponseWriter, r *http.R
 		conflictExists bool
 		missingCount   int
 	)
-	if psUUID != nil && rsUUID != nil {
+	if rsUUID != nil {
 		if h.validator == nil {
 			respondError(w, shared.ErrInternalServer("validator not configured"))
 			return

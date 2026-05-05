@@ -517,6 +517,7 @@ func SetupRouter(
 	// gorilla/mux does not match the literal path against the {client_id} pattern.
 	network.HandleFunc("/assignments", networkAssignmentsHandlers.List).Methods("GET")
 	network.HandleFunc("/assignments/bulk", networkAssignmentsHandlers.Bulk).Methods("POST")
+	network.HandleFunc("/assignments/bulk/dry-run", networkAssignmentsHandlers.BulkDryRun).Methods("POST")
 	network.HandleFunc("/assignments/{client_id}", networkAssignmentsHandlers.PutOne).Methods("PUT")
 
 	// Reseller routing overview

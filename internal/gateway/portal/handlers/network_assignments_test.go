@@ -380,6 +380,43 @@ func TestAssignments_PutOne_409OnMissingProvider(t *testing.T) {
 	require.False(t, hasRow, "SRA не должна появиться при 409")
 }
 
+// TestAssignments_PutOne_RouteSetWithoutProviderSet_409 — invariant §6.1: route-set нельзя
+// материализовать без provider-set'а. PUT с rsID и без psID → 409 (конфликт), SRA не пишется.
+// Валидатор возвращает все провайдеры route-set'а как missing при nil provider-set.
+func TestAssignments_PutOne_RouteSetWithoutProviderSet_409(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	resellerID := storagetest.SeedReseller(t, pool)
+	subID := storagetest.SeedSubAccount(t, pool, resellerID)
+	provA := storagetest.SeedProvider(t, pool, "NoPSA")
+
+	psItems := storage.NewResellerProviderSetItemsRepository(pool)
+	rsItems := storage.NewResellerRouteSetItemsRepository(pool)
+	rsID := storagetest.SeedRouteSet(t, pool, resellerID, uniqSetName("NoPSRS"))
+	storagetest.SeedRouteSetItem(t, pool, rsID, provA, 10, nil)
+
+	provMat := network.NewProviderSetMaterializer(pool)
+	routeMat := network.NewRouteSetMaterializer(pool, rsItems)
+	validator := network.NewConflictValidator(psItems, rsItems)
+	h := NewNetworkAssignmentsHandlers(pool, provMat, routeMat, validator)
+
+	body := fmt.Sprintf(`{"provider_set_id":null,"route_set_id":"%s"}`, rsID.String())
+	req := httptest.NewRequest("PUT", "/portal/v1/reseller/network/assignments/"+subID.String(), strings.NewReader(body))
+	req = mux.SetURLVars(req, map[string]string{"client_id": subID.String()})
+	req = withReseller(req, resellerID)
+	w := httptest.NewRecorder()
+	h.PutOne(w, req)
+	require.Equal(t, http.StatusConflict, w.Code, "route-set без provider-set → 409, body: %s", w.Body.String())
+	require.Contains(t, w.Body.String(), "route_uses_unavailable_provider")
+
+	// SRA не должна появиться при pre-validation conflict.
+	var hasRow bool
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT EXISTS(SELECT 1 FROM subaccount_routing_assignment WHERE client_id=$1)`, subID,
+	).Scan(&hasRow))
+	require.False(t, hasRow, "SRA не должна появиться при 409")
+}
+
 // TestAssignments_PutOne_BothMaterializersRun — provider-set с A + route-set с A (без конфликта)
 // → после PUT появляется и client_providers (inherited), и client_routes (template).
 func TestAssignments_PutOne_BothMaterializersRun(t *testing.T) {
