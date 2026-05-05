@@ -79,11 +79,11 @@ func TestSRAStuck_List_OrderByErrorAt(t *testing.T) {
 	subFirst := storagetest.SeedSubAccount(t, pool, resellerID)
 	subSecond := storagetest.SeedSubAccount(t, pool, resellerID)
 
-	// subFirst получает error_at в прошлом, subSecond — свежую.
-	// UPDATE напрямую — SeedSRAErrorStateWithCount использует now(), потом
-	// корректируем subFirst назад.
-	storagetest.SeedSRAErrorStateWithCount(t, pool, subFirst, nil, nil, "err-first", 100)
-	storagetest.SeedSRAErrorStateWithCount(t, pool, subSecond, nil, nil, "err-second", 100)
+	// Оба row засеваются с provider_set_id != nil — иначе UPDATE last_materialize_error_at
+	// триггером trg_sra_orphan_cleanup (000140) удалит row (оба set_id NULL после UPDATE).
+	setID := storagetest.SeedProviderSet(t, pool, resellerID, "order-test-set")
+	storagetest.SeedSRAErrorStateWithCount(t, pool, subFirst, &setID, nil, "err-first", 100)
+	storagetest.SeedSRAErrorStateWithCount(t, pool, subSecond, &setID, nil, "err-second", 100)
 
 	_, err := pool.Exec(t.Context(),
 		`UPDATE subaccount_routing_assignment
