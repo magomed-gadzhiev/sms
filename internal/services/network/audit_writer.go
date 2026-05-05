@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"encoding/json"
+	"net"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,9 +39,15 @@ func RecordAuditEvent(ctx context.Context, pool *pgxpool.Pool, e AuditEvent) err
 			detailsJSON = b
 		}
 	}
+	// audit_log.ip_address is INET — r.RemoteAddr is "host:port", strip port.
 	var ip interface{}
 	if e.IPAddress != "" {
-		ip = e.IPAddress
+		host, _, splitErr := net.SplitHostPort(e.IPAddress)
+		if splitErr == nil {
+			ip = host
+		} else {
+			ip = e.IPAddress
+		}
 	}
 	_, err := pool.Exec(ctx, `
 		INSERT INTO audit_log (tenant_id, user_id, action, resource_type, resource_id, details, ip_address)
