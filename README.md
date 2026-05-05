@@ -27,6 +27,8 @@ smpp-server/
 
 Все команды выполняются в Docker контейнерах. См. [docs/development/setup.md](docs/development/setup.md) для настройки окружения.
 
+- **Pre-commit hooks:** см. [docs/development/pre-commit-hooks.md](docs/development/pre-commit-hooks.md). После клона выполнить `git config core.hooksPath .githooks` — иначе quality-gates не запустятся локально.
+
 ## Документация
 
 - [Архитектура](docs/architecture/)
