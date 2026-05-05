@@ -37,6 +37,11 @@ func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters *domain.Aud
 		args = append(args, filters.UserID)
 		argIdx++
 	}
+	if filters.ResourceType != "" {
+		where += fmt.Sprintf(" AND resource_type = $%d", argIdx)
+		args = append(args, filters.ResourceType)
+		argIdx++
+	}
 	if filters.DateFrom != nil {
 		where += fmt.Sprintf(" AND created_at >= $%d", argIdx)
 		args = append(args, *filters.DateFrom)

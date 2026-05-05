@@ -20,13 +20,14 @@ type AuditLogEntry struct {
 
 // AuditLogFilters contains filters for querying audit logs.
 type AuditLogFilters struct {
-	TenantID string // required
-	Action   string
-	UserID   string
-	DateFrom *time.Time
-	DateTo   *time.Time
-	Page     int32
-	PerPage  int32
+	TenantID     string // required
+	Action       string
+	UserID       string
+	ResourceType string
+	DateFrom     *time.Time
+	DateTo       *time.Time
+	Page         int32
+	PerPage      int32
 }
 
 // AuditLogRepository defines the interface for querying audit logs.

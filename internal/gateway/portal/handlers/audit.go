@@ -37,11 +37,12 @@ func (h *AuditHandlers) ListAuditLog(w http.ResponseWriter, r *http.Request) {
 
 	// Построение запроса
 	req := &auditv1.QueryAuditLogRequest{
-		TenantId: clientID.String(),
-		Action:   query.Get("action"),
-		UserId:   query.Get("user_id"),
-		Page:     page,
-		PerPage:  perPage,
+		TenantId:     clientID.String(),
+		Action:       query.Get("action"),
+		UserId:       query.Get("user_id"),
+		ResourceType: query.Get("resource_type"),
+		Page:         page,
+		PerPage:      perPage,
 	}
 
 	// Парсим даты

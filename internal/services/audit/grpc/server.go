@@ -29,11 +29,12 @@ func (s *Server) QueryAuditLog(ctx context.Context, req *auditv1.QueryAuditLogRe
 	}
 
 	filters := &domain.AuditLogFilters{
-		TenantID: req.TenantId,
-		Action:   req.Action,
-		UserID:   req.UserId,
-		Page:     req.Page,
-		PerPage:  req.PerPage,
+		TenantID:     req.TenantId,
+		Action:       req.Action,
+		UserID:       req.UserId,
+		ResourceType: req.ResourceType,
+		Page:         req.Page,
+		PerPage:      req.PerPage,
 	}
 
 	if req.DateFrom != nil {

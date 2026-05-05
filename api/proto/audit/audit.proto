@@ -21,6 +21,7 @@ message QueryAuditLogRequest {
   google.protobuf.Timestamp date_to = 5;    // Конец периода (опционально)
   int32 page = 6;                  // Номер страницы
   int32 per_page = 7;              // Количество записей на странице
+  string resource_type = 8;        // Фильтр по типу ресурса (опционально)
 }
 
 // QueryAuditLogResponse представляет ответ с записями аудит-лога
