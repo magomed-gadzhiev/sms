@@ -22,7 +22,17 @@ sudo iptables -C INPUT -p tcp --dport ${REDIS_PORT} -m state --state ESTABLISHED
     || sudo iptables -I INPUT 2 -p tcp --dport ${REDIS_PORT} -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # 3. ACCEPT docker bridge (контейнеры в smpp-network подключаются через docker0).
-DOCKER_BRIDGE=$(docker network inspect $(docker network ls -q -f name=smpp-network) --format '{{range .Options}}{{.}}{{end}}' 2>/dev/null | grep -oP 'br-[a-f0-9]+' | head -1 || echo "")
+# Bridge name: явный com.docker.network.bridge.name option, либо auto-генерит
+# docker как br-<short-id> (12 hex chars от network_id).
+SMPP_NET_ID=$(docker network ls -q -f name=smpp-network 2>/dev/null | head -1 || echo "")
+if [ -n "$SMPP_NET_ID" ]; then
+    DOCKER_BRIDGE=$(docker network inspect "$SMPP_NET_ID" --format '{{index .Options "com.docker.network.bridge.name"}}' 2>/dev/null || echo "")
+    if [ -z "$DOCKER_BRIDGE" ]; then
+        DOCKER_BRIDGE="br-${SMPP_NET_ID:0:12}"
+    fi
+else
+    DOCKER_BRIDGE=""
+fi
 if [ -n "$DOCKER_BRIDGE" ]; then
     sudo iptables -C INPUT -i "$DOCKER_BRIDGE" -p tcp --dport ${REDIS_PORT} -j ACCEPT 2>/dev/null \
         || sudo iptables -I INPUT 3 -i "$DOCKER_BRIDGE" -p tcp --dport ${REDIS_PORT} -j ACCEPT
