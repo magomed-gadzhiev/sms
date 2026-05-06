@@ -20,29 +20,29 @@ git checkout "$PREV_REF"
 if [ -n "$SNAPSHOT_DIR" ] && [ -f "$SNAPSHOT_DIR/base.tar.gz" ]; then
     echo ""
     echo "=== DB Restore from $SNAPSHOT_DIR ==="
-    echo "WARNING: this will DROP current postgres state. Continue? (y/N)"
-    read -r answer
-    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
-        echo "Aborted DB restore. Code rollback only."
-    else
-        echo "Stopping postgres..."
-        $COMPOSE stop postgres
-        echo "Detecting postgres data volume..."
-        docker volume ls | grep postgres | head -3
-        VOLUME_NAME=$(docker volume ls --format '{{.Name}}' | grep postgres-data | head -1)
-        if [ -z "$VOLUME_NAME" ]; then
-            echo "ERROR: postgres volume not found. Manual cleanup required."
+    echo ""
+    echo "!!! WARNING — UNTESTED MECHANICS !!!"
+    echo "Implementer flagged: tar extraction в running postgres некорректна."
+    echo "Корректный workflow требует stopped container + offline tar в volume:"
+    echo ""
+    echo "  $COMPOSE stop postgres"
+    echo "  VOL=\$(docker volume ls --format '{{.Name}}' | grep -E 'postgres-data\$' | head -1)"
+    echo "  docker run --rm -v \"\$VOL:/data\" -v \"$SNAPSHOT_DIR:/backup:ro\" alpine sh -c \\"
+    echo "    'rm -rf /data/* /data/.* 2>/dev/null; tar -xzf /backup/base.tar.gz -C /data && chown -R 999:999 /data'"
+    echo "  $COMPOSE up -d postgres"
+    echo ""
+    echo "TODO Plan 8: implement and end-to-end test offline restore."
+    echo "В Plan 7 restore делать ВРУЧНУЮ по командам выше."
+    echo ""
+    echo "Skip auto-restore (CODE-ONLY rollback). Continue with redeploy? (y/N)"
+    if [ -t 0 ]; then
+        read -r answer
+        if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+            echo "Aborted."
             exit 1
         fi
-        echo "Removing volume: $VOLUME_NAME"
-        docker volume rm "$VOLUME_NAME" || true
-        echo "Starting postgres for restore..."
-        $COMPOSE up -d postgres
-        sleep 15
-        echo "Restoring from snapshot..."
-        zcat "$SNAPSHOT_DIR/base.tar.gz" | $COMPOSE exec -T postgres tar -xf - -C /var/lib/postgresql/data
-        $COMPOSE restart postgres
-        sleep 10
+    else
+        echo "(non-interactive: auto-continue with code-only rollback)"
     fi
 fi
 

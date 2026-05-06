@@ -83,7 +83,11 @@ if ./scripts/healthcheck.sh; then
     echo "Rollback command if needed: ./scripts/rollback-prod.sh $PREV_REF $SNAPSHOT_DIR"
 else
     echo ""
-    echo "=== Health check FAILED — initiating auto-rollback ==="
-    ./scripts/rollback-prod.sh "$PREV_REF" "$SNAPSHOT_DIR"
+    echo "=== Health check FAILED — initiating CODE-ONLY auto-rollback ==="
+    echo "(DB restore is destructive + unattended — only manual: ./scripts/rollback-prod.sh $PREV_REF $SNAPSHOT_DIR)"
+    # SNAPSHOT_DIR DELIBERATELY NOT passed: rollback с DB restore требует
+    # interactive confirmation → hang в auto-deploy. Snapshot retained
+    # для manual restore оператором, если требуется откат миграций.
+    ./scripts/rollback-prod.sh "$PREV_REF"
     exit 1
 fi
