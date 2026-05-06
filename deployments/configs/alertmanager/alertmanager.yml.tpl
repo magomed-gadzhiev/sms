@@ -1,6 +1,7 @@
-# Template — все ${VAR} resolve'ятся в entrypoint.sh через envsubst.
-# Финальный alertmanager.yml пишется в /etc/alertmanager/alertmanager.yml
-# и не bind-mount'ится с host (он генерируется при старте контейнера).
+# Template — все ${VAR} resolve'ятся в entrypoint.sh через sed (envsubst
+# отсутствует в prom/alertmanager:v0.27.0 busybox-image, apk недоступен).
+# Финальный alertmanager.yml пишется в /tmp/alertmanager.yml на старте
+# (mount /etc/alertmanager — read-only).
 
 global:
   smtp_smarthost: '${ALERTMANAGER_SMTP_HOST}'
@@ -17,17 +18,19 @@ route:
   repeat_interval: 4h
   receiver: 'email-default'
   routes:
-    # Critical → отдельный repeat-cadence (1h вместо 4h).
+    # Sandbox → noop receiver ВСЕГДА (включая critical) — логируем, не
+    # email'им. ДОЛЖЕН быть первым: alertmanager evaluates routes top-down,
+    # default continue=false; sandbox-critical иначе попадает в email-critical
+    # → SMTP fail на dummy creds.
+    - matchers:
+        - env = sandbox
+      receiver: 'log-only'
+    # Prod critical → email-critical (1h repeat вместо 4h, 10s group_wait).
     - matchers:
         - severity = critical
       receiver: 'email-critical'
       group_wait: 10s
       repeat_interval: 1h
-    # Sandbox → noop receiver (логируем, не email'им — слишком шумно
-    # для тестового traffic'а с ad-hoc провайдер-конфигами).
-    - matchers:
-        - env = sandbox
-      receiver: 'log-only'
 
 receivers:
   - name: 'email-default'
