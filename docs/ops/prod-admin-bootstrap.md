@@ -93,8 +93,8 @@ UPDATE users SET password_hash='<new-bcrypt-hash>' WHERE email='ops@example.com'
 
 (bcrypt hash generated через любую библиотеку с cost=10; формат `\$2a\$10\$...`).
 
-## Known limitations (Plan 8 candidates)
+## Known limitations
 
-- `cmd/seed-admin` использует `defaultPassword = "Admin123!"` если ADMIN_PASSWORD не задан. Это слабая default — НЕ полагаться на default на prod. Plan 8 candidate: добавить fail-fast если ADMIN_PASSWORD не задан или слабый.
+- `cmd/seed-admin` теперь fail-fast если `ADMIN_PASSWORD` не задан или короче 16 символов (Plan 8 Task 1, commit 22a0bc3). Default `Admin123!` удалён. Сгенерировать пароль на prod: `openssl rand -base64 24`.
 - Нет mandatory password change на первом login. Ops обязан manually rotate после bootstrap.
 - adminRoleID hardcoded в `cmd/seed-admin`. Если admin role UUID изменится в будущем — invocation сломается silent (создаст user с invalid role_id).
