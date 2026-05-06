@@ -13,15 +13,15 @@ import (
 	"github.com/smpp-server/smpp-server/internal/storage/storagetest"
 )
 
-func TestEnsureFuturePartitions_CreatesMissingPartitions(t *testing.T) {
+func TestEnsureFuturePartitions_CreatesMissingPartitions_NamingYMM(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
 	ctx := context.Background()
 
-	// Используем audit_log как safe-known partitioned table.
-	// Берём базу далёкое будущее (2030), чтобы не пересекать существующие партиции.
+	// audit_log использует NamingYMM (`<table>_yYYYYmMM`).
+	// База — далёкое будущее (2030), чтобы не пересекать существующие партиции.
 	base := time.Date(2030, 1, 15, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "audit_log", base, 3))
+	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "audit_log", maintenance.NamingYMM, base, 3))
 
 	// Должны существовать audit_log_y2030m01..audit_log_y2030m04 (4 = 0..3 inclusive).
 	expectedCount := 4
@@ -42,15 +42,42 @@ func TestEnsureFuturePartitions_CreatesMissingPartitions(t *testing.T) {
 	}
 }
 
+func TestEnsureFuturePartitions_CreatesMissingPartitions_NamingYYYYMM(t *testing.T) {
+	pool, cleanup := storagetest.SetupTestDB(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// lookup_log использует NamingYYYYMM (`<table>_YYYY_MM`).
+	base := time.Date(2030, 1, 15, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "lookup_log", maintenance.NamingYYYYMM, base, 2))
+
+	// Должны существовать lookup_log_2030_01..lookup_log_2030_03 (3 = 0..2 inclusive).
+	expectedCount := 3
+	for i := 0; i < expectedCount; i++ {
+		mt := base.AddDate(0, i, 0)
+		name := fmt.Sprintf("lookup_log_%d_%02d", mt.Year(), int(mt.Month()))
+		var exists bool
+		require.NoError(t, pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM pg_class WHERE relname=$1)`, name).Scan(&exists))
+		require.True(t, exists, "partition %s должна существовать", name)
+	}
+
+	for i := 0; i < expectedCount; i++ {
+		mt := base.AddDate(0, i, 0)
+		name := fmt.Sprintf("lookup_log_%d_%02d", mt.Year(), int(mt.Month()))
+		_, _ = pool.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", name))
+	}
+}
+
 func TestEnsureFuturePartitions_Idempotent(t *testing.T) {
 	pool, cleanup := storagetest.SetupTestDB(t)
 	defer cleanup()
 	ctx := context.Background()
 
 	base := time.Date(2031, 6, 1, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "audit_log", base, 2))
+	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "audit_log", maintenance.NamingYMM, base, 2))
 	// Повтор не должен падать.
-	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "audit_log", base, 2))
+	require.NoError(t, maintenance.EnsureFuturePartitions(ctx, pool, "audit_log", maintenance.NamingYMM, base, 2))
 
 	// Cleanup.
 	for i := 0; i < 3; i++ {
@@ -62,6 +89,6 @@ func TestEnsureFuturePartitions_Idempotent(t *testing.T) {
 
 func TestEnsureFuturePartitions_RejectsInvalidForward(t *testing.T) {
 	// Не нужен real DB — тестируем validation.
-	err := maintenance.EnsureFuturePartitions(context.Background(), (*pgxpool.Pool)(nil), "audit_log", time.Now(), 0)
+	err := maintenance.EnsureFuturePartitions(context.Background(), (*pgxpool.Pool)(nil), "audit_log", maintenance.NamingYMM, time.Now(), 0)
 	require.Error(t, err)
 }

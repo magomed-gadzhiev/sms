@@ -115,10 +115,17 @@ func main() {
 	go networksvc.RunRetryLoop(retryCtx, dbPool, providerMat, routeMat, 60*time.Second)
 
 	// Plan 7 Task 6: ensure monthly партиции присутствуют на 6 месяцев вперёд
-	// для всех partitioned-таблиц с _yYYYYmMM naming. Без этого после 2026-12
-	// первый INSERT упадёт с "no partition for value".
+	// для всех partitioned-таблиц. Naming-формат варьируется по историческим
+	// причинам (см. PartitionNaming в partition_maintainer.go). Без этого после
+	// исчерпания преднарезанных партиций первый INSERT упадёт "no partition for value".
 	go maintenancesvc.RunPartitionMaintenanceLoop(retryCtx, dbPool,
-		[]string{"audit_log", "lookup_log", "messages", "deliveries", "delivery_attempts"},
+		[]maintenancesvc.PartitionedTable{
+			{Name: "audit_log", Naming: maintenancesvc.NamingYMM},
+			{Name: "messages", Naming: maintenancesvc.NamingYMM},
+			{Name: "lookup_log", Naming: maintenancesvc.NamingYYYYMM},
+			{Name: "deliveries", Naming: maintenancesvc.NamingYYYYMM},
+			{Name: "delivery_attempts", Naming: maintenancesvc.NamingYYYYMM},
+		},
 		6, 24*time.Hour)
 
 	// Подключение к billing-service gRPC
