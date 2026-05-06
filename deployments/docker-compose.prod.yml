@@ -37,6 +37,86 @@ services:
   portal-gateway:
     ports: !reset []
 
+  # === Gateways (HTTP/gRPC internals — доступ через haproxy) ===
+  # haproxy остаётся published (8080/8081/8082/8083/9090/19095/8404).
+  # Known gap: haproxy-fronted gateways пока без TLS — Caddy expansion = Plan 8.
+  # smpp-gateway остаётся published (2775) — SMPP клиенты direct TCP.
+  client-gateway-1:
+    ports: !reset []
+  client-gateway-2:
+    ports: !reset []
+  admin-gateway-1:
+    ports: !reset []
+  admin-gateway-2:
+    ports: !reset []
+
+  # === Backend services (gRPC internals) ===
+  dlr-delivery:
+    ports: !reset []
+  auth-service:
+    ports: !reset []
+  messaging-service:
+    ports: !reset []
+  routing-service:
+    ports: !reset []
+  provider-service:
+    ports: !reset []
+  client-service:
+    ports: !reset []
+  analytics-service:
+    ports: !reset []
+  network-analytics-service:
+    ports: !reset []
+  billing-service:
+    ports: !reset []
+  webhook-service:
+    ports: !reset []
+  template-service:
+    ports: !reset []
+  contact-service:
+    ports: !reset []
+  campaign-service:
+    ports: !reset []
+  tarification-service:
+    ports: !reset []
+  cascade-service:
+    ports: !reset []
+  audit-service:
+    ports: !reset []
+  link-service:
+    ports: !reset []
+  portal-frontend:
+    ports: !reset []
+
+  # worker: добавляем LOG_LEVEL override в prod (env-only, без изменения ports —
+  # worker в base нет published portов).
+  worker:
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  # === Infrastructure (DB, Kafka, Redis) ===
+  kafka:
+    ports: !reset []
+  postgres:
+    ports: !reset []
+  pgbouncer:
+    ports: !reset []
+  # Redis в base уже bind на 127.0.0.1:6379 — sweep наружу не выходит.
+  # Reset для consistency: даже loopback publish не нужен (доступ через docker network).
+  redis:
+    ports: !reset []
+
+  # === Monitoring (Prometheus / Grafana / Loki / Directus) ===
+  # Доступ к UI — через SSH-tunnel на cutover-day. Caddy-fronted dashboards = follow-up.
+  prometheus:
+    ports: !reset []
+  loki:
+    ports: !reset []
+  grafana:
+    ports: !reset []
+  directus:
+    ports: !reset []
+
 volumes:
   caddy_data:
   caddy_config:
