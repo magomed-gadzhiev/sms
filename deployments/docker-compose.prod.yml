@@ -119,8 +119,13 @@ services:
     ports: !reset []
   loki:
     ports: !reset []
+  # Prod auth hardening: anonymous off + admin pwd из env (base = hardcoded admin).
+  # Доступ к UI через SSH-tunnel; Caddy-fronted dashboards = follow-up.
   grafana:
     ports: !reset []
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env.prod}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
   directus:
     ports: !reset []
 
