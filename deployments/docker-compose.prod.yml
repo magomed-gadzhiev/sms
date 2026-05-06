@@ -25,6 +25,9 @@ services:
     # парсит Caddyfile с literal "{$PORTAL_DOMAIN}" → синтакс-ошибка не очевидна.
     environment:
       PORTAL_DOMAIN: ${PORTAL_DOMAIN:?PORTAL_DOMAIN must be set in .env.prod}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN must be set in .env.prod}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN must be set in .env.prod}
+      GRPC_DOMAIN: ${GRPC_DOMAIN:?GRPC_DOMAIN must be set in .env.prod}
       LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set in .env.prod}
     depends_on:
       - portal-gateway

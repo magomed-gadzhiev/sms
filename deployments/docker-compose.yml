@@ -50,6 +50,9 @@ services:
       - CASCADE_SERVICE_ADDR=cascade-service:9110
       - CLIENT_SERVICE_ADDR=client-service:9095
       - LOAD_TEST_MODE=${LOAD_TEST_MODE:-false}
+      # Plan 7 Task 12 + Plan 8 Task 6 followup: canary mode allowlist для
+      # gRPC и HTTP send-handler'ов. Empty = canary off (любой client разрешён).
+      - CANARY_CLIENT_IDS=${CANARY_CLIENT_IDS:-}
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -116,6 +119,8 @@ services:
       - CASCADE_SERVICE_ADDR=cascade-service:9110
       - CLIENT_SERVICE_ADDR=client-service:9095
       - LOAD_TEST_MODE=${LOAD_TEST_MODE:-false}
+      # Plan 7 Task 12 + Plan 8 Task 6 followup: canary mode allowlist (см. client-gateway-1).
+      - CANARY_CLIENT_IDS=${CANARY_CLIENT_IDS:-}
       - KAFKA_BROKERS=kafka:9092
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -300,6 +305,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      # Plan 7 Task 12: canary mode allowlist (handler.go submit_sm reject).
+      - CANARY_CLIENT_IDS=${CANARY_CLIENT_IDS:-}
     ports:
       - "2775:2775"  # SMPP port
       - "2110:2112"  # Metrics host port changed to avoid conflict
