@@ -1,40 +1,80 @@
-# {$PORTAL_DOMAIN} и переменные заполняются из .env.prod на момент
-# `docker compose up`. Без них caddy не стартует.
+# Caddy auto-TLS на portal/api/admin subdomain'ы. gRPC TLS — отдельный
+# host в Task 3 (Plan 8). Stats HaProxy 8404 теперь доступен только через
+# SSH-tunnel и НЕ TLS-фронтится — internal-only admin tool.
 #
-# DNS PREREQUISITE: A/AAAA-record для $PORTAL_DOMAIN должен указывать на VM
-# IP ДО первого `up -d`. Иначе Let's Encrypt HTTP-01 challenge зависнет, и
-# caddy будет рестартовать в loop. Verify через `dig +short $PORTAL_DOMAIN`.
+# DNS PREREQUISITE: A-records для PORTAL_DOMAIN, API_DOMAIN, ADMIN_DOMAIN,
+# GRPC_DOMAIN указывают на VM IP ДО первого `up -d`. Verify:
+#   for d in $PORTAL_DOMAIN $API_DOMAIN $ADMIN_DOMAIN $GRPC_DOMAIN; do
+#     echo -n "$d: "; dig +short $d
+#   done
 #
-# LE STAGING TOGGLE для smoke: раскомментировать `acme_ca` ниже на dry-run,
-# чтобы не сжечь rate-limit (LE prod: 5 dup certs/week, 50 unique/week).
+# LE STAGING TOGGLE для smoke: раскомментировать `acme_ca` ниже на dry-run.
 # После validate restart caddy с боевым acme_ca (default).
-{$PORTAL_DOMAIN} {
-	tls {$LETSENCRYPT_EMAIL}
-	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
-	# Portal SPA + API через portal-gateway (internal port 8082).
-	reverse_proxy portal-gateway:8082 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-	}
-
-	# Security headers — baseline OWASP.
+(security_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
-		# CSP — оставляем permissive до отдельного audit'а; жёсткая CSP
-		# ломает Vite-built bundle с inline-modulepreload.
 		-Server
 	}
+}
 
+# Portal SPA + portal-gateway API (existing).
+{$PORTAL_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	reverse_proxy portal-gateway:8082 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	import security_headers
 	log {
 		output stdout
 		format json
 	}
+	encode gzip
+}
 
+# Client API → HaProxy → client-gateway-1/2 на :8080 (HTTP).
+{$API_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	reverse_proxy haproxy:8080 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
+	encode gzip
+}
+
+# Admin API → HaProxy → admin-gateway-1/2 на :8081 (HTTP).
+{$ADMIN_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	reverse_proxy haproxy:8081 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
 	encode gzip
 }
