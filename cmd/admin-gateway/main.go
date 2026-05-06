@@ -225,7 +225,11 @@ func main() {
 		}
 	}()
 
-	// Создание gRPC сервера (для будущих расширений)
+	// Создание gRPC сервера (для будущих расширений).
+	// CONSTRAINT (Plan 8 Task 3): admin gRPC services ДОЛЖНЫ находиться в пакете
+	// admin.* (admin.v1, admin.v2, ...) — Caddy path matcher /admin.* в
+	// deployments/configs/caddy/Caddyfile route'ит трафик сюда по этому prefix'у.
+	// Сервис в другом пакете (например auth.v1.AdminAuth) попадёт на client-gateway.
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(cfg.API.GRPC.MaxRecv),
 		grpc.MaxSendMsgSize(cfg.API.GRPC.MaxSend),

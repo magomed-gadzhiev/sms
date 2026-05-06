@@ -90,7 +90,10 @@
 #     gRPC path: /messaging.v1.MessagingService/*
 #   admin-gateway  :9091 → пустой сервер (services запланированы; нет
 #     зарегистрированных сервисов в текущем коде cmd/admin-gateway/main.go).
-#     Matcher /admin.* зарезервирован под будущие AdminService/* в пакете admin.v1.
+#     Matcher /admin.* зарезервирован под AdminService/* в пакете admin.v1.
+#     CONSTRAINT: все admin-gateway gRPC services ДОЛЖНЫ находиться в пакете
+#     admin.* (admin.v1, admin.v2, …). Service в другом пакете попадёт на
+#     client-gateway. Тот же CONSTRAINT задублирован в cmd/admin-gateway/main.go.
 #
 # proxy_forward (X-Real-IP) НЕ применяется к gRPC-блокам: gRPC несёт metadata
 # независимо, а header_up на h2c transport'е не имеет того же смысла что на HTTP.
