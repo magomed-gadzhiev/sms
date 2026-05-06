@@ -22,19 +22,33 @@ Greenfield first-deploy: накатывать `golang-migrate up` стандар
 
 1. Подготовить миграцию `NNN_create_index_foo.up.sql` пустую или содержащую только non-DDL noop (например `SELECT 1;`). `.down.sql` — `DROP INDEX IF EXISTS foo;`.
 2. Apply миграцию через стандартный `./scripts/server.sh migrate` (на prod-host) — version pointer продвигается, index ещё не создан.
-3. Выполнить `CREATE INDEX CONCURRENTLY foo ON bar(...)` через psql напрямую:
+3. Выполнить `CREATE INDEX CONCURRENTLY foo ON bar(...)` через psql напрямую (через прокси scripts/server.sh):
    ```
-   docker compose ... exec -T postgres psql -U smpp -d smpp_db -c \
-       "CREATE INDEX CONCURRENTLY IF NOT EXISTS foo ON bar(col1, col2)"
+   ./scripts/server.sh exec "docker compose -f deployments/docker-compose.yml exec -T postgres psql -U smpp -d smpp_db -c \"CREATE INDEX CONCURRENTLY IF NOT EXISTS foo ON bar(col1, col2)\""
    ```
-4. Verify: `\d bar` через psql — индекс присутствует, без `INVALID` маркера.
+4. Verify: `\d+ bar` (расширенный, показывает invalid маркер) или явный SQL: `SELECT indexrelid::regclass, indisvalid FROM pg_index WHERE indexrelid = 'foo'::regclass`. Должно быть `t`.
 
-**Альтернатива (если индекс уже создан вручную, нужно "догнать" version pointer):**
+**Альтернатива (если индекс уже создан вручную, нужно "догнать" version pointer).** `./scripts/server.sh migrate` обёртывает только `up`; для `force`/`version` нужен manual SSH с полным flag set, как в `cmd_migrate` (см. `scripts/server.sh:121-131`):
 
 ```
-docker run --rm migrate/migrate -path /migrations -database "$DATABASE_URL" force <version-N-1>
-docker run --rm migrate/migrate -path /migrations -database "$DATABASE_URL" up 1
+ssh sms-server "docker run --rm \
+    -v /opt/sms/migrations:/migrations \
+    --network deployments_smpp-network \
+    migrate/migrate \
+    -path /migrations \
+    -database 'postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable' \
+    force <version-N-1>"
+
+ssh sms-server "docker run --rm \
+    -v /opt/sms/migrations:/migrations \
+    --network deployments_smpp-network \
+    migrate/migrate \
+    -path /migrations \
+    -database 'postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable' \
+    up 1"
 ```
+
+(На prod подставить актуальный путь репозитория и password из `.env.prod`. Без `-v` mount'а контейнер не видит миграции, без `--network` — не достучится до `postgres` host.)
 
 ## ADD COLUMN с дефолтом — 3-step pattern
 
@@ -42,8 +56,7 @@ Migration N (release K):
 - `ALTER TABLE foo ADD COLUMN bar text NULL;`
 - В app code: writes пишут `bar` (старые читатели игнорируют).
 
-Backfill (release K+1, отдельная миграция или manual psql):
-- Батчами по 10k, не одной транзакцией:
+Backfill (release K+1, **manual psql, НЕ внутри migrate-обёртки** — `COMMIT` внутри `DO`-блока требует autocommit-режим psql, ломается при оборачивании в `BEGIN; ... COMMIT;`). Батчами по 10k:
   ```
   DO $$
   DECLARE updated int;
@@ -58,6 +71,8 @@ Backfill (release K+1, отдельная миграция или manual psql):
     END LOOP;
   END $$;
   ```
+  
+  Caveat: на hot table inflight INSERT'ы с `bar IS NULL` могут не дать loop'у завершиться. Варианты: (a) принять что cycle terminates когда no new NULL rows arrive (run в idle window); (b) freeze writers на app-уровне до конца backfill.
 
 Migration N+1 (release K+2):
 - `ALTER TABLE foo ALTER COLUMN bar SET NOT NULL;`
@@ -87,12 +102,27 @@ Migration N+1 (release K+2):
 
 ## golang-migrate dirty state recovery
 
-Если migrate up прерван посреди транзакции (например OOM):
+Если migrate up прерван посреди транзакции (например OOM). `scripts/server.sh` нативного `version`/`force` wrapper'а не имеет — нужен manual `docker run` с тем же flag-set'ом, что в `cmd_migrate` (`scripts/server.sh:121-131`):
+
 ```
-docker run --rm migrate/migrate -path /migrations -database "$DATABASE_URL" version
+ssh sms-server "docker run --rm \
+    -v /opt/sms/migrations:/migrations \
+    --network deployments_smpp-network \
+    migrate/migrate \
+    -path /migrations \
+    -database 'postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable' \
+    version"
 ```
-Если version помечен dirty — manual cleanup в схеме (через psql), затем:
+
+Если version помечен dirty — manual cleanup в схеме через psql, затем:
 ```
-docker run --rm migrate/migrate -path /migrations -database "$DATABASE_URL" force <version>
+ssh sms-server "docker run --rm \
+    -v /opt/sms/migrations:/migrations \
+    --network deployments_smpp-network \
+    migrate/migrate \
+    -path /migrations \
+    -database 'postgres://smpp:smpp_password@postgres:5432/smpp_db?sslmode=disable' \
+    force <version>"
 ```
-И заново `up`.
+
+И заново `./scripts/server.sh migrate`.
