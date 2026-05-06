@@ -164,9 +164,11 @@ type Provider struct {
 	Description  string          `json:"description" db:"description"`
 	Tags         StringArray     `json:"tags" db:"tags"`
 	TPSLimit     int             `json:"tps_limit" db:"tps_limit"`
-	RoutingRules json.RawMessage `json:"routing_rules" db:"routing_rules"`
-	DailyQuota   *int            `json:"daily_quota,omitempty" db:"daily_quota"`
-	MonthlyQuota *int            `json:"monthly_quota,omitempty" db:"monthly_quota"`
+	RoutingRules   json.RawMessage `json:"routing_rules" db:"routing_rules"`
+	DailyQuota     *int            `json:"daily_quota,omitempty" db:"daily_quota"`
+	MonthlyQuota   *int            `json:"monthly_quota,omitempty" db:"monthly_quota"`
+	Ownership      string          `json:"ownership" db:"ownership"`
+	SourceClientID *uuid.UUID      `json:"source_client_id,omitempty" db:"source_client_id"`
 }
 
 // Route представляет правило маршрутизации
