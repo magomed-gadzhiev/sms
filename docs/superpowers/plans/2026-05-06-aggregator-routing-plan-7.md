@@ -96,7 +96,18 @@ git commit -m "docs(ops): redis firewall apply procedure (Plan 7 Task 1)"
 
 ---
 
-### Task 2: A1 — Advisory-lock в RetryPendingOnce
+### Task 2: A1 — Advisory-lock в RetryPendingOnce — **DEFERRED to Plan 8**
+
+**2026-05-06 update:** при имплементации обнаружено design flaw — `pg_try_advisory_xact_lock` в SELECT WHERE релизится сразу после `rows.Close()`, до начала processing. Real race window = весь applier time (~ms-ы до сотен ms), не "единицы ms" как ассертил оригинальный план. Two goroutine c overlapping ticks claim'ят все rows независимо, lock даёт защиту только при literal-microsecond-overlap SELECT'ах (probability < 1%). Approach unsuitable.
+
+**Альтернативы (для Plan 8):**
+- (b) UPDATE-RETURNING claim с новой колонкой `claimed_at` (миграция + UPDATE-pattern): атомарный claim, работает для multi-replica.
+- (a) Обхватить SELECT + applier в `pgx.Tx`: требует refactor сигнатуры `ApplyAssignmentMaterializers` (`*pgxpool.Pool` → `pgx.Tx`-совместимый интерфейс). Больше рефакторинга, чем (b).
+
+**Текущее состояние:** revert commit 186a217. Single-replica worker prod (как было) — race не реализуема. После scale-up Plan 8 решает корректно.
+
+**Original (incorrect) implementation skipped:**
+
 
 **Контекст:** `internal/services/network/retry_loop.go` сейчас читает SRA-rows и обрабатывает их без synchronization. Single replica — race не realisable. На prod scale-up к 2+ replicas worker'а duplicate-work + race на `materialize_retry_count++`. A1 страховка: per-row `pg_try_advisory_xact_lock(client_id_high, client_id_low)` — реплика, у которой не получился lock, пропускает row на этом тике (другая реплика обрабатывает).
 
