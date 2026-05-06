@@ -44,6 +44,9 @@ services:
   # SSH-tunnel: ssh -L 8404:haproxy:8404 prod-host.
   haproxy:
     ports: !override []
+    # SYNC NOTE: depends_on здесь дублирует base (docker-compose.yml haproxy
+    # depends_on). Compose merge заменяет (не сливает) этот ключ, поэтому
+    # при добавлении нового upstream'а в base — synchronize вручную здесь же.
     depends_on:
       - client-gateway-1
       - client-gateway-2
