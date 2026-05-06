@@ -11,6 +11,8 @@
 # LE STAGING TOGGLE для smoke: раскомментировать `acme_ca` ниже на dry-run.
 # После validate restart caddy с боевым acme_ca (default).
 
+# CSP не включён в snippet: жёсткая CSP ломает Vite-built bundle с
+# inline-modulepreload. Аудит и tightening — отдельным spec'ом.
 (security_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -22,15 +24,20 @@
 	}
 }
 
+# (proxy_forward) — header_up X-Real-IP. X-Forwarded-For и X-Forwarded-Proto
+# Caddy 2.8 проставляет автоматически (см. предупреждение validate'а на
+# explicit duplicate); поэтому повторяем только X-Real-IP.
+(proxy_forward) {
+	header_up X-Real-IP {remote_host}
+}
+
 # Portal SPA + portal-gateway API (existing).
 {$PORTAL_DOMAIN} {
 	tls {$LETSENCRYPT_EMAIL}
 	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
 	reverse_proxy portal-gateway:8082 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import proxy_forward
 	}
 
 	import security_headers
@@ -47,9 +54,7 @@
 	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
 	reverse_proxy haproxy:8080 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import proxy_forward
 	}
 
 	import security_headers
@@ -66,9 +71,7 @@
 	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
 	reverse_proxy haproxy:8081 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+		import proxy_forward
 	}
 
 	import security_headers
