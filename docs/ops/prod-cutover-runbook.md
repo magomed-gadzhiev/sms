@@ -40,82 +40,115 @@
 
 ## Cutover Hour 0 — initial deploy
 
-- [ ] **T+0:** SSH на prod VM, `cd /opt/sms`, `git pull`.
+- [ ] **T+0:** SSH на prod VM, `cd /opt/sms`, `git pull`. ВСЕ последующие команды выполняются ИЗ этой ssh-сессии (без nested ssh).
+
+  Удобный alias на сессию (используется во всех snippets ниже):
+  ```
+  alias dc='docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod'
+  set -a; . /opt/sms/deployments/.env.prod; set +a   # экспортит POSTGRES_PASSWORD и др. в текущий shell
+  ```
+
+- [ ] **T+2:** Pre-pull images (избегаем blow timing budget на slow link):
+  ```
+  dc pull
+  ```
 
 - [ ] **T+5:** Bring up postgres + redis (только эти два):
   ```
-  docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod up -d postgres redis
+  dc up -d postgres redis
   sleep 30
   ```
 
-- [ ] **T+8:** Block sandbox-seed на prod (см. docs/ops/prod-admin-bootstrap.md Step 1):
+- [ ] **T+8:** Manual baseline snapshot (для возможного rollback ДО первой миграции — initial cutover sans deploy-prod.sh):
   ```
-  docker compose ... exec -T postgres psql -U smpp -d smpp_db -c "ALTER DATABASE smpp_db SET app.environment = 'production';"
-  docker compose ... restart postgres
+  mkdir -p /var/backups/sms-pg/pre-cutover-$(date +%Y%m%d-%H%M%S)
+  SNAPSHOT_DIR=/var/backups/sms-pg/pre-cutover-$(date +%Y%m%d-%H%M%S)
+  dc exec -T postgres pg_basebackup -U smpp -D - -Ft -P -X fetch | gzip > "$SNAPSHOT_DIR/base.tar.gz"
+  git rev-parse HEAD > "$SNAPSHOT_DIR/prev_ref.txt"
+  echo "Snapshot: $SNAPSHOT_DIR (для Abort criteria ниже, если потребуется rollback)"
+  ```
+
+- [ ] **T+10:** TLS staging toggle (ДО первого ACME-запроса, иначе после T+40 уже выпустится prod-cert):
+  - Recommended: первый cutover в staging-mode чтобы не сжечь LE rate-limit (5 dups/week).
+  - Раскомментировать `acme_ca https://acme-staging-v02.api.letsencrypt.org/directory` в `deployments/configs/caddy/Caddyfile`.
+  - Continue. После полной верификации (T+45 ниже) — закомментировать обратно + restart caddy для prod-cert.
+
+- [ ] **T+12:** Block sandbox-seed на prod (см. docs/ops/prod-admin-bootstrap.md Step 1):
+  ```
+  dc exec -T postgres psql -U smpp -d smpp_db -c "ALTER DATABASE smpp_db SET app.environment = 'production';"
+  dc restart postgres
   sleep 15
-  docker compose ... exec -T postgres psql -U smpp -d smpp_db -tAc "SHOW app.environment;"
+  dc exec -T postgres psql -U smpp -d smpp_db -tAc "SHOW app.environment;"
   ```
   Expected: `production`.
 
-- [ ] **T+12:** Apply migrations:
+- [ ] **T+15:** Apply migrations (POSTGRES_PASSWORD уже в shell после set -a из T+0):
   ```
-  ssh sms-server "docker run --rm -v /opt/sms/migrations:/migrations --network deployments_smpp-network migrate/migrate -path /migrations -database 'postgres://smpp:'$POSTGRES_PASSWORD'@postgres:5432/smpp_db?sslmode=disable' up"
+  docker run --rm \
+      -v /opt/sms/migrations:/migrations \
+      --network deployments_smpp-network \
+      migrate/migrate \
+      -path /migrations \
+      -database "postgres://smpp:${POSTGRES_PASSWORD}@postgres:5432/smpp_db?sslmode=disable" \
+      up
   ```
-  Логи должны содержать `NOTICE: Skipping sandbox seed (000116) on production environment` и stop'нуться на последней migration без error.
+  Логи: `NOTICE: Skipping sandbox seed (000116) on production environment`, последняя миграция без error.
 
   Verify нет sandbox users:
   ```
-  docker compose ... exec -T postgres psql -U smpp -d smpp_db -tAc "SELECT count(*) FROM users WHERE email='aggregator@test.local';"
+  dc exec -T postgres psql -U smpp -d smpp_db -tAc "SELECT count(*) FROM users WHERE email='aggregator@test.local';"
   ```
   Expected: 0.
 
-- [ ] **T+18:** Bootstrap admin (см. docs/ops/prod-admin-bootstrap.md Step 3):
+- [ ] **T+22:** Bootstrap admin (см. docs/ops/prod-admin-bootstrap.md Step 3). `dev` сервис — utility-container с Go toolchain в base compose, `run --rm` стартует ad-hoc:
   ```
-  set -a; . /opt/sms/deployments/.env.prod; set +a
   PROD_ADMIN_PASSWORD=$(openssl rand -base64 24)
   echo "Save this password in secrets vault: $PROD_ADMIN_PASSWORD"
   read -p "Saved? Press Enter..."
 
-  docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod \
-      run --rm \
+  dc run --rm \
       -e ADMIN_USERNAME=ops \
       -e ADMIN_EMAIL=ops@<your-domain> \
       -e ADMIN_PASSWORD="$PROD_ADMIN_PASSWORD" \
       -e DATABASE_URL="postgres://smpp:${POSTGRES_PASSWORD}@postgres:5432/smpp_db?sslmode=disable" \
       dev go run ./cmd/seed-admin
 
-  unset PROD_ADMIN_PASSWORD POSTGRES_PASSWORD
+  unset PROD_ADMIN_PASSWORD
   ```
-  Expected output: `Admin user created successfully: ops, ops@<domain>, <password>`.
+  Expected: `Admin user created successfully: ops, ops@<domain>, <password>`.
 
-- [ ] **T+25:** Bring up rest of stack:
+- [ ] **T+28:** Bring up rest of stack:
   ```
-  docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod up -d
+  dc up -d
   ```
 
-- [ ] **T+30:** Health check:
+- [ ] **T+33:** Health check:
   ```
   ./scripts/healthcheck.sh
   ```
   Все services должны быть зелёные. Если FAIL — НЕ продолжать, см. Abort criteria ниже.
 
-- [ ] **T+33:** Apply Redis firewall (см. docs/ops/redis-firewall-apply.md):
+- [ ] **T+36:** Apply Redis firewall (см. docs/ops/redis-firewall-apply.md):
   ```
   sudo bash /opt/sms/scripts/redis-firewall.sh
   sudo apt-get install -y iptables-persistent && sudo netfilter-persistent save
   ```
   Verify: `nc -zv <vm-ip> 6379 -w 3` от ops bastion → timeout.
 
-- [ ] **T+38:** Verify TLS (caddy auto-issued cert):
+- [ ] **T+40:** Verify TLS (caddy auto-issued cert — staging если включён в T+10):
   ```
   curl -fsSv https://${PORTAL_DOMAIN}/health
   ```
-  Первый запрос триггерит ACME. Cert получается за ~10s. Если зависает > 60s — проверь caddy logs (`docker compose ... logs caddy`), DNS resolve, network reachability port 80.
+  Первый запрос триггерит ACME. Cert получается за ~10-120s (зависит от DNS propagation). Если зависает > 120s — проверь `dc logs caddy`, DNS, port 80 reachability.
 
-- [ ] **T+42:** Verify TLS staging (опционально, если уже не делал в pre-cutover):
-  - Если был включён `acme_ca https://acme-staging-v02...` в Caddyfile — сейчас закомментировать обратно и `docker compose ... restart caddy`. Иначе будут staging certs (browser warning).
+  Если использовался staging — browser покажет cert warning. Это OK на этом этапе.
 
-- [ ] **T+45:** Login через UI: `https://${PORTAL_DOMAIN}/admin` → `ops@<domain>` + saved password. Должен пустить.
+- [ ] **T+45:** Login через UI: `https://${PORTAL_DOMAIN}/admin` → `ops@<domain>` + saved password. Должен пустить (skip TLS warning если staging).
+
+- [ ] **T+50:** **Switch staging → prod cert** (если использовался staging в T+10):
+  - Закомментировать `acme_ca` в Caddyfile обратно.
+  - `dc restart caddy`. Caddy выпустит prod-cert (~10-30s).
+  - Verify: `curl -fsSv https://${PORTAL_DOMAIN}/health` без warning'ов.
 
 ## Cutover Hour 1 — canary release
 
@@ -135,8 +168,7 @@
   ```
   Restart gateways (env подхватывается на restart):
   ```
-  docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod \
-      up -d --no-deps client-gateway-1 client-gateway-2 admin-gateway-1 admin-gateway-2 smpp-gateway portal-gateway
+  dc up -d --no-deps client-gateway-1 client-gateway-2 admin-gateway-1 admin-gateway-2 smpp-gateway portal-gateway
   ```
 
 - [ ] **T+70:** Run smoke (см. scripts/smoke-prod.sh):
@@ -145,14 +177,29 @@
   ```
   Expected: `=== AUTOMATED smoke OK ===`. Manual checks из output — выполни и проверь.
 
-- [ ] **T+75:** Manual smoke — отправить тестовый SMS через canary client:
+- [ ] **T+75:** Manual smoke — получить bearer-token canary-клиента и отправить тестовый SMS.
+
+  Login для canary client (creates session token):
   ```
-  curl -X POST https://${PORTAL_DOMAIN}/api/v1/messages \
-      -H "Authorization: Bearer <canary-client-token>" \
+  CANARY_TOKEN=$(curl -fsS --max-time 10 -X POST "https://${PORTAL_DOMAIN}/portal/v1/auth/login" \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"canary@<your-domain>","password":"<canary-password-saved-T+60>"}' \
+      | jq -r '.token')
+  test -n "$CANARY_TOKEN" || { echo "FAIL: canary login"; exit 1; }
+  ```
+
+  (Альтернатива — если portal exposes API-key для clients — создать API-key через UI/admin endpoint и использовать его. Точная procedure зависит от UI; общий fallback — login flow выше.)
+
+  Send test SMS:
+  ```
+  curl -X POST "https://${PORTAL_DOMAIN}/api/v1/messages" \
+      -H "Authorization: Bearer $CANARY_TOKEN" \
       -H 'Content-Type: application/json' \
       -d '{"to":"+77001234567","text":"Cutover smoke","sender":"TestSender"}'
   ```
   Expected: HTTP 202 + message_id.
+
+  Verify rejection не-allowlisted client'а: получить token любого OTHER-client'а и повторить — expected 503 / "service in canary mode".
 
   Verify rejection не-allowlisted client'а: попробуй с другого client'а — expected 503 "service in canary mode".
 
@@ -211,11 +258,19 @@
 
 **Procedure:**
 
+Для initial cutover (snapshot создан в T+8 как `pre-cutover-*`):
 ```
-ssh prod-host
 cd /opt/sms
-PREV_REF=$(cat /var/backups/sms-pg/pre-deploy-<timestamp>/prev_ref.txt)
-SNAPSHOT_DIR=/var/backups/sms-pg/pre-deploy-<timestamp>
+SNAPSHOT_DIR=$(ls -td /var/backups/sms-pg/pre-cutover-* | head -1)
+PREV_REF=$(cat "$SNAPSHOT_DIR/prev_ref.txt")
+./scripts/rollback-prod.sh "$PREV_REF" "$SNAPSHOT_DIR"
+```
+
+Для последующих deploy'ев (snapshot создан в `pre-deploy-*` через `deploy-prod.sh`):
+```
+cd /opt/sms
+SNAPSHOT_DIR=$(ls -td /var/backups/sms-pg/pre-deploy-* | head -1)
+PREV_REF=$(cat "$SNAPSHOT_DIR/prev_ref.txt")
 ./scripts/rollback-prod.sh "$PREV_REF" "$SNAPSHOT_DIR"
 ```
 
