@@ -3,8 +3,13 @@
 #
 # Sandbox compose (без -f docker-compose.prod.yml) этот overlay НЕ подцепляет
 # и продолжает работать как раньше (publish 18084 для portal-gateway).
-version: '3.8'
-
+#
+# REQUIREMENTS:
+# - Docker Compose >= 2.24 (для !reset директивы — иначе portal-gateway publish
+#   18084 НЕ снимется и portal будет доступен мимо TLS-фронта). Verify до
+#   первого `up`: `docker compose version`.
+# - DNS A/AAAA для $PORTAL_DOMAIN указывает на VM IP (требование для Let's
+#   Encrypt HTTP-01). Без DNS caddy зависает в ACME-loop.
 services:
   caddy:
     image: caddy:2.8-alpine
@@ -16,9 +21,11 @@ services:
       - ./configs/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    # ${VAR:?msg} — fail-fast если переменная пустая или unset; иначе caddy
+    # парсит Caddyfile с literal "{$PORTAL_DOMAIN}" → синтакс-ошибка не очевидна.
     environment:
-      PORTAL_DOMAIN: ${PORTAL_DOMAIN}
-      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+      PORTAL_DOMAIN: ${PORTAL_DOMAIN:?PORTAL_DOMAIN must be set in .env.prod}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set in .env.prod}
     depends_on:
       - portal-gateway
     networks:

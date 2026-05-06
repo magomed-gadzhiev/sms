@@ -1,7 +1,16 @@
 # {$PORTAL_DOMAIN} и переменные заполняются из .env.prod на момент
 # `docker compose up`. Без них caddy не стартует.
+#
+# DNS PREREQUISITE: A/AAAA-record для $PORTAL_DOMAIN должен указывать на VM
+# IP ДО первого `up -d`. Иначе Let's Encrypt HTTP-01 challenge зависнет, и
+# caddy будет рестартовать в loop. Verify через `dig +short $PORTAL_DOMAIN`.
+#
+# LE STAGING TOGGLE для smoke: раскомментировать `acme_ca` ниже на dry-run,
+# чтобы не сжечь rate-limit (LE prod: 5 dup certs/week, 50 unique/week).
+# После validate restart caddy с боевым acme_ca (default).
 {$PORTAL_DOMAIN} {
 	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
 	# Portal SPA + API через portal-gateway (internal port 8082).
 	reverse_proxy portal-gateway:8082 {
@@ -16,6 +25,7 @@
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
 		# CSP — оставляем permissive до отдельного audit'а; жёсткая CSP
 		# ломает Vite-built bundle с inline-modulepreload.
 		-Server
