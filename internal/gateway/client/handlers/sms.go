@@ -16,6 +16,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	sendernamev1 "github.com/smpp-server/smpp-server/api/proto/sendernamev1"
 	templatev1 "github.com/smpp-server/smpp-server/api/proto/templatev1"
+	"github.com/smpp-server/smpp-server/internal/gateway/canary"
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/cache"
@@ -198,6 +199,16 @@ func (h *SMSHandlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Plan 8 Task 6 followup: canary mode allowlist (parity с gRPC SendMessage).
+	// До Plan 8 HTTP send'ы шли мимо canary check'а — silent bypass.
+	if !canary.IsAllowed(clientID.String()) {
+		log.Warn().
+			Str("client_id", clientID.String()).
+			Msg("canary mode active: client not in allowlist, rejecting HTTP send")
+		respondError(w, shared.ErrServiceUnavailable("service in canary mode — please retry after 24h"))
+		return
+	}
+
 	// Валидация
 	// Validate source and destination
 	if req.Source == "" || req.Destination == "" {
@@ -350,6 +361,15 @@ func (h *SMSHandlers) SendBatch(w http.ResponseWriter, r *http.Request) {
 	clientID, ok := middleware.GetClientID(r.Context())
 	if !ok {
 		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	// Plan 8 Task 6 followup: canary mode allowlist (parity с gRPC SendBulkMessages).
+	if !canary.IsAllowed(clientID.String()) {
+		log.Warn().
+			Str("client_id", clientID.String()).
+			Msg("canary mode active: client not in allowlist, rejecting HTTP batch send")
+		respondError(w, shared.ErrServiceUnavailable("service in canary mode — please retry after 24h"))
 		return
 	}
 

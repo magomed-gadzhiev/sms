@@ -8,14 +8,15 @@
 # CANARY_CLIENT_IDS из .env.prod перед запуском smoke означает «canary mode
 # должен быть on на сервере, проверяй».
 #
-# ВАЖНО — canary enforcement gap (обнаружен в Plan 8 Task 6 Step 1):
-#   canary.IsAllowed вызывается только в client-gateway gRPC (internal/gateway/client/grpc/server.go)
-#   и SMPP handler. HTTP-эндпоинт /api/v1/sms/send (internal/gateway/client/handlers/sms.go)
-#   canary.IsAllowed НЕ вызывает → HTTP-send non-canary клиента проходит насквозь.
-#   Smoke 5 проверяет registration + login (Bearer token через /portal/v1/auth/register),
-#   но НЕ отправляет SMS через HTTP, потому что HTTP путь не enforce'ит canary.
-#   Для полного теста canary rejection нужен grpcurl на $GRPC_DOMAIN.
-#   TODO: добавить canary.IsAllowed в HTTP sms.go или добавить grpcurl smoke.
+# Canary enforcement (Plan 8 Task 6 followup fix):
+#   canary.IsAllowed теперь вызывается во ВСЕХ путях send'а — gRPC, SMPP, HTTP.
+#   До followup'а HTTP /api/v1/sms/send проходил мимо canary check'а.
+#   Smoke 5 здесь делает registration probe (client lookup в admin gateway).
+#   Полный 503 e2e-test требует client-auth flow (register → portal login →
+#   create api-key → POST /api/v1/sms/send с X-API-Key, expect 503) — это
+#   многошаговый scenario; отложен на post-cutover отдельной задачей.
+#   До тех пор HTTP canary enforcement покрыт unit-тестом в
+#   internal/gateway/client/handlers/sms_test.go (Plan 8 Task 6).
 set -euo pipefail
 
 PORTAL_URL="https://${PORTAL_DOMAIN:?PORTAL_DOMAIN required}"
@@ -54,10 +55,10 @@ echo "OK"
 echo "=== Smoke 5: canary registration probe ==="
 # Activated через caller-side env var CANARY_CLIENT_IDS (см. header).
 #
-# IMPORTANT: Smoke 5 verifies client registration flow only (POST /portal/v1/auth/register).
-# It does NOT test canary rejection via HTTP send because canary.IsAllowed is NOT called
-# in the HTTP sms handler — only in gRPC and SMPP. An HTTP send would succeed even when
-# canary mode is on. See header comment for full gap description.
+# Verifies client registration + admin cleanup flow (POST /portal/v1/auth/register
+# → DELETE /admin/v1/clients/{id}). Полный 503 e2e через HTTP send требует
+# client X-API-Key (multi-step setup) — отложен. HTTP canary enforcement
+# покрыт unit-тестом (см. handlers/sms_test.go Plan 8 Task 6).
 #
 # Verified paths (Step 1):
 #   POST   /portal/v1/auth/register  — creates client + user, returns {client_id, user}, sets session cookie
@@ -82,9 +83,7 @@ else
         -H "Authorization: Bearer $TOKEN" \
         "$ADMIN_URL/admin/v1/clients/$TEST_CLIENT_ID" >/dev/null 2>&1 || true' EXIT
 
-    echo "  WARNING: HTTP send canary check SKIPPED — canary.IsAllowed not enforced on HTTP path."
-    echo "  To verify canary rejection, use grpcurl against GRPC_DOMAIN (see script header)."
-    echo "OK (registration probe passed; gRPC canary enforcement requires grpcurl smoke)"
+    echo "OK (registration + cleanup flow). HTTP canary enforcement covered by unit test."
 fi
 
 echo ""

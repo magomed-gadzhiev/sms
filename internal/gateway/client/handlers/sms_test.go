@@ -287,6 +287,33 @@ func TestSMSHandlers(t *testing.T) {
 			assert.Equal(t, http.StatusUnauthorized, rr.Code)
 		})
 
+		t.Run("returns 503 when canary mode rejects non-allowlisted client", func(t *testing.T) {
+			// Plan 8 Task 6 followup: HTTP send теперь enforce'ит canary mode.
+			// До followup'а HTTP проходил мимо canary check'а — silent bypass.
+			msgClient := new(mockMessagingClient)
+			tmplClient := new(mockTemplateClient)
+			handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
+
+			allowedID := uuid.New()
+			rejectedID := uuid.New()
+			t.Setenv("CANARY_CLIENT_IDS", allowedID.String())
+
+			body, _ := json.Marshal(SendSMSRequest{
+				Source:      "MyApp",
+				Destination: "+79001234567",
+				Text:        "Hello",
+			})
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/sms/send", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = req.WithContext(contextWithClientID(req.Context(), rejectedID))
+
+			rr := httptest.NewRecorder()
+			handler.SendSMS(rr, req)
+
+			assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+			msgClient.AssertNotCalled(t, "SendMessage")
+		})
+
 		t.Run("returns 400 when source is empty", func(t *testing.T) {
 			msgClient := new(mockMessagingClient)
 			tmplClient := new(mockTemplateClient)
@@ -1077,6 +1104,31 @@ func TestCancelSMS_ACExtras(t *testing.T) {
 }
 
 func TestSendBatch(t *testing.T) {
+	t.Run("returns 503 when canary mode rejects non-allowlisted client (Plan 8 Task 6)", func(t *testing.T) {
+		msgClient := new(mockMessagingClient)
+		tmplClient := new(mockTemplateClient)
+		handler := NewSMSHandlers(msgClient, tmplClient, nil, nil)
+
+		allowedID := uuid.New()
+		rejectedID := uuid.New()
+		t.Setenv("CANARY_CLIENT_IDS", allowedID.String())
+
+		body, _ := json.Marshal(SendBatchSMSRequest{
+			Messages: []SendSMSRequest{
+				{Source: "App", Destination: "+79001111111", Text: "hi"},
+			},
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sms/batch", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req = req.WithContext(contextWithClientID(req.Context(), rejectedID))
+
+		rr := httptest.NewRecorder()
+		handler.SendBatch(rr, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+		msgClient.AssertNotCalled(t, "SendBatch")
+	})
+
 	t.Run("success accepts multiple messages and returns per-message results (US3 AC1)", func(t *testing.T) {
 		msgClient := new(mockMessagingClient)
 		tmplClient := new(mockTemplateClient)
