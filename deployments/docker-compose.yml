@@ -1355,6 +1355,28 @@ services:
       - smpp-network
     restart: unless-stopped
 
+  # Alertmanager
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    # prom/alertmanager v0.27.0 base image = busybox/alpine.
+    # Устанавливаем gettext on-the-fly (нужен envsubst для template).
+    # Если apk недоступен (distroless variant) — fallback: custom Dockerfile.
+    user: root
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache gettext && /etc/alertmanager/entrypoint.sh"]
+    volumes:
+      - ./configs/alertmanager:/etc/alertmanager:ro
+      - alertmanager_data:/alertmanager
+    environment:
+      ALERTMANAGER_SMTP_HOST: ${ALERTMANAGER_SMTP_HOST:-localhost:25}
+      ALERTMANAGER_SMTP_FROM: ${ALERTMANAGER_SMTP_FROM:-alerts@localhost}
+      ALERTMANAGER_SMTP_USER: ${ALERTMANAGER_SMTP_USER:-}
+      ALERTMANAGER_SMTP_PASSWORD: ${ALERTMANAGER_SMTP_PASSWORD:-}
+      ALERTMANAGER_TO: ${ALERTMANAGER_TO:-ops@localhost}
+    networks:
+      - smpp-network
+
   loki:
     image: grafana/loki:3.0.0
     container_name: loki
@@ -1485,6 +1507,7 @@ volumes:
   prometheus-data:
   grafana-data:
   loki_data:
+  alertmanager_data:
   contact-uploads:
   network-exports:
   directus-uploads:
