@@ -6,7 +6,7 @@
 
 **Architecture:** docker-compose clone на новом VM; Caddy для TLS auto-Let's Encrypt; email-relay alertmanager; pg_basebackup daily snapshot; canary-режим первые 24h (один test-client allowlisted на app-уровне); deploy через `git pull + docker compose up` с downtime-окном 2-3 минуты на сервис; rollback через предыдущий git tag + restore из snapshot.
 
-**Tech Stack:** Docker Compose, Caddy (TLS), Postgres 15 partitioning, Prometheus + Alertmanager (email receiver), Grafana provisioning, pg_basebackup, golang-migrate, Go 1.24 (advisory-lock в retry-loop).
+**Tech Stack:** Docker Compose, Caddy (TLS), Postgres 15 partitioning, Prometheus + Alertmanager (email receiver), Grafana provisioning, pg_basebackup, golang-migrate, Go 1.24 (canary allowlist + partition maintenance в worker; advisory-lock T2 deferred to Plan 8).
 
 **MVP defaults (зафиксированы 2026-05-06):**
 - P1 hosting: docker-compose clone на новом VM (не k8s).
