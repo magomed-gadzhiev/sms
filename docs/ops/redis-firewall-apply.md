@@ -22,4 +22,14 @@ iptables правила НЕ переживают reboot без `iptables-persis
 
 ## Rollback
 
-`sudo iptables -F INPUT` — снимает все правила (опасно, открывает Redis обратно). Используется только при инциденте, когда firewall блокирует легитимный traffic.
+Снять только правила Redis (НЕ `-F INPUT` — он флашит всю цепочку, ломает SSH-rules и пр.):
+
+```
+sudo iptables -D INPUT -p tcp --dport 6379 -j DROP
+sudo iptables -D INPUT -i lo -p tcp --dport 6379 -j ACCEPT
+sudo iptables -D INPUT -p tcp --dport 6379 -m state --state ESTABLISHED,RELATED -j ACCEPT
+# Docker bridge ACCEPT: bridge name через `ip -br link | grep -E 'docker0|br-'`, удалить аналогично.
+sudo netfilter-persistent save
+```
+
+Используется только при инциденте, когда firewall блокирует легитимный traffic. После rollback Redis открыт всему миру — закрыть как можно скорее.
