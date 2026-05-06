@@ -40,7 +40,14 @@ services:
   # === Gateways (HTTP/gRPC internals — доступ через haproxy) ===
   # haproxy остаётся published (8080/8081/8082/8083/9090/19095/8404).
   # Known gap: haproxy-fronted gateways пока без TLS — Caddy expansion = Plan 8.
-  # smpp-gateway остаётся published (2775) — SMPP клиенты direct TCP.
+  # smpp-gateway: оставляем published ТОЛЬКО 2775 (SMPP TCP); base также
+  # публикует 2110 (Prometheus metrics) — он не должен торчать наружу,
+  # Prometheus scrape'ит через docker network. !override заменяет весь
+  # список ports на one-element массив.
+  smpp-gateway:
+    ports: !override
+      - "2775:2775"
+
   client-gateway-1:
     ports: !reset []
   client-gateway-2:
