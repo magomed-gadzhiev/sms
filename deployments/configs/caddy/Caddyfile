@@ -81,3 +81,40 @@
 	}
 	encode gzip
 }
+
+# gRPC fan-out: один TLS-host на оба gateway'а через path-matcher (Variant A).
+# Caddy term'ит TLS, проксирует h2c на HaProxy mode tcp.
+#
+# Service mapping (из proto-файлов):
+#   client-gateway :9090 → MessagingService (package messaging.v1)
+#     gRPC path: /messaging.v1.MessagingService/*
+#   admin-gateway  :9091 → пустой сервер (services запланированы; нет
+#     зарегистрированных сервисов в текущем коде cmd/admin-gateway/main.go).
+#     Matcher /admin.* зарезервирован под будущие AdminService/* в пакете admin.v1.
+#
+# proxy_forward (X-Real-IP) НЕ применяется к gRPC-блокам: gRPC несёт metadata
+# независимо, а header_up на h2c transport'е не имеет того же смысла что на HTTP.
+{$GRPC_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	@admin path /admin.*
+	reverse_proxy @admin haproxy:9091 {
+		transport http {
+			versions h2c
+		}
+	}
+
+	# Default — client gRPC (MessagingService, package messaging.v1).
+	reverse_proxy haproxy:9090 {
+		transport http {
+			versions h2c
+		}
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
+}
