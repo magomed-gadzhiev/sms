@@ -92,3 +92,19 @@ func TestEnsureFuturePartitions_RejectsInvalidForward(t *testing.T) {
 	err := maintenance.EnsureFuturePartitions(context.Background(), (*pgxpool.Pool)(nil), "audit_log", maintenance.NamingYMM, time.Now(), 0)
 	require.Error(t, err)
 }
+
+func TestEnsureFuturePartitions_RejectsInjectionAttempt(t *testing.T) {
+	cases := []string{
+		"audit_log; DROP TABLE users; --",
+		"audit_log\"",
+		"AUDIT_LOG", // uppercase нарушает identifier regex
+		"audit-log", // дефис недопустим
+		"",
+		"1audit_log", // не может начинаться с цифры
+	}
+	for _, name := range cases {
+		err := maintenance.EnsureFuturePartitions(context.Background(), (*pgxpool.Pool)(nil), name, maintenance.NamingYMM, time.Now(), 1)
+		require.Error(t, err, "tableName=%q должен быть отвергнут", name)
+		require.Contains(t, err.Error(), "invalid tableName", "tableName=%q error must mention invalid tableName, got %v", name, err)
+	}
+}

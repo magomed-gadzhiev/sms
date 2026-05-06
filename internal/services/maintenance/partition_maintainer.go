@@ -3,11 +3,19 @@ package maintenance
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
+
+// validIdentifier — разрешённый формат table-name'а: lowercase + digits + _,
+// начинается с буквы/_. Защита от SQL-injection через interpolated DDL
+// (tableName идёт в fmt.Sprintf без quoting'а; pgx.Identifier{}.Sanitize()
+// не используется потому что оборачивает в "..." и ломает имена партиций
+// производные от него).
+var validIdentifier = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
 
 // PartitionNaming описывает суффикс-схему имени монтьной партиции.
 //
@@ -48,16 +56,31 @@ func formatPartitionName(table string, naming PartitionNaming, t time.Time) stri
 }
 
 // EnsureFuturePartitions гарантирует, что для partitioned-таблицы tableName
-// существуют монтьные партиции от месяца now до now+forwardMonths включительно.
+// существуют монтьные партиции от месяца now до now+forwardMonths включительно
+// (всего forwardMonths+1 партиций; forwardMonths=6 → 7 партиций: текущий + 6).
 // Idempotent: использует CREATE TABLE IF NOT EXISTS PARTITION OF.
 //
 // Применимо к таблицам с RANGE partitioning по timestamp-колонке (created_at)
 // с месячным шагом. naming определяет суффикс имени партиции.
 //
+// Caveats:
+//   - Errors из pool.Exec возвращаются caller'у; в RunPartitionMaintenanceLoop
+//     они логируются и swallow'ятся, retry на следующем тике (24h).
+//   - "IF NOT EXISTS PARTITION OF" idempotent ТОЛЬКО по имени. Если партиция
+//     с тем же range, но другим именем (например, наследие старого naming)
+//     уже существует — PG вернёт ошибку "partition would overlap". Это
+//     desired: вызывает alert, ops видит drift, не silent corruption.
+//   - tableName ВАЛИДИРУЕТСЯ против [a-z_][a-z0-9_]* — interpolated DDL без
+//     этого = SQL-injection vector. Любой каллер, использующий пользовательский
+//     ввод для tableName, обязан понимать ограничение.
+//
 // Plan 7 Task 6.
 func EnsureFuturePartitions(ctx context.Context, pool *pgxpool.Pool, tableName string, naming PartitionNaming, now time.Time, forwardMonths int) error {
 	if forwardMonths <= 0 {
 		return fmt.Errorf("forwardMonths must be positive, got %d", forwardMonths)
+	}
+	if !validIdentifier.MatchString(tableName) {
+		return fmt.Errorf("invalid tableName %q: must match %s", tableName, validIdentifier.String())
 	}
 	for i := 0; i <= forwardMonths; i++ {
 		monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, i, 0)
