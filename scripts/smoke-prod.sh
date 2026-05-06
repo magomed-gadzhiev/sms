@@ -12,7 +12,7 @@ curl -fsS -o /dev/null --max-time 10 "$PORTAL_URL/health" || { echo "FAIL: TLS o
 echo "OK"
 
 echo "=== Smoke 2: Admin login ==="
-TOKEN=$(curl -fsS -X POST "$PORTAL_URL/portal/v1/auth/login" \
+TOKEN=$(curl -fsS --max-time 10 -X POST "$PORTAL_URL/portal/v1/auth/login" \
     -H 'Content-Type: application/json' \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" \
     | jq -r '.token')
@@ -20,7 +20,7 @@ test -n "$TOKEN" || { echo "FAIL: login returned empty token"; exit 1; }
 echo "OK"
 
 echo "=== Smoke 3: SRA-stuck endpoint reachable ==="
-curl -fsS -H "Authorization: Bearer $TOKEN" "$PORTAL_URL/portal/v1/admin/network/sra-stuck" \
+curl -fsS --max-time 10 -H "Authorization: Bearer $TOKEN" "$PORTAL_URL/portal/v1/admin/network/sra-stuck" \
     | jq '.rows | length' >/dev/null || { echo "FAIL: SRA-stuck endpoint"; exit 1; }
 echo "OK"
 
