@@ -18,20 +18,39 @@ groups:
             investigate root cause, then click Reset to resume retries.
           runbook: "https://internal/runbooks/sra-stuck"
 
-      # Initial-failure rate (real degradation signal, не retry-loop noise).
-      - alert: SRAMaterializeInitialFailureRate
+      # Initial-failure rate — split per-env (prod traffic ~2 порядка > sandbox).
+      # Prod threshold 0.05 events/sec (~3/min) — real degradation signal.
+      - alert: SRAMaterializeInitialFailureRateProd
         expr: rate(portal_materialize_failure_total{source="initial"}[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
           team: ops
+          env: prod
         annotations:
-          summary: "SRA materialize initial-failure rate > 0.05 events/sec (~3/min)"
+          summary: "[prod] SRA materialize initial-failure rate > 0.05 events/sec (~3/min)"
           description: |
             Materializer ApplyToClient failures during PUT/Bulk handlers
             (operation={{ $labels.operation }}). Rate {{ printf "%.2f" $value }}/sec.
             Check portal-gateway logs for errors. retry-loop will pick these up
             within 1 minute (cap=100).
+        # ВАЖНО: alert match'ит ЛЮБОЙ env (prod/sandbox/etc), но routes/inhibits
+        # в Alertmanager используют label `env: prod` для prod-receiver.
+        # На sandbox этот alert тоже fire'ится при > 0.05/s, но Alertmanager
+        # routing (Task 9) направит его в log-only (env=sandbox match'ится первым).
+
+      - alert: SRAMaterializeInitialFailureRateSandbox
+        expr: rate(portal_materialize_failure_total{source="initial"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: ops
+          env: sandbox
+        annotations:
+          summary: "[sandbox] SRA materialize initial-failure rate > 0.5 events/sec (10x prod threshold)"
+          description: |
+            Sandbox 10x prod threshold — игнорируем ниже этого порога (тестовый
+            traffic с ad-hoc провайдер-конфигами генерирует false positives).
 
       # Backlog overflow — sustained sign that retry tick capacity недостаточна.
       - alert: SRARetryBacklogOverflow

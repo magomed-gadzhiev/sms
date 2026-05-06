@@ -1,6 +1,8 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    env: ${PROMETHEUS_ENV:-sandbox}
 
 rule_files:
   - "/etc/prometheus/rules/*.yml"

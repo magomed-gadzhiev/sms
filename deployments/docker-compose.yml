@@ -1342,12 +1342,15 @@ services:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./configs/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
+    environment:
+      PROMETHEUS_ENV: ${PROMETHEUS_ENV:-sandbox}
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-remote-write-receiver'
+      - '--enable-feature=expand-external-labels'
     networks:
       - smpp-network
     restart: unless-stopped
