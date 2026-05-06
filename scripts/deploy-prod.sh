@@ -61,6 +61,15 @@ docker run --rm \
     -database "postgres://smpp:${POSTGRES_PASSWORD}@postgres:5432/smpp_db?sslmode=disable" \
     up
 
+# Pre-pull base images: caddy, postgres, redis, kafka, alpine helpers.
+# Цель — отделить slow-pull от build phase, чтобы фокус оператора был
+# на одном этапе. --include-deps подтягивает все зависимости services.
+echo ""
+echo "=== Pre-pull base images ==="
+$COMPOSE pull --include-deps --quiet 2>&1 | tail -5 || {
+    echo "WARN: pre-pull failed — continuing with build (it will retry pulls)"
+}
+
 # Deploy.
 echo ""
 echo "=== Deploy ==="
