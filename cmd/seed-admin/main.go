@@ -16,7 +16,6 @@ import (
 const (
 	defaultUsername = "admin"
 	defaultEmail    = "admin@example.com"
-	defaultPassword = "Admin123!"
 	adminRoleID     = "00000000-0000-0000-0000-000000000001"
 )
 
@@ -28,7 +27,10 @@ func main() {
 
 	username := envOr("ADMIN_USERNAME", defaultUsername)
 	email := envOr("ADMIN_EMAIL", defaultEmail)
-	password := envOr("ADMIN_PASSWORD", defaultPassword)
+	password := os.Getenv("ADMIN_PASSWORD")
+	if err := validateAdminPassword(password); err != nil {
+		log.Fatalf("seed-admin: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -68,6 +70,22 @@ func main() {
 	}
 
 	fmt.Printf("Admin user created successfully:\n  Username: %s\n  Email:    %s\n  Password: %s\n", username, email, password)
+}
+
+// validateAdminPassword проверяет, что пароль задан и достаточно длинный.
+// Возвращает ошибку с описанием проблемы — main печатает и exit'ит.
+//
+// Минимум 16 символов: не bcrypt-стойкость, а защита от очевидных слабых
+// паролей (Admin123!, password, 12345678). Для bcrypt cost=10 16 случайных
+// символов = ~96 бит энтропии, достаточно.
+func validateAdminPassword(pw string) error {
+	if pw == "" {
+		return fmt.Errorf("ADMIN_PASSWORD env var is required (no default in production)")
+	}
+	if len(pw) < 16 {
+		return fmt.Errorf("ADMIN_PASSWORD must be at least 16 characters (got %d)", len(pw))
+	}
+	return nil
 }
 
 func envOr(key, fallback string) string {
