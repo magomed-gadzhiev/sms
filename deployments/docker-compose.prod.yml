@@ -28,6 +28,7 @@ services:
       LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set in .env.prod}
     depends_on:
       - portal-gateway
+      - haproxy
     networks:
       - smpp-network
 
@@ -38,8 +39,19 @@ services:
     ports: !reset []
 
   # === Gateways (HTTP/gRPC internals — доступ через haproxy) ===
-  # haproxy остаётся published (8080/8081/8082/8083/9090/19095/8404).
-  # Known gap: haproxy-fronted gateways пока без TLS — Caddy expansion = Plan 8.
+  # haproxy: TLS-фронт = Caddy (Plan 8 Tasks 2-3). HaProxy теперь internal-only,
+  # принимает трафик от caddy через docker network. Stats:8404 доступен через
+  # SSH-tunnel: ssh -L 8404:haproxy:8404 prod-host.
+  haproxy:
+    ports: !override []
+    depends_on:
+      - client-gateway-1
+      - client-gateway-2
+      - admin-gateway-1
+      - admin-gateway-2
+      - portal-gateway
+      - portal-frontend
+
   # smpp-gateway: оставляем published ТОЛЬКО 2775 (SMPP TCP); base также
   # публикует 2110 (Prometheus metrics) — он не должен торчать наружу,
   # Prometheus scrape'ит через docker network. !override заменяет весь
