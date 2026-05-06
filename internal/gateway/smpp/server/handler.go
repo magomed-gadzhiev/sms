@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/smpp-server/smpp-server/internal/gateway/canary"
 	smppsession "github.com/smpp-server/smpp-server/internal/gateway/smpp/session"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
@@ -292,7 +293,24 @@ func (h *Handler) handleSubmitSM(pdu *protocol.PDU) error {
 		monitoring.SMPPMessagesFailed.WithLabelValues("", "", "rate_limit_exceeded").Inc()
 		return h.sendSubmitSMResp(pdu.SequenceNumber, protocol.ESME_RTHROTTLED, "")
 	}
-	
+
+	// Plan 7 Task 12: canary mode allowlist. Если CANARY_CLIENT_IDS non-empty,
+	// только перечисленные клиенты могут submit_sm. Снимается оператором после
+	// observation period (24h) через unset env-var + restart smpp-gateway.
+	{
+		var clientIDStr string
+		if h.session.ClientID != nil {
+			clientIDStr = h.session.ClientID.String()
+		}
+		if !canary.IsAllowed(clientIDStr) {
+			h.logger.Warn().
+				Str("client_id", clientIDStr).
+				Msg("canary mode active: client not in allowlist, rejecting submit_sm")
+			monitoring.SMPPMessagesFailed.WithLabelValues("", "", "canary_reject").Inc()
+			return h.sendSubmitSMResp(pdu.SequenceNumber, protocol.ESME_RTHROTTLED, "")
+		}
+	}
+
 	// Декодируем submit_sm
 	submit, err := h.decoder.DecodeSubmitSM(pdu.Body)
 	if err != nil {

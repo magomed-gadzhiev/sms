@@ -10,6 +10,7 @@ import (
 	"github.com/smpp-server/smpp-server/api/proto/analyticsv1"
 	"github.com/smpp-server/smpp-server/api/proto/billingv1"
 	"github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	"github.com/smpp-server/smpp-server/internal/gateway/canary"
 )
 
 // Server реализует gRPC сервер для Client Gateway
@@ -54,6 +55,16 @@ func (s *Server) SendMessage(ctx context.Context, req *messagingv1.SendMessageRe
 	// Устанавливаем client_id из контекста
 	req.ClientId = clientID.String()
 
+	// Plan 7 Task 12: canary mode. Если CANARY_CLIENT_IDS non-empty,
+	// только перечисленные клиенты могут отправлять. Снимается оператором
+	// после observation period (24h) через unset env-var + restart.
+	if !canary.IsAllowed(clientID.String()) {
+		log.Warn().
+			Str("client_id", clientID.String()).
+			Msg("canary mode active: client not in allowlist, rejecting send")
+		return nil, status.Error(codes.Unavailable, "service in canary mode — please retry after 24h")
+	}
+
 	// Проксируем запрос в Messaging Service
 	return s.messagingClient.SendMessage(ctx, req)
 }
@@ -88,6 +99,14 @@ func (s *Server) SendBatch(ctx context.Context, req *messagingv1.SendBatchReques
 			return nil, status.Error(codes.PermissionDenied, "нельзя отправлять сообщения от имени другого клиента")
 		}
 		msg.ClientId = clientID.String()
+	}
+
+	// Plan 7 Task 12: canary mode allowlist (см. SendMessage).
+	if !canary.IsAllowed(clientID.String()) {
+		log.Warn().
+			Str("client_id", clientID.String()).
+			Msg("canary mode active: client not in allowlist, rejecting batch send")
+		return nil, status.Error(codes.Unavailable, "service in canary mode — please retry after 24h")
 	}
 
 	// Проксируем запрос в Messaging Service
