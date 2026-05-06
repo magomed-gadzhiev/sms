@@ -1,0 +1,35 @@
+# Production overlay. Применять:
+# docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod up -d
+#
+# Sandbox compose (без -f docker-compose.prod.yml) этот overlay НЕ подцепляет
+# и продолжает работать как раньше (publish 18084 для portal-gateway).
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./configs/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      PORTAL_DOMAIN: ${PORTAL_DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    depends_on:
+      - portal-gateway
+    networks:
+      - smpp-network
+
+  # Portal-gateway: убираем publish 18084 наружу — теперь только internal,
+  # доступ через caddy. Если в будущем portal-gateway получит /healthz endpoint
+  # на отдельном порту — published can be добавлен здесь.
+  portal-gateway:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,30 @@
+# {$PORTAL_DOMAIN} и переменные заполняются из .env.prod на момент
+# `docker compose up`. Без них caddy не стартует.
+{$PORTAL_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+
+	# Portal SPA + API через portal-gateway (internal port 8082).
+	reverse_proxy portal-gateway:8082 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Security headers — baseline OWASP.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# CSP — оставляем permissive до отдельного audit'а; жёсткая CSP
+		# ломает Vite-built bundle с inline-modulepreload.
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+
+	encode gzip
+}
