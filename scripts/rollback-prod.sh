@@ -46,6 +46,11 @@ if [ -n "$SNAPSHOT_DIR" ] && [ -f "$SNAPSHOT_DIR/base.tar.gz" ]; then
     $COMPOSE stop postgres
 
     echo "Restoring snapshot offline (alpine helper) ..."
+    echo "  snapshot: $SNAPSHOT_DIR/base.tar.gz → volume: $VOL"
+    # alpine sh -c использует свой `set -eu` потому что docker subprocess
+    # не наследует pipefail/errexit от parent shell'а. UID/GID 999:999 —
+    # дефолт postgres:15 image (см. также restore-test.sh).
+    # Glob `.[!.]*` матчит dotfiles за исключением `.` и `..` (safe для PGDATA).
     docker run --rm \
         -v "$VOL:/data" \
         -v "$SNAPSHOT_DIR:/backup:ro" \
@@ -59,12 +64,24 @@ if [ -n "$SNAPSHOT_DIR" ] && [ -f "$SNAPSHOT_DIR/base.tar.gz" ]; then
     echo "Starting postgres ..."
     $COMPOSE up -d postgres
 
-    echo "Waiting 30s for postgres recovery + accept connections ..."
-    sleep 30
-
-    # Sanity check.
-    if ! $COMPOSE exec -T postgres psql -U smpp -d smpp_db -c "SELECT 1" >/dev/null 2>&1; then
-        echo "ERROR: postgres unreachable after restore — manual intervention required"
+    # Wait-loop вместо hardcoded sleep: SELECT 1 вернёт OK как только pg
+    # принимает connections, что соответствует «recovery complete + ready».
+    # 60 итераций × 2s = 120s max. Под incident-stress'ом explicit timeout
+    # лучше чем silent advance с unfinished WAL replay (см. code-review).
+    echo "Waiting for postgres to accept connections ..."
+    POSTGRES_READY=0
+    for i in $(seq 1 60); do
+        if $COMPOSE exec -T postgres psql -U smpp -d smpp_db -c "SELECT 1" >/dev/null 2>&1; then
+            POSTGRES_READY=1
+            break
+        fi
+        echo "  waiting ($i/60) ..."
+        sleep 2
+    done
+    if [ "$POSTGRES_READY" != 1 ]; then
+        echo "ERROR: postgres failed to accept connections within 120s after restore"
+        echo "Manual recovery: verify tar (tar -tzf $SNAPSHOT_DIR/base.tar.gz | head),"
+        echo "проверить docker volume на stale mounts ($COMPOSE logs postgres | tail -50)."
         exit 1
     fi
     echo "DB restore OK"
