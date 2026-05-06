@@ -40,9 +40,15 @@ docker compose ... exec -T postgres psql -U smpp -d smpp_db -c "SELECT count(*) 
 
 ## Step 3 — создать первого admin
 
-`cmd/seed-admin` принимает creds через ENV. Generate strong password ВНЕ shell history (через `openssl rand`):
+`cmd/seed-admin` принимает creds через ENV. Generate strong password ВНЕ shell history (через `openssl rand`).
+
+КРИТИЧНО: `${POSTGRES_PASSWORD}` в DATABASE_URL должен резолвиться в shell ДО docker run (compose --env-file экспортит только в контейнер, не в host shell). Source .env.prod перед invocation:
 
 ```
+set -a
+. /opt/sms/deployments/.env.prod
+set +a
+
 PROD_ADMIN_PASSWORD=$(openssl rand -base64 24)
 echo "Save this password in secrets vault BEFORE proceeding: $PROD_ADMIN_PASSWORD"
 read -p "Saved? Press Enter..."
@@ -55,8 +61,10 @@ docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.p
     -e DATABASE_URL="postgres://smpp:${POSTGRES_PASSWORD}@postgres:5432/smpp_db?sslmode=disable" \
     dev go run ./cmd/seed-admin
 
-unset PROD_ADMIN_PASSWORD
+unset PROD_ADMIN_PASSWORD POSTGRES_PASSWORD
 ```
+
+(`dev` сервис — utility-container с Go toolchain, существует в base compose. `run --rm` стартует ad-hoc — не зависит от того, был ли `dev` поднят через `up`.)
 
 Output: `Admin user created successfully: ops, ops@example.com, <password>`. Сохранить в vault, **НЕ коммитить**.
 
@@ -68,10 +76,10 @@ Output: `Admin user created successfully: ops, ops@example.com, <password>`. С�
 
 ## Rotation / Recovery
 
-cmd/seed-admin idempotent (skip if user exists), не умеет change-password. Если password утерян:
+cmd/seed-admin idempotent (skip if user exists by username OR email — см. main.go:44), не умеет change-password. Если password утерян:
 
 ```
-docker compose ... exec -T postgres psql -U smpp -d smpp_db -c "DELETE FROM users WHERE email='ops@example.com';"
+docker compose ... exec -T postgres psql -U smpp -d smpp_db -c "DELETE FROM users WHERE email='ops@example.com' OR username='ops';"
 # Затем заново Step 3 с новым PROD_ADMIN_PASSWORD.
 ```
 
