@@ -28,12 +28,31 @@ import (
 // Plan 4 Task 6: закрывает gap из Plan 3 Task 4 — committed-but-unmaterialized
 // SRA остаётся неприменённым до перезапуска worker'а.
 // Plan 6 Task 2: добавлен WHERE materialize_retry_count < 100 и give-up gauge.
+//
+// Plan 7 Task 2: добавлен pg_try_advisory_xact_lock в WHERE для best-effort
+// guard от duplicate-work при multi-replica worker scale-up. Single-replica
+// — оверхед negligible (lock acquire/release per row).
 func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplier, rm RouteApplier) error {
+	// pg_try_advisory_xact_lock(hashtext(client_id::text)::bigint) — best-effort
+	// synchronization для multi-replica worker scale-up. Lock существует в
+	// неявной транзакции единичного Query, релизится при rows.Close().
+	//
+	// Гарантия: SELECT-time race (две реплики одновременно SELECT'ят одну row)
+	// эксклюзивно claim'ит ровно одна реплика. Cycle-time race (между
+	// rows.Close() и UPDATE materialize_retry_count в applier'е) НЕ покрыт —
+	// gap ≈ единицы ms, в худшем случае retry_count++ дважды вместо +1 за
+	// одну row, что acceptable (slightly accelerates SRARetryGiveUp gauge).
+	//
+	// hashtext(uuid::text) → int4 → cast bigint. Collision risk на 10k clients
+	// ≈ 1/4B, acceptable. SELECT FOR UPDATE SKIP LOCKED не используется —
+	// требует обхватывания processing'а транзакцией, а ApplyAssignmentMaterializers
+	// принимает *pgxpool.Pool (не Tx) — рефакторинг сигнатуры out of scope.
 	rows, err := pool.Query(ctx, `
 		SELECT client_id, provider_set_id, route_set_id
 		  FROM subaccount_routing_assignment
 		 WHERE last_materialize_error_at IS NOT NULL
 		   AND materialize_retry_count < 100
+		   AND pg_try_advisory_xact_lock(hashtext(client_id::text)::bigint)
 		 ORDER BY last_materialize_error_at ASC
 		 LIMIT 100`)
 	if err != nil {
