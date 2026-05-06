@@ -17,6 +17,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/router"
+	maintenancesvc "github.com/smpp-server/smpp-server/internal/services/maintenance"
 	networksvc "github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/smsc"
@@ -112,6 +113,13 @@ func main() {
 	retryCtx, retryCancel := context.WithCancel(ctx)
 	defer retryCancel()
 	go networksvc.RunRetryLoop(retryCtx, dbPool, providerMat, routeMat, 60*time.Second)
+
+	// Plan 7 Task 6: ensure monthly партиции присутствуют на 6 месяцев вперёд
+	// для всех partitioned-таблиц с _yYYYYmMM naming. Без этого после 2026-12
+	// первый INSERT упадёт с "no partition for value".
+	go maintenancesvc.RunPartitionMaintenanceLoop(retryCtx, dbPool,
+		[]string{"audit_log", "lookup_log", "messages", "deliveries", "delivery_attempts"},
+		6, 24*time.Hour)
 
 	// Подключение к billing-service gRPC
 	billingAddr := os.Getenv("BILLING_SERVICE_ADDR")
