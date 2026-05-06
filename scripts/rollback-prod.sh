@@ -20,30 +20,54 @@ git checkout "$PREV_REF"
 if [ -n "$SNAPSHOT_DIR" ] && [ -f "$SNAPSHOT_DIR/base.tar.gz" ]; then
     echo ""
     echo "=== DB Restore from $SNAPSHOT_DIR ==="
-    echo ""
-    echo "!!! WARNING — UNTESTED MECHANICS !!!"
-    echo "Implementer flagged: tar extraction в running postgres некорректна."
-    echo "Корректный workflow требует stopped container + offline tar в volume:"
-    echo ""
-    echo "  $COMPOSE stop postgres"
-    echo "  VOL=\$(docker volume ls --format '{{.Name}}' | grep -E 'postgres-data\$' | head -1)"
-    echo "  docker run --rm -v \"\$VOL:/data\" -v \"$SNAPSHOT_DIR:/backup:ro\" alpine sh -c \\"
-    echo "    'rm -rf /data/* /data/.* 2>/dev/null; tar -xzf /backup/base.tar.gz -C /data && chown -R 999:999 /data'"
-    echo "  $COMPOSE up -d postgres"
-    echo ""
-    echo "TODO Plan 8: implement and end-to-end test offline restore."
-    echo "В Plan 7 restore делать ВРУЧНУЮ по командам выше."
-    echo ""
-    echo "Skip auto-restore (CODE-ONLY rollback). Continue with redeploy? (y/N)"
+    echo "DESTRUCTIVE — postgres data будет полностью заменён snapshot'ом."
+
     if [ -t 0 ]; then
+        echo "Continue? (yes/N)"
         read -r answer
-        if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
-            echo "Aborted."
+        if [ "$answer" != "yes" ]; then
+            echo "Aborted by operator."
             exit 1
         fi
     else
-        echo "(non-interactive: auto-continue with code-only rollback)"
+        echo "(non-interactive mode: proceeding with restore — caller responsibility)"
     fi
+
+    # Resolve postgres data volume name. Compose project name = directory
+    # parent имя (deployments), volume = "<project>_postgres-data".
+    VOL=$(docker volume ls --format '{{.Name}}' | grep -E '_postgres-data$' | head -1)
+    if [ -z "$VOL" ]; then
+        echo "ERROR: postgres-data volume not found via 'docker volume ls'"
+        exit 1
+    fi
+    echo "Using volume: $VOL"
+
+    echo "Stopping postgres ..."
+    $COMPOSE stop postgres
+
+    echo "Restoring snapshot offline (alpine helper) ..."
+    docker run --rm \
+        -v "$VOL:/data" \
+        -v "$SNAPSHOT_DIR:/backup:ro" \
+        alpine sh -c '
+            set -eu
+            rm -rf /data/* /data/.[!.]* 2>/dev/null || true
+            tar -xzf /backup/base.tar.gz -C /data
+            chown -R 999:999 /data
+        '
+
+    echo "Starting postgres ..."
+    $COMPOSE up -d postgres
+
+    echo "Waiting 30s for postgres recovery + accept connections ..."
+    sleep 30
+
+    # Sanity check.
+    if ! $COMPOSE exec -T postgres psql -U smpp -d smpp_db -c "SELECT 1" >/dev/null 2>&1; then
+        echo "ERROR: postgres unreachable after restore — manual intervention required"
+        exit 1
+    fi
+    echo "DB restore OK"
 fi
 
 echo ""
