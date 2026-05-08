@@ -59,13 +59,14 @@ SELECT
     COUNT(*) FILTER (WHERE m.status = 'pending')               AS pending,
     COUNT(*) FILTER (WHERE m.status = 'expired')               AS timeout,
     COUNT(*) FILTER (WHERE m.status IN ('failed','rejected'))  AS error,
-    0                                                          AS revenue,
+    COALESCE(SUM(t.total_amount), 0)                           AS revenue,
     0                                                          AS cost
 FROM messages m
-LEFT JOIN clients   c  ON c.id  = m.client_id
-LEFT JOIN clients   p  ON p.id  = c.parent_client_id
-LEFT JOIN operators op ON op.id = m.operator_id
-LEFT JOIN countries co ON co.id = m.country_id
+LEFT JOIN clients          c  ON c.id  = m.client_id
+LEFT JOIN clients          p  ON p.id  = c.parent_client_id
+LEFT JOIN operators        op ON op.id = m.operator_id
+LEFT JOIN countries        co ON co.id = m.country_id
+LEFT JOIN tarification_log t  ON t.message_id = m.id
 WHERE m.created_at >= $1 AND m.created_at < $2
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 `
