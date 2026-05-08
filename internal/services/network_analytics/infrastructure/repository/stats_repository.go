@@ -758,17 +758,17 @@ func (r *StatsRepo) UpsertHourlyStats(ctx context.Context, rows []domain.HourlyS
 		)
 		ON CONFLICT (partner_id, hour, provider_id, operator, country, channel, login, sender_name, traffic_type, method)
 		DO UPDATE SET
-			total          = network_stats_hourly.total + EXCLUDED.total,
-			sent           = network_stats_hourly.sent + EXCLUDED.sent,
-			delivered      = network_stats_hourly.delivered + EXCLUDED.delivered,
-			failed         = network_stats_hourly.failed + EXCLUDED.failed,
-			pending        = EXCLUDED.pending,
-			timeout        = network_stats_hourly.timeout + EXCLUDED.timeout,
-			error    = network_stats_hourly.error + EXCLUDED.error,
-			revenue        = network_stats_hourly.revenue + EXCLUDED.revenue,
-			cost           = network_stats_hourly.cost + EXCLUDED.cost,
-			dlr_latency_sum = network_stats_hourly.dlr_latency_sum + EXCLUDED.dlr_latency_sum,
-			dlr_latency_cnt = network_stats_hourly.dlr_latency_cnt + EXCLUDED.dlr_latency_cnt,
+			total           = EXCLUDED.total,
+			sent            = EXCLUDED.sent,
+			delivered       = EXCLUDED.delivered,
+			failed          = EXCLUDED.failed,
+			pending         = EXCLUDED.pending,
+			timeout         = EXCLUDED.timeout,
+			error           = EXCLUDED.error,
+			revenue         = EXCLUDED.revenue,
+			cost            = EXCLUDED.cost,
+			dlr_latency_sum = EXCLUDED.dlr_latency_sum,
+			dlr_latency_cnt = EXCLUDED.dlr_latency_cnt,
 			dlr_latency_p50 = EXCLUDED.dlr_latency_p50,
 			dlr_latency_p95 = EXCLUDED.dlr_latency_p95,
 			throughput_max  = GREATEST(network_stats_hourly.throughput_max, EXCLUDED.throughput_max)`
