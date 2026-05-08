@@ -98,14 +98,23 @@ func buildStatKPIs(rows []domain.StatRow) []domain.KPI {
 		errStatus = domain.HealthWarning
 	}
 
+	// moneyValue: when there is no money data at all, render as nil so the UI
+	// shows "—" instead of "0 ₽" (which the previous shape painted as green-OK).
+	moneyValue := func(v float64) *float64 {
+		if v == 0 {
+			return nil
+		}
+		return &v
+	}
+
 	return []domain.KPI{
-		{Name: "Всего", Value: float64(totalMsgs), Status: domain.HealthOK},
-		{Name: "Доставляемость", Value: dlrRate, Status: dlrStatus},
-		{Name: "Ошибки", Value: errorRate, Status: errStatus},
-		{Name: "Выручка", Value: revenue, Status: domain.HealthOK},
-		{Name: "Себестоимость", Value: cost, Status: domain.HealthOK},
-		{Name: "Прибыль", Value: profit, Status: domain.HealthOK},
-		{Name: "Pending", Value: float64(pending), Status: domain.HealthOK},
+		{Name: "Всего", Value: domain.F64p(float64(totalMsgs)), Status: domain.HealthOK, Format: "count"},
+		{Name: "Доставляемость", Value: domain.F64p(dlrRate), Status: dlrStatus, Format: "percent"},
+		{Name: "Ошибки", Value: domain.F64p(errorRate), Status: errStatus, Format: "percent"},
+		{Name: "Выручка", Value: moneyValue(revenue), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
+		{Name: "Себестоимость", Value: moneyValue(cost), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
+		{Name: "Прибыль", Value: moneyValue(profit), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
+		{Name: "Pending", Value: domain.F64p(float64(pending)), Status: domain.HealthOK, Format: "count"},
 	}
 }
 
@@ -146,12 +155,12 @@ func buildMonitoringKPIs(rows []domain.MonitorRow) []domain.KPI {
 	}
 
 	return []domain.KPI{
-		{Name: "throughput", Value: totalThroughput, Status: overallHealth},
-		{Name: "dlr_rate", Value: dlrRate, Status: overallHealth},
-		{Name: "pending", Value: float64(totalPending), Status: overallHealth},
-		{Name: "errors", Value: float64(totalError), Status: overallHealth},
-		{Name: "timeouts", Value: float64(totalTimeout), Status: overallHealth},
-		{Name: "unhealthy_providers", Value: float64(dangerCount + warningCount), Status: overallHealth},
+		{Name: "throughput", Value: domain.F64p(totalThroughput), Status: overallHealth, Format: "count"},
+		{Name: "dlr_rate", Value: domain.F64p(dlrRate), Status: overallHealth, Format: "percent"},
+		{Name: "pending", Value: domain.F64p(float64(totalPending)), Status: overallHealth, Format: "count"},
+		{Name: "errors", Value: domain.F64p(float64(totalError)), Status: overallHealth, Format: "count"},
+		{Name: "timeouts", Value: domain.F64p(float64(totalTimeout)), Status: overallHealth, Format: "count"},
+		{Name: "unhealthy_providers", Value: domain.F64p(float64(dangerCount + warningCount)), Status: overallHealth, Format: "count"},
 	}
 }
 

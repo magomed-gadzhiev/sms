@@ -277,12 +277,19 @@ func computeKPIs(total, delivered, failed int64, revenue, cost float64) []domain
 		dlrStatus = domain.HealthWarning
 	}
 
+	moneyValue := func(v float64) *float64 {
+		if v == 0 {
+			return nil
+		}
+		return &v
+	}
+
 	return []domain.KPI{
-		{Name: "Всего", Value: float64(total)},
-		{Name: "Доставлено", Value: float64(delivered)},
-		{Name: "Доставляемость", Value: dlrRate, Status: dlrStatus},
-		{Name: "Ошибки", Value: float64(failed)},
-		{Name: "Прибыль", Value: profit},
+		{Name: "Всего", Value: domain.F64p(float64(total)), Format: "count"},
+		{Name: "Доставлено", Value: domain.F64p(float64(delivered)), Format: "count"},
+		{Name: "Доставляемость", Value: domain.F64p(dlrRate), Status: dlrStatus, Format: "percent"},
+		{Name: "Ошибки", Value: domain.F64p(float64(failed)), Format: "count"},
+		{Name: "Прибыль", Value: moneyValue(profit), Format: "currency", Currency: "RUB"},
 	}
 }
 
@@ -332,11 +339,17 @@ func (r *StatsRepo) GetAnalyticsSummary(ctx context.Context, filter *domain.Shar
 	}
 	prevKPIs := computeKPIs(prevTotal, prevDelivered, prevFailed, prevRevenue, prevCost)
 
-	// Compute deltas into current KPIs
+	// Compute deltas into current KPIs.
+	// Both Value pointers must be non-nil and prev != 0 for a meaningful delta.
 	for i := range kpis {
-		if i < len(prevKPIs) && prevKPIs[i].Value != 0 {
-			kpis[i].Delta = (kpis[i].Value - prevKPIs[i].Value) / prevKPIs[i].Value * 100
+		if i >= len(prevKPIs) {
+			continue
 		}
+		cur, prev := kpis[i].Value, prevKPIs[i].Value
+		if cur == nil || prev == nil || *prev == 0 {
+			continue
+		}
+		kpis[i].Delta = (*cur - *prev) / *prev * 100
 	}
 
 	// Compute trends from time-series
@@ -412,18 +425,24 @@ func (r *StatsRepo) computeTrends(ctx context.Context, filter *domain.SharedFilt
 func generateSignals(current, previous []domain.KPI) []domain.Signal {
 	var signals []domain.Signal
 
-	// Map KPIs by name
+	// Map KPIs by name. Skip nil-valued previous KPIs since there's nothing to
+	// compare against.
 	prevMap := make(map[string]float64, len(previous))
 	for _, k := range previous {
-		prevMap[k.Name] = k.Value
+		if k.Value != nil {
+			prevMap[k.Name] = *k.Value
+		}
 	}
 
 	for _, k := range current {
+		if k.Value == nil {
+			continue
+		}
 		prev, hasPrev := prevMap[k.Name]
 		if !hasPrev || prev == 0 {
 			continue
 		}
-		changePct := (k.Value - prev) / prev * 100
+		changePct := (*k.Value - prev) / prev * 100
 
 		switch k.Name {
 		case "Доставляемость":

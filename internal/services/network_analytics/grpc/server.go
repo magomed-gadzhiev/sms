@@ -321,12 +321,20 @@ func protoViewToDomain(pb *networkanalyticsv1.SavedView, partnerID, userID int64
 func domainKPIsToProto(kpis []domain.KPI) []*networkanalyticsv1.KPI {
 	out := make([]*networkanalyticsv1.KPI, len(kpis))
 	for i, k := range kpis {
-		out[i] = &networkanalyticsv1.KPI{
-			Name:   k.Name,
-			Value:  k.Value,
-			Delta:  k.Delta,
-			Status: k.Status,
+		pb := &networkanalyticsv1.KPI{
+			Name:     k.Name,
+			Delta:    k.Delta,
+			Status:   k.Status,
+			Format:   k.Format,
+			Currency: k.Currency,
 		}
+		// Forward nullable Value: nil domain → nil proto (oneof unset),
+		// so the JSON response omits "value" entirely instead of emitting 0.
+		if k.Value != nil {
+			v := *k.Value
+			pb.Value = &v
+		}
+		out[i] = pb
 	}
 	return out
 }

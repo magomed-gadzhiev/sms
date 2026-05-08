@@ -45,9 +45,11 @@ message SharedFilter {
 
 message KPI {
   string name = 1;
-  double value = 2;
+  optional double value = 2;
   double delta = 3;
   string status = 4;
+  string format = 5;    // "count" | "percent" | "currency"
+  string currency = 6;  // populated only when format=="currency" (e.g. "RUB")
 }
 
 message StatRow {

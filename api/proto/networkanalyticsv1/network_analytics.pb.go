@@ -244,9 +244,11 @@ func (x *SharedFilter) GetSortDir() string {
 type KPI struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Value         float64                `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value         *float64               `protobuf:"fixed64,2,opt,name=value,proto3,oneof" json:"value,omitempty"`
 	Delta         float64                `protobuf:"fixed64,3,opt,name=delta,proto3" json:"delta,omitempty"`
 	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Format        string                 `protobuf:"bytes,5,opt,name=format,proto3" json:"format,omitempty"`     // "count" | "percent" | "currency"
+	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"` // populated only when format=="currency" (e.g. "RUB")
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -289,8 +291,8 @@ func (x *KPI) GetName() string {
 }
 
 func (x *KPI) GetValue() float64 {
-	if x != nil {
-		return x.Value
+	if x != nil && x.Value != nil {
+		return *x.Value
 	}
 	return 0
 }
@@ -305,6 +307,20 @@ func (x *KPI) GetDelta() float64 {
 func (x *KPI) GetStatus() string {
 	if x != nil {
 		return x.Status
+	}
+	return ""
+}
+
+func (x *KPI) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *KPI) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -2050,12 +2066,15 @@ const file_network_analytics_proto_rawDesc = "" +
 	"\x04page\x18\x14 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x15 \x01(\x05R\bpageSize\x12\x17\n" +
 	"\asort_by\x18\x16 \x01(\tR\x06sortBy\x12\x19\n" +
-	"\bsort_dir\x18\x17 \x01(\tR\asortDir\"]\n" +
+	"\bsort_dir\x18\x17 \x01(\tR\asortDir\"\xa0\x01\n" +
 	"\x03KPI\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value\x12\x14\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x19\n" +
+	"\x05value\x18\x02 \x01(\x01H\x00R\x05value\x88\x01\x01\x12\x14\n" +
 	"\x05delta\x18\x03 \x01(\x01R\x05delta\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\"\xd8\x03\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x16\n" +
+	"\x06format\x18\x05 \x01(\tR\x06format\x12\x1a\n" +
+	"\bcurrency\x18\x06 \x01(\tR\bcurrencyB\b\n" +
+	"\x06_value\"\xd8\x03\n" +
 	"\aStatRow\x12\x14\n" +
 	"\x05slice\x18\x01 \x01(\tR\x05slice\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x12\n" +
@@ -2327,6 +2346,7 @@ func file_network_analytics_proto_init() {
 	if File_network_analytics_proto != nil {
 		return
 	}
+	file_network_analytics_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

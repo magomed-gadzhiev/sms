@@ -170,11 +170,22 @@ func (f *SharedFilter) Normalize() {
 }
 
 // KPI represents a single KPI card value.
+//
+// Value is a pointer so that absence of data (nil) is distinguishable from a
+// genuine zero. The HTTP layer relies on this to render "—" instead of "0"
+// (and instead of falsely painting empty money cards as green-OK).
+//
+// Format hints the UI how to render Value:
+//   - "count"    integer count, no suffix
+//   - "percent"  fraction in [0..1] rendered as "%"
+//   - "currency" amount rendered with Currency suffix (e.g. "RUB")
 type KPI struct {
-	Name   string
-	Value  float64
-	Delta  float64 // comparison with previous period
-	Status string  // ok | warning | danger
+	Name     string   `json:"name"`
+	Value    *float64 `json:"value,omitempty"`
+	Status   string   `json:"status,omitempty"`
+	Delta    float64  `json:"delta,omitempty"`
+	Format   string   `json:"format,omitempty"`
+	Currency string   `json:"currency,omitempty"`
 }
 
 // StatRow represents one row in the statistics/analytics table.
@@ -386,3 +397,7 @@ func ComputeHealth(dlrRate float64, latencyP95Ms int, errorRate float64, pending
 	}
 	return HealthOK
 }
+
+// F64p returns a pointer to a copy of f. Helper for KPI.Value assignment so
+// callers can write `Value: F64p(x)` instead of `v := x; ... Value: &v`.
+func F64p(f float64) *float64 { return &f }
