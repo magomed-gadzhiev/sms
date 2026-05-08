@@ -109,10 +109,11 @@ func (w *AggregationWorker) RunHourlyAggregation(ctx context.Context) {
 }
 
 // BackfillWindow re-aggregates messages from `from` (inclusive) to `to`
-// (exclusive) hour by hour. Callers are expected to TRUNCATE
-// network_stats_hourly first if they want a clean recompute, because
-// UpsertHourlyStats adds to existing counters. Safe to call multiple
-// times only if the table is empty for the window.
+// (exclusive) hour by hour. UpsertHourlyStats uses replace semantics on
+// ON CONFLICT (since efd0cfd), so re-running BackfillWindow over the same
+// window is idempotent — counters are overwritten, not accumulated.
+// throughput_max is the only column that uses GREATEST (it represents
+// peak observed across runs and would otherwise lose history).
 func (w *AggregationWorker) BackfillWindow(ctx context.Context, from, to time.Time) error {
 	from = from.UTC().Truncate(time.Hour)
 	to = to.UTC().Truncate(time.Hour)
