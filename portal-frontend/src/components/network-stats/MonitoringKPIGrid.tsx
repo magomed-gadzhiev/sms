@@ -47,14 +47,17 @@ export function MonitoringKPIGrid({ kpis }: { kpis: KPI[] }) {
   if (!kpis || !kpis.length) return null;
   return (
     <div className="grid grid-cols-4 gap-2.5 px-4 py-3">
-      {kpis.map((kpi) => (
-        <div key={kpi.name} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">{monitorKPILabel(kpi)}</div>
-          <div className={`mt-1 text-xl font-bold ${kpiColor(kpi)}`}>
-            {formatMonitorValue(kpi)}
+      {kpis.map((kpi) => {
+        const isNil = kpi.value == null || Number.isNaN(kpi.value ?? NaN);
+        return (
+          <div key={kpi.name} className={`rounded-lg border border-gray-200 px-3 py-2.5 ${isNil ? 'bg-slate-50' : 'bg-white'}`}>
+            <div className="text-[10px] uppercase tracking-wide text-gray-400">{monitorKPILabel(kpi)}</div>
+            <div className={`mt-1 text-xl font-bold ${kpiColor(kpi)}`}>
+              {formatMonitorValue(kpi)}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

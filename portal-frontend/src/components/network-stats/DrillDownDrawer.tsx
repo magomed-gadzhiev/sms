@@ -136,12 +136,15 @@ export function DrillDownDrawer({ open, onClose, data, stack, activeView, onView
         {/* Summary KPIs */}
         {data?.summary && data.summary.length > 0 && (
           <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-gray-100">
-            {data.summary.map(kpi => (
-              <div key={kpi.name} className="text-center">
-                <div className="text-[10px] uppercase text-gray-400">{kpi.name}</div>
-                <div className="text-lg font-bold text-slate-900">{fmtKPI(kpi)}</div>
-              </div>
-            ))}
+            {data.summary.map(kpi => {
+              const isNil = kpi.value == null || Number.isNaN(kpi.value ?? NaN);
+              return (
+                <div key={kpi.name} className={`text-center rounded ${isNil ? 'bg-slate-50' : ''}`}>
+                  <div className="text-[10px] uppercase text-gray-400">{kpi.name}</div>
+                  <div className={`text-lg font-bold ${isNil ? 'text-slate-400' : 'text-slate-900'}`}>{fmtKPI(kpi)}</div>
+                </div>
+              );
+            })}
           </div>
         )}
 
