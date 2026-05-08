@@ -84,7 +84,7 @@ func TestAggregationWorker_BackfillJoinsTarificationLog(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Client with explicit partner_id=999.
+	// Client with explicit partner_id well outside sequence range (see partnerID constant).
 	_, err = pool.Exec(ctx, `
 		INSERT INTO clients (id, name, api_key, secret, email, active, partner_id)
 		VALUES ($1, $2, $3, 'secret', $4, true, $5)`,
