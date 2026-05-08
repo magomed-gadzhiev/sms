@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SMS-платформа — презентация для инвесторов</title>
+<meta name="description" content="Корпоративная коммуникационная инфраструктура. 1200 msg/sec на 5 000 ₽/мес инфры, готовая к 10× росту без переписывания.">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#eff6ff', 100:'#dbeafe', 500:'#1f4e79', 600:'#1a4269', 700:'#143553', 900:'#0a1d2e' },
+        accent:{ 500:'#2e7d32', 600:'#256628' },
+        warn:  { 500:'#cc6600' }
+      },
+      fontFamily: { sans:['Inter','system-ui','-apple-system','sans-serif'], mono:['JetBrains Mono','monospace'] }
+    }
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: {
+    primaryColor: '#1f4e79', primaryTextColor: '#fff', primaryBorderColor: '#143553',
+    lineColor: '#64748b', secondaryColor: '#fff4e6', tertiaryColor: '#e8f5e8',
+    fontFamily: 'Inter,sans-serif', fontSize: '14px'
+  }});
+  window.mermaid = mermaid;
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter',sans-serif; -webkit-font-smoothing: antialiased; }
+  .nav-active { background: #1f4e79; color: #fff; }
+  .nav-link { transition: all .15s; }
+  .nav-link:hover { background: #dbeafe; color: #1f4e79; }
+  .gradient-hero { background: linear-gradient(135deg, #0a1d2e 0%, #1f4e79 60%, #2e7d32 100%); }
+  .number-glow { text-shadow: 0 0 30px rgba(255,255,255,.3); }
+  details > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: '▶'; display: inline-block; transition: transform .2s; margin-right: 8px; color: #1f4e79; font-size: .8em; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  .seq-step { transition: opacity .4s, background .4s, transform .3s; }
+  .seq-step.dim { opacity: .25; }
+  .seq-step.active { background: #fff4e6; transform: translateX(4px); border-left-color: #cc6600; }
+  .seq-step.done { opacity: .55; }
+  input[type=range] { accent-color: #1f4e79; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .timeline-bar { background: linear-gradient(90deg, #1f4e79 0%, #2e7d32 50%, #cc6600 100%); }
+  @keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
+  .pulse-dot { animation: pulse-dot 1.5s infinite; }
+  .mermaid svg { max-width: 100%; height: auto; }
+  .stat-card { transition: transform .2s, box-shadow .2s; }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(31,78,121,.25); }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+<!-- ===== TOP BAR ===== -->
+<header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200">
+  <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-brand-500 grid place-items-center text-white font-bold">S</div>
+      <div>
+        <div class="text-sm font-semibold text-brand-500">SMS-платформа</div>
+        <div class="text-xs text-slate-500">Презентация для инвесторов · 2026</div>
+      </div>
+    </div>
+    <nav class="hidden lg:flex items-center gap-1 text-sm">
+      <a href="#hero" class="nav-link px-3 py-1.5 rounded">О продукте</a>
+      <a href="#product" class="nav-link px-3 py-1.5 rounded">Функционал</a>
+      <a href="#architecture" class="nav-link px-3 py-1.5 rounded">Архитектура</a>
+      <a href="#economics" class="nav-link px-3 py-1.5 rounded">Экономика</a>
+      <a href="#roadmap" class="nav-link px-3 py-1.5 rounded">Roadmap</a>
+      <a href="#summary" class="nav-link px-3 py-1.5 rounded">Резюме</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section id="hero" class="gradient-hero text-white relative overflow-hidden">
+  <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 30%, white 1px, transparent 1px); background-size: 60px 60px, 80px 80px;"></div>
+  <div class="max-w-screen-2xl mx-auto px-6 py-20 lg:py-28 relative">
+    <div class="text-xs uppercase tracking-widest text-brand-100/80 mb-4">Корпоративная коммуникационная инфраструктура</div>
+    <h1 class="text-5xl lg:text-7xl font-black leading-tight mb-6 number-glow">SMS-платформа<br><span class="text-brand-100/90 text-3xl lg:text-5xl font-light">для бизнеса, который не имеет права<br>пропустить ни одно сообщение</span></h1>
+    <p class="text-lg lg:text-xl text-brand-100/80 max-w-3xl leading-relaxed">
+      Готовый production-продукт. 18 функциональных блоков работают сегодня. Архитектура держит 10× рост на той же модели расходов. На рынке, где маржа определяется не железом, а операторскими сделками, мы вышли в позицию, где инфраструктура перестала быть ограничением.
+    </p>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-12">
+      <div class="stat-card bg-white/10 backdrop-blur border border-white/20 rounded-xl p-5">
+        <div class="text-3xl lg:text-4xl font-black">1 200</div>
+        <div class="text-xs uppercase tracking-wider text-brand-100/70 mt-1">сообщений/сек сейчас</div>
+      </div>
+      <div class="stat-card bg-white/10 backdrop-blur border border-white/20 rounded-xl p-5">
+        <div class="text-3xl lg:text-4xl font-black">5 000 ₽</div>
+        <div class="text-xs uppercase tracking-wider text-brand-100/70 mt-1">инфра в месяц</div>
+      </div>
+      <div class="stat-card bg-white/10 backdrop-blur border border-white/20 rounded-xl p-5">
+        <div class="text-3xl lg:text-4xl font-black">0,003<span class="text-xl font-normal"> коп.</span></div>
+        <div class="text-xs uppercase tracking-wider text-brand-100/70 mt-1">себестоимость 1 SMS</div>
+      </div>
+      <div class="stat-card bg-white/10 backdrop-blur border border-white/20 rounded-xl p-5">
+        <div class="text-3xl lg:text-4xl font-black">10 000<span class="text-xl font-normal">/сек</span></div>
+        <div class="text-xs uppercase tracking-wider text-brand-100/70 mt-1">целевой throughput</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mt-10">
+      <a href="#product" class="bg-white text-brand-500 hover:bg-brand-50 px-6 py-3 rounded-lg font-semibold transition">Посмотреть продукт →</a>
+      <a href="#economics" class="bg-white/10 hover:bg-white/20 border border-white/30 px-6 py-3 rounded-lg font-semibold transition">Экономика инфраструктуры</a>
+      <a href="#architecture" class="bg-white/10 hover:bg-white/20 border border-white/30 px-6 py-3 rounded-lg font-semibold transition">Архитектура и стек</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TWO-COLUMN LAYOUT FROM HERE ===== -->
+<div class="max-w-screen-2xl mx-auto px-6 py-12 lg:flex lg:gap-12">
+
+  <!-- Sticky sidebar -->
+  <aside class="hidden lg:block w-64 flex-shrink-0">
+    <div class="sticky top-24 space-y-1 text-sm">
+      <div class="text-xs uppercase tracking-widest text-slate-400 mb-2 px-3">Содержание</div>
+      <a href="#summary-top" class="nav-link block px-3 py-2 rounded">1. Краткое резюме</a>
+      <a href="#market" class="nav-link block px-3 py-2 rounded">2. Зачем существует продукт</a>
+      <a href="#product" class="nav-link block px-3 py-2 rounded">3. Что умеет платформа</a>
+      <a href="#architecture" class="nav-link block px-3 py-2 rounded">4. Архитектура и стек</a>
+      <a href="#economics" class="nav-link block px-3 py-2 rounded">5. Экономика инфраструктуры</a>
+      <a href="#clients" class="nav-link block px-3 py-2 rounded">6. Кому продаём</a>
+      <a href="#competition" class="nav-link block px-3 py-2 rounded">7. Конкурентные отличия</a>
+      <a href="#roadmap" class="nav-link block px-3 py-2 rounded">8. Состояние и Roadmap</a>
+      <a href="#summary" class="nav-link block px-3 py-2 rounded">9. Резюме инвестору</a>
+      <div class="border-t border-slate-200 mt-4 pt-4 px-3 text-xs text-slate-500 leading-relaxed">
+        Документ интерактивный. Раскрывайте детали кликом, двигайте ползунки в калькуляторе, кликайте по узлам диаграммы.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="flex-1 min-w-0 space-y-24">
+
+    <!-- ===== 1. КРАТКОЕ РЕЗЮМЕ ===== -->
+    <section id="summary-top" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 1</div>
+      <h2 class="text-4xl font-black mb-6">Краткое резюме</h2>
+      <div class="prose prose-slate max-w-none space-y-4 text-lg leading-relaxed">
+        <p>Мы создаём программную платформу, через которую бизнес отправляет своим клиентам короткие сообщения: коды подтверждения при входе на сайт, уведомления о доставке заказа, напоминания о записи к врачу, маркетинговые рассылки. Это та инфраструктура, без которой не работают ни один интернет-магазин, ни один банк, ни один сервис такси.</p>
+        <p>Платформа предоставляет бизнесу единую точку входа: один контракт, один интерфейс, один счёт — а внутри автоматически выбирается самый дешёвый и надёжный способ доставить сообщение. Если сообщение не дошло одним каналом, система сама пробует другой. Если оператор поднял цены — мы переключаемся на альтернативу без участия клиента.</p>
+        <p>Продукт уже работает в production-режиме: реализовано ядро отправки, личный кабинет для самостоятельной работы клиентов, биллинг с учётом операторов и каналов, многоуровневые тарифы, каскадная доставка через несколько каналов связи, базы контактов с импортом и сегментацией, A/B-тестирование сообщений. На очереди — расширение списка каналов (мессенджеры, голосовые звонки) и масштабирование под высоконагруженных корпоративных клиентов.</p>
+      </div>
+
+      <div class="mt-8 grid md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <div class="text-xs uppercase tracking-widest text-slate-400 mb-3">Состояние ядра</div>
+          <div class="text-2xl font-bold text-accent-500">Production · 18 функциональных блоков</div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <div class="text-xs uppercase tracking-widest text-slate-400 mb-3">Каналы доставки</div>
+          <div class="text-base">SMS, flash-call, в работе MAX-мессенджер. Каскадные стратегии настраиваются клиентом.</div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <div class="text-xs uppercase tracking-widest text-slate-400 mb-3">Модель монетизации</div>
+          <div class="text-base">Маржа на трафике + абонентская плата за тарифные планы и доп. услуги.</div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <div class="text-xs uppercase tracking-widest text-slate-400 mb-3">Тип клиентов</div>
+          <div class="text-base">B2B — банки, e-commerce, сервисы доставки, медицина, такси, госсектор.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 2. РЫНОК ===== -->
+    <section id="market" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 2</div>
+      <h2 class="text-4xl font-black mb-6">Зачем существует такой продукт</h2>
+
+      <h3 class="text-xl font-bold mt-8 mb-3 text-brand-500">2.1. SMS-платформа простыми словами</h3>
+      <p class="text-lg leading-relaxed mb-3">Когда вы заходите на сайт банка и получаете SMS с кодом — это сообщение пришло не «от банка напрямую». Между банком и вашим телефоном работает несколько посредников: программная система банка, шлюз-агрегатор, мобильный оператор, его коммутаторы. Наша платформа — первое звено в этой цепочке: программная инфраструктура, которая принимает запрос от бизнеса и доводит его до получателя через цепочку технических каналов.</p>
+      <p class="text-lg leading-relaxed">Без такой платформы бизнес был бы вынужден интегрироваться напрямую с десятками операторов в десятках стран, разбираться в форматах, согласовывать тарифы, отслеживать сбои. Это огромная инженерная и юридическая работа, не имеющая отношения к основному бизнесу клиента. Мы её берём на себя.</p>
+
+      <h3 class="text-xl font-bold mt-10 mb-3 text-brand-500">2.2. Кто платит и почему</h3>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="font-semibold text-brand-500 mb-2">Подтверждение действий</div>
+          <div class="text-sm leading-relaxed">Вход в личный кабинет, подтверждение перевода, восстановление пароля. OTP-коды — без них невозможна онлайн-банковская деятельность, госуслуги, маркетплейсы.</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="font-semibold text-brand-500 mb-2">Транзакционные уведомления</div>
+          <div class="text-sm leading-relaxed">«Заказ доставлен курьеру», «Платёж подтверждён», «Запись к врачу на 14:00». Формируют ожидания клиента, снижают нагрузку на колл-центр.</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="font-semibold text-brand-500 mb-2">Маркетинговые рассылки</div>
+          <div class="text-sm leading-relaxed">Акции, скидки, информирование. Один из самых дешёвых каналов связи с клиентом по показателю «прочитываемость на рубль».</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="font-semibold text-brand-500 mb-2">Сервисные оповещения</div>
+          <div class="text-sm leading-relaxed">Аварийные предупреждения коммунальных служб, изменения авиарейсов, графики сотрудников.</div>
+        </div>
+      </div>
+      <p class="text-lg leading-relaxed mt-6 bg-warn-500/5 border-l-4 border-warn-500 p-4 rounded">
+        <span class="font-semibold">Главная особенность:</span> бизнесу нельзя пропустить ни одно сообщение. Не доставленный код подтверждения = не совершённый платёж = потерянный клиент. Поэтому такие компании готовы платить за надёжность и за инструменты управления ею.
+      </p>
+
+      <h3 class="text-xl font-bold mt-10 mb-3 text-brand-500">2.3. Размер и характер рынка</h3>
+      <p class="text-lg leading-relaxed mb-4">Рынок A2P (Application-to-Person) — многомиллиардный мировой и многомиллиардный российский. Драйверы: рост онлайн-сервисов, обязательная двухфакторная аутентификация в банках и госуслугах, развитие e-commerce.</p>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">🔒</div><div class="text-sm leading-relaxed"><b>Высокий switching cost.</b> Затраты на интеграцию делают «переезд» к конкуренту дорогим — клиенты остаются годами.</div></div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">📈</div><div class="text-sm leading-relaxed"><b>Объёмы предсказуемы.</b> Компания, шлющая миллион в месяц, шлёт примерно столько же и в следующем — стабильная выручка.</div></div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">💰</div><div class="text-sm leading-relaxed"><b>Маржа от оптимизации маршрутов.</b> Кто умеет находить дешёвые маршруты — у того выше прибыль на тех же объёмах.</div></div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">🌐</div><div class="text-sm leading-relaxed"><b>Канал диверсифицируется.</b> Кроме SMS — голос, мессенджеры, push. Платформы с несколькими каналами выигрывают.</div></div>
+      </div>
+    </section>
+
+    <!-- ===== 3. ПРОДУКТ ===== -->
+    <section id="product" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 3</div>
+      <h2 class="text-4xl font-black mb-6">Что умеет наша платформа</h2>
+      <p class="text-lg leading-relaxed mb-8">Функциональность покрывает весь жизненный цикл сообщения — от приёма до подтверждения доставки и выставления счёта. Десять продуктовых блоков, каждый раскрывается по клику.</p>
+
+      <div class="space-y-3" x-data="{open: 1}">
+        <!-- 3.1 -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5 open" open>
+          <summary class="font-semibold text-lg text-brand-500">3.1. Отправка: единичные, массовые, отложенные</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Базовая операция платформы — приём сообщения от клиента и доставка получателю. Поддержано три режима:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li><b>Единичная отправка</b> — типичный сценарий для OTP и транзакционных уведомлений. Клиент получает уникальный идентификатор и в реальном времени отслеживает статус.</li>
+              <li><b>Массовая (пакетная) отправка</b> — для маркетинговых кампаний. За один запрос — десятки тысяч номеров; система распараллеливает обработку, не задерживая транзакционные потоки.</li>
+              <li><b>Отложенная отправка</b> — сообщение запланировано на конкретное время. Может быть отменено до момента отправки.</li>
+            </ul>
+            <p>На каждом этапе клиент видит подробный статус: принято, отправлено оператору, доставлено, не доставлено (с причиной), просрочено. Прозрачность критична для интеграции с CRM-системами клиента.</p>
+          </div>
+        </details>
+
+        <!-- 3.2 Контакты -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.2. Базы контактов и сегментация</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Маркетинговые рассылки невозможны без управления списками получателей. Платформа предоставляет полноценный модуль работы с базами:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li><b>Импорт CSV.</b> Клиент загружает файл с номерами и атрибутами; система валидирует формат, отбрасывает дубли и нерабочие, показывает прогресс-бар для крупных загрузок.</li>
+              <li><b>Сегментация по правилам.</b> На основе атрибутов и тегов («женщины 25–35, Москва, активные за 30 дней»). Сегменты пересчитываются автоматически.</li>
+              <li><b>Глобальный список отказов (opt-out).</b> Получатель, написавший «СТОП», автоматически попадает в реестр. Любая последующая рассылка его отфильтрует — это требование закона и защита репутации клиента перед операторами.</li>
+              <li><b>Кампании поверх контактов.</b> Контакты + сегмент + шаблон + расписание + каскад = готовая рассылка. Клиент видит прогресс кампании в реальном времени.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.3 Каскад -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.3. Каскадная доставка: экономия и надёжность</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Одно из ключевых конкурентных преимуществ. Вместо того чтобы всегда отправлять SMS, система пробует сначала более дешёвый канал — например, flash call (пропущенный звонок, в котором последние 4 цифры номера = код). Не сработал — автоматически SMS.</p>
+            <div class="grid md:grid-cols-3 gap-3 mt-3">
+              <div class="bg-accent-500/10 border border-accent-500/30 p-4 rounded-lg">
+                <div class="text-3xl font-black text-accent-500">2-10×</div>
+                <div class="text-sm mt-1">flash call дешевле SMS</div>
+              </div>
+              <div class="bg-accent-500/10 border border-accent-500/30 p-4 rounded-lg">
+                <div class="text-3xl font-black text-accent-500">100%</div>
+                <div class="text-sm mt-1">прозрачно для получателя</div>
+              </div>
+              <div class="bg-accent-500/10 border border-accent-500/30 p-4 rounded-lg">
+                <div class="text-3xl font-black text-accent-500">+</div>
+                <div class="text-sm mt-1">резервирование каналов</div>
+              </div>
+            </div>
+            <p>Платформа поддерживает гибкую настройку: порядок каналов, таймауты, условия переключения. Тарификация прозрачная — клиент платит только за тот канал, который реально доставил.</p>
+          </div>
+        </details>
+
+        <!-- 3.4 Кабинет -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.4. Личный кабинет (самообслуживание)</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Без кабинета каждое действие клиента превращалось бы в обращение в поддержку. Это убивает экономику при росте клиентской базы. Что доступно в кабинете:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li>Защищённый вход с двухфакторной аутентификацией (TOTP), сброс пароля по email, разграничение прав внутри одной компании.</li>
+              <li>Текущий баланс, история отправок с фильтрами, детализация стоимости каждого сообщения.</li>
+              <li>Самостоятельное управление API-ключами: создание, отзыв, ограничение по IP — без обращения к администратору платформы.</li>
+              <li>Аналитика: графики доставляемости, расходы, разбивка по странам и операторам.</li>
+              <li>Webhooks: клиент задаёт URL, платформа автоматически шлёт push-уведомления о статусах.</li>
+              <li>Управление шаблонами и зарегистрированными именами отправителей (sender names).</li>
+              <li>Подключение и управление суб-аккаунтами — для агентств и реселлеров.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.5 Биллинг -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.5. Тарификация и биллинг</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Сердце монетизации. Реализована модель, гибкая под реальные сценарии корпоративных продаж:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li><b>По операторам.</b> Стоимость SMS на МТС отличается от Билайн или зарубежного. Платформа автоматически определяет оператора и применяет цену.</li>
+              <li><b>По именам отправителей.</b> Сообщения от зарегистрированного бренда обычно дороже, но имеют выше доставляемость. Цена настраивается отдельно для каждой связки оператор × имя.</li>
+              <li><b>По каналам.</b> В каскаде учитывается реальный канал. Клиент не платит за неудавшиеся попытки через дешёвые каналы.</li>
+              <li><b>Балансы и квоты.</b> Прозрачное списание, лимиты расходов, hard-stop, кредитные лимиты для крупных клиентов.</li>
+              <li><b>Иерархия счетов.</b> Реселлер видит свой баланс и баланс своих клиентов, наценивает сверху, получает консолидированную отчётность.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.6 Маршрутизация -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.6. Качество доставки и маршрутизация</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Не все номера одинаковы: один отключён, другой переведён по портабельности, третий не существует. Отправка на «плохой» номер — потерянные деньги и испорченная репутация. Решение:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li><b>HLR-проверка номеров.</b> До отправки система проверяет статус номера в базе оператора (HLR — Home Location Register). Это отсекает недоставляемые номера до списания денег.</li>
+              <li><b>Маршрутизация по операторам.</b> Платформа знает, через какого партнёра-агрегатора лучше отправить на конкретного оператора в конкретной стране — максимум доставляемости при минимуме цены.</li>
+              <li><b>Очистка списков рассылок.</b> Перед массовой кампанией клиент «прогоняет» базу через HLR и экономит на несуществующих номерах.</li>
+              <li><b>Failover между провайдерами.</b> Если основной маршрут сбоит — автоматически резервный. Клиент не теряет сообщений и не замечает переключения.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.7 Безопасность -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.7. Безопасность и контроль доступа</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>SMS-инфраструктура — привлекательная цель для мошенников. Утечка API-ключа = тысячи долларов убытка за минуты. Встроены:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li>Двухфакторная аутентификация (2FA / TOTP) для входа в кабинет.</li>
+              <li>Ограничение API-ключей по IP-адресам — даже утёкший ключ не работает с произвольной машины.</li>
+              <li>Rate limiting для каждого клиента — защита от случайного «выстреливания» бюджета.</li>
+              <li>Hard-stop по балансу и квотам — клиент физически не может потратить больше лимита.</li>
+              <li>Полный аудит-лог всех действий: кто, когда, что, откуда, какие настройки менял (хранение 365 дней).</li>
+              <li>Контроль зарегистрированных sender names — без согласованного имени бренда сообщение не уйдёт.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.8 Аналитика -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.8. Аналитика и мониторинг</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Клиенту мало знать, что «сообщение отправлено». Ему нужна общая картина: доставляемость по часам и дням, отказы по странам, эффективность каналов, разбивка расходов. Реализованы:</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li>Дашборды реального времени с графиками отправок, доставляемости, отказов, расходов.</li>
+              <li>Разбивка по операторам, странам, типам сообщений, каналам каскада.</li>
+              <li>Выгрузка отчётов для бухгалтерии и финансового анализа.</li>
+              <li>Внутренний мониторинг здоровья платформы (Grafana) — очереди, задержки, ошибки провайдеров.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.9 API -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.9. API и интеграция</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li><b>REST API</b> — стандарт индустрии, понятен любому разработчику.</li>
+              <li><b>SMPP</b> — стандартный протокол телеком-индустрии для крупных интеграторов и подключения партнёров-агрегаторов.</li>
+              <li><b>gRPC</b> — высокопроизводительный протокол для внутреннего обмена, доступен и клиентам с большими объёмами.</li>
+              <li><b>Webhooks</b> — клиенту не нужно опрашивать платформу о статусах, она сама присылает их на указанный URL.</li>
+              <li><b>Sandbox</b> — тестовая среда для отладки интеграции без затрат на реальные отправки.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- 3.10 A/B -->
+        <details class="bg-white rounded-xl border border-slate-200 p-5">
+          <summary class="font-semibold text-lg text-brand-500">3.10. A/B-тестирование сообщений</summary>
+          <div class="mt-4 space-y-3 text-base leading-relaxed">
+            <p>Маркетинговая рассылка с одним вариантом — это выстрел вслепую. Платформа поддерживает встроенное A/B: клиент задаёт от 2 до 5 вариантов (тексты, имена отправителей, ссылки), система разбивает аудиторию на сопоставимые группы и отправляет каждой свой вариант.</p>
+            <ul class="space-y-2 ml-4 list-disc marker:text-brand-500">
+              <li>Метрики собираются автоматически: доставка, переходы по ссылкам, конверсия (через webhook).</li>
+              <li>Победитель определяется автоматически — расчёт статистической значимости.</li>
+              <li>На больших объёмах разница 1-2% между вариантами текста = сотни тысяч рублей в месяц для крупного e-commerce.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== 4. АРХИТЕКТУРА ===== -->
+    <section id="architecture" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 4</div>
+      <h2 class="text-4xl font-black mb-6">Архитектура и технологический стек</h2>
+      <p class="text-lg leading-relaxed mb-8">Этот раздел отвечает на вопрос: «почему платформа способна выдержать рост клиентской базы без переписывания и без кратного роста расходов на инфраструктуру». Технический раздел, изложен языком, понятным без инженерного бэкграунда.</p>
+
+      <h3 class="text-2xl font-bold mt-10 mb-4 text-brand-500">4.1. Технологический стек</h3>
+      <p class="mb-6">Стек подобран по принципу <b>«зрелые проверенные технологии без экзотики»</b>. Каждый компонент используется крупнейшими мировыми сервисами под нагрузкой в миллиарды операций в день. Это означает: подбор инженеров на рынке, понятная стоимость поддержки, отсутствие vendor lock-in.</p>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3" x-data="{tip: null}">
+        <template x-for="t in [
+          {layer:'Backend', name:'Go 1.24', why:'Низкие задержки, эффективная многопоточность, малая память на запрос. Стандарт отрасли для высоконагруженных коммуникационных систем.', color:'bg-blue-50 border-blue-200'},
+          {layer:'Очереди', name:'Apache Kafka', why:'Промышленный стандарт для конвейерной обработки. Каждая стадия масштабируется независимо, переживает сбои отдельных компонентов без потерь.', color:'bg-purple-50 border-purple-200'},
+          {layer:'СУБД', name:'PostgreSQL 15', why:'Лучшая открытая реляционная СУБД. Транзакции, биллинг, аудит. Помесячное партиционирование исторических таблиц = быстрые запросы и управляемые объёмы.', color:'bg-blue-50 border-blue-200'},
+          {layer:'Кеш', name:'Redis 7', why:'In-memory для пользовательских сессий, лимитов скорости, временных данных. Снимает нагрузку с основной БД.', color:'bg-red-50 border-red-200'},
+          {layer:'Frontend', name:'React 19 + TypeScript', why:'Современный стек с типобезопасностью. Vite для сборки, Tailwind+Radix для UI, Recharts для графиков аналитики.', color:'bg-cyan-50 border-cyan-200'},
+          {layer:'Мониторинг', name:'Prometheus + Grafana', why:'Отраслевой стандарт. Метрики с каждого сервиса, дашборды показывают здоровье и бизнес-показатели в реальном времени.', color:'bg-orange-50 border-orange-200'},
+          {layer:'Протоколы', name:'HTTP/REST · gRPC · SMPP', why:'REST для бизнес-разработчиков, gRPC для внутреннего обмена, SMPP — обязательный стандарт для интеграции с операторами.', color:'bg-green-50 border-green-200'},
+          {layer:'Деплой', name:'Docker · K8s-ready', why:'Сейчас Docker Compose, архитектура готова к переносу в Kubernetes без изменений в коде при росте нагрузки.', color:'bg-indigo-50 border-indigo-200'}
+        ]" :key="t.name">
+          <div class="rounded-xl p-4 border-2 stat-card cursor-help" :class="t.color">
+            <div class="text-xs uppercase tracking-widest text-slate-500" x-text="t.layer"></div>
+            <div class="font-bold text-lg mt-1" x-text="t.name"></div>
+            <div class="text-sm leading-relaxed mt-2 text-slate-700" x-text="t.why"></div>
+          </div>
+        </template>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.2. Схема межсервисного взаимодействия</h3>
+      <p class="mb-4">Платформа — набор независимых сервисов, общающихся через два механизма: синхронные вызовы (HTTP/gRPC) для быстрых операций и асинхронные сообщения (Kafka) для конвейерной обработки. Жирные стрелки — happy-path рассылки; тонкие — вспомогательные потоки (аудит, метрики); пунктир — административная плоскость.</p>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-6 overflow-x-auto">
+        <div class="mermaid">
+graph TB
+    subgraph EXT["Внешние участники"]
+        Client["Клиент<br/>банк, e-com, такси"]
+        Operator["Операторы<br/>МТС, Билайн, Мегафон, Tele2"]
+        Aggregator["Партнёры-агрегаторы"]
+        Recipient["Получатель"]
+        Admin["Администратор"]
+    end
+    subgraph PLATFORM["SMS-платформа"]
+        subgraph EDGE["Точки входа"]
+            ClientGW["Client Gateway<br/>HTTP/gRPC API"]
+            PortalGW["Portal Gateway<br/>backend кабинета"]
+            AdminGW["Admin Gateway<br/>админ. API"]
+            SmppSrv["SMPP Server<br/>входящие SMPP"]
+        end
+        subgraph CORE["Конвейер"]
+            Pipeline["Pipeline Worker<br/>тарификация, маршрутизация"]
+            SmppGW["SMPP Gateway<br/>исходящие SMPP"]
+            DLR["DLR Delivery<br/>отчёты доставки"]
+            Worker["Worker<br/>фоновые задачи"]
+        end
+        subgraph DATA["Хранение"]
+            Kafka[("Apache Kafka")]
+            Postgres[("PostgreSQL 15")]
+            Redis[("Redis 7")]
+        end
+        subgraph OBS["Мониторинг"]
+            Prom["Prometheus"]
+            Grafana["Grafana"]
+        end
+    end
+    Client ==>|"1 POST /sms/send"| ClientGW
+    ClientGW ==>|"2 publish"| Kafka
+    Kafka ==>|"3 consume"| Pipeline
+    Pipeline ==>|"4 dispatch"| Kafka
+    Kafka ==>|"5 consume"| SmppGW
+    SmppGW ==>|"6 SMPP submit"| Aggregator
+    Aggregator ==>|"7"| Operator
+    Operator ==>|"8 SMS"| Recipient
+    Operator -.->|"9 DLR"| Aggregator
+    Aggregator -.->|"DLR"| DLR
+    DLR -.->|"webhook"| Client
+    Client -->|"HTTPS"| PortalGW
+    PortalGW --> Postgres
+    PortalGW --> Redis
+    Admin -.->|"настройка"| AdminGW
+    AdminGW -.-> Postgres
+    Pipeline --> Postgres
+    Pipeline --> Redis
+    Worker --> Postgres
+    Worker --> Kafka
+    Aggregator -.->|"входящий"| SmppSrv
+    SmppSrv --> Kafka
+    ClientGW -.-> Prom
+    Pipeline -.-> Prom
+    SmppGW -.-> Prom
+    DLR -.-> Prom
+    Prom --> Grafana
+    classDef external fill:#e8f4f8,stroke:#1f4e79,stroke-width:2px
+    classDef gateway fill:#fff4e6,stroke:#cc6600,stroke-width:2px
+    classDef core fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef data fill:#f3e8ff,stroke:#6a1b9a,stroke-width:2px
+    classDef obs fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    class Client,Operator,Aggregator,Recipient,Admin external
+    class ClientGW,PortalGW,AdminGW,SmppSrv,SmppGW gateway
+    class Pipeline,DLR,Worker core
+    class Kafka,Postgres,Redis data
+    class Prom,Grafana obs
+        </div>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.3. Жизнь одного сообщения</h3>
+      <p class="mb-6">Что физически происходит за время от вызова API до получения SMS. Жми «Запустить» — увидишь последовательность с миллисекундными бюджетами.</p>
+
+      <div x-data="seqAnimator()" class="bg-white rounded-xl border border-slate-200 p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <button @click="play()" :disabled="running" class="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2">
+            <span x-show="!running">▶ Запустить</span>
+            <span x-show="running">▮▮ Идёт...</span>
+          </button>
+          <button @click="reset()" class="bg-slate-200 hover:bg-slate-300 px-5 py-2 rounded-lg">Сброс</button>
+          <div class="text-sm text-slate-500 ml-auto">Шаг <span x-text="step"></span> / 7</div>
+        </div>
+        <div class="space-y-2 font-mono text-sm">
+          <template x-for="(s,i) in steps" :key="i">
+            <div class="seq-step border-l-4 border-slate-200 px-4 py-3 rounded-r-lg bg-slate-50"
+                 :class="{ 'active': step===i+1, 'done': step>i+1, 'dim': step<i+1 && step!==0 }">
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex-1">
+                  <div class="font-bold text-brand-500" x-text="`${i+1}. ${s.title}`"></div>
+                  <div class="text-slate-700 text-xs mt-1" x-text="s.desc"></div>
+                </div>
+                <div class="text-right text-xs">
+                  <div class="font-mono font-bold text-warn-500" x-text="s.t"></div>
+                  <div class="text-slate-400" x-text="s.who"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div class="mt-6 grid grid-cols-3 gap-3 text-center">
+          <div class="bg-brand-50 p-3 rounded-lg">
+            <div class="text-xs text-slate-500">На код платформы</div>
+            <div class="text-2xl font-black text-brand-500">~25 мс</div>
+            <div class="text-xs text-slate-400">контролируемо</div>
+          </div>
+          <div class="bg-warn-500/10 p-3 rounded-lg">
+            <div class="text-xs text-slate-500">SMPP до оператора</div>
+            <div class="text-2xl font-black text-warn-500">~150 мс</div>
+            <div class="text-xs text-slate-400">сеть</div>
+          </div>
+          <div class="bg-accent-500/10 p-3 rounded-lg">
+            <div class="text-xs text-slate-500">Доставка оператором</div>
+            <div class="text-2xl font-black text-accent-500">1-30 сек</div>
+            <div class="text-xs text-slate-400">не контролируется</div>
+          </div>
+        </div>
+        <p class="mt-6 text-sm bg-blue-50 border-l-4 border-brand-500 p-4 rounded">
+          <b>Главный вывод:</b> на долю нашего кода приходится менее 5% общего времени. Остальное — операторы и сеть. Для роста производительности нет смысла оптимизировать дальше внутренний код — нужно масштабировать SMPP-сессии и работать над контрактами с операторами.
+        </p>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.4. Почему архитектура масштабируется без переписывания</h3>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="text-3xl mb-2">🔄</div>
+          <div class="font-bold mb-2">Stateless-сервисы</div>
+          <div class="text-sm leading-relaxed">Все backend-компоненты не хранят состояние локально. Запустил второй экземпляр — он подхватил половину нагрузки, без координации.</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="text-3xl mb-2">📥</div>
+          <div class="font-bold mb-2">Kafka как буфер</div>
+          <div class="text-sm leading-relaxed">При пиковой нагрузке сообщения копятся в Kafka и обрабатываются с задержкой, но не теряются. Затем добавляются worker'ы — очередь рассасывается.</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="text-3xl mb-2">📅</div>
+          <div class="font-bold mb-2">Помесячное партиционирование БД</div>
+          <div class="text-sm leading-relaxed">Таблицы messages, audit_log, deliveries разбиты по месяцам. Запросы за сегодня не «затягиваются» в данные за прошлый год. Архивирование без остановки сервиса.</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200">
+          <div class="text-3xl mb-2">↔️</div>
+          <div class="font-bold mb-2">Горизонтальное расширение БД</div>
+          <div class="text-sm leading-relaxed">PostgreSQL допускает read-replicas и логическую репликацию. Когда мастер станет узким местом — реплики для аналитики, write остаётся на мастере. Дальше — шардинг по client_id.</div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200 md:col-span-2">
+          <div class="text-3xl mb-2">🛡️</div>
+          <div class="font-bold mb-2">Изоляция нагрузки между клиентами</div>
+          <div class="text-sm leading-relaxed">Rate-limiting в Redis на уровне клиента предотвращает ситуацию, когда один крупный «съедает» ресурсы остальных. Критично для SLA в B2B.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 5. ЭКОНОМИКА ===== -->
+    <section id="economics" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 5</div>
+      <h2 class="text-4xl font-black mb-6">Экономика инфраструктуры</h2>
+      <p class="text-lg leading-relaxed mb-8">Один из главных вопросов инвестора: <b>«сколько стоит обработать сообщение?»</b> Ответ определяет потолок маржи и инвестиционную привлекательность бизнес-модели.</p>
+
+      <h3 class="text-2xl font-bold mb-4 text-brand-500">5.1. Интерактивный калькулятор</h3>
+      <p class="mb-6">Двигайте ползунки — увидите, как меняется себестоимость, потолок объёмов и доля инфры в выручке.</p>
+
+      <div x-data="economicsCalc()" class="bg-white rounded-xl border border-slate-200 p-6 lg:p-8">
+        <div class="grid lg:grid-cols-2 gap-8">
+          <div class="space-y-6">
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="font-semibold">Throughput (msg/sec)</label>
+                <div class="text-2xl font-black text-brand-500" x-text="throughput.toLocaleString('ru')"></div>
+              </div>
+              <input type="range" min="500" max="50000" step="100" x-model.number="throughput" class="w-full">
+              <div class="text-xs text-slate-500 mt-1">от 500 до 50 000 msg/sec</div>
+            </div>
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="font-semibold">Утилизация (%)</label>
+                <div class="text-2xl font-black text-brand-500" x-text="utilization+'%'"></div>
+              </div>
+              <input type="range" min="1" max="100" step="1" x-model.number="utilization" class="w-full">
+              <div class="text-xs text-slate-500 mt-1">сколько % времени конвейер реально работает на пиковом throughput</div>
+            </div>
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="font-semibold">Опт. цена SMS оператору (коп.)</label>
+                <div class="text-2xl font-black text-brand-500" x-text="opCost"></div>
+              </div>
+              <input type="range" min="5" max="40" step="1" x-model.number="opCost" class="w-full">
+              <div class="text-xs text-slate-500 mt-1">в среднем 15-30 коп. за SMS у российских операторов оптом</div>
+            </div>
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="font-semibold">Розничная цена (коп.)</label>
+                <div class="text-2xl font-black text-brand-500" x-text="retailCost"></div>
+              </div>
+              <input type="range" min="10" max="100" step="1" x-model.number="retailCost" class="w-full">
+              <div class="text-xs text-slate-500 mt-1">сколько берём с клиента за одно сообщение</div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-5 rounded-xl">
+              <div class="text-xs uppercase tracking-wider opacity-80 mb-1">Инфра в месяц</div>
+              <div class="text-4xl font-black" x-text="infraCost.toLocaleString('ru')+' ₽'"></div>
+              <div class="text-xs opacity-70 mt-1">~5 000 ₽ на каждые 1 200 msg/sec, линейная экстраполяция</div>
+            </div>
+            <div class="bg-white border-2 border-brand-500 p-5 rounded-xl">
+              <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Реальный объём в месяц</div>
+              <div class="text-3xl font-black text-brand-500" x-text="formatBig(monthlyMsg)"></div>
+              <div class="text-xs text-slate-500 mt-1">throughput × утилизация × секунд в месяце</div>
+            </div>
+            <div class="bg-white border border-slate-200 p-5 rounded-xl">
+              <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Себестоимость инфры на 1 SMS</div>
+              <div class="text-3xl font-black" x-text="infraPerMsg.toFixed(5)+' коп.'"></div>
+              <div class="text-xs text-slate-500 mt-1" x-text="`${infraPercent.toFixed(3)}% от опт. цены оператору`"></div>
+            </div>
+            <div class="bg-accent-500/10 border-2 border-accent-500 p-5 rounded-xl">
+              <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Валовая маржа в месяц</div>
+              <div class="text-3xl font-black text-accent-500" x-text="formatMoney(grossMargin)"></div>
+              <div class="text-xs text-slate-500 mt-1" x-text="`(${retailCost} − ${opCost}) коп. × ${formatBig(monthlyMsg)} − ${infraCost.toLocaleString('ru')} ₽ инфры`"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-slate-200">
+          <div class="font-semibold mb-3">Распределение себестоимости</div>
+          <div class="flex h-8 rounded-lg overflow-hidden border border-slate-300">
+            <div class="bg-warn-500 text-white text-xs font-bold flex items-center justify-center px-2"
+                 :style="`width: ${(opCost/(retailCost||1))*100}%`"
+                 x-text="`Оператор ${((opCost/(retailCost||1))*100).toFixed(0)}%`"></div>
+            <div class="bg-brand-500 text-white text-xs font-bold flex items-center justify-center px-2"
+                 :style="`width: ${Math.min(infraPercentRetail,5)}%`"
+                 x-text="infraPercentRetail<3?'':'Инфра '+infraPercentRetail.toFixed(2)+'%'"></div>
+            <div class="bg-accent-500 text-white text-xs font-bold flex items-center justify-center px-2"
+                 :style="`width: ${100-(opCost/(retailCost||1))*100-Math.min(infraPercentRetail,5)}%`"
+                 x-text="`Маржа ${(100-(opCost/(retailCost||1))*100-infraPercentRetail).toFixed(0)}%`"></div>
+          </div>
+          <div class="text-xs text-slate-500 mt-2">
+            На картине ясно: <b>инфра — это полоска шириной с волос</b>. Маржа определяется операторской ценой и удержанием розничной цены. Удешевление инфры ничего не меняет — сила в сделках с операторами.
+          </div>
+        </div>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">5.2. Проекция масштабирования</h3>
+      <p class="mb-6">Что произойдёт с расходами при росте до целевых значений? Линейная экстраполяция показывает: расходы растут медленнее объёмов за счёт лучшей утилизации железа.</p>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-6">
+        <canvas id="scaleChart" height="120"></canvas>
+      </div>
+
+      <div class="grid md:grid-cols-4 gap-3 mt-6">
+        <div class="bg-white rounded-xl p-4 border border-slate-200">
+          <div class="text-xs uppercase tracking-wider text-slate-500">Сейчас</div>
+          <div class="text-xl font-bold mt-1">1 200 msg/sec</div>
+          <div class="text-sm text-slate-600">5 000 ₽/мес · 1 сервер</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200">
+          <div class="text-xs uppercase tracking-wider text-slate-500">+6 мес</div>
+          <div class="text-xl font-bold mt-1">3 000 msg/sec</div>
+          <div class="text-sm text-slate-600">~12 000 ₽ · 2 сервера + Kafka cluster</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200">
+          <div class="text-xs uppercase tracking-wider text-slate-500">+12 мес (spec 008)</div>
+          <div class="text-xl font-bold mt-1">10 000 msg/sec</div>
+          <div class="text-sm text-slate-600">~30 000 ₽ · 5-6 серверов + БД-реплики</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200">
+          <div class="text-xs uppercase tracking-wider text-slate-500">+24-36 мес</div>
+          <div class="text-xl font-bold mt-1">50 000 msg/sec</div>
+          <div class="text-sm text-slate-600">~150 000 ₽ · K8s в нескольких ЦОДах</div>
+        </div>
+      </div>
+
+      <div class="mt-8 grid md:grid-cols-2 gap-4">
+        <div class="bg-accent-500/10 border-l-4 border-accent-500 p-5 rounded-r-lg">
+          <div class="font-bold mb-2 text-accent-500">Что это значит для модели</div>
+          <ul class="text-sm space-y-2 leading-relaxed">
+            <li>• <b>Инфра не барьер.</b> 10 000 msg/sec за ~30к ₽/мес — бюджет небольшого офиса.</li>
+            <li>• <b>Маржа от операторов.</b> Каждый процент скидки от оператора при 100М/мес — это сотни тысяч рублей чистой прибыли.</li>
+            <li>• <b>Инвестиции — в продажи и продукт.</b> Из 10 млн ₽ большая часть уходит в BD, маркетинг, расширение функциональности — а не в хостинг.</li>
+            <li>• <b>Точка безубыточности — низкая.</b> При марже 5-10 коп. на сообщении и инфре 30к ₽/мес окупаемость инфры наступает на 300-600 тыс сообщений/мес. Объём одного маленького клиента.</li>
+          </ul>
+        </div>
+        <div class="bg-warn-500/10 border-l-4 border-warn-500 p-5 rounded-r-lg">
+          <div class="font-bold mb-2 text-warn-500">Где могут возникнуть проблемы (честно)</div>
+          <ul class="text-sm space-y-2 leading-relaxed">
+            <li>• <b>SMPP-сессии оператора.</b> Не наш код — лимит со стороны оператора. Решается несколькими сессиями и переговорами.</li>
+            <li>• <b>Postgres-write при шардинге.</b> Шардинг по client_id — операция «ноль downtime, одна неделя инженерной работы».</li>
+            <li>• <b>Регуляторные требования.</b> При выходе на крупных клиентов (банки) — нужна сертификация. План есть в roadmap, см. горизонт 3.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 6. КЛИЕНТЫ ===== -->
+    <section id="clients" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 6</div>
+      <h2 class="text-4xl font-black mb-6">Кому мы продаём</h2>
+      <p class="text-lg leading-relaxed mb-6">Платформа ориентирована на B2B-сегмент — компании, у которых отправка сообщений является частью операционных процессов. Мы не работаем с частными лицами или микро-бизнесом — для них слишком велик минимальный объём интеграции.</p>
+
+      <div class="overflow-x-auto bg-white rounded-xl border border-slate-200">
+        <table class="w-full text-sm">
+          <thead class="bg-brand-500 text-white">
+            <tr>
+              <th class="px-4 py-3 text-left">Сегмент</th>
+              <th class="px-4 py-3 text-left">Сценарий</th>
+              <th class="px-4 py-3 text-left">Объём в месяц</th>
+              <th class="px-4 py-3 text-left">Ключевая ценность</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            <tr class="hover:bg-slate-50"><td class="px-4 py-3 font-semibold">Банки и финтех</td><td class="px-4 py-3">OTP для входа и операций, уведомления о платежах</td><td class="px-4 py-3">Сотни тысяч — миллионы</td><td class="px-4 py-3">Доставляемость, compliance</td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-3 font-semibold">E-commerce и маркетплейсы</td><td class="px-4 py-3">Подтверждение заказов, статусы, акции</td><td class="px-4 py-3">Десятки — сотни тысяч</td><td class="px-4 py-3">Каскад, A/B-тесты</td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-3 font-semibold">Доставка и такси</td><td class="px-4 py-3">Уведомления курьеров и клиентов</td><td class="px-4 py-3">Десятки — сотни тысяч</td><td class="px-4 py-3">Скорость, низкая цена</td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-3 font-semibold">Медицина и образование</td><td class="px-4 py-3">Напоминания о записи, расписание</td><td class="px-4 py-3">Тысячи — десятки тысяч</td><td class="px-4 py-3">Простота, шаблоны</td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-3 font-semibold">Госсектор и муниципальные службы</td><td class="px-4 py-3">Уведомления, аварийные оповещения</td><td class="px-4 py-3">Десятки тысяч и выше</td><td class="px-4 py-3">Надёжность, аудит</td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-3 font-semibold">Реселлеры и интеграторы</td><td class="px-4 py-3">Перепродажа трафика своим клиентам</td><td class="px-4 py-3">Через суб-аккаунты</td><td class="px-4 py-3">Иерархия, биллинг</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-10 mb-4 text-brand-500">Что важно клиенту при выборе</h3>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="bg-white rounded-xl p-4 border border-slate-200"><b class="text-brand-500">Доставляемость.</b> 2-3% разницы между провайдерами для клиента с миллионными объёмами = десятки тысяч недоставленных сообщений и сорванных транзакций.</div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200"><b class="text-brand-500">Цена и её прозрачность.</b> Клиент должен понимать, за что платит, и иметь инструменты оптимизации (HLR-чистка, каскад).</div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200"><b class="text-brand-500">Скорость интеграции.</b> Чем быстрее подключение через API — тем выше вероятность выбора нас.</div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200"><b class="text-brand-500">Качество кабинета и поддержки.</b> Ежедневная работа клиента — в портале. Плохой UI = быстрый отток.</div>
+        <div class="bg-white rounded-xl p-4 border border-slate-200 md:col-span-2"><b class="text-brand-500">Compliance.</b> Согласование sender names с операторами, правила массовых рассылок, защита персональных данных. Без compliance крупные клиенты не приходят.</div>
+      </div>
+    </section>
+
+    <!-- ===== 7. КОНКУРЕНТНЫЕ ОТЛИЧИЯ ===== -->
+    <section id="competition" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 7</div>
+      <h2 class="text-4xl font-black mb-6">Конкурентные отличия</h2>
+      <p class="text-lg leading-relaxed mb-8">Рынок A2P конкурентный — международные игроки (Twilio, Sinch, Infobip) и локальные (SMSC, ProstoSMS). Наши отличия лежат в трёх плоскостях.</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 rounded-xl">
+          <div class="text-3xl mb-3">⚡</div>
+          <div class="text-xl font-bold mb-2">Каскадные стратегии «из коробки»</div>
+          <div class="text-sm leading-relaxed text-brand-100/90">Большинство классических SMS-агрегаторов умеют только SMS. Чтобы добавить flash call или мессенджер, клиенту нужен другой провайдер, два контракта, склейка логики у себя. У нас каскад — настройкой в кабинете.</div>
+        </div>
+        <div class="bg-white p-6 rounded-xl border-2 border-brand-500">
+          <div class="text-3xl mb-3">📊</div>
+          <div class="text-xl font-bold mb-2 text-brand-500">Прозрачная многоуровневая тарификация</div>
+          <div class="text-sm leading-relaxed">Поддержка моделей биллинга, редко встречающихся одновременно: тарифы по операторам и именам, иерархия агрегатор → суб-аккаунт с независимыми наценками, hard-stop по балансу. Критично для агентств.</div>
+        </div>
+        <div class="bg-white p-6 rounded-xl border-2 border-brand-500">
+          <div class="text-3xl mb-3">🎯</div>
+          <div class="text-xl font-bold mb-2 text-brand-500">Самостоятельность клиента</div>
+          <div class="text-sm leading-relaxed">Кабинет покрывает почти всё, что обычно требует переписки с менеджером: ключи, webhooks, sender names, аналитика, суб-аккаунты. Снижает наши OPEX и ускоряет онбординг.</div>
+        </div>
+        <div class="bg-gradient-to-br from-accent-500 to-accent-600 text-white p-6 rounded-xl">
+          <div class="text-3xl mb-3">🏗️</div>
+          <div class="text-xl font-bold mb-2">Архитектура, готовая к росту</div>
+          <div class="text-sm leading-relaxed text-white/90">Изначально микросервисы + Kafka. Каждый компонент масштабируется отдельно. Конкуренты, начавшие с монолита, при росте упираются в потолок и переписываются.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 8. СОСТОЯНИЕ + ROADMAP ===== -->
+    <section id="roadmap" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 8</div>
+      <h2 class="text-4xl font-black mb-6">Состояние и план развития</h2>
+
+      <h3 class="text-2xl font-bold mt-4 mb-4 text-brand-500">8.1. Что уже работает</h3>
+      <p class="mb-4">18 функциональных блоков в production-режиме:</p>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+        <template x-for="f in [
+          'Ядро отправки SMS (единичные, пакетные, отложенные)',
+          'Тарификация по операторам',
+          'Многоарендный портал самообслуживания',
+          'HLR-проверка и маршрутизация',
+          'Тестовый каркас и QA-процессы',
+          'Аудит доступности портала (a11y)',
+          'Дашборды Grafana для мониторинга',
+          'Высоконагруженный Kafka-pipeline',
+          'Имена отправителей и шаблоны',
+          'Биллинг по операторам и sender names',
+          'Каскадная доставка (flash call → SMS)',
+          'Иерархия агрегатор → суб-аккаунт',
+          'Базы контактов с импортом CSV и сегментацией',
+          'Глобальный список отказов (opt-out)',
+          'A/B-тестирование сообщений (2-5 вариантов)',
+          'Webhooks для асинхронных событий',
+          'Двухфакторная аутентификация (TOTP)',
+          'Аудит-лог (365 дней)'
+        ]">
+          <div class="bg-white rounded-lg p-3 border border-slate-200 flex items-start gap-2 text-sm">
+            <span class="text-accent-500 font-bold flex-shrink-0">✓</span>
+            <span x-text="f"></span>
+          </div>
+        </template>
+        <div x-data class="bg-warn-500/10 rounded-lg p-3 border border-warn-500/30 flex items-start gap-2 text-sm">
+          <span class="text-warn-500 font-bold flex-shrink-0">◐</span>
+          <span>Канал MAX-мессенджера (в работе)</span>
+        </div>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">8.2. Roadmap по горизонтам</h3>
+      <p class="mb-6">Видение разделено на три горизонта. Фильтруйте кнопками ниже.</p>
+
+      <div x-data="{horizon:'all'}">
+        <div class="flex flex-wrap gap-2 mb-6">
+          <button @click="horizon='all'" :class="horizon==='all' ? 'bg-brand-500 text-white' : 'bg-white border border-slate-300'" class="px-4 py-2 rounded-lg text-sm font-semibold">Все горизонты</button>
+          <button @click="horizon='h1'" :class="horizon==='h1' ? 'bg-brand-500 text-white' : 'bg-white border border-slate-300'" class="px-4 py-2 rounded-lg text-sm font-semibold">Горизонт 1 (6 мес)</button>
+          <button @click="horizon='h2'" :class="horizon==='h2' ? 'bg-brand-500 text-white' : 'bg-white border border-slate-300'" class="px-4 py-2 rounded-lg text-sm font-semibold">Горизонт 2 (12-18 мес)</button>
+          <button @click="horizon='h3'" :class="horizon==='h3' ? 'bg-brand-500 text-white' : 'bg-white border border-slate-300'" class="px-4 py-2 rounded-lg text-sm font-semibold">Горизонт 3 (24-36 мес)</button>
+        </div>
+
+        <div class="relative space-y-4">
+          <!-- Vertical timeline bar -->
+          <div class="absolute left-4 top-2 bottom-2 w-1 timeline-bar rounded"></div>
+
+          <template x-for="item in [
+            {h:'h1',label:'6 мес',color:'bg-brand-500',title:'Завершение интеграции с MAX-мессенджером',desc:'Подключение MAX как полноценного канала каскада. Закрывает гипотезу «единая платформа для всех каналов».'},
+            {h:'h1',label:'6 мес',color:'bg-brand-500',title:'Telegram Business и WhatsApp Business',desc:'Следующие каналы. Единый каскад «мессенджер → SMS → flash call».'},
+            {h:'h1',label:'6 мес',color:'bg-brand-500',title:'Расширенный экспорт биллинга',desc:'Счета-фактуры, выгрузка в форматах 1С, кастомные периоды и фильтры. Закрывает блокер для крупных клиентов с финансовым департаментом.'},
+            {h:'h1',label:'6 мес',color:'bg-brand-500',title:'Dead-letter-queue с UI-разбором',desc:'Отказавшие сообщения попадают в DLQ, оператор видит причины и применяет retry-политику.'},
+            {h:'h1',label:'6 мес',color:'bg-brand-500',title:'Графический конструктор кампаний',desc:'Drag-and-drop сборка цепочки «сегмент → шаблон → расписание → каскад». Ключевая фича для маркетинговых команд.'},
+            {h:'h2',label:'12-18 мес',color:'bg-accent-500',title:'Голосовые каналы',desc:'Reverse call, voice OTP, IVR-уведомления. Новый сегмент клиентов: банки, страховые компании.'},
+            {h:'h2',label:'12-18 мес',color:'bg-accent-500',title:'Push-уведомления через мобильные SDK',desc:'Закрытие последнего канала корпоративных коммуникаций. Полностью омниканальная платформа.'},
+            {h:'h2',label:'12-18 мес',color:'bg-accent-500',title:'Email как канал каскада',desc:'Сценарии, где SMS-стоимость критична, а доставляемость email достаточна. Дополнительная оптимизация маржи.'},
+            {h:'h2',label:'12-18 мес',color:'bg-accent-500',title:'Предиктивные ML-модели доставляемости',desc:'Рекомендации по оптимальному каналу/времени/тексту. Прогноз конверсии до запуска кампании. Уникальная фича на российском рынке.'},
+            {h:'h2',label:'12-18 мес',color:'bg-accent-500',title:'Расширение географии',desc:'Партнёры в Казахстане, Беларуси, Узбекистане, Армении. Затем — страны MENA и Юго-Восточной Азии.'},
+            {h:'h2',label:'12-18 мес',color:'bg-accent-500',title:'Маркетплейс шаблонов и интеграций',desc:'Готовые сценарии (онбординг банка, доставка маркетплейса), pre-built коннекторы к популярным CRM.'},
+            {h:'h3',label:'24-36 мес',color:'bg-warn-500',title:'Conversational API',desc:'Двусторонние диалоги с получателем, автоматизация бот-сценариев в SMS и мессенджерах. Превращение платформы из инструмента «отправки» в инструмент «общения».'},
+            {h:'h3',label:'24-36 мес',color:'bg-warn-500',title:'Сертификации (ФСТЭК · PCI DSS · ISO 27001)',desc:'Открывает рынок крупных банков и госструктур, где compliance — обязательное условие тендера.'},
+            {h:'h3',label:'24-36 мес',color:'bg-warn-500',title:'Собственная инфраструктура подключений к операторам',desc:'MVNO-агент. Снижает зависимость от партнёров-агрегаторов и улучшает маржу на 15-25%.'},
+            {h:'h3',label:'24-36 мес',color:'bg-warn-500',title:'AI-помощник в портале',desc:'Автоматическое создание шаблонов, оптимизация текстов под доставляемость, анализ результатов кампаний.'}
+          ]" :key="item.title">
+            <div class="relative pl-12" x-show="horizon==='all' || horizon===item.h" x-transition.opacity>
+              <div class="absolute left-3 top-3 w-3 h-3 rounded-full" :class="item.color"></div>
+              <div class="bg-white rounded-xl border border-slate-200 p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1">
+                    <div class="font-bold text-brand-500" x-text="item.title"></div>
+                    <div class="text-sm text-slate-700 mt-1" x-text="item.desc"></div>
+                  </div>
+                  <span class="text-xs px-2 py-1 rounded-full text-white font-semibold flex-shrink-0" :class="item.color" x-text="item.label"></span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">8.3. Что нужно для следующего шага</h3>
+      <p class="mb-4">Продукт перешёл из стадии прототипа в стадию работающей платформы. Следующий этап — масштабирование клиентской базы. Для этого нужны инвестиции в:</p>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="bg-white rounded-xl p-5 border border-slate-200"><b class="text-brand-500">Команда продаж и BD.</b> B2B-цикл длинный, требует выделенных аккаунт-менеджеров, переговорщиков с операторами.</div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200"><b class="text-brand-500">Расширение инженерной команды.</b> Ускорение roadmap'а — каналы, ML-аналитика, география.</div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200"><b class="text-brand-500">Маркетинг и репутация.</b> Отраслевые конференции, экспертный контент. Доверие = валюта на этом рынке.</div>
+        <div class="bg-white rounded-xl p-5 border border-slate-200"><b class="text-brand-500">Compliance и юридическое сопровождение.</b> Регулирование A2P ужесточается — соответствие = конкурентное преимущество.</div>
+      </div>
+    </section>
+
+    <!-- ===== 9. РЕЗЮМЕ ===== -->
+    <section id="summary" class="scroll-mt-20">
+      <div class="text-xs uppercase tracking-widest text-brand-500 font-semibold mb-2">Раздел 9</div>
+      <h2 class="text-4xl font-black mb-6">Резюме инвестору</h2>
+      <p class="text-lg leading-relaxed mb-8">Мы делаем продукт на сформированном, растущем и предсказуемом рынке корпоративных коммуникаций. Это не «инновация в поисках рынка» — это <b>«лучшее решение на рынке, который уже знает, что ему нужно»</b>.</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 rounded-xl"><div class="text-2xl font-bold mb-2">✓ Работающий продукт</div><div class="text-sm text-brand-100/90 leading-relaxed">Прошёл путь от прототипа до production. Не прогноз, а реальная функциональность. 18 блоков работают сегодня.</div></div>
+        <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 rounded-xl"><div class="text-2xl font-bold mb-2">✓ Понятная экономика</div><div class="text-sm text-brand-100/90 leading-relaxed">Маржа на трафике, повторяющиеся платежи, высокий switching cost. Инфра — &lt;0.1% от опт. цены.</div></div>
+        <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 rounded-xl"><div class="text-2xl font-bold mb-2">✓ Архитектура для роста</div><div class="text-sm text-brand-100/90 leading-relaxed">10× рост = ~6× инфры за счёт лучшей утилизации. Не упрёмся в потолок при расширении базы.</div></div>
+        <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 rounded-xl"><div class="text-2xl font-bold mb-2">✓ Дифференцирующие фичи</div><div class="text-sm text-brand-100/90 leading-relaxed">Каскад, иерархия суб-аккаунтов, прозрачный биллинг, A/B-тесты — не у всех конкурентов «из коробки».</div></div>
+      </div>
+
+      <div class="mt-12 text-center">
+        <p class="text-lg italic text-slate-600">Готовы к детальному обсуждению финансовой модели, customer pipeline и стратегии масштабирования в индивидуальном порядке.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="bg-slate-900 text-slate-400 py-8 mt-16">
+  <div class="max-w-screen-2xl mx-auto px-6 flex flex-wrap items-center justify-between gap-4 text-sm">
+    <div>SMS-платформа · Презентация для инвесторов · 2026</div>
+    <div class="flex gap-6">
+      <a href="#hero" class="hover:text-white">Наверх ↑</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ===== ALPINE COMPONENTS + CHARTS ===== -->
+<script>
+function seqAnimator() {
+  return {
+    step: 0,
+    running: false,
+    steps: [
+      { title: 'Приём',                   desc: 'Клиент → POST /sms/send → Client Gateway. Аутентификация API-ключа, валидация тела.', t: '~10 мс', who: 'Client Gateway' },
+      { title: 'Постановка в очередь',    desc: 'Сообщение записывается в Kafka (topic sms.outgoing). Клиент получает ID и не ждёт реальной отправки.', t: '~3 мс', who: 'Kafka' },
+      { title: 'Тарификация',             desc: 'Pipeline Worker определяет оператора (network_ranges или HLR-кеш в Redis), применяет тариф, списывает с баланса.', t: '~7 мс', who: 'Pipeline Worker' },
+      { title: 'Маршрутизация',           desc: 'Выбирается провайдер. При сбое основного — автоматический failover на резервный.', t: '~3 мс', who: 'Pipeline Worker' },
+      { title: 'Отправка SMPP',           desc: 'SMPP Gateway → Провайдер → Оператор. Тут уже сетевая задержка.', t: '~50-200 мс', who: 'SMPP Gateway → Оператор' },
+      { title: 'Доставка получателю',     desc: 'Оператор передаёт SMS на телефон. Время вне нашего контроля.', t: '1-30 сек', who: 'Оператор' },
+      { title: 'Подтверждение и webhook', desc: 'Оператор → DLR Delivery → запись в БД → webhook клиенту, если настроен.', t: 'асинхронно', who: 'DLR Delivery' }
+    ],
+    async play() {
+      if (this.running) return;
+      this.running = true; this.step = 0;
+      const delays = [600, 500, 700, 500, 900, 1000, 700];
+      for (let i = 0; i < this.steps.length; i++) {
+        this.step = i + 1;
+        await new Promise(r => setTimeout(r, delays[i]));
+      }
+      this.running = false;
+    },
+    reset() { this.step = 0; this.running = false; }
+  }
+}
+
+function economicsCalc() {
+  return {
+    throughput: 1200,
+    utilization: 5,
+    opCost: 20,      // оптовая цена коп
+    retailCost: 35,  // розничная коп
+    secondsPerMonth: 30 * 24 * 3600,
+    get monthlyMsg() { return Math.floor(this.throughput * (this.utilization/100) * this.secondsPerMonth); },
+    get infraCost() { return Math.round((this.throughput / 1200) * 5000); },
+    get infraPerMsg() {
+      if (this.monthlyMsg === 0) return 0;
+      return (this.infraCost * 100) / this.monthlyMsg; // ₽→коп
+    },
+    get infraPercent() { return (this.infraPerMsg / (this.opCost || 1)) * 100; },
+    get infraPercentRetail() { return (this.infraPerMsg / (this.retailCost || 1)) * 100; },
+    get grossMargin() {
+      const marginPerMsg = (this.retailCost - this.opCost) / 100; // ₽
+      return marginPerMsg * this.monthlyMsg - this.infraCost;
+    },
+    formatBig(n) {
+      if (n >= 1e9) return (n/1e9).toFixed(2) + ' млрд';
+      if (n >= 1e6) return (n/1e6).toFixed(1) + ' млн';
+      if (n >= 1e3) return (n/1e3).toFixed(0) + ' тыс';
+      return Math.round(n).toLocaleString('ru');
+    },
+    formatMoney(n) {
+      const sign = n < 0 ? '−' : '';
+      const abs = Math.abs(n);
+      if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + ' млрд ₽';
+      if (abs >= 1e6) return sign + (abs/1e6).toFixed(1) + ' млн ₽';
+      if (abs >= 1e3) return sign + Math.round(abs/1e3).toLocaleString('ru') + ' тыс ₽';
+      return sign + Math.round(abs).toLocaleString('ru') + ' ₽';
+    }
+  }
+}
+
+// Scaling chart
+window.addEventListener('load', () => {
+  const ctx = document.getElementById('scaleChart');
+  if (!ctx) return;
+  const data = [
+    { x: 1200,  infra: 5000,   level: 'Сейчас (1 сервер)' },
+    { x: 3000,  infra: 12000,  level: '+6 мес (2 сервера + Kafka)' },
+    { x: 10000, infra: 30000,  level: '+12 мес (5-6 серверов + БД-реплики)' },
+    { x: 25000, infra: 75000,  level: '+18-24 мес (K8s, гео-резерв)' },
+    { x: 50000, infra: 150000, level: '+24-36 мес (multi-DC кластер)' }
+  ];
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.x.toLocaleString('ru') + ' msg/sec'),
+      datasets: [{
+        label: 'Расходы на инфру (₽/мес)',
+        data: data.map(d => d.infra),
+        borderColor: '#1f4e79',
+        backgroundColor: 'rgba(31,78,121,.15)',
+        tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 9,
+        pointBackgroundColor: '#1f4e79', pointBorderColor: '#fff', pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item) => {
+              const d = data[item.dataIndex];
+              return [`${d.infra.toLocaleString('ru')} ₽/мес`, d.level];
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: (v) => v.toLocaleString('ru') + ' ₽' },
+          title: { display: true, text: 'Расходы на инфру в месяц' }
+        },
+        x: { title: { display: true, text: 'Throughput' } }
+      }
+    }
+  });
+});
+</script>
+</body>
+</html>

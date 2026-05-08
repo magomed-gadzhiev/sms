@@ -1,6 +1,20 @@
 version: '3.8'
 
 services:
+  # Investor presentation — static SPA served by nginx.
+  # Edit docs/investors/web/index.html and refresh browser; no rebuild needed.
+  # Public on http://<server-ip>:8090/
+  investor-deck:
+    image: nginx:1.27-alpine
+    container_name: investor-deck
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ../docs/investors/web:/usr/share/nginx/html:ro
+    networks:
+      - smpp-network
+
   # HAProxy Load Balancer
   haproxy:
     image: haproxy:2.8-alpine
