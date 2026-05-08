@@ -1041,23 +1041,55 @@ function economicsCalc() {
 }
 
 // svg-pan-zoom on architecture detail diagram (after Mermaid renders)
-function initArchZoom() {
+function initArchZoom(retries = 30) {
   const container = document.getElementById('archDiagram');
   if (!container) return;
   const svg = container.querySelector('svg');
-  if (!svg) { setTimeout(initArchZoom, 200); return; }
-  // Mermaid sets max-width style on svg — strip it so it fills container.
+  if (!svg) {
+    if (retries > 0) setTimeout(() => initArchZoom(retries - 1), 200);
+    return;
+  }
+  // svg-pan-zoom needs explicit numeric width/height to compute CTM.
+  // Mermaid sets max-width style + width="100%" attribute → SVGMatrix gets NaN.
+  // Set fixed pixel dimensions matching container.
+  const cw = container.clientWidth || 1000;
+  const ch = container.clientHeight || 560;
   svg.style.maxWidth = 'none';
-  svg.removeAttribute('width'); svg.removeAttribute('height');
-  svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+  svg.style.width = cw + 'px';
+  svg.style.height = ch + 'px';
+  svg.setAttribute('width', cw);
+  svg.setAttribute('height', ch);
+  // Ensure preserveAspectRatio is set so pan/zoom math works.
+  if (!svg.getAttribute('preserveAspectRatio')) {
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  }
   try {
     window.__archZoom = svgPanZoom(svg, {
-      zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true,
-      minZoom: 0.5, maxZoom: 5, zoomScaleSensitivity: 0.3
+      zoomEnabled: true, controlIconsEnabled: false,
+      fit: true, center: true, contain: false,
+      minZoom: 0.4, maxZoom: 6, zoomScaleSensitivity: 0.3,
+      mouseWheelZoomEnabled: true,
+      preventMouseEventsDefault: true
     });
-  } catch (e) { console.warn('svg-pan-zoom init failed:', e); }
+    // Re-fit on window resize so the diagram doesn't break on layout changes.
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (window.__archZoom) {
+          const nw = container.clientWidth, nh = container.clientHeight;
+          svg.style.width = nw + 'px'; svg.style.height = nh + 'px';
+          svg.setAttribute('width', nw); svg.setAttribute('height', nh);
+          window.__archZoom.resize(); window.__archZoom.fit(); window.__archZoom.center();
+        }
+      }, 200);
+    });
+  } catch (e) {
+    console.warn('svg-pan-zoom init failed:', e);
+  }
 }
-window.addEventListener('load', () => { setTimeout(initArchZoom, 600); });
+// Mermaid renders async via startOnLoad; poll up to ~6 sec.
+window.addEventListener('load', () => { setTimeout(() => initArchZoom(30), 400); });
 
 // Scaling chart
 window.addEventListener('load', () => {
