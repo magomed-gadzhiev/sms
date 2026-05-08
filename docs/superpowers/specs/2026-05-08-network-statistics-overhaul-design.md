@@ -11,7 +11,10 @@
 
 Аудит раздела `/network/statistics` (выполнен 2026-05-08) обнаружил три независимых класса дефектов на одном экране:
 
-1. **Финансы недостоверны.** Из 192 delivered-сообщений за период тарифицировано только 20 (10%). Регресс ~1 мая 2026, кандидаты — `61517e3` (`refactor(grpc): C.7 — errors.Is sweep`) или `5024b1e` (`refactor(repos): C.2 batch 2 — sql.ErrNoRows sweep`). До 1 мая покрытие было 100% по биллингуемым статусам (`delivered + expired + failed`). SQL-агрегатор `network_stats_hourly` в [aggregation_worker.go:62-63](internal/services/network_analytics/application/aggregation_worker.go#L62-L63) хардкодит `0 AS revenue, 0 AS cost` — даже корректно записанные тариф-логи не доходят до KPI. Провайдерская тарификация (`provider_tarification_log`) полностью пуста за всю историю — сервис `TarifyProviderCost` написан, но не имеет caller'ов в pipeline.
+1. **Финансы недостоверны — два независимых источника проблемы.**
+   - **(а) Реальный bug агрегатора.** SQL-агрегатор `network_stats_hourly` в [aggregation_worker.go:62-63](internal/services/network_analytics/application/aggregation_worker.go#L62-L63) хардкодит `0 AS revenue, 0 AS cost` — даже корректно записанные `tarification_log.total_amount` не доходят до KPI. Это устраняется в Slice 1.
+   - **(б) Provider tarification — незавершённая фича.** `provider_tarification_log` полностью пуст за всю историю — сервис `TarifyProviderCost` написан (миграция 000039 от 2026-03-27), но не имеет caller'ов в pipeline. Это устраняется в Slice 2.
+   - **(в) ОПРОВЕРГНУТАЯ гипотеза.** Изначальный аудит видел в UI «172 из 192 delivered не тарифицированы» и предположил регресс тарификатора. Дальнейшее расследование (subagent static analysis + SQL evidence) доказало: **регресса нет**. 250 из 271 «нетарифицированных» delivered-сообщений — это **тестовые данные**, посеянные напрямую SQL'ем во время manual testing 2026-05-04 12:00–12:50 (ни Go-код, ни триггеры не пишут `messages.send_method='api/campaign'`; default = NULL). Реальный трафик через pipeline тарифицируется на 100%. Spec обновлён 2026-05-08 после fact-check'а, эта пометка оставлена для исторической прозрачности.
 
 2. **API ↔ UI рассинхрон.** API возвращает `0.16974` для KPI «Ошибки» — UI рендерит «0,17» без знака процента. KPI без `value` (Выручка/Себестоимость/Прибыль) рендерятся как «0 ₽» зелёным («ok»), что прямо лжёт пользователю — данных нет, UI говорит «всё хорошо». Endpoint `DELETE /reseller/views/{id}` возвращает `500 INTERNAL_ERROR` при попытке удалить шаблонный вид (должен быть `403 VIEW_IS_TEMPLATE`). `period_preset=banana` не валидируется (тихий fallback), `channel=SMS` не находит ничего из-за case-sensitivity (`sms` в БД).
 
@@ -25,7 +28,7 @@
 
 | # | Развилка | Выбор |
 |---|---|---|
-| 1 | Тарификатор: фикс или переписать | **Регресс**, найти и точечно откатить виновный коммит (1–2 мая 2026), reseed май через одноразовый job |
+| 1 | ~~Тарификатор: фикс или переписать~~ | ~~Регресс, найти и откатить~~ → **ОПРОВЕРГНУТО** fact-check'ом. Регресса нет. Решение удалено из плана. |
 | 2 | Provider tarification: scope | **A-full:** подключить `TarifyProviderCost` в pipeline + полный админ UI для CRUD provider cost periods/tiers |
 | 3 | Backfill `network_stats_hourly` | **B:** TRUNCATE + backfill за апрель–сегодня. До апреля — оставляем как есть (платформа была без полной тарификации) |
 | 4 | Voice-канал | **A:** добавить `voice` как полноценный канал в селектор (будущая фича Voice OTP / IVR) |
@@ -91,13 +94,11 @@
 
 ## 4. Slices — детализация
 
-### Slice 0 — Diagnostic Hotfix (1 день)
+### Slice 0 — Diagnostic Hotfix (0.3 дня)
 
-**Цель:** UI перестаёт лгать без починки источников.
+**Цель:** UI перестаёт лгать без починки источников. После fact-check'а 2026-05-08 объём slice'а сокращён с 1 дня до 0.3 дня — D2 (регресс тарификатора) удалён, потому что регресса нет.
 
 **Backend:**
-- **D2 регресс:** прогнать guilty-bisect между `5024b1e` и `61517e3`, прочитать diff виновного, точечно вернуть проверку ошибки. Не плоский revert на master.
-- **Reseed май:** новый одноразовый сервис `cmd/services/tarification-recover/main.go` под env-флагом `RECOVER_FROM=<timestamp>`. Проходит по `messages WHERE status IN ('delivered','expired','failed') AND id NOT IN (SELECT message_id FROM tarification_log)` за указанный период и вызывает `TarifyClientCost` с `idempotency_key = 'reseed:'+id`. Оставляем в репо как готовый инструмент для будущих регрессов.
 - **F1:** в `views_repository.DeleteView` добавить domain-ошибки `ErrViewNotFound`, `ErrViewIsTemplate`, `ErrViewForbidden`. Handler в `network_statistics.go` маппит их в 404/403/403; всё остальное → 500.
 - **F2 формат:** в KPI builder (`internal/services/network_analytics/application/service.go`) добавить поле `format` в KPI-DTO. Значения: `count, percent, currency`. Для существующих KPI выставить корректные значения.
 
@@ -106,12 +107,11 @@
 - **F2:** в KPI-renderer'е добавить ветки по `format` — `formatPercent(value * 100)` для `percent`, `formatCurrency(value, "RUB")` для `currency`, `formatCount(value)` для `count`.
 
 **Acceptance:**
-- На sandbox: новые сообщения → запись в `tarification_log` ≤ 30 сек.
-- После reseed-job: `count(tarification_log) ≈ count(messages WHERE status IN ('delivered','expired','failed'))` за май.
 - KPI «Ошибки» в UI = `17,0%`, не `0,17`.
 - KPI «Выручка/Себестоимость/Прибыль» = `—`, не `0 ₽` зелёным.
 - DELETE template view → 403 с понятным сообщением в UI.
-- Регресс-тест в `sender_service_test.go` падает на коммите-регрессе и проходит на фиксе.
+
+**Что было удалено из Slice 0** (после fact-check'а 2026-05-08): задачи D2 регресс bisect, точечный фикс и reseed-CLI. Регресса в тарификаторе нет — это была ошибка интерпретации аудита (тестовый seed принят за реальный трафик). См. раздел 1 пункт 1(в).
 
 ---
 
@@ -312,12 +312,12 @@
 
 | Slice | Что | Размер | Merge gate |
 |-------|-----|--------|------------|
-| **0** | Diagnostic hotfix | 1 день | UI больше не лжёт |
+| **0** | Diagnostic hotfix (F1+F2+F3) | 0.3 дня | UI больше не лжёт (rendering fix only) |
 | **1** | Выручка | 3 дня | KPI «Выручка» = реальные числа |
 | **2** | Себестоимость+Прибыль | 5–7 дней | Margin работает на тарифицированных провайдерах |
 | **3** | Monitoring full live | 3–5 дней | Числа Monitoring = реальный трафик |
 | **4** | Контракт + UX | 5–7 дней | Аудит закрыт |
-| **Итого** | | **17–23 дней** | |
+| **Итого** | | **16.3–22.3 дней** | (был 17–23 до удаления D2) |
 
 ### Acceptance Slice 4 (полный список)
 
@@ -339,7 +339,7 @@
 
 ## 7. Риски и неопределённости
 
-1. **D2 руутcause** не подтверждён без bisect'а. Возможно, виновен оба коммита или ни один (тогда регресс в commit'е, который я не идентифицировал). Slice 0 включает явный шаг `git revert` локально + проверка → если ни один не помогает, эскалация (нужен новый брейнсторм-цикл).
+1. ~~D2 руутcause~~ — **закрыт**. Регресса нет (см. раздел 1 пункт 1(в)).
 2. **`UpsertHourlyStats` смена семантики `add → replace`** может задеть других callers'ов агрегатора, которых я не нашёл grep'ом. Проверить ещё раз перед фиксом; если есть — добавить миграционный план.
 3. **gRPC `GetActiveConns` в smpp-server** требует, чтобы там был session-tracker. Если его нет — Slice 3 раздувается на этот компонент. Уточнить при имплементации (первый шаг Slice 3 — чтение `cmd/smpp-server/`).
 4. **Cardinality Redis при 100+ партнёрах** — на полном проде ключей будет много. На sandbox/пилоте незаметно. Алертинг на `redis_keyspace_size` отдельной задачей.

@@ -2,9 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Diagnose and fix the May 2026 client-tarification regression, stop the UI from rendering false `0 ₽` and unitless «Ошибки 0,17», fix the 500-on-template-DELETE bug, then make `network_stats_hourly.revenue` flow from `tarification_log.total_amount` and backfill April-now.
+**Goal:** Stop the UI from rendering misleading `0 ₽` and unitless «Ошибки 0,17», fix the 500-on-template-DELETE bug, then make `network_stats_hourly.revenue` flow from `tarification_log.total_amount` and backfill April-now.
 
-**Architecture:** Slice 0 lands a small diagnostic hotfix that does NOT yet change data sources — only stops the lying. Slice 1 connects the SQL aggregator to `tarification_log` via JOIN, switches `UpsertHourlyStats` to replace-semantics so the backfill is idempotent, and runs a one-shot CLI to backfill historical revenue. Spec: [docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md](docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md).
+**Architecture:** Slice 0 lands a small UI/API rendering fix that does NOT touch data sources — only stops the visual lying. Slice 1 connects the SQL aggregator to `tarification_log` via JOIN, switches `UpsertHourlyStats` to replace-semantics so the backfill is idempotent, and runs a one-shot CLI to backfill historical revenue. Spec: [docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md](docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md).
+
+**Plan revision history:**
+- 2026-05-08 v2: removed original Tasks 1–4 (D2 regression bisect, point-fix, reseed CLI, reseed run). Subagent static analysis + sandbox SQL evidence proved the audit's "regression" hypothesis was wrong — 250/271 "missing tarifications" turned out to be a SQL-injected test seed from manual testing on 2026-05-04 (not real traffic). Real pipeline tarifies at 100%. See spec section 1 item 1(в) and the conversation log. Old Tasks 5–11 renumbered to 1–7.
 
 **Tech Stack:** Go 1.24 (gRPC, pgx, sqlx for legacy repo), PostgreSQL 15+ with monthly partitioning, React 19 + TypeScript 5.7 + Vite + Tailwind, stretchr/testify for Go tests, Vitest + React Testing Library for frontend.
 
@@ -14,7 +17,6 @@
 
 ### Created files
 
-- `cmd/services/tarification-recover/main.go` — one-shot CLI that walks `messages` from a `--from` timestamp, finds those with no `tarification_log` row, calls gRPC `TarifyMessage` with `idempotency_key='reseed:'+message_id`. Idempotency-safe.
 - `cmd/network-stats-backfill/main.go` — CLI that calls `aggregation_worker.BackfillWindow(from, to)`. Optional `--truncate` (with stdin confirmation) for blank-slate backfill, `--partner` for narrowed scope.
 - `scripts/run-backfill-april.sh` — wrapper that invokes `network-stats-backfill --from 2026-04-01T00:00:00Z --to now --truncate` after stdin confirmation.
 - `internal/services/network_analytics/domain/saved_view_errors.go` — sentinel errors `ErrViewNotFound`, `ErrViewIsTemplate`, `ErrViewForbidden`.
@@ -22,8 +24,6 @@
 
 ### Modified files
 
-- `internal/services/tarification/application/tarification_service.go` — point fix for D2 regression (exact change determined in Task 1).
-- `internal/services/tarification/infrastructure/repository/tarification_log_repository.go` — possibly the regression locus (`Create`/`GetByIdempotencyKey`); confirm via Task 1.
 - `internal/services/network_analytics/application/aggregation_worker.go` — `rawAggQuery` gets a `LEFT JOIN tarification_log` and `COALESCE(SUM(t.total_amount), 0) AS revenue`.
 - `internal/services/network_analytics/infrastructure/repository/stats_repository.go` — `UpsertHourlyStats` switches counter columns from `add` to `replace` semantics.
 - `internal/services/network_analytics/infrastructure/repository/views_repository.go` — `Delete` returns sentinel errors instead of swallowing `RowsAffected=0`.
@@ -37,482 +37,11 @@
 
 ---
 
-## SLICE 0 — Diagnostic Hotfix (1 day)
+## SLICE 0 — Diagnostic Hotfix (0.3 day) — F1 + F2 + F3 only
 
-### Task 1: Locate the D2 regression by guilty-bisect
+After the 2026-05-08 fact-check, original Tasks 1–4 (D2 regression bisect, point-fix, reseed CLI, reseed run) were removed because the audit's "regression" hypothesis was disproven. Slice 0 now lands three small UI/API rendering fixes only.
 
-**Files:**
-- Read: `internal/pipeline/sender/stage.go:338-405` (TarifyMessage call site)
-- Read: `internal/services/tarification/grpc/server.go:62-104` (gRPC handler)
-- Read: `internal/services/tarification/application/tarification_service.go` (full file)
-- Read: `internal/services/tarification/infrastructure/repository/tarification_log_repository.go` (full file)
-- Read commits: `git show 5024b1e -- internal/services/tarification/` and `git show 61517e3 -- internal/services/tarification/`
-
-- [ ] **Step 1: Capture pre-regression behavior in a regression test (uses real DB on sandbox, so this test is integration-level)**
-
-Create `internal/services/tarification/application/tarification_service_regression_test.go`:
-
-```go
-package application_test
-
-import (
-	"context"
-	"database/sql"
-	"os"
-	"testing"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smpp-server/smpp-server/internal/services/tarification/application"
-	"github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
-)
-
-// TestRegressionMay2026_TarifyMessageWritesLog reproduces the May 2026 regression:
-// a message with status=delivered must produce exactly one tarification_log row.
-// Before the fix, this test should FAIL on master after commit 5024b1e
-// (or whichever commit Task 1 identifies as guilty).
-func TestRegressionMay2026_TarifyMessageWritesLog(t *testing.T) {
-	dsn := os.Getenv("TEST_DB_DSN")
-	if dsn == "" {
-		t.Skip("TEST_DB_DSN not set; skipping integration test")
-	}
-	db, err := sqlx.Connect("postgres", dsn)
-	require.NoError(t, err)
-	defer db.Close()
-
-	// Seed: client + operator + tariff_plan + tariff_period + tariff_tier
-	// (use existing test fixtures in internal/services/tarification/testutil if present).
-	// TODO in Step 2: identify the exact fixture function and call it here.
-
-	logRepo := repository.NewTarificationLogRepository(db)
-	// Other repos: planRepo, periodRepo, tierRepo, usageRepo — instantiated similarly.
-
-	svc := application.NewTarificationService(/* deps */)
-
-	clientID := uuid.New()
-	messageID := uuid.New()
-	operatorID := uuid.New()
-
-	resp, err := svc.TarifyMessage(context.Background(), &application.TarifyMessageRequest{
-		ClientID:       clientID,
-		MessageID:      messageID,
-		OperatorID:     operatorID,
-		SenderName:     "TEST",
-		SegmentCount:   1,
-		IdempotencyKey: messageID.String(),
-	})
-	require.NoError(t, err)
-	require.True(t, resp.Approved, "approved must be true for happy-path tarification")
-
-	// Critical assertion: tarification_log MUST have exactly 1 row for this message_id.
-	// This is what the May 2026 regression broke.
-	row, err := logRepo.GetByMessageID(context.Background(), messageID)
-	require.NoError(t, err, "GetByMessageID must not error")
-	require.NotNil(t, row, "tarification_log row missing — REGRESSION (this is the bug we're fixing)")
-	require.Equal(t, messageID, row.MessageID)
-	require.Equal(t, int(1), row.SegmentCount)
-}
-
-// TestRegression_GetByIdempotencyKeySemantics covers the Get-then-Insert pattern.
-// If Get returns (nil, nil) for a missing key, the caller must proceed with Insert.
-// If Get returns a non-nil row, caller must skip Insert.
-// Both branches must work; if either is broken, the regression follows.
-func TestRegression_GetByIdempotencyKeySemantics(t *testing.T) {
-	dsn := os.Getenv("TEST_DB_DSN")
-	if dsn == "" {
-		t.Skip("TEST_DB_DSN not set; skipping integration test")
-	}
-	db, err := sqlx.Connect("postgres", dsn)
-	require.NoError(t, err)
-	defer db.Close()
-
-	repo := repository.NewTarificationLogRepository(db)
-
-	// 1. Missing key → (nil, nil)
-	missingKey := "test-missing-" + time.Now().Format(time.RFC3339Nano)
-	row, err := repo.GetByIdempotencyKey(context.Background(), missingKey)
-	require.NoError(t, err)
-	require.Nil(t, row)
-
-	// 2. Insert a row with a known key, then Get must return it.
-	// (Construction details depend on domain.NewTarificationLog signature.)
-	// TODO Step 2: fill in once you've read tarification_log_repository.go fully.
-
-	// 3. Confirm sql.ErrNoRows handling: directly probe via raw query.
-	var dummy int
-	err = db.QueryRowContext(context.Background(),
-		"SELECT 1 FROM tarification_log WHERE idempotency_key=$1",
-		"definitely-nonexistent").Scan(&dummy)
-	require.True(t, errors.Is(err, sql.ErrNoRows), "raw query must return sql.ErrNoRows")
-}
-```
-
-- [ ] **Step 2: Run the regression test against current master to confirm it FAILS**
-
-Run: `cd internal/services/tarification/application && TEST_DB_DSN="postgres://smpp:smpp@72.56.232.202:18432/smpp_db?sslmode=disable" go test -run TestRegressionMay2026 -v`
-
-Expected: FAIL with "tarification_log row missing — REGRESSION".
-
-If the test PASSES on master, the regression locus is elsewhere (not in `TarifyMessage`'s log-write path). Pivot: the regression may be in the gRPC layer (`server.go`) silently swallowing `Internal` errors. Re-run via the gRPC client using `pipeline/sender/stage.go`'s flow instead of `TarificationService.TarifyMessage` directly.
-
-- [ ] **Step 3: Bisect between candidate commits**
-
-Run:
-```bash
-git log --oneline 4528940..1ceb82a -- internal/services/tarification/ | head -20
-```
-
-Identify the chronologically-first commit on or after 2026-05-01 that touched any file under `internal/services/tarification/`. Likely candidates (already known from spec context):
-- `5024b1e` 2026-05-02 — refactor(repos): C.2 batch 2 — sql.ErrNoRows sweep (12 files in `tarification/infrastructure/repository/`)
-- `61517e3` 2026-05-01 — refactor(grpc): C.7 — errors.Is sweep (touches `application/sender_service.go` which is NOT the tarification path; ignore unless bisect proves otherwise)
-
-Run `git checkout` on each candidate's parent and re-run the regression test. The commit on whose parent the test PASSES, but on the commit itself FAILS, is the guilty commit.
-
-```bash
-git checkout 5024b1e^  # parent of 5024b1e
-go test -run TestRegressionMay2026 -v
-# → expect PASS
-git checkout 5024b1e
-go test -run TestRegressionMay2026 -v
-# → expect FAIL ⇒ 5024b1e is guilty
-```
-
-- [ ] **Step 4: Read the guilty commit's diff and locate the broken behaviour**
-
-Run: `git show <guilty_sha> -- internal/services/tarification/`
-
-Look for one of these patterns (typical "ErrNoRows sweep" mistakes):
-- A method that previously returned `(nil, ErrNotFound)` now returns `(nil, nil)`, and the caller still treats `(nil, nil)` as "no row, please proceed with Insert" — this *itself* isn't the bug, it's the intended idempotency pattern.
-- A method that previously returned `(*Foo, nil)` now returns `(nil, nil)` because of a misplaced `errors.Is(err, sql.ErrNoRows)` branch — the row IS there but the caller never sees it.
-- A method that previously returned `(nil, ErrNotFound)` now returns `(nil, fmt.Errorf("..."))` — caller now treats it as fatal and skips the Insert.
-
-Identify the exact line. Document the diagnosis as a comment in `tarification_service_regression_test.go` above the failing assertion.
-
-- [ ] **Step 5: Commit the regression test (without the fix yet, so the broken state is captured)**
-
-```bash
-git add internal/services/tarification/application/tarification_service_regression_test.go
-git commit -m "test(tarification): regression test for May 2026 log-write gap
-
-Captures the pre-regression behavior: TarifyMessage on a happy-path
-message must produce exactly one tarification_log row. Currently FAILS
-on master because of a regression introduced in <guilty_sha>.
-
-Fix follows in next commit."
-```
-
----
-
-### Task 2: Point-fix the D2 regression
-
-**Files:**
-- Modify: `internal/services/tarification/<guilty_file_path>:<line>` (exact path determined in Task 1).
-
-- [ ] **Step 1: Apply the minimal fix to restore pre-regression behavior**
-
-This is a one-line or few-line change in the file Task 1 identified. The fix should:
-- Restore the exact branch the regression broke (e.g., `if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }` instead of `return nil, nil`).
-- Keep the rest of the C.2/C.7 sweep intact (don't revert the entire commit).
-- NOT introduce new error types or change public method signatures.
-
-Example shape (placeholder — exact code depends on Task 1's diagnosis):
-
-```go
-// Before (regression):
-if err != nil {
-    if errors.Is(err, sql.ErrNoRows) {
-        return nil, nil
-    }
-    return nil, err
-}
-
-// After (fixed — restores caller's expectation):
-if err != nil {
-    if errors.Is(err, sql.ErrNoRows) {
-        return nil, domain.ErrTariffPlanNotFound
-    }
-    return nil, err
-}
-```
-
-- [ ] **Step 2: Run the regression test and confirm it PASSES**
-
-Run: `cd internal/services/tarification/application && TEST_DB_DSN=... go test -run TestRegressionMay2026 -v`
-
-Expected: PASS — `tarification_log` row written.
-
-- [ ] **Step 3: Run the full tarification test suite — nothing else broke**
-
-Run: `cd internal/services/tarification && go test ./... -v -count=1`
-
-Expected: all green. If any other test fails, the fix went too wide — narrow it.
-
-- [ ] **Step 4: Run `go vet` and `go build` on the whole repo**
-
-Run: `cd c:/projects/sms && ./scripts/check.sh`
-
-Expected: PASS (or `[SKIP]` for Go checks under Device Guard, in which case CI will validate).
-
-- [ ] **Step 5: Commit the fix**
-
-```bash
-git add internal/services/tarification/<file>
-git commit -m "fix(tarification): restore log-write on happy-path TarifyMessage
-
-Regression introduced in <guilty_sha> caused 90% of delivered messages
-in May to skip tarification_log entirely. Root cause: <one-line summary
-of what was wrong>. Restored the branch that was swept too aggressively
-during the C.2/C.7 errors.Is refactor.
-
-Verified by tarification_service_regression_test.go.
-
-Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#slice-0"
-```
-
----
-
-### Task 3: Build the reseed CLI for May 2026 messages
-
-**Files:**
-- Create: `cmd/services/tarification-recover/main.go`
-
-- [ ] **Step 1: Scaffold the CLI binary**
-
-Create `cmd/services/tarification-recover/main.go`:
-
-```go
-// Command tarification-recover walks messages with no tarification_log row
-// and replays them through the gRPC TarifyMessage API. Idempotency-safe:
-// each call uses idempotency_key="reseed:"+message_id, so duplicate runs
-// are no-ops thanks to the existing GetByIdempotencyKey check.
-//
-// Usage:
-//   RECOVER_FROM=2026-05-01T00:00:00Z RECOVER_TO=2026-05-08T00:00:00Z \
-//     TARIFICATION_GRPC_ADDR=localhost:50053 \
-//     DATABASE_URL=postgres://... \
-//     ./tarification-recover
-package main
-
-import (
-	"context"
-	"database/sql"
-	"fmt"
-	"os"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
-	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
-)
-
-type candidate struct {
-	MessageID  uuid.UUID
-	ClientID   uuid.UUID
-	OperatorID uuid.UUID
-	SenderName string
-	SegCount   int32
-}
-
-func main() {
-	from := mustParseTime("RECOVER_FROM")
-	to := mustParseTime("RECOVER_TO")
-	dsn := mustEnv("DATABASE_URL")
-	grpcAddr := mustEnv("TARIFICATION_GRPC_ADDR")
-
-	ctx := context.Background()
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		log.Fatal().Err(err).Msg("pgxpool")
-	}
-	defer pool.Close()
-
-	conn, err := grpc.Dial(grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatal().Err(err).Msg("grpc.Dial")
-	}
-	defer conn.Close()
-	client := tarificationv1.NewTarificationServiceClient(conn)
-
-	candidates, err := listCandidates(ctx, pool, from, to)
-	if err != nil {
-		log.Fatal().Err(err).Msg("list candidates")
-	}
-	log.Info().Int("count", len(candidates)).
-		Time("from", from).Time("to", to).
-		Msg("candidates loaded")
-
-	var ok, skipped, failed int
-	for i, c := range candidates {
-		req := &tarificationv1.TarifyMessageRequest{
-			ClientId:       c.ClientID.String(),
-			MessageId:      c.MessageID.String(),
-			OperatorId:     c.OperatorID.String(),
-			SenderName:     c.SenderName,
-			SegmentCount:   c.SegCount,
-			IdempotencyKey: "reseed:" + c.MessageID.String(),
-		}
-		ctxCall, cancel := context.WithTimeout(ctx, 10*time.Second)
-		resp, err := client.TarifyMessage(ctxCall, req)
-		cancel()
-		if err != nil {
-			failed++
-			log.Warn().Err(err).Str("msg_id", c.MessageID.String()).Msg("tarify failed")
-			continue
-		}
-		if !resp.Approved {
-			skipped++
-			continue
-		}
-		ok++
-		if (i+1)%100 == 0 {
-			log.Info().Int("processed", i+1).Int("ok", ok).Int("skip", skipped).Int("fail", failed).Msg("progress")
-		}
-	}
-	log.Info().Int("ok", ok).Int("skipped", skipped).Int("failed", failed).Msg("done")
-}
-
-func listCandidates(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) ([]candidate, error) {
-	const q = `
-		SELECT m.id, m.client_id, m.operator_id, COALESCE(m.source, ''), COALESCE(m.segment_count, 1)
-		FROM messages m
-		LEFT JOIN tarification_log t ON t.message_id = m.id
-		WHERE m.created_at >= $1 AND m.created_at < $2
-		  AND m.status IN ('delivered', 'expired', 'failed')
-		  AND m.client_id IS NOT NULL
-		  AND m.operator_id IS NOT NULL
-		  AND t.message_id IS NULL
-		ORDER BY m.created_at ASC`
-	rows, err := pool.Query(ctx, q, from, to)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []candidate
-	for rows.Next() {
-		var c candidate
-		if err := rows.Scan(&c.MessageID, &c.ClientID, &c.OperatorID, &c.SenderName, &c.SegCount); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
-func mustEnv(k string) string {
-	v := os.Getenv(k)
-	if v == "" {
-		log.Fatal().Str("key", k).Msg("env var required")
-	}
-	return v
-}
-
-func mustParseTime(k string) time.Time {
-	v := mustEnv(k)
-	t, err := time.Parse(time.RFC3339, v)
-	if err != nil {
-		log.Fatal().Err(err).Str("key", k).Str("val", v).Msg("invalid timestamp")
-	}
-	return t
-}
-
-var _ = sql.ErrNoRows // referenced for clarity in idempotency design
-```
-
-- [ ] **Step 2: Build the binary locally**
-
-Run: `cd c:/projects/sms && go build -o /tmp/tarification-recover ./cmd/services/tarification-recover`
-
-Expected: builds clean, no warnings.
-
-- [ ] **Step 3: Dry-run on sandbox without actually tarifying — count candidates**
-
-SSH and run:
-```bash
-./scripts/server.sh exec "docker exec postgres psql -U smpp -d smpp_db -c \"
-  SELECT count(*)
-  FROM messages m
-  LEFT JOIN tarification_log t ON t.message_id = m.id
-  WHERE m.created_at >= '2026-05-01'
-    AND m.status IN ('delivered','expired','failed')
-    AND t.message_id IS NULL
-\""
-```
-
-Expected output: a number (probably ~200, matching the audit). Record this as the baseline; after reseed it should drop to 0.
-
-- [ ] **Step 4: Commit the CLI**
-
-```bash
-git add cmd/services/tarification-recover/main.go
-git commit -m "feat(tarification-recover): one-shot CLI to reseed missed tarifications
-
-Walks messages with no tarification_log row in a given time window
-and replays them through gRPC TarifyMessage with idempotency_key='reseed:'+id.
-Used to recover from the May 2026 regression. Kept in repo as a tool
-for future similar incidents.
-
-Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#slice-0"
-```
-
----
-
-### Task 4: Run the reseed CLI on sandbox and verify
-
-**Files:** none (operational task).
-
-- [ ] **Step 1: Deploy `tarification-recover` to sandbox via existing deploy flow**
-
-Run: `./scripts/server.sh deploy` (or specifically `./scripts/server.sh deploy tarification-recover` if the script supports per-service deploy).
-
-Expected: build & push to sandbox completes.
-
-- [ ] **Step 2: Capture the pre-reseed candidate count**
-
-Run the SQL from Task 3 Step 3. Save the number `N_before`.
-
-- [ ] **Step 3: Run the reseed CLI**
-
-```bash
-./scripts/server.sh exec "
-  RECOVER_FROM=2026-05-01T00:00:00Z \
-  RECOVER_TO=2026-05-09T00:00:00Z \
-  TARIFICATION_GRPC_ADDR=tarification-service:50053 \
-  DATABASE_URL=postgres://smpp:smpp@postgres:5432/smpp_db?sslmode=disable \
-  /opt/sms/bin/tarification-recover
-"
-```
-
-Expected: log lines `processed N`, ending with `ok=K skipped=L failed=M` where `K` is most of `N_before`. `failed` should be 0; `skipped` should be small (only legitimate rejections like missing tariff plan).
-
-- [ ] **Step 4: Confirm post-reseed candidate count is 0**
-
-Re-run the SQL from Step 2. Save the number `N_after`. Expected: `N_after = 0` (or very close — only messages with no active tariff plan remain).
-
-- [ ] **Step 5: Cross-check `tarification_log` row count**
-
-Run:
-```bash
-./scripts/server.sh exec "docker exec postgres psql -U smpp -d smpp_db -c \"
-  SELECT count(*) FROM tarification_log WHERE created_at >= '2026-05-01'
-\""
-```
-
-Expected: previously was 36 (per audit); now should be ~`200` (matching the May messages count), reflecting the reseed.
-
-- [ ] **Step 6: No commit needed for this task — it's an operational verification step. Document the numbers in a follow-up comment on the spec PR.**
-
----
-
-### Task 5: Add sentinel errors and 403/404 mapping for `DeleteView`
+### Task 1: Add sentinel errors and 403/404 mapping for `DeleteView`
 
 **Files:**
 - Create: `internal/services/network_analytics/domain/saved_view_errors.go`
@@ -766,7 +295,7 @@ Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#f1
 
 ---
 
-### Task 6: Add `Format` field to KPI proto/domain and populate it on backend
+### Task 2: Add `Format` field to KPI proto/domain and populate it on backend
 
 **Files:**
 - Modify: `api/proto/network_analytics/network_analytics.proto`
@@ -1013,7 +542,7 @@ Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#f2
 
 ---
 
-### Task 7: Frontend KPI renderer reads `format` and renders `—` for nil values
+### Task 3: Frontend KPI renderer reads `format` and renders `—` for nil values
 
 **Files:**
 - Modify: `portal-frontend/src/api/networkStats.ts` — TS types for KPI
@@ -1253,7 +782,7 @@ Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#f2
 
 ## SLICE 1 — Выручка (3 days)
 
-### Task 8: Extend `rawAggQuery` to JOIN `tarification_log`
+### Task 4: Extend `rawAggQuery` to JOIN `tarification_log`
 
 **Files:**
 - Modify: `internal/services/network_analytics/application/aggregation_worker.go:43-71`
@@ -1421,7 +950,7 @@ Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#d1
 
 ---
 
-### Task 9: Switch `UpsertHourlyStats` from add to replace semantics
+### Task 5: Switch `UpsertHourlyStats` from add to replace semantics
 
 **Files:**
 - Modify: `internal/services/network_analytics/infrastructure/repository/stats_repository.go:721-773`
@@ -1544,7 +1073,7 @@ Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#de
 
 ---
 
-### Task 10: Build the `network-stats-backfill` CLI
+### Task 6: Build the `network-stats-backfill` CLI
 
 **Files:**
 - Create: `cmd/network-stats-backfill/main.go`
@@ -1568,7 +1097,7 @@ Create `cmd/network-stats-backfill/main.go`:
 // --truncate first deletes network_stats_hourly rows in [from, to) — required
 // to avoid stale dimensions sticking around when source data changes.
 // Without --truncate, the CLI relies on UpsertHourlyStats's replace
-// semantics (Slice 1 Task 9) but cannot remove rows for dimensions that
+// semantics (Slice 1 Task 5 in this plan) but cannot remove rows for dimensions that
 // no longer have any messages.
 package main
 
@@ -1703,14 +1232,14 @@ git commit -m "feat(network-stats-backfill): one-shot CLI for re-aggregation
 Replays aggregation_worker.BackfillWindow over a window, optionally
 truncating network_stats_hourly first. Used to repopulate revenue
 after Slice 1 lands. Idempotent thanks to UpsertHourlyStats replace
-semantics (Task 9).
+semantics (Task 5 in this plan).
 
 Refs: docs/superpowers/specs/2026-05-08-network-statistics-overhaul-design.md#slice-1"
 ```
 
 ---
 
-### Task 11: Run backfill on sandbox and verify revenue surfaces in UI
+### Task 7: Run backfill on sandbox and verify revenue surfaces in UI
 
 **Files:** none (operational).
 
@@ -1786,31 +1315,30 @@ Document the cross-check numbers in a comment on the PR for traceability.
 
 Before handing off to execution, the plan author confirms:
 
-**Spec coverage:**
+**Spec coverage (after 2026-05-08 v2 revision):**
 
 | Spec section | Plan tasks |
 |---|---|
-| Slice 0 — D2 regression find & fix | Tasks 1, 2 |
-| Slice 0 — D2 reseed | Tasks 3, 4 |
-| Slice 0 — F1 (DeleteView 403/404) | Task 5 |
-| Slice 0 — F2 + F3 (KPI format/nullable) | Tasks 6, 7 |
-| Slice 1 — D1 (rawAggQuery JOIN) | Task 8 |
-| Slice 1 — UpsertHourlyStats replace | Task 9 |
-| Slice 1 — Backfill utility | Task 10 |
-| Slice 1 — Backfill execution + verify | Task 11 |
+| Slice 0 — F1 (DeleteView 403/404) | Task 1 |
+| Slice 0 — F2 (KPI format field) | Task 2 |
+| Slice 0 — F3 (KPI nullable rendering) | Task 3 |
+| Slice 1 — D1 (rawAggQuery JOIN) | Task 4 |
+| Slice 1 — UpsertHourlyStats replace | Task 5 |
+| Slice 1 — Backfill utility | Task 6 |
+| Slice 1 — Backfill execution + verify | Task 7 |
 
-Slice 2/3/4 are explicitly OUT of this plan (per the user's choice C: Slice 0 + Slice 1 together).
+D2 (regression find/fix) and reseed CLI are intentionally NOT in this plan — see header revision note. Slice 2/3/4 are explicitly OUT of this plan (per the user's choice C: Slice 0 + Slice 1 together).
 
-**Placeholder scan:** No "TBD"/"TODO" except inside test helper comments where they direct the engineer to read existing files (Tasks 1 step 1 has two TODOs that mark places where the engineer must align with whatever fixture infra already exists in the repo). Those TODOs are inside the test code itself and represent legitimate "look at existing code" steps, not unfinished plan content.
+**Placeholder scan:** No "TBD"/"TODO" remain after D2 task removal.
 
 **Type consistency:**
-- `KPI.Value` is `*float64` in domain (Task 6 step 3) and `value?: number` in TS (Task 7 step 1). Consistent.
+- `KPI.Value` is `*float64` in domain (Task 2 step 3) and `value?: number` in TS (Task 3 step 1). Consistent.
 - `KPI.Format` field name same across proto/Go/TS. ✓
-- `domain.ErrViewNotFound` / `ErrViewIsTemplate` / `ErrViewForbidden` defined in Task 5 step 1, used in Task 5 step 4 (`Delete`) and step 6 (gRPC mapping). ✓
-- `aggregation_worker.BackfillWindow` signature: `func (w *AggregationWorker) BackfillWindow(ctx context.Context, from, to time.Time) error` — used in Task 10 step 1. Matches existing `aggregation_worker.go:101` signature. ✓
-- `repository.NewStatsRepo(pool)` and `repository.NewMonitoringRepo(pool, nil)` constructors used in Tasks 8/10/11. The monitoring constructor accepts `(*pgxpool.Pool, *redis.Client)` per `monitoring_repo.go:21` — passing `nil` for redis is safe because the backfill path doesn't read live metrics.
+- `domain.ErrViewNotFound` / `ErrViewIsTemplate` / `ErrViewForbidden` defined in Task 1 step 1, used in Task 1 step 4 (`Delete`) and step 6 (gRPC mapping). ✓
+- `aggregation_worker.BackfillWindow` signature: `func (w *AggregationWorker) BackfillWindow(ctx context.Context, from, to time.Time) error` — used in Task 6 step 1. Matches existing `aggregation_worker.go:101` signature. ✓
+- `repository.NewStatsRepo(pool)` and `repository.NewMonitoringRepo(pool, nil)` constructors used in Tasks 4/6/7. The monitoring constructor accepts `(*pgxpool.Pool, *redis.Client)` per `monitoring_repo.go:21` — passing `nil` for redis is safe because the backfill path doesn't read live metrics.
 
-**Coverage gaps:** Slice 0 has no explicit task to verify the audit's finding that the audit-original UI displays "Ошибки 0,17" — this is implicitly verified in Task 7 step 9 ("manual smoke on sandbox"). Acceptable.
+**Coverage gaps:** Slice 0 has no explicit task to verify the audit's finding that the audit-original UI displays "Ошибки 0,17" — this is implicitly verified in Task 3 step 9 ("manual smoke on sandbox"). Acceptable.
 
 ---
 
