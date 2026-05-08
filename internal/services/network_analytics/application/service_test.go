@@ -105,3 +105,32 @@ func TestBuildStatKPIs_WithMoneyDataRendersValues(t *testing.T) {
 		t.Errorf("Себестоимость: expected 600.0, got %v", *cost.Value)
 	}
 }
+
+// TestBuildStatKPIs_BreakevenProfitNotNil verifies that when revenue == cost > 0
+// (genuine breakeven), Прибыль renders as 0.0, not nil. Regression guard for
+// the moneyValue closure that previously suppressed any zero — including a
+// computed breakeven — and rendered it as "—".
+func TestBuildStatKPIs_BreakevenProfitNotNil(t *testing.T) {
+	rows := []domain.StatRow{
+		{Total: 100, Delivered: 90, Failed: 5, Revenue: 1500.0, Cost: 1500.0},
+	}
+
+	kpis := buildStatKPIs(rows)
+
+	profit := findKPI(kpis, "Прибыль")
+	if profit == nil {
+		t.Fatalf("Прибыль: KPI missing")
+	}
+	if profit.Value == nil {
+		t.Fatalf("Прибыль: expected non-nil Value at breakeven (revenue == cost > 0), got nil")
+	}
+	if *profit.Value != 0.0 {
+		t.Errorf("Прибыль: expected 0.0 at breakeven, got %v", *profit.Value)
+	}
+	if profit.Format != "currency" {
+		t.Errorf("Прибыль: expected Format=\"currency\", got %q", profit.Format)
+	}
+	if profit.Currency != "RUB" {
+		t.Errorf("Прибыль: expected Currency=\"RUB\", got %q", profit.Currency)
+	}
+}

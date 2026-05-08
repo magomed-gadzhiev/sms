@@ -401,3 +401,19 @@ func ComputeHealth(dlrRate float64, latencyP95Ms int, errorRate float64, pending
 // F64p returns a pointer to a copy of f. Helper for KPI.Value assignment so
 // callers can write `Value: F64p(x)` instead of `v := x; ... Value: &v`.
 func F64p(f float64) *float64 { return &f }
+
+// MoneyValue returns &v when money inputs exist, otherwise nil. Use to
+// distinguish "we have data and it's zero (e.g., breakeven)" from "no
+// data at all". Pass `hasData = revenue != 0 || cost != 0`.
+//
+// Why both inputs at zero == "no data": tarification doesn't run yet on the
+// pipeline path that feeds these KPIs (Slice 1 will fix that source). Until
+// then, an all-zero (revenue, cost) tuple means "we never priced this", not
+// "we priced this and it was free". A genuine breakeven (revenue == cost > 0)
+// must still render as 0 ₽, not as "—".
+func MoneyValue(v float64, hasData bool) *float64 {
+	if !hasData {
+		return nil
+	}
+	return &v
+}

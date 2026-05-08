@@ -98,22 +98,18 @@ func buildStatKPIs(rows []domain.StatRow) []domain.KPI {
 		errStatus = domain.HealthWarning
 	}
 
-	// moneyValue: when there is no money data at all, render as nil so the UI
-	// shows "—" instead of "0 ₽" (which the previous shape painted as green-OK).
-	moneyValue := func(v float64) *float64 {
-		if v == 0 {
-			return nil
-		}
-		return &v
-	}
+	// "No money data" means no money inputs at all, not "computed value
+	// happens to be zero". Otherwise breakeven (revenue == cost > 0, profit
+	// == 0) gets falsely rendered as "—".
+	hasMoney := revenue != 0 || cost != 0
 
 	return []domain.KPI{
 		{Name: "Всего", Value: domain.F64p(float64(totalMsgs)), Status: domain.HealthOK, Format: "count"},
 		{Name: "Доставляемость", Value: domain.F64p(dlrRate), Status: dlrStatus, Format: "percent"},
 		{Name: "Ошибки", Value: domain.F64p(errorRate), Status: errStatus, Format: "percent"},
-		{Name: "Выручка", Value: moneyValue(revenue), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
-		{Name: "Себестоимость", Value: moneyValue(cost), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
-		{Name: "Прибыль", Value: moneyValue(profit), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
+		{Name: "Выручка", Value: domain.MoneyValue(revenue, hasMoney), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
+		{Name: "Себестоимость", Value: domain.MoneyValue(cost, hasMoney), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
+		{Name: "Прибыль", Value: domain.MoneyValue(profit, hasMoney), Status: domain.HealthOK, Format: "currency", Currency: "RUB"},
 		{Name: "Pending", Value: domain.F64p(float64(pending)), Status: domain.HealthOK, Format: "count"},
 	}
 }

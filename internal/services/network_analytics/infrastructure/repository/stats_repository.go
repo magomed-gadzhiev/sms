@@ -277,19 +277,17 @@ func computeKPIs(total, delivered, failed int64, revenue, cost float64) []domain
 		dlrStatus = domain.HealthWarning
 	}
 
-	moneyValue := func(v float64) *float64 {
-		if v == 0 {
-			return nil
-		}
-		return &v
-	}
+	// "No money data" means no money inputs at all, not "computed value
+	// happens to be zero". Otherwise breakeven (revenue == cost > 0, profit
+	// == 0) gets falsely rendered as "—".
+	hasMoney := revenue != 0 || cost != 0
 
 	return []domain.KPI{
 		{Name: "Всего", Value: domain.F64p(float64(total)), Format: "count"},
 		{Name: "Доставлено", Value: domain.F64p(float64(delivered)), Format: "count"},
 		{Name: "Доставляемость", Value: domain.F64p(dlrRate), Status: dlrStatus, Format: "percent"},
 		{Name: "Ошибки", Value: domain.F64p(float64(failed)), Format: "count"},
-		{Name: "Прибыль", Value: moneyValue(profit), Format: "currency", Currency: "RUB"},
+		{Name: "Прибыль", Value: domain.MoneyValue(profit, hasMoney), Format: "currency", Currency: "RUB"},
 	}
 }
 
