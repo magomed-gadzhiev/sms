@@ -57,7 +57,7 @@ func main() {
 	}
 
 	var toT time.Time
-	if strings.EqualFold(strings.TrimSpace(toStr), "now") {
+	if toStr == "now" {
 		toT = time.Now().UTC()
 	} else {
 		toT, err = time.Parse(time.RFC3339, toStr)
