@@ -306,6 +306,7 @@
 - Editable templates через админ-роль (вынесено из Saved views).
 - `partner_id` в Prometheus metrics (Prom bridge не используется — выбран full Redis-collector).
 - Money type precision: `domain.HourlyStatsRow.Revenue/Cost` and `domain.KPI.Value` are `float64`. The DB columns are `numeric(12,4)` (network_stats_hourly) / `numeric(20,6)` (tarification_log). For current transaction sizes (~thousands of RUB) this is safe; for very large windows or aggregator-of-aggregators scenarios, switch to `pgtype.Numeric` or `shopspring/decimal` to preserve exact decimal arithmetic. (Identified during Task 4 code review 2026-05-08.)
+- KPI builder divergence: `service.go:buildStatKPIs` (used by `GetStatistics`/`GetAnalyticsSummary`) and `stats_repository.go:computeKPIs` (used by `GetDrillDown.Summary`) produce different KPI sets — `buildStatKPIs` returns 7 KPIs including Выручка/Себестоимость/Прибыль, `computeKPIs` returns 5 (Всего, Доставлено, Доставляемость, Ошибки, Прибыль) and lacks the money-input split. After Slice 1 added Выручка to `buildStatKPIs`, the DrillDown Summary still won't show it. Slice 2 will widen the gap further (cost/margin) unless these two builders are unified or `computeKPIs` is extended to mirror `buildStatKPIs`'s set. (Identified during final review 2026-05-09.)
 
 ---
 
