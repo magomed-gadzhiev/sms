@@ -14,7 +14,10 @@ function monitorKPILabel(kpi: KPI): string {
 }
 
 function formatMonitorValue(kpi: KPI): string {
-  const v = kpi.value ?? 0;
+  if (kpi.value === undefined || kpi.value === null || Number.isNaN(kpi.value)) {
+    return '—';
+  }
+  const v = kpi.value;
   const name = (kpi.name ?? '').toLowerCase();
   if (name.includes('latency') || name.includes('p50') || name.includes('p95')) {
     return `${(v / 1000).toFixed(1)} сек`;
@@ -32,6 +35,9 @@ function formatMonitorValue(kpi: KPI): string {
 }
 
 function kpiColor(kpi: KPI): string {
+  if (kpi.value === undefined || kpi.value === null || Number.isNaN(kpi.value)) {
+    return 'text-slate-400';
+  }
   if (kpi.status === 'danger') return 'text-red-600';
   if (kpi.status === 'warning') return 'text-amber-600';
   return 'text-slate-900';

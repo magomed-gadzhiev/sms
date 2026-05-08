@@ -24,7 +24,8 @@ function fmt(n: number): string { return (n ?? 0).toLocaleString('ru-RU'); }
 function fmtMoney(n: number): string { return `${(n ?? 0).toLocaleString('ru-RU')} ₽`; }
 function fmtPct(n: number): string { return `${((n ?? 0) * 100).toFixed(1)}%`; }
 
-function fmtKPI(kpi: { name: string; value: number }): string {
+function fmtKPI(kpi: { name: string; value?: number }): string {
+  if (kpi.value === undefined || kpi.value === null || Number.isNaN(kpi.value)) return '—';
   const name = (kpi.name ?? '').toLowerCase();
   if (name.includes('rate') || name.includes('маржа') || name.includes('margin') || name.includes('доставляемость')) return fmtPct(kpi.value);
   if (name.includes('revenue') || name.includes('profit') || name.includes('cost') || name.includes('выручка') || name.includes('прибыль') || name.includes('себестоимость')) return fmtMoney(kpi.value);

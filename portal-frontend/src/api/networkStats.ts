@@ -25,11 +25,15 @@ export interface SharedFilter {
   sort_dir?: string;
 }
 
+export type KPIFormat = 'count' | 'percent' | 'currency';
+
 export interface KPI {
   name: string;
-  value: number;
-  delta: number;
-  status: 'ok' | 'warning' | 'danger';
+  value?: number;
+  status?: 'ok' | 'warning' | 'danger' | 'unknown';
+  delta?: number;
+  format?: KPIFormat;
+  currency?: string;
 }
 
 export interface StatRow {
