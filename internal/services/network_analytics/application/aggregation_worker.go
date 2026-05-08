@@ -40,6 +40,16 @@ func NewAggregationWorker(
 // (clients.parent_client_id IS NOT NULL) we collapse to the parent's
 // partner_id so reseller analytics aggregate the entire account tree under
 // one bucket. Direct clients use their own partner_id. See B.1 fix.
+//
+// The tarification_log JOIN uses a pre-aggregated subquery (GROUP BY
+// message_id) instead of a flat LEFT JOIN. This is critical: migration
+// 000105 introduced two write paths into tarification_log (legacy
+// plan-based with tariff_plan_id+tariff_period_id, and new
+// source_rule_id-based hot path). If both fire for the same message
+// (retry race / migration corner case), a flat JOIN would multiply rows
+// and double-count revenue. Deduplicating per message_id BEFORE SUM is
+// the only safe form. message_id has only a non-unique index, so we
+// cannot rely on the schema to enforce uniqueness.
 const rawAggQuery = `
 SELECT
     COALESCE(p.partner_id, c.partner_id, 0)                    AS partner_id,
@@ -66,7 +76,11 @@ LEFT JOIN clients          c  ON c.id  = m.client_id
 LEFT JOIN clients          p  ON p.id  = c.parent_client_id
 LEFT JOIN operators        op ON op.id = m.operator_id
 LEFT JOIN countries        co ON co.id = m.country_id
-LEFT JOIN tarification_log t  ON t.message_id = m.id
+LEFT JOIN (
+    SELECT message_id, SUM(total_amount) AS total_amount
+    FROM tarification_log
+    GROUP BY message_id
+) t ON t.message_id = m.id
 WHERE m.created_at >= $1 AND m.created_at < $2
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 `

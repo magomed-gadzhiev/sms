@@ -305,6 +305,7 @@
 - Алиасы операторов (Билайн = Beeline) для search в селекторе (вынесено из Slice 4 U4).
 - Editable templates через админ-роль (вынесено из Saved views).
 - `partner_id` в Prometheus metrics (Prom bridge не используется — выбран full Redis-collector).
+- Money type precision: `domain.HourlyStatsRow.Revenue/Cost` and `domain.KPI.Value` are `float64`. The DB columns are `numeric(12,4)` (network_stats_hourly) / `numeric(20,6)` (tarification_log). For current transaction sizes (~thousands of RUB) this is safe; for very large windows or aggregator-of-aggregators scenarios, switch to `pgtype.Numeric` or `shopspring/decimal` to preserve exact decimal arithmetic. (Identified during Task 4 code review 2026-05-08.)
 
 ---
 
