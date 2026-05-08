@@ -243,7 +243,7 @@ func (s *Server) DeleteView(ctx context.Context, req *networkanalyticsv1.DeleteV
 		case errors.Is(err, domain.ErrViewNotFound):
 			return nil, status.Errorf(codes.NotFound, "view not found")
 		case errors.Is(err, domain.ErrViewIsTemplate):
-			return nil, status.Errorf(codes.PermissionDenied, "system template — clone instead")
+			return nil, status.Errorf(codes.FailedPrecondition, "system template — clone instead")
 		case errors.Is(err, domain.ErrViewForbidden):
 			return nil, status.Errorf(codes.PermissionDenied, "access forbidden")
 		default:

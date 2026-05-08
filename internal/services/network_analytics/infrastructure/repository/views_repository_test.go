@@ -18,7 +18,7 @@ func setupViewsTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("TEST_DB_DSN")
 	if dsn == "" {
-		t.Skip("TEST_DB_DSN not set — пропускаем интеграционный тест ViewsRepo")
+		t.Skip("TEST_DB_DSN not set (example: postgres://smpp:smpp@localhost:5432/smpp_db?sslmode=disable) — пропускаем интеграционный тест ViewsRepo")
 	}
 	pool, err := pgxpool.New(context.Background(), dsn)
 	require.NoError(t, err, "pgxpool.New failed")

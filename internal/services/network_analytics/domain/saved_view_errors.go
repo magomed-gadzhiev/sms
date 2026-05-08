@@ -14,8 +14,9 @@ var ErrViewNotFound = errors.New("saved view not found")
 
 // ErrViewIsTemplate is returned when the caller tries to mutate (e.g. delete) a
 // system template view (is_template=true, user_id IS NULL). Templates can only be
-// cloned, not modified or deleted. gRPC: codes.PermissionDenied with the word
-// "template" in the message; HTTP: 403 VIEW_IS_TEMPLATE.
+// cloned, not modified or deleted. gRPC: codes.FailedPrecondition (distinct from
+// PermissionDenied so the HTTP layer can switch on code, not on message text);
+// HTTP: 403 VIEW_IS_TEMPLATE.
 var ErrViewIsTemplate = errors.New("saved view is a system template")
 
 // ErrViewForbidden is returned when the saved view exists and is not a template,

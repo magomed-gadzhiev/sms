@@ -586,9 +586,9 @@ func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Re
 		UserId:    userIDFromContext(r),
 	})
 	if err != nil {
-		log.Error().Err(err).Int64("id", id).Msg("network_statistics: DeleteView failed")
 		// Map our three sentinel-derived gRPC codes to view-specific HTTP error codes.
-		// Anything else falls through to the generic mapper (→ 500 INTERNAL_ERROR).
+		// Only the default (truly unexpected) path logs at Error — 404/403 are client
+		// errors and would otherwise drown real 500s in noise.
 		if st, ok := status.FromError(err); ok {
 			switch st.Code() {
 			case codes.NotFound:
@@ -598,15 +598,14 @@ func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Re
 					HTTPStatus: http.StatusNotFound,
 				})
 				return
+			case codes.FailedPrecondition:
+				respondError(w, &shared.AppError{
+					Code:       "VIEW_IS_TEMPLATE",
+					Message:    "Системный пресет нельзя удалить, можно клонировать",
+					HTTPStatus: http.StatusForbidden,
+				})
+				return
 			case codes.PermissionDenied:
-				if strings.Contains(st.Message(), "template") {
-					respondError(w, &shared.AppError{
-						Code:       "VIEW_IS_TEMPLATE",
-						Message:    "Системный пресет нельзя удалить, можно клонировать",
-						HTTPStatus: http.StatusForbidden,
-					})
-					return
-				}
 				respondError(w, &shared.AppError{
 					Code:       "VIEW_FORBIDDEN",
 					Message:    "Нет доступа к этому представлению",
@@ -615,6 +614,7 @@ func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Re
 				return
 			}
 		}
+		log.Error().Err(err).Int64("id", id).Msg("network_statistics: DeleteView failed")
 		respondGRPCError(w, err)
 		return
 	}
