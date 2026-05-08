@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/smpp-server/smpp-server/internal/services/network_analytics/domain"
 )
@@ -94,15 +95,39 @@ func (r *ViewsRepo) Save(ctx context.Context, view *domain.SavedView) (*domain.S
 	return saved, nil
 }
 
-// Delete removes a saved view. Only the owning user within the partner can delete.
+// Delete removes a saved view. Returns one of the domain sentinel errors:
+//   - domain.ErrViewNotFound     — no row with this id
+//   - domain.ErrViewIsTemplate   — view is a system template (user_id IS NULL); clone instead
+//   - domain.ErrViewForbidden    — view exists but is owned by a different (partner_id, user_id)
+//
+// The schema (migrations/000102) has no explicit is_template column — a view is a
+// template iff user_id IS NULL (see seed in migration). That's what we check here.
 func (r *ViewsRepo) Delete(ctx context.Context, id, partnerID, userID int64) error {
-	query := `DELETE FROM saved_views WHERE id = $1 AND partner_id = $2 AND user_id = $3`
-	tag, err := r.db.Exec(ctx, query, id, partnerID, userID)
+	var ownerPartner int64
+	var ownerUser pgtype.Int8
+	err := r.db.QueryRow(ctx,
+		`SELECT partner_id, user_id FROM saved_views WHERE id = $1`,
+		id,
+	).Scan(&ownerPartner, &ownerUser)
 	if err != nil {
-		return fmt.Errorf("delete saved view %d: %w", id, err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrViewNotFound
+		}
+		return fmt.Errorf("lookup saved view %d: %w", id, err)
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("saved view %d not found or access denied", id)
+
+	// user_id IS NULL → system template, no one may delete it.
+	if !ownerUser.Valid {
+		return domain.ErrViewIsTemplate
+	}
+
+	// Ownership mismatch.
+	if ownerPartner != partnerID || ownerUser.Int64 != userID {
+		return domain.ErrViewForbidden
+	}
+
+	if _, err := r.db.Exec(ctx, `DELETE FROM saved_views WHERE id = $1`, id); err != nil {
+		return fmt.Errorf("delete saved view %d: %w", id, err)
 	}
 	return nil
 }

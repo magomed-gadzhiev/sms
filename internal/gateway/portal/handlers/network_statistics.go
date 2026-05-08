@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	networkanalyticsv1 "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1"
 	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
@@ -585,6 +587,34 @@ func (h *NetworkStatisticsHandlers) DeleteView(w http.ResponseWriter, r *http.Re
 	})
 	if err != nil {
 		log.Error().Err(err).Int64("id", id).Msg("network_statistics: DeleteView failed")
+		// Map our three sentinel-derived gRPC codes to view-specific HTTP error codes.
+		// Anything else falls through to the generic mapper (→ 500 INTERNAL_ERROR).
+		if st, ok := status.FromError(err); ok {
+			switch st.Code() {
+			case codes.NotFound:
+				respondError(w, &shared.AppError{
+					Code:       "VIEW_NOT_FOUND",
+					Message:    "Сохранённое представление не найдено",
+					HTTPStatus: http.StatusNotFound,
+				})
+				return
+			case codes.PermissionDenied:
+				if strings.Contains(st.Message(), "template") {
+					respondError(w, &shared.AppError{
+						Code:       "VIEW_IS_TEMPLATE",
+						Message:    "Системный пресет нельзя удалить, можно клонировать",
+						HTTPStatus: http.StatusForbidden,
+					})
+					return
+				}
+				respondError(w, &shared.AppError{
+					Code:       "VIEW_FORBIDDEN",
+					Message:    "Нет доступа к этому представлению",
+					HTTPStatus: http.StatusForbidden,
+				})
+				return
+			}
+		}
 		respondGRPCError(w, err)
 		return
 	}
