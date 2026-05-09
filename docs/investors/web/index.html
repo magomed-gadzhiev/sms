@@ -25,7 +25,6 @@ tailwind.config = {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
 <script type="module">
   import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs';
   mermaid.initialize({ startOnLoad: false, theme: 'base',
@@ -64,14 +63,9 @@ tailwind.config = {
   @keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
   .pulse-dot { animation: pulse-dot 1.5s infinite; }
   .mermaid svg { max-width: 100%; height: auto; }
-  .diagram-container { position: relative; overflow: hidden; background: white; border-radius: 12px; border: 1px solid #e2e8f0; }
-  .diagram-zoomable { width: 100%; height: 560px; cursor: grab; }
-  .diagram-zoomable:active { cursor: grabbing; }
-  .diagram-zoomable svg { width: 100% !important; height: 100% !important; max-width: none !important; }
-  .zoom-controls { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; z-index: 10; }
-  .zoom-btn { background: white; border: 1px solid #cbd5e1; width: 36px; height: 36px; border-radius: 8px; font-weight: 700; color: #1f4e79; box-shadow: 0 2px 4px rgba(0,0,0,.05); cursor: pointer; transition: background .15s; }
-  .zoom-btn:hover { background: #dbeafe; }
-  .diagram-hint { position: absolute; bottom: 8px; left: 12px; font-size: 11px; color: #94a3b8; background: rgba(255,255,255,.85); padding: 4px 8px; border-radius: 4px; z-index: 5; }
+  .arch-static { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; }
+  .arch-static svg { width: 100%; height: auto; display: block; }
+  .arch-static text { font-family: ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; }
   .stat-card { transition: transform .2s, box-shadow .2s; }
   .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(31,78,121,.25); }
 </style>
@@ -226,10 +220,22 @@ tailwind.config = {
       <h3 class="text-xl font-bold mt-10 mb-3 text-brand-500">2.3. Размер и характер рынка</h3>
       <p class="text-lg leading-relaxed mb-4">Рынок A2P (Application-to-Person) — многомиллиардный мировой и многомиллиардный российский. Драйверы: рост онлайн-сервисов, обязательная двухфакторная аутентификация в банках и госуслугах, развитие e-commerce.</p>
       <div class="grid md:grid-cols-2 gap-3">
-        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">🔒</div><div class="text-sm leading-relaxed"><b>Высокий switching cost.</b> Затраты на интеграцию делают «переезд» к конкуренту дорогим — клиенты остаются годами.</div></div>
-        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">📈</div><div class="text-sm leading-relaxed"><b>Объёмы предсказуемы.</b> Компания, шлющая миллион в месяц, шлёт примерно столько же и в следующем — стабильная выручка.</div></div>
-        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">💰</div><div class="text-sm leading-relaxed"><b>Маржа от оптимизации маршрутов.</b> Кто умеет находить дешёвые маршруты — у того выше прибыль на тех же объёмах.</div></div>
-        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3"><div class="text-2xl">🌐</div><div class="text-sm leading-relaxed"><b>Канал диверсифицируется.</b> Кроме SMS — голос, мессенджеры, push. Платформы с несколькими каналами выигрывают.</div></div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3">
+          <svg class="w-7 h-7 flex-shrink-0 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <div class="text-sm leading-relaxed"><b>Высокий switching cost.</b> Затраты на интеграцию делают «переезд» к конкуренту дорогим — клиенты остаются годами.</div>
+        </div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3">
+          <svg class="w-7 h-7 flex-shrink-0 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <div class="text-sm leading-relaxed"><b>Объёмы предсказуемы.</b> Компания, шлющая миллион в месяц, шлёт примерно столько же и в следующем — стабильная выручка.</div>
+        </div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3">
+          <svg class="w-7 h-7 flex-shrink-0 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <div class="text-sm leading-relaxed"><b>Маржа от оптимизации маршрутов.</b> Кто умеет находить дешёвые маршруты — у того выше прибыль на тех же объёмах.</div>
+        </div>
+        <div class="bg-brand-50 border border-brand-100 rounded-lg p-4 flex gap-3">
+          <svg class="w-7 h-7 flex-shrink-0 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <div class="text-sm leading-relaxed"><b>Канал диверсифицируется.</b> Кроме SMS — голос, мессенджеры, push. Платформы с несколькими каналами выигрывают.</div>
+        </div>
       </div>
     </section>
 
@@ -425,18 +431,18 @@ tailwind.config = {
       </div>
 
       <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.2. Схема межсервисного взаимодействия</h3>
-      <p class="mb-6">Две схемы: сверху — общий поток в 5 коробок, чтобы понять направление движения сообщения. Ниже — детальная карта всех ключевых сервисов и хранилищ. Детальную можно <b>двигать мышью</b> и <b>масштабировать колесом</b> или кнопками.</p>
+      <p class="mb-6">Две схемы. Сверху — общий поток в 5 коробок, направление движения сообщения. Ниже — детальная карта со swim-lane'ами: внешние акторы, точки входа, конвейер обработки, хранилища. Каждый сервис живёт ровно в одной дорожке, все связи ортогональны.</p>
 
       <!-- High-level overview -->
       <div class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">Общий поток (упрощённо)</div>
       <div class="bg-white rounded-xl border border-slate-200 p-6 mb-8">
         <div class="mermaid">
 flowchart LR
-    Client["💼 Клиент<br/>банк, e-com,<br/>такси"]
-    Platform["🖥️ SMS-платформа<br/>приём → тариф →<br/>маршрут → отправка"]
-    Provider["📡 Партнёр-<br/>агрегатор"]
-    Operator["📶 Оператор<br/>МТС, Билайн,<br/>Мегафон, Tele2"]
-    Recipient["📱 Получатель"]
+    Client["Клиент<br/>банк, e-com,<br/>такси"]
+    Platform["SMS-платформа<br/>приём → тариф →<br/>маршрут → отправка"]
+    Provider["Партнёр-<br/>агрегатор"]
+    Operator["Оператор<br/>МТС, Билайн,<br/>Мегафон, Tele2"]
+    Recipient["Получатель"]
     Client ==>|"API запрос"| Platform
     Platform ==>|"SMPP"| Provider
     Provider ==>|"SMPP"| Operator
@@ -454,105 +460,186 @@ flowchart LR
         <p class="text-xs text-slate-500 mt-3 italic">Жирные стрелки — отправка сообщения. Пунктир — возврат отчёта о доставке.</p>
       </div>
 
-      <!-- Detailed diagram with pan/zoom -->
-      <div class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">Детальная карта (с pan/zoom)</div>
-      <div class="diagram-container">
-        <div class="zoom-controls">
-          <button class="zoom-btn" onclick="window.__archZoom && window.__archZoom.zoomIn()" title="Приблизить">+</button>
-          <button class="zoom-btn" onclick="window.__archZoom && window.__archZoom.zoomOut()" title="Отдалить">−</button>
-          <button class="zoom-btn text-sm" onclick="window.__archZoom && window.__archZoom.resetZoom() || window.__archZoom && window.__archZoom.center()" title="Сброс">⟲</button>
-        </div>
-        <div class="diagram-hint">↔ перетащите · колесо мыши = масштаб · кнопки справа</div>
-        <div id="archDiagram" class="diagram-zoomable">
-          <div class="mermaid">
-flowchart LR
-    Client["💼 Клиент<br/>(приложение)"]
-    Admin["👤 Администратор<br/>платформы"]
-    Aggregator["📡 Партнёры/<br/>агрегаторы"]
-    Operator["📶 Оператор"]
-    Recipient["📱 Получатель"]
+      <!-- Detailed architecture: hand-laid swim-lane SVG (no auto-layout, no pan/zoom) -->
+      <div class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">Детальная карта</div>
+      <div class="arch-static">
+        <svg viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="archTitle archDesc">
+          <title id="archTitle">Архитектура SMS-платформы</title>
+          <desc id="archDesc">Структурированная карта: внешние акторы, три горизонтальных дорожки (точки входа, конвейер, хранилища), партнёрская цепочка справа.</desc>
 
-    subgraph EDGE["Точки входа в платформу"]
-        direction TB
-        ClientGW["Client Gateway<br/>HTTP/gRPC API"]
-        PortalGW["Portal Gateway<br/>backend кабинета"]
-        AdminGW["Admin Gateway<br/>админ-API"]
-        SmppSrv["SMPP Server<br/>входящие SMPP"]
-    end
+          <!-- arrow markers -->
+          <defs>
+            <marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#1f4e79"/>
+            </marker>
+            <marker id="ah-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+            </marker>
+            <marker id="ah-grey-rev" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M10,0 L0,5 L10,10 z" fill="#64748b"/>
+            </marker>
+          </defs>
 
-    subgraph CORE["Конвейер обработки"]
-        direction TB
-        Pipeline["⚙️ Pipeline Worker<br/>тарификация · маршрутизация"]
-        Worker["🔧 Worker<br/>импорт CSV · scheduler"]
-        SmppGW["📤 SMPP Gateway<br/>исходящие SMPP"]
-        DLR["📥 DLR Delivery<br/>отчёты доставки"]
-    end
+          <!-- swim-lane backgrounds -->
+          <rect x="20"  y="130" width="850" height="120" rx="10" fill="#fff8ed"/>
+          <rect x="20"  y="270" width="850" height="120" rx="10" fill="#f1faf1"/>
+          <rect x="20"  y="410" width="850" height="120" rx="10" fill="#faf6ff"/>
 
-    subgraph DATA["Хранение и обмен"]
-        direction TB
-        Kafka[("📨 Apache Kafka<br/>sms.outgoing · sms.dlr")]
-        Postgres[("🗄️ PostgreSQL 15<br/>messages · billing · audit")]
-        Redis[("⚡ Redis 7<br/>сессии · rate-limit · HLR-кеш")]
-    end
+          <!-- lane labels (left, vertical) -->
+          <text x="32" y="148" font-size="11" font-weight="700" letter-spacing="1.5" fill="#cc6600">ТОЧКИ ВХОДА</text>
+          <text x="32" y="288" font-size="11" font-weight="700" letter-spacing="1.5" fill="#2e7d32">КОНВЕЙЕР</text>
+          <text x="32" y="428" font-size="11" font-weight="700" letter-spacing="1.5" fill="#6a1b9a">ХРАНИЛИЩА И ОЧЕРЕДИ</text>
 
-    subgraph OBS["Мониторинг"]
-        Prom["Prometheus"]
-        Grafana["Grafana"]
-    end
+          <!-- ===== external actors: top row (clients) ===== -->
+          <g font-size="13" text-anchor="middle">
+            <rect x="40"  y="30" width="180" height="70" rx="8" fill="#e8f4f8" stroke="#1f4e79" stroke-width="2"/>
+            <text x="130" y="60" font-weight="700" fill="#0a1d2e">Клиент</text>
+            <text x="130" y="80" font-size="11" fill="#334155">приложение, биллинг, CRM</text>
 
-    %% Happy path рассылки (жирные)
-    Client ==>|"1 API"| ClientGW
-    ClientGW ==>|"2 publish"| Kafka
-    Kafka ==>|"3"| Pipeline
-    Pipeline ==>|"4 dispatch"| SmppGW
-    SmppGW ==>|"5 SMPP"| Aggregator
-    Aggregator ==>|"6"| Operator
-    Operator ==>|"7"| Recipient
+            <rect x="240" y="30" width="180" height="70" rx="8" fill="#e8f4f8" stroke="#1f4e79" stroke-width="2"/>
+            <text x="330" y="60" font-weight="700" fill="#0a1d2e">Администратор</text>
+            <text x="330" y="80" font-size="11" fill="#334155">управление платформой</text>
+          </g>
 
-    %% DLR-обратный поток (пунктир)
-    Operator -.->|"DLR"| Aggregator
-    Aggregator -.-> DLR
-    DLR -.->|"webhook"| Client
+          <!-- ===== external actors: right column (delivery chain) ===== -->
+          <g font-size="13" text-anchor="middle">
+            <rect x="990" y="160" width="190" height="70" rx="8" fill="#e8f4f8" stroke="#1f4e79" stroke-width="2"/>
+            <text x="1085" y="190" font-weight="700" fill="#0a1d2e">Партнёр-агрегатор</text>
+            <text x="1085" y="210" font-size="11" fill="#334155">SMPP-канал к оператору</text>
 
-    %% Портал и администрирование
-    Client -->|"HTTPS"| PortalGW
-    Admin -.->|"настройка"| AdminGW
+            <rect x="990" y="300" width="190" height="70" rx="8" fill="#e8f4f8" stroke="#1f4e79" stroke-width="2"/>
+            <text x="1085" y="330" font-weight="700" fill="#0a1d2e">Оператор</text>
+            <text x="1085" y="350" font-size="11" fill="#334155">МТС · Билайн · Мегафон · Tele2</text>
 
-    %% Связи с хранилищами
-    Pipeline --- Postgres
-    Pipeline --- Redis
-    PortalGW --- Postgres
-    PortalGW --- Redis
-    AdminGW --- Postgres
-    SmppGW --- Postgres
-    DLR --- Postgres
-    Worker --- Postgres
-    Worker --- Kafka
-    Aggregator -.->|"входящий"| SmppSrv
-    SmppSrv --- Kafka
+            <rect x="990" y="440" width="190" height="70" rx="8" fill="#ffffff" stroke="#2e7d32" stroke-width="2"/>
+            <text x="1085" y="470" font-weight="700" fill="#0a2e1d">Получатель</text>
+            <text x="1085" y="490" font-size="11" fill="#334155">конечный абонент</text>
+          </g>
 
-    %% Метрики
-    ClientGW -.-> Prom
-    Pipeline -.-> Prom
-    SmppGW -.-> Prom
-    DLR -.-> Prom
-    Prom --> Grafana
+          <!-- ===== Lane 1: Точки входа ===== -->
+          <g font-size="13" text-anchor="middle">
+            <rect x="40"  y="160" width="180" height="70" rx="8" fill="#fff4e6" stroke="#cc6600" stroke-width="2"/>
+            <text x="130" y="190" font-weight="700" fill="#5a2b00">Client Gateway</text>
+            <text x="130" y="210" font-size="11" fill="#5a2b00">HTTP / gRPC API</text>
 
-    classDef external fill:#e8f4f8,stroke:#1f4e79,stroke-width:2px,color:#0a1d2e
-    classDef gateway fill:#fff4e6,stroke:#cc6600,stroke-width:2px,color:#5a2b00
-    classDef core fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#0a2e1d
-    classDef data fill:#f3e8ff,stroke:#6a1b9a,stroke-width:2px,color:#2b0d4a
-    classDef obs fill:#f5f5f5,stroke:#616161,stroke-width:1px,color:#202020
-    classDef rcp fill:#fff,stroke:#2e7d32,stroke-width:2px,color:#0a2e1d
+            <rect x="240" y="160" width="180" height="70" rx="8" fill="#fff4e6" stroke="#cc6600" stroke-width="2"/>
+            <text x="330" y="190" font-weight="700" fill="#5a2b00">Portal Gateway</text>
+            <text x="330" y="210" font-size="11" fill="#5a2b00">backend кабинета</text>
 
-    class Client,Admin,Aggregator,Operator external
-    class ClientGW,PortalGW,AdminGW,SmppSrv,SmppGW gateway
-    class Pipeline,Worker,DLR core
-    class Kafka,Postgres,Redis data
-    class Prom,Grafana obs
-    class Recipient rcp
-          </div>
-        </div>
+            <rect x="440" y="160" width="180" height="70" rx="8" fill="#fff4e6" stroke="#cc6600" stroke-width="2"/>
+            <text x="530" y="190" font-weight="700" fill="#5a2b00">Admin Gateway</text>
+            <text x="530" y="210" font-size="11" fill="#5a2b00">админ-API</text>
+
+            <rect x="640" y="160" width="180" height="70" rx="8" fill="#fff4e6" stroke="#cc6600" stroke-width="2"/>
+            <text x="730" y="190" font-weight="700" fill="#5a2b00">SMPP Server</text>
+            <text x="730" y="210" font-size="11" fill="#5a2b00">входящие SMPP-сессии</text>
+          </g>
+
+          <!-- ===== Lane 2: Конвейер ===== -->
+          <g font-size="13" text-anchor="middle">
+            <rect x="40"  y="300" width="180" height="70" rx="8" fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"/>
+            <text x="130" y="330" font-weight="700" fill="#0a2e1d">Pipeline Worker</text>
+            <text x="130" y="350" font-size="11" fill="#0a2e1d">тариф · маршрут</text>
+
+            <rect x="240" y="300" width="180" height="70" rx="8" fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"/>
+            <text x="330" y="330" font-weight="700" fill="#0a2e1d">Worker</text>
+            <text x="330" y="350" font-size="11" fill="#0a2e1d">импорт CSV · scheduler</text>
+
+            <rect x="440" y="300" width="180" height="70" rx="8" fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"/>
+            <text x="530" y="330" font-weight="700" fill="#0a2e1d">SMPP Gateway</text>
+            <text x="530" y="350" font-size="11" fill="#0a2e1d">исходящие SMPP</text>
+
+            <rect x="640" y="300" width="180" height="70" rx="8" fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"/>
+            <text x="730" y="330" font-weight="700" fill="#0a2e1d">DLR Delivery</text>
+            <text x="730" y="350" font-size="11" fill="#0a2e1d">отчёты доставки</text>
+          </g>
+
+          <!-- ===== Lane 3: Хранилища ===== -->
+          <g font-size="13" text-anchor="middle">
+            <rect x="100" y="440" width="200" height="70" rx="8" fill="#f3e8ff" stroke="#6a1b9a" stroke-width="2"/>
+            <text x="200" y="470" font-weight="700" fill="#2b0d4a">Apache Kafka</text>
+            <text x="200" y="490" font-size="11" fill="#2b0d4a">sms.outgoing · sms.dlr</text>
+
+            <rect x="370" y="440" width="200" height="70" rx="8" fill="#f3e8ff" stroke="#6a1b9a" stroke-width="2"/>
+            <text x="470" y="470" font-weight="700" fill="#2b0d4a">PostgreSQL 15</text>
+            <text x="470" y="490" font-size="11" fill="#2b0d4a">messages · billing · audit</text>
+
+            <rect x="640" y="440" width="200" height="70" rx="8" fill="#f3e8ff" stroke="#6a1b9a" stroke-width="2"/>
+            <text x="740" y="470" font-weight="700" fill="#2b0d4a">Redis 7</text>
+            <text x="740" y="490" font-size="11" fill="#2b0d4a">сессии · rate-limit · HLR-кеш</text>
+          </g>
+
+          <!-- ===== forward path (thick blue, orthogonal) ===== -->
+          <g fill="none" stroke="#1f4e79" stroke-width="3" marker-end="url(#ah-blue)">
+            <!-- 1. Клиент → Client GW -->
+            <path d="M130,100 L130,160"/>
+            <!-- 2. Администратор → Admin GW (L) -->
+            <path d="M330,100 L330,135 L530,135 L530,160"/>
+            <!-- 3. Client GW → Pipeline Worker -->
+            <path d="M130,230 L130,300"/>
+            <!-- 4. Pipeline Worker → SMPP Gateway (поверх Worker, через зазор y=285) -->
+            <path d="M220,335 L220,285 L530,285 L530,300"/>
+            <!-- 5. SMPP Gateway → Партнёр (вниз и направо, обходя DLR Delivery поверх y=395) -->
+            <path d="M530,370 L530,395 L900,395 L900,195 L990,195"/>
+            <!-- 6. Партнёр → Оператор -->
+            <path d="M1085,230 L1085,300"/>
+            <!-- 7. Оператор → Получатель -->
+            <path d="M1085,370 L1085,440"/>
+          </g>
+
+          <!-- ===== return path: DLR (dashed grey) ===== -->
+          <g fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-grey)">
+            <!-- Оператор → DLR Delivery (left) -->
+            <path d="M990,335 L820,335"/>
+            <!-- DLR Delivery → Клиент webhook (up & left, поверх верхней рамки lane 1) -->
+            <path d="M730,300 L730,118 L130,118 L130,100"/>
+          </g>
+
+          <!-- ===== conveyor ↔ storage (thin grey, double-headed implied via two markers) ===== -->
+          <g fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-grey)" marker-start="url(#ah-grey-rev)" opacity="0.7">
+            <path d="M130,370 L130,440"/>
+            <path d="M330,370 L330,405 L470,405 L470,440"/>
+            <path d="M530,370 L530,405 L740,405 L740,440"/>
+            <path d="M730,370 L730,420 L470,420 L470,440" opacity="0"/>
+          </g>
+
+          <!-- ===== labels on key edges ===== -->
+          <g font-size="11" fill="#1f4e79" font-weight="600">
+            <text x="142" y="128">1 API</text>
+            <text x="142" y="278">2</text>
+            <text x="295" y="280" text-anchor="middle">3 dispatch</text>
+            <text x="755" y="390" text-anchor="middle">4 SMPP</text>
+            <text x="1095" y="270">5</text>
+            <text x="1095" y="410">6 SMS</text>
+          </g>
+          <g font-size="11" fill="#64748b" font-style="italic">
+            <text x="905" y="325" text-anchor="end">DLR</text>
+            <text x="430" y="108" text-anchor="middle">webhook · статус</text>
+          </g>
+
+          <!-- legend -->
+          <g font-size="12" transform="translate(40, 580)">
+            <text x="0" y="0" font-weight="700" fill="#0f172a">Легенда</text>
+            <line x1="0" y1="22" x2="40" y2="22" stroke="#1f4e79" stroke-width="3" marker-end="url(#ah-blue)"/>
+            <text x="50" y="26" fill="#334155">отправка сообщения (happy path)</text>
+            <line x1="0" y1="48" x2="40" y2="48" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-grey)"/>
+            <text x="50" y="52" fill="#334155">обратный поток: DLR / webhook</text>
+            <line x1="0" y1="74" x2="40" y2="74" stroke="#64748b" stroke-width="1.5" marker-start="url(#ah-grey-rev)" marker-end="url(#ah-grey)"/>
+            <text x="50" y="78" fill="#334155">чтение/запись в хранилище</text>
+          </g>
+
+          <!-- callout: monitoring (separate, small) -->
+          <g transform="translate(900, 580)">
+            <rect x="0" y="0" width="280" height="100" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+            <text x="14" y="22" font-size="11" font-weight="700" letter-spacing="1.2" fill="#475569">МОНИТОРИНГ (cross-cutting)</text>
+            <rect x="14" y="36" width="120" height="50" rx="6" fill="#fff" stroke="#94a3b8"/>
+            <text x="74" y="58" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">Prometheus</text>
+            <text x="74" y="76" text-anchor="middle" font-size="10" fill="#64748b">метрики со всех сервисов</text>
+            <rect x="146" y="36" width="120" height="50" rx="6" fill="#fff" stroke="#94a3b8"/>
+            <text x="206" y="58" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">Grafana</text>
+            <text x="206" y="76" text-anchor="middle" font-size="10" fill="#64748b">дашборды · алерты</text>
+          </g>
+        </svg>
       </div>
 
       <div class="grid sm:grid-cols-3 gap-2 mt-4 text-xs">
@@ -561,7 +648,146 @@ flowchart LR
         <div class="bg-white border border-slate-200 rounded-lg p-2 flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#f3e8ff;border:2px solid #6a1b9a"></span>Хранилища</div>
       </div>
 
-      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.3. Жизнь одного сообщения</h3>
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.3. Структура сервисов</h3>
+      <p class="mb-6">На production развёрнуто <b>~24 рабочих сервиса</b> в четырёх логических слоях. Это не сложность — это разделение ответственности: каждый сервис масштабируется и обновляется независимо, отказ одного не валит остальные.</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+
+        <!-- Шлюзы -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#fff4e6;color:#cc6600">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-widest font-semibold" style="color:#cc6600">Слой 1 · Шлюзы</div>
+              <div class="font-bold text-lg">5 сервисов · точки входа</div>
+            </div>
+          </div>
+          <p class="text-sm text-slate-600 mb-3">Принимают трафик снаружи (HTTP, gRPC, SMPP), валидируют, авторизуют и кладут задачи в Kafka. Stateless — масштабируются горизонтально.</p>
+          <ul class="text-sm space-y-2">
+            <li><b class="text-slate-900">client-gateway</b> <span class="text-slate-500">— HTTP/gRPC API для клиентов: отправка SMS, статус, биллинг</span></li>
+            <li><b class="text-slate-900">portal-gateway</b> <span class="text-slate-500">— backend self-service портала: сессии, отчёты, шаблоны</span></li>
+            <li><b class="text-slate-900">admin-gateway</b> <span class="text-slate-500">— админ-API: управление клиентами, операторами, тарифами</span></li>
+            <li><b class="text-slate-900">smpp-server</b> <span class="text-slate-500">— приём SMPP-сессий от клиентов и партнёров</span></li>
+            <li><b class="text-slate-900">api</b> <span class="text-slate-500">— legacy gRPC-эндпоинт, в процессе слияния с client-gateway</span></li>
+          </ul>
+        </div>
+
+        <!-- Конвейер -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#e8f5e8;color:#2e7d32">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12h4l3-9 4 18 3-9h4"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-widest font-semibold" style="color:#2e7d32">Слой 2 · Конвейер</div>
+              <div class="font-bold text-lg">3+ сервиса · обработка</div>
+            </div>
+          </div>
+          <p class="text-sm text-slate-600 mb-3">Читают Kafka-топики, тарифицируют, маршрутизируют, отправляют через SMPP, обрабатывают DLR. На горячем пути — вся производительность платформы.</p>
+          <ul class="text-sm space-y-2">
+            <li><b class="text-slate-900">pipeline-worker</b> <span class="text-slate-500">— тарификация, выбор маршрута, постановка в очередь отправки. В prod расщепляется на pipeline-router/sender/status/persist для независимого масштабирования стадий</span></li>
+            <li><b class="text-slate-900">smpp-gateway</b> <span class="text-slate-500">— исходящие SMPP-сессии к операторам и агрегаторам, балансировка, retry</span></li>
+            <li><b class="text-slate-900">dlr-delivery</b> <span class="text-slate-500">— приём delivery receipts, корреляция с исходным сообщением, webhook клиенту</span></li>
+            <li><b class="text-slate-900">worker</b> <span class="text-slate-500">— фоновые задачи: импорт CSV-кампаний, scheduler, периодические синки</span></li>
+          </ul>
+        </div>
+
+        <!-- Доменные микросервисы -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 md:col-span-2">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#e8f4f8;color:#1f4e79">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-widest font-semibold" style="color:#1f4e79">Слой 3 · Доменные микросервисы (gRPC)</div>
+              <div class="font-bold text-lg">16 сервисов · бизнес-логика</div>
+            </div>
+          </div>
+          <p class="text-sm text-slate-600 mb-4">Каждый сервис владеет своей областью данных и API (gRPC). Шлюзы и конвейер вызывают их, не знают деталей реализации. Можно переписать любой сервис без переписывания соседей.</p>
+
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-2">Идентичность</div>
+              <ul class="space-y-1">
+                <li><b>auth</b> <span class="text-slate-500">— пользователи, JWT, 2FA</span></li>
+                <li><b>audit</b> <span class="text-slate-500">— журнал действий</span></li>
+              </ul>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-2">Доставка</div>
+              <ul class="space-y-1">
+                <li><b>messaging</b> <span class="text-slate-500">— приём/статусы</span></li>
+                <li><b>routing</b> <span class="text-slate-500">— выбор маршрута</span></li>
+                <li><b>provider</b> <span class="text-slate-500">— реестр операторов</span></li>
+                <li><b>cascade</b> <span class="text-slate-500">— каскад каналов</span></li>
+                <li><b>webhook</b> <span class="text-slate-500">— колбэки клиенту</span></li>
+                <li><b>link</b> <span class="text-slate-500">— short-URL для трекинга</span></li>
+              </ul>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-2">Финансы</div>
+              <ul class="space-y-1">
+                <li><b>billing</b> <span class="text-slate-500">— счета, баланс, инвойсы</span></li>
+                <li><b>tarification</b> <span class="text-slate-500">— расчёт стоимости по оператору и sender name</span></li>
+              </ul>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-2">Клиенты и контент</div>
+              <ul class="space-y-1">
+                <li><b>client</b> <span class="text-slate-500">— профили, лимиты</span></li>
+                <li><b>contact</b> <span class="text-slate-500">— адресные книги</span></li>
+                <li><b>template</b> <span class="text-slate-500">— шаблоны, sender names</span></li>
+                <li><b>campaign</b> <span class="text-slate-500">— массовые рассылки</span></li>
+              </ul>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3 sm:col-span-2 lg:col-span-4">
+              <div class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-2">Аналитика</div>
+              <ul class="grid sm:grid-cols-2 gap-y-1">
+                <li><b>analytics</b> <span class="text-slate-500">— клиентская статистика: объёмы, конверсия, deliverability по периодам</span></li>
+                <li><b>network-analytics</b> <span class="text-slate-500">— агрегация по операторам и партнёрам для маршрутизации и дашбордов</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Инфраструктура -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 md:col-span-2">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#f3e8ff;color:#6a1b9a">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 11v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-widest font-semibold" style="color:#6a1b9a">Слой 4 · Инфраструктура</div>
+              <div class="font-bold text-lg">5 систем · хранение и наблюдаемость</div>
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-3 gap-3 text-sm">
+            <div><b>PostgreSQL 15</b><div class="text-slate-500 text-xs">сообщения, биллинг, audit. Помесячное партиционирование. PgBouncer перед мастером.</div></div>
+            <div><b>Redis 7</b><div class="text-slate-500 text-xs">сессии, rate-limit, HLR-кеш, идемпотентность.</div></div>
+            <div><b>Apache Kafka</b><div class="text-slate-500 text-xs">шина между шлюзами и конвейером: sms.outgoing, sms.dlr, аудит-стрим.</div></div>
+            <div><b>Prometheus + Grafana</b><div class="text-slate-500 text-xs">метрики, дашборды, алерты. Loki для логов, Promtail-сборщик.</div></div>
+            <div><b>Caddy + HAProxy</b><div class="text-slate-500 text-xs">edge-TLS и SMPP-балансировка перед smpp-gateway.</div></div>
+            <div><b>Directus</b><div class="text-slate-500 text-xs">headless CMS для контента личного кабинета и документации.</div></div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="mt-6 text-sm bg-blue-50 border-l-4 border-brand-500 p-4 rounded">
+        <b>Главное для инвестора:</b> границы между сервисами проведены не «как получилось», а по бизнес-областям. Это даёт три практических следствия — независимое масштабирование (например, при пике рассылок добавляются только pipeline-worker'ы, остальные не трогаются), независимую разработку (команда billing не блокирует команду routing) и независимое замещение технологии (любой сервис можно переписать на другом языке без перекомпиляции остальных).
+      </p>
+
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.4. Жизнь одного сообщения</h3>
       <p class="mb-6">Что физически происходит за время от вызова API до получения SMS. Жми «Запустить» — увидишь последовательность с миллисекундными бюджетами.</p>
 
       <div x-data="seqAnimator()" class="bg-white rounded-xl border border-slate-200 p-6">
@@ -612,30 +838,50 @@ flowchart LR
         </p>
       </div>
 
-      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.4. Почему архитектура масштабируется без переписывания</h3>
+      <h3 class="text-2xl font-bold mt-12 mb-4 text-brand-500">4.5. Почему архитектура масштабируется без переписывания</h3>
       <div class="grid md:grid-cols-2 gap-4">
         <div class="bg-white rounded-xl p-5 border border-slate-200">
-          <div class="text-3xl mb-2">🔄</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style="background:#e8f5e8;color:#2e7d32">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 0 0-9-9 9 9 0 0 0-6.7 3"/><path d="M3 4v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9 9 0 0 0 6.7-3"/><path d="M21 20v-5h-5"/>
+            </svg>
+          </div>
           <div class="font-bold mb-2">Stateless-сервисы</div>
           <div class="text-sm leading-relaxed">Все backend-компоненты не хранят состояние локально. Запустил второй экземпляр — он подхватил половину нагрузки, без координации.</div>
         </div>
         <div class="bg-white rounded-xl p-5 border border-slate-200">
-          <div class="text-3xl mb-2">📥</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style="background:#e8f5e8;color:#2e7d32">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+            </svg>
+          </div>
           <div class="font-bold mb-2">Kafka как буфер</div>
           <div class="text-sm leading-relaxed">При пиковой нагрузке сообщения копятся в Kafka и обрабатываются с задержкой, но не теряются. Затем добавляются worker'ы — очередь рассасывается.</div>
         </div>
         <div class="bg-white rounded-xl p-5 border border-slate-200">
-          <div class="text-3xl mb-2">📅</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style="background:#f3e8ff;color:#6a1b9a">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="22"/><line x1="15" y1="4" x2="15" y2="22"/>
+            </svg>
+          </div>
           <div class="font-bold mb-2">Помесячное партиционирование БД</div>
           <div class="text-sm leading-relaxed">Таблицы messages, audit_log, deliveries разбиты по месяцам. Запросы за сегодня не «затягиваются» в данные за прошлый год. Архивирование без остановки сервиса.</div>
         </div>
         <div class="bg-white rounded-xl p-5 border border-slate-200">
-          <div class="text-3xl mb-2">↔️</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style="background:#f3e8ff;color:#6a1b9a">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 17 4 12 9 7"/><polyline points="15 17 20 12 15 7"/><line x1="4" y1="12" x2="20" y2="12"/>
+            </svg>
+          </div>
           <div class="font-bold mb-2">Горизонтальное расширение БД</div>
           <div class="text-sm leading-relaxed">PostgreSQL допускает read-replicas и логическую репликацию. Когда мастер станет узким местом — реплики для аналитики, write остаётся на мастере. Дальше — шардинг по client_id.</div>
         </div>
         <div class="bg-white rounded-xl p-5 border border-slate-200 md:col-span-2">
-          <div class="text-3xl mb-2">🛡️</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style="background:#fff4e6;color:#cc6600">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>
+            </svg>
+          </div>
           <div class="font-bold mb-2">Изоляция нагрузки между клиентами</div>
           <div class="text-sm leading-relaxed">Rate-limiting в Redis на уровне клиента предотвращает ситуацию, когда один крупный «съедает» ресурсы остальных. Критично для SLA в B2B.</div>
         </div>
@@ -827,22 +1073,22 @@ flowchart LR
 
       <div class="grid md:grid-cols-2 gap-4">
         <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 rounded-xl">
-          <div class="text-3xl mb-3">⚡</div>
+          <svg class="w-9 h-9 mb-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           <div class="text-xl font-bold mb-2">Каскадные стратегии «из коробки»</div>
           <div class="text-sm leading-relaxed text-brand-100/90">Большинство классических SMS-агрегаторов умеют только SMS. Чтобы добавить flash call или мессенджер, клиенту нужен другой провайдер, два контракта, склейка логики у себя. У нас каскад — настройкой в кабинете.</div>
         </div>
         <div class="bg-white p-6 rounded-xl border-2 border-brand-500">
-          <div class="text-3xl mb-3">📊</div>
+          <svg class="w-9 h-9 mb-3 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
           <div class="text-xl font-bold mb-2 text-brand-500">Прозрачная многоуровневая тарификация</div>
           <div class="text-sm leading-relaxed">Поддержка моделей биллинга, редко встречающихся одновременно: тарифы по операторам и именам, иерархия агрегатор → суб-аккаунт с независимыми наценками, hard-stop по балансу. Критично для агентств.</div>
         </div>
         <div class="bg-white p-6 rounded-xl border-2 border-brand-500">
-          <div class="text-3xl mb-3">🎯</div>
+          <svg class="w-9 h-9 mb-3 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
           <div class="text-xl font-bold mb-2 text-brand-500">Самостоятельность клиента</div>
           <div class="text-sm leading-relaxed">Кабинет покрывает почти всё, что обычно требует переписки с менеджером: ключи, webhooks, sender names, аналитика, суб-аккаунты. Снижает наши OPEX и ускоряет онбординг.</div>
         </div>
         <div class="bg-gradient-to-br from-accent-500 to-accent-600 text-white p-6 rounded-xl">
-          <div class="text-3xl mb-3">🏗️</div>
+          <svg class="w-9 h-9 mb-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg>
           <div class="text-xl font-bold mb-2">Архитектура, готовая к росту</div>
           <div class="text-sm leading-relaxed text-white/90">Изначально микросервисы + Kafka. Каждый компонент масштабируется отдельно. Конкуренты, начавшие с монолита, при росте упираются в потолок и переписываются.</div>
         </div>
@@ -1041,50 +1287,6 @@ function economicsCalc() {
     }
   }
 }
-
-// svg-pan-zoom on architecture detail diagram (deterministic: after Mermaid finishes).
-async function initArchZoom() {
-  try {
-    if (window.__mermaidReady) await window.__mermaidReady;
-  } catch (e) { console.warn('mermaid run failed:', e); }
-  const container = document.getElementById('archDiagram');
-  if (!container) return;
-  const svg = container.querySelector('svg');
-  if (!svg) { console.warn('arch SVG not found'); return; }
-  const cw = container.clientWidth || 1000;
-  const ch = container.clientHeight || 560;
-  // svg-pan-zoom requires explicit numeric width/height to compute CTM.
-  svg.style.maxWidth = 'none';
-  svg.style.width = cw + 'px';
-  svg.style.height = ch + 'px';
-  svg.setAttribute('width', cw);
-  svg.setAttribute('height', ch);
-  if (!svg.getAttribute('preserveAspectRatio')) {
-    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  }
-  try {
-    window.__archZoom = svgPanZoom(svg, {
-      zoomEnabled: true, controlIconsEnabled: false,
-      fit: true, center: true, contain: false,
-      minZoom: 0.4, maxZoom: 6, zoomScaleSensitivity: 0.35,
-      mouseWheelZoomEnabled: true, preventMouseEventsDefault: true
-    });
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        if (!window.__archZoom) return;
-        const nw = container.clientWidth, nh = container.clientHeight;
-        svg.style.width = nw + 'px'; svg.style.height = nh + 'px';
-        svg.setAttribute('width', nw); svg.setAttribute('height', nh);
-        window.__archZoom.resize(); window.__archZoom.fit(); window.__archZoom.center();
-      }, 200);
-    });
-  } catch (e) {
-    console.warn('svg-pan-zoom init failed:', e);
-  }
-}
-window.addEventListener('load', () => { initArchZoom(); });
 
 // Scaling chart
 window.addEventListener('load', () => {
