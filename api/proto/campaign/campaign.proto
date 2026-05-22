@@ -1,0 +1,331 @@
+syntax = "proto3";
+package campaign.v1;
+option go_package = "github.com/smpp-server/smpp-server/api/proto/campaignv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service CampaignService {
+  rpc CreateCampaign(CreateCampaignRequest) returns (Campaign);
+  rpc GetCampaign(GetCampaignRequest) returns (Campaign);
+  rpc ListCampaigns(ListCampaignsRequest) returns (CampaignPage);
+  rpc UpdateCampaign(UpdateCampaignRequest) returns (Campaign);
+  rpc DeleteCampaign(DeleteCampaignRequest) returns (google.protobuf.Empty);
+
+  rpc LaunchCampaign(LaunchCampaignRequest) returns (Campaign);
+  rpc PauseCampaign(PauseCampaignRequest) returns (Campaign);
+  rpc ResumeCampaign(ResumeCampaignRequest) returns (Campaign);
+  rpc CancelCampaign(CancelCampaignRequest) returns (Campaign);
+
+  rpc SetVariants(SetVariantsRequest) returns (VariantList);
+  rpc SetABConfig(SetABConfigRequest) returns (ABConfig);
+  rpc SelectWinner(SelectWinnerRequest) returns (Campaign);
+
+  rpc SetRetryConfig(SetRetryConfigRequest) returns (RetryConfig);
+  rpc RetryFailed(RetryFailedRequest) returns (Campaign);
+
+  rpc GetCampaignStats(GetCampaignStatsRequest) returns (CampaignStats);
+  rpc GetCampaignTimeline(GetCampaignTimelineRequest) returns (TimelineData);
+  rpc GetVariantComparison(GetVariantComparisonRequest) returns (VariantComparisonData);
+  rpc GetDeliveryHeatmap(GetDeliveryHeatmapRequest) returns (HeatmapData);
+  rpc GetOptimalSendTime(GetOptimalSendTimeRequest) returns (SendTimeRecommendation);
+  rpc ExportReport(ExportReportRequest) returns (ReportFile);
+
+  rpc PreviewTemplate(PreviewTemplateRequest) returns (PreviewTemplateResponse);
+}
+
+message Campaign {
+  string id = 1;
+  string client_id = 2;
+  string name = 3;
+  string status = 4;
+  string contact_list_id = 5;
+  string template_id = 6;
+  string source = 7;
+  string segment_rules = 8;
+  repeated string segment_tags = 9;
+  int32 send_rate = 10;
+  google.protobuf.Timestamp scheduled_at = 11;
+  google.protobuf.Timestamp started_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+  string retry_config = 14;
+  int32 total_recipients = 15;
+  int32 sent_count = 16;
+  int32 delivered_count = 17;
+  int32 failed_count = 18;
+  google.protobuf.Timestamp created_at = 19;
+  google.protobuf.Timestamp updated_at = 20;
+  repeated Variant variants = 21;
+  ABConfig ab_config = 22;
+  bool use_subscriber_timezone = 23;
+}
+
+message CreateCampaignRequest {
+  string client_id = 1;
+  string name = 2;
+  string contact_list_id = 3;
+  string template_id = 4;
+  string source = 5;
+  string segment_rules = 6;
+  repeated string segment_tags = 7;
+  int32 send_rate = 8;
+  google.protobuf.Timestamp scheduled_at = 9;
+  bool use_subscriber_timezone = 10;
+}
+
+message GetCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message ListCampaignsRequest {
+  string client_id = 1;
+  string status = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message CampaignPage {
+  repeated Campaign campaigns = 1;
+  int32 total = 2;
+}
+
+message UpdateCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+  string name = 3;
+  string contact_list_id = 4;
+  string template_id = 5;
+  string source = 6;
+  string segment_rules = 7;
+  repeated string segment_tags = 8;
+  int32 send_rate = 9;
+  google.protobuf.Timestamp scheduled_at = 10;
+}
+
+message DeleteCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message LaunchCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+}
+message PauseCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+}
+message ResumeCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+}
+message CancelCampaignRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message Variant {
+  string id = 1;
+  string campaign_id = 2;
+  string name = 3;
+  string template_id = 4;
+  int32 percentage = 5;
+  bool is_winner = 6;
+  bool is_control = 7;
+  int32 sent_count = 8;
+  int32 delivered_count = 9;
+  int32 failed_count = 10;
+}
+
+message VariantList {
+  repeated Variant variants = 1;
+}
+
+message SetVariantsRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  repeated VariantInput variants = 3;
+}
+
+message VariantInput {
+  string name = 1;
+  string template_id = 2;
+  int32 percentage = 3;
+  bool is_control = 4;
+}
+
+message ABConfig {
+  string campaign_id = 1;
+  string metric = 2;
+  int32 test_duration_hours = 3;
+  bool auto_select_winner = 4;
+  string winner_variant_id = 5;
+  google.protobuf.Timestamp winner_selected_at = 6;
+}
+
+message SetABConfigRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  string metric = 3;
+  int32 test_duration_hours = 4;
+  bool auto_select_winner = 5;
+}
+
+message SelectWinnerRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  string variant_id = 3;
+}
+
+message RetryConfig {
+  bool enabled = 1;
+  int32 delay_hours = 2;
+  int32 max_retries = 3;
+  string alternative_template_id = 4;
+}
+
+message SetRetryConfigRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  RetryConfig config = 3;
+}
+
+message RetryFailedRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  string alternative_template_id = 3;
+}
+
+message GetCampaignStatsRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+}
+
+message CampaignStats {
+  int32 total_recipients = 1;
+  int32 sent = 2;
+  int32 delivered = 3;
+  int32 failed = 4;
+  int32 pending = 5;
+  int32 retry = 6;
+  double delivery_rate = 7;
+  double total_cost = 8;
+  int32 avg_delivery_time_ms = 9;
+  repeated VariantStats per_variant = 10;
+}
+
+message VariantStats {
+  string variant_id = 1;
+  string variant_name = 2;
+  int32 sent = 3;
+  int32 delivered = 4;
+  int32 failed = 5;
+  double delivery_rate = 6;
+  bool is_winner = 7;
+}
+
+message GetCampaignTimelineRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  string interval = 3;
+  string metric = 4;
+}
+
+message TimelineData {
+  repeated TimelinePoint points = 1;
+}
+
+message TimelinePoint {
+  google.protobuf.Timestamp timestamp = 1;
+  int32 value = 2;
+}
+
+message GetVariantComparisonRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+}
+
+message VariantComparisonData {
+  repeated VariantComparisonRow rows = 1;
+  string winner_variant_id = 2;
+}
+
+message VariantComparisonRow {
+  string variant_id = 1;
+  string variant_name = 2;
+  int32 audience_size = 3;
+  int32 sent = 4;
+  int32 delivered = 5;
+  int32 failed = 6;
+  double delivery_rate = 7;
+  int32 avg_delivery_time_ms = 8;
+  double cost = 9;
+}
+
+message GetDeliveryHeatmapRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+}
+
+message HeatmapData {
+  repeated HeatmapCell cells = 1;
+}
+
+message HeatmapCell {
+  int32 day_of_week = 1;
+  int32 hour = 2;
+  int32 delivered_count = 3;
+  double delivery_rate = 4;
+}
+
+message GetOptimalSendTimeRequest {
+  string client_id = 1;
+}
+
+message SendTimeRecommendation {
+  repeated TimeSlot slots = 1;
+}
+
+message TimeSlot {
+  int32 day_of_week = 1;
+  int32 hour = 2;
+  double delivery_rate = 3;
+  int32 avg_delivery_time_ms = 4;
+  double score = 5;
+}
+
+message ExportReportRequest {
+  string campaign_id = 1;
+  string client_id = 2;
+  string format = 3;
+}
+
+message ReportFile {
+  bytes data = 1;
+  string filename = 2;
+  string content_type = 3;
+}
+
+message PreviewTemplateRequest {
+  string client_id = 1;
+  string template_text = 2;
+  repeated TemplateTestData test_data = 3;
+  string contact_list_id = 4; // optional: for auto-sampling contacts
+}
+
+message TemplateTestData {
+  map<string, string> bindings = 1;
+}
+
+message PreviewTemplateResponse {
+  repeated TemplatePreviewResult results = 1;
+}
+
+message TemplatePreviewResult {
+  string rendered = 1;
+  int32 length = 2;
+  int32 segments = 3;
+  repeated string warnings = 4;
+  string error = 5;
+}

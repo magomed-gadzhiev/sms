@@ -1,0 +1,477 @@
+syntax = "proto3";
+
+package tarification.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/tarificationv1";
+
+import "google/protobuf/timestamp.proto";
+
+// TarificationService предоставляет методы для тарификации сообщений
+service TarificationService {
+  // TarifyMessage выполняет основной вызов тарификации сообщения
+  rpc TarifyMessage(TarifyMessageRequest) returns (TarifyMessageResponse);
+
+  // CommitCharge применяет ранее рассчитанное списание после успешной отправки
+  // к провайдеру. Идемпотентно по message_id.
+  rpc CommitCharge(CommitChargeRequest) returns (CommitChargeResponse);
+
+  // CreateSenderRegistration создает регистрацию отправителя
+  rpc CreateSenderRegistration(CreateSenderRegistrationRequest) returns (SenderRegistration);
+
+  // ListSenderRegistrations получает список регистраций отправителей
+  rpc ListSenderRegistrations(ListSenderRegistrationsRequest) returns (ListSenderRegistrationsResponse);
+
+  // UpdateSenderRegistration обновляет регистрацию отправителя
+  rpc UpdateSenderRegistration(UpdateSenderRegistrationRequest) returns (SenderRegistration);
+
+  // CreateTariffPlan создает тарифный план
+  rpc CreateTariffPlan(CreateTariffPlanRequest) returns (TariffPlan);
+
+  // GetTariffPlan получает тарифный план по ID
+  rpc GetTariffPlan(GetTariffPlanRequest) returns (TariffPlan);
+
+  // ListTariffPlans получает список тарифных планов
+  rpc ListTariffPlans(ListTariffPlansRequest) returns (ListTariffPlansResponse);
+
+  // UpdateTariffPlan обновляет тарифный план
+  rpc UpdateTariffPlan(UpdateTariffPlanRequest) returns (TariffPlan);
+
+  // CreateTariffPeriod создает тарифный период
+  rpc CreateTariffPeriod(CreateTariffPeriodRequest) returns (TariffPeriod);
+
+  // CreateTariffTier создает тарифный порог
+  rpc CreateTariffTier(CreateTariffTierRequest) returns (TariffTier);
+
+  // UpdateTariffTier обновляет тарифный порог
+  rpc UpdateTariffTier(UpdateTariffTierRequest) returns (TariffTier);
+
+  // CreatePricingPeriod создает период тарификации
+  rpc CreatePricingPeriod(CreatePricingPeriodRequest) returns (PricingPeriod);
+
+  // CreatePrepaidFee создает предоплаченный сбор
+  rpc CreatePrepaidFee(CreatePrepaidFeeRequest) returns (PrepaidFee);
+
+  // TarifyLookup выполняет тарификацию lookup-запроса (per-number)
+  rpc TarifyLookup(TarifyLookupRequest) returns (TarifyLookupResponse);
+
+  // GetUsageCounter получает счетчик использования
+  rpc GetUsageCounter(GetUsageCounterRequest) returns (UsageCounter);
+
+  // ListUsageCounters получает список счетчиков использования
+  rpc ListUsageCounters(ListUsageCountersRequest) returns (ListUsageCountersResponse);
+
+  // Provider Tariff Plans
+  rpc CreateProviderTariffPlan(CreateProviderTariffPlanRequest) returns (ProviderTariffPlanProto);
+  rpc GetProviderTariffPlan(GetProviderTariffPlanRequest) returns (ProviderTariffPlanProto);
+  rpc ListProviderTariffPlans(ListProviderTariffPlansRequest) returns (ListProviderTariffPlansResponse);
+  rpc UpdateProviderTariffPlan(UpdateProviderTariffPlanRequest) returns (ProviderTariffPlanProto);
+
+  rpc CreateProviderTariffPeriod(CreateProviderTariffPeriodRequest) returns (ProviderTariffPeriodProto);
+  rpc CreateProviderTariffTier(CreateProviderTariffTierRequest) returns (ProviderTariffTierProto);
+  rpc UpdateProviderTariffTier(UpdateProviderTariffTierRequest) returns (ProviderTariffTierProto);
+
+  // Margin Analytics
+  rpc GetMarginReport(MarginReportRequest) returns (MarginReportResponse);
+
+  // Sender Name Billing
+  rpc CreateSenderBillingRecord(CreateSenderBillingRecordRequest) returns (CreateSenderBillingRecordResponse);
+  rpc ListSenderBillingRecords(ListSenderBillingRecordsRequest) returns (ListSenderBillingRecordsResponse);
+}
+
+// TarifyMessageRequest представляет запрос на тарификацию сообщения
+message TarifyMessageRequest {
+  string client_id = 1;             // ID клиента
+  string message_id = 2;            // ID сообщения
+  string operator_id = 3;           // ID оператора
+  string sender_name = 4;           // Имя отправителя
+  int32 segment_count = 5;          // Количество сегментов
+  string idempotency_key = 6;       // Ключ идемпотентности
+}
+
+// TarifyMessageResponse представляет ответ на тарификацию сообщения
+message TarifyMessageResponse {
+  bool approved = 1;                // Одобрено ли сообщение
+  string total_amount = 2;          // Общая сумма (в виде строки для точности)
+  string currency = 3;              // Валюта
+  string strategy = 4;              // Стратегия тарификации
+  string tariff_plan_id = 5;        // ID тарифного плана
+  string rejection_reason = 6;      // Причина отклонения (если не одобрено)
+  bool threshold_crossed = 7;       // Пересечён ли порог
+  string recalc_amount = 8;         // Сумма пересчёта
+  // Добавлены для commit-on-submit flow:
+  string aggregator_id = 9;             // UUID если субаккаунт; пусто если direct-клиент
+  string sub_account_price = 10;        // NUMERIC per segment
+  string aggregator_price = 11;         // NUMERIC per segment
+  string sub_account_total = 12;        // итого с субаккаунта
+  string aggregator_total = 13;         // итого с агрегатора
+  int32 segment_count = 14;             // дубль запроса — для удобства CommitCharge
+  int32 pool_segments = 15;
+  int32 overage_segments = 16;
+  string charge_mode = 17;              // "pool"|"overage"|"split"; пусто для direct
+  string operator_id = 18;              // дубль запроса
+}
+
+message CommitChargeRequest {
+  string message_id = 1;
+  string client_id = 2;           // субаккаунт
+  string operator_id = 3;
+  string sender_name = 4;
+  int32 segment_count = 5;
+  string idempotency_key = 6;
+}
+
+message CommitChargeResponse {
+  bool committed = 1;
+  string sub_account_tx_id = 2;
+  string aggregator_tx_id = 3;
+  string margin_log_id = 4;
+  CommitChargeError error = 5;
+}
+
+enum CommitChargeError {
+  COMMIT_CHARGE_ERROR_UNSPECIFIED = 0;
+  COMMIT_CHARGE_ERROR_ALREADY_COMMITTED = 1;
+  COMMIT_CHARGE_ERROR_QUOTA_NOT_CONFIGURED = 2;
+  COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT = 3;
+  COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR = 4;
+  COMMIT_CHARGE_ERROR_NO_TARIFF = 5;
+}
+
+// TarifyLookupRequest представляет запрос на тарификацию lookup-запроса
+message TarifyLookupRequest {
+  string client_id = 1;             // ID клиента
+  int32 number_count = 2;           // Количество номеров для lookup
+  string idempotency_key = 3;       // Ключ идемпотентности
+}
+
+// TarifyLookupResponse представляет ответ на тарификацию lookup-запроса
+message TarifyLookupResponse {
+  bool approved = 1;                // Одобрено ли
+  string cost_per_number = 2;       // Стоимость за номер (строка для точности)
+  string total_amount = 3;          // Общая сумма (cost_per_number * number_count)
+  string currency = 4;              // Валюта
+  string rejection_reason = 5;      // Причина отклонения (если не одобрено)
+  int32 affordable_count = 6;       // Сколько номеров можно оплатить при недостаточном балансе
+}
+
+// SenderRegistration представляет регистрацию отправителя
+message SenderRegistration {
+  string id = 1;                    // ID регистрации
+  string client_id = 2;             // ID клиента
+  string operator_id = 3;           // ID оператора
+  string sender_name = 4;           // Имя отправителя
+  string type = 5;                  // Тип регистрации
+  string status = 6;                // Статус регистрации
+  google.protobuf.Timestamp created_at = 7;  // Время создания
+  google.protobuf.Timestamp updated_at = 8;  // Время обновления
+}
+
+// CreateSenderRegistrationRequest представляет запрос на создание регистрации отправителя
+message CreateSenderRegistrationRequest {
+  string client_id = 1;             // ID клиента
+  string operator_id = 2;           // ID оператора
+  string sender_name = 3;           // Имя отправителя
+  string type = 4;                  // Тип регистрации
+}
+
+// ListSenderRegistrationsRequest представляет запрос на получение списка регистраций отправителей
+message ListSenderRegistrationsRequest {
+  string client_id = 1;             // ID клиента
+  string operator_id = 2;           // ID оператора
+  int32 limit = 3;                  // Лимит записей
+  int32 offset = 4;                 // Смещение для пагинации
+}
+
+// ListSenderRegistrationsResponse представляет ответ со списком регистраций отправителей
+message ListSenderRegistrationsResponse {
+  repeated SenderRegistration registrations = 1;  // Список регистраций
+  int32 total = 2;                  // Общее количество
+}
+
+// UpdateSenderRegistrationRequest представляет запрос на обновление регистрации отправителя
+message UpdateSenderRegistrationRequest {
+  string id = 1;                    // ID регистрации
+  string status = 2;                // Статус регистрации
+  string type = 3;                  // Тип регистрации
+}
+
+// TariffPlan представляет тарифный план
+message TariffPlan {
+  string id = 1;                    // ID тарифного плана
+  string operator_id = 2;           // ID оператора
+  string sender_category = 3;       // Категория отправителя
+  string strategy = 4;              // Стратегия тарификации
+  bool active = 5;                  // Активен ли план
+  google.protobuf.Timestamp created_at = 6;  // Время создания
+  google.protobuf.Timestamp updated_at = 7;  // Время обновления
+}
+
+// CreateTariffPlanRequest представляет запрос на создание тарифного плана
+message CreateTariffPlanRequest {
+  string operator_id = 1;           // ID оператора
+  string sender_category = 2;       // Категория отправителя
+  string strategy = 3;              // Стратегия тарификации
+}
+
+// GetTariffPlanRequest представляет запрос на получение тарифного плана
+message GetTariffPlanRequest {
+  string id = 1;                    // ID тарифного плана
+}
+
+// ListTariffPlansRequest представляет запрос на получение списка тарифных планов
+message ListTariffPlansRequest {
+  string operator_id = 1;           // ID оператора
+  bool active_only = 2;             // Только активные планы
+  int32 limit = 3;                  // Лимит записей
+  int32 offset = 4;                 // Смещение для пагинации
+}
+
+// ListTariffPlansResponse представляет ответ со списком тарифных планов
+message ListTariffPlansResponse {
+  repeated TariffPlan plans = 1;    // Список тарифных планов
+  int32 total = 2;                  // Общее количество
+}
+
+// UpdateTariffPlanRequest представляет запрос на обновление тарифного плана
+message UpdateTariffPlanRequest {
+  string id = 1;                    // ID тарифного плана
+  bool active = 2;                  // Активен ли план
+}
+
+// TariffPeriod представляет тарифный период
+message TariffPeriod {
+  string id = 1;                    // ID тарифного периода
+  string tariff_plan_id = 2;        // ID тарифного плана
+  string start_date = 3;            // Дата начала (YYYY-MM-DD)
+  string end_date = 4;              // Дата окончания (YYYY-MM-DD)
+  google.protobuf.Timestamp created_at = 5;  // Время создания
+}
+
+// CreateTariffPeriodRequest представляет запрос на создание тарифного периода
+message CreateTariffPeriodRequest {
+  string tariff_plan_id = 1;        // ID тарифного плана
+  string start_date = 2;            // Дата начала (YYYY-MM-DD)
+  string end_date = 3;              // Дата окончания (YYYY-MM-DD)
+}
+
+// TariffTier представляет тарифный порог
+message TariffTier {
+  string id = 1;                    // ID тарифного порога
+  string tariff_period_id = 2;      // ID тарифного периода
+  int32 from_count = 3;             // Начало порога (количество сегментов)
+  string price_per_segment = 4;     // Цена за сегмент (в виде строки для точности)
+}
+
+// CreateTariffTierRequest представляет запрос на создание тарифного порога
+message CreateTariffTierRequest {
+  string tariff_period_id = 1;      // ID тарифного периода
+  int32 from_count = 2;             // Начало порога (количество сегментов)
+  string price_per_segment = 3;     // Цена за сегмент
+}
+
+// UpdateTariffTierRequest представляет запрос на обновление тарифного порога
+message UpdateTariffTierRequest {
+  string id = 1;                    // ID тарифного порога
+  int32 from_count = 2;             // Начало порога (количество сегментов)
+  string price_per_segment = 3;     // Цена за сегмент
+}
+
+// PricingPeriod представляет период тарификации
+message PricingPeriod {
+  string id = 1;                    // ID периода тарификации
+  string tariff_period_id = 2;      // ID тарифного периода
+  string start_date = 3;            // Дата начала (YYYY-MM-DD)
+  string end_date = 4;              // Дата окончания (YYYY-MM-DD)
+  google.protobuf.Timestamp created_at = 5;  // Время создания
+}
+
+// CreatePricingPeriodRequest представляет запрос на создание периода тарификации
+message CreatePricingPeriodRequest {
+  string tariff_period_id = 1;      // ID тарифного периода
+  string start_date = 2;            // Дата начала (YYYY-MM-DD)
+  string end_date = 3;              // Дата окончания (YYYY-MM-DD)
+}
+
+// PrepaidFee представляет предоплаченный сбор
+message PrepaidFee {
+  string id = 1;                    // ID предоплаченного сбора
+  string tariff_plan_id = 2;        // ID тарифного плана
+  string tariff_period_id = 3;      // ID тарифного периода
+  string amount = 4;                // Сумма (в виде строки для точности)
+  string currency = 5;              // Валюта
+  bool charged = 6;                 // Списан ли сбор
+  google.protobuf.Timestamp charged_at = 7;  // Время списания
+  google.protobuf.Timestamp created_at = 8;  // Время создания
+}
+
+// CreatePrepaidFeeRequest представляет запрос на создание предоплаченного сбора
+message CreatePrepaidFeeRequest {
+  string tariff_plan_id = 1;        // ID тарифного плана
+  string tariff_period_id = 2;      // ID тарифного периода
+  string amount = 3;                // Сумма
+  string currency = 4;              // Валюта
+}
+
+// UsageCounter представляет счетчик использования
+message UsageCounter {
+  string id = 1;                    // ID счетчика
+  string client_id = 2;             // ID клиента
+  string tariff_plan_id = 3;        // ID тарифного плана
+  string tariff_period_id = 4;      // ID тарифного периода
+  int32 segment_count = 5;          // Количество сегментов
+  google.protobuf.Timestamp updated_at = 6;  // Время последнего обновления
+}
+
+// GetUsageCounterRequest представляет запрос на получение счетчика использования
+message GetUsageCounterRequest {
+  string client_id = 1;             // ID клиента
+  string tariff_plan_id = 2;        // ID тарифного плана
+  string tariff_period_id = 3;      // ID тарифного периода
+}
+
+// ListUsageCountersRequest представляет запрос на получение списка счетчиков использования
+message ListUsageCountersRequest {
+  string client_id = 1;             // ID клиента
+  string tariff_plan_id = 2;        // ID тарифного плана
+  int32 limit = 3;                  // Лимит записей
+  int32 offset = 4;                 // Смещение для пагинации
+}
+
+// ListUsageCountersResponse представляет ответ со списком счетчиков использования
+message ListUsageCountersResponse {
+  repeated UsageCounter counters = 1;  // Список счетчиков
+  int32 total = 2;                  // Общее количество
+}
+
+// === Provider Tariff Plan messages ===
+
+message ProviderTariffPlanProto {
+  string id = 1;
+  string provider_id = 2;
+  string operator_id = 3;
+  string strategy = 4;
+  bool active = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateProviderTariffPlanRequest {
+  string provider_id = 1;
+  string operator_id = 2;
+  string strategy = 3;
+}
+
+message GetProviderTariffPlanRequest {
+  string id = 1;
+}
+
+message ListProviderTariffPlansRequest {
+  string provider_id = 1;
+  bool active_only = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListProviderTariffPlansResponse {
+  repeated ProviderTariffPlanProto plans = 1;
+  int32 total = 2;
+}
+
+message UpdateProviderTariffPlanRequest {
+  string id = 1;
+  bool active = 2;
+}
+
+message ProviderTariffPeriodProto {
+  string id = 1;
+  string provider_tariff_plan_id = 2;
+  string start_date = 3;
+  string end_date = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message CreateProviderTariffPeriodRequest {
+  string provider_tariff_plan_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message ProviderTariffTierProto {
+  string id = 1;
+  string provider_tariff_period_id = 2;
+  int32 from_count = 3;
+  string price_per_segment = 4;
+}
+
+message CreateProviderTariffTierRequest {
+  string provider_tariff_period_id = 1;
+  int32 from_count = 2;
+  string price_per_segment = 3;
+}
+
+message UpdateProviderTariffTierRequest {
+  string id = 1;
+  int32 from_count = 2;
+  string price_per_segment = 3;
+}
+
+// === Margin Report messages ===
+
+message MarginReportRequest {
+  string client_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+
+message MarginReportResponse {
+  repeated MarginReportEntry entries = 1;
+  string total_revenue = 2;
+  string total_cost = 3;
+  string total_margin = 4;
+}
+
+message MarginReportEntry {
+  string operator_id = 1;
+  string operator_name = 2;
+  string provider_id = 3;
+  string provider_name = 4;
+  int32 segments = 5;
+  string revenue = 6;
+  string cost = 7;
+  string margin = 8;
+}
+
+// ==================== Sender Name Billing ====================
+
+message SenderNameBillingRecordProto {
+  string id = 1;
+  string sender_registration_id = 2;
+  string client_id = 3;
+  string operator_id = 4;
+  string billing_month = 5;         // ISO date "2026-04-01"
+  string amount = 6;                // сумма в RUB (строковое представление)
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateSenderBillingRecordRequest {
+  string sender_registration_id = 1;
+  string client_id = 2;
+  string operator_id = 3;
+  string amount = 4;                // тариф оператора на момент регистрации
+}
+
+message CreateSenderBillingRecordResponse {
+  SenderNameBillingRecordProto record = 1;
+  bool already_existed = 2;
+}
+
+message ListSenderBillingRecordsRequest {
+  string sender_registration_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListSenderBillingRecordsResponse {
+  repeated SenderNameBillingRecordProto records = 1;
+  int32 total = 2;
+}

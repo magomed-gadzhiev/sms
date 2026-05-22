@@ -1,0 +1,153 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    env: ${PROMETHEUS_ENV}
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # Gateways
+  - job_name: 'client-gateway'
+    static_configs:
+      - targets: ['client-gateway-1:2112', 'client-gateway-2:2112']
+        labels:
+          service: 'client-gateway'
+
+  - job_name: 'admin-gateway'
+    static_configs:
+      - targets: ['admin-gateway-1:2112', 'admin-gateway-2:2112']
+        labels:
+          service: 'admin-gateway'
+
+  # SMPP Gateway
+  - job_name: 'smpp-gateway'
+    static_configs:
+      - targets: ['smpp-gateway:2112']
+        labels:
+          service: 'smpp-gateway'
+
+  - job_name: 'dlr-delivery'
+    static_configs:
+      - targets: ['dlr-delivery:2112']
+        labels:
+          service: 'dlr-delivery'
+
+  # Microservices
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:2112']
+        labels:
+          service: 'auth-service'
+
+  - job_name: 'messaging-service'
+    static_configs:
+      - targets: ['messaging-service:2113']
+        labels:
+          service: 'messaging-service'
+
+  - job_name: 'routing-service'
+    static_configs:
+      - targets: ['routing-service:2114']
+        labels:
+          service: 'routing-service'
+
+  - job_name: 'provider-service'
+    static_configs:
+      - targets: ['provider-service:2115']
+        labels:
+          service: 'provider-service'
+
+  - job_name: 'client-service'
+    static_configs:
+      - targets: ['client-service:2116']
+        labels:
+          service: 'client-service'
+
+  - job_name: 'analytics-service'
+    static_configs:
+      - targets: ['analytics-service:2117']
+        labels:
+          service: 'analytics-service'
+
+  - job_name: 'billing-service'
+    static_configs:
+      - targets: ['billing-service:2118']
+        labels:
+          service: 'billing-service'
+
+  - job_name: 'webhook-service'
+    static_configs:
+      - targets: ['webhook-service:2119']
+        labels:
+          service: 'webhook-service'
+
+  - job_name: 'template-service'
+    static_configs:
+      - targets: ['template-service:2120']
+        labels:
+          service: 'template-service'
+
+  - job_name: 'tarification-service'
+    static_configs:
+      - targets: ['tarification-service:2121']
+        labels:
+          service: 'tarification-service'
+
+  - job_name: 'worker'
+    static_configs:
+      - targets: ['worker:2112']
+        labels:
+          service: 'worker'
+
+  # Pipeline stages (dns_sd_configs for replicated services)
+  - job_name: 'pipeline-router'
+    dns_sd_configs:
+      - names: ['pipeline-router']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-router'
+
+  - job_name: 'pipeline-sender'
+    dns_sd_configs:
+      - names: ['pipeline-sender']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-sender'
+
+  - job_name: 'pipeline-status'
+    dns_sd_configs:
+      - names: ['pipeline-status']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-status'
+
+  - job_name: 'pipeline-persist'
+    dns_sd_configs:
+      - names: ['pipeline-persist']
+        type: 'A'
+        port: 2112
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'pipeline-persist'

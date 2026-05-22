@@ -1,0 +1,1 @@
+ALTER TABLE clients ALTER COLUMN plan_id SET NOT NULL;

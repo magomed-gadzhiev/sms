@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+package network_analytics.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/networkanalyticsv1";
+
+// NetworkAnalyticsService provides statistics, analytics and monitoring for network partners
+service NetworkAnalyticsService {
+  rpc GetStatistics(StatisticsRequest) returns (StatisticsResponse);
+  rpc GetAnalyticsSummary(AnalyticsRequest) returns (AnalyticsResponse);
+  rpc GetMonitoringMetrics(MonitoringRequest) returns (MonitoringResponse);
+  rpc GetDrillDown(DrillDownRequest) returns (DrillDownResponse);
+  rpc StartExport(ExportRequest) returns (ExportResponse);
+  rpc GetExportStatus(ExportStatusRequest) returns (ExportStatusResponse);
+  rpc ListSavedViews(ListViewsRequest) returns (ListViewsResponse);
+  rpc SaveView(SaveViewRequest) returns (SaveViewResponse);
+  rpc DeleteView(DeleteViewRequest) returns (DeleteViewResponse);
+}
+
+message SharedFilter {
+  string period_preset = 1;
+  int64  date_from = 2;
+  int64  date_to = 3;
+  string group_by = 4;
+  string login = 5;
+  string service_type = 6;
+  string operator = 7;
+  string channel = 8;
+  string sender_name = 9;
+  string sender_paid = 10;
+  bool   international = 11;
+  string traffic_type = 12;
+  string status = 13;
+  string price_range = 14;
+  string method = 15;
+  string provider = 16;
+  string country = 17;
+  string manager = 18;
+  string error_code = 19;
+  int32  page = 20;
+  int32  page_size = 21;
+  string sort_by = 22;
+  string sort_dir = 23;
+}
+
+message KPI {
+  string name = 1;
+  optional double value = 2;
+  double delta = 3;
+  string status = 4;
+  string format = 5;    // "count" | "percent" | "currency"
+  string currency = 6;  // populated only when format=="currency" (e.g. "RUB")
+}
+
+message StatRow {
+  string slice = 1;
+  int64  total = 2;
+  int64  sent = 3;
+  int64  delivered = 4;
+  int64  failed = 5;
+  int64  pending = 6;
+  int64  timeout = 7;
+  int64  error = 8;
+  double dlr_rate = 9;
+  double revenue = 10;
+  double cost = 11;
+  double profit = 12;
+  double margin = 13;
+  string health = 14;
+  map<string, string> alerts = 15;
+}
+
+message MonitorRow {
+  string slice = 1;
+  double throughput = 2;
+  int64  sent = 3;
+  int64  delivered = 4;
+  int64  pending = 5;
+  int64  timeout = 6;
+  int64  error = 7;
+  double dlr_latency_p50 = 8;
+  double dlr_latency_p95 = 9;
+  double dlr_rate = 10;
+  string top_error = 11;
+  string health = 12;
+}
+
+message Trend {
+  string metric = 1;
+  repeated MetricPoint points = 2;
+}
+
+message MetricPoint {
+  int64  timestamp = 1;
+  double value = 2;
+}
+
+message Signal {
+  string severity = 1;
+  string text = 2;
+  string link_type = 3;
+  string link_value = 4;
+}
+
+message Pagination {
+  int32 page = 1;
+  int32 page_size = 2;
+  int32 total_rows = 3;
+  int32 total_pages = 4;
+}
+
+message StatisticsRequest {
+  int64 partner_id = 1;
+  SharedFilter filter = 2;
+}
+message StatisticsResponse {
+  repeated KPI kpis = 1;
+  repeated StatRow rows = 2;
+  Pagination pagination = 3;
+}
+
+message AnalyticsRequest {
+  int64 partner_id = 1;
+  SharedFilter filter = 2;
+}
+message AnalyticsResponse {
+  repeated KPI kpis = 1;
+  repeated KPI previous_kpis = 2;
+  repeated Trend trends = 3;
+  repeated Signal signals = 4;
+  repeated StatRow rows = 5;
+  Pagination pagination = 6;
+}
+
+message MonitoringRequest {
+  int64 partner_id = 1;
+  SharedFilter filter = 2;
+  bool hide_healthy = 3;
+}
+message MonitoringResponse {
+  repeated KPI kpis = 1;
+  repeated MonitorRow rows = 2;
+  repeated MetricPoint chart = 3;
+  Pagination pagination = 4;
+}
+
+message DrillDownRequest {
+  int64 partner_id = 1;
+  SharedFilter filter = 2;
+  string slice_type = 3;
+  string slice_value = 4;
+  string detail_view = 5;
+  string parent_type = 6;
+  string parent_value = 7;
+}
+message DrillDownResponse {
+  repeated KPI summary = 1;
+  repeated StatRow rows = 2;
+  repeated Trend trends = 3;
+  string health = 4;
+}
+
+message ExportRequest {
+  int64 partner_id = 1;
+  SharedFilter filter = 2;
+  string mode = 3;
+  string format = 4;
+  int64 user_id = 5;
+}
+message ExportResponse {
+  string job_id = 1;
+}
+message ExportStatusRequest {
+  string job_id = 1;
+}
+message ExportStatusResponse {
+  string status = 1;
+  int32 row_count = 2;
+  string error = 3;
+  string download_url = 4;
+}
+
+message SavedView {
+  int64  id = 1;
+  string name = 2;
+  string mode = 3;
+  string filters_json = 4;
+  string group_by = 5;
+  string sort_by = 6;
+  string sort_dir = 7;
+  repeated string columns = 8;
+  bool   is_default = 9;
+  bool   is_template = 10;
+}
+message ListViewsRequest {
+  int64 partner_id = 1;
+  int64 user_id = 2;
+}
+message ListViewsResponse {
+  repeated SavedView views = 1;
+}
+message SaveViewRequest {
+  int64 partner_id = 1;
+  int64 user_id = 2;
+  SavedView view = 3;
+}
+message SaveViewResponse {
+  SavedView view = 1;
+}
+message DeleteViewRequest {
+  int64 id = 1;
+  int64 partner_id = 2;
+  int64 user_id = 3;
+}
+message DeleteViewResponse {}

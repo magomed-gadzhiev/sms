@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package webhook.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/webhookv1";
+
+import "google/protobuf/timestamp.proto";
+
+service WebhookService {
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
+  rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+}
+
+message CreateSubscriptionRequest {
+  string client_id = 1;
+  string url = 2;
+  repeated string event_types = 3;
+}
+
+message CreateSubscriptionResponse {
+  SubscriptionInfo subscription = 1;
+  string secret = 2;
+}
+
+message UpdateSubscriptionRequest {
+  string id = 1;
+  string client_id = 2;
+  string url = 3;
+  repeated string event_types = 4;
+  optional bool active = 5;
+}
+
+message UpdateSubscriptionResponse {
+  SubscriptionInfo subscription = 1;
+}
+
+message DeleteSubscriptionRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message DeleteSubscriptionResponse {
+  bool success = 1;
+}
+
+message GetSubscriptionRequest {
+  string id = 1;
+  string client_id = 2;
+}
+
+message GetSubscriptionResponse {
+  SubscriptionInfo subscription = 1;
+}
+
+message ListSubscriptionsRequest {
+  string client_id = 1;
+}
+
+message ListSubscriptionsResponse {
+  repeated SubscriptionInfo subscriptions = 1;
+}
+
+message SubscriptionInfo {
+  string id = 1;
+  string client_id = 2;
+  string url = 3;
+  repeated string event_types = 4;
+  bool active = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}

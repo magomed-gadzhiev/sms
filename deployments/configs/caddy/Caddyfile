@@ -1,0 +1,123 @@
+# Caddy auto-TLS на portal/api/admin subdomain'ы. gRPC TLS — отдельный
+# host в Task 3 (Plan 8). Stats HaProxy 8404 теперь доступен только через
+# SSH-tunnel и НЕ TLS-фронтится — internal-only admin tool.
+#
+# DNS PREREQUISITE: A-records для PORTAL_DOMAIN, API_DOMAIN, ADMIN_DOMAIN,
+# GRPC_DOMAIN указывают на VM IP ДО первого `up -d`. Verify:
+#   for d in $PORTAL_DOMAIN $API_DOMAIN $ADMIN_DOMAIN $GRPC_DOMAIN; do
+#     echo -n "$d: "; dig +short $d
+#   done
+#
+# LE STAGING TOGGLE для smoke: раскомментировать `acme_ca` ниже на dry-run.
+# После validate restart caddy с боевым acme_ca (default).
+
+# CSP не включён в snippet: жёсткая CSP ломает Vite-built bundle с
+# inline-modulepreload. Аудит и tightening — отдельным spec'ом.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+		-Server
+	}
+}
+
+# (proxy_forward) — header_up X-Real-IP. X-Forwarded-For и X-Forwarded-Proto
+# Caddy 2.8 проставляет автоматически (см. предупреждение validate'а на
+# explicit duplicate); поэтому повторяем только X-Real-IP.
+(proxy_forward) {
+	header_up X-Real-IP {remote_host}
+}
+
+# Portal SPA + portal-gateway API (existing).
+{$PORTAL_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	reverse_proxy portal-gateway:8082 {
+		import proxy_forward
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
+	encode gzip
+}
+
+# Client API → HaProxy → client-gateway-1/2 на :8080 (HTTP).
+{$API_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	reverse_proxy haproxy:8080 {
+		import proxy_forward
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
+	encode gzip
+}
+
+# Admin API → HaProxy → admin-gateway-1/2 на :8081 (HTTP).
+{$ADMIN_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	reverse_proxy haproxy:8081 {
+		import proxy_forward
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
+	encode gzip
+}
+
+# gRPC fan-out: один TLS-host на оба gateway'а через path-matcher (Variant A).
+# Caddy term'ит TLS, проксирует h2c на HaProxy mode tcp.
+#
+# Service mapping (из proto-файлов):
+#   client-gateway :9090 → MessagingService (package messaging.v1)
+#     gRPC path: /messaging.v1.MessagingService/*
+#   admin-gateway  :9091 → пустой сервер (services запланированы; нет
+#     зарегистрированных сервисов в текущем коде cmd/admin-gateway/main.go).
+#     Matcher /admin.* зарезервирован под AdminService/* в пакете admin.v1.
+#     CONSTRAINT: все admin-gateway gRPC services ДОЛЖНЫ находиться в пакете
+#     admin.* (admin.v1, admin.v2, …). Service в другом пакете попадёт на
+#     client-gateway. Тот же CONSTRAINT задублирован в cmd/admin-gateway/main.go.
+#
+# proxy_forward (X-Real-IP) НЕ применяется к gRPC-блокам: gRPC несёт metadata
+# независимо, а header_up на h2c transport'е не имеет того же смысла что на HTTP.
+{$GRPC_DOMAIN} {
+	tls {$LETSENCRYPT_EMAIL}
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	@admin path /admin.*
+	reverse_proxy @admin haproxy:9091 {
+		transport http {
+			versions h2c
+		}
+	}
+
+	# Default — client gRPC (MessagingService, package messaging.v1).
+	reverse_proxy haproxy:9090 {
+		transport http {
+			versions h2c
+		}
+	}
+
+	import security_headers
+	log {
+		output stdout
+		format json
+	}
+}

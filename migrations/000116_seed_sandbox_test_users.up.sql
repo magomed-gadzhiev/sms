@@ -1,0 +1,2 @@
+-- Intentionally empty for the public distribution.
+-- Create demo or administrative users explicitly with cmd/seed-admin and environment-provided credentials.

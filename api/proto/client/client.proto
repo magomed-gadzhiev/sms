@@ -1,0 +1,342 @@
+syntax = "proto3";
+
+package client.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/clientv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ClientService предоставляет методы для управления клиентами
+service ClientService {
+  // CreateClient создает нового клиента
+  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse);
+
+  // UpdateClient обновляет клиента
+  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
+
+  // GetClient получает информацию о клиенте
+  rpc GetClient(GetClientRequest) returns (GetClientResponse);
+
+  // ListClients получает список клиентов
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse);
+
+  // DeleteClient удаляет клиента
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
+
+  // GetClientConfig получает конфигурацию клиента
+  rpc GetClientConfig(GetClientConfigRequest) returns (GetClientConfigResponse);
+
+  // UpdateClientConfig обновляет конфигурацию клиента
+  rpc UpdateClientConfig(UpdateClientConfigRequest) returns (UpdateClientConfigResponse);
+
+  // UpdateClientRateLimits обновляет rate limits клиента
+  rpc UpdateClientRateLimits(UpdateClientRateLimitsRequest) returns (UpdateClientRateLimitsResponse);
+
+  // CreateSubAccount создает суб-аккаунт для реселлера
+  rpc CreateSubAccount(CreateSubAccountRequest) returns (CreateSubAccountResponse);
+
+  // ListSubAccounts получает список суб-аккаунтов реселлера
+  rpc ListSubAccounts(ListSubAccountsRequest) returns (ListSubAccountsResponse);
+
+  // GetSubAccount получает информацию о суб-аккаунте
+  rpc GetSubAccount(GetSubAccountRequest) returns (GetSubAccountResponse);
+
+  // DeleteSubAccount удаляет суб-аккаунт
+  rpc DeleteSubAccount(DeleteSubAccountRequest) returns (DeleteSubAccountResponse);
+
+  // UpdateSubAccountLimits обновляет лимиты суб-аккаунта
+  rpc UpdateSubAccountLimits(UpdateSubAccountLimitsRequest) returns (UpdateSubAccountLimitsResponse);
+
+  // ListPlans получает список тарифных планов
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+
+  // AssignPlan назначает тарифный план клиенту
+  rpc AssignPlan(AssignPlanRequest) returns (AssignPlanResponse);
+
+  // ToggleSandbox включает или отключает sandbox-режим для клиента
+  rpc ToggleSandbox(ToggleSandboxRequest) returns (ToggleSandboxResponse);
+
+  // IncrementMonthlySMSUsage увеличивает счётчик использованных SMS за месяц
+  rpc IncrementMonthlySMSUsage(IncrementMonthlySMSUsageRequest) returns (IncrementMonthlySMSUsageResponse);
+}
+
+// CreateClientRequest представляет запрос на создание клиента
+message CreateClientRequest {
+  string name = 1;                // Название клиента
+  string email = 2;               // Email клиента
+  string contact_person = 3;      // Контактное лицо (опционально)
+  string phone = 4;               // Телефон (опционально)
+  bool active = 5;                // Активен ли клиент
+  map<string, string> metadata = 6;  // Дополнительные метаданные
+  bool is_sandbox = 7;            // Sandbox-режим (SMS идут на фиктивный провайдер)
+  bool is_reseller = 8;           // Является ли клиент реселлером (top-level only)
+  int32 max_sub_accounts = 9;     // Максимальное количество суб-аккаунтов (только для реселлеров)
+}
+
+// CreateClientResponse представляет ответ на создание клиента
+message CreateClientResponse {
+  string client_id = 1;           // ID созданного клиента
+  google.protobuf.Timestamp created_at = 2;  // Время создания
+}
+
+// UpdateClientRequest представляет запрос на обновление клиента.
+// Поля active, is_reseller и max_sub_accounts помечены optional — это даёт
+// has-accessors, чтобы distinguish "не передано" от "передано false/0".
+// Без optional zero-value булевого поля приводит к молчаливой дезактивации
+// клиента при PATCH без active.
+message UpdateClientRequest {
+  string client_id = 1;           // ID клиента
+  string name = 2;                // Название клиента (опционально)
+  string email = 3;               // Email клиента (опционально)
+  string contact_person = 4;      // Контактное лицо (опционально)
+  string phone = 5;               // Телефон (опционально)
+  optional bool active = 6;       // Активен ли клиент (опционально)
+  map<string, string> metadata = 7;  // Дополнительные метаданные (опционально)
+  optional bool is_reseller = 8;     // Реселлер-флаг (опционально; only top-level)
+  optional int32 max_sub_accounts = 9; // Лимит суб-аккаунтов (опционально)
+}
+
+// UpdateClientResponse представляет ответ на обновление клиента
+message UpdateClientResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// GetClientRequest представляет запрос на получение клиента
+message GetClientRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// GetClientResponse представляет ответ с информацией о клиенте
+message GetClientResponse {
+  ClientInfo client = 1;          // Информация о клиенте
+}
+
+// ListClientsRequest представляет запрос на получение списка клиентов
+message ListClientsRequest {
+  bool active_only = 1;           // Только активные клиенты
+  string search = 2;              // Поисковый запрос (опционально)
+  int32 limit = 3;                // Лимит записей
+  int32 offset = 4;               // Смещение для пагинации
+}
+
+// ListClientsResponse представляет ответ со списком клиентов
+message ListClientsResponse {
+  repeated ClientInfo clients = 1;  // Список клиентов
+  int32 total = 2;                // Общее количество
+}
+
+// DeleteClientRequest представляет запрос на удаление клиента
+message DeleteClientRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// DeleteClientResponse представляет ответ на удаление клиента
+message DeleteClientResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// GetClientConfigRequest представляет запрос на получение конфигурации
+message GetClientConfigRequest {
+  string client_id = 1;           // ID клиента
+}
+
+// GetClientConfigResponse представляет ответ с конфигурацией
+message GetClientConfigResponse {
+  ClientConfig config = 1;        // Конфигурация клиента
+}
+
+// UpdateClientConfigRequest представляет запрос на обновление конфигурации
+message UpdateClientConfigRequest {
+  string client_id = 1;           // ID клиента
+  ClientConfig config = 2;        // Новая конфигурация
+}
+
+// UpdateClientConfigResponse представляет ответ на обновление конфигурации
+message UpdateClientConfigResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// UpdateClientRateLimitsRequest представляет запрос на обновление rate limits
+message UpdateClientRateLimitsRequest {
+  string client_id = 1;           // ID клиента
+  RateLimits rate_limits = 2;     // Новые rate limits
+}
+
+// UpdateClientRateLimitsResponse представляет ответ на обновление rate limits
+message UpdateClientRateLimitsResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// SubscriptionPlan представляет тарифный план для клиента
+message SubscriptionPlan {
+  string id = 1;                        // ID тарифного плана
+  string name = 2;                      // Системное имя плана
+  string display_name = 3;              // Отображаемое название плана
+  double monthly_price_rub = 4;         // Стоимость в месяц (руб.)
+  int32 max_sms_per_month = 5;          // Максимум SMS в месяц
+  int32 max_smpp_connections = 6;       // Максимум SMPP-соединений
+  int32 max_users = 7;                  // Максимум пользователей
+  RateLimits rate_limits = 8;           // Rate limits плана
+  map<string, bool> features = 9;       // Доступные функции плана
+  bool active = 10;                     // Активен ли план
+}
+
+// ClientInfo представляет информацию о клиенте
+message ClientInfo {
+  string client_id = 1;           // ID клиента
+  string name = 2;                // Название клиента
+  string email = 3;               // Email клиента
+  string contact_person = 4;      // Контактное лицо
+  string phone = 5;               // Телефон
+  bool active = 6;                // Активен ли клиент
+  RateLimits rate_limits = 7;     // Rate limits
+  map<string, string> metadata = 8;  // Дополнительные метаданные
+  google.protobuf.Timestamp created_at = 9;  // Время создания
+  google.protobuf.Timestamp updated_at = 10; // Время обновления
+  string parent_client_id = 11;     // ID родительского клиента (для суб-аккаунтов)
+  bool is_reseller = 12;            // Является ли клиент реселлером
+  int32 max_sub_accounts = 13;      // Максимальное количество суб-аккаунтов
+  string plan_id = 14;              // ID тарифного плана
+  SubscriptionPlan plan = 15;       // Тарифный план (опционально, при запросе)
+  int32 monthly_sms_count = 16;     // Количество SMS за текущий месяц
+  string monthly_sms_reset_at = 17; // Дата сброса счётчика SMS
+  bool is_sandbox = 18;             // Sandbox-режим (SMS идут на фиктивный провайдер)
+}
+
+// ClientConfig представляет конфигурацию клиента
+message ClientConfig {
+  string client_id = 1;           // ID клиента
+  RateLimits rate_limits = 2;     // Rate limits
+  repeated string allowed_sources = 3;  // Разрешенные номера отправителей
+  repeated string blocked_destinations = 4;  // Заблокированные номера получателей
+  map<string, string> settings = 5;  // Дополнительные настройки
+  google.protobuf.Timestamp updated_at = 6;  // Время обновления
+}
+
+// RateLimits представляет rate limits клиента
+message RateLimits {
+  int32 messages_per_second = 1;  // Сообщений в секунду
+  int32 messages_per_minute = 2;  // Сообщений в минуту
+  int32 messages_per_hour = 3;    // Сообщений в час
+  int32 messages_per_day = 4;     // Сообщений в день
+}
+
+// SubAccount представляет суб-аккаунт реселлера
+message SubAccount {
+  string id = 1;                    // ID суб-аккаунта
+  string name = 2;                  // Название суб-аккаунта
+  string email = 3;                 // Email суб-аккаунта
+  string contact_person = 4;        // Контактное лицо
+  bool active = 5;                  // Активен ли суб-аккаунт
+  string balance = 6;               // Баланс (в виде строки для точности)
+  string currency = 7;              // Валюта
+  int32 daily_limit = 8;            // Дневной лимит сообщений
+  int32 monthly_limit = 9;          // Месячный лимит сообщений
+  int32 messages_today = 10;        // Отправлено сообщений сегодня
+  int32 messages_this_month = 11;   // Отправлено сообщений в этом месяце
+  google.protobuf.Timestamp created_at = 12;  // Время создания
+}
+
+// CreateSubAccountRequest представляет запрос на создание суб-аккаунта
+message CreateSubAccountRequest {
+  string parent_client_id = 1;      // ID родительского клиента (реселлера)
+  string name = 2;                  // Название суб-аккаунта
+  string email = 3;                 // Email суб-аккаунта
+  string contact_person = 4;        // Контактное лицо
+  string initial_balance = 5;       // Начальный баланс
+  int32 daily_limit = 6;            // Дневной лимит сообщений
+  int32 monthly_limit = 7;          // Месячный лимит сообщений
+}
+
+// CreateSubAccountResponse представляет ответ на создание суб-аккаунта
+message CreateSubAccountResponse {
+  SubAccount sub_account = 1;       // Созданный суб-аккаунт
+}
+
+// ListSubAccountsRequest представляет запрос на получение списка суб-аккаунтов
+message ListSubAccountsRequest {
+  string parent_client_id = 1;      // ID родительского клиента (реселлера)
+}
+
+// ListSubAccountsResponse представляет ответ со списком суб-аккаунтов
+message ListSubAccountsResponse {
+  repeated SubAccount sub_accounts = 1;  // Список суб-аккаунтов
+  int32 max_sub_accounts = 2;       // Максимальное количество суб-аккаунтов
+  int32 current_count = 3;          // Текущее количество суб-аккаунтов
+}
+
+// GetSubAccountRequest представляет запрос на получение суб-аккаунта
+message GetSubAccountRequest {
+  string sub_account_id = 1;        // ID суб-аккаунта
+  string parent_client_id = 2;      // ID родительского клиента (реселлера)
+}
+
+// GetSubAccountResponse представляет ответ с информацией о суб-аккаунте
+message GetSubAccountResponse {
+  SubAccount sub_account = 1;       // Суб-аккаунт
+}
+
+// DeleteSubAccountRequest представляет запрос на удаление суб-аккаунта
+message DeleteSubAccountRequest {
+  string sub_account_id = 1;        // ID суб-аккаунта
+  string parent_client_id = 2;      // ID родительского клиента (реселлера)
+}
+
+// DeleteSubAccountResponse представляет ответ на удаление суб-аккаунта
+message DeleteSubAccountResponse {
+  string returned_balance = 1;      // Возвращенный баланс
+}
+
+// UpdateSubAccountLimitsRequest представляет запрос на обновление лимитов суб-аккаунта
+message UpdateSubAccountLimitsRequest {
+  string sub_account_id = 1;        // ID суб-аккаунта
+  string parent_client_id = 2;      // ID родительского клиента (реселлера)
+  int32 daily_limit = 3;            // Дневной лимит сообщений
+  int32 monthly_limit = 4;          // Месячный лимит сообщений
+}
+
+// UpdateSubAccountLimitsResponse представляет ответ на обновление лимитов суб-аккаунта
+message UpdateSubAccountLimitsResponse {
+  SubAccount sub_account = 1;       // Обновленный суб-аккаунт
+}
+
+// ListPlansRequest представляет запрос на получение списка тарифных планов
+message ListPlansRequest {}
+
+// ListPlansResponse представляет ответ со списком тарифных планов
+message ListPlansResponse {
+  repeated SubscriptionPlan plans = 1;  // Список тарифных планов
+}
+
+// AssignPlanRequest представляет запрос на назначение тарифного плана клиенту
+message AssignPlanRequest {
+  string client_id = 1;             // ID клиента
+  string plan_id = 2;               // ID тарифного плана
+}
+
+// AssignPlanResponse представляет ответ на назначение тарифного плана
+message AssignPlanResponse {
+  bool success = 1;                 // Успешность операции
+}
+
+// ToggleSandboxRequest представляет запрос на изменение sandbox-режима клиента
+message ToggleSandboxRequest {
+  string client_id = 1;             // ID клиента
+  bool enable = 2;                  // true — включить, false — отключить
+}
+
+// ToggleSandboxResponse представляет ответ на изменение sandbox-режима
+message ToggleSandboxResponse {
+  bool is_sandbox = 1;              // Текущее состояние sandbox-режима
+}
+
+// IncrementMonthlySMSUsageRequest представляет запрос на инкремент счётчика SMS
+message IncrementMonthlySMSUsageRequest {
+  string client_id = 1;   // ID клиента
+  int32 count = 2;        // Количество SMS для добавления (количество сегментов)
+}
+
+// IncrementMonthlySMSUsageResponse представляет ответ на инкремент счётчика SMS
+message IncrementMonthlySMSUsageResponse {
+  int32 new_count = 1;    // Новое значение счётчика
+}

@@ -1,0 +1,450 @@
+package handlers
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/smpp-server/smpp-server/api/proto/billingv1"
+)
+
+// --- Mock BillingServiceClient ---
+
+type mockBillingClient struct {
+	mock.Mock
+}
+
+func (m *mockBillingClient) GetBalance(ctx context.Context, in *billingv1.GetBalanceRequest, opts ...grpc.CallOption) (*billingv1.GetBalanceResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.GetBalanceResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) ChargeMessage(ctx context.Context, in *billingv1.ChargeMessageRequest, opts ...grpc.CallOption) (*billingv1.ChargeMessageResponse, error) {
+	return nil, nil
+}
+
+func (m *mockBillingClient) ChargeMessageDual(ctx context.Context, in *billingv1.ChargeMessageDualRequest, opts ...grpc.CallOption) (*billingv1.ChargeMessageDualResponse, error) {
+	return nil, nil
+}
+
+func (m *mockBillingClient) AddCredits(ctx context.Context, in *billingv1.AddCreditsRequest, opts ...grpc.CallOption) (*billingv1.AddCreditsResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.AddCreditsResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) DeductCredits(ctx context.Context, in *billingv1.DeductCreditsRequest, opts ...grpc.CallOption) (*billingv1.DeductCreditsResponse, error) {
+	return nil, nil
+}
+
+func (m *mockBillingClient) GetTransactionHistory(ctx context.Context, in *billingv1.GetTransactionHistoryRequest, opts ...grpc.CallOption) (*billingv1.GetTransactionHistoryResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.GetTransactionHistoryResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) GetPricingRules(ctx context.Context, in *billingv1.GetPricingRulesRequest, opts ...grpc.CallOption) (*billingv1.GetPricingRulesResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.GetPricingRulesResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) CreatePricingRule(ctx context.Context, in *billingv1.CreatePricingRuleRequest, opts ...grpc.CallOption) (*billingv1.CreatePricingRuleResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.CreatePricingRuleResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) TransferBalance(ctx context.Context, in *billingv1.TransferBalanceRequest, opts ...grpc.CallOption) (*billingv1.TransferBalanceResponse, error) {
+	return nil, nil
+}
+
+func (m *mockBillingClient) FreezeAccount(ctx context.Context, in *billingv1.FreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.FreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.FreezeAccountResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) UnfreezeAccount(ctx context.Context, in *billingv1.UnfreezeAccountRequest, opts ...grpc.CallOption) (*billingv1.UnfreezeAccountResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.UnfreezeAccountResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) SetCreditLimit(ctx context.Context, in *billingv1.SetCreditLimitRequest, opts ...grpc.CallOption) (*billingv1.SetCreditLimitResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetCreditLimitResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) SetLowBalanceThreshold(ctx context.Context, in *billingv1.SetLowBalanceThresholdRequest, opts ...grpc.CallOption) (*billingv1.SetLowBalanceThresholdResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.SetLowBalanceThresholdResponse), args.Error(1)
+}
+
+func (m *mockBillingClient) ListBalances(ctx context.Context, in *billingv1.ListBalancesRequest, opts ...grpc.CallOption) (*billingv1.ListBalancesResponse, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*billingv1.ListBalancesResponse), args.Error(1)
+}
+
+var _ billingv1.BillingServiceClient = (*mockBillingClient)(nil)
+
+// --- Tests ---
+
+func TestBillingHandlers(t *testing.T) {
+	t.Run("GetBalance", func(t *testing.T) {
+		t.Run("success with path variable", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("GetBalance", mock.Anything, mock.MatchedBy(func(req *billingv1.GetBalanceRequest) bool {
+				return req.ClientId == "client-abc"
+			})).Return(&billingv1.GetBalanceResponse{
+				ClientId:  "client-abc",
+				Balance:   "500.00",
+				Currency:  "RUB",
+				UpdatedAt: timestamppb.Now(),
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/clients/client-abc/balance", nil)
+			req = mux.SetURLVars(req, map[string]string{"id": "client-abc"})
+
+			rr := httptest.NewRecorder()
+			handler.GetBalance(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp BalanceResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, "client-abc", resp.ClientID)
+			assert.Equal(t, "500.00", resp.Balance)
+			assert.Equal(t, "RUB", resp.Currency)
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("success with query parameter fallback", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("GetBalance", mock.Anything, mock.MatchedBy(func(req *billingv1.GetBalanceRequest) bool {
+				return req.ClientId == "client-xyz"
+			})).Return(&billingv1.GetBalanceResponse{
+				ClientId:  "client-xyz",
+				Balance:   "200.00",
+				Currency:  "EUR",
+				UpdatedAt: timestamppb.Now(),
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/balance?client_id=client-xyz", nil)
+			req = mux.SetURLVars(req, map[string]string{})
+
+			rr := httptest.NewRecorder()
+			handler.GetBalance(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns 400 when no client_id", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/balance", nil)
+			req = mux.SetURLVars(req, map[string]string{})
+
+			rr := httptest.NewRecorder()
+			handler.GetBalance(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+
+		t.Run("returns error when billing service fails", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("GetBalance", mock.Anything, mock.Anything).
+				Return(nil, status.Error(codes.NotFound, "client not found"))
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/clients/unknown/balance", nil)
+			req = mux.SetURLVars(req, map[string]string{"id": "unknown"})
+
+			rr := httptest.NewRecorder()
+			handler.GetBalance(rr, req)
+
+			assert.Equal(t, http.StatusNotFound, rr.Code)
+		})
+	})
+
+	t.Run("AddCredits", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("AddCredits", mock.Anything, mock.MatchedBy(func(req *billingv1.AddCreditsRequest) bool {
+				return req.ClientId == "client-abc" &&
+					req.Amount == "100.00" &&
+					req.Currency == "RUB"
+			})).Return(&billingv1.AddCreditsResponse{
+				TransactionId: "tx-123",
+				NewBalance:    "600.00",
+				Success:       true,
+			}, nil)
+
+			body, _ := json.Marshal(AddCreditsRequest{
+				Amount:      "100.00",
+				Currency:    "RUB",
+				Description: "Manual top-up",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/clients/client-abc/credits", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = mux.SetURLVars(req, map[string]string{"id": "client-abc"})
+
+			rr := httptest.NewRecorder()
+			handler.AddCredits(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp AddCreditsResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, "tx-123", resp.TransactionID)
+			assert.Equal(t, "600.00", resp.NewBalance)
+			assert.True(t, resp.Success)
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns 400 when amount is empty", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			body, _ := json.Marshal(AddCreditsRequest{
+				Amount:   "",
+				Currency: "RUB",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/clients/client-abc/credits", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = mux.SetURLVars(req, map[string]string{"id": "client-abc"})
+
+			rr := httptest.NewRecorder()
+			handler.AddCredits(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+
+		// Регрессия BUG-41 (этап 13/30): admin AddCredits принимал отрицательные суммы и ноль,
+		// фактически списывая баланс через эндпоинт пополнения. Также big.Float.SetString
+		// принимает "Inf" — должно отклоняться до похода в gRPC-сервис.
+		t.Run("rejects non-positive and malformed amounts (BUG-41)", func(t *testing.T) {
+			cases := []struct {
+				name   string
+				amount string
+			}{
+				{"negative", "-100"},
+				{"zero", "0"},
+				{"zero with sign", "+0"},
+				{"non-numeric", "abc"},
+				{"infinity", "Inf"},
+				{"positive infinity", "+Inf"},
+			}
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					client := new(mockBillingClient)
+					handler := NewBillingHandlers(client)
+
+					body, _ := json.Marshal(AddCreditsRequest{Amount: tc.amount, Currency: "RUB"})
+					req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/clients/client-abc/credits", bytes.NewReader(body))
+					req.Header.Set("Content-Type", "application/json")
+					req = mux.SetURLVars(req, map[string]string{"id": "client-abc"})
+
+					rr := httptest.NewRecorder()
+					handler.AddCredits(rr, req)
+
+					assert.Equal(t, http.StatusBadRequest, rr.Code, "amount=%q должно отклоняться до gRPC-вызова", tc.amount)
+					client.AssertNotCalled(t, "AddCredits")
+				})
+			}
+		})
+	})
+
+	t.Run("CreatePricingRule", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("CreatePricingRule", mock.Anything, mock.MatchedBy(func(req *billingv1.CreatePricingRuleRequest) bool {
+				return req.DestinationPattern == "^\\+7" && req.PricePerMessage == "0.05"
+			})).Return(&billingv1.CreatePricingRuleResponse{
+				RuleId:    "rule-new-1",
+				CreatedAt: timestamppb.Now(),
+			}, nil)
+
+			body, _ := json.Marshal(CreatePricingRuleRequest{
+				DestinationPattern: "^\\+7",
+				PricePerMessage:    "0.05",
+				Currency:           "RUB",
+				Priority:           10,
+				Active:             true,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/pricing-rules", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreatePricingRule(rr, req)
+
+			assert.Equal(t, http.StatusCreated, rr.Code)
+
+			var resp CreatePricingRuleResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Equal(t, "rule-new-1", resp.RuleID)
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns 400 when destination_pattern is empty", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			body, _ := json.Marshal(CreatePricingRuleRequest{
+				DestinationPattern: "",
+				PricePerMessage:    "0.05",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/pricing-rules", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreatePricingRule(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+
+		t.Run("returns 400 when price_per_message is empty", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			body, _ := json.Marshal(CreatePricingRuleRequest{
+				DestinationPattern: "^\\+7",
+				PricePerMessage:    "",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin/v1/billing/pricing-rules", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler.CreatePricingRule(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+		})
+	})
+
+	t.Run("GetTransactionHistory", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("GetTransactionHistory", mock.Anything, mock.MatchedBy(func(req *billingv1.GetTransactionHistoryRequest) bool {
+				return req.ClientId == "client-abc"
+			})).Return(&billingv1.GetTransactionHistoryResponse{
+				Transactions: []*billingv1.Transaction{
+					{
+						TransactionId: "tx-1",
+						ClientId:      "client-abc",
+						Type:          "credit",
+						Amount:        "100.00",
+						Currency:      "RUB",
+						BalanceBefore: "500.00",
+						BalanceAfter:  "600.00",
+						CreatedAt:     timestamppb.Now(),
+					},
+				},
+				Total: 1,
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/transactions?client_id=client-abc", nil)
+
+			rr := httptest.NewRecorder()
+			handler.GetTransactionHistory(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp TransactionHistoryResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Len(t, resp.Transactions, 1)
+			assert.Equal(t, "tx-1", resp.Transactions[0].TransactionID)
+			assert.Equal(t, 1, resp.Total)
+
+			client.AssertExpectations(t)
+		})
+
+		t.Run("returns all transactions when client_id is missing", func(t *testing.T) {
+			client := new(mockBillingClient)
+			handler := NewBillingHandlers(client)
+
+			client.On("GetTransactionHistory", mock.Anything, mock.MatchedBy(func(req *billingv1.GetTransactionHistoryRequest) bool {
+				return req.ClientId == ""
+			})).Return(&billingv1.GetTransactionHistoryResponse{
+				Transactions: []*billingv1.Transaction{},
+				Total:        0,
+			}, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/admin/v1/billing/transactions", nil)
+
+			rr := httptest.NewRecorder()
+			handler.GetTransactionHistory(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			var resp TransactionHistoryResponse
+			err := json.Unmarshal(rr.Body.Bytes(), &resp)
+			require.NoError(t, err)
+			assert.Len(t, resp.Transactions, 0)
+			assert.Equal(t, 0, resp.Total)
+
+			client.AssertExpectations(t)
+		})
+	})
+}

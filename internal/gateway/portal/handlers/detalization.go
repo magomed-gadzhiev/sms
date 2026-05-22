@@ -1,0 +1,547 @@
+package handlers
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
+
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/shared"
+)
+
+// validateDateFilter accepts ISO date (YYYY-MM-DD) or RFC3339 timestamp.
+// Returns the canonical YYYY-MM-DD form if valid, or ("", error) if not.
+// SQL ниже подставляет это значение в `::timestamptz` cast — без pre-check
+// invalid input ломал запрос на этапе COUNT и возвращал 500.
+func validateDateFilter(s string) (string, error) {
+	if s == "" {
+		return "", nil
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t.Format("2006-01-02"), nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.Format("2006-01-02"), nil
+	}
+	return "", fmt.Errorf("invalid date format")
+}
+
+// ClientMessage is a single row returned by ListMessages.
+type ClientMessage struct {
+	ID           string     `json:"id"`
+	Source       string     `json:"source"`
+	Destination  string     `json:"destination"`
+	TextPreview  string     `json:"text_preview"`
+	Status       string     `json:"status"`
+	SegmentCount int        `json:"segment_count"`
+	CreatedAt    time.Time  `json:"created_at"`
+	SubmittedAt  *time.Time `json:"submitted_at,omitempty"`
+	DeliveredAt  *time.Time `json:"delivered_at,omitempty"`
+	FailedAt     *time.Time `json:"failed_at,omitempty"`
+	ProviderName string     `json:"provider_name"`
+	OperatorName string     `json:"operator_name,omitempty"`
+	CountryName  string     `json:"country_name,omitempty"`
+	Channel      string     `json:"channel,omitempty"`
+	SendMethod   string     `json:"send_method,omitempty"`
+	Login        string     `json:"login,omitempty"`
+	TotalAmount  string     `json:"total_amount,omitempty"`
+}
+
+// listMessagesResponse is the typed response for ListMessages.
+type listMessagesResponse struct {
+	Messages []ClientMessage `json:"messages"`
+	Total    int64           `json:"total"`
+	Limit    int             `json:"limit"`
+	Offset   int             `json:"offset"`
+}
+
+// DetalizationHandlers handles client-scoped message detalization (log) requests.
+type DetalizationHandlers struct {
+	db *pgxpool.Pool
+}
+
+// NewDetalizationHandlers creates a new DetalizationHandlers backed by a pgxpool.Pool.
+func NewDetalizationHandlers(db *pgxpool.Pool) *DetalizationHandlers {
+	return &DetalizationHandlers{db: db}
+}
+
+// ListMessages handles GET /portal/v1/detalization
+// Query params: status, destination, date_from, date_to, limit, offset,
+//
+//	login, operator, sender_name, channel, country, send_method, message_id,
+//	sort_by (submitted_at|created_at|status_at|total_amount|segment_count|status), sort_order (asc|desc)
+func (h *DetalizationHandlers) ListMessages(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	q := r.URL.Query()
+	status      := q.Get("status")
+	destination := q.Get("destination")
+	dateFromRaw := q.Get("date_from")
+	dateToRaw   := q.Get("date_to")
+	login       := q.Get("login")
+
+	dateFrom, err := validateDateFilter(dateFromRaw)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат date_from (ожидается YYYY-MM-DD)"))
+		return
+	}
+	dateTo, err := validateDateFilter(dateToRaw)
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат date_to (ожидается YYYY-MM-DD)"))
+		return
+	}
+	operator    := q.Get("operator")
+	senderName  := q.Get("sender_name")
+	channel     := q.Get("channel")
+	country     := q.Get("country")
+	sendMethod  := q.Get("send_method")
+	messageID   := q.Get("message_id")
+	sortBy      := q.Get("sort_by")
+	sortOrder   := q.Get("sort_order")
+
+	// Validate sort params
+	validSortBy := map[string]string{
+		"submitted_at":  "m.submitted_at",
+		"created_at":    "m.created_at",
+		"status_at":     "COALESCE(m.delivered_at, m.failed_at)",
+		"total_amount":  "tl.total_amount",
+		"segment_count": "m.segment_count",
+		"status":        "m.status",
+	}
+	orderCol := "m.created_at"
+	if col, ok2 := validSortBy[sortBy]; ok2 {
+		orderCol = col
+	}
+	direction := "DESC"
+	if sortOrder == "asc" {
+		direction = "ASC"
+	}
+
+	limit := 20
+	if v, err := strconv.Atoi(q.Get("limit")); err == nil && v > 0 && v <= 200 {
+		limit = v
+	}
+	offset := 0
+	if v, err := strconv.Atoi(q.Get("offset")); err == nil && v >= 0 {
+		offset = v
+	}
+
+	ctx := r.Context()
+
+	// Pre-fetch all client IDs (self + children) to avoid OR on join that forces full table scan
+	clientIDs := []string{clientID.String()}
+	childRows, err := h.db.Query(ctx,
+		`SELECT id::text FROM clients WHERE parent_client_id = $1`, clientID.String())
+	if err == nil {
+		defer childRows.Close()
+		for childRows.Next() {
+			var cid string
+			if childRows.Scan(&cid) == nil {
+				clientIDs = append(clientIDs, cid)
+			}
+		}
+		childRows.Close()
+	}
+
+	args := []interface{}{clientIDs}
+	conditions := ` AND m.client_id = ANY($1::uuid[])`
+	nextArg := func(v interface{}) string {
+		args = append(args, v)
+		return fmt.Sprintf("$%d", len(args))
+	}
+
+	if status != "" {
+		conditions += " AND m.status::text = " + nextArg(status)
+	}
+	if senderName != "" {
+		conditions += " AND m.source ILIKE " + nextArg("%"+senderName+"%")
+	}
+	if destination != "" {
+		conditions += " AND m.destination ILIKE " + nextArg("%"+destination+"%")
+	}
+	if dateFrom != "" {
+		conditions += " AND m.created_at >= " + nextArg(dateFrom) + "::timestamptz"
+	}
+	if dateTo != "" {
+		conditions += " AND m.created_at < (" + nextArg(dateTo) + "::timestamptz + INTERVAL '1 day')"
+	}
+	if login != "" {
+		conditions += " AND cli.name ILIKE " + nextArg("%"+login+"%")
+	}
+	if operator != "" {
+		conditions += " AND op.name ILIKE " + nextArg("%"+operator+"%")
+	}
+	if channel != "" {
+		conditions += " AND m.channel = " + nextArg(channel)
+	}
+	if country != "" {
+		conditions += " AND co.name ILIKE " + nextArg("%"+country+"%")
+	}
+	if sendMethod != "" {
+		conditions += " AND m.send_method = " + nextArg(sendMethod)
+	}
+	if messageID != "" {
+		conditions += " AND m.id::text ILIKE " + nextArg("%"+messageID+"%")
+	}
+
+	// Minimal joins for COUNT — only include tables referenced in filter conditions
+	countJoins := ""
+	if login != "" {
+		countJoins += "\n\t\tLEFT JOIN clients cli ON cli.id = m.client_id"
+	}
+	if operator != "" {
+		countJoins += "\n\t\tLEFT JOIN operators op ON op.id = m.operator_id"
+	}
+	if country != "" {
+		countJoins += "\n\t\tLEFT JOIN countries co ON co.id = m.country_id"
+	}
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM messages m` + countJoins + `
+		WHERE 1=1` + conditions
+
+	// Full joins for the list query (need all columns)
+	listJoins := `
+		LEFT JOIN providers p   ON p.id = m.provider_id
+		LEFT JOIN operators op  ON op.id = m.operator_id
+		LEFT JOIN countries co  ON co.id = m.country_id
+		LEFT JOIN clients cli   ON cli.id = m.client_id
+		LEFT JOIN LATERAL (
+			SELECT total_amount
+			FROM tarification_log
+			WHERE message_id = m.id
+			ORDER BY created_at DESC LIMIT 1
+		) tl ON true`
+
+	listQuery := `
+		SELECT
+			m.id::text,
+			COALESCE(m.source, '')           AS source,
+			COALESCE(m.destination, '')      AS destination,
+			LEFT(COALESCE(m.text, ''), 100)  AS text_preview,
+			m.status::text,
+			COALESCE(m.segment_count, 0)     AS segment_count,
+			m.created_at,
+			m.submitted_at,
+			m.delivered_at,
+			m.failed_at,
+			COALESCE(p.name, '')             AS provider_name,
+			COALESCE(op.name, '')            AS operator_name,
+			COALESCE(co.name, '')            AS country_name,
+			COALESCE(m.channel, '')          AS channel,
+			COALESCE(m.send_method, '')      AS send_method,
+			COALESCE(cli.name, '')           AS login,
+			COALESCE(tl.total_amount::text, '') AS total_amount
+		FROM messages m` + listJoins + `
+		WHERE 1=1` + conditions + `
+		ORDER BY ` + orderCol + ` ` + direction + `
+		LIMIT ` + strconv.Itoa(limit) + ` OFFSET ` + strconv.Itoa(offset)
+
+	var total int64
+	if err := h.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		log.Error().Err(err).Msg("detalization: ошибка подсчёта сообщений")
+		respondError(w, shared.ErrInternalServer("ошибка подсчёта сообщений"))
+		return
+	}
+
+	rows, err := h.db.Query(ctx, listQuery, args...)
+	if err != nil {
+		log.Error().Err(err).Msg("detalization: ошибка запроса сообщений")
+		respondError(w, shared.ErrInternalServer("Ошибка получения сообщений"))
+		return
+	}
+	defer rows.Close()
+
+	messages := []ClientMessage{}
+	for rows.Next() {
+		var (
+			id, src, dst, textPreview, st         string
+			providerName, operatorName             string
+			countryName, ch, sm                    string
+			loginName, totalAmount                 string
+			segmentCount                           int
+			createdAt                              time.Time
+			submittedAt, deliveredAt, failedAt     *time.Time
+		)
+		if err := rows.Scan(
+			&id, &src, &dst, &textPreview, &st,
+			&segmentCount, &createdAt, &submittedAt, &deliveredAt, &failedAt,
+			&providerName, &operatorName, &countryName, &ch, &sm,
+			&loginName, &totalAmount,
+		); err != nil {
+			log.Error().Err(err).Msg("detalization: ошибка сканирования строки")
+			continue
+		}
+		messages = append(messages, ClientMessage{
+			ID:           id,
+			Source:       src,
+			Destination:  dst,
+			TextPreview:  textPreview,
+			Status:       st,
+			SegmentCount: segmentCount,
+			CreatedAt:    createdAt,
+			SubmittedAt:  submittedAt,
+			DeliveredAt:  deliveredAt,
+			FailedAt:     failedAt,
+			ProviderName: providerName,
+			OperatorName: operatorName,
+			CountryName:  countryName,
+			Channel:      ch,
+			SendMethod:   sm,
+			Login:        loginName,
+			TotalAmount:  totalAmount,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		respondError(w, shared.ErrInternalServer("ошибка итерации строк"))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, listMessagesResponse{
+		Messages: messages,
+		Total:    total,
+		Limit:    limit,
+		Offset:   offset,
+	})
+}
+
+// GetMessage handles GET /portal/v1/detalization/{id}
+func (h *DetalizationHandlers) GetMessage(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		respondError(w, shared.ErrInvalidInput("ID сообщения обязателен"))
+		return
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат ID сообщения"))
+		return
+	}
+
+	ctx := r.Context()
+
+	const msgQuery = `
+		SELECT
+			m.id::text,
+			COALESCE(m.source, '')          AS source,
+			COALESCE(m.destination, '')     AS destination,
+			COALESCE(m.text, '')            AS text,
+			COALESCE(m.encoding, 'GSM7')    AS encoding,
+			m.status::text,
+			COALESCE(m.status_message, '')  AS status_message,
+			COALESCE(m.external_id, '')     AS external_id,
+			COALESCE(m.segment_count, 0)    AS segment_count,
+			COALESCE(m.retry_count, 0)      AS retry_count,
+			COALESCE(m.max_retries, 0)      AS max_retries,
+			COALESCE(m.provider_id::text, '') AS provider_id,
+			COALESCE(m.route_id::text, '')    AS route_id,
+			COALESCE(m.smpp_message_id, '')   AS smpp_message_id,
+			m.created_at,
+			m.submitted_at,
+			m.delivered_at,
+			m.failed_at,
+			m.scheduled_at,
+			m.expired_at,
+			COALESCE(p.name, '') AS provider_name,
+			COALESCE(r.name, '') AS route_name
+		FROM messages m
+		LEFT JOIN providers p ON p.id = m.provider_id
+		LEFT JOIN client_routes r ON r.id = m.route_id
+		LEFT JOIN clients cli ON cli.id = m.client_id
+		WHERE m.id = $1::uuid
+		  AND (m.client_id = $2::uuid OR cli.parent_client_id = $2::uuid)
+		LIMIT 1
+	`
+
+	var (
+		msgID         string
+		source        string
+		destination   string
+		text          string
+		encoding      string
+		status        string
+		statusMessage string
+		externalID    string
+		segmentCount  int32
+		retryCount    int32
+		maxRetries    int32
+		providerID    string
+		routeID       string
+		smppMessageID string
+		createdAt     *time.Time
+		submittedAt   *time.Time
+		deliveredAt   *time.Time
+		failedAt      *time.Time
+		scheduledAt   *time.Time
+		expiredAt     *time.Time
+		providerName  string
+		routeName     string
+	)
+
+	err := h.db.QueryRow(ctx, msgQuery, id, clientID.String()).Scan(
+		&msgID, &source, &destination, &text, &encoding,
+		&status, &statusMessage, &externalID,
+		&segmentCount, &retryCount, &maxRetries,
+		&providerID, &routeID, &smppMessageID,
+		&createdAt, &submittedAt, &deliveredAt, &failedAt, &scheduledAt, &expiredAt,
+		&providerName, &routeName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("Сообщение не найдено"))
+		} else {
+			log.Error().Err(err).Str("id", id).Msg("detalization: ошибка запроса сообщения")
+			respondError(w, shared.ErrInternalServer("Ошибка получения сообщения"))
+		}
+		return
+	}
+
+	result := map[string]interface{}{
+		"id":            msgID,
+		"source":        source,
+		"destination":   destination,
+		"text":          text,
+		"encoding":      encoding,
+		"status":        status,
+		"segment_count": segmentCount,
+		"retry_count":   retryCount,
+		"max_retries":   maxRetries,
+	}
+	if createdAt != nil {
+		result["created_at"] = *createdAt
+	}
+	if statusMessage != "" {
+		result["status_message"] = statusMessage
+	}
+	if externalID != "" {
+		result["external_id"] = externalID
+	}
+	if smppMessageID != "" {
+		result["smpp_message_id"] = smppMessageID
+	}
+	if providerID != "" {
+		result["provider_id"] = providerID
+		result["provider_name"] = providerName
+	}
+	if routeID != "" {
+		result["route_id"] = routeID
+		result["route_name"] = routeName
+	}
+	if submittedAt != nil {
+		result["submitted_at"] = *submittedAt
+	}
+	if deliveredAt != nil {
+		result["delivered_at"] = *deliveredAt
+	}
+	if failedAt != nil {
+		result["failed_at"] = *failedAt
+	}
+	if scheduledAt != nil {
+		result["scheduled_at"] = *scheduledAt
+	}
+	if expiredAt != nil {
+		result["expired_at"] = *expiredAt
+	}
+
+	// DLR and billing queries use message_id only; client ownership already
+	// verified above by AND m.client_id = $2::uuid.
+
+	// DLR receipt (most recent)
+	const dlrQuery = `
+		SELECT stat, COALESCE(err, 0), COALESCE(text, ''),
+		       submit_date, done_date,
+		       COALESCE(receipted_message_id, '')
+		FROM dlr_receipts
+		WHERE message_id = $1::uuid
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	var (
+		dlrStat               string
+		dlrErr                int32
+		dlrText               string
+		dlrSubmitDate         *time.Time
+		dlrDoneDate           *time.Time
+		dlrReceiptedMessageID string
+	)
+	dlrScanErr := h.db.QueryRow(ctx, dlrQuery, id).Scan(
+		&dlrStat, &dlrErr, &dlrText, &dlrSubmitDate, &dlrDoneDate, &dlrReceiptedMessageID,
+	)
+	if dlrScanErr == nil {
+		dlr := map[string]interface{}{
+			"stat": dlrStat,
+			"err":  dlrErr,
+			"text": dlrText,
+		}
+		if dlrSubmitDate != nil {
+			dlr["submit_date"] = *dlrSubmitDate
+		}
+		if dlrDoneDate != nil {
+			dlr["done_date"] = *dlrDoneDate
+		}
+		if dlrReceiptedMessageID != "" {
+			dlr["receipted_message_id"] = dlrReceiptedMessageID
+		}
+		result["dlr"] = dlr
+	} else if !errors.Is(dlrScanErr, pgx.ErrNoRows) {
+		log.Warn().Err(dlrScanErr).Msg("detalization: ошибка получения DLR receipt")
+	}
+
+	// Billing from tarification_log
+	const billingQuery = `
+		SELECT segment_count, price_per_segment, total_amount,
+		       tariff_plan_id::text, source_rule_id::text, created_at
+		FROM tarification_log
+		WHERE message_id = $1::uuid
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	var (
+		billSegmentCount    int32
+		billPricePerSegment float64
+		billTotalAmount     float64
+		billTariffPlanID    *string
+		billSourceRuleID    *string
+		billCreatedAt       *time.Time
+	)
+	billScanErr := h.db.QueryRow(ctx, billingQuery, id).Scan(
+		&billSegmentCount, &billPricePerSegment, &billTotalAmount,
+		&billTariffPlanID, &billSourceRuleID, &billCreatedAt,
+	)
+	if billScanErr == nil {
+		billing := map[string]interface{}{
+			"segment_count":     billSegmentCount,
+			"price_per_segment": billPricePerSegment,
+			"total_amount":      billTotalAmount,
+			"tariff_plan_id":    billTariffPlanID, // *string → nil serialises as JSON null
+			"source_rule_id":    billSourceRuleID, // new; client shows "Unified (rule: …)" when plan_id is null
+		}
+		if billCreatedAt != nil {
+			billing["billed_at"] = *billCreatedAt
+		}
+		result["billing"] = billing
+	} else if !errors.Is(billScanErr, pgx.ErrNoRows) {
+		log.Warn().Err(billScanErr).Msg("detalization: ошибка получения данных тарификации")
+	}
+
+	respondJSON(w, http.StatusOK, result)
+}

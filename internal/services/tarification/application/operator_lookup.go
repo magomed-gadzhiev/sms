@@ -1,0 +1,59 @@
+// operator_lookup.go
+package application
+
+import (
+	"context"
+	"sync"
+
+	"github.com/google/uuid"
+
+	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+)
+
+// OperatorMetaLookup — абстракция резолва UUID → domain.OperatorMeta.
+type OperatorMetaLookup interface {
+	Meta(ctx context.Context, operatorID uuid.UUID) (domain.OperatorMeta, error)
+}
+
+// operatorMetaSource — минимальный интерфейс, нужный кешу.
+type operatorMetaSource interface {
+	GetMetaByID(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error)
+}
+
+// CachedOperatorLookup — in-memory map без TTL. Операторы — справочник
+// (десятки записей), код/страна иммутабельны в пределах инстанса, инвалидация
+// через рестарт сервиса.
+type CachedOperatorLookup struct {
+	inner operatorMetaSource
+	mu    sync.RWMutex
+	cache map[uuid.UUID]domain.OperatorMeta
+}
+
+// NewCachedOperatorLookup создаёт lookup с пустым кешем.
+func NewCachedOperatorLookup(inner operatorMetaSource) *CachedOperatorLookup {
+	return &CachedOperatorLookup{
+		inner: inner,
+		cache: make(map[uuid.UUID]domain.OperatorMeta),
+	}
+}
+
+// Meta возвращает domain.OperatorMeta для заданного UUID.
+// При кеш-хите — возвращает без обращения к БД.
+// При ошибке inner — НЕ кеширует результат, следующий вызов повторит запрос.
+func (c *CachedOperatorLookup) Meta(ctx context.Context, id uuid.UUID) (domain.OperatorMeta, error) {
+	c.mu.RLock()
+	if meta, ok := c.cache[id]; ok {
+		c.mu.RUnlock()
+		return meta, nil
+	}
+	c.mu.RUnlock()
+
+	meta, err := c.inner.GetMetaByID(ctx, id)
+	if err != nil {
+		return domain.OperatorMeta{}, err
+	}
+	c.mu.Lock()
+	c.cache[id] = meta
+	c.mu.Unlock()
+	return meta, nil
+}

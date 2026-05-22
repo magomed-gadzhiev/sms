@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SMS Gateway — gRPC API</title>
+  <style>
+    body { font-family: Roboto, Arial, sans-serif; margin: 0; padding: 0; background: #fafafa; }
+    .header { background: #2a3f5f; color: white; padding: 32px 48px; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .header p { margin: 8px 0 0; opacity: 0.8; font-size: 15px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 48px; }
+    .note { background: #e8f4fd; border-left: 4px solid #1a73e8; padding: 16px 24px; border-radius: 4px; margin-bottom: 32px; font-size: 14px; line-height: 1.6; }
+    .note a { color: #1a73e8; }
+    .note code { background: #d0e8fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 13px; }
+    .service { background: white; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 24px; }
+    .service-header { padding: 16px 24px; border-bottom: 1px solid #e0e0e0; }
+    .service-header h2 { margin: 0; font-size: 18px; color: #2a3f5f; }
+    .service-header p { margin: 4px 0 0; color: #666; font-size: 14px; }
+    .method { padding: 12px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: baseline; gap: 16px; }
+    .method:last-child { border-bottom: none; }
+    .method-name { font-family: monospace; font-size: 14px; font-weight: bold; color: #1a73e8; min-width: 240px; }
+    .method-desc { color: #555; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SMS Gateway — gRPC API</h1>
+    <p>Internal gRPC service reference. Proto sources: <code>api/proto/</code></p>
+  </div>
+  <div class="container">
+    <div class="note">
+      gRPC services communicate between internal microservices. For external integration use
+      <a href="/docs">REST API (Redoc)</a> or <a href="/docs/swagger">Swagger UI</a>.<br>
+      To regenerate this page from proto sources: <code>make gen-proto-docs</code>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Messaging</h2><p>Core SMS sending and message lifecycle</p></div>
+      <div class="method"><span class="method-name">SendSMS</span><span class="method-desc">Send a single SMS message</span></div>
+      <div class="method"><span class="method-name">SendBatch</span><span class="method-desc">Send a batch of SMS messages</span></div>
+      <div class="method"><span class="method-name">GetMessageStatus</span><span class="method-desc">Get status of a message by ID</span></div>
+      <div class="method"><span class="method-name">GetMessageHistory</span><span class="method-desc">Paginated message history for an account</span></div>
+      <div class="method"><span class="method-name">CancelMessage</span><span class="method-desc">Cancel a pending message</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Auth</h2><p>Authentication and API key management</p></div>
+      <div class="method"><span class="method-name">ValidateAPIKey</span><span class="method-desc">Validate an API key and return account context</span></div>
+      <div class="method"><span class="method-name">CreateAPIKey</span><span class="method-desc">Create a new API key for an account</span></div>
+      <div class="method"><span class="method-name">RevokeAPIKey</span><span class="method-desc">Revoke an existing API key</span></div>
+      <div class="method"><span class="method-name">ListAPIKeys</span><span class="method-desc">List all API keys for an account</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Billing</h2><p>Account balance and transaction management</p></div>
+      <div class="method"><span class="method-name">GetBalance</span><span class="method-desc">Get current balance for an account</span></div>
+      <div class="method"><span class="method-name">Deduct</span><span class="method-desc">Deduct amount from account balance</span></div>
+      <div class="method"><span class="method-name">GetTransactions</span><span class="method-desc">Get transaction history</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Routing</h2><p>SMS route selection and provider assignment</p></div>
+      <div class="method"><span class="method-name">GetRoute</span><span class="method-desc">Get routing rule for a destination</span></div>
+      <div class="method"><span class="method-name">ListRoutes</span><span class="method-desc">List all routing rules</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Analytics</h2><p>Delivery statistics and reporting</p></div>
+      <div class="method"><span class="method-name">GetDeliveryStats</span><span class="method-desc">Delivery rate statistics by time range</span></div>
+      <div class="method"><span class="method-name">GetAccountStats</span><span class="method-desc">Message volume and cost by account</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Template</h2><p>SMS template management</p></div>
+      <div class="method"><span class="method-name">CreateTemplate</span><span class="method-desc">Create a message template</span></div>
+      <div class="method"><span class="method-name">GetTemplate</span><span class="method-desc">Get template by ID</span></div>
+      <div class="method"><span class="method-name">ListTemplates</span><span class="method-desc">List templates for an account</span></div>
+      <div class="method"><span class="method-name">UpdateTemplate</span><span class="method-desc">Update template content</span></div>
+      <div class="method"><span class="method-name">DeleteTemplate</span><span class="method-desc">Delete a template</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Webhook</h2><p>Webhook endpoint management and event delivery</p></div>
+      <div class="method"><span class="method-name">CreateWebhook</span><span class="method-desc">Register a new webhook endpoint</span></div>
+      <div class="method"><span class="method-name">ListWebhooks</span><span class="method-desc">List webhooks for an account</span></div>
+      <div class="method"><span class="method-name">DeleteWebhook</span><span class="method-desc">Remove a webhook</span></div>
+      <div class="method"><span class="method-name">DeliverEvent</span><span class="method-desc">Deliver an event to registered webhooks</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Cascade</h2><p>Multi-channel cascade delivery</p></div>
+      <div class="method"><span class="method-name">CreateDelivery</span><span class="method-desc">Create a cascade delivery (SMS + fallbacks)</span></div>
+      <div class="method"><span class="method-name">GetDelivery</span><span class="method-desc">Get cascade delivery status</span></div>
+      <div class="method"><span class="method-name">ListDeliveries</span><span class="method-desc">List cascade deliveries for an account</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Tarification</h2><p>Pricing plans and tariff management</p></div>
+      <div class="method"><span class="method-name">GetTariff</span><span class="method-desc">Get tariff for an account and destination</span></div>
+      <div class="method"><span class="method-name">ListPlans</span><span class="method-desc">List available pricing plans</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Campaign</h2><p>Bulk SMS campaign management</p></div>
+      <div class="method"><span class="method-name">CreateCampaign</span><span class="method-desc">Create a new SMS campaign</span></div>
+      <div class="method"><span class="method-name">GetCampaign</span><span class="method-desc">Get campaign details and progress</span></div>
+      <div class="method"><span class="method-name">StartCampaign</span><span class="method-desc">Start a pending campaign</span></div>
+      <div class="method"><span class="method-name">StopCampaign</span><span class="method-desc">Pause or cancel a running campaign</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>SenderName</h2><p>Sender name registration and approval</p></div>
+      <div class="method"><span class="method-name">RegisterSenderName</span><span class="method-desc">Submit sender name for operator approval</span></div>
+      <div class="method"><span class="method-name">GetSenderName</span><span class="method-desc">Get sender name registration status</span></div>
+      <div class="method"><span class="method-name">ListSenderNames</span><span class="method-desc">List sender names for an account</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Contact</h2><p>Contact list management</p></div>
+      <div class="method"><span class="method-name">CreateList</span><span class="method-desc">Create a contact list</span></div>
+      <div class="method"><span class="method-name">AddContacts</span><span class="method-desc">Add contacts to a list</span></div>
+      <div class="method"><span class="method-name">ListContacts</span><span class="method-desc">Paginated contacts from a list</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Audit</h2><p>Audit log for account actions</p></div>
+      <div class="method"><span class="method-name">LogEvent</span><span class="method-desc">Record an audit event</span></div>
+      <div class="method"><span class="method-name">GetEvents</span><span class="method-desc">Query audit events by filter</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Link</h2><p>Short link creation and click tracking</p></div>
+      <div class="method"><span class="method-name">CreateShortLink</span><span class="method-desc">Create a trackable short link</span></div>
+      <div class="method"><span class="method-name">GetLinkStats</span><span class="method-desc">Get click statistics for a link</span></div>
+    </div>
+
+    <div class="service">
+      <div class="service-header"><h2>Provider</h2><p>SMS provider integration</p></div>
+      <div class="method"><span class="method-name">GetProvider</span><span class="method-desc">Get provider configuration by ID</span></div>
+      <div class="method"><span class="method-name">ListProviders</span><span class="method-desc">List all configured providers</span></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,1 @@
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS low_balance_threshold DECIMAL DEFAULT 100;

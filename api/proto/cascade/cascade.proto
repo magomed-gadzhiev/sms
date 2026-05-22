@@ -1,0 +1,255 @@
+syntax = "proto3";
+
+package cascade.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/cascadev1";
+
+import "google/protobuf/timestamp.proto";
+
+// ──────────────────────────────────────────────────────────────────────────
+//  CascadeService — клиентский API для отправки через каскад
+// ──────────────────────────────────────────────────────────────────────────
+
+service CascadeService {
+    rpc CreateDelivery(CreateDeliveryRequest) returns (DeliveryResponse);
+    rpc GetDelivery(GetDeliveryRequest)       returns (DeliveryResponse);
+    rpc ListDeliveries(ListDeliveriesRequest) returns (ListDeliveriesResponse);
+    rpc GetDeliveryStats(GetDeliveryStatsRequest) returns (DeliveryStatsResponse);
+}
+
+message CreateDeliveryRequest {
+    string client_id    = 1;
+    string strategy_id  = 2;
+    string recipient    = 3;  // MSISDN
+    string text         = 4;
+    string sender_name  = 5;
+    string request_id   = 6;
+    string message_id   = 7;  // optional link to messages table
+}
+
+message DeliveryResponse {
+    string   id              = 1;
+    string   client_id       = 2;
+    string   strategy_id     = 3;
+    string   recipient       = 4;
+    string   status          = 5;  // pending | in_progress | delivered | failed
+    string   delivered_via   = 6;  // channel_type that delivered
+    string   total_cost      = 7;
+    string   currency        = 8;
+    repeated AttemptInfo attempts = 9;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
+}
+
+message AttemptInfo {
+    string   id           = 1;
+    string   channel_type = 2;
+    int32    step_order   = 3;
+    string   status       = 4;  // pending | sent | delivered | failed | timeout | skipped | late_duplicate
+    string   cost         = 5;
+    string   currency     = 6;
+    string   error_message = 7;
+    google.protobuf.Timestamp sent_at   = 8;
+    google.protobuf.Timestamp result_at = 9;
+}
+
+message GetDeliveryRequest {
+    string delivery_id = 1;
+    string client_id   = 2;
+}
+
+message ListDeliveriesRequest {
+    string client_id   = 1;
+    string strategy_id = 2;  // optional filter
+    string status      = 3;  // optional filter
+    string date_from   = 4;  // ISO 8601
+    string date_to     = 5;  // ISO 8601
+    int32  page        = 6;
+    int32  page_size   = 7;
+}
+
+message ListDeliveriesResponse {
+    repeated DeliveryResponse deliveries = 1;
+    int32 total = 2;
+    int32 page  = 3;
+}
+
+message GetDeliveryStatsRequest {
+    string client_id   = 1;
+    string strategy_id = 2;  // optional filter
+    string date_from   = 3;
+    string date_to     = 4;
+}
+
+message DeliveryStatsResponse {
+    int64  total_deliveries   = 1;
+    int64  delivered_count    = 2;
+    int64  failed_count       = 3;
+    string delivery_rate      = 4;  // percentage as string
+    repeated ChannelStatItem channel_stats = 5;
+    string avg_cost           = 6;
+    string total_cost         = 7;
+    string currency           = 8;
+}
+
+message ChannelStatItem {
+    string channel_type    = 1;
+    int64  attempt_count   = 2;
+    int64  delivered_count = 3;
+    string delivery_rate   = 4;
+    string avg_latency_ms  = 5;
+    string avg_cost        = 6;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  ChannelAdminService — управление каналами (admin only)
+// ──────────────────────────────────────────────────────────────────────────
+
+service ChannelAdminService {
+    rpc ListChannels(ListChannelsRequest)     returns (ListChannelsResponse);
+    rpc GetChannel(GetChannelRequest)         returns (ChannelResponse);
+    rpc CreateChannel(CreateChannelRequest)   returns (ChannelResponse);
+    rpc UpdateChannel(UpdateChannelRequest)   returns (ChannelResponse);
+    rpc ToggleChannel(ToggleChannelRequest)   returns (ChannelResponse);
+}
+
+message ListChannelsRequest {}
+message ListChannelsResponse {
+    repeated ChannelResponse channels = 1;
+}
+
+message GetChannelRequest {
+    string channel_id = 1;
+}
+
+message ChannelResponse {
+    string channel_id   = 1;
+    string channel_type = 2;
+    string name         = 3;
+    string description  = 4;
+    bool   active       = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+    // config omitted from response — sensitive data
+}
+
+message CreateChannelRequest {
+    string channel_type = 1;
+    string name         = 2;
+    string description  = 3;
+    string config_json  = 4;  // JSON, sensitive fields encrypted server-side
+}
+
+message UpdateChannelRequest {
+    string channel_id   = 1;
+    string name         = 2;
+    string description  = 3;
+    string config_json  = 4;
+}
+
+message ToggleChannelRequest {
+    string channel_id = 1;
+    bool   active     = 2;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  StrategyAdminService — управление стратегиями (admin only)
+// ──────────────────────────────────────────────────────────────────────────
+
+service StrategyAdminService {
+    rpc ListStrategies(ListStrategiesRequest)         returns (ListStrategiesResponse);
+    rpc GetStrategy(GetStrategyRequest)               returns (StrategyResponse);
+    rpc CreateStrategy(CreateStrategyRequest)         returns (StrategyResponse);
+    rpc UpdateStrategy(UpdateStrategyRequest)         returns (StrategyResponse);
+    rpc DeleteStrategy(DeleteStrategyRequest)         returns (DeleteStrategyResponse);
+    rpc GetOperatorChannelSupport(GetOCSRequest)      returns (GetOCSResponse);
+    rpc UpdateOperatorChannelSupport(UpdateOCSRequest) returns (UpdateOCSResponse);
+}
+
+message ListStrategiesRequest {
+    bool active_only = 1;
+}
+message ListStrategiesResponse {
+    repeated StrategyResponse strategies = 1;
+}
+
+message GetStrategyRequest {
+    string strategy_id = 1;
+}
+
+message StrategyResponse {
+    string strategy_id  = 1;
+    string name         = 2;
+    string description  = 3;
+    string mode         = 4;  // sequential | parallel
+    bool   active       = 5;
+    repeated StrategyStepInfo steps = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+}
+
+message StrategyStepInfo {
+    string channel_id   = 1;
+    string channel_type = 2;
+    string channel_name = 3;
+    int32  step_order   = 4;
+    int32  timeout_s    = 5;
+    bool   billable     = 6;
+}
+
+message CreateStrategyRequest {
+    string name        = 1;
+    string description = 2;
+    string mode        = 3;  // sequential | parallel
+    repeated CreateStrategyStepInput steps = 4;
+}
+
+message CreateStrategyStepInput {
+    string channel_id = 1;
+    int32  step_order = 2;
+    int32  timeout_s  = 3;
+    bool   billable   = 4;
+}
+
+message UpdateStrategyRequest {
+    string strategy_id = 1;
+    string name        = 2;
+    string description = 3;
+    string mode        = 4;
+    repeated CreateStrategyStepInput steps = 5;
+}
+
+message DeleteStrategyRequest {
+    string strategy_id = 1;
+}
+
+message DeleteStrategyResponse {
+    bool success = 1;
+}
+
+message GetOCSRequest {
+    string operator_id = 1;  // optional — если пусто, возвращает всю матрицу
+}
+
+message GetOCSResponse {
+    repeated OCSEntry entries = 1;
+}
+
+message OCSEntry {
+    string operator_id   = 1;
+    string operator_name = 2;
+    string channel_type  = 3;
+    bool   supported     = 4;
+    string notes         = 5;
+}
+
+message UpdateOCSRequest {
+    string operator_id  = 1;
+    string channel_type = 2;
+    bool   supported    = 3;
+    string notes        = 4;
+}
+
+message UpdateOCSResponse {
+    OCSEntry entry = 1;
+}

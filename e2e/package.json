@@ -1,0 +1,19 @@
+{
+  "name": "sms-e2e",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:messaging": "npx playwright test tests/messaging/",
+    "test:campaigns": "npx playwright test tests/campaigns/",
+    "test:billing": "npx playwright test tests/billing/",
+    "test:routing": "npx playwright test tests/routing/",
+    "test:tarification": "npx playwright test tests/admin-tarification/",
+    "test:reseller": "npx playwright test tests/reseller/",
+    "test:headed": "npx playwright test --headed",
+    "report": "npx playwright show-report reports"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "dotenv": "^17.4.2"
+  }
+}

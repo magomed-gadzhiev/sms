@@ -1,0 +1,12 @@
+-- Drop sandbox-only UNIQUE constraint uq_cell_provider.
+--
+-- Контекст: constraint существовал только в sandbox DB (не создавался миграциями
+-- репо, см. 000137 down-комментарий). Блокировал override-маршруты на тот же
+-- (provider_id, route_type), что в template, потому что cell-колонки
+-- (operator_id, country_code, traffic_type, number_from, number_to) при
+-- материализации route-set'а пишутся NULL — матчинг идёт через
+-- route_condition_groups + route_conditions.
+--
+-- Защита от смысловых дубликатов переезжает в handler уровень
+-- (Task 2: pre-check signature в AddRouteOverride / UpdateRouteOverride).
+ALTER TABLE client_routes DROP CONSTRAINT IF EXISTS uq_cell_provider;

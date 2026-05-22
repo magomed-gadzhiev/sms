@@ -1,0 +1,50 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github.css";
+
+/* Tailwind v4 defaults the dark: variant to prefers-color-scheme.
+   ThemeContext drives theme via a `dark` class on <html>, so we
+   redefine the variant to match either the class or anything inside it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #1976d2;
+  --color-primary-dark: #1565c0;
+  --color-success: #4caf50;
+  --color-danger: #d32f2f;
+  --color-warning: #f59e0b;
+  --color-info: #2196f3;
+}
+
+/* Focus-visible ring for radio/checkbox when their visual label is used */
+input[type="radio"]:focus-visible + span,
+input[type="checkbox"]:focus-visible + span {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Visually hidden radio with visible label — show focus on parent label */
+label:has(input.sr-only:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Dark Theme (Command Center only) ─────────────────────────────── */
+.theme-dark {
+  --cc-bg:           #0f172a; /* slate-900 */
+  --cc-surface:      #1e293b; /* slate-800 */
+  --cc-surface-2:    #334155; /* slate-700 */
+  --cc-border:       #475569; /* slate-600 */
+  --cc-text:         #e2e8f0; /* slate-200 */
+  --cc-text-muted:   #94a3b8; /* slate-400 */
+  --cc-accent-green: #22c55e; /* green-500 */
+  --cc-accent-red:   #ef4444; /* red-500 */
+  --cc-accent-yellow:#eab308; /* yellow-500 */
+  --cc-accent-blue:  #3b82f6; /* blue-500 */
+  color-scheme: dark;
+}
+
+/* Smooth transition when navigating to/from Command Center */
+body {
+  transition: background-color 300ms ease, color 300ms ease;
+}

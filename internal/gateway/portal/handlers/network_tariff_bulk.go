@@ -1,0 +1,1632 @@
+// Package handlers: network_tariff_bulk.go implements two writer endpoints
+// for the /network/tariffs matrix editor.
+//
+// Task 6.1 — PATCH /portal/v1/network/tariff-plans/{plan_id}/bulk
+//            Batch upsert/delete of tiers + cells on a single plan.
+// Task 6.2 — POST  /portal/v1/network/tariff-plans/{plan_id}/periods
+//            Create a new period (optionally copying tiers from an existing one).
+//
+// Gate: is_reseller=true on the caller. Plan ownership is verified through
+// the plan's template_id → reseller_tariff_templates.reseller_id for
+// template-scoped plans, or directly via reseller_tariff_plans.reseller_id
+// for sub-account override plans.
+//
+// ## Design decision: bulk PATCH targets ONE plan
+//
+// The URL is `/tariff-plans/{plan_id}/bulk`, singular. The brief notes that
+// cells have an operator_id but plans are already per-operator — so a single
+// bulk call cannot span multiple operators. We enforce this honestly: each
+// `cells_upsert` / `cells_delete` entry's operator_id MUST equal plan.operator_id
+// (or the plan must be the wildcard plan with operator_id IS NULL, in which
+// case cell.operator_id is currently accepted as the plan's intended operator
+// but still validated against the plan's scope — see below). Scope=override
+// cells may optionally point at a different target plan for this sub-account
+// (the override plan for the same dimensions + sub_account_id); we find-or-
+// create that override plan lazily and write there.
+//
+// Frontend orchestrates N PATCHes for N operator-plans — one per operator.
+//
+// ## Transaction semantics
+//
+// Validation runs first (no DB state mutated). If any per-cell validation
+// fails, we return 400 with an `errors` array and leave the DB untouched.
+// Once validation passes, all tier/cell writes happen in one transaction.
+//
+// ## Cache invalidation
+//
+// After a successful commit, `tariffs:summary:<reseller_id>` is DEL'd. The
+// next `/subaccounts-summary` read rebuilds the cache.
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog/log"
+
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/shared"
+)
+
+// NetworkTariffBulkHandler serves PATCH .../bulk and POST .../periods.
+type NetworkTariffBulkHandler struct {
+	pool  *pgxpool.Pool
+	redis *redis.Client
+}
+
+// NewNetworkTariffBulkHandler constructs the handler.
+// redisClient may be nil — cache invalidation is then a no-op.
+func NewNetworkTariffBulkHandler(pool *pgxpool.Pool, redisClient *redis.Client) *NetworkTariffBulkHandler {
+	return &NetworkTariffBulkHandler{pool: pool, redis: redisClient}
+}
+
+// ---------- Bulk PATCH ----------
+
+type bulkTierUpsert struct {
+	ID           *string  `json:"id"` // nil → INSERT new
+	FromQuantity int      `json:"from_quantity"`
+	// Price is required when ID is nil (new tier). Omitted for updates,
+	// which only change from_count. Nil on a new tier is an error (C4 guard).
+	Price *float64 `json:"price_per_segment,omitempty"`
+}
+
+type bulkCellUpsert struct {
+	OperatorID   string  `json:"operator_id"`
+	TierID       string  `json:"tier_id"`
+	Price        float64 `json:"price"`
+	Scope        string  `json:"scope"` // "template" | "override"
+	SubAccountID *string `json:"sub_account_id,omitempty"`
+}
+
+type bulkCellDelete struct {
+	OperatorID   string  `json:"operator_id"`
+	TierID       string  `json:"tier_id"`
+	Scope        string  `json:"scope"`
+	SubAccountID *string `json:"sub_account_id,omitempty"`
+}
+
+type bulkPatchRequest struct {
+	PeriodID     string           `json:"period_id"`
+	TiersUpsert  []bulkTierUpsert `json:"tiers_upsert"`
+	TiersDelete  []string         `json:"tiers_delete"`
+	CellsUpsert  []bulkCellUpsert `json:"cells_upsert"`
+	CellsDelete  []bulkCellDelete `json:"cells_delete"`
+}
+
+type bulkError struct {
+	OperatorID string `json:"operator_id,omitempty"`
+	TierID     string `json:"tier_id,omitempty"`
+	Reason     string `json:"reason"`
+}
+
+type bulkResponse struct {
+	OK     bool        `json:"ok"`
+	Errors []bulkError `json:"errors,omitempty"`
+}
+
+const (
+	bulkPriceMin = 0.0
+	bulkPriceMax = 999.0
+)
+
+// BulkPatch handles PATCH /portal/v1/network/tariff-plans/{plan_id}/bulk.
+func (h *NetworkTariffBulkHandler) BulkPatch(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := h.ensureReseller(w, r)
+	if !ok {
+		return
+	}
+
+	planID, err := uuid.Parse(mux.Vars(r)["plan_id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("plan_id некорректен"))
+		return
+	}
+
+	var req bulkPatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
+		return
+	}
+
+	periodID, err := uuid.Parse(strings.TrimSpace(req.PeriodID))
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("period_id некорректен"))
+		return
+	}
+
+	ctx := r.Context()
+
+	// 1. Load plan + verify ownership.
+	plan, err := h.loadPlanScoped(ctx, planID, resellerID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("план"))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: load plan failed")
+		respondError(w, shared.ErrInternalServer("ошибка чтения плана"))
+		return
+	}
+
+	// 2. Verify period belongs to plan.
+	var periodPlanID uuid.UUID
+	if err := h.pool.QueryRow(ctx,
+		`SELECT tariff_plan_id FROM reseller_tariff_periods WHERE id = $1`, periodID,
+	).Scan(&periodPlanID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeBulkError(w, http.StatusBadRequest, "period_id не найден")
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: load period failed")
+		respondError(w, shared.ErrInternalServer("ошибка чтения периода"))
+		return
+	}
+	if periodPlanID != planID {
+		writeBulkError(w, http.StatusBadRequest, "period не принадлежит этому плану")
+		return
+	}
+
+	// 3. Validate all input BEFORE opening tx. Collects errors per-cell.
+	validationErrs := h.validateBulkInput(ctx, resellerID, plan, &req)
+	if len(validationErrs) > 0 {
+		writeBulkErrors(w, http.StatusBadRequest, validationErrs)
+		return
+	}
+
+	// 4. Single transaction: tiers_upsert → tiers_delete → cells_upsert → cells_delete.
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: begin tx failed")
+		respondError(w, shared.ErrInternalServer("ошибка транзакции"))
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Re-verify plan is still active inside the tx. Guards against a concurrent
+	// deactivation between loadPlanScoped (on h.pool) and the writes below.
+	// FOR SHARE: other readers OK; blocks concurrent UPDATE/DELETE on the plan.
+	var stillActive bool
+	if err := tx.QueryRow(ctx,
+		`SELECT active FROM reseller_tariff_plans WHERE id = $1 FOR SHARE`, planID,
+	).Scan(&stillActive); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrConflict("план был удалён"))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: re-verify plan failed")
+		respondError(w, shared.ErrInternalServer("ошибка проверки плана"))
+		return
+	}
+	if !stillActive {
+		respondError(w, shared.ErrConflict("план был деактивирован"))
+		return
+	}
+
+	// Tiers (live on periodID, which belongs to the URL-path plan).
+	for _, t := range req.TiersUpsert {
+		if t.ID == nil || strings.TrimSpace(*t.ID) == "" {
+			// validateBulkInput guarantees t.Price is non-nil and in range here.
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+				VALUES ($1, $2, $3)`, periodID, t.FromQuantity, *t.Price); err != nil {
+				if isBulkUniqueViolation(err) {
+					writeBulkError(w, http.StatusBadRequest,
+						fmt.Sprintf("tier from_count=%d уже существует", t.FromQuantity))
+					return
+				}
+				log.Error().Err(err).Msg("network_tariff_bulk: insert tier failed")
+				respondError(w, shared.ErrInternalServer("ошибка создания ступени"))
+				return
+			}
+		} else {
+			tierID, err := uuid.Parse(*t.ID)
+			if err != nil {
+				writeBulkError(w, http.StatusBadRequest, "tier id некорректен")
+				return
+			}
+			ct, err := tx.Exec(ctx, `
+				UPDATE reseller_tariff_tiers SET from_count = $1
+				WHERE id = $2 AND tariff_period_id = $3`, t.FromQuantity, tierID, periodID)
+			if err != nil {
+				if isBulkUniqueViolation(err) {
+					writeBulkError(w, http.StatusBadRequest,
+						fmt.Sprintf("tier from_count=%d уже существует", t.FromQuantity))
+					return
+				}
+				log.Error().Err(err).Msg("network_tariff_bulk: update tier failed")
+				respondError(w, shared.ErrInternalServer("ошибка обновления ступени"))
+				return
+			}
+			if ct.RowsAffected() == 0 {
+				writeBulkError(w, http.StatusBadRequest, "ступень не принадлежит периоду")
+				return
+			}
+		}
+	}
+
+	if len(req.TiersDelete) > 0 {
+		tierIDs := make([]uuid.UUID, 0, len(req.TiersDelete))
+		for _, s := range req.TiersDelete {
+			id, err := uuid.Parse(strings.TrimSpace(s))
+			if err != nil {
+				writeBulkError(w, http.StatusBadRequest, "tier id некорректен: "+s)
+				return
+			}
+			tierIDs = append(tierIDs, id)
+		}
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM reseller_tariff_tiers
+			WHERE id = ANY($1::uuid[]) AND tariff_period_id = $2`,
+			tierIDs, periodID); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: delete tiers failed")
+			respondError(w, shared.ErrInternalServer("ошибка удаления ступеней"))
+			return
+		}
+	}
+
+	// Cells: upsert — write price_per_segment on the resolved (plan, period,
+	// tier) row. Template scope writes to the URL plan's tier. Override scope
+	// writes to the override plan for the given sub_account + dimensions
+	// (find-or-create the override plan + aligned period + tier as needed).
+	for _, c := range req.CellsUpsert {
+		if appErr := h.applyCellUpsert(ctx, tx, plan, periodID, c); appErr != nil {
+			respondError(w, appErr)
+			return
+		}
+	}
+
+	for _, c := range req.CellsDelete {
+		if appErr := h.applyCellDelete(ctx, tx, plan, periodID, c); appErr != nil {
+			respondError(w, appErr)
+			return
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: commit failed")
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
+		return
+	}
+
+	h.invalidateSummaryCache(resellerID)
+
+	writeJSON(w, bulkResponse{OK: true})
+}
+
+// ---------- Period create ----------
+
+type createPeriodRequest struct {
+	From              string  `json:"from"`
+	To                *string `json:"to"`
+	CopyFromPeriodID  *string `json:"copy_from_period_id"`
+	KeepTiers         bool    `json:"keep_tiers"`
+}
+
+type createPeriodResponse struct {
+	ID string `json:"id"`
+}
+
+// CreatePeriod handles POST /portal/v1/network/tariff-plans/{plan_id}/periods.
+func (h *NetworkTariffBulkHandler) CreatePeriod(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := h.ensureReseller(w, r)
+	if !ok {
+		return
+	}
+
+	planID, err := uuid.Parse(mux.Vars(r)["plan_id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("plan_id некорректен"))
+		return
+	}
+
+	var req createPeriodRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
+		return
+	}
+
+	from, err := time.Parse("2006-01-02", strings.TrimSpace(req.From))
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("from должен быть в формате YYYY-MM-DD"))
+		return
+	}
+	var to *time.Time
+	if req.To != nil && strings.TrimSpace(*req.To) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(*req.To))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("to должен быть в формате YYYY-MM-DD"))
+			return
+		}
+		if !parsed.After(from) {
+			respondError(w, shared.ErrInvalidInput("to должен быть позже from"))
+			return
+		}
+		to = &parsed
+	}
+
+	var copyFromID *uuid.UUID
+	if req.CopyFromPeriodID != nil && strings.TrimSpace(*req.CopyFromPeriodID) != "" {
+		id, err := uuid.Parse(strings.TrimSpace(*req.CopyFromPeriodID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("copy_from_period_id некорректен"))
+			return
+		}
+		copyFromID = &id
+	}
+
+	ctx := r.Context()
+
+	// Verify plan ownership.
+	if _, err := h.loadPlanScoped(ctx, planID, resellerID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrNotFound("план"))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: load plan failed")
+		respondError(w, shared.ErrInternalServer("ошибка чтения плана"))
+		return
+	}
+
+	// If copy_from_period_id is provided, verify it belongs to the same plan.
+	if copyFromID != nil {
+		var cfPlan uuid.UUID
+		if err := h.pool.QueryRow(ctx,
+			`SELECT tariff_plan_id FROM reseller_tariff_periods WHERE id = $1`, *copyFromID,
+		).Scan(&cfPlan); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, shared.ErrNotFound("период-источник"))
+				return
+			}
+			log.Error().Err(err).Msg("network_tariff_bulk: load copy-from period failed")
+			respondError(w, shared.ErrInternalServer("ошибка чтения периода"))
+			return
+		}
+		if cfPlan != planID {
+			respondError(w, shared.ErrInvalidInput("copy_from_period_id не принадлежит этому плану"))
+			return
+		}
+	}
+
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: begin tx failed")
+		respondError(w, shared.ErrInternalServer("ошибка транзакции"))
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var newPeriodID uuid.UUID
+	var toArg interface{}
+	if to != nil {
+		toArg = *to
+	}
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, $2, $3)
+		RETURNING id`, planID, from, toArg).Scan(&newPeriodID); err != nil {
+		// Overlap exclusion constraint → 409.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23P01" || pgErr.ConstraintName == "reseller_periods_no_overlap" {
+				respondError(w, shared.ErrConflict("период пересекается с существующим"))
+				return
+			}
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: insert period failed")
+		respondError(w, shared.ErrInternalServer("ошибка создания периода"))
+		return
+	}
+
+	if copyFromID != nil && req.KeepTiers {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+			SELECT $1, from_count, price_per_segment
+			FROM reseller_tariff_tiers
+			WHERE tariff_period_id = $2`, newPeriodID, *copyFromID); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: copy tiers failed")
+			respondError(w, shared.ErrInternalServer("ошибка копирования ступеней"))
+			return
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: commit period failed")
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
+		return
+	}
+
+	h.invalidateSummaryCache(resellerID)
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, createPeriodResponse{ID: newPeriodID.String()})
+}
+
+// ---------- UpdateStrategy ----------
+
+// updateStrategyRequest — PUT /portal/v1/network/tariff-plans/strategy body.
+// Updates strategy across every active plan matching the given dimensions
+// (template or sub_account scope). Frontend exposes strategy as a single
+// dropdown on the editor top-bar; semantically the choice applies to the
+// wildcard plan and every per-operator plan auto-materialised under it.
+type updateStrategyRequest struct {
+	TemplateID     *string `json:"template_id"`
+	SubAccountID   *string `json:"sub_account_id"`
+	Country        string  `json:"country"`
+	SenderCategory string  `json:"sender_category"`
+	TrafficType    string  `json:"traffic_type"`
+	Strategy       string  `json:"strategy"`
+}
+
+// UpdateStrategy handles PUT /portal/v1/network/tariff-plans/strategy.
+func (h *NetworkTariffBulkHandler) UpdateStrategy(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := h.ensureReseller(w, r)
+	if !ok {
+		return
+	}
+
+	var req updateStrategyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
+		return
+	}
+
+	hasTpl := req.TemplateID != nil && strings.TrimSpace(*req.TemplateID) != ""
+	hasSub := req.SubAccountID != nil && strings.TrimSpace(*req.SubAccountID) != ""
+	if hasTpl == hasSub {
+		respondError(w, shared.ErrInvalidInput("укажите ровно одно из template_id или sub_account_id"))
+		return
+	}
+
+	strategy := strings.TrimSpace(req.Strategy)
+	if !validCreatePlanStrategies[strategy] {
+		respondError(w, shared.ErrInvalidInput("недопустимая стратегия: "+strategy))
+		return
+	}
+
+	countryISO := strings.ToUpper(strings.TrimSpace(req.Country))
+	if countryISO == "" {
+		respondError(w, shared.ErrInvalidInput("country обязателен"))
+		return
+	}
+
+	senderCategory := strings.TrimSpace(req.SenderCategory)
+	if senderCategory == "" {
+		senderCategory = "paid_registered"
+	}
+	trafficType := strings.TrimSpace(req.TrafficType)
+	if trafficType == "" {
+		trafficType = "any"
+	}
+
+	ctx := r.Context()
+
+	var countryID uuid.UUID
+	if err := h.pool.QueryRow(ctx,
+		`SELECT id FROM countries WHERE iso_code = $1`, countryISO,
+	).Scan(&countryID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrInvalidInput("страна не найдена: "+countryISO))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: update-strategy country lookup failed")
+		respondError(w, shared.ErrInternalServer("ошибка поиска страны"))
+		return
+	}
+
+	var ownerCol string
+	var ownerID uuid.UUID
+	if hasTpl {
+		id, err := uuid.Parse(strings.TrimSpace(*req.TemplateID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("template_id некорректен"))
+			return
+		}
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM reseller_tariff_templates
+			   WHERE id = $1 AND reseller_id = $2 AND active)`,
+			id, resellerID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: update-strategy template ownership check failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки шаблона"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("шаблон"))
+			return
+		}
+		ownerCol = "template_id"
+		ownerID = id
+	} else {
+		id, err := uuid.Parse(strings.TrimSpace(*req.SubAccountID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("sub_account_id некорректен"))
+			return
+		}
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM clients
+			   WHERE id = $1 AND parent_client_id = $2)`,
+			id, resellerID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: update-strategy sub-account ownership check failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки субаккаунта"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("субаккаунт"))
+			return
+		}
+		ownerCol = "sub_account_id"
+		ownerID = id
+	}
+
+	ct, err := h.pool.Exec(ctx, `
+		UPDATE reseller_tariff_plans
+		SET strategy = $1, updated_at = NOW()
+		WHERE `+ownerCol+` = $2
+		  AND active
+		  AND country_id = $3
+		  AND sender_category = $4
+		  AND traffic_type = $5`,
+		strategy, ownerID, countryID, senderCategory, trafficType,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: update strategy failed")
+		respondError(w, shared.ErrInternalServer("ошибка обновления стратегии"))
+		return
+	}
+
+	h.invalidateSummaryCache(resellerID)
+
+	writeJSON(w, map[string]interface{}{"updated": ct.RowsAffected()})
+}
+
+// ---------- CreatePlan ----------
+
+// createPlanRequest — POST /portal/v1/network/tariff-plans body.
+// Exactly one of TemplateID / SubAccountID must be set.
+// Country is ISO-3166 alpha-2 (RU/KZ/BY/…), resolved server-side.
+// OperatorID is optional (nil → wildcard plan covering all operators).
+type createPlanRequest struct {
+	TemplateID     *string `json:"template_id"`
+	SubAccountID   *string `json:"sub_account_id"`
+	Country        string  `json:"country"`
+	OperatorID     *string `json:"operator_id"`
+	SenderCategory string  `json:"sender_category"`
+	TrafficType    string  `json:"traffic_type"`
+	Strategy       string  `json:"strategy"`
+}
+
+type createPlanResponse struct {
+	ID       string `json:"id"`
+	PeriodID string `json:"period_id"`
+}
+
+// validCreatePlanStrategies — mirrors reseller_tariff_plans.strategy CHECK.
+var validCreatePlanStrategies = map[string]bool{
+	"fixed":             true,
+	"threshold":         true,
+	"threshold_recalc":  true,
+	"prepaid_threshold": true,
+}
+
+// CreatePlan handles POST /portal/v1/network/tariff-plans.
+//
+// Wraps reseller_tariff_plans + reseller_tariff_periods + reseller_tariff_tiers
+// INSERTs in one transaction so that after the call the matrix editor has a
+// plan with one default period (today → open-ended) and one default tier
+// (from_count=0, price=0) — the minimum state the editor can render.
+//
+// Ownership: template scope → template.reseller_id must equal caller.
+// sub_account scope → sub_account.parent_client_id must equal caller.
+func (h *NetworkTariffBulkHandler) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	resellerID, ok := h.ensureReseller(w, r)
+	if !ok {
+		return
+	}
+
+	var req createPlanRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("некорректное тело запроса"))
+		return
+	}
+
+	hasTpl := req.TemplateID != nil && strings.TrimSpace(*req.TemplateID) != ""
+	hasSub := req.SubAccountID != nil && strings.TrimSpace(*req.SubAccountID) != ""
+	if hasTpl == hasSub {
+		respondError(w, shared.ErrInvalidInput("укажите ровно одно из template_id или sub_account_id"))
+		return
+	}
+
+	countryISO := strings.ToUpper(strings.TrimSpace(req.Country))
+	if countryISO == "" {
+		respondError(w, shared.ErrInvalidInput("country обязателен"))
+		return
+	}
+
+	senderCategory := strings.TrimSpace(req.SenderCategory)
+	if senderCategory == "" {
+		senderCategory = "paid_registered"
+	}
+	trafficType := strings.TrimSpace(req.TrafficType)
+	if trafficType == "" {
+		trafficType = "any"
+	}
+	strategy := strings.TrimSpace(req.Strategy)
+	if strategy == "" {
+		strategy = "fixed"
+	}
+	if !validCreatePlanStrategies[strategy] {
+		respondError(w, shared.ErrInvalidInput("недопустимая стратегия: "+strategy))
+		return
+	}
+
+	var tplID, subID uuid.UUID
+	if hasTpl {
+		id, err := uuid.Parse(strings.TrimSpace(*req.TemplateID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("template_id некорректен"))
+			return
+		}
+		tplID = id
+	}
+	if hasSub {
+		id, err := uuid.Parse(strings.TrimSpace(*req.SubAccountID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("sub_account_id некорректен"))
+			return
+		}
+		subID = id
+	}
+
+	var operatorID *uuid.UUID
+	if req.OperatorID != nil && strings.TrimSpace(*req.OperatorID) != "" {
+		id, err := uuid.Parse(strings.TrimSpace(*req.OperatorID))
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("operator_id некорректен"))
+			return
+		}
+		operatorID = &id
+	}
+
+	ctx := r.Context()
+
+	// Resolve country_id.
+	var countryID uuid.UUID
+	if err := h.pool.QueryRow(ctx,
+		`SELECT id FROM countries WHERE iso_code = $1`, countryISO,
+	).Scan(&countryID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, shared.ErrInvalidInput("страна не найдена: "+countryISO))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: country lookup failed")
+		respondError(w, shared.ErrInternalServer("ошибка поиска страны"))
+		return
+	}
+
+	// Ownership check.
+	if hasTpl {
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM reseller_tariff_templates
+			   WHERE id = $1 AND reseller_id = $2 AND active)`,
+			tplID, resellerID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: template ownership check failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки шаблона"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("шаблон"))
+			return
+		}
+	} else {
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM clients
+			   WHERE id = $1 AND parent_client_id = $2)`,
+			subID, resellerID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: sub-account ownership check failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки субаккаунта"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("субаккаунт"))
+			return
+		}
+	}
+
+	// Verify operator belongs to caller or is a platform operator owned by
+	// them via operator registration. For now we only check it exists and is
+	// active — stricter ownership is enforced elsewhere in the routing flow.
+	if operatorID != nil {
+		var exists bool
+		if err := h.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM operators WHERE id = $1 AND active)`,
+			*operatorID,
+		).Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: operator lookup failed")
+			respondError(w, shared.ErrInternalServer("ошибка проверки оператора"))
+			return
+		}
+		if !exists {
+			respondError(w, shared.ErrNotFound("оператор"))
+			return
+		}
+	}
+
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: begin create-plan tx failed")
+		respondError(w, shared.ErrInternalServer("ошибка транзакции"))
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var newPlanID uuid.UUID
+	var tplArg, subArg interface{}
+	if hasTpl {
+		tplArg = tplID
+	}
+	if hasSub {
+		subArg = subID
+	}
+	var opArg interface{}
+	if operatorID != nil {
+		opArg = *operatorID
+	}
+
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, template_id, sub_account_id, country_id, operator_id,
+		   sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+		RETURNING id`,
+		resellerID, tplArg, subArg, countryID, opArg,
+		senderCategory, trafficType, strategy,
+	).Scan(&newPlanID); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			respondError(w, shared.ErrConflict("план с такими параметрами уже существует"))
+			return
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: insert plan failed")
+		respondError(w, shared.ErrInternalServer("ошибка создания плана"))
+		return
+	}
+
+	// Default period: today → open-ended (end_date NULL, supported by migration 000099).
+	today := nowUTC()
+	var newPeriodID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+		VALUES ($1, $2, NULL)
+		RETURNING id`, newPlanID, today,
+	).Scan(&newPeriodID); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: insert default period failed")
+		respondError(w, shared.ErrInternalServer("ошибка создания периода"))
+		return
+	}
+
+	// Default tier: from_count=0, price=0. User edits through matrix.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, 0, 0)`, newPeriodID,
+	); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: insert default tier failed")
+		respondError(w, shared.ErrInternalServer("ошибка создания ступени"))
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: commit create-plan failed")
+		respondError(w, shared.ErrInternalServer("ошибка сохранения"))
+		return
+	}
+
+	h.invalidateSummaryCache(resellerID)
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, createPlanResponse{
+		ID:       newPlanID.String(),
+		PeriodID: newPeriodID.String(),
+	})
+}
+
+// ---------- helpers ----------
+
+type bulkPlan struct {
+	ID             uuid.UUID
+	ResellerID     uuid.UUID
+	TemplateID     *uuid.UUID
+	SubAccountID   *uuid.UUID
+	CountryID      *uuid.UUID
+	OperatorID     *uuid.UUID // nil = wildcard
+	SenderCategory string
+	TrafficType    string
+	Strategy       string
+}
+
+// loadPlanScoped loads a plan and verifies caller ownership. For template
+// plans, reseller is derived via template.reseller_id. For override plans,
+// reseller_tariff_plans.reseller_id is checked directly. Returns
+// pgx.ErrNoRows if the plan is missing or scoped to another reseller.
+func (h *NetworkTariffBulkHandler) loadPlanScoped(
+	ctx context.Context, planID, resellerID uuid.UUID,
+) (*bulkPlan, error) {
+	var p bulkPlan
+	err := h.pool.QueryRow(ctx, `
+		SELECT p.id, p.reseller_id, p.template_id, p.sub_account_id,
+		       p.country_id, p.operator_id, p.sender_category, p.traffic_type, p.strategy
+		FROM reseller_tariff_plans p
+		LEFT JOIN reseller_tariff_templates t ON t.id = p.template_id
+		WHERE p.id = $1 AND p.active
+		  AND (
+		        (p.template_id    IS NOT NULL AND t.reseller_id = $2 AND t.active) OR
+		        (p.sub_account_id IS NOT NULL AND p.reseller_id = $2)
+		      )
+	`, planID, resellerID).Scan(
+		&p.ID, &p.ResellerID, &p.TemplateID, &p.SubAccountID,
+		&p.CountryID, &p.OperatorID, &p.SenderCategory, &p.TrafficType, &p.Strategy,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// validateBulkInput checks prices, scopes, operator_id alignment, and
+// sub_account ownership. Returns a (possibly empty) list of per-cell errors.
+func (h *NetworkTariffBulkHandler) validateBulkInput(
+	ctx context.Context,
+	resellerID uuid.UUID,
+	plan *bulkPlan,
+	req *bulkPatchRequest,
+) []bulkError {
+	var errs []bulkError
+
+	// Wildcard-plan handling: plan.operator_id IS NULL means this plan is a
+	// per-template blueprint covering all operators. When cells target specific
+	// operators, applyCellUpsert/Delete lazily create per-operator plans with
+	// aligned period/tier and write there. Previously this case was rejected
+	// outright — UI had no other way to set per-operator prices on a freshly-
+	// created template plan.
+
+	for _, t := range req.TiersUpsert {
+		if t.FromQuantity < 0 {
+			errs = append(errs, bulkError{Reason: "from_quantity не может быть отрицательным"})
+		}
+	}
+
+	// Orphan-tier guard: a new tier (ID=nil) must carry a price, otherwise it
+	// persists at 0 rub/segment and downstream tarification charges zero.
+	// The bulkTierUpsert carries a Price pointer: require it on new tiers.
+	for _, t := range req.TiersUpsert {
+		if t.ID != nil && strings.TrimSpace(*t.ID) != "" {
+			continue // existing tier — UPDATE from_count only; price untouched
+		}
+		if t.Price == nil {
+			errs = append(errs, bulkError{
+				Reason: "новая ступень должна содержать price_per_segment (без него цена=0 и downstream тарификация возьмёт 0)",
+			})
+			continue
+		}
+		if *t.Price < bulkPriceMin || *t.Price > bulkPriceMax {
+			errs = append(errs, bulkError{
+				Reason: fmt.Sprintf("price_per_segment должен быть в диапазоне [%g, %g]", bulkPriceMin, bulkPriceMax),
+			})
+		}
+	}
+
+	// Collect sub_account_ids that need ownership check across cells.
+	subsToCheck := map[uuid.UUID]struct{}{}
+
+	validateCell := func(operatorID, tierID, scope string, sub *string, price *float64) {
+		opID, err := uuid.Parse(operatorID)
+		if err != nil {
+			errs = append(errs, bulkError{OperatorID: operatorID, TierID: tierID, Reason: "operator_id некорректен"})
+			return
+		}
+		if _, err := uuid.Parse(tierID); err != nil {
+			errs = append(errs, bulkError{OperatorID: operatorID, TierID: tierID, Reason: "tier_id некорректен"})
+			return
+		}
+		if scope != "template" && scope != "override" {
+			errs = append(errs, bulkError{OperatorID: operatorID, TierID: tierID, Reason: "scope должен быть template или override"})
+			return
+		}
+		// Operator alignment: if the URL plan has an operator_id set, cells
+		// must match it (else frontend batched to wrong plan). Wildcard plan
+		// (operator_id IS NULL) accepts any operator_id — apply-phase lazy-
+		// creates the per-operator plan+period+tier and writes there.
+		if plan.OperatorID != nil && *plan.OperatorID != opID {
+			errs = append(errs, bulkError{
+				OperatorID: operatorID, TierID: tierID,
+				Reason: "operator_id не соответствует плану",
+			})
+			return
+		}
+		_ = opID // silence unused when plan is wildcard
+		if scope == "override" {
+			if sub == nil || strings.TrimSpace(*sub) == "" {
+				errs = append(errs, bulkError{OperatorID: operatorID, TierID: tierID, Reason: "sub_account_id обязателен для scope=override"})
+				return
+			}
+			subID, err := uuid.Parse(strings.TrimSpace(*sub))
+			if err != nil {
+				errs = append(errs, bulkError{OperatorID: operatorID, TierID: tierID, Reason: "sub_account_id некорректен"})
+				return
+			}
+			subsToCheck[subID] = struct{}{}
+		}
+		if price != nil {
+			if *price < bulkPriceMin || *price > bulkPriceMax {
+				errs = append(errs, bulkError{
+					OperatorID: operatorID, TierID: tierID,
+					Reason: fmt.Sprintf("price должен быть в диапазоне [%g, %g]", bulkPriceMin, bulkPriceMax),
+				})
+				return
+			}
+		}
+	}
+
+	for _, c := range req.CellsUpsert {
+		p := c.Price
+		validateCell(c.OperatorID, c.TierID, c.Scope, c.SubAccountID, &p)
+	}
+	for _, c := range req.CellsDelete {
+		validateCell(c.OperatorID, c.TierID, c.Scope, c.SubAccountID, nil)
+	}
+
+	// Ownership check for sub-accounts, batched.
+	if len(subsToCheck) > 0 {
+		ids := make([]uuid.UUID, 0, len(subsToCheck))
+		for id := range subsToCheck {
+			ids = append(ids, id)
+		}
+		valid := map[uuid.UUID]struct{}{}
+		rows, err := h.pool.Query(ctx,
+			`SELECT id FROM clients WHERE parent_client_id = $1 AND id = ANY($2::uuid[])`,
+			resellerID, ids)
+		if err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: sub ownership check failed")
+			errs = append(errs, bulkError{Reason: "ошибка проверки суб-аккаунтов"})
+			return errs
+		}
+		for rows.Next() {
+			var id uuid.UUID
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				errs = append(errs, bulkError{Reason: "ошибка проверки суб-аккаунтов"})
+				return errs
+			}
+			valid[id] = struct{}{}
+		}
+		rows.Close()
+		// Attach per-cell errors for offending sub_account_ids.
+		check := func(scope string, sub *string, opID, tierID string) {
+			if scope != "override" || sub == nil {
+				return
+			}
+			id, err := uuid.Parse(strings.TrimSpace(*sub))
+			if err != nil {
+				return
+			}
+			if _, ok := valid[id]; !ok {
+				errs = append(errs, bulkError{
+					OperatorID: opID, TierID: tierID,
+					Reason: "sub_account_id не принадлежит этому агрегатору",
+				})
+			}
+		}
+		for _, c := range req.CellsUpsert {
+			check(c.Scope, c.SubAccountID, c.OperatorID, c.TierID)
+		}
+		for _, c := range req.CellsDelete {
+			check(c.Scope, c.SubAccountID, c.OperatorID, c.TierID)
+		}
+	}
+
+	return errs
+}
+
+// applyCellUpsert writes price_per_segment for one cell. For scope=template,
+// the write targets (periodID, tierID) on the URL plan. For scope=override,
+// we resolve-or-create an override plan + aligned period + tier for the
+// sub_account + dimensions, then write there.
+func (h *NetworkTariffBulkHandler) applyCellUpsert(
+	ctx context.Context, tx pgx.Tx,
+	plan *bulkPlan, periodID uuid.UUID, c bulkCellUpsert,
+) *shared.AppError {
+	tierID, _ := uuid.Parse(c.TierID) // already validated
+	cellOpID, _ := uuid.Parse(c.OperatorID)
+
+	if c.Scope == "template" {
+		// Direct path: cell's operator matches the URL plan's operator.
+		if plan.OperatorID != nil && *plan.OperatorID == cellOpID {
+			ct, err := tx.Exec(ctx, `
+				UPDATE reseller_tariff_tiers
+				SET price_per_segment = $1
+				WHERE id = $2 AND tariff_period_id = $3`, c.Price, tierID, periodID)
+			if err != nil {
+				log.Error().Err(err).Msg("network_tariff_bulk: update template cell failed")
+				return shared.ErrInternalServer("ошибка записи цены")
+			}
+			if ct.RowsAffected() == 0 {
+				return shared.ErrInvalidInput("tier не найден в периоде")
+			}
+			return nil
+		}
+
+		// Lazy path: wildcard plan (or mismatched operator) — find-or-create
+		// a per-operator template plan with aligned period, then upsert tier.
+		return h.upsertOperatorTemplateCell(ctx, tx, plan, periodID, tierID, cellOpID, c.Price)
+	}
+
+	// scope == "override": need the override plan for this sub_account +
+	// the same dims as URL plan, and a period aligned to the URL period's
+	// bounds. Find or create both, then upsert the tier.
+	subID, _ := uuid.Parse(strings.TrimSpace(*c.SubAccountID))
+	overridePlanID, appErr := h.findOrCreateOverridePlan(ctx, tx, plan, subID)
+	if appErr != nil {
+		return appErr
+	}
+
+	// Load URL period's bounds.
+	var pFromT time.Time
+	var pToPtr *time.Time
+	if err := tx.QueryRow(ctx, `
+		SELECT start_date, end_date FROM reseller_tariff_periods WHERE id = $1`,
+		periodID).Scan(&pFromT, &pToPtr); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: read period bounds failed")
+		return shared.ErrInternalServer("ошибка чтения периода")
+	}
+	var pFrom interface{} = pFromT
+	var pTo interface{}
+	if pToPtr != nil {
+		pTo = *pToPtr
+	}
+
+	// Find or create override period with matching bounds. Race-safety: the
+	// EXCLUDE constraint reseller_periods_no_overlap fires 23P01 if another
+	// tx inserted an overlapping period between our SELECT and INSERT. Wrap
+	// INSERT in a SAVEPOINT and fall back to re-SELECT on 23P01.
+	var ovrPeriodID uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_periods
+		WHERE tariff_plan_id = $1
+		  AND start_date IS NOT DISTINCT FROM $2
+		  AND end_date   IS NOT DISTINCT FROM $3`,
+		overridePlanID, pFrom, pTo,
+	).Scan(&ovrPeriodID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if _, err := tx.Exec(ctx, `SAVEPOINT sp_override_period`); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: savepoint failed")
+			return shared.ErrInternalServer("ошибка транзакции")
+		}
+		insErr := tx.QueryRow(ctx, `
+			INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+			VALUES ($1, $2, $3)
+			RETURNING id`, overridePlanID, pFrom, pTo).Scan(&ovrPeriodID)
+		if insErr == nil {
+			if _, err := tx.Exec(ctx, `RELEASE SAVEPOINT sp_override_period`); err != nil {
+				log.Error().Err(err).Msg("network_tariff_bulk: release savepoint failed")
+				return shared.ErrInternalServer("ошибка транзакции")
+			}
+		} else {
+			if _, rbErr := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT sp_override_period`); rbErr != nil {
+				log.Error().Err(rbErr).Msg("network_tariff_bulk: rollback savepoint failed")
+				return shared.ErrInternalServer("ошибка транзакции")
+			}
+			var pgErr *pgconn.PgError
+			if errors.As(insErr, &pgErr) && pgErr.Code == "23P01" {
+				// Overlap race: another tx created a matching period. Re-SELECT
+				// by exact bounds (same keys as the earlier SELECT).
+				if selErr := tx.QueryRow(ctx, `
+					SELECT id FROM reseller_tariff_periods
+					WHERE tariff_plan_id = $1
+					  AND start_date IS NOT DISTINCT FROM $2
+					  AND end_date   IS NOT DISTINCT FROM $3`,
+					overridePlanID, pFrom, pTo,
+				).Scan(&ovrPeriodID); selErr != nil {
+					log.Error().Err(selErr).Msg("network_tariff_bulk: re-select override period after overlap failed")
+					return shared.ErrInternalServer("ошибка поиска override-периода")
+				}
+			} else {
+				log.Error().Err(insErr).Msg("network_tariff_bulk: create override period failed")
+				return shared.ErrInternalServer("ошибка создания override-периода")
+			}
+		}
+	} else if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: find override period failed")
+		return shared.ErrInternalServer("ошибка поиска override-периода")
+	}
+	// URL-plan tier → its from_count → same from_count in override period.
+	var fromCount int
+	if err := tx.QueryRow(ctx, `
+		SELECT from_count FROM reseller_tariff_tiers WHERE id = $1 AND tariff_period_id = $2`,
+		tierID, periodID).Scan(&fromCount); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return shared.ErrInvalidInput("tier не найден в периоде")
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: read tier from_count failed")
+		return shared.ErrInternalServer("ошибка чтения ступени")
+	}
+
+	// UPSERT (override period, from_count, price).
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (tariff_period_id, from_count)
+		DO UPDATE SET price_per_segment = EXCLUDED.price_per_segment`,
+		ovrPeriodID, fromCount, c.Price); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: upsert override tier failed")
+		return shared.ErrInternalServer("ошибка записи override-цены")
+	}
+
+	return nil
+}
+
+// applyCellDelete deletes a cell. For scope=template, it removes the tier row
+// on the URL plan's period (cell becomes "unset"). For scope=override, it
+// removes the tier on the override plan's aligned period; if the override
+// plan has no more tiers after the delete, we leave the plan in place
+// (harmless empty shell; re-used on future writes).
+func (h *NetworkTariffBulkHandler) applyCellDelete(
+	ctx context.Context, tx pgx.Tx,
+	plan *bulkPlan, periodID uuid.UUID, c bulkCellDelete,
+) *shared.AppError {
+	tierID, _ := uuid.Parse(c.TierID)
+	cellOpID, _ := uuid.Parse(c.OperatorID)
+
+	if c.Scope == "template" {
+		// Same operator as URL plan → delete the tier row directly.
+		if plan.OperatorID != nil && *plan.OperatorID == cellOpID {
+			if _, err := tx.Exec(ctx, `
+				DELETE FROM reseller_tariff_tiers
+				WHERE id = $1 AND tariff_period_id = $2`, tierID, periodID); err != nil {
+				log.Error().Err(err).Msg("network_tariff_bulk: delete template cell failed")
+				return shared.ErrInternalServer("ошибка удаления цены")
+			}
+			return nil
+		}
+		// Wildcard / mismatched operator: delete from the per-operator plan's
+		// aligned period (if it exists). Missing plan/period = nothing to do.
+		if plan.TemplateID == nil {
+			return nil
+		}
+		var opPlanID uuid.UUID
+		if err := tx.QueryRow(ctx, `
+			SELECT id FROM reseller_tariff_plans
+			WHERE template_id = $1 AND active
+			  AND COALESCE(country_id, '00000000-0000-0000-0000-000000000000'::uuid)
+			    = COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+			  AND operator_id = $3
+			  AND sender_category = $4 AND traffic_type = $5`,
+			plan.TemplateID, plan.CountryID, cellOpID, plan.SenderCategory, plan.TrafficType,
+		).Scan(&opPlanID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			return shared.ErrInternalServer("ошибка поиска операторского плана")
+		}
+		// Read URL tier's from_count; delete the matching tier in the op-plan's
+		// aligned period. We don't know the op-plan tier_id without a lookup.
+		var fromCount int
+		if err := tx.QueryRow(ctx, `
+			SELECT from_count FROM reseller_tariff_tiers
+			WHERE id = $1 AND tariff_period_id = $2`,
+			tierID, periodID).Scan(&fromCount); err != nil {
+			return nil // URL tier gone — nothing consistent to delete.
+		}
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM reseller_tariff_tiers
+			WHERE from_count = $1
+			  AND tariff_period_id IN (
+			    SELECT id FROM reseller_tariff_periods WHERE tariff_plan_id = $2
+			  )`, fromCount, opPlanID); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: delete op-tpl cell failed")
+			return shared.ErrInternalServer("ошибка удаления цены")
+		}
+		return nil
+	}
+
+	subID, _ := uuid.Parse(strings.TrimSpace(*c.SubAccountID))
+
+	// Find the override plan + aligned period. If none, nothing to delete.
+	var ovrPlanID uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_plans
+		WHERE sub_account_id = $1 AND active
+		  AND COALESCE(country_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND COALESCE(operator_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($3, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND sender_category = $4 AND traffic_type = $5`,
+		subID, plan.CountryID, plan.OperatorID, plan.SenderCategory, plan.TrafficType,
+	).Scan(&ovrPlanID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: find override plan failed")
+		return shared.ErrInternalServer("ошибка поиска override-плана")
+	}
+
+	var pFromT time.Time
+	var pToT *time.Time
+	if err := tx.QueryRow(ctx, `
+		SELECT start_date, end_date FROM reseller_tariff_periods WHERE id = $1`,
+		periodID).Scan(&pFromT, &pToT); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: read period bounds failed")
+		return shared.ErrInternalServer("ошибка чтения периода")
+	}
+	var pTo interface{}
+	if pToT != nil {
+		pTo = *pToT
+	}
+
+	var ovrPeriodID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_periods
+		WHERE tariff_plan_id = $1
+		  AND start_date IS NOT DISTINCT FROM $2
+		  AND end_date   IS NOT DISTINCT FROM $3`,
+		ovrPlanID, pFromT, pTo).Scan(&ovrPeriodID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: find override period failed")
+		return shared.ErrInternalServer("ошибка поиска override-периода")
+	}
+
+	// Need from_count from the URL-plan tier to key into override period.
+	var fromCount int
+	if err := tx.QueryRow(ctx, `
+		SELECT from_count FROM reseller_tariff_tiers
+		WHERE id = $1 AND tariff_period_id = $2`,
+		tierID, periodID).Scan(&fromCount); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Tier no longer exists on URL plan — nothing to key by.
+			return nil
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: read tier from_count failed")
+		return shared.ErrInternalServer("ошибка чтения ступени")
+	}
+
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM reseller_tariff_tiers
+		WHERE tariff_period_id = $1 AND from_count = $2`,
+		ovrPeriodID, fromCount); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: delete override tier failed")
+		return shared.ErrInternalServer("ошибка удаления override-цены")
+	}
+	return nil
+}
+
+// upsertOperatorTemplateCell implements template-scope writes when the URL
+// plan is a wildcard (operator_id IS NULL). It lazily creates a per-operator
+// template plan sharing the URL plan's dimensions, aligns a period to the URL
+// period's bounds, reads from_count of the URL tier to key the destination
+// tier, and UPSERTs price there. This is the template-scope analogue of the
+// override-scope lazy path below.
+func (h *NetworkTariffBulkHandler) upsertOperatorTemplateCell(
+	ctx context.Context, tx pgx.Tx,
+	plan *bulkPlan, periodID, tierID, opID uuid.UUID, price float64,
+) *shared.AppError {
+	if plan.TemplateID == nil {
+		// Guard: this path is only valid for template-scope plans.
+		return shared.ErrInvalidInput("операторские ячейки допустимы только в шаблонных планах")
+	}
+
+	// 1. Read URL tier's from_count — the destination tier uses the same key.
+	var fromCount int
+	if err := tx.QueryRow(ctx, `
+		SELECT from_count FROM reseller_tariff_tiers
+		WHERE id = $1 AND tariff_period_id = $2`,
+		tierID, periodID).Scan(&fromCount); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return shared.ErrInvalidInput("tier не найден в периоде")
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: read tier from_count (wildcard lazy) failed")
+		return shared.ErrInternalServer("ошибка чтения ступени")
+	}
+
+	// 2. Find-or-create per-operator template plan.
+	opPlanID, appErr := h.findOrCreateOperatorTemplatePlan(ctx, tx, plan, opID)
+	if appErr != nil {
+		return appErr
+	}
+
+	// 3. Align period by bounds of the URL period.
+	var pFromT time.Time
+	var pToPtr *time.Time
+	if err := tx.QueryRow(ctx, `
+		SELECT start_date, end_date FROM reseller_tariff_periods WHERE id = $1`,
+		periodID).Scan(&pFromT, &pToPtr); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: read url period bounds failed")
+		return shared.ErrInternalServer("ошибка чтения периода")
+	}
+	var pFrom interface{} = pFromT
+	var pTo interface{}
+	if pToPtr != nil {
+		pTo = *pToPtr
+	}
+
+	var opPeriodID uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_periods
+		WHERE tariff_plan_id = $1
+		  AND start_date IS NOT DISTINCT FROM $2
+		  AND end_date   IS NOT DISTINCT FROM $3`,
+		opPlanID, pFrom, pTo,
+	).Scan(&opPeriodID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if _, err := tx.Exec(ctx, `SAVEPOINT sp_op_tpl_period`); err != nil {
+			return shared.ErrInternalServer("ошибка транзакции")
+		}
+		insErr := tx.QueryRow(ctx, `
+			INSERT INTO reseller_tariff_periods (tariff_plan_id, start_date, end_date)
+			VALUES ($1, $2, $3)
+			RETURNING id`, opPlanID, pFrom, pTo).Scan(&opPeriodID)
+		if insErr == nil {
+			if _, err := tx.Exec(ctx, `RELEASE SAVEPOINT sp_op_tpl_period`); err != nil {
+				return shared.ErrInternalServer("ошибка транзакции")
+			}
+		} else {
+			if _, rbErr := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT sp_op_tpl_period`); rbErr != nil {
+				return shared.ErrInternalServer("ошибка транзакции")
+			}
+			var pgErr *pgconn.PgError
+			if errors.As(insErr, &pgErr) && pgErr.Code == "23P01" {
+				if selErr := tx.QueryRow(ctx, `
+					SELECT id FROM reseller_tariff_periods
+					WHERE tariff_plan_id = $1
+					  AND start_date IS NOT DISTINCT FROM $2
+					  AND end_date   IS NOT DISTINCT FROM $3`,
+					opPlanID, pFrom, pTo,
+				).Scan(&opPeriodID); selErr != nil {
+					log.Error().Err(selErr).Msg("network_tariff_bulk: re-select op-tpl period after overlap failed")
+					return shared.ErrInternalServer("ошибка поиска периода")
+				}
+			} else {
+				log.Error().Err(insErr).Msg("network_tariff_bulk: create op-tpl period failed")
+				return shared.ErrInternalServer("ошибка создания периода")
+			}
+		}
+	} else if err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: find op-tpl period failed")
+		return shared.ErrInternalServer("ошибка поиска периода")
+	}
+
+	// 4. UPSERT tier by from_count.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO reseller_tariff_tiers (tariff_period_id, from_count, price_per_segment)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (tariff_period_id, from_count)
+		DO UPDATE SET price_per_segment = EXCLUDED.price_per_segment`,
+		opPeriodID, fromCount, price); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: upsert op-tpl tier failed")
+		return shared.ErrInternalServer("ошибка записи цены")
+	}
+
+	return nil
+}
+
+// findOrCreateOperatorTemplatePlan — template-scope sibling of
+// findOrCreateOverridePlan. Returns the per-operator template plan id for
+// (template_id, country_id, operator_id, sender_category, traffic_type),
+// creating it from plan's dimensions if missing. Race-safe via savepoint.
+func (h *NetworkTariffBulkHandler) findOrCreateOperatorTemplatePlan(
+	ctx context.Context, tx pgx.Tx, plan *bulkPlan, opID uuid.UUID,
+) (uuid.UUID, *shared.AppError) {
+	var id uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_plans
+		WHERE template_id = $1 AND active
+		  AND COALESCE(country_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND operator_id = $3
+		  AND sender_category = $4 AND traffic_type = $5`,
+		plan.TemplateID, plan.CountryID, opID, plan.SenderCategory, plan.TrafficType,
+	).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		log.Error().Err(err).Msg("network_tariff_bulk: find op-tpl plan failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка поиска операторского плана")
+	}
+
+	if _, err := tx.Exec(ctx, `SAVEPOINT sp_op_tpl_plan`); err != nil {
+		return uuid.Nil, shared.ErrInternalServer("ошибка транзакции")
+	}
+	insErr := tx.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, template_id, country_id, operator_id,
+		   sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+		RETURNING id`,
+		plan.ResellerID, plan.TemplateID, plan.CountryID, opID,
+		plan.SenderCategory, plan.TrafficType, plan.Strategy,
+	).Scan(&id)
+	if insErr == nil {
+		if _, err := tx.Exec(ctx, `RELEASE SAVEPOINT sp_op_tpl_plan`); err != nil {
+			return uuid.Nil, shared.ErrInternalServer("ошибка транзакции")
+		}
+		return id, nil
+	}
+	if _, err := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT sp_op_tpl_plan`); err != nil {
+		return uuid.Nil, shared.ErrInternalServer("ошибка транзакции")
+	}
+	if !isBulkUniqueViolation(insErr) {
+		log.Error().Err(insErr).Msg("network_tariff_bulk: create op-tpl plan failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка создания операторского плана")
+	}
+	if err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_plans
+		WHERE template_id = $1 AND active
+		  AND COALESCE(country_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND operator_id = $3
+		  AND sender_category = $4 AND traffic_type = $5`,
+		plan.TemplateID, plan.CountryID, opID, plan.SenderCategory, plan.TrafficType,
+	).Scan(&id); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: re-select op-tpl plan after unique violation failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка поиска операторского плана")
+	}
+	return id, nil
+}
+
+// findOrCreateOverridePlan returns an override plan id for (sub_account, URL
+// plan dims). If no such plan exists, one is created with the same country /
+// operator / sender_category / traffic_type / strategy as the URL plan.
+//
+// Race-safety: two concurrent callers could both miss the initial SELECT, race
+// on INSERT, and the second one would hit 23505 on the partial unique index
+// idx_reseller_plan_sub_account_dims. We catch that and re-SELECT to return
+// the winning row.
+//
+// Tenant-safety: we re-verify sub_account ownership inside the tx with FOR
+// SHARE, guarding against parent_client_id changing between pre-tx validation
+// and the override INSERT.
+func (h *NetworkTariffBulkHandler) findOrCreateOverridePlan(
+	ctx context.Context, tx pgx.Tx, plan *bulkPlan, subAccountID uuid.UUID,
+) (uuid.UUID, *shared.AppError) {
+	// Re-verify sub_account belongs to caller reseller, locked for the tx.
+	var ownerOK bool
+	if err := tx.QueryRow(ctx, `
+		SELECT true FROM clients
+		WHERE id = $1 AND parent_client_id = $2 FOR SHARE`,
+		subAccountID, plan.ResellerID,
+	).Scan(&ownerOK); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, shared.ErrInvalidInput("sub_account_id не принадлежит этому агрегатору")
+		}
+		log.Error().Err(err).Msg("network_tariff_bulk: sub_account ownership re-verify failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка проверки суб-аккаунта")
+	}
+
+	var id uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_plans
+		WHERE sub_account_id = $1 AND active
+		  AND COALESCE(country_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND COALESCE(operator_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($3, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND sender_category = $4 AND traffic_type = $5`,
+		subAccountID, plan.CountryID, plan.OperatorID, plan.SenderCategory, plan.TrafficType,
+	).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		log.Error().Err(err).Msg("network_tariff_bulk: find override plan failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка поиска override-плана")
+	}
+	// Try INSERT wrapped in a SAVEPOINT so that a 23505 (race with another tx
+	// that just committed) doesn't abort the outer transaction.
+	if _, err := tx.Exec(ctx, `SAVEPOINT sp_override_plan`); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: savepoint failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка транзакции")
+	}
+	insErr := tx.QueryRow(ctx, `
+		INSERT INTO reseller_tariff_plans
+		  (reseller_id, sub_account_id, country_id, operator_id,
+		   sender_category, traffic_type, strategy, active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+		RETURNING id`,
+		plan.ResellerID, subAccountID, plan.CountryID, plan.OperatorID,
+		plan.SenderCategory, plan.TrafficType, plan.Strategy,
+	).Scan(&id)
+	if insErr == nil {
+		if _, err := tx.Exec(ctx, `RELEASE SAVEPOINT sp_override_plan`); err != nil {
+			log.Error().Err(err).Msg("network_tariff_bulk: release savepoint failed")
+			return uuid.Nil, shared.ErrInternalServer("ошибка транзакции")
+		}
+		return id, nil
+	}
+	// Roll back the savepoint before doing anything else on this tx.
+	if _, err := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT sp_override_plan`); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: rollback savepoint failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка транзакции")
+	}
+	if !isBulkUniqueViolation(insErr) {
+		log.Error().Err(insErr).Msg("network_tariff_bulk: create override plan failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка создания override-плана")
+	}
+	// Race fallback: re-SELECT after the unique violation.
+	if err := tx.QueryRow(ctx, `
+		SELECT id FROM reseller_tariff_plans
+		WHERE sub_account_id = $1 AND active
+		  AND COALESCE(country_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND COALESCE(operator_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		    = COALESCE($3, '00000000-0000-0000-0000-000000000000'::uuid)
+		  AND sender_category = $4 AND traffic_type = $5`,
+		subAccountID, plan.CountryID, plan.OperatorID, plan.SenderCategory, plan.TrafficType,
+	).Scan(&id); err != nil {
+		log.Error().Err(err).Msg("network_tariff_bulk: re-select after unique violation failed")
+		return uuid.Nil, shared.ErrInternalServer("ошибка поиска override-плана")
+	}
+	return id, nil
+}
+
+func (h *NetworkTariffBulkHandler) ensureReseller(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Клиент не найден"))
+		return uuid.Nil, false
+	}
+	var isReseller bool
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT is_reseller FROM clients WHERE id = $1`, clientID,
+	).Scan(&isReseller); err != nil || !isReseller {
+		respondError(w, shared.ErrUnauthorized("доступ только для агрегаторов"))
+		return uuid.Nil, false
+	}
+	return clientID, true
+}
+
+func (h *NetworkTariffBulkHandler) invalidateSummaryCache(resellerID uuid.UUID) {
+	if h.redis == nil {
+		return
+	}
+	cctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := h.redis.Del(cctx, summaryCacheKeyPrefix+resellerID.String()).Err(); err != nil {
+		log.Warn().Err(err).Msg("network_tariff_bulk: redis DEL failed")
+	}
+}
+
+func isBulkUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+func writeBulkError(w http.ResponseWriter, status int, reason string) {
+	writeBulkErrors(w, status, []bulkError{{Reason: reason}})
+}
+
+func writeBulkErrors(w http.ResponseWriter, status int, errs []bulkError) {
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	writeJSON(w, bulkResponse{OK: false, Errors: errs})
+}

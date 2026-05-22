@@ -1,0 +1,642 @@
+syntax = "proto3";
+
+package routing.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/routingv1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// RoutingService предоставляет методы для управления маршрутизацией
+service RoutingService {
+  // GetRoute получает маршрут для сообщения
+  rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
+  
+  // SelectProvider выбирает оптимального провайдера для маршрута
+  rpc SelectProvider(SelectProviderRequest) returns (SelectProviderResponse);
+  
+  // CreateRoute создает новое правило маршрутизации
+  rpc CreateRoute(CreateRouteRequest) returns (CreateRouteResponse);
+  
+  // UpdateRoute обновляет правило маршрутизации
+  rpc UpdateRoute(UpdateRouteRequest) returns (UpdateRouteResponse);
+  
+  // DeleteRoute удаляет правило маршрутизации
+  rpc DeleteRoute(DeleteRouteRequest) returns (DeleteRouteResponse);
+  
+  // ListRoutes получает список правил маршрутизации
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+
+  // Управление странами
+  rpc CreateCountry(CreateCountryRequest) returns (Country);
+  rpc GetCountry(GetCountryRequest) returns (Country);
+  rpc ListCountries(ListCountriesRequest) returns (ListCountriesResponse);
+  rpc UpdateCountry(UpdateCountryRequest) returns (Country);
+
+  // Управление операторами
+  rpc CreateOperator(CreateOperatorRequest) returns (Operator);
+  rpc GetOperator(GetOperatorRequest) returns (Operator);
+  rpc ListOperators(ListOperatorsRequest) returns (ListOperatorsResponse);
+  rpc UpdateOperator(UpdateOperatorRequest) returns (Operator);
+
+  // Управление префиксами операторов
+  rpc CreateOperatorPrefix(CreateOperatorPrefixRequest) returns (OperatorPrefix);
+  rpc ListOperatorPrefixes(ListOperatorPrefixesRequest) returns (ListOperatorPrefixesResponse);
+  rpc DeleteOperatorPrefix(DeleteOperatorPrefixRequest) returns (DeleteOperatorPrefixResponse);
+
+  // Определение оператора по номеру
+  rpc ResolveOperator(ResolveOperatorRequest) returns (ResolveOperatorResponse);
+
+  // HLR/MNP Number Lookup
+  rpc NumberLookup(NumberLookupRequest) returns (NumberLookupResponse);
+  rpc BulkNumberLookup(BulkNumberLookupRequest) returns (BulkNumberLookupResponse);
+
+  // Управление HLR-провайдерами
+  rpc CreateHLRProvider(CreateHLRProviderRequest) returns (HLRProviderProto);
+  rpc UpdateHLRProvider(UpdateHLRProviderRequest) returns (HLRProviderProto);
+  rpc DeleteHLRProvider(DeleteHLRProviderRequest) returns (DeleteRouteResponse);
+  rpc GetHLRProvider(GetHLRProviderRequest) returns (HLRProviderProto);
+  rpc ListHLRProviders(ListHLRProvidersRequest) returns (ListHLRProvidersResponse);
+
+  // История lookup-запросов
+  rpc GetLookupHistory(GetLookupHistoryRequest) returns (GetLookupHistoryResponse);
+
+  // Маршрутизация сообщения с использованием HLR
+  rpc RouteMessageWithHLR(RouteMessageWithHLRRequest) returns (RouteMessageWithHLRResponse);
+
+  // Client Providers
+  rpc AssignProviderToClient(AssignProviderRequest) returns (ClientProviderProto);
+  rpc RevokeProviderFromClient(RevokeProviderRequest) returns (google.protobuf.Empty);
+  rpc ListClientProviders(ListClientProvidersRequest) returns (ListClientProvidersResponse);
+  rpc UpdateClientProvider(UpdateClientProviderRequest) returns (ClientProviderProto);
+
+  // Provider Sharing
+  rpc ShareProviderWithChild(ShareProviderRequest) returns (ClientProviderProto);
+  rpc RevokeSharedProvider(RevokeSharedProviderRequest) returns (google.protobuf.Empty);
+
+  // Client Routes
+  rpc CreateClientRoute(CreateClientRouteRequest) returns (ClientRouteProto);
+  rpc UpdateClientRoute(UpdateClientRouteRequest) returns (ClientRouteProto);
+  rpc DeleteClientRoute(DeleteClientRouteRequest) returns (google.protobuf.Empty);
+  rpc ListClientRoutes(ListClientRoutesRequest) returns (ListClientRoutesResponse);
+
+  // Routing Strategy
+  rpc SetRoutingStrategy(SetRoutingStrategyRequest) returns (ClientRoutingStrategyProto);
+  rpc GetRoutingStrategy(GetRoutingStrategyRequest) returns (ClientRoutingStrategyProto);
+  rpc DeleteRoutingStrategy(DeleteRoutingStrategyRequest) returns (google.protobuf.Empty);
+}
+
+// GetRouteRequest представляет запрос на получение маршрута
+message GetRouteRequest {
+  string destination = 1;         // Номер получателя
+  string client_id = 2;           // ID клиента (опционально)
+  string source = 3;              // Номер отправителя (опционально)
+}
+
+// GetRouteResponse представляет ответ с информацией о маршруте
+message GetRouteResponse {
+  RouteInfo route = 1;            // Информация о маршруте
+}
+
+// SelectProviderRequest представляет запрос на выбор провайдера
+message SelectProviderRequest {
+  RouteInfo route = 1;            // Информация о маршруте
+  string client_id = 2;           // ID клиента (опционально)
+  int32 priority = 3;             // Приоритет сообщения (опционально)
+}
+
+// SelectProviderResponse представляет ответ с выбранным провайдером
+message SelectProviderResponse {
+  string provider_id = 1;         // ID выбранного провайдера
+  string strategy = 2;            // Использованная стратегия выбора
+  repeated string backup_providers = 3;  // Резервные провайдеры
+}
+
+// CreateRouteRequest представляет запрос на создание маршрута
+message CreateRouteRequest {
+  string name = 1;                // Название маршрута
+  string pattern = 2;             // Паттерн номера (regex)
+  int32 priority = 3;             // Приоритет маршрута
+  repeated string provider_ids = 4;  // Список ID провайдеров
+  string load_balance_strategy = 5;  // Стратегия балансировки (round_robin, least_loaded, cheapest)
+  bool failover_enabled = 6;      // Включен ли failover
+  map<string, string> metadata = 7;  // Дополнительные метаданные
+}
+
+// CreateRouteResponse представляет ответ на создание маршрута
+message CreateRouteResponse {
+  string route_id = 1;            // ID созданного маршрута
+  google.protobuf.Timestamp created_at = 2;  // Время создания
+}
+
+// UpdateRouteRequest представляет запрос на обновление маршрута
+message UpdateRouteRequest {
+  string route_id = 1;            // ID маршрута
+  string name = 2;                // Название маршрута (опционально)
+  string pattern = 3;             // Паттерн номера (опционально)
+  int32 priority = 4;             // Приоритет маршрута (опционально)
+  repeated string provider_ids = 5;  // Список ID провайдеров (опционально)
+  string load_balance_strategy = 6;  // Стратегия балансировки (опционально)
+  bool failover_enabled = 7;      // Включен ли failover (опционально)
+  bool active = 8;                // Активен ли маршрут (опционально)
+  map<string, string> metadata = 9;  // Дополнительные метаданные (опционально)
+}
+
+// UpdateRouteResponse представляет ответ на обновление маршрута
+message UpdateRouteResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// DeleteRouteRequest представляет запрос на удаление маршрута
+message DeleteRouteRequest {
+  string route_id = 1;            // ID маршрута
+}
+
+// DeleteRouteResponse представляет ответ на удаление маршрута
+message DeleteRouteResponse {
+  bool success = 1;               // Успешность операции
+}
+
+// ListRoutesRequest представляет запрос на получение списка маршрутов
+message ListRoutesRequest {
+  bool active_only = 1;           // Только активные маршруты
+  int32 limit = 2;                // Лимит записей
+  int32 offset = 3;               // Смещение для пагинации
+}
+
+// ListRoutesResponse представляет ответ со списком маршрутов
+message ListRoutesResponse {
+  repeated RouteInfo routes = 1;  // Список маршрутов
+  int32 total = 2;                // Общее количество
+}
+
+// RouteInfo представляет информацию о маршруте
+message RouteInfo {
+  string route_id = 1;            // ID маршрута
+  string name = 2;                // Название маршрута
+  string pattern = 3;             // Паттерн номера
+  int32 priority = 4;             // Приоритет маршрута
+  repeated string provider_ids = 5;  // Список ID провайдеров
+  string load_balance_strategy = 6;  // Стратегия балансировки
+  bool failover_enabled = 7;      // Включен ли failover
+  bool active = 8;                // Активен ли маршрут
+  map<string, string> metadata = 9;  // Дополнительные метаданные
+  google.protobuf.Timestamp created_at = 10;  // Время создания
+  google.protobuf.Timestamp updated_at = 11;  // Время обновления
+}
+
+// Country представляет страну
+message Country {
+  string id = 1;                              // ID страны
+  string name = 2;                            // Название страны
+  string iso_code = 3;                        // ISO-код страны
+  string phone_code = 4;                      // Телефонный код страны
+  string currency = 5;                        // Валюта страны
+  google.protobuf.Timestamp created_at = 6;   // Время создания
+  google.protobuf.Timestamp updated_at = 7;   // Время обновления
+}
+
+// CreateCountryRequest представляет запрос на создание страны
+message CreateCountryRequest {
+  string name = 1;                            // Название страны
+  string iso_code = 2;                        // ISO-код страны
+  string phone_code = 3;                      // Телефонный код страны
+  string currency = 4;                        // Валюта страны
+}
+
+// GetCountryRequest представляет запрос на получение страны
+message GetCountryRequest {
+  string id = 1;                              // ID страны
+}
+
+// ListCountriesRequest представляет запрос на получение списка стран
+message ListCountriesRequest {
+  int32 limit = 1;                            // Лимит записей
+  int32 offset = 2;                           // Смещение для пагинации
+}
+
+// ListCountriesResponse представляет ответ со списком стран
+message ListCountriesResponse {
+  repeated Country countries = 1;             // Список стран
+  int32 total = 2;                            // Общее количество
+}
+
+// UpdateCountryRequest представляет запрос на обновление страны
+message UpdateCountryRequest {
+  string id = 1;                              // ID страны
+  string name = 2;                            // Название страны
+  string iso_code = 3;                        // ISO-код страны
+  string phone_code = 4;                      // Телефонный код страны
+  string currency = 5;                        // Валюта страны
+}
+
+// Operator представляет мобильного оператора
+message Operator {
+  string id = 1;                              // ID оператора
+  string country_id = 2;                      // ID страны
+  string name = 3;                            // Название оператора
+  string code = 4;                            // Код оператора
+  bool supports_paid_sender = 5;              // Поддержка платного отправителя
+  bool supports_free_sender = 6;              // Поддержка бесплатного отправителя
+  bool active = 7;                            // Активен ли оператор
+  google.protobuf.Timestamp created_at = 8;   // Время создания
+  google.protobuf.Timestamp updated_at = 9;   // Время обновления
+  string monthly_tariff_amount = 10;          // Ежемесячный тариф в RUB; пустая строка = не задан (free-only)
+}
+
+// CreateOperatorRequest представляет запрос на создание оператора
+message CreateOperatorRequest {
+  string country_id = 1;                      // ID страны
+  string name = 2;                            // Название оператора
+  string code = 3;                            // Код оператора
+  bool supports_paid_sender = 4;              // Поддержка платного отправителя
+  bool supports_free_sender = 5;              // Поддержка бесплатного отправителя
+  string monthly_tariff_amount = 6;           // Ежемесячный тариф в RUB; "" или "0" = не задан
+}
+
+// GetOperatorRequest представляет запрос на получение оператора
+message GetOperatorRequest {
+  string id = 1;                              // ID оператора
+}
+
+// ListOperatorsRequest представляет запрос на получение списка операторов
+message ListOperatorsRequest {
+  string country_id = 1;                      // ID страны (фильтр)
+  bool active_only = 2;                       // Только активные операторы
+  int32 limit = 3;                            // Лимит записей
+  int32 offset = 4;                           // Смещение для пагинации
+}
+
+// ListOperatorsResponse представляет ответ со списком операторов
+message ListOperatorsResponse {
+  repeated Operator operators = 1;            // Список операторов
+  int32 total = 2;                            // Общее количество
+}
+
+// UpdateOperatorRequest представляет запрос на обновление оператора
+message UpdateOperatorRequest {
+  string id = 1;                              // ID оператора
+  string name = 2;                            // Название оператора
+  string code = 3;                            // Код оператора
+  bool supports_paid_sender = 4;              // Поддержка платного отправителя
+  bool supports_free_sender = 5;              // Поддержка бесплатного отправителя
+  bool active = 6;                            // Активен ли оператор
+  string monthly_tariff_amount = 7;           // Ежемесячный тариф в RUB; "" или "0" = сбросить
+}
+
+// OperatorPrefix представляет префикс номера оператора
+message OperatorPrefix {
+  string id = 1;                              // ID префикса
+  string operator_id = 2;                     // ID оператора
+  string prefix = 3;                          // Префикс номера
+  int32 priority = 4;                         // Приоритет префикса
+  google.protobuf.Timestamp created_at = 5;   // Время создания
+}
+
+// CreateOperatorPrefixRequest представляет запрос на создание префикса оператора
+message CreateOperatorPrefixRequest {
+  string operator_id = 1;                     // ID оператора
+  string prefix = 2;                          // Префикс номера
+  int32 priority = 3;                         // Приоритет префикса
+}
+
+// ListOperatorPrefixesRequest представляет запрос на получение префиксов оператора
+message ListOperatorPrefixesRequest {
+  string operator_id = 1;                     // ID оператора
+}
+
+// ListOperatorPrefixesResponse представляет ответ со списком префиксов оператора
+message ListOperatorPrefixesResponse {
+  repeated OperatorPrefix prefixes = 1;       // Список префиксов
+}
+
+// DeleteOperatorPrefixRequest представляет запрос на удаление префикса оператора
+message DeleteOperatorPrefixRequest {
+  string id = 1;                              // ID префикса
+}
+
+// DeleteOperatorPrefixResponse представляет ответ на удаление префикса оператора
+message DeleteOperatorPrefixResponse {
+  bool success = 1;                           // Успешность операции
+}
+
+// ResolveOperatorRequest представляет запрос на определение оператора по номеру
+message ResolveOperatorRequest {
+  string phone_number = 1;                    // Номер телефона
+  bool use_mnp = 2;                           // Использовать MNP (перенос номера)
+}
+
+// ResolveOperatorResponse представляет ответ с информацией об определённом операторе
+message ResolveOperatorResponse {
+  string operator_id = 1;                     // ID оператора
+  string country_id = 2;                      // ID страны
+  string operator_code = 3;                   // Код оператора
+  string country_code = 4;                    // Код страны
+  string currency = 5;                        // Валюта
+  string resolved_by = 6;                     // Метод определения (prefix, mnp)
+}
+
+// ==================== HLR/MNP Number Lookup ====================
+
+// NumberStatus представляет статус номера
+enum NumberStatus {
+  NUMBER_STATUS_UNSPECIFIED = 0;
+  NUMBER_STATUS_ACTIVE = 1;
+  NUMBER_STATUS_ABSENT = 2;
+  NUMBER_STATUS_INVALID = 3;
+  NUMBER_STATUS_UNKNOWN = 4;
+}
+
+// NumberType представляет тип номера
+enum NumberType {
+  NUMBER_TYPE_UNSPECIFIED = 0;
+  NUMBER_TYPE_MOBILE = 1;
+  NUMBER_TYPE_FIXED = 2;
+  NUMBER_TYPE_VOIP = 3;
+}
+
+// NumberLookupRequest представляет запрос на проверку номера через HLR
+message NumberLookupRequest {
+  string msisdn = 1;                           // Номер телефона (MSISDN)
+  string client_id = 2;                        // ID клиента
+  bool force_refresh = 3;                      // Принудительное обновление (игнорировать кеш)
+  string request_id = 4;                       // ID запроса
+}
+
+// NumberLookupResponse представляет ответ с результатом проверки номера
+message NumberLookupResponse {
+  string msisdn = 1;                           // Номер телефона (MSISDN)
+  string operator_mccmnc = 2;                  // MCC/MNC оператора
+  string operator_name = 3;                    // Название оператора
+  NumberStatus number_status = 4;              // Статус номера
+  string country_code = 5;                     // Код страны
+  NumberType number_type = 6;                  // Тип номера
+  bool is_ported = 7;                          // Перенесён ли номер (MNP)
+  string original_operator_mccmnc = 8;         // Исходный MCC/MNC оператора (до переноса)
+  bool cached = 9;                             // Результат из кеша
+  google.protobuf.Timestamp queried_at = 10;   // Время запроса
+}
+
+// BulkNumberLookupRequest представляет запрос на массовую проверку номеров
+message BulkNumberLookupRequest {
+  repeated string msisdns = 1;                 // Список номеров телефонов
+  string client_id = 2;                        // ID клиента
+  bool force_refresh = 3;                      // Принудительное обновление (игнорировать кеш)
+  string request_id = 4;                       // ID запроса
+}
+
+// BulkNumberLookupResponse представляет ответ с результатами массовой проверки
+message BulkNumberLookupResponse {
+  repeated NumberLookupResponse results = 1;   // Результаты проверки
+  int32 total_count = 2;                       // Общее количество номеров
+  int32 success_count = 3;                     // Количество успешных проверок
+  int32 failed_count = 4;                      // Количество неудачных проверок
+}
+
+// ==================== HLR-провайдеры ====================
+
+// HLRProviderProto представляет HLR-провайдера
+message HLRProviderProto {
+  string id = 1;                               // ID провайдера
+  string name = 2;                             // Название провайдера
+  string adapter_type = 3;                     // Тип адаптера
+  string config_json = 4;                      // Конфигурация в формате JSON
+  int32 priority = 5;                          // Приоритет провайдера
+  repeated string supported_regions = 6;       // Поддерживаемые регионы
+  string cost_per_lookup = 7;                  // Стоимость одного запроса
+  string status = 8;                           // Статус провайдера
+  string success_rate = 9;                     // Процент успешных запросов
+  google.protobuf.Timestamp last_success_at = 10;  // Время последнего успешного запроса
+  google.protobuf.Timestamp last_failure_at = 11;  // Время последнего неудачного запроса
+  bool active = 12;                            // Активен ли провайдер
+  google.protobuf.Timestamp created_at = 13;   // Время создания
+  google.protobuf.Timestamp updated_at = 14;   // Время обновления
+}
+
+// CreateHLRProviderRequest представляет запрос на создание HLR-провайдера
+message CreateHLRProviderRequest {
+  string name = 1;                             // Название провайдера
+  string adapter_type = 2;                     // Тип адаптера
+  string config_json = 3;                      // Конфигурация в формате JSON
+  int32 priority = 4;                          // Приоритет провайдера
+  repeated string supported_regions = 5;       // Поддерживаемые регионы
+  string cost_per_lookup = 6;                  // Стоимость одного запроса
+}
+
+// UpdateHLRProviderRequest представляет запрос на обновление HLR-провайдера
+message UpdateHLRProviderRequest {
+  string id = 1;                               // ID провайдера
+  string name = 2;                             // Название провайдера
+  string adapter_type = 3;                     // Тип адаптера
+  string config_json = 4;                      // Конфигурация в формате JSON
+  int32 priority = 5;                          // Приоритет провайдера
+  repeated string supported_regions = 6;       // Поддерживаемые регионы
+  string cost_per_lookup = 7;                  // Стоимость одного запроса
+  bool active = 8;                             // Активен ли провайдер
+}
+
+// DeleteHLRProviderRequest представляет запрос на удаление HLR-провайдера
+message DeleteHLRProviderRequest {
+  string id = 1;                               // ID провайдера
+}
+
+// GetHLRProviderRequest представляет запрос на получение HLR-провайдера
+message GetHLRProviderRequest {
+  string id = 1;                               // ID провайдера
+}
+
+// ListHLRProvidersRequest представляет запрос на получение списка HLR-провайдеров
+message ListHLRProvidersRequest {
+  bool active_only = 1;                        // Только активные провайдеры
+}
+
+// ListHLRProvidersResponse представляет ответ со списком HLR-провайдеров
+message ListHLRProvidersResponse {
+  repeated HLRProviderProto providers = 1;     // Список провайдеров
+}
+
+// ==================== История lookup-запросов ====================
+
+// LookupLogEntry представляет запись в журнале lookup-запросов
+message LookupLogEntry {
+  string id = 1;                               // ID записи
+  string msisdn = 2;                           // Номер телефона (MSISDN)
+  string operator_mccmnc = 3;                  // MCC/MNC оператора
+  string operator_name = 4;                    // Название оператора
+  NumberStatus number_status = 5;              // Статус номера
+  string country_code = 6;                     // Код страны
+  NumberType number_type = 7;                  // Тип номера
+  bool is_ported = 8;                          // Перенесён ли номер (MNP)
+  string source = 9;                           // Источник запроса
+  string client_id = 10;                       // ID клиента
+  bool cached = 11;                            // Результат из кеша
+  int32 latency_ms = 12;                       // Задержка запроса (мс)
+  string request_id = 13;                      // ID запроса
+  string message_id = 14;                      // ID сообщения
+  google.protobuf.Timestamp created_at = 15;   // Время создания
+}
+
+// GetLookupHistoryRequest представляет запрос на получение истории lookup-запросов
+message GetLookupHistoryRequest {
+  string client_id = 1;                        // ID клиента
+  google.protobuf.Timestamp from_date = 2;     // Начало периода
+  google.protobuf.Timestamp to_date = 3;       // Конец периода
+  string msisdn_filter = 4;                    // Фильтр по номеру (опционально)
+  string source_filter = 5;                    // Фильтр по источнику (опционально)
+  int32 page = 6;                              // Номер страницы
+  int32 page_size = 7;                         // Размер страницы
+}
+
+// GetLookupHistoryResponse представляет ответ с историей lookup-запросов
+message GetLookupHistoryResponse {
+  repeated LookupLogEntry items = 1;           // Список записей
+  int64 total_count = 2;                       // Общее количество записей
+  int32 page = 3;                              // Номер страницы
+  int32 page_size = 4;                         // Размер страницы
+}
+
+// ==================== Маршрутизация с HLR ====================
+
+// RouteMessageWithHLRRequest представляет запрос на маршрутизацию сообщения с HLR
+message RouteMessageWithHLRRequest {
+  string message_id = 1;                       // ID сообщения
+  string destination = 2;                      // Номер получателя
+  string client_id = 3;                        // ID клиента
+  string existing_route_id = 4;                // ID существующего маршрута (опционально)
+  string existing_provider_id = 5;             // ID существующего провайдера (опционально)
+}
+
+// RouteMessageWithHLRResponse представляет ответ на маршрутизацию сообщения с HLR
+message RouteMessageWithHLRResponse {
+  string route_id = 1;                         // ID маршрута
+  string provider_id = 2;                      // ID провайдера
+  NumberLookupResponse hlr_result = 3;         // Результат HLR-запроса
+  bool hlr_used = 4;                           // Использовался ли HLR
+  double routing_score = 5;                    // Оценка маршрутизации
+}
+
+// === Client Provider messages ===
+
+message ClientProviderProto {
+  string id = 1;
+  string client_id = 2;
+  string provider_id = 3;
+  string ownership = 4;
+  string source_client_id = 5;
+  int32 shared_priority = 6;
+  bool expose_cost = 7;
+  bool expose_provider_name = 8;
+  bool active = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message AssignProviderRequest {
+  string client_id = 1;
+  string provider_id = 2;
+  string ownership = 3;
+  int32 shared_priority = 4;
+}
+
+message RevokeProviderRequest {
+  string client_id = 1;
+  string provider_id = 2;
+}
+
+message ListClientProvidersRequest {
+  string client_id = 1;
+  bool active_only = 2;
+}
+
+message ListClientProvidersResponse {
+  repeated ClientProviderProto providers = 1;
+}
+
+message UpdateClientProviderRequest {
+  string id = 1;
+  int32 shared_priority = 2;
+  bool expose_cost = 3;
+  bool expose_provider_name = 4;
+  bool active = 5;
+}
+
+message ShareProviderRequest {
+  string parent_client_id = 1;
+  string child_client_id = 2;
+  string provider_id = 3;
+  bool expose_cost = 4;
+  bool expose_provider_name = 5;
+}
+
+message RevokeSharedProviderRequest {
+  string id = 1;
+}
+
+// === Client Route messages ===
+
+message ClientRouteProto {
+  string id = 1;
+  string client_id = 2;
+  string operator_id = 3;
+  string provider_id = 4;
+  int32 priority = 5;
+  int32 weight = 6;
+  bool active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateClientRouteRequest {
+  string client_id = 1;
+  string operator_id = 2;
+  string provider_id = 3;
+  int32 priority = 4;
+  int32 weight = 5;
+}
+
+message UpdateClientRouteRequest {
+  string id = 1;
+  int32 priority = 2;
+  int32 weight = 3;
+  bool active = 4;
+}
+
+message DeleteClientRouteRequest {
+  string id = 1;
+}
+
+message ListClientRoutesRequest {
+  string client_id = 1;
+  string operator_id = 2;
+}
+
+message ListClientRoutesResponse {
+  repeated ClientRouteProto routes = 1;
+}
+
+// === Routing Strategy messages ===
+
+message ClientRoutingStrategyProto {
+  string id = 1;
+  string client_id = 2;
+  string operator_id = 3;
+  string strategy = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message SetRoutingStrategyRequest {
+  string client_id = 1;
+  string operator_id = 2;
+  string strategy = 3;
+}
+
+message GetRoutingStrategyRequest {
+  string client_id = 1;
+  string operator_id = 2;
+}
+
+message DeleteRoutingStrategyRequest {
+  string client_id = 1;
+  string operator_id = 2;
+}

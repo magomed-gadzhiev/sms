@@ -1,0 +1,105 @@
+package application
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/smpp-server/smpp-server/internal/services/provider/domain"
+	"github.com/smpp-server/smpp-server/internal/shared"
+)
+
+// SMSCSender интерфейс для smsc.Sender
+type SMSCSender interface {
+	SendMessage(ctx context.Context, msg *shared.Message, provider *shared.Provider) (string, error)
+}
+
+// SenderService предоставляет сервис для отправки сообщений через провайдеров
+type SenderService struct {
+	sender SMSCSender
+	logger zerolog.Logger
+}
+
+// NewSenderService создает новый сервис отправителя
+func NewSenderService(sender SMSCSender) *SenderService {
+	return &SenderService{
+		sender: sender,
+		logger: log.With().Str("component", "sender_service").Logger(),
+	}
+}
+
+// SendMessage отправляет сообщение через провайдера
+func (s *SenderService) SendMessage(
+	ctx context.Context,
+	provider *domain.Provider,
+	params *SendMessageParams,
+) (string, error) {
+	if !provider.IsActive() {
+		return "", domain.ErrProviderInactive
+	}
+
+	// Создаем shared.Message из параметров
+	sharedMsg := &shared.Message{
+		Source:             params.Source,
+		Destination:        params.Destination,
+		Text:               params.Text,
+		ServiceType:        params.ServiceType,
+		SourceAddrTON:      params.SourceAddrTON,
+		SourceAddrNPI:      params.SourceAddrNPI,
+		DestAddrTON:        params.DestAddrTON,
+		DestAddrNPI:        params.DestAddrNPI,
+		ESMClass:           params.ESMClass,
+		ProtocolID:         params.ProtocolID,
+		PriorityFlag:       params.PriorityFlag,
+		RegisteredDelivery: params.RegisteredDelivery,
+		ReplaceIfPresent:   params.ReplaceIfPresent,
+		DataCoding:         params.DataCoding,
+		ValidityPeriod:     params.ValidityPeriod,
+	}
+
+	// Создаем shared.Provider из domain.Provider
+	sharedProvider := &shared.Provider{
+		ID:               provider.ID,
+		Name:             provider.Name,
+		Host:             provider.Host,
+		Port:             provider.Port,
+		SystemID:         provider.SystemID,
+		Password:         provider.Password,
+		SystemType:       provider.SystemType,
+		BindType:         string(provider.BindType),
+		BindTON:          provider.BindTON,
+		BindNPI:          provider.BindNPI,
+		AddrTON:          provider.AddrTON,
+		AddrNPI:          provider.AddrNPI,
+		AddressRange:     provider.AddressRange,
+		MaxConnections:   provider.MaxConnections,
+		Active:           provider.Active,
+		Priority:         provider.Priority,
+		ThroughputPerSec: provider.ThroughputPerSec,
+	}
+
+	// Отправляем сообщение через smsc.Sender
+	smppMessageID, err := s.sender.SendMessage(ctx, sharedMsg, sharedProvider)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("provider_id", provider.ID.String()).
+			Str("provider_name", provider.Name).
+			Msg("ошибка отправки сообщения")
+		return "", fmt.Errorf("отправка сообщения: %w", err)
+	}
+
+	log.Debug().
+		Str("provider_id", provider.ID.String()).
+		Str("provider_name", provider.Name).
+		Str("smpp_message_id", smppMessageID).
+		Msg("сообщение отправлено успешно")
+
+	return smppMessageID, nil
+}
+
+// SMPPConnectionAdapter — раньше тут жила заглушка с
+// `return "", fmt.Errorf("not implemented: use smsc.Sender")`. Производственный
+// путь использует infrastructure/smpp.ConnectionAdapter; этот dead-stub удалён
+// в spec 017 D2 (T015 пропустил этот файл).

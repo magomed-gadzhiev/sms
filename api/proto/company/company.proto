@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package company.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/companyv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service CompanyService {
+  rpc CreateCompany(CreateCompanyRequest) returns (CompanyResponse);
+  rpc UpdateCompany(UpdateCompanyRequest) returns (CompanyResponse);
+  rpc GetCompany(GetCompanyRequest) returns (CompanyResponse);
+  rpc ListClientCompanies(ListClientCompaniesRequest) returns (ListClientCompaniesResponse);
+  rpc SetDefaultCompany(SetDefaultCompanyRequest) returns (google.protobuf.Empty);
+  rpc DetachCompany(DetachCompanyRequest) returns (google.protobuf.Empty);
+  rpc CreateOfferCompany(CreateOfferCompanyRequest) returns (CompanyResponse);
+}
+
+message CompanyInfo {
+  string id = 1;
+  string inn = 2;
+  string name = 3;
+  string full_name = 4;
+  string kpp = 5;
+  string ogrn = 6;
+  string legal_address = 7;
+  string actual_address = 8;
+  string ceo_name = 9;
+  string ceo_title = 10;
+  string acting_basis = 11;
+  string bank_name = 12;
+  string bank_bik = 13;
+  string bank_corr_account = 14;
+  string bank_account = 15;
+  string email = 16;
+  string phone = 17;
+  bool is_offer = 18;
+  bool is_default = 19;
+  bool active = 20;
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+message CreateCompanyRequest {
+  string client_id = 1;
+  string inn = 2;
+  string name = 3;
+  string full_name = 4;
+  string kpp = 5;
+  string ogrn = 6;
+  string legal_address = 7;
+  string actual_address = 8;
+  string ceo_name = 9;
+  string ceo_title = 10;
+  string acting_basis = 11;
+  string bank_name = 12;
+  string bank_bik = 13;
+  string bank_corr_account = 14;
+  string bank_account = 15;
+  string email = 16;
+  string phone = 17;
+}
+
+message UpdateCompanyRequest {
+  string company_id = 1;
+  string inn = 2;
+  string name = 3;
+  string full_name = 4;
+  string kpp = 5;
+  string ogrn = 6;
+  string legal_address = 7;
+  string actual_address = 8;
+  string ceo_name = 9;
+  string ceo_title = 10;
+  string acting_basis = 11;
+  string bank_name = 12;
+  string bank_bik = 13;
+  string bank_corr_account = 14;
+  string bank_account = 15;
+  string email = 16;
+  string phone = 17;
+}
+
+message GetCompanyRequest {
+  string company_id = 1;
+}
+
+message ListClientCompaniesRequest {
+  string client_id = 1;
+}
+
+message ListClientCompaniesResponse {
+  repeated CompanyInfo companies = 1;
+}
+
+message SetDefaultCompanyRequest {
+  string client_id = 1;
+  string company_id = 2;
+}
+
+message DetachCompanyRequest {
+  string client_id = 1;
+  string company_id = 2;
+}
+
+message CreateOfferCompanyRequest {
+  string client_id = 1;
+}
+
+message CompanyResponse {
+  CompanyInfo company = 1;
+}

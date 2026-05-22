@@ -1,0 +1,65 @@
+{
+  "description": "Шаблоны текстов SMS для k6 load-тестов. Разная длина и тип контента для реалистичной нагрузки.",
+  "templates": [
+    {
+      "category": "otp",
+      "encoding": "GSM7",
+      "segments": 1,
+      "texts": [
+        "Ваш код: {code}. Никому не сообщайте.",
+        "Код подтверждения: {code}. Действует 5 минут.",
+        "Your verification code is {code}. Do not share it.",
+        "{code} - ваш одноразовый пароль для входа."
+      ]
+    },
+    {
+      "category": "transactional",
+      "encoding": "GSM7",
+      "segments": 1,
+      "texts": [
+        "Заказ #{order_id} подтвержден. Доставка завтра.",
+        "Оплата {amount} руб. прошла успешно. Чек: #{receipt_id}.",
+        "Баланс: {balance} RUB. Последняя операция: -{amount} RUB.",
+        "Посылка #{tracking} прибыла в пункт выдачи.",
+        "Напоминание: запись к врачу завтра в {time}."
+      ]
+    },
+    {
+      "category": "promo",
+      "encoding": "GSM7",
+      "segments": 1,
+      "texts": [
+        "Скидка {discount}% на все! Промокод: LOAD{promo}.",
+        "Бесплатная доставка при заказе от {amount} руб!",
+        "Черная пятница! Скидки до {discount}%. Только сегодня.",
+        "Новая коллекция уже в магазинах. Ждем вас!"
+      ]
+    },
+    {
+      "category": "notification",
+      "encoding": "GSM7",
+      "segments": 2,
+      "texts": [
+        "Уважаемый клиент! Ваш заказ №{order_id} отправлен курьерской службой. Трек-номер: {tracking}. Ожидаемая дата доставки: завтра с 10:00 до 18:00. Курьер позвонит за 30 мин.",
+        "Информация о рейсе SU-{flight}: вылет из SVO в {dep_time}, прибытие в LED в {arr_time}. Гейт: {gate}. Регистрация открыта. Приятного полета!",
+        "Ваш платеж на сумму {amount} руб. успешно обработан. Номер транзакции: TX-{tx_id}. Баланс после операции: {balance} руб. Детали в личном кабинете."
+      ]
+    },
+    {
+      "category": "alert",
+      "encoding": "GSM7",
+      "segments": 1,
+      "texts": [
+        "ВНИМАНИЕ: подозрительный вход в аккаунт с IP {ip}.",
+        "Сервер {server} недоступен. Начато автоматическое восстановление.",
+        "Превышен лимит API-запросов. Текущий rate: {rate}/sec."
+      ]
+    }
+  ],
+  "api_keys": [
+    {"key": "lt-high-volume-key-001", "profile": "high-volume", "rps": 10000},
+    {"key": "lt-med-volume-key-002",  "profile": "medium-volume", "rps": 1000},
+    {"key": "lt-low-volume-key-003",  "profile": "low-volume", "rps": 100},
+    {"key": "test-api-key",           "profile": "default", "rps": 10000}
+  ]
+}

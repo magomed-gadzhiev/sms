@@ -1,0 +1,1529 @@
+services:
+  # Investor presentation — static SPA served by nginx.
+  # Edit docs/investors/web/index.html and refresh browser; no rebuild needed.
+  # Public on http://<server-ip>:8090/
+  investor-deck:
+    image: nginx:1.27-alpine
+    container_name: investor-deck
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ../docs/investors/web:/usr/share/nginx/html:ro
+    networks:
+      - smpp-network
+
+  # HAProxy Load Balancer
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: haproxy
+    ports:
+      - "8080:8080"  # Client Gateway HTTP
+      - "8081:8081"  # Admin Gateway HTTP
+      - "9090:9090"  # Client Gateway gRPC
+      - "19095:9091"  # Admin Gateway gRPC (host port changed to avoid conflict)
+      - "8082:8082"  # Portal Gateway HTTP
+      - "8083:8083"  # Portal Frontend HTTP
+      - "8404:8404"  # HAProxy stats
+    volumes:
+      - ./configs/haproxy-new.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - smpp-network
+    depends_on:
+      - client-gateway-1
+      - client-gateway-2
+      - admin-gateway-1
+      - admin-gateway-2
+      - portal-gateway
+      - portal-frontend
+    restart: unless-stopped
+
+  # Client Gateway Instance 1
+  client-gateway-1:
+    build:
+      context: ..
+      dockerfile: deployments/docker/client-gateway.Dockerfile
+    container_name: client-gateway-1
+    ports:
+      - "18080:8080"  # HTTP (internal)
+      - "19090:9090"  # gRPC (internal)
+    environment:
+      - SERVICE_NAME=client-gateway-1
+      - CLIENT_HTTP_PORT=8080
+      - CLIENT_GRPC_PORT=9090
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - MESSAGING_SERVICE_ADDR=messaging-service:9092
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - ANALYTICS_SERVICE_ADDR=analytics-service:9096
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - CASCADE_SERVICE_ADDR=cascade-service:9110
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - LOAD_TEST_MODE=${LOAD_TEST_MODE:-false}
+      # Plan 7 Task 12 + Plan 8 Task 6 followup: canary mode allowlist для
+      # gRPC и HTTP send-handler'ов. Empty = canary off (любой client разрешён).
+      - CANARY_CLIENT_IDS=${CANARY_CLIENT_IDS:-}
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SMPP_DATABASE_MAX_OPEN_CONNS=100
+      - SMPP_DATABASE_MAX_IDLE_CONNS=20
+      - SMPP_SERVICE_ENV=production
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      webhook-service:
+        condition: service_healthy
+      template-service:
+        condition: service_healthy
+      client-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Client Gateway Instance 2
+  client-gateway-2:
+    build:
+      context: ..
+      dockerfile: deployments/docker/client-gateway.Dockerfile
+    container_name: client-gateway-2
+    ports:
+      - "18081:8080"  # HTTP (internal)
+      - "19091:9090"  # gRPC (internal)
+    environment:
+      - SERVICE_NAME=client-gateway-2
+      - CLIENT_HTTP_PORT=8080
+      - CLIENT_GRPC_PORT=9090
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - MESSAGING_SERVICE_ADDR=messaging-service:9092
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - ANALYTICS_SERVICE_ADDR=analytics-service:9096
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - CASCADE_SERVICE_ADDR=cascade-service:9110
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - LOAD_TEST_MODE=${LOAD_TEST_MODE:-false}
+      # Plan 7 Task 12 + Plan 8 Task 6 followup: canary mode allowlist (см. client-gateway-1).
+      - CANARY_CLIENT_IDS=${CANARY_CLIENT_IDS:-}
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SMPP_DATABASE_MAX_OPEN_CONNS=100
+      - SMPP_DATABASE_MAX_IDLE_CONNS=20
+      - SMPP_SERVICE_ENV=production
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      webhook-service:
+        condition: service_healthy
+      template-service:
+        condition: service_healthy
+      client-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Admin Gateway Instance 1
+  admin-gateway-1:
+    build:
+      context: ..
+      dockerfile: deployments/docker/admin-gateway.Dockerfile
+    container_name: admin-gateway-1
+    ports:
+      - "18082:8081"  # HTTP (internal)
+      - "19094:9091"  # gRPC (host port changed to avoid conflict)
+    environment:
+      - SERVICE_NAME=admin-gateway-1
+      - ADMIN_HTTP_PORT=8081
+      - ADMIN_GRPC_PORT=9091
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - ANALYTICS_SERVICE_ADDR=analytics-service:9096
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - AUDIT_SERVICE_ADDR=audit-service:9102
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      client-service:
+        condition: service_healthy
+      provider-service:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      webhook-service:
+        condition: service_healthy
+      template-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8081/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Admin Gateway Instance 2
+  admin-gateway-2:
+    build:
+      context: ..
+      dockerfile: deployments/docker/admin-gateway.Dockerfile
+    container_name: admin-gateway-2
+    ports:
+      - "18083:8081"  # HTTP (internal)
+      - "19093:9091"  # gRPC (internal)
+    environment:
+      - SERVICE_NAME=admin-gateway-2
+      - ADMIN_HTTP_PORT=8081
+      - ADMIN_GRPC_PORT=9091
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - ANALYTICS_SERVICE_ADDR=analytics-service:9096
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - AUDIT_SERVICE_ADDR=audit-service:9102
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      client-service:
+        condition: service_healthy
+      provider-service:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      webhook-service:
+        condition: service_healthy
+      template-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8081/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # SMPP Gateway
+  smpp-gateway:
+    build:
+      context: ..
+      dockerfile: deployments/docker/smpp-gateway.Dockerfile
+    container_name: smpp-gateway
+    environment:
+      - SMPP_PORT=2775
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      # Plan 7 Task 12: canary mode allowlist (handler.go submit_sm reject).
+      - CANARY_CLIENT_IDS=${CANARY_CLIENT_IDS:-}
+    ports:
+      - "2775:2775"  # SMPP port
+      - "2110:2112"  # Metrics host port changed to avoid conflict
+      # 9095 — internal gRPC, не выставляем наружу (только docker network)
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:2112/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # DLR Delivery Service
+  dlr-delivery:
+    build:
+      context: ..
+      dockerfile: deployments/docker/dlr-delivery.Dockerfile
+    container_name: dlr-delivery
+    ports:
+      - "2134:2112"
+    environment:
+      - SERVICE_NAME=dlr-delivery
+      - KAFKA_BROKERS=kafka:9092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SMPP_GATEWAY_GRPC_ADDR=smpp-gateway:9095
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      smpp-gateway:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:2112/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Worker (Kafka consumer → SMPP sender)
+  worker:
+    build:
+      context: ..
+      dockerfile: deployments/docker/worker.Dockerfile
+    container_name: worker
+    environment:
+      - SERVICE_NAME=worker
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP=worker-sender
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      tarification-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Router (high-throughput pipeline stage: routing)
+  pipeline-router:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=router"]
+    deploy:
+      replicas: 2
+    environment:
+      - PIPELINE_STAGE=router
+      - PIPELINE_BATCH_SIZE=1000
+      - PIPELINE_BATCH_TIMEOUT=50ms
+      - PIPELINE_WORKER_COUNT=4
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SMPP_SERVICE_ENV=production
+    networks:
+      - smpp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Sender (high-throughput pipeline stage: SMPP sending)
+  pipeline-sender:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=sender"]
+    deploy:
+      replicas: 4
+    environment:
+      - PIPELINE_STAGE=sender
+      - PIPELINE_BATCH_SIZE=500
+      - PIPELINE_BATCH_TIMEOUT=10ms
+      - PIPELINE_WORKER_COUNT=4
+      - SMPP_WINDOW_SIZE=500
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SMPP_SERVICE_ENV=production
+    networks:
+      - smpp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Status (high-throughput pipeline stage: delivery status processing)
+  pipeline-status:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=status"]
+    deploy:
+      replicas: 2
+    environment:
+      - PIPELINE_STAGE=status
+      - PIPELINE_BATCH_SIZE=2000
+      - PIPELINE_BATCH_TIMEOUT=100ms
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SMPP_SERVICE_ENV=production
+    networks:
+      - smpp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Pipeline Persist (high-throughput pipeline stage: bulk DB persistence)
+  pipeline-persist:
+    build:
+      context: ..
+      dockerfile: deployments/docker/pipeline-worker.Dockerfile
+    command: ["--stage=persist"]
+    deploy:
+      replicas: 2
+    environment:
+      - PIPELINE_STAGE=persist
+      - PIPELINE_PERSIST_BATCH_SIZE=2000
+      - PIPELINE_PERSIST_BATCH_TIMEOUT=100ms
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - KAFKA_BROKERS=kafka:9092
+      - SERVICE_NAME=pipeline-persist
+    networks:
+      - smpp-network
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: auth-service
+        SERVICE_PATH: cmd/services/auth-service
+    container_name: auth-service
+    ports:
+      - "9101:9101"  # gRPC (используется через переменную окружения GRPC_PORT в коде)
+      - "2112:2112"  # Metrics (конфликт с client-service - требуется исправление в коде)
+    environment:
+      - SERVICE_NAME=auth-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
+      - GRPC_PORT=9101
+      - HTTP_PORT=2112
+      - API_GRPC_HOST=0.0.0.0
+      - API_GRPC_PORT=9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      client-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2112/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Messaging Service
+  messaging-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: messaging-service
+        SERVICE_PATH: cmd/services/messaging-service
+    container_name: messaging-service
+    ports:
+      - "19092:9092"  # gRPC (избегаем конфликт с Kafka на порту 9092)
+      - "2113:2113"  # Metrics
+    environment:
+      - SERVICE_NAME=messaging-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=128MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - SCHEDULER_INTERVAL=10s
+      - SCHEDULER_BATCH_SIZE=100
+      - SCHEDULER_STUCK_THRESHOLD=5m
+      - DLR_EXPIRY_TIMEOUT=24h
+      - DLR_EXPIRY_CHECK_INTERVAL=5m
+      - DLR_EXPIRY_BATCH_SIZE=500
+      - DATA_RETENTION_MESSAGES=90
+      - DATA_RETENTION_AUDIT=365
+      - DATA_PURGE_INTERVAL=24h
+    networks:
+      - smpp-network
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2113/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Routing Service
+  # ВНИМАНИЕ: В текущем коде routing-service использует hardcoded порты 9093 (gRPC) и 2114 (metrics),
+  # которые конфликтуют с provider-service. Необходимо обновить код одного из сервисов.
+  routing-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: routing-service
+        SERVICE_PATH: cmd/services/routing-service
+    container_name: routing-service
+    ports:
+      - "9093:9093"  # gRPC (конфликт с provider-service - требуется исправление в коде)
+      - "2114:2114"  # Metrics (конфликт с provider-service - требуется исправление в коде)
+    environment:
+      - SERVICE_NAME=routing-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=pgbouncer
+      - POSTGRES_PORT=6432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
+    networks:
+      - smpp-network
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      provider-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2114/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Provider Service
+  # ВНИМАНИЕ: В текущем коде provider-service использует hardcoded порт 9093,
+  # который конфликтует с routing-service. Необходимо обновить код provider-service
+  # для поддержки переменной окружения GRPC_PORT или использовать другой порт.
+  provider-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: provider-service
+        SERVICE_PATH: cmd/services/provider-service
+    container_name: provider-service
+    ports:
+      - "9094:9094"  # gRPC
+      - "2115:2115"  # Metrics
+    environment:
+      - SERVICE_NAME=provider-service
+      # GRPC_PORT не поддерживается в текущем коде - требуется обновление
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2115/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Client Service
+  # ВНИМАНИЕ: В текущем коде client-service использует hardcoded порт 2112 для метрик,
+  # который конфликтует с auth-service. Необходимо обновить код.
+  client-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: client-service
+        SERVICE_PATH: cmd/services/client-service
+    container_name: client-service
+    ports:
+      - "9095:9095"  # gRPC (используется через переменную окружения GRPC_PORT в коде)
+      - "2116:2112"  # Metrics (host port changed to avoid conflict with auth-service)
+    environment:
+      - SERVICE_NAME=client-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
+      - GRPC_PORT=9095
+      - HTTP_PORT=2112
+      - API_GRPC_HOST=0.0.0.0
+      - API_GRPC_PORT=9095
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2112/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: analytics-service
+        SERVICE_PATH: cmd/services/analytics-service
+    container_name: analytics-service
+    ports:
+      - "9096:9096"  # gRPC
+      - "2117:2117"  # Metrics
+    environment:
+      - SERVICE_NAME=analytics-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2117/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Network Analytics Service
+  network-analytics-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: network-analytics-service
+        SERVICE_PATH: cmd/services/network-analytics-service
+    container_name: network-analytics-service
+    ports:
+      - "50060:50060"  # gRPC
+    environment:
+      - SERVICE_NAME=network-analytics-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
+      - GRPC_PORT=50060
+      - DATABASE_URL=postgres://smpp:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/smpp_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - EXPORT_DIR=/exports
+    volumes:
+      - network-exports:/exports
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Billing Service
+  billing-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: billing-service
+        SERVICE_PATH: cmd/services/billing-service
+    container_name: billing-service
+    ports:
+      - "9097:9097"  # gRPC
+      - "2118:2118"  # Metrics
+    environment:
+      - SERVICE_NAME=billing-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=96MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2118/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Webhook Service
+  webhook-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: webhook-service
+        SERVICE_PATH: cmd/services/webhook-service
+    container_name: webhook-service
+    ports:
+      - "9098:9098"  # gRPC
+      - "2119:2119"  # Metrics
+    environment:
+      - SERVICE_NAME=webhook-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2119/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Template Service
+  template-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: template-service
+        SERVICE_PATH: cmd/services/template-service
+    container_name: template-service
+    ports:
+      - "9099:9099"
+      - "2120:2120"
+    environment:
+      - SERVICE_NAME=template-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2120/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Contact Service
+  contact-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: contact-service
+        SERVICE_PATH: cmd/services/contact-service
+    container_name: contact-service
+    ports:
+      - "5012:5012"
+      - "2130:2130"
+    volumes:
+      - contact-uploads:/root/uploads
+    environment:
+      - SERVICE_NAME=contact-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2130/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Campaign Service
+  campaign-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: campaign-service
+        SERVICE_PATH: cmd/services/campaign-service
+    container_name: campaign-service
+    ports:
+      - "5013:5013"
+      - "2131:2131"
+    environment:
+      - SERVICE_NAME=campaign-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - KAFKA_BROKERS=kafka:9092
+      - CONTACT_SERVICE_ADDR=contact-service:5012
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      contact-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2131/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Tarification Service
+  tarification-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: tarification-service
+        SERVICE_PATH: cmd/services/tarification-service
+    container_name: tarification-service
+    ports:
+      - "9100:9100"  # gRPC
+      - "2121:2121"  # Metrics
+    environment:
+      - SERVICE_NAME=tarification-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - BILLING_GRPC_ADDR=billing-service:9097
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2121/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Cascade Service
+  cascade-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: cascade-service
+        SERVICE_PATH: cmd/services/cascade-service
+    container_name: cascade-service
+    ports:
+      - "9110:9110"  # gRPC
+      - "2132:2132"  # Metrics
+    environment:
+      - SERVICE_NAME=cascade-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - GRPC_PORT=9110
+      - METRICS_PORT=2132
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - CASCADE_SCHEDULER_INTERVAL=5s
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      tarification-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2132/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Audit Service
+  audit-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/service-base.Dockerfile
+      args:
+        SERVICE_NAME: audit-service
+        SERVICE_PATH: cmd/services/audit-service
+    container_name: audit-service
+    ports:
+      - "9102:9102"  # gRPC
+      - "2122:2122"  # Metrics
+    environment:
+      - SERVICE_NAME=audit-service
+      - GOMAXPROCS=1
+      - GOMEMLIMIT=64MiB
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2122/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Portal Gateway
+  portal-gateway:
+    build:
+      context: ..
+      dockerfile: deployments/docker/portal-gateway.Dockerfile
+    container_name: portal-gateway
+    ports:
+      - "18084:8082"  # HTTP (internal)
+    volumes:
+      - contact-uploads:/app/uploads
+      - network-exports:/exports
+    environment:
+      - SERVICE_NAME=portal-gateway
+      - GOMAXPROCS=2
+      - GOMEMLIMIT=256MiB
+      - SERVICE_ENV=development
+      - PORTAL_HTTP_PORT=8082
+      - AUTH_SERVICE_ADDR=auth-service:9101
+      - CLIENT_SERVICE_ADDR=client-service:9095
+      - MESSAGING_SERVICE_ADDR=messaging-service:9092
+      - ROUTING_SERVICE_ADDR=routing-service:9093
+      - ANALYTICS_SERVICE_ADDR=analytics-service:9096
+      - BILLING_SERVICE_ADDR=billing-service:9097
+      - WEBHOOK_SERVICE_ADDR=webhook-service:9098
+      - TEMPLATE_SERVICE_ADDR=template-service:9099
+      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
+      - PROVIDER_SERVICE_ADDR=provider-service:9094
+      - AUDIT_SERVICE_ADDR=audit-service:9102
+      - CONTACT_SERVICE_ADDR=contact-service:5012
+      - CAMPAIGN_SERVICE_ADDR=campaign-service:5013
+      - LINK_SERVICE_ADDR=link-service:9103
+      - CASCADE_SERVICE_ADDR=cascade-service:9110
+      - NETWORK_ANALYTICS_GRPC_ADDR=network-analytics-service:50060
+      - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    networks:
+      - smpp-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      webhook-service:
+        condition: service_healthy
+      provider-service:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+      template-service:
+        condition: service_healthy
+      contact-service:
+        condition: service_healthy
+      campaign-service:
+        condition: service_healthy
+      cascade-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8082/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Portal Frontend
+  portal-frontend:
+    build:
+      context: ../portal-frontend
+      dockerfile: Dockerfile
+    container_name: portal-frontend
+    ports:
+      - "18085:80"  # Nginx HTTP (internal)
+    networks:
+      - smpp-network
+    depends_on:
+      portal-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:80/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Zookeeper (required for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
+      ZOOKEEPER_SERVER_JVMFLAGS: "-Xmx128m -Xms64m"
+    networks:
+      - smpp-network
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_EXTERNAL_HOST:-localhost}:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - smpp-network
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    shm_size: 512m
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: smpp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: smpp_db
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - smpp-network
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./configs/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smpp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PgBouncer connection pooler
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.23.1-p3
+    volumes:
+      - ./configs/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./configs/pgbouncer_userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U smpp -d smpp_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - smpp-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - smpp-network
+    volumes:
+      - redis-data:/data
+      - ./configs/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    command: ["sh", "-c", "redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./configs/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    environment:
+      PROMETHEUS_ENV: ${PROMETHEUS_ENV:-sandbox}
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-remote-write-receiver'
+      - '--enable-feature=expand-external-labels'
+    networks:
+      - smpp-network
+    restart: unless-stopped
+
+  # Alertmanager
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    # prom/alertmanager v0.27.0 = busybox-минимальный image (no apk/gettext).
+    # Entrypoint использует sed (входит в busybox) вместо envsubst.
+    entrypoint: ["/bin/sh", "/etc/alertmanager/entrypoint.sh"]
+    volumes:
+      - ./configs/alertmanager:/etc/alertmanager:ro
+      - alertmanager_data:/alertmanager
+    environment:
+      ALERTMANAGER_SMTP_HOST: ${ALERTMANAGER_SMTP_HOST:-localhost:25}
+      ALERTMANAGER_SMTP_FROM: ${ALERTMANAGER_SMTP_FROM:-alerts@localhost}
+      ALERTMANAGER_SMTP_USER: ${ALERTMANAGER_SMTP_USER:-}
+      ALERTMANAGER_SMTP_PASSWORD: ${ALERTMANAGER_SMTP_PASSWORD:-}
+      ALERTMANAGER_TO: ${ALERTMANAGER_TO:-ops@localhost}
+    networks:
+      - smpp-network
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./configs/loki/loki.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - smpp-network
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./configs/promtail/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - smpp-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./configs/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./configs/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./configs/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - smpp-network
+    depends_on:
+      - prometheus
+      - postgres
+      - loki
+    restart: unless-stopped
+
+  # Directus Admin Panel
+  directus:
+    image: directus/directus:latest
+    container_name: directus
+    ports:
+      - "8055:8055"  # HTTP API and UI
+    env_file:
+      - ./directus/.env.example
+    volumes:
+      - directus-uploads:/directus/uploads
+      - directus-extensions:/directus/extensions
+    networks:
+      - smpp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # Проверка доступности Directus API и подключения к БД через health endpoint
+      # Endpoint /server/health проверяет как доступность сервиса, так и подключение к БД
+      # Используем curl для проверки HTTP статуса и наличия ответа от сервера
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8055/server/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Link Service (URL shortening, click tracking, custom domains)
+  link-service:
+    build:
+      context: ..
+      dockerfile: deployments/docker/link-service.Dockerfile
+    container_name: link-service
+    ports:
+      - "9103:9103"
+      - "8085:8085"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=smpp_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - LINK_GRPC_PORT=9103
+    networks:
+      - smpp-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Development container for running Go commands
+  dev:
+    build:
+      context: ..
+      dockerfile: deployments/docker/dev.Dockerfile
+    volumes:
+      - ..:/app
+    working_dir: /app
+    command: /bin/sh -c "tail -f /dev/null"
+    networks:
+      - smpp-network
+
+networks:
+  smpp-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  zookeeper-data:
+  zookeeper-logs:
+  prometheus-data:
+  grafana-data:
+  loki_data:
+  alertmanager_data:
+  contact-uploads:
+  network-exports:
+  directus-uploads:
+  directus-extensions:

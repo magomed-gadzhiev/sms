@@ -1,0 +1,182 @@
+package handlers
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
+
+	"github.com/smpp-server/smpp-server/internal/gateway/portal/middleware"
+	"github.com/smpp-server/smpp-server/internal/services/contact/application"
+	"github.com/smpp-server/smpp-server/internal/services/contact/domain"
+	"github.com/smpp-server/smpp-server/internal/services/contact/infrastructure/repository"
+	"github.com/smpp-server/smpp-server/internal/shared"
+)
+
+type SegmentHandlers struct {
+	service *application.SegmentService
+}
+
+func NewSegmentHandlers(pool *pgxpool.Pool) *SegmentHandlers {
+	repo := repository.NewSegmentRepository(pool)
+	svc := application.NewSegmentService(repo, pool)
+	return &SegmentHandlers{service: svc}
+}
+
+func (h *SegmentHandlers) CreateSegment(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+	var req struct {
+		Name           string              `json:"name"`
+		Description    string              `json:"description"`
+		ContactListIDs []string            `json:"contact_list_ids"`
+		Rules          domain.SegmentRules `json:"rules"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат"))
+		return
+	}
+
+	listIDs := make([]uuid.UUID, len(req.ContactListIDs))
+	for i, s := range req.ContactListIDs {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			respondError(w, shared.ErrInvalidInput("Неверный contact_list_id"))
+			return
+		}
+		listIDs[i] = id
+	}
+
+	seg := &domain.SavedSegment{
+		ClientID:       clientID,
+		Name:           req.Name,
+		Description:    req.Description,
+		ContactListIDs: listIDs,
+		Rules:          req.Rules,
+	}
+	if err := h.service.Create(r.Context(), seg); err != nil {
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("ошибка создания сегмента")
+		respondError(w, shared.ErrInternalServer("Не удалось создать сегмент"))
+		return
+	}
+	respondJSON(w, http.StatusCreated, seg)
+}
+
+func (h *SegmentHandlers) ListSegments(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+	segments, err := h.service.List(r.Context(), clientID)
+	if err != nil {
+		log.Error().Err(err).Str("client_id", clientID.String()).Msg("ошибка списка сегментов")
+		respondError(w, shared.ErrInternalServer("Не удалось загрузить сегменты"))
+		return
+	}
+	// BUG-61: при пустом результате service.List возвращает nil-slice, и
+	// json.Marshal сериализует nil в `null`. Frontend ожидает массив для
+	// .map/.filter — `null` крэшит. Также не утекаем raw repo-error в ответ
+	// (information disclosure): подменяем на абстрактное сообщение, лог пишем.
+	if segments == nil {
+		segments = []*domain.SavedSegment{}
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{"segments": segments})
+}
+
+func (h *SegmentHandlers) GetSegment(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный ID"))
+		return
+	}
+	seg, err := h.service.Get(r.Context(), id, clientID)
+	if err != nil {
+		respondError(w, shared.ErrNotFound("Сегмент не найден"))
+		return
+	}
+	respondJSON(w, http.StatusOK, seg)
+}
+
+func (h *SegmentHandlers) UpdateSegment(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный ID"))
+		return
+	}
+
+	var req struct {
+		Name           string              `json:"name"`
+		Description    string              `json:"description"`
+		ContactListIDs []string            `json:"contact_list_ids"`
+		Rules          domain.SegmentRules `json:"rules"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат"))
+		return
+	}
+
+	listIDs := make([]uuid.UUID, len(req.ContactListIDs))
+	for i, s := range req.ContactListIDs {
+		listIDs[i], _ = uuid.Parse(s)
+	}
+
+	seg := &domain.SavedSegment{
+		ID: id, ClientID: clientID, Name: req.Name, Description: req.Description,
+		ContactListIDs: listIDs, Rules: req.Rules,
+	}
+	if err := h.service.Update(r.Context(), seg); err != nil {
+		log.Error().Err(err).Str("segment_id", id.String()).Msg("ошибка обновления сегмента")
+		respondError(w, shared.ErrInternalServer("Не удалось обновить сегмент"))
+		return
+	}
+	respondJSON(w, http.StatusOK, seg)
+}
+
+func (h *SegmentHandlers) DeleteSegment(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+	id, _ := uuid.Parse(mux.Vars(r)["id"])
+	h.service.Delete(r.Context(), id, clientID)
+	respondJSON(w, http.StatusNoContent, nil)
+}
+
+func (h *SegmentHandlers) EstimateSegment(w http.ResponseWriter, r *http.Request) {
+	clientID, ok := middleware.GetClientID(r.Context())
+	if !ok {
+		respondError(w, shared.ErrUnauthorized("Пользователь не аутентифицирован"))
+		return
+	}
+	id, _ := uuid.Parse(mux.Vars(r)["id"])
+	seg, err := h.service.Get(r.Context(), id, clientID)
+	if err != nil {
+		respondError(w, shared.ErrNotFound("Сегмент не найден"))
+		return
+	}
+	count, err := h.service.EstimateCount(r.Context(), seg)
+	if err != nil {
+		log.Error().Err(err).Str("segment_id", id.String()).Msg("ошибка оценки размера сегмента")
+		respondError(w, shared.ErrInternalServer("Не удалось оценить размер сегмента"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]int32{"estimated_count": count})
+}

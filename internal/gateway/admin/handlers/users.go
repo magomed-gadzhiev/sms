@@ -1,0 +1,440 @@
+package handlers
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/mail"
+
+	"github.com/gorilla/mux"
+	"github.com/rs/zerolog/log"
+
+	"github.com/smpp-server/smpp-server/api/proto/authv1"
+	"github.com/smpp-server/smpp-server/api/proto/clientv1"
+	"github.com/smpp-server/smpp-server/internal/shared"
+)
+
+const (
+	usersMaxListLimit  = 200
+	minUserPasswordLen = 8
+)
+
+// validateUserEmail проверяет формат email через стандартный парсер.
+// BUG-48: до фикса CreateUser принимал любую строку как email (например "not-an-email").
+func validateUserEmail(email string) *shared.AppError {
+	if email == "" {
+		return shared.ErrInvalidInput("email обязателен")
+	}
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Address != email {
+		return shared.ErrInvalidInput("неверный формат email")
+	}
+	return nil
+}
+
+// validateUserPassword проверяет минимальную длину пароля.
+// BUG-49: до фикса CreateUser принимал пароль из 1 символа.
+func validateUserPassword(password string) *shared.AppError {
+	if password == "" {
+		return shared.ErrInvalidInput("password обязателен")
+	}
+	if len(password) < minUserPasswordLen {
+		return shared.ErrInvalidInput("пароль должен быть не короче 8 символов")
+	}
+	return nil
+}
+
+// UserHandlers обрабатывает HTTP запросы для управления пользователями
+type UserHandlers struct {
+	authClient   authv1.AuthServiceClient
+	clientClient clientv1.ClientServiceClient
+}
+
+// NewUserHandlers создает новый экземпляр UserHandlers
+func NewUserHandlers(authClient authv1.AuthServiceClient) *UserHandlers {
+	return &UserHandlers{
+		authClient: authClient,
+	}
+}
+
+// SetClientClient устанавливает gRPC клиент для client service
+func (h *UserHandlers) SetClientClient(clientClient clientv1.ClientServiceClient) {
+	h.clientClient = clientClient
+}
+
+// ListUsers обрабатывает GET /admin/v1/users
+func (h *UserHandlers) ListUsers(w http.ResponseWriter, r *http.Request) {
+	search := r.URL.Query().Get("search")
+	roleID := r.URL.Query().Get("role_id")
+	activeOnly := r.URL.Query().Get("active_only") == "true"
+	// BUG-47: clamp limit (паттерн BUG-33/46) — без него limit=99999 уходит в gRPC/SQL
+	limitRaw := parseIntParam(r, "limit", 50)
+	offsetRaw := parseIntParam(r, "offset", 0)
+	limitClamped, offsetClamped := clampPagination(int(limitRaw), int(offsetRaw), 50, usersMaxListLimit)
+	limit := int32(limitClamped)
+	offset := int32(offsetClamped)
+
+	resp, err := h.authClient.ListUsers(r.Context(), &authv1.ListUsersRequest{
+		Search:     search,
+		RoleId:     roleID,
+		ActiveOnly: activeOnly,
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка получения списка пользователей")
+		respondGRPCError(w, err)
+		return
+	}
+
+	users := make([]map[string]interface{}, len(resp.Users))
+	for i, u := range resp.Users {
+		users[i] = userDetailToMap(u)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"users":  users,
+		"total":  resp.Total,
+		"limit":  resp.Limit,
+		"offset": resp.Offset,
+	})
+}
+
+// GetUser обрабатывает GET /admin/v1/users/:id
+func (h *UserHandlers) GetUser(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	resp, err := h.authClient.GetUser(r.Context(), &authv1.GetUserRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("ошибка получения пользователя")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, userDetailToMap(resp.User))
+}
+
+// CreateUser обрабатывает POST /admin/v1/users
+func (h *UserHandlers) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		RoleID   string `json:"role_id"`
+		Active   bool   `json:"active"`
+		ClientID string `json:"client_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+	if req.Username == "" {
+		respondError(w, shared.ErrInvalidInput("username обязателен"))
+		return
+	}
+	if err := validateUserEmail(req.Email); err != nil {
+		respondError(w, err)
+		return
+	}
+	if err := validateUserPassword(req.Password); err != nil {
+		respondError(w, err)
+		return
+	}
+
+	resp, err := h.authClient.CreateUser(r.Context(), &authv1.CreateUserRequest{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+		RoleId:   req.RoleID,
+		Active:   req.Active,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("username", req.Username).Msg("ошибка создания пользователя")
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Если указан client_id — привязываем клиента сразу после создания
+	if req.ClientID != "" {
+		updateResp, updateErr := h.authClient.UpdateUser(r.Context(), &authv1.UpdateUserRequest{
+			UserId:   resp.User.Id,
+			ClientId: req.ClientID,
+		})
+		if updateErr != nil {
+			log.Warn().Err(updateErr).Str("user_id", resp.User.Id).Str("client_id", req.ClientID).
+				Msg("пользователь создан, но не удалось привязать клиента")
+			// Возвращаем созданного пользователя, не прерывая ответ
+			respondJSON(w, http.StatusCreated, userInfoToMap(resp.User))
+			return
+		}
+		respondJSON(w, http.StatusCreated, userInfoToMap(updateResp.User))
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, userInfoToMap(resp.User))
+}
+
+// UpdateUser обрабатывает PUT /admin/v1/users/:id.
+// BUG-52: до фикса partial body (например только {"email":"x"}) вызывал
+// FK violation `users_role_id_fkey` — пустой role_id уходил в gRPC и SQL UPDATE
+// падал на FK к несуществующей роли с id="". Решение: не передавать в gRPC
+// поля, которые клиент не указал явно (используем указатели для разбора).
+func (h *UserHandlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	var req struct {
+		Email  *string `json:"email"`
+		RoleID *string `json:"role_id"`
+		Active *bool   `json:"active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	if req.Email == nil && req.RoleID == nil && req.Active == nil {
+		respondError(w, shared.ErrInvalidInput("укажите хотя бы одно поле для обновления"))
+		return
+	}
+
+	// Валидация переданных полей до pre-fetch
+	if req.Email != nil {
+		if err := validateUserEmail(*req.Email); err != nil {
+			respondError(w, err)
+			return
+		}
+	}
+	if req.RoleID != nil && *req.RoleID == "" {
+		respondError(w, shared.ErrInvalidInput("role_id не может быть пустым"))
+		return
+	}
+
+	// gRPC-контракт UpdateUserRequest не использует FieldMask и затирает все
+	// переданные поля. Pre-fetch текущего user'а, чтобы не передавать пустые
+	// строки в auth-service (FK violation на роль с id="").
+	current, getErr := h.authClient.GetUser(r.Context(), &authv1.GetUserRequest{UserId: userID})
+	if getErr != nil {
+		log.Error().Err(getErr).Str("user_id", userID).Msg("ошибка чтения пользователя перед обновлением")
+		respondGRPCError(w, getErr)
+		return
+	}
+
+	grpcReq := &authv1.UpdateUserRequest{
+		UserId: userID,
+		Email:  current.User.Email,
+		RoleId: current.User.Role.Id,
+		Active: current.User.Active,
+	}
+	if req.Email != nil {
+		grpcReq.Email = *req.Email
+	}
+	if req.RoleID != nil {
+		grpcReq.RoleId = *req.RoleID
+	}
+	if req.Active != nil {
+		grpcReq.Active = *req.Active
+	}
+
+	resp, err := h.authClient.UpdateUser(r.Context(), grpcReq)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("ошибка обновления пользователя")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, userInfoToMap(resp.User))
+}
+
+// DeactivateUser обрабатывает POST /admin/v1/users/:id/deactivate
+func (h *UserHandlers) DeactivateUser(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	resp, err := h.authClient.DeactivateUser(r.Context(), &authv1.DeactivateUserRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("ошибка деактивации пользователя")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": resp.Success,
+	})
+}
+
+// ResetUser2FA обрабатывает POST /admin/v1/users/:id/reset-2fa
+func (h *UserHandlers) ResetUser2FA(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	resp, err := h.authClient.ResetUser2FA(r.Context(), &authv1.ResetUser2FARequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("ошибка сброса 2FA")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": resp.Success,
+	})
+}
+
+// ResetUserPassword обрабатывает POST /admin/v1/users/:id/reset-password
+func (h *UserHandlers) ResetUserPassword(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	resp, err := h.authClient.ResetUserPassword(r.Context(), &authv1.ResetUserPasswordRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("ошибка сброса пароля")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"temporary_password": resp.TemporaryPassword,
+	})
+}
+
+// AssignClient обрабатывает POST /admin/v1/users/:id/assign-client
+// Создаёт нового клиента для пользователя или привязывает существующего.
+// Тело запроса:
+//   - client_id (string, опционально): UUID существующего клиента для привязки
+//   - company_name (string): имя компании для нового клиента (если client_id не указан)
+//   - email (string, опционально): email нового клиента
+//   - contact_person (string, опционально): контактное лицо
+//   - phone (string, опционально): телефон
+func (h *UserHandlers) AssignClient(w http.ResponseWriter, r *http.Request) {
+	userID := mux.Vars(r)["id"]
+	if userID == "" {
+		respondError(w, shared.ErrInvalidInput("user_id обязателен"))
+		return
+	}
+
+	var req struct {
+		ClientID      string `json:"client_id"`
+		CompanyName   string `json:"company_name"`
+		Email         string `json:"email"`
+		ContactPerson string `json:"contact_person"`
+		Phone         string `json:"phone"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, shared.ErrInvalidInput("Неверный формат запроса"))
+		return
+	}
+
+	targetClientID := req.ClientID
+
+	// Если client_id не передан — создаём нового клиента
+	if targetClientID == "" {
+		if req.CompanyName == "" {
+			respondError(w, shared.ErrInvalidInput("Укажите client_id для привязки существующего клиента или company_name для создания нового"))
+			return
+		}
+		if h.clientClient == nil {
+			respondError(w, shared.ErrInternalServer("clientClient не настроен"))
+			return
+		}
+
+		createResp, err := h.clientClient.CreateClient(r.Context(), &clientv1.CreateClientRequest{
+			Name:          req.CompanyName,
+			Email:         req.Email,
+			ContactPerson: req.ContactPerson,
+			Phone:         req.Phone,
+			Active:        true,
+		})
+		if err != nil {
+			log.Error().Err(err).Str("user_id", userID).Msg("ошибка создания клиента при assign-client")
+			respondGRPCError(w, err)
+			return
+		}
+		targetClientID = createResp.ClientId
+	}
+
+	// Привязываем клиента к пользователю через UpdateUser
+	userResp, err := h.authClient.UpdateUser(r.Context(), &authv1.UpdateUserRequest{
+		UserId:   userID,
+		ClientId: targetClientID,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Str("client_id", targetClientID).Msg("ошибка привязки клиента к пользователю")
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"user":      userInfoToMap(userResp.User),
+		"client_id": targetClientID,
+	})
+}
+
+func userDetailToMap(u *authv1.UserDetailInfo) map[string]interface{} {
+	result := map[string]interface{}{
+		"id":           u.Id,
+		"username":     u.Username,
+		"email":        u.Email,
+		"active":       u.Active,
+		"totp_enabled": u.TotpEnabled,
+	}
+	if u.Role != nil {
+		result["role"] = map[string]interface{}{
+			"id":          u.Role.Id,
+			"name":        u.Role.Name,
+			"description": u.Role.Description,
+		}
+	}
+	if u.LastLoginAt != nil {
+		result["last_login_at"] = u.LastLoginAt.AsTime()
+	}
+	if u.CreatedAt != nil {
+		result["created_at"] = u.CreatedAt.AsTime()
+	}
+	if u.UpdatedAt != nil {
+		result["updated_at"] = u.UpdatedAt.AsTime()
+	}
+	return result
+}
+
+func userInfoToMap(u *authv1.UserInfo) map[string]interface{} {
+	result := map[string]interface{}{
+		"id":       u.Id,
+		"username": u.Username,
+		"email":    u.Email,
+		"active":   u.Active,
+	}
+	if u.Role != nil {
+		result["role"] = map[string]interface{}{
+			"id":          u.Role.Id,
+			"name":        u.Role.Name,
+			"description": u.Role.Description,
+		}
+	}
+	if u.CreatedAt != nil {
+		result["created_at"] = u.CreatedAt.AsTime()
+	}
+	return result
+}

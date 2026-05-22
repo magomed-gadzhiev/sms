@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://smsplatform.com/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/"/>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url><loc>https://smsplatform.com/pricing</loc><xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/pricing"/><xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/pricing"/><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://smsplatform.com/features</loc><xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/features"/><xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/features"/><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://smsplatform.com/docs</loc><xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/docs"/><xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/docs"/><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://smsplatform.com/blog</loc><xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/blog"/><xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/blog"/><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://smsplatform.com/about</loc><xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/about"/><xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/about"/><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://smsplatform.com/contact</loc><xhtml:link rel="alternate" hreflang="en" href="https://smsplatform.com/en/contact"/><xhtml:link rel="alternate" hreflang="ru" href="https://smsplatform.com/contact"/><changefreq>monthly</changefreq><priority>0.6</priority></url>
+</urlset>

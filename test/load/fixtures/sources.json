@@ -1,0 +1,20 @@
+{
+  "description": "Пул source-адресов (имен отправителей) для k6 load-тестов",
+  "sources": [
+    {"name": "LoadTest",  "type": "alphanumeric", "category": "test"},
+    {"name": "LT-INFO",   "type": "alphanumeric", "category": "info"},
+    {"name": "LT-PROMO",  "type": "alphanumeric", "category": "promo"},
+    {"name": "LT-OTP",    "type": "alphanumeric", "category": "otp"},
+    {"name": "LT-ALERT",  "type": "alphanumeric", "category": "alert"},
+    {"name": "MedTest",   "type": "alphanumeric", "category": "test"},
+    {"name": "MT-INFO",   "type": "alphanumeric", "category": "info"},
+    {"name": "MT-OTP",    "type": "alphanumeric", "category": "otp"},
+    {"name": "12345",     "type": "numeric",      "category": "shortcode"},
+    {"name": "67890",     "type": "numeric",      "category": "shortcode"},
+    {"name": "SMS",       "type": "alphanumeric", "category": "generic"},
+    {"name": "API",       "type": "alphanumeric", "category": "generic"},
+    {"name": "TEST",      "type": "alphanumeric", "category": "test"},
+    {"name": "79001112233","type": "msisdn",      "category": "msisdn"},
+    {"name": "BANK",      "type": "alphanumeric", "category": "finance"}
+  ]
+}

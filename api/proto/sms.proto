@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package sms.v1;
+
+option go_package = "github.com/smpp-server/smpp-server/api/proto/smsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// SMSService предоставляет методы для работы с SMS сообщениями
+service SMSService {
+  // SendSMS отправляет одно SMS сообщение
+  rpc SendSMS(SendSMSRequest) returns (SendSMSResponse);
+  
+  // SendBatchSMS отправляет пакет SMS сообщений
+  rpc SendBatchSMS(SendBatchRequest) returns (SendBatchResponse);
+  
+  // GetStatus получает статус сообщения по ID
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  
+  // StreamDLR получает поток delivery receipts
+  rpc StreamDLR(StreamDLRRequest) returns (stream DLRUpdate);
+}
+
+// SendSMSRequest представляет запрос на отправку SMS
+message SendSMSRequest {
+  string source = 1;              // Отправитель
+  string destination = 2;          // Получатель
+  string text = 3;                 // Текст сообщения
+  string external_id = 4;           // Внешний ID (опционально)
+  int32 priority = 5;              // Приоритет (0-3)
+  bool registered_delivery = 6;    // Требовать DLR
+  google.protobuf.Timestamp validity_period = 7; // Срок действия (опционально)
+  string service_type = 8;         // Тип сервиса (опционально)
+  int32 source_addr_ton = 9;       // TON отправителя (опционально)
+  int32 source_addr_npi = 10;      // NPI отправителя (опционально)
+  int32 dest_addr_ton = 11;        // TON получателя (опционально)
+  int32 dest_addr_npi = 12;        // NPI получателя (опционально)
+  int32 data_coding = 13;          // Кодировка данных (опционально)
+}
+
+// SendSMSResponse представляет ответ на отправку SMS
+message SendSMSResponse {
+  string message_id = 1;            // ID сообщения
+  string status = 2;               // Статус (queued, sent, failed)
+  string error = 3;                // Ошибка (если есть)
+}
+
+// SendBatchRequest представляет запрос на пакетную отправку SMS
+message SendBatchRequest {
+  repeated SendSMSRequest messages = 1; // Список сообщений
+}
+
+// SendBatchResponse представляет ответ на пакетную отправку
+message SendBatchResponse {
+  repeated SendSMSResponse results = 1; // Результаты для каждого сообщения
+  int32 success_count = 2;             // Количество успешных
+  int32 failed_count = 3;              // Количество неудачных
+}
+
+// GetStatusRequest представляет запрос на получение статуса
+message GetStatusRequest {
+  string message_id = 1;           // ID сообщения
+}
+
+// GetStatusResponse представляет ответ со статусом
+message GetStatusResponse {
+  string message_id = 1;           // ID сообщения
+  string status = 2;               // Статус (pending, queued, sent, delivered, failed, expired, rejected)
+  string status_message = 3;       // Сообщение о статусе
+  google.protobuf.Timestamp created_at = 4;    // Время создания
+  google.protobuf.Timestamp submitted_at = 5;  // Время отправки (опционально)
+  google.protobuf.Timestamp delivered_at = 6;  // Время доставки (опционально)
+  google.protobuf.Timestamp failed_at = 7;     // Время ошибки (опционально)
+  string smpp_message_id = 8;      // SMPP message ID (опционально)
+}
+
+// StreamDLRRequest представляет запрос на поток DLR
+message StreamDLRRequest {
+  repeated string message_ids = 1; // ID сообщений для отслеживания (пусто = все)
+}
+
+// DLRUpdate представляет обновление DLR
+message DLRUpdate {
+  string message_id = 1;           // ID сообщения
+  string smpp_message_id = 2;      // SMPP message ID
+  string stat = 3;                 // Статус доставки (DELIVRD, UNDELIV, EXPIRED, etc.)
+  google.protobuf.Timestamp done_date = 4; // Время доставки
+  int32 err = 5;                   // Код ошибки (опционально)
+  string text = 6;                 // Текст ошибки (опционально)
+}

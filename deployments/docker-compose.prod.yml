@@ -1,0 +1,152 @@
+# Production overlay. Применять:
+# docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.prod.yml --env-file deployments/.env.prod up -d
+#
+# Sandbox compose (без -f docker-compose.prod.yml) этот overlay НЕ подцепляет
+# и продолжает работать как раньше (publish 18084 для portal-gateway).
+#
+# REQUIREMENTS:
+# - Docker Compose >= 2.24 (для !reset директивы — иначе portal-gateway publish
+#   18084 НЕ снимется и portal будет доступен мимо TLS-фронта). Verify до
+#   первого `up`: `docker compose version`.
+# - DNS A/AAAA для $PORTAL_DOMAIN указывает на VM IP (требование для Let's
+#   Encrypt HTTP-01). Без DNS caddy зависает в ACME-loop.
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./configs/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    # ${VAR:?msg} — fail-fast если переменная пустая или unset; иначе caddy
+    # парсит Caddyfile с literal "{$PORTAL_DOMAIN}" → синтакс-ошибка не очевидна.
+    environment:
+      PORTAL_DOMAIN: ${PORTAL_DOMAIN:?PORTAL_DOMAIN must be set in .env.prod}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN must be set in .env.prod}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN must be set in .env.prod}
+      GRPC_DOMAIN: ${GRPC_DOMAIN:?GRPC_DOMAIN must be set in .env.prod}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set in .env.prod}
+    depends_on:
+      - portal-gateway
+      - haproxy
+    networks:
+      - smpp-network
+
+  # Portal-gateway: убираем publish 18084 наружу — теперь только internal,
+  # доступ через caddy. Если в будущем portal-gateway получит /healthz endpoint
+  # на отдельном порту — published can be добавлен здесь.
+  portal-gateway:
+    ports: !reset []
+
+  # === Gateways (HTTP/gRPC internals — доступ через haproxy) ===
+  # haproxy: TLS-фронт = Caddy (Plan 8 Tasks 2-3). HaProxy теперь internal-only,
+  # принимает трафик от caddy через docker network. Stats:8404 доступен через
+  # SSH-tunnel: ssh -L 8404:haproxy:8404 prod-host.
+  haproxy:
+    ports: !override []
+    # SYNC NOTE: depends_on здесь дублирует base (docker-compose.yml haproxy
+    # depends_on). Compose merge заменяет (не сливает) этот ключ, поэтому
+    # при добавлении нового upstream'а в base — synchronize вручную здесь же.
+    depends_on:
+      - client-gateway-1
+      - client-gateway-2
+      - admin-gateway-1
+      - admin-gateway-2
+      - portal-gateway
+      - portal-frontend
+
+  # smpp-gateway: оставляем published ТОЛЬКО 2775 (SMPP TCP); base также
+  # публикует 2110 (Prometheus metrics) — он не должен торчать наружу,
+  # Prometheus scrape'ит через docker network. !override заменяет весь
+  # список ports на one-element массив.
+  smpp-gateway:
+    ports: !override
+      - "2775:2775"
+
+  client-gateway-1:
+    ports: !reset []
+  client-gateway-2:
+    ports: !reset []
+  admin-gateway-1:
+    ports: !reset []
+  admin-gateway-2:
+    ports: !reset []
+
+  # === Backend services (gRPC internals) ===
+  dlr-delivery:
+    ports: !reset []
+  auth-service:
+    ports: !reset []
+  messaging-service:
+    ports: !reset []
+  routing-service:
+    ports: !reset []
+  provider-service:
+    ports: !reset []
+  client-service:
+    ports: !reset []
+  analytics-service:
+    ports: !reset []
+  network-analytics-service:
+    ports: !reset []
+  billing-service:
+    ports: !reset []
+  webhook-service:
+    ports: !reset []
+  template-service:
+    ports: !reset []
+  contact-service:
+    ports: !reset []
+  campaign-service:
+    ports: !reset []
+  tarification-service:
+    ports: !reset []
+  cascade-service:
+    ports: !reset []
+  audit-service:
+    ports: !reset []
+  link-service:
+    ports: !reset []
+  portal-frontend:
+    ports: !reset []
+
+  # worker: добавляем LOG_LEVEL override в prod (env-only, без изменения ports —
+  # worker в base нет published portов).
+  worker:
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  # === Infrastructure (DB, Kafka, Redis) ===
+  kafka:
+    ports: !reset []
+  postgres:
+    ports: !reset []
+  pgbouncer:
+    ports: !reset []
+  # Redis в base уже bind на 127.0.0.1:6379 — sweep наружу не выходит.
+  # Reset для consistency: даже loopback publish не нужен (доступ через docker network).
+  redis:
+    ports: !reset []
+
+  # === Monitoring (Prometheus / Grafana / Loki / Directus) ===
+  # Доступ к UI — через SSH-tunnel на cutover-day. Caddy-fronted dashboards = follow-up.
+  prometheus:
+    ports: !reset []
+  loki:
+    ports: !reset []
+  # Prod auth hardening: anonymous off + admin pwd из env (base = hardcoded admin).
+  # Доступ к UI через SSH-tunnel; Caddy-fronted dashboards = follow-up.
+  grafana:
+    ports: !reset []
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env.prod}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+  directus:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

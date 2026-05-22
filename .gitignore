@@ -1,0 +1,140 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.log
+.env
+.env.local
+.env.*
+!.env.example
+!.env.*.example
+
+# Plan 7: prod secrets — never commit.
+.env.prod
+deployments/.env.prod
+
+# Docker
+docker-compose.override.yml
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+test.exit
+*.exit
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage
+coverage.txt
+coverage.html
+*.coverprofile
+
+# Profiling
+*.prof
+cpu.prof
+mem.prof
+
+# Local configuration overrides
+configs/*.yaml
+!configs/*.example.yaml
+
+# Compiled Go binaries — only root-level; keep service source under cmd/ trackable
+/admin-gateway
+/admin-service
+/api-gateway
+/audit-service
+/auth-service
+/billing-service
+/campaign-service
+/cascade-service
+/client-gateway
+/client-service
+/link-service
+/messaging-service
+/pipeline-worker
+/portal-gateway
+/portal-service
+/routing-service
+/smpp-gateway
+/smpp-server
+/tarification-service
+/template-service
+/webhook-service
+/worker
+
+# Stray dependency directories
+github.com/
+
+# Proto backup files
+api/proto/*.old/
+api/proto/*.bak/
+
+# Frontend (portal-frontend)
+portal-frontend/node_modules/
+portal-frontend/dist/
+portal-frontend/.vite/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+
+# Local agent/tooling state
+.claude/
+.superpowers/
+.worktrees/
+.playwright-mcp/
+.specify/
+
+# Screenshots and QA artefacts at repo root (Playwright/manual)
+/*.png
+/qa-tests/
+/audit-*.png
+/product-review-*.png
+
+# Build/test output dumps
+/build_output.txt
+/vet_output.txt
+/summary.json
+/logs/
+
+# Private/internal documents and generated assets
+docs/investors/
+docs/reports/
+docs/superpowers/
+docs/ops/prod-*.md
+*.docx
+*.png

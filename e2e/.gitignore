@@ -1,0 +1,7 @@
+node_modules/
+test-results/
+reports/
+auth-state.json
+*auth-state.json
+trace/
+.env.e2e
