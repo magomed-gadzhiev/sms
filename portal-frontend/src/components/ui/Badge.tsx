@@ -1,5 +1,7 @@
 import { type ReactNode } from 'react';
 
+import { isMessageStatus, messageStatusMeta } from '../../utils/messageStatus';
+
 const variantStyles = {
   default: 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
   success: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -21,15 +23,14 @@ export function Badge({ variant = 'default', children }: BadgeProps) {
   );
 }
 
-const statusMap: Record<string, { variant: keyof typeof variantStyles; label: string }> = {
+// Entity statuses (providers, contacts, templates, health...). Message
+// statuses are NOT listed here — they resolve through the messageStatus
+// vocabulary so labels/variants have a single owner.
+const entityStatusMap: Record<string, { variant: keyof typeof variantStyles; label: string }> = {
   active: { variant: 'success', label: 'Активен' },
   inactive: { variant: 'default', label: 'Неактивен' },
-  delivered: { variant: 'success', label: 'Доставлено' },
-  failed: { variant: 'danger', label: 'Ошибка' },
-  pending: { variant: 'warning', label: 'Ожидание' },
   blocked: { variant: 'danger', label: 'Заблокирован' },
   approved: { variant: 'success', label: 'Одобрен' },
-  rejected: { variant: 'danger', label: 'Отклонён' },
   draft: { variant: 'default', label: 'Черновик' },
   review: { variant: 'info', label: 'На модерации' },
   revision_requested: { variant: 'warning', label: 'Требуется доработка' },
@@ -39,6 +40,11 @@ const statusMap: Record<string, { variant: keyof typeof variantStyles; label: st
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const config = statusMap[status.toLowerCase()] || { variant: 'default' as const, label: status };
+  const key = status.toLowerCase();
+  if (isMessageStatus(key)) {
+    const meta = messageStatusMeta(key);
+    return <Badge variant={meta.badgeVariant}>{meta.label}</Badge>;
+  }
+  const config = entityStatusMap[key] || { variant: 'default' as const, label: status };
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }

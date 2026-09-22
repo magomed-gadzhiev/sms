@@ -15,6 +15,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/queue"
+
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 // ---------------------------------------------------------------------------
@@ -126,22 +128,27 @@ func TestMapStatus(t *testing.T) {
 func TestMapDLRStat(t *testing.T) {
 	t.Parallel()
 
+	// DLR stat → Message status теперь принадлежит messagestatus.FromDLRStat;
+	// неизвестный stat не должен менять сохранённый статус (CONTEXT.md).
 	tests := []struct {
 		input    string
-		expected string
+		expected messagestatus.Status
+		known    bool
 	}{
-		{"DELIVRD", "delivered"},
-		{"UNDELIV", "failed"},
-		{"EXPIRED", "expired"},
-		{"UNKNOWN", "unknown"},
-		{"REJECTD", "unknown"},
-		{"ACCEPTD", "unknown"},
-		{"", "unknown"},
+		{"DELIVRD", messagestatus.Delivered, true},
+		{"UNDELIV", messagestatus.Failed, true},
+		{"EXPIRED", messagestatus.Expired, true},
+		{"REJECTD", messagestatus.Failed, true},
+		{"UNKNOWN", "", false},
+		{"ACCEPTD", "", false},
+		{"", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			assert.Equal(t, tt.expected, mapDLRStat(tt.input))
+			got, known := messagestatus.FromDLRStat(tt.input)
+			assert.Equal(t, tt.expected, got)
+			assert.Equal(t, tt.known, known)
 		})
 	}
 }
@@ -245,7 +252,7 @@ func TestDeserializeMessage_DLR_HappyPath_DELIVRD(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, dlr.MessageID, rec.MessageID)
-	assert.Equal(t, "delivered", rec.Status) // mapDLRStat("DELIVRD") => "delivered"
+	assert.Equal(t, "delivered", rec.Status) // FromDLRStat("DELIVRD") => delivered
 	assert.Equal(t, "SMPP-DLR-001", rec.SMPPMessageID)
 	require.NotNil(t, rec.ProviderID)
 	assert.Equal(t, providerID, *rec.ProviderID)
@@ -517,29 +524,33 @@ func TestFailedBuffer_EmptyDrain(t *testing.T) {
 // DLR stat edge cases
 // ---------------------------------------------------------------------------
 
-func TestMapDLRStat_AllKnownStats(t *testing.T) {
+func TestFromDLRStat_AllKnownStats(t *testing.T) {
 	t.Parallel()
 
 	// SMPP 3.4 standard DLR stat values
-	statsMap := map[string]string{
-		"DELIVRD": "delivered",
-		"UNDELIV": "failed",
-		"EXPIRED": "expired",
+	statsMap := map[string]messagestatus.Status{
+		"DELIVRD": messagestatus.Delivered,
+		"UNDELIV": messagestatus.Failed,
+		"EXPIRED": messagestatus.Expired,
+		"REJECTD": messagestatus.Failed,
 	}
 
 	for stat, expected := range statsMap {
-		result := mapDLRStat(stat)
+		result, known := messagestatus.FromDLRStat(stat)
+		assert.True(t, known, "stat=%s", stat)
 		assert.Equal(t, expected, result, "stat=%s", stat)
 	}
 }
 
-func TestMapDLRStat_UnknownReturnsUnknown(t *testing.T) {
+func TestFromDLRStat_UnknownNotStored(t *testing.T) {
 	t.Parallel()
 
-	unknownStats := []string{"REJECTD", "ACCEPTD", "DELETED", "ENROUTE", "SKIPPED", ""}
+	// unknown никогда не хранится (CONTEXT.md): неизвестный stat не даёт
+	// статуса, сообщение остаётся в sent до DLR-timeout.
+	unknownStats := []string{"UNKNOWN", "ACCEPTD", "DELETED", "ENROUTE", "SKIPPED", ""}
 	for _, stat := range unknownStats {
-		result := mapDLRStat(stat)
-		assert.Equal(t, "unknown", result, "stat=%s should return 'unknown'", stat)
+		_, known := messagestatus.FromDLRStat(stat)
+		assert.False(t, known, "stat=%s should not map to a stored status", stat)
 	}
 }
 

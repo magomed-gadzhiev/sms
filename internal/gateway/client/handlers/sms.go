@@ -20,6 +20,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/client/middleware"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/shared/cache"
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 // senderNameCache caches (client_id) → map[name]sender_name_id for approved
@@ -166,22 +167,22 @@ func attachAuditMD(ctx context.Context, templateID, senderNameID string) context
 
 // SendSMSRequest представляет запрос на отправку SMS
 type SendSMSRequest struct {
-	Source            string            `json:"source"`
-	Destination       string            `json:"destination"`
-	Text              string            `json:"text"`
-	TemplateID        string            `json:"template_id,omitempty"`
-	Variables         map[string]string `json:"variables,omitempty"`
-	ExternalID        string            `json:"external_id,omitempty"`
-	Priority          int32     `json:"priority,omitempty"`
-	RegisteredDelivery bool     `json:"registered_delivery,omitempty"`
-	ValidityPeriod    *time.Time `json:"validity_period,omitempty"`
-	ServiceType       string    `json:"service_type,omitempty"`
-	SourceAddrTON     int32     `json:"source_addr_ton,omitempty"`
-	SourceAddrNPI     int32     `json:"source_addr_npi,omitempty"`
-	DestAddrTON       int32     `json:"dest_addr_ton,omitempty"`
-	DestAddrNPI       int32     `json:"dest_addr_npi,omitempty"`
-	DataCoding        int32     `json:"data_coding,omitempty"`
-	ScheduledAt       *time.Time `json:"scheduled_at,omitempty"`
+	Source             string            `json:"source"`
+	Destination        string            `json:"destination"`
+	Text               string            `json:"text"`
+	TemplateID         string            `json:"template_id,omitempty"`
+	Variables          map[string]string `json:"variables,omitempty"`
+	ExternalID         string            `json:"external_id,omitempty"`
+	Priority           int32             `json:"priority,omitempty"`
+	RegisteredDelivery bool              `json:"registered_delivery,omitempty"`
+	ValidityPeriod     *time.Time        `json:"validity_period,omitempty"`
+	ServiceType        string            `json:"service_type,omitempty"`
+	SourceAddrTON      int32             `json:"source_addr_ton,omitempty"`
+	SourceAddrNPI      int32             `json:"source_addr_npi,omitempty"`
+	DestAddrTON        int32             `json:"dest_addr_ton,omitempty"`
+	DestAddrNPI        int32             `json:"dest_addr_npi,omitempty"`
+	DataCoding         int32             `json:"data_coding,omitempty"`
+	ScheduledAt        *time.Time        `json:"scheduled_at,omitempty"`
 }
 
 // SendSMS обрабатывает запрос на отправку одного SMS
@@ -346,7 +347,9 @@ const MaxBatchSize = 10000
 // SendBatch обрабатывает запрос на пакетную отправку SMS.
 //
 // Response contract (contracts/client-api.md):
-//   { "results": [...], "total": N, "accepted": K, "rejected": N-K }
+//
+//	{ "results": [...], "total": N, "accepted": K, "rejected": N-K }
+//
 // Each result is either {message_id, status, segment_count, created_at} for
 // accepted messages OR {error, index} for entries rejected before the RPC
 // (validation or sender-name failures). `index` is the 0-based position in the
@@ -611,7 +614,7 @@ func (h *SMSHandlers) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	// Парсим query параметры
 	query := r.URL.Query()
-	
+
 	var from, to *time.Time
 	if fromStr := query.Get("from"); fromStr != "" {
 		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
@@ -626,7 +629,7 @@ func (h *SMSHandlers) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	status := query.Get("status")
 	destination := query.Get("destination")
-	
+
 	limit := 100
 	if limitStr := query.Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 1000 {
@@ -837,6 +840,6 @@ func (h *SMSHandlers) CancelScheduled(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"message_id": messageID,
-		"status":     "cancelled",
+		"status":     string(messagestatus.Cancelled),
 	})
 }
