@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
-	"github.com/smpp-server/smpp-server/internal/api/http/response"
+	"github.com/smpp-server/smpp-server/internal/shared/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 

@@ -553,8 +553,38 @@ type sendOutcomeInput struct {
 	usedConnID     string
 }
 
+// permanentSendErrors — SMPP-статусы протокольных ошибок, которые не исчезнут
+// при повторной отправке того же PDU. Порт классификации из удалённого
+// legacy RetryManager (cmd/worker): перманентная ошибка не ретраится.
+var permanentSendErrors = []string{
+	"ESME_RINVDSTADR", // Invalid destination address
+	"ESME_RINVSRCADR", // Invalid source address
+	"ESME_RINVPASWD",  // Invalid password
+	"ESME_RINVSYSID",  // Invalid system ID
+	"ESME_RALYBND",    // Already bound (логическая ошибка)
+	"ESME_RINVCMDID",  // Invalid command ID
+	"ESME_RINVCMDLEN", // Invalid command length
+	"ESME_RINVMSGLEN", // Invalid message length
+}
+
+// isPermanentSendError сообщает, бессмысленна ли повторная отправка:
+// протокольные ESME_RINV* ошибки детерминированы для того же PDU.
+func isPermanentSendError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToUpper(err.Error())
+	for _, code := range permanentSendErrors {
+		if strings.Contains(msg, code) {
+			return true
+		}
+	}
+	return false
+}
+
 // handleSendOutcome обрабатывает результат попытки отправки:
-//  1. Publish в sms.failed если retry_count < max_retries (failover).
+//  1. Publish в sms.failed если retry_count < max_retries и ошибка
+//     не перманентная (failover).
 //  2. Сериализация и publish SentMessage в sms.sent (всегда).
 //
 // Refund при провале не требуется: TarifyMessage работает read-only,
@@ -565,8 +595,10 @@ type sendOutcomeInput struct {
 func (s *Stage) handleSendOutcome(ctx context.Context, in sendOutcomeInput) (*pipeline.SentMessage, error) {
 	routedMsg := in.routedMsg
 
-	// 6c. Если retry_count < max_retries — публикуем в sms.failed (R-007).
-	if in.sendErr != nil && routedMsg.RetryCount < routedMsg.MaxRetries {
+	// 6c. Если retry_count < max_retries и ошибка неперманентная —
+	// публикуем в sms.failed (R-007). Перманентные ESME-ошибки
+	// (invalid destination и т.п.) не ретраим — сразу финальный failed.
+	if in.sendErr != nil && routedMsg.RetryCount < routedMsg.MaxRetries && !isPermanentSendError(in.sendErr) {
 		failedMsg := &queue.FailedMessage{
 			MessageID:  routedMsg.MessageID,
 			TraceID:    in.traceID,

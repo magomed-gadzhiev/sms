@@ -7,7 +7,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/smpp-server/smpp-server/internal/api/http/response"
+	"github.com/smpp-server/smpp-server/internal/shared/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 

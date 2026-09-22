@@ -378,37 +378,6 @@ services:
       retries: 3
 
   # Worker (Kafka consumer → SMPP sender)
-  worker:
-    build:
-      context: ..
-      dockerfile: deployments/docker/worker.Dockerfile
-    container_name: worker
-    environment:
-      - SERVICE_NAME=worker
-      - KAFKA_BROKERS=kafka:9092
-      - KAFKA_CONSUMER_GROUP=worker-sender
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=smpp
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      - POSTGRES_DB=smpp_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
-      - TARIFICATION_SERVICE_ADDR=tarification-service:9100
-    networks:
-      - smpp-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      tarification-service:
-        condition: service_healthy
-    restart: unless-stopped
-
   # Pipeline Router (high-throughput pipeline stage: routing)
   pipeline-router:
     build:

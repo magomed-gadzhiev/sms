@@ -334,13 +334,13 @@ api:
 gRPC сервер запускается вместе с HTTP сервером в API Gateway:
 
 ```bash
-go run cmd/api/main.go
+go run cmd/client-gateway/main.go
 ```
 
 Или через Docker:
 
 ```bash
-docker-compose -f deployments/docker-compose.yml up api-gateway-1
+docker compose -f deployments/docker-compose.yml up client-gateway-1
 ```
 
 ## Дополнительная документация

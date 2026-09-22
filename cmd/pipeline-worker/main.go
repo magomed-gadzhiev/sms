@@ -24,6 +24,8 @@ import (
 	pipelinestatus "github.com/smpp-server/smpp-server/internal/pipeline/status"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	maintenancesvc "github.com/smpp-server/smpp-server/internal/services/maintenance"
+	networksvc "github.com/smpp-server/smpp-server/internal/services/network"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
@@ -152,6 +154,12 @@ func main() {
 		15*time.Second,
 	)
 
+	// Background DB-maintenance loops ported from the retired cmd/worker:
+	// SRA materialization retries and partition pre-creation. A shared
+	// advisory lock elects one runner across all pipeline-worker replicas
+	// (stage x N replicas), so the work is not duplicated.
+	go runMaintenanceLoops(ctx, pgxPool)
+
 	// Dispatch to selected stage
 	go func() {
 		var stageErr error
@@ -239,6 +247,88 @@ func runPersistStage(ctx context.Context, cfg *config.Config, pool *pgxpool.Pool
 	}
 	defer stage.Close()
 	return stage.Run(ctx)
+}
+
+// maintenanceLockKey identifies the DB-maintenance leadership slot shared by
+// every pipeline-worker replica (stage x N replicas).
+const maintenanceLockKey = 0x534D5301
+
+// runMaintenanceLoops elects a single maintenance leader via a session-level
+// Postgres advisory lock and, while holding it, runs the two background loops
+// that used to live in cmd/worker:
+//
+//  1. SRA retry loop — re-applies failed subaccount routing materializations
+//     every 60s (Plan 4 Task 6).
+//  2. Partition maintenance — ensures monthly partitions exist 6 months
+//     ahead for all partitioned tables, daily (Plan 7 Task 6).
+//
+// Followers poll for the lock every 30s and take over when the current
+// holder's session dies, so leadership follows process death without ops
+// action. Holding the lock for the process lifetime is intentional: both
+// loops are tick-driven and idempotent, and single-runner execution avoids
+// duplicate-work log noise (e.g. overlapping-partition alerts).
+func runMaintenanceLoops(ctx context.Context, pool *pgxpool.Pool) {
+	routeSetItemsRepo := storage.NewResellerRouteSetItemsRepository(pool)
+	providerMat := networksvc.NewProviderSetMaterializer(pool)
+	routeMat := networksvc.NewRouteSetMaterializer(pool, routeSetItemsRepo)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		conn, err := pool.Acquire(ctx)
+		if err != nil {
+			log.Warn().Err(err).Msg("maintenance loops: cannot acquire DB connection")
+			sleepCtx(ctx, 30*time.Second)
+			continue
+		}
+
+		var locked bool
+		if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", maintenanceLockKey).Scan(&locked); err != nil {
+			log.Warn().Err(err).Msg("maintenance loops: advisory lock query failed")
+			conn.Release()
+			sleepCtx(ctx, 30*time.Second)
+			continue
+		}
+		if !locked {
+			conn.Release()
+			sleepCtx(ctx, 30*time.Second)
+			continue
+		}
+
+		log.Info().Msg("maintenance loops: leadership acquired")
+
+		loopCtx, cancel := context.WithCancel(ctx)
+		go networksvc.RunRetryLoop(loopCtx, pool, providerMat, routeMat, 60*time.Second)
+		go maintenancesvc.RunPartitionMaintenanceLoop(loopCtx, pool,
+			[]maintenancesvc.PartitionedTable{
+				{Name: "audit_log", Naming: maintenancesvc.NamingYMM},
+				{Name: "messages", Naming: maintenancesvc.NamingYMM},
+				{Name: "lookup_log", Naming: maintenancesvc.NamingYYYYMM},
+				{Name: "deliveries", Naming: maintenancesvc.NamingYYYYMM},
+				{Name: "delivery_attempts", Naming: maintenancesvc.NamingYYYYMM},
+			},
+			6, 24*time.Hour)
+
+		<-loopCtx.Done()
+		cancel()
+		conn.Release()
+		log.Info().Msg("maintenance loops: leadership released")
+		return
+	}
+}
+
+// sleepCtx waits for d, aborting early on ctx cancellation.
+func sleepCtx(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
+	}
 }
 
 // ensureTopics creates pipeline Kafka topics on startup if they don't already exist.

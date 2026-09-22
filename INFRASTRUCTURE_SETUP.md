@@ -178,7 +178,7 @@ internal/gateway/
 - Proto файлы содержат полные определения API согласно плану
 - Shared компоненты готовы к использованию в микросервисах
 - Структура директорий соответствует DDD принципам
-- Существующий код (cmd/api, cmd/worker, cmd/smpp-server) сохранен для обратной совместимости
+- Легаси-сервисы (cmd/api, cmd/worker, cmd/smpp-server) удалены 2026-09: отправка живёт в pipeline-* стадиях (cmd/pipeline-worker), ingress — client-gateway/smpp-gateway
 
 ## 🔧 Запуск генерации proto кода
 
