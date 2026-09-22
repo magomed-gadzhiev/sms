@@ -749,71 +749,31 @@ func TestMatchSchedule_DateToIsToday_Matches(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Match
+// Resolve — the single Routing Resolution entry point. Level semantics
+// (client → reseller shared → platform, mode gates) live in resolver_test.go;
+// here: filtering and ranking within a level.
 // ---------------------------------------------------------------------------
 
-func TestMatch_NoRoutes_ReturnsEmpty(t *testing.T) {
-	m := newMatcher(nil, nil)
-	ctx := baseCtx()
-	result := m.Match(ctx)
-	assert.Empty(t, result)
-}
-
-func TestMatch_RouteTypeFilter_OnlyMatchingTypeReturned(t *testing.T) {
-	clientID := uuid.New()
-	ctx := baseCtx()
-	ctx.ClientID = clientID
-	ctx.RouteType = "sms"
-
-	smsRoute := newRoute(&clientID, "sms", 1, nil, nil)
-	hlrRoute := newRoute(&clientID, "hlr", 1, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{smsRoute, hlrRoute}, nil)
-	result := m.Match(ctx)
-
-	require.Len(t, result, 1)
-	assert.Equal(t, smsRoute.ID, result[0].ID)
-}
-
-func TestMatch_ClientSpecificRoute_TakesPrecedenceOverDefault(t *testing.T) {
-	clientID := uuid.New()
-	ctx := baseCtx()
-	ctx.ClientID = clientID
-	ctx.RouteType = "sms"
-
-	clientRoute := newRoute(&clientID, "sms", 10, nil, nil)
-	defaultRoute := newRoute(nil, "sms", 1, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{clientRoute, defaultRoute}, nil)
-	result := m.Match(ctx)
-
-	// Only client route returned (not default), since client-specific matched.
-	require.Len(t, result, 1)
-	assert.Equal(t, clientRoute.ID, result[0].ID)
-}
-
-func TestMatch_FallsBackToDefaultWhenNoClientRouteMatches(t *testing.T) {
+func TestResolve_OtherClientsRoutes_IgnoredAtClientLevel(t *testing.T) {
 	clientID := uuid.New()
 	otherClientID := uuid.New()
 	ctx := baseCtx()
 	ctx.ClientID = clientID
 	ctx.RouteType = "sms"
 
-	// Route belongs to a different client.
+	// Route belongs to a different client and is not a shared reseller route.
 	otherClientRoute := newRoute(&otherClientID, "sms", 1, nil, nil)
 	defaultRoute := newRoute(nil, "sms", 1, nil, nil)
 
 	m := newMatcher([]*domain.ClientRoute{otherClientRoute, defaultRoute}, nil)
-	result := m.Match(ctx)
-
-	require.Len(t, result, 1)
-	assert.Equal(t, defaultRoute.ID, result[0].ID)
+	dec, err := m.Resolve(context.Background(), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, LevelPlatform, dec.Level)
+	assert.Equal(t, defaultRoute.ID, dec.Route.ID)
 }
 
-func TestMatch_PriorityOrdering_LowerPriorityFirst(t *testing.T) {
-	clientID := uuid.New()
+func TestResolve_PriorityOrdering_LowestPriorityNumberWins(t *testing.T) {
 	ctx := baseCtx()
-	ctx.ClientID = clientID
 	ctx.RouteType = "sms"
 
 	r1 := newRoute(nil, "sms", 30, nil, nil)
@@ -821,20 +781,16 @@ func TestMatch_PriorityOrdering_LowerPriorityFirst(t *testing.T) {
 	r3 := newRoute(nil, "sms", 20, nil, nil)
 
 	m := newMatcher([]*domain.ClientRoute{r1, r2, r3}, nil)
-	result := m.Match(ctx)
-
-	require.Len(t, result, 3)
-	assert.Equal(t, 10, result[0].Priority)
-	assert.Equal(t, 20, result[1].Priority)
-	assert.Equal(t, 30, result[2].Priority)
+	dec, err := m.Resolve(context.Background(), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 10, dec.Route.Priority)
 }
 
-func TestMatch_ConditionFilterRemovesNonMatchingRoutes(t *testing.T) {
+func TestResolve_ConditionFilter_OnlyMatchingRouteResolved(t *testing.T) {
 	ctx := baseCtx()
 	ctx.RouteType = "sms"
 	ctx.CountryCode = "RU"
 
-	// Route requires Germany.
 	ruGroup := []domain.ConditionGroup{
 		group(domain.LogicIf, cond(domain.ConditionCountry, "RU")),
 	}
@@ -846,13 +802,12 @@ func TestMatch_ConditionFilterRemovesNonMatchingRoutes(t *testing.T) {
 	deRoute := newRoute(nil, "sms", 2, deGroup, nil)
 
 	m := newMatcher([]*domain.ClientRoute{ruRoute, deRoute}, nil)
-	result := m.Match(ctx)
-
-	require.Len(t, result, 1)
-	assert.Equal(t, ruRoute.ID, result[0].ID)
+	dec, err := m.Resolve(context.Background(), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, ruRoute.ID, dec.Route.ID)
 }
 
-func TestMatch_ScheduleFilter_ExcludesRouteOutsideSchedule(t *testing.T) {
+func TestResolve_ScheduleFilter_ExcludesRouteOutsideSchedule(t *testing.T) {
 	ctx := baseCtx()
 	ctx.RouteType = "sms"
 
@@ -862,13 +817,12 @@ func TestMatch_ScheduleFilter_ExcludesRouteOutsideSchedule(t *testing.T) {
 	openRoute := newRoute(nil, "sms", 2, nil, nil)
 
 	m := newMatcher([]*domain.ClientRoute{scheduledRoute, openRoute}, nil)
-	result := m.Match(ctx)
-
-	require.Len(t, result, 1)
-	assert.Equal(t, openRoute.ID, result[0].ID)
+	dec, err := m.Resolve(context.Background(), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, openRoute.ID, dec.Route.ID)
 }
 
-func TestMatch_RegexCondition_MatchesMessageBody(t *testing.T) {
+func TestResolve_RegexCondition_MatchesMessageBody(t *testing.T) {
 	ctx := baseCtx()
 	ctx.RouteType = "sms"
 	ctx.MessageBody = "Your OTP is 1234"
@@ -882,13 +836,12 @@ func TestMatch_RegexCondition_MatchesMessageBody(t *testing.T) {
 	route := newRoute(nil, "sms", 1, g, nil)
 
 	m := newMatcher([]*domain.ClientRoute{route}, cache)
-	result := m.Match(ctx)
-
-	require.Len(t, result, 1)
-	assert.Equal(t, route.ID, result[0].ID)
+	dec, err := m.Resolve(context.Background(), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, route.ID, dec.Route.ID)
 }
 
-func TestMatch_NoMatchingConditions_ReturnsEmpty(t *testing.T) {
+func TestResolve_NoMatchingConditions_ErrNoRoute(t *testing.T) {
 	ctx := baseCtx()
 	ctx.RouteType = "sms"
 	ctx.CountryCode = "RU"
@@ -899,160 +852,24 @@ func TestMatch_NoMatchingConditions_ReturnsEmpty(t *testing.T) {
 	route := newRoute(nil, "sms", 1, g, nil)
 
 	m := newMatcher([]*domain.ClientRoute{route}, nil)
-	result := m.Match(ctx)
-
-	assert.Empty(t, result)
+	_, err := m.Resolve(context.Background(), ctx)
+	assert.ErrorIs(t, err, ErrNoRouteFound)
 }
 
-func TestMatch_ClientAndDefaultBothHaveNoConditions_ClientWins(t *testing.T) {
-	clientID := uuid.New()
-	ctx := baseCtx()
-	ctx.ClientID = clientID
-	ctx.RouteType = "sms"
-
-	clientRoute := newRoute(&clientID, "sms", 5, nil, nil)
-	defaultRoute := newRoute(nil, "sms", 1, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{clientRoute, defaultRoute}, nil)
-	result := m.Match(ctx)
-
-	// Client-specific matches so default is not evaluated.
-	require.Len(t, result, 1)
-	assert.Equal(t, clientRoute.ID, result[0].ID)
-}
-
-// ---------------------------------------------------------------------------
-// MatchWithDetails
-// ---------------------------------------------------------------------------
-
-func TestMatchWithDetails_NoRoutes_ZeroCounts(t *testing.T) {
-	m := newMatcher(nil, nil)
-	ctx := baseCtx()
-	res := m.MatchWithDetails(ctx)
-
-	assert.Empty(t, res.Matched)
-	assert.Equal(t, 0, res.ClientRoutes)
-	assert.Equal(t, 0, res.DefaultRoutes)
-	assert.True(t, res.UsedDefault) // no client routes → fell back
-}
-
-func TestMatchWithDetails_ClientRouteMatches_UsedDefaultFalse(t *testing.T) {
-	clientID := uuid.New()
-	ctx := baseCtx()
-	ctx.ClientID = clientID
-	ctx.RouteType = "sms"
-
-	clientRoute := newRoute(&clientID, "sms", 1, nil, nil)
-	defaultRoute := newRoute(nil, "sms", 2, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{clientRoute, defaultRoute}, nil)
-	res := m.MatchWithDetails(ctx)
-
-	require.Len(t, res.Matched, 1)
-	assert.Equal(t, 1, res.ClientRoutes)
-	assert.Equal(t, 1, res.DefaultRoutes)
-	assert.False(t, res.UsedDefault)
-}
-
-func TestMatchWithDetails_NoClientRoutes_UsedDefaultTrue(t *testing.T) {
-	ctx := baseCtx()
-	ctx.RouteType = "sms"
-
-	defaultRoute := newRoute(nil, "sms", 1, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{defaultRoute}, nil)
-	res := m.MatchWithDetails(ctx)
-
-	require.Len(t, res.Matched, 1)
-	assert.Equal(t, 0, res.ClientRoutes)
-	assert.Equal(t, 1, res.DefaultRoutes)
-	assert.True(t, res.UsedDefault)
-}
-
-func TestMatchWithDetails_ClientRouteExistsButNoMatch_FallsBackToDefault(t *testing.T) {
-	clientID := uuid.New()
-	ctx := baseCtx()
-	ctx.ClientID = clientID
-	ctx.RouteType = "sms"
-	ctx.CountryCode = "RU"
-
-	// Client route has a condition that won't match.
-	clientRoute := newRoute(&clientID, "sms", 1,
-		[]domain.ConditionGroup{group(domain.LogicIf, cond(domain.ConditionCountry, "DE"))},
-		nil,
-	)
-	defaultRoute := newRoute(nil, "sms", 1, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{clientRoute, defaultRoute}, nil)
-	res := m.MatchWithDetails(ctx)
-
-	require.Len(t, res.Matched, 1)
-	assert.Equal(t, defaultRoute.ID, res.Matched[0].ID)
-	assert.Equal(t, 1, res.ClientRoutes)
-	assert.Equal(t, 1, res.DefaultRoutes)
-	assert.True(t, res.UsedDefault)
-}
-
-func TestMatchWithDetails_PriorityOrdering_SortedAscending(t *testing.T) {
-	ctx := baseCtx()
-	ctx.RouteType = "sms"
-
-	r1 := newRoute(nil, "sms", 100, nil, nil)
-	r2 := newRoute(nil, "sms", 50, nil, nil)
-	r3 := newRoute(nil, "sms", 75, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{r1, r2, r3}, nil)
-	res := m.MatchWithDetails(ctx)
-
-	require.Len(t, res.Matched, 3)
-	assert.Equal(t, 50, res.Matched[0].Priority)
-	assert.Equal(t, 75, res.Matched[1].Priority)
-	assert.Equal(t, 100, res.Matched[2].Priority)
-}
-
-func TestMatchWithDetails_CountsOnlyMatchingRouteType(t *testing.T) {
-	clientID := uuid.New()
-	ctx := baseCtx()
-	ctx.ClientID = clientID
-	ctx.RouteType = "sms"
-
-	// One sms client route, one hlr client route, one sms default.
-	smsClient := newRoute(&clientID, "sms", 1, nil, nil)
-	hlrClient := newRoute(&clientID, "hlr", 1, nil, nil)
-	smsDefault := newRoute(nil, "sms", 2, nil, nil)
-
-	m := newMatcher([]*domain.ClientRoute{smsClient, hlrClient, smsDefault}, nil)
-	res := m.MatchWithDetails(ctx)
-
-	// hlr route must not affect client count.
-	assert.Equal(t, 1, res.ClientRoutes)
-	assert.Equal(t, 1, res.DefaultRoutes)
-	assert.False(t, res.UsedDefault)
-}
-
-// ---------------------------------------------------------------------------
-// Load (smoke test — verifies struct initialised without panicking).
-// This is NOT an integration test; it exercises the code path without a real DB
-// by verifying that a nil repo panics predictably, which confirms Load wires
-// correctly to repo.LoadAllActive.
-// ---------------------------------------------------------------------------
-
-func TestNewRouteMatcher_InitialisesRegexCache(t *testing.T) {
-	// NewRouteMatcher without a repo: just verifies the struct is usable for
-	// in-memory matching (repo is only used in Load / Invalidate).
+func TestNewRouteMatcher_EmptyState_ResolveErrNoRoute(t *testing.T) {
+	// Matcher with no loaded state resolves to ErrNoRouteFound (not a panic).
 	m := &RouteMatcher{
 		regexCache: make(map[string]*regexp.Regexp),
 	}
-	ctx := baseCtx()
-	result := m.Match(ctx)
-	assert.Empty(t, result)
+	_, err := m.Resolve(context.Background(), baseCtx())
+	assert.ErrorIs(t, err, ErrNoRouteFound)
 }
 
 // ---------------------------------------------------------------------------
-// Concurrency smoke test — Match is safe under concurrent reads.
+// Concurrency smoke test — Resolve is safe under concurrent reads.
 // ---------------------------------------------------------------------------
 
-func TestMatch_ConcurrentReads_NoPanic(t *testing.T) {
+func TestResolve_ConcurrentReads_NoPanic(t *testing.T) {
 	routes := make([]*domain.ClientRoute, 10)
 	for i := range routes {
 		routes[i] = newRoute(nil, "sms", i, nil, nil)
@@ -1064,7 +881,7 @@ func TestMatch_ConcurrentReads_NoPanic(t *testing.T) {
 	done := make(chan struct{})
 	for i := 0; i < 20; i++ {
 		go func() {
-			m.Match(ctx)
+			_, _ = m.Resolve(context.Background(), ctx)
 			done <- struct{}{}
 		}()
 	}

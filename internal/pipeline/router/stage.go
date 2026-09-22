@@ -200,30 +200,22 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 			SenderName:  kafkaMsg.Source,
 		}
 
-		result := s.matcher.MatchWithDetails(matchCtx)
-		if len(result.Matched) == 0 {
+		// Routing Resolution (CONTEXT.md): client routes → reseller shared →
+		// platform defaults, gated by the client's Routing Mode. The stage
+		// knows nothing about buckets or mode strings — Resolve owns them.
+		decision, err := s.matcher.Resolve(ctx, matchCtx)
+		if err != nil {
 			trace.Warn(s.logger, kafkaMsg.TraceID, kafkaMsg.MessageID.String(), "router", "no_route").
+				Err(err).
 				Str("operator_id", operatorID.String()).
 				Str("traffic_type", string(trafficType)).
 				Str("sender_name", kafkaMsg.Source).
-				Int("client_routes_checked", result.ClientRoutes).
-				Int("default_routes_checked", result.DefaultRoutes).
 				Int64("kafka_wait_ms", time.Since(kafkaMsg.CreatedAt).Milliseconds()).
 				Msg("no matching route found")
-			return fmt.Errorf("маршрут не найден для message_id=%s client=%s operator=%s traffic=%s",
-				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType)
+			return fmt.Errorf("маршрут не найден для message_id=%s client=%s operator=%s traffic=%s: %w",
+				kafkaMsg.MessageID, kafkaMsg.ClientID, operatorID, trafficType, err)
 		}
-
-		// Pick a route from the top-priority bucket using `share` weights.
-		// When all top-bucket routes have share=0 (legacy / default config),
-		// the picker falls back deterministically to the first by priority,
-		// preserving prior behaviour. Bug #11 (QA 2026-04-22).
-		route := routingapp.PickWeightedRoute(result.Matched)
-		if route == nil {
-			// Defensive: PickWeightedRoute returns nil only for empty input,
-			// which we already rejected above. Treat as no-route.
-			return fmt.Errorf("маршрут не выбран для message_id=%s (pick returned nil)", kafkaMsg.MessageID)
-		}
+		route := decision.Route
 		providerID = route.ProviderID
 		routeID = &route.ID
 		if route.RouteType != "" {
@@ -235,8 +227,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage)
 			Str("route_name", route.Name).
 			Str("provider_id", providerID.String()).
 			Int("priority", route.Priority).
-			Bool("used_default", result.UsedDefault).
-			Int("total_matched", len(result.Matched)).
+			Str("resolution_level", string(decision.Level)).
 			Int64("kafka_wait_ms", time.Since(kafkaMsg.CreatedAt).Milliseconds()).
 			Msg("route selected")
 	} else {
