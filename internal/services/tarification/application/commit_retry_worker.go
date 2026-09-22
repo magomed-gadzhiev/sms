@@ -8,6 +8,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+
+	billingDomain "github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
 
 // CommitRetryWorker периодически забирает из commit_retry_queue записи
@@ -39,7 +41,7 @@ type CommitRetryWorker struct {
 // без подтягивания всего сервиса. В prod — TarificationService сам реализует
 // этот интерфейс через CommitCharge.
 type commitChargeInvoker interface {
-	CommitCharge(ctx context.Context, req *CommitChargeRequest) (*CommitChargeResult, error)
+	CommitCharge(ctx context.Context, req *CommitChargeRequest) *billingDomain.ChargeResult
 }
 
 // NewCommitRetryWorker. maxAttempts=10 по умолчанию (~17 минут с экспоненциальным
@@ -158,7 +160,7 @@ func (w *CommitRetryWorker) processEntry(ctx context.Context, e *domain.CommitRe
 	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	resp, err := w.service.CommitCharge(callCtx, &CommitChargeRequest{
+	resp := w.service.CommitCharge(callCtx, &CommitChargeRequest{
 		MessageID:      e.MessageID,
 		ClientID:       e.ClientID,
 		OperatorID:     e.OperatorID,
@@ -166,31 +168,30 @@ func (w *CommitRetryWorker) processEntry(ctx context.Context, e *domain.CommitRe
 		SegmentCount:   e.SegmentCount,
 		IdempotencyKey: e.IdempotencyKey,
 	})
-	if err != nil {
-		// Transport/timeout — ретраим.
-		return "transient", err.Error()
-	}
 	if resp == nil {
 		return "transient", "nil response"
 	}
-	switch {
-	case resp.Committed, resp.AlreadyCommitted:
+	switch resp.Outcome {
+	case billingDomain.ChargeOutcomeCommitted, billingDomain.ChargeOutcomeAlreadyCommitted:
 		return "success", ""
-	case resp.QuotaMissing, resp.SubInsufficient, resp.AggInsufficient, resp.NoTariff:
+	case billingDomain.ChargeOutcomeRejected:
 		// Business error — retry не изменит результат до ручного вмешательства
 		// (квота, баланс). Удаляем из очереди, остаётся лог для оператора.
 		w.logger.Warn().
 			Str("message_id", e.MessageID.String()).
 			Str("client_id", e.ClientID.String()).
-			Bool("quota_missing", resp.QuotaMissing).
-			Bool("sub_insufficient", resp.SubInsufficient).
-			Bool("agg_insufficient", resp.AggInsufficient).
-			Bool("no_tariff", resp.NoTariff).
+			Str("rejection", string(resp.Rejection)).
 			Msg("commit retry terminal — message sent but charge rejected, manual reconciliation required")
-		return "terminal", "business rejection"
+		return "terminal", "business rejection: " + string(resp.Rejection)
+	case billingDomain.ChargeOutcomeTransient:
+		// Transport/timeout — ретраим.
+		if resp.Err != nil {
+			return "transient", resp.Err.Error()
+		}
+		return "transient", "transport error"
 	default:
 		// Consistent неизвестный негатив — расцениваем как transient.
-		return "transient", "unknown non-committed response"
+		return "transient", "unknown outcome: " + string(resp.Outcome)
 	}
 }
 

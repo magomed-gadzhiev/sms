@@ -18,19 +18,19 @@ const (
 
 // Transaction представляет доменную модель транзакции
 type Transaction struct {
-	ID           uuid.UUID
-	ClientID     uuid.UUID
-	Type         TransactionType
-	Amount       string // Используем строку для точности
-	Currency     string
-	BalanceBefore string
-	BalanceAfter  string
-	Description   string
-	MessageID     *uuid.UUID
-	PaymentMethod *string
-	Metadata      map[string]interface{}
+	ID                     uuid.UUID
+	ClientID               uuid.UUID
+	Type                   TransactionType
+	Amount                 string // Используем строку для точности
+	Currency               string
+	BalanceBefore          string
+	BalanceAfter           string
+	Description            string
+	MessageID              *uuid.UUID
+	PaymentMethod          *string
+	Metadata               map[string]interface{}
 	AttributedSubAccountID *uuid.UUID
-	CreatedAt     time.Time
+	CreatedAt              time.Time
 }
 
 // NewTransaction создает новую транзакцию

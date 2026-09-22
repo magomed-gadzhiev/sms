@@ -73,7 +73,7 @@ func TestPricingService(t *testing.T) {
 				ClientID:           &clientID,
 				DestinationPattern: "^\\+7",
 				PricePerMessage:    "0.030000",
-				Currency: "EUR",
+				Currency:           "EUR",
 				Priority:           20,
 				Active:             true,
 			}

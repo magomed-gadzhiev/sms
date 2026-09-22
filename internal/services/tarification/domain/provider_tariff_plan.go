@@ -33,10 +33,10 @@ type ProviderTariffTier struct {
 }
 
 var (
-	ErrProviderTariffPlanNotFound      = errors.New("provider tariff plan not found")
-	ErrProviderTariffPeriodNotFound    = errors.New("provider tariff period not found")
-	ErrNoActiveProviderTariffPlan      = errors.New("no active provider tariff plan")
-	ErrNoActiveProviderTariffPeriod    = errors.New("no active provider tariff period")
+	ErrProviderTariffPlanNotFound   = errors.New("provider tariff plan not found")
+	ErrProviderTariffPeriodNotFound = errors.New("provider tariff period not found")
+	ErrNoActiveProviderTariffPlan   = errors.New("no active provider tariff plan")
+	ErrNoActiveProviderTariffPeriod = errors.New("no active provider tariff period")
 )
 
 func NewProviderTariffPlan(providerID, operatorID uuid.UUID, strategy TarificationStrategy) *ProviderTariffPlan {

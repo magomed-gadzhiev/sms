@@ -33,18 +33,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smpp-server/smpp-server/internal/services/billing/application"
-	tarDomain "github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 	billingRepo "github.com/smpp-server/smpp-server/internal/services/billing/infrastructure/repository"
+	tarDomain "github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 	tarRepo "github.com/smpp-server/smpp-server/internal/services/tarification/infrastructure/repository"
 	"github.com/smpp-server/smpp-server/internal/testutil"
+
+	billingDomain "github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
 
 // testEnv — набор ресурсов, общий на весь test-file.
 type testEnv struct {
-	db       *sqlx.DB
-	quotaR   *tarRepo.AggregatorQuotaRepository
-	marginR  *tarRepo.AggregatorMarginLogRepository
-	deps     application.DualChargeDeps
+	db      *sqlx.DB
+	quotaR  *tarRepo.AggregatorQuotaRepository
+	marginR *tarRepo.AggregatorMarginLogRepository
+	deps    application.DualChargeDeps
 }
 
 // setupTestEnv инициализирует sqlx.DB. Если подключение невозможно — t.Skip.
@@ -229,17 +231,13 @@ func TestChargeMessageDual_HappyPath_Pool(t *testing.T) {
 		ChargeMode:      tarDomain.ChargeModePool,
 	}
 
-	res, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
+	res := application.ChargeMessageDual(context.Background(), env.deps, in)
 	require.NotNil(t, res)
 
-	assert.True(t, res.Committed, "Committed must be true")
-	assert.False(t, res.AlreadyCommitted)
-	assert.False(t, res.QuotaMissing)
-	assert.False(t, res.SubInsufficient)
-	assert.False(t, res.AggInsufficient)
-	assert.NotEqual(t, uuid.Nil, res.SubTxID)
-	assert.NotEqual(t, uuid.Nil, res.AggTxID)
+	assert.Equal(t, billingDomain.ChargeOutcomeCommitted, res.Outcome, "outcome must be committed")
+	assert.Empty(t, res.Rejection)
+	assert.NotEqual(t, uuid.Nil, res.SubAccountTxID)
+	assert.NotEqual(t, uuid.Nil, res.AggregatorTxID)
 	assert.NotEqual(t, uuid.Nil, res.MarginLogID)
 
 	assert.Equal(t, "990.000000", readBalance(t, env.db, sub), "sub balance -10")
@@ -274,19 +272,15 @@ func TestChargeMessageDual_AlreadyCommitted(t *testing.T) {
 	}
 
 	// Первый вызов — committed.
-	res1, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
-	require.True(t, res1.Committed)
+	res1 := application.ChargeMessageDual(context.Background(), env.deps, in)
+	require.Equal(t, billingDomain.ChargeOutcomeCommitted, res1.Outcome)
 
 	subBalAfter1 := readBalance(t, env.db, sub)
 	aggBalAfter1 := readBalance(t, env.db, agg)
 
 	// Второй вызов с тем же message_id → AlreadyCommitted.
-	res2, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
-	require.NotNil(t, res2)
-	assert.False(t, res2.Committed)
-	assert.True(t, res2.AlreadyCommitted)
+	res2 := application.ChargeMessageDual(context.Background(), env.deps, in)
+	assert.Equal(t, billingDomain.ChargeOutcomeAlreadyCommitted, res2.Outcome)
 
 	// Балансы не изменились после второго вызова.
 	assert.Equal(t, subBalAfter1, readBalance(t, env.db, sub))
@@ -312,11 +306,10 @@ func TestChargeMessageDual_QuotaMissing_NoAutoRenew(t *testing.T) {
 		Currency: "RUB", SegmentCount: 5, PoolSegments: 5, ChargeMode: tarDomain.ChargeModePool,
 	}
 
-	res, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
+	res := application.ChargeMessageDual(context.Background(), env.deps, in)
 	require.NotNil(t, res)
-	assert.True(t, res.QuotaMissing)
-	assert.False(t, res.Committed)
+	assert.Equal(t, billingDomain.ChargeOutcomeRejected, res.Outcome)
+	assert.Equal(t, billingDomain.RejectionQuotaMissing, res.Rejection)
 
 	// margin_log запись вставилась в tx но откатилась через ROLLBACK (defer tx.Rollback).
 	assert.Equal(t, 0, countMarginLog(t, env.db, msgID))
@@ -340,11 +333,10 @@ func TestChargeMessageDual_QuotaMissing_AutoRenew_LazyCreate(t *testing.T) {
 		Currency: "RUB", SegmentCount: 3, PoolSegments: 3, ChargeMode: tarDomain.ChargeModePool,
 	}
 
-	res, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
+	res := application.ChargeMessageDual(context.Background(), env.deps, in)
 	require.NotNil(t, res)
-	assert.True(t, res.Committed, "должен успешно закоммититься после lazy-create")
-	assert.False(t, res.QuotaMissing)
+	assert.Equal(t, billingDomain.ChargeOutcomeCommitted, res.Outcome, "должен успешно закоммититься после lazy-create")
+	assert.Empty(t, res.Rejection)
 
 	assert.Equal(t, "990.000000", readBalance(t, env.db, sub))
 	assert.Equal(t, "1995.000000", readBalance(t, env.db, agg))
@@ -367,11 +359,10 @@ func TestChargeMessageDual_SubInsufficient(t *testing.T) {
 		Currency: "RUB", SegmentCount: 5, PoolSegments: 5, ChargeMode: tarDomain.ChargeModePool,
 	}
 
-	res, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
+	res := application.ChargeMessageDual(context.Background(), env.deps, in)
 	require.NotNil(t, res)
-	assert.True(t, res.SubInsufficient)
-	assert.False(t, res.Committed)
+	assert.Equal(t, billingDomain.ChargeOutcomeRejected, res.Outcome)
+	assert.Equal(t, billingDomain.RejectionInsufficientBalanceSub, res.Rejection)
 
 	// Всё откачено: баланс субаккаунта не тронут, margin_log/transactions пусто.
 	assert.Equal(t, "5.000000", readBalance(t, env.db, sub))
@@ -398,11 +389,10 @@ func TestChargeMessageDual_AggInsufficient(t *testing.T) {
 		Currency: "RUB", SegmentCount: 5, PoolSegments: 5, ChargeMode: tarDomain.ChargeModePool,
 	}
 
-	res, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
+	res := application.ChargeMessageDual(context.Background(), env.deps, in)
 	require.NotNil(t, res)
-	assert.True(t, res.AggInsufficient)
-	assert.False(t, res.Committed)
+	assert.Equal(t, billingDomain.ChargeOutcomeRejected, res.Outcome)
+	assert.Equal(t, billingDomain.RejectionInsufficientBalanceAgg, res.Rejection)
 
 	// КЛЮЧЕВОЕ: баланс субаккаунта восстановлен через ROLLBACK.
 	assert.Equal(t, "1000.000000", readBalance(t, env.db, sub), "sub balance ROLLBACK")
@@ -430,16 +420,15 @@ func TestChargeMessageDual_SplitMode(t *testing.T) {
 		ChargeMode: tarDomain.ChargeModeSplit,
 	}
 
-	res, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
-	require.True(t, res.Committed)
+	res := application.ChargeMessageDual(context.Background(), env.deps, in)
+	require.Equal(t, billingDomain.ChargeOutcomeCommitted, res.Outcome)
 
 	// Проверить что charge_mode/pool/overage записаны в margin_log.
 	var (
-		mode                       string
+		mode                        string
 		poolSeg, overageSeg, segCnt int
 	)
-	err = env.db.QueryRowxContext(context.Background(), `
+	err := env.db.QueryRowxContext(context.Background(), `
 		SELECT charge_mode, pool_segments, overage_segments, segment_count
 		FROM aggregator_margin_log WHERE message_id = $1
 	`, msgID).Scan(&mode, &poolSeg, &overageSeg, &segCnt)
@@ -469,15 +458,12 @@ func TestChargeMessageDual_ConcurrentDoubleCall(t *testing.T) {
 	}
 
 	// Первый вызов.
-	res1, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
-	require.True(t, res1.Committed)
+	res1 := application.ChargeMessageDual(context.Background(), env.deps, in)
+	require.Equal(t, billingDomain.ChargeOutcomeCommitted, res1.Outcome)
 
 	// Второй вызов — идентичный вход.
-	res2, err := application.ChargeMessageDual(context.Background(), env.deps, in)
-	require.NoError(t, err)
-	require.True(t, res2.AlreadyCommitted)
-	require.False(t, res2.Committed)
+	res2 := application.ChargeMessageDual(context.Background(), env.deps, in)
+	require.Equal(t, billingDomain.ChargeOutcomeAlreadyCommitted, res2.Outcome)
 
 	// Баланс списан ровно один раз.
 	assert.Equal(t, "90.000000", readBalance(t, env.db, sub))

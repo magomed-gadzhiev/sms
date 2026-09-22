@@ -20,7 +20,18 @@ type BillingService struct {
 	transactionRepo domain.TransactionRepository
 	transferRepo    domain.TransferRepository
 	eventPublisher  domain.EventPublisher
-	logger          zerolog.Logger
+	// commitGuard — канонический владелец идемпотентности списаний за
+	// Message (commit_idempotency_guard). ChargeDirect-путь обязан быть
+	// сконфигурирован guard'ом (см. SetCommitGuard).
+	commitGuard domain.CommitIdempotencyGuard
+	logger      zerolog.Logger
+}
+
+// SetCommitGuard устанавливает guard идемпотентности для ChargeMessage.
+// Вызывается на wiring-уровне (cmd/billing); без guard production-путь
+// ChargeMessage отклоняет запросы.
+func (s *BillingService) SetCommitGuard(guard domain.CommitIdempotencyGuard) {
+	s.commitGuard = guard
 }
 
 // NewBillingService создает новый сервис биллинга
@@ -422,15 +433,10 @@ func (s *BillingService) ChargeMessage(
 	clientID, messageID uuid.UUID,
 	amount, currency, description string,
 ) (*domain.Transaction, error) {
-	// Проверяем идемпотентность до начала транзакции
-	existing, err := s.transactionRepo.GetByMessageID(ctx, messageID)
-	if err == nil && existing != nil {
-		s.logger.Debug().
-			Str("message_id", messageID.String()).
-			Str("transaction_id", existing.ID.String()).
-			Msg("transaction already exists for message")
-		return existing, nil
-	}
+	// Идемпотентность — commit_idempotency_guard.ClaimTx внутри транзакции
+	// (см. chargeMessageWithTx). Прежний check-before-tx (GetByMessageID до
+	// BeginTx) удалён: он был race-prone (два конкурентных вызова проходили
+	// проверку и списывали дважды) и дублировал guard-механизм.
 
 	// Пробуем использовать транзакцию если репозиторий поддерживает
 	type txRepo interface {
@@ -458,11 +464,40 @@ func (s *BillingService) chargeMessageWithTx(
 	clientID, messageID uuid.UUID,
 	amount, currency, description string,
 ) (*domain.Transaction, error) {
+	if s.commitGuard == nil {
+		return nil, fmt.Errorf("charge message %s: commit guard not configured (SetCommitGuard)", messageID)
+	}
+
 	tx, err := repo.BeginTx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
+
+	// Канонический guard: claim в той же tx, что и сдвиг баланса. Повторный
+	// вызов с тем же message_id получает already-committed поведение —
+	// guard выживает только если исходная tx закоммитилась.
+	claimed, err := s.commitGuard.ClaimTx(ctx, tx, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("idempotency guard: %w", err)
+	}
+	if !claimed {
+		// Replay: списание уже было — возвращаем существующую транзакцию
+		// (read-only, после отката текущей tx).
+		_ = tx.Rollback()
+		existing, err := s.transactionRepo.GetByMessageID(ctx, messageID)
+		if err != nil || existing == nil {
+			s.logger.Warn().Err(err).
+				Str("message_id", messageID.String()).
+				Msg("guard says committed but transaction row not found")
+			return nil, fmt.Errorf("charge message %s: already committed but transaction row unavailable", messageID)
+		}
+		s.logger.Debug().
+			Str("message_id", messageID.String()).
+			Str("transaction_id", existing.ID.String()).
+			Msg("transaction already exists for message (guard replay)")
+		return existing, nil
+	}
 
 	account, err := repo.GetByClientIDForUpdate(ctx, tx, clientID)
 	if err != nil {
@@ -545,6 +580,12 @@ func (s *BillingService) chargeMessageNoTx(
 	clientID, messageID uuid.UUID,
 	amount, currency, description string,
 ) (*domain.Transaction, error) {
+	// Mock-мир без *sqlx.Tx: guard неприменим, replay-проверка остаётся здесь.
+	// Production-путь (chargeMessageWithTx) идемпотентен через commit guard.
+	if existing, err := s.transactionRepo.GetByMessageID(ctx, messageID); err == nil && existing != nil {
+		return existing, nil
+	}
+
 	account, err := s.accountRepo.GetByClientID(ctx, clientID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %w", err)

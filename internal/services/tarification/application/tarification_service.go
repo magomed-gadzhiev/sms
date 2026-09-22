@@ -261,7 +261,6 @@ func (s *TarificationService) TarifyMessage(ctx context.Context, req *TarifyMess
 	return calcResultToResponse(calc), nil
 }
 
-
 // resolveAggregatorBilling определяет, нужна ли агрегаторская тарификация.
 // Возвращает: isSubAccount, aggregatorID, aggAmount (платформенный), subAmount (тариф агрегатора).
 func (s *TarificationService) resolveAggregatorBilling(
@@ -298,7 +297,6 @@ func (s *TarificationService) resolveAggregatorBilling(
 
 	return true, parentID, result.ChargeAmount, subTotal
 }
-
 
 // multiplyPrice умножает цену на количество сегментов
 func multiplyPrice(pricePerSeg string, segments int) (string, error) {

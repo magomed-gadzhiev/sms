@@ -23,14 +23,14 @@ type chargeRunner interface {
 // unifiedDeps bundles everything tarifyUnified needs. Populated by
 // TarificationService.SetUnifiedDependencies (Task 9).
 type unifiedDeps struct {
-	resolver      *PriceResolver
-	calc          *CostCalculator
-	ruleRepo      domain.PriceRuleRepository // margin-path direct lookup
-	subUsageRepo  domain.SubaccountUsageCounterRepository
-	marginLogRepo domain.AggregatorMarginLogRepository
-	saga          chargeRunner
-	logRepo       domain.TarificationLogRepository
-	senderRepo    domain.SenderRegistrationRepository
+	resolver       *PriceResolver
+	calc           *CostCalculator
+	ruleRepo       domain.PriceRuleRepository // margin-path direct lookup
+	subUsageRepo   domain.SubaccountUsageCounterRepository
+	marginLogRepo  domain.AggregatorMarginLogRepository
+	saga           chargeRunner
+	logRepo        domain.TarificationLogRepository
+	senderRepo     domain.SenderRegistrationRepository
 	operatorLookup OperatorMetaLookup
 }
 

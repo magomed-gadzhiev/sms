@@ -13,6 +13,8 @@ import (
 	tarificationv1 "github.com/smpp-server/smpp-server/api/proto/tarificationv1"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/application"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+
+	billingDomain "github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
 
 // Server реализует gRPC сервер тарификации
@@ -126,7 +128,7 @@ func (s *Server) CommitCharge(ctx context.Context, req *tarificationv1.CommitCha
 		return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
 	}
 
-	result, err := s.tarificationService.CommitCharge(ctx, &application.CommitChargeRequest{
+	result := s.tarificationService.CommitCharge(ctx, &application.CommitChargeRequest{
 		MessageID:      messageID,
 		ClientID:       clientID,
 		OperatorID:     operatorID,
@@ -134,31 +136,36 @@ func (s *Server) CommitCharge(ctx context.Context, req *tarificationv1.CommitCha
 		SegmentCount:   int(req.SegmentCount),
 		IdempotencyKey: req.IdempotencyKey,
 	})
-	if err != nil {
-		log.Error().Err(err).Msg("commit charge failed")
-		return nil, status.Errorf(codes.Internal, "commit charge failed: %v", err)
+
+	// Transient — transport-level сбой: транслируем в gRPC error, как раньше.
+	if result.Outcome == billingDomain.ChargeOutcomeTransient {
+		log.Error().Err(result.Err).Msg("commit charge failed")
+		return nil, status.Errorf(codes.Internal, "commit charge failed: %v", result.Err)
 	}
 
 	resp := &tarificationv1.CommitChargeResponse{
-		Committed:      result.Committed,
-		SubAccountTxId: result.SubAccountTxID,
-		AggregatorTxId: result.AggregatorTxID,
-		MarginLogId:    result.MarginLogID,
+		Committed:      result.Outcome == billingDomain.ChargeOutcomeCommitted,
+		SubAccountTxId: billingDomain.FormatTxID(result.SubAccountTxID),
+		AggregatorTxId: billingDomain.FormatTxID(result.AggregatorTxID),
+		MarginLogId:    billingDomain.FormatTxID(result.MarginLogID),
 	}
-	switch {
-	case result.AlreadyCommitted:
+	switch result.Rejection {
+	case billingDomain.RejectionQuotaMissing:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_QUOTA_NOT_CONFIGURED
+	case billingDomain.RejectionInsufficientBalanceSub, billingDomain.RejectionInsufficientBalanceDirect:
+		// Direct-ветка исторически маппится в SUBACCOUNT-код (proto enum
+		// DIRECT отсутствует до regen-окна).
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT
+	case billingDomain.RejectionInsufficientBalanceAgg:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR
+	case billingDomain.RejectionNoTariff:
+		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_NO_TARIFF
+	}
+	if result.Outcome == billingDomain.ChargeOutcomeAlreadyCommitted {
 		// Идемпотентный re-entry: для клиента это успех, такой же контракт
 		// как в billing.ChargeMessageDual handler — см. billing/grpc/server.go.
 		resp.Committed = true
 		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_ALREADY_COMMITTED
-	case result.QuotaMissing:
-		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_QUOTA_NOT_CONFIGURED
-	case result.SubInsufficient:
-		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT
-	case result.AggInsufficient:
-		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR
-	case result.NoTariff:
-		resp.Error = tarificationv1.CommitChargeError_COMMIT_CHARGE_ERROR_NO_TARIFF
 	}
 	return resp, nil
 }
@@ -847,7 +854,7 @@ func (s *Server) CreateSenderBillingRecord(ctx context.Context, req *tarificatio
 	}
 
 	return &tarificationv1.CreateSenderBillingRecordResponse{
-		Record:        senderBillingRecordToProto(record),
+		Record:         senderBillingRecordToProto(record),
 		AlreadyExisted: !created,
 	}, nil
 }

@@ -23,11 +23,13 @@ func (f *fakeRuleRepo) FindApplicable(_ context.Context, _ domain.ResolveInput) 
 	f.called++
 	return f.byLookup, f.err
 }
-func (f *fakeRuleRepo) Create(context.Context, *domain.PriceRule) error             { return nil }
-func (f *fakeRuleRepo) Update(context.Context, *domain.PriceRule) error             { return nil }
-func (f *fakeRuleRepo) Delete(context.Context, uuid.UUID) error                     { return nil }
-func (f *fakeRuleRepo) GetByID(context.Context, uuid.UUID) (*domain.PriceRule, error) { return nil, nil }
-func (f *fakeRuleRepo) HasPlatformCatchAll(context.Context) (bool, error)           { return true, nil }
+func (f *fakeRuleRepo) Create(context.Context, *domain.PriceRule) error { return nil }
+func (f *fakeRuleRepo) Update(context.Context, *domain.PriceRule) error { return nil }
+func (f *fakeRuleRepo) Delete(context.Context, uuid.UUID) error         { return nil }
+func (f *fakeRuleRepo) GetByID(context.Context, uuid.UUID) (*domain.PriceRule, error) {
+	return nil, nil
+}
+func (f *fakeRuleRepo) HasPlatformCatchAll(context.Context) (bool, error) { return true, nil }
 
 type fakeResolvedRepo struct {
 	cached   *domain.ResolvedRule

@@ -33,9 +33,9 @@ func (s *FixedStrategy) Calculate(_ context.Context, params CalculationParams) (
 	total := new(big.Float).Mul(price, segments)
 
 	return &CalculationResult{
-		ChargeAmount:    total.Text('f', 6),
+		ChargeAmount:     total.Text('f', 6),
 		ThresholdCrossed: false,
-		RecalcAmount:    "",
-		PricePerSegment: tier.PricePerSegment,
+		RecalcAmount:     "",
+		PricePerSegment:  tier.PricePerSegment,
 	}, nil
 }

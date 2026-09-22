@@ -55,19 +55,19 @@ func NewEventPublisher(kafkaCfg *config.KafkaConfig, resultsTopic, recalcTopic, 
 // PublishTarificationResult публикует результат тарификации
 func (p *EventPublisher) PublishTarificationResult(_ context.Context, log *domain.TarificationLog) error {
 	event := map[string]interface{}{
-		"event_type":       "message.tarified",
-		"message_id":       log.MessageID.String(),
-		"client_id":        log.ClientID.String(),
-		"operator_id":      log.OperatorID.String(),
-		"sender_category":  string(log.SenderCategory),
-		"strategy":         string(log.Strategy),
-		"segment_count":    log.SegmentCount,
+		"event_type":        "message.tarified",
+		"message_id":        log.MessageID.String(),
+		"client_id":         log.ClientID.String(),
+		"operator_id":       log.OperatorID.String(),
+		"sender_category":   string(log.SenderCategory),
+		"strategy":          string(log.Strategy),
+		"segment_count":     log.SegmentCount,
 		"price_per_segment": log.PricePerSegment,
-		"total_amount":     log.TotalAmount,
-		"tariff_plan_id":   uuidPtrString(log.TariffPlanID),
-		"tariff_period_id": uuidPtrString(log.TariffPeriodID),
-		"source_rule_id":   uuidPtrString(log.SourceRuleID),
-		"timestamp":        time.Now().UTC().Format(time.RFC3339),
+		"total_amount":      log.TotalAmount,
+		"tariff_plan_id":    uuidPtrString(log.TariffPlanID),
+		"tariff_period_id":  uuidPtrString(log.TariffPeriodID),
+		"source_rule_id":    uuidPtrString(log.SourceRuleID),
+		"timestamp":         time.Now().UTC().Format(time.RFC3339),
 	}
 
 	return p.publish(p.resultsTopic, log.MessageID.String(), event)

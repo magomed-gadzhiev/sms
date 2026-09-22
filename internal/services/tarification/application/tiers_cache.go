@@ -44,10 +44,10 @@ type cacheKey struct {
 // Phase 1 ограничение: нет LRU-eviction. Ожидается несколько сотен rules ×
 // несколько версий = тысячи entries = <10MB памяти. Proper LRU — Pillar D.
 type TiersCache struct {
-	mu       sync.RWMutex
-	tiered   map[cacheKey]*TieredSpec
-	prepaid  map[cacheKey]*PrepaidThresholdSpec
-	maxSize  int
+	mu      sync.RWMutex
+	tiered  map[cacheKey]*TieredSpec
+	prepaid map[cacheKey]*PrepaidThresholdSpec
+	maxSize int
 }
 
 // NewTiersCache создаёт кеш. maxSize — soft limit: при превышении очищаются ВСЕ
