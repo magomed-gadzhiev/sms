@@ -20,6 +20,7 @@ type ClientRoute struct {
 	Status     RouteStatus
 	Share      int
 	RouteType  string           // sms, hlr, max
+	Shared     bool             // reseller route set shared with sub accounts
 	Groups     []ConditionGroup
 	Schedules  []Schedule
 	CreatedAt  time.Time
