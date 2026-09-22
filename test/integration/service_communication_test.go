@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	messagingv1 "github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/queue"
-	messagingv1 "github.com/smpp-server/smpp-server/api/proto/messagingv1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -34,7 +34,9 @@ func TestKafkaToMessagingServiceFlow(t *testing.T) {
 	defer producer.Close()
 
 	// Подключаемся к Messaging Service
-	messagingConn, err := grpc.DialContext(context.Background(), messagingServiceAddr,
+	dCtx, dCancel := dialCtx(t)
+	defer dCancel()
+	messagingConn, err := grpc.DialContext(dCtx, messagingServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
@@ -44,7 +46,8 @@ func TestKafkaToMessagingServiceFlow(t *testing.T) {
 	defer messagingConn.Close()
 
 	messagingClient := messagingv1.NewMessagingServiceClient(messagingConn)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	// 1. Публикуем сообщение в Kafka
 	msgID := uuid.New()
@@ -80,7 +83,9 @@ func TestKafkaToMessagingServiceFlow(t *testing.T) {
 // TestGatewayToServiceFlow тестирует поток: Gateway -> Service через gRPC
 func TestGatewayToServiceFlow(t *testing.T) {
 	// Подключаемся к Messaging Service напрямую
-	messagingConn, err := grpc.DialContext(context.Background(), messagingServiceAddr,
+	dCtx, dCancel := dialCtx(t)
+	defer dCancel()
+	messagingConn, err := grpc.DialContext(dCtx, messagingServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
@@ -90,7 +95,8 @@ func TestGatewayToServiceFlow(t *testing.T) {
 	defer messagingConn.Close()
 
 	messagingClient := messagingv1.NewMessagingServiceClient(messagingConn)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	clientID := uuid.New().String()
 
@@ -102,7 +108,7 @@ func TestGatewayToServiceFlow(t *testing.T) {
 
 		resp, err := messagingClient.SendMessage(ctx, &messagingv1.SendMessageRequest{
 			ClientId:    clientID,
-			MessageId:   msgID.String(),
+			ExternalId:  msgID.String(),
 			Source:      "12345",
 			Destination: "79001234567",
 			Text:        "Batch test message",
@@ -134,7 +140,9 @@ func TestGatewayToServiceFlow(t *testing.T) {
 
 // TestConcurrentRequests тестирует конкурентные запросы к сервису
 func TestConcurrentRequests(t *testing.T) {
-	messagingConn, err := grpc.DialContext(context.Background(), messagingServiceAddr,
+	dCtx, dCancel := dialCtx(t)
+	defer dCancel()
+	messagingConn, err := grpc.DialContext(dCtx, messagingServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
@@ -144,7 +152,8 @@ func TestConcurrentRequests(t *testing.T) {
 	defer messagingConn.Close()
 
 	messagingClient := messagingv1.NewMessagingServiceClient(messagingConn)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	concurrency := 10
 	results := make(chan bool, concurrency)
@@ -157,7 +166,7 @@ func TestConcurrentRequests(t *testing.T) {
 			msgID := uuid.New()
 			_, err := messagingClient.SendMessage(ctx, &messagingv1.SendMessageRequest{
 				ClientId:    clientID,
-				MessageId:   msgID.String(),
+				ExternalId:  msgID.String(),
 				Source:      "12345",
 				Destination: "79001234567",
 				Text:        "Concurrent test message",
@@ -181,4 +190,11 @@ func TestConcurrentRequests(t *testing.T) {
 
 	t.Logf("Concurrent requests: %d/%d successful", successCount, concurrency)
 	assert.Greater(t, successCount, 0, "At least some requests should succeed")
+}
+
+// dialCtx ограничивает gRPC dial в интеграционных тестах: недоступный
+// бэкенд должен быстро завершить тест, а не висеть до package timeout.
+func dialCtx(t *testing.T) (context.Context, context.CancelFunc) {
+	t.Helper()
+	return context.WithTimeout(context.Background(), 5*time.Second)
 }

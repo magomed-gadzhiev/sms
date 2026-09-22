@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/smpp-server/smpp-server/internal/shared"
 	"github.com/smpp-server/smpp-server/internal/storage"
 	"github.com/smpp-server/smpp-server/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMessageRepository_Create(t *testing.T) {
@@ -29,6 +29,8 @@ func TestMessageRepository_Create(t *testing.T) {
 
 	msg := testutil.NewTestMessage()
 	msg.ID = uuid.New()
+	seededClientID := testutil.SeedTestClient(t, db)
+	msg.ClientID = &seededClientID
 
 	err := repo.Create(ctx, msg)
 	require.NoError(t, err)
@@ -48,6 +50,8 @@ func TestMessageRepository_GetByID(t *testing.T) {
 	// Создаем сообщение
 	msg := testutil.NewTestMessage()
 	msg.ID = uuid.New()
+	seededClientID := testutil.SeedTestClient(t, db)
+	msg.ClientID = &seededClientID
 	err := repo.Create(ctx, msg)
 	require.NoError(t, err)
 
@@ -73,6 +77,8 @@ func TestMessageRepository_UpdateStatus(t *testing.T) {
 	// Создаем сообщение
 	msg := testutil.NewTestMessage()
 	msg.ID = uuid.New()
+	seededClientID := testutil.SeedTestClient(t, db)
+	msg.ClientID = &seededClientID
 	err := repo.Create(ctx, msg)
 	require.NoError(t, err)
 
@@ -159,6 +165,8 @@ func TestMessageRepository_GetPendingForRetry(t *testing.T) {
 	// Создаем сообщение со статусом failed и next_retry_at в прошлом
 	msg := testutil.NewTestMessage()
 	msg.ID = uuid.New()
+	seededClientID := testutil.SeedTestClient(t, db)
+	msg.ClientID = &seededClientID
 	msg.Status = shared.MessageStatusFailed
 	msg.RetryCount = 2
 	msg.MaxRetries = 5
@@ -187,6 +195,8 @@ func TestMessageRepository_IncrementRetryCount(t *testing.T) {
 	// Создаем сообщение
 	msg := testutil.NewTestMessage()
 	msg.ID = uuid.New()
+	seededClientID := testutil.SeedTestClient(t, db)
+	msg.ClientID = &seededClientID
 	msg.RetryCount = 0
 	err := repo.Create(ctx, msg)
 	require.NoError(t, err)

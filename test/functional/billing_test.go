@@ -15,6 +15,8 @@ import (
 	billingDomain "github.com/smpp-server/smpp-server/internal/services/billing/domain"
 	billingRepo "github.com/smpp-server/smpp-server/internal/services/billing/infrastructure/repository"
 	billingMocks "github.com/smpp-server/smpp-server/internal/services/billing/mocks"
+
+	"github.com/jmoiron/sqlx"
 )
 
 func TestBillingChain(t *testing.T) {
@@ -32,14 +34,10 @@ func TestBillingChain(t *testing.T) {
 			 ON CONFLICT DO NOTHING`, clientID.String())
 		require.NoError(t, err)
 
-		accountRepo := billingRepo.NewAccountRepository(db)
 		transactionRepo := billingRepo.NewTransactionRepository(db)
 
-		// Create an account with balance 100.00
-		account := billingDomain.NewAccount(clientID, "RUB")
-		account.Balance = "100.000000"
-		err = accountRepo.Create(ctx, account)
-		require.NoError(t, err)
+		// Create an account with balance 100.00 (see seedAccount note)
+		_ = seedAccount(t, db, clientID, "100.000000")
 
 		t.Cleanup(func() {
 			_, _ = db.ExecContext(context.Background(),
@@ -50,6 +48,7 @@ func TestBillingChain(t *testing.T) {
 				`DELETE FROM clients WHERE id = $1`, clientID)
 		})
 
+		accountRepo := billingRepo.NewAccountRepository(db)
 		mockPublisher := &billingMocks.MockEventPublisher{}
 		mockPublisher.On("PublishBalanceChanged", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockPublisher.On("PublishTransactionCompleted", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -90,14 +89,10 @@ func TestBillingChain(t *testing.T) {
 			 ON CONFLICT DO NOTHING`, clientID.String())
 		require.NoError(t, err)
 
-		accountRepo := billingRepo.NewAccountRepository(db)
 		transactionRepo := billingRepo.NewTransactionRepository(db)
 
-		// Create account with balance 0.10
-		account := billingDomain.NewAccount(clientID, "RUB")
-		account.Balance = "0.100000"
-		err = accountRepo.Create(ctx, account)
-		require.NoError(t, err)
+		// Create account with balance 0.10 (see seedAccount note)
+		_ = seedAccount(t, db, clientID, "0.100000")
 
 		t.Cleanup(func() {
 			_, _ = db.ExecContext(context.Background(),
@@ -108,6 +103,7 @@ func TestBillingChain(t *testing.T) {
 				`DELETE FROM clients WHERE id = $1`, clientID)
 		})
 
+		accountRepo := billingRepo.NewAccountRepository(db)
 		mockPublisher := &billingMocks.MockEventPublisher{}
 		svc := application.NewBillingService(accountRepo, transactionRepo, mockPublisher)
 
@@ -140,11 +136,8 @@ func TestBillingChain(t *testing.T) {
 		accountRepo := billingRepo.NewAccountRepository(db)
 		transactionRepo := billingRepo.NewTransactionRepository(db)
 
-		// Create account with balance 100.00
-		account := billingDomain.NewAccount(clientID, "RUB")
-		account.Balance = "100.000000"
-		err = accountRepo.Create(ctx, account)
-		require.NoError(t, err)
+		// Create account with balance 100.00 (see seedAccount note)
+		_ = seedAccount(t, db, clientID, "100.000000")
 
 		t.Cleanup(func() {
 			_, _ = db.ExecContext(context.Background(),
@@ -194,4 +187,30 @@ func TestBillingChain(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, txns, 2)
 	})
+}
+
+// seedAccount вставляет компанию + аккаунт напрямую: accounts.company_id
+// NOT NULL с миграции компаний, а AccountRepository.Create колонку не пишет
+// (известный дрейф — см. PR кандидата 5).
+func seedAccount(t *testing.T, db *sqlx.DB, clientID uuid.UUID, balance string) *billingDomain.Account {
+	t.Helper()
+	ctx := context.Background()
+	companyID := uuid.New()
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO companies (id, name, is_offer, active, created_at, updated_at)
+		VALUES ($1, 'test-company', false, true, NOW(), NOW())`, companyID)
+	require.NoError(t, err)
+	// Триггер trg_create_account_for_new_client уже создал аккаунт клиенту —
+	// дополняем его company_id и балансом вместо второго INSERT (UNIQUE client_id).
+	result, err := db.ExecContext(ctx, `
+		UPDATE accounts SET company_id = $2, balance = $3 WHERE client_id = $1`,
+		clientID, companyID, balance)
+	require.NoError(t, err)
+	rows, err := result.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), rows, "trigger-created account expected")
+
+	account := billingDomain.NewAccount(clientID, "RUB")
+	account.Balance = balance
+	return account
 }

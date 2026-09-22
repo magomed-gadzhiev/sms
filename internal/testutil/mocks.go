@@ -83,21 +83,21 @@ func (m *MockAsyncProducer) PublishAsync(topic string, key string, value []byte,
 
 // MockMessageRepository представляет мок для MessageRepository
 type MockMessageRepository struct {
-	CreateFunc                func(ctx context.Context, msg *shared.Message) error
-	GetByIDFunc               func(ctx context.Context, id uuid.UUID) (*shared.Message, error)
-	GetByMessageIDFunc        func(ctx context.Context, messageID string) (*shared.Message, error)
-	GetByExternalIDFunc       func(ctx context.Context, externalID string) (*shared.Message, error)
-	GetBySMPPMessageIDFunc    func(ctx context.Context, smppMessageID string) (*shared.Message, error)
-	UpdateFunc                func(ctx context.Context, msg *shared.Message) error
-	UpdateStatusFunc          func(ctx context.Context, id uuid.UUID, status shared.MessageStatus, statusMessage string) error
-	GetPendingForRetryFunc    func(ctx context.Context, limit int) ([]*shared.Message, error)
-	GetByClientIDFunc         func(ctx context.Context, clientID uuid.UUID, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error)
-	GetAllFunc                func(ctx context.Context, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error)
-	GetByDestinationFunc      func(ctx context.Context, destination string, limit, offset int) ([]*shared.Message, error)
-	IncrementRetryCountFunc   func(ctx context.Context, id uuid.UUID, nextRetryAt time.Time) error
-	ListMessagesFunc          func(ctx context.Context, clientID uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error)
-	ListScheduledFunc         func(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*shared.Message, int, error)
-	CancelByIDAndStatusFunc   func(ctx context.Context, id, clientID uuid.UUID) error
+	CreateFunc              func(ctx context.Context, msg *shared.Message) error
+	GetByIDFunc             func(ctx context.Context, id uuid.UUID) (*shared.Message, error)
+	GetByMessageIDFunc      func(ctx context.Context, messageID string) (*shared.Message, error)
+	GetByExternalIDFunc     func(ctx context.Context, externalID string) (*shared.Message, error)
+	GetBySMPPMessageIDFunc  func(ctx context.Context, smppMessageID string) (*shared.Message, error)
+	UpdateFunc              func(ctx context.Context, msg *shared.Message) error
+	UpdateStatusFunc        func(ctx context.Context, id uuid.UUID, status shared.MessageStatus, statusMessage string) error
+	GetPendingForRetryFunc  func(ctx context.Context, limit int) ([]*shared.Message, error)
+	GetByClientIDFunc       func(ctx context.Context, clientID uuid.UUID, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error)
+	GetAllFunc              func(ctx context.Context, limit, offset int, status *shared.MessageStatus) ([]*shared.Message, error)
+	GetByDestinationFunc    func(ctx context.Context, destination string, limit, offset int) ([]*shared.Message, error)
+	IncrementRetryCountFunc func(ctx context.Context, id uuid.UUID, nextRetryAt time.Time) error
+	ListMessagesFunc        func(ctx context.Context, clientID uuid.UUID, filter shared.MessageFilter) ([]*shared.Message, int, error)
+	ListScheduledFunc       func(ctx context.Context, clientID uuid.UUID, limit, offset int) ([]*shared.Message, int, error)
+	CancelByIDAndStatusFunc func(ctx context.Context, id, clientID uuid.UUID) error
 }
 
 func (m *MockMessageRepository) Create(ctx context.Context, msg *shared.Message) error {
@@ -207,14 +207,14 @@ func (m *MockMessageRepository) CancelByIDAndStatus(ctx context.Context, id, cli
 
 // MockClientRepository представляет мок для ClientRepository
 type MockClientRepository struct {
-	CreateFunc      func(ctx context.Context, client *shared.Client) error
-	GetByIDFunc     func(ctx context.Context, id uuid.UUID) (*shared.Client, error)
-	GetByAPIKeyFunc func(ctx context.Context, apiKey string) (*shared.Client, error)
+	CreateFunc       func(ctx context.Context, client *shared.Client) error
+	GetByIDFunc      func(ctx context.Context, id uuid.UUID) (*shared.Client, error)
+	GetByAPIKeyFunc  func(ctx context.Context, apiKey string) (*shared.Client, error)
 	GetAllActiveFunc func(ctx context.Context) ([]*shared.Client, error)
-	GetAllFunc      func(ctx context.Context) ([]*shared.Client, error)
-	UpdateFunc      func(ctx context.Context, client *shared.Client) error
-	DeleteFunc      func(ctx context.Context, id uuid.UUID) error
-	GetBalanceFunc  func(ctx context.Context, clientID uuid.UUID) (float64, string, error)
+	GetAllFunc       func(ctx context.Context) ([]*shared.Client, error)
+	UpdateFunc       func(ctx context.Context, client *shared.Client) error
+	DeleteFunc       func(ctx context.Context, id uuid.UUID) error
+	GetBalanceFunc   func(ctx context.Context, clientID uuid.UUID) (float64, string, error)
 }
 
 func (m *MockClientRepository) Create(ctx context.Context, client *shared.Client) error {
@@ -275,13 +275,13 @@ func (m *MockClientRepository) GetBalance(ctx context.Context, clientID uuid.UUI
 
 // MockProviderRepository представляет мок для ProviderRepository
 type MockProviderRepository struct {
-	CreateFunc    func(ctx context.Context, provider *shared.Provider) error
-	GetByIDFunc   func(ctx context.Context, id uuid.UUID) (*shared.Provider, error)
-	GetByNameFunc func(ctx context.Context, name string) (*shared.Provider, error)
+	CreateFunc       func(ctx context.Context, provider *shared.Provider) error
+	GetByIDFunc      func(ctx context.Context, id uuid.UUID) (*shared.Provider, error)
+	GetByNameFunc    func(ctx context.Context, name string) (*shared.Provider, error)
 	GetAllActiveFunc func(ctx context.Context) ([]*shared.Provider, error)
-	GetAllFunc    func(ctx context.Context) ([]*shared.Provider, error)
-	UpdateFunc    func(ctx context.Context, provider *shared.Provider) error
-	DeleteFunc    func(ctx context.Context, id uuid.UUID) error
+	GetAllFunc       func(ctx context.Context) ([]*shared.Provider, error)
+	UpdateFunc       func(ctx context.Context, provider *shared.Provider) error
+	DeleteFunc       func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *MockProviderRepository) Create(ctx context.Context, provider *shared.Provider) error {
@@ -335,9 +335,9 @@ func (m *MockProviderRepository) Delete(ctx context.Context, id uuid.UUID) error
 
 // MockRouteRepository представляет мок для RouteRepository
 type MockRouteRepository struct {
-	GetByIDFunc              func(ctx context.Context, id uuid.UUID) (*shared.Route, error)
+	GetByIDFunc                func(ctx context.Context, id uuid.UUID) (*shared.Route, error)
 	GetActiveByDestinationFunc func(ctx context.Context, destination string) ([]*shared.Route, error)
-	GetAllActiveFunc         func(ctx context.Context) ([]*shared.Route, error)
+	GetAllActiveFunc           func(ctx context.Context) ([]*shared.Route, error)
 }
 
 func (m *MockRouteRepository) GetByID(ctx context.Context, id uuid.UUID) (*shared.Route, error) {

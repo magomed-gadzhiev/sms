@@ -61,6 +61,12 @@ func CleanupTestDB(t *testing.T, db *storage.DB) {
 
 // GetTestDSN возвращает DSN для тестовой базы данных
 func GetTestDSN() string {
+	// One DSN convention (architecture review, candidate 5): a URL in
+	// TEST_DATABASE_URL is canonical; TEST_DB_* parts remain as the
+	// decomposed fallback.
+	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
+		return url
+	}
 	host := getEnv("TEST_DB_HOST", "localhost")
 	port := getEnv("TEST_DB_PORT", "5432")
 	user := getEnv("TEST_DB_USER", "smpp_test")

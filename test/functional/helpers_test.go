@@ -10,20 +10,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 )
 
-// skipIfNoDB skips the test when TEST_DB_HOST is not set.
+// skipIfNoDB skips the test when neither TEST_DATABASE_URL (canonical,
+// architecture review candidate 5) nor TEST_DB_HOST is set.
 func skipIfNoDB(t *testing.T) {
 	t.Helper()
-	if os.Getenv("TEST_DB_HOST") == "" {
-		t.Skip("TEST_DB_HOST not set, skipping functional test")
+	if os.Getenv("TEST_DATABASE_URL") == "" && os.Getenv("TEST_DB_HOST") == "" {
+		t.Skip("TEST_DATABASE_URL/TEST_DB_HOST not set, skipping functional test")
 	}
 }
 
-// testDSN builds a PostgreSQL DSN from TEST_DB_* env vars.
+// testDSN builds a PostgreSQL DSN: TEST_DATABASE_URL (one DSN convention,
+// architecture review candidate 5) wins over TEST_DB_* parts.
 func testDSN() string {
+	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
+		return url
+	}
 	host := envOr("TEST_DB_HOST", "localhost")
 	port := envOr("TEST_DB_PORT", "5432")
 	user := envOr("TEST_DB_USER", "smpp_test")
