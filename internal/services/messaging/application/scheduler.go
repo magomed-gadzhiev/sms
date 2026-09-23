@@ -7,6 +7,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
+
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 // Scheduler polls for scheduled messages and dispatches them to Kafka
@@ -91,25 +93,25 @@ func (s *Scheduler) processBatch() {
 
 	for _, msg := range messages {
 		// Update status to pending
-		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, "pending", ""); err != nil {
+		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, string(messagestatus.Pending), ""); err != nil {
 			s.logger.Error().Err(err).Str("message_id", msg.ID.String()).Msg("failed to update status to pending")
 			continue
 		}
 
 		// Publish to Kafka via PublishMessageQueued (not PublishMessageCreated — both send to
 		// sms.outgoing, but Queued is semantically correct for the scheduler flow)
-		msg.Status = "pending"
+		msg.Status = messagestatus.Pending
 		if err := s.eventPublisher.PublishMessageQueued(ctx, msg); err != nil {
 			s.logger.Error().Err(err).Str("message_id", msg.ID.String()).Msg("failed to publish to Kafka, reverting to scheduled")
 			// Revert status back to scheduled
-			if revertErr := s.messageRepo.UpdateStatus(ctx, msg.ID, "scheduled", ""); revertErr != nil {
+			if revertErr := s.messageRepo.UpdateStatus(ctx, msg.ID, string(messagestatus.Scheduled), ""); revertErr != nil {
 				s.logger.Error().Err(revertErr).Str("message_id", msg.ID.String()).Msg("failed to revert status to scheduled")
 			}
 			continue
 		}
 
 		// Update status to queued
-		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, "queued", ""); err != nil {
+		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, string(messagestatus.Queued), ""); err != nil {
 			s.logger.Warn().Err(err).Str("message_id", msg.ID.String()).Msg("failed to update status to queued (message already in Kafka)")
 		}
 
@@ -138,7 +140,7 @@ func (s *Scheduler) recoverStuckMessages() {
 			continue
 		}
 		// Update updated_at to prevent re-processing
-		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, "pending", ""); err != nil {
+		if err := s.messageRepo.UpdateStatus(ctx, msg.ID, string(messagestatus.Pending), ""); err != nil {
 			s.logger.Warn().Err(err).Str("message_id", msg.ID.String()).Msg("failed to update stuck message timestamp")
 		}
 	}

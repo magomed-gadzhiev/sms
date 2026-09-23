@@ -16,6 +16,8 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/messaging/application"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
 	"github.com/smpp-server/smpp-server/internal/storage"
+
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 // Metadata keys used to ferry audit-linkage IDs from the gateway send handler
@@ -225,20 +227,20 @@ func (s *Server) SendBatch(ctx context.Context, req *messagingv1.SendBatchReques
 			successCount++
 			protoResults[i] = &messagingv1.SendMessageResponse{
 				MessageId:    result.MessageID.String(),
-				Status:       "queued",
+				Status:       string(messagestatus.Queued),
 				SegmentCount: int32(result.SegmentCount),
 			}
 		} else {
 			failedCount++
 			protoResults[i] = &messagingv1.SendMessageResponse{
-				Status: "failed",
+				Status: string(messagestatus.Failed),
 				Error:  result.Error,
 			}
 		}
 	}
 
 	return &messagingv1.SendBatchResponse{
-		Results:     protoResults,
+		Results:      protoResults,
 		SuccessCount: successCount,
 		FailedCount:  failedCount,
 	}, nil
@@ -316,7 +318,7 @@ func (s *Server) GetMessageHistory(ctx context.Context, req *messagingv1.GetMess
 	}
 
 	filters := &application.MessageHistoryFilters{
-		Limit: 100,
+		Limit:  100,
 		Offset: 0,
 	}
 

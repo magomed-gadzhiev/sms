@@ -153,7 +153,6 @@ func TestMessageService(t *testing.T) {
 			publisher.AssertExpectations(t)
 		})
 
-
 		t.Run("UCS2 encoding detected for non-ASCII text", func(t *testing.T) {
 			svc, msgRepo, _, publisher := newTestMessageService()
 			ctx := context.Background()
@@ -763,7 +762,7 @@ func TestMessageService(t *testing.T) {
 			clientID := uuid.New()
 
 			requests := []*SendMessageRequest{
-				{Source: "Sender", Destination: "", Text: "Bad message"},           // Невалидный — пустой destination
+				{Source: "Sender", Destination: "", Text: "Bad message"},          // Невалидный — пустой destination
 				{Source: "Sender", Destination: "+79002345678", Text: "Good msg"}, // Валидный
 			}
 

@@ -8,14 +8,14 @@ import (
 	"github.com/smpp-server/smpp-server/internal/gateway/smpp/server"
 	"github.com/smpp-server/smpp-server/internal/monitoring"
 	"github.com/smpp-server/smpp-server/internal/pipeline"
+
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
-// finalStatuses defines statuses that trigger DLR dispatch.
-var finalStatuses = map[string]bool{
-	"delivered": true,
-	"failed":    true,
-	"expired":   true,
-	"rejected":  true,
+// finalStatuses defines statuses that trigger DLR dispatch: terminal
+// Message statuses from the vocabulary module.
+func finalStatuses(status string) bool {
+	return messagestatus.IsTerminal(messagestatus.Status(status))
 }
 
 // MessageMappingReader provides read access to message mappings and session bindings in Redis.
@@ -50,7 +50,7 @@ func NewProcessor(store MessageMappingReader, dispatcher DLRDispatcher, logger z
 // formats an SMSC receipt, and dispatches it to the SMPP client.
 func (p *Processor) ProcessStatusUpdate(ctx context.Context, update *pipeline.StatusUpdate) error {
 	// 1. Skip non-final statuses
-	if !finalStatuses[update.Status] {
+	if !finalStatuses(update.Status) {
 		return nil
 	}
 

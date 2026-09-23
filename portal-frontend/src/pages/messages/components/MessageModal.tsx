@@ -3,19 +3,11 @@ import { Link } from 'react-router-dom';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import type { DetalizationMessage } from '../../../api/client';
+import { messageStatusMeta } from '../../../utils/messageStatus';
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидание', queued: 'В очереди', sent: 'Отправлено',
-  delivered: 'Доставлено', failed: 'Ошибка', expired: 'Истекло',
-  rejected: 'Отклонено', scheduled: 'Запланировано',
-};
+// Словарь статусов сообщения — src/utils/messageStatus (единственный владелец
+// labels/цветов/терминальности).
 
-const STATUS_COLORS: Record<string, string> = {
-  delivered: 'bg-green-100 text-green-800', sent: 'bg-blue-100 text-blue-800',
-  failed: 'bg-red-100 text-red-800', rejected: 'bg-red-100 text-red-800',
-  expired: 'bg-gray-100 text-gray-600', queued: 'bg-yellow-100 text-yellow-800',
-  pending: 'bg-yellow-100 text-yellow-800', scheduled: 'bg-purple-100 text-purple-800',
-};
 
 function fmt(s?: string | null) {
   if (!s) return '—';
@@ -28,8 +20,8 @@ interface Props {
 }
 
 export function MessageModal({ message, onClose }: Props) {
-  const statusLabel = STATUS_LABELS[message.status] ?? message.status;
-  const statusCls = STATUS_COLORS[message.status] ?? 'bg-gray-100 text-gray-700';
+  const statusLabel = messageStatusMeta(message.status).label;
+  const statusCls = messageStatusMeta(message.status).colorClass;
 
   const rows: Array<{ label: string; value: ReactNode }> = [
     { label: 'ID', value: <span className="font-mono text-xs break-all">{message.id}</span> },

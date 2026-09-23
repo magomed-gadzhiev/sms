@@ -19,6 +19,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 // persistTempTableReuse — load-test-only флаг. Под `true` использует
@@ -324,7 +325,7 @@ func buildCopyRows(msgs []*sarama.ConsumerMessage) ([]messageRow, []error) {
 			text:         rm.Text,
 			encoding:     encodingStr,
 			segmentCount: segmentCount,
-			status:       "pending",
+			status:       string(messagestatus.Pending),
 			priorityFlag: rm.Priority,
 			providerID:   providerID,
 			routeID:      rm.RouteID,

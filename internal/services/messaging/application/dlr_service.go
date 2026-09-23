@@ -13,8 +13,8 @@ import (
 
 // DLRService предоставляет бизнес-логику для обработки DLR receipts
 type DLRService struct {
-	messageRepo   domain.MessageRepository
-	dlrRepo       domain.DLRRepository
+	messageRepo    domain.MessageRepository
+	dlrRepo        domain.DLRRepository
 	eventPublisher domain.EventPublisher
 }
 

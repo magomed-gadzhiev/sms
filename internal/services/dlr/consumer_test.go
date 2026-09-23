@@ -75,7 +75,7 @@ func TestProcessStatusUpdate_Delivered(t *testing.T) {
 	assert.Contains(t, dispatcher.calls[0].Receipt, "stat:DELIVRD")
 	assert.Contains(t, dispatcher.calls[0].Receipt, "id:"+msgID.String())
 	assert.Equal(t, "380501234567", dispatcher.calls[0].SourceAddr) // swapped
-	assert.Equal(t, "MyBrand", dispatcher.calls[0].DestAddr)       // swapped
+	assert.Equal(t, "MyBrand", dispatcher.calls[0].DestAddr)        // swapped
 }
 
 func TestProcessStatusUpdate_SkipsNonFinalStatus(t *testing.T) {

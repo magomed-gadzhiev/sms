@@ -3,6 +3,8 @@ package dlr
 import (
 	"fmt"
 	"time"
+
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 type ReceiptParams struct {
@@ -24,19 +26,11 @@ func FormatReceipt(p ReceiptParams) string {
 		p.MessageID, dlvrd, formatSMPPDate(p.SubmitDate), formatSMPPDate(p.DoneDate), stat, p.ErrorCode, text)
 }
 
+// MapStatusToSMSC maps a Message status to the receipt (stat, dlvrd) pair.
+// Словарь принадлежит messagestatus — wrapper сохраняет сигнатуру для
+// существующих вызывающих (dispatcher, тесты).
 func MapStatusToSMSC(status string) (stat string, dlvrd string) {
-	switch status {
-	case "delivered":
-		return "DELIVRD", "001"
-	case "failed":
-		return "UNDELIV", "000"
-	case "expired":
-		return "EXPIRED", "000"
-	case "rejected":
-		return "REJECTD", "000"
-	default:
-		return "UNKNOWN", "000"
-	}
+	return messagestatus.ToSMSC(messagestatus.Status(status))
 }
 
 func formatSMPPDate(t time.Time) string {

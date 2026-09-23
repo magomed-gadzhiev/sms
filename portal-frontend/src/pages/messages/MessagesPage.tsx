@@ -13,6 +13,7 @@ import { MessageModal } from './components/MessageModal';
 import { ColumnConfigurator } from './components/ColumnConfigurator';
 import type { ColumnDef } from './components/ColumnConfigurator';
 import { BulkActionBar } from '../../components/data/BulkActionBar';
+import { MESSAGE_STATUSES, messageStatus } from '../../utils/messageStatus';
 
 const STORAGE_KEY = 'messages_visible_columns';
 const DEFAULT_VISIBLE_RESELLER = new Set([
@@ -38,16 +39,8 @@ function saveVisibleColumns(cols: Set<string>) {
   } catch { /* ignore */ }
 }
 
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Ожидание' },
-  { value: 'queued', label: 'В очереди' },
-  { value: 'sent', label: 'Отправлено' },
-  { value: 'delivered', label: 'Доставлено' },
-  { value: 'failed', label: 'Ошибка' },
-  { value: 'expired', label: 'Истекло' },
-  { value: 'rejected', label: 'Отклонено' },
-  { value: 'scheduled', label: 'Запланировано' },
-];
+// Опции фильтра статусов — из словаря src/utils/messageStatus.
+const STATUS_OPTIONS = MESSAGE_STATUSES.map((value) => ({ value, label: messageStatus[value].label }));
 
 const CHANNEL_OPTIONS = [
   { value: 'SMS', label: 'SMS' },

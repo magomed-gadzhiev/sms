@@ -9,13 +9,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smpp-server/smpp-server/internal/services/messaging/domain"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 )
 
 // MessageService предоставляет бизнес-логику для работы с сообщениями
 type MessageService struct {
-	messageRepo   domain.MessageRepository
-	dlrRepo       domain.DLRRepository
-	validator     *domain.MessageValidator
+	messageRepo    domain.MessageRepository
+	dlrRepo        domain.DLRRepository
+	validator      *domain.MessageValidator
 	eventPublisher domain.EventPublisher
 }
 
@@ -278,23 +279,23 @@ func (s *MessageService) UpdateMessageStatus(
 
 	oldStatus := string(msg.Status)
 
-	switch status {
-	case "queued":
+	switch messagestatus.Status(status) {
+	case messagestatus.Queued:
 		msg.MarkAsQueued()
-	case "sent":
+	case messagestatus.Sent:
 		// Требуется SMPP message ID для sent статуса
 		// Здесь устанавливаем только статус, SMPP message ID устанавливается отдельно
-		msg.Status = "sent"
+		msg.Status = shared.MessageStatusSent
 		now := time.Now()
 		msg.SubmittedAt = &now
 		msg.UpdatedAt = now
-	case "delivered":
+	case messagestatus.Delivered:
 		msg.MarkAsDelivered()
-	case "failed":
+	case messagestatus.Failed:
 		msg.MarkAsFailed(statusMessage)
-	case "expired":
+	case messagestatus.Expired:
 		msg.MarkAsExpired()
-	case "rejected":
+	case messagestatus.Rejected:
 		msg.MarkAsRejected(statusMessage)
 	default:
 		return fmt.Errorf("invalid status: %s", status)
@@ -338,11 +339,11 @@ type SendMessageOptions struct {
 
 // SendMessageRequest представляет запрос на отправку сообщения
 type SendMessageRequest struct {
-	Source            string
-	Destination       string
-	Text              string
-	ExternalID        string
-	Priority          int
+	Source             string
+	Destination        string
+	Text               string
+	ExternalID         string
+	Priority           int
 	RegisteredDelivery *bool
 	ValidityPeriod     *time.Time
 	ServiceType        string
@@ -367,10 +368,10 @@ type BatchResult struct {
 
 // MessageHistoryFilters содержит фильтры для истории сообщений
 type MessageHistoryFilters struct {
-	From       *time.Time
-	To         *time.Time
-	Status     string
+	From        *time.Time
+	To          *time.Time
+	Status      string
 	Destination string
-	Limit      int
-	Offset     int
+	Limit       int
+	Offset      int
 }

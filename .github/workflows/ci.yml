@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -21,6 +21,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Message Status vocabulary guard
+        run: bash scripts/check-message-status.sh
 
       - name: go vet
         run: go vet ./...

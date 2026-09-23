@@ -6,6 +6,7 @@ import { usePageTitle } from '../../contexts/PageTitleContext';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useMessageStream } from '../../hooks/useMessageStream';
+import { isFailureOutcome, isTerminal, messageStatusMeta } from '../../utils/messageStatus';
 
 interface DlrInfo {
   stat: string;
@@ -51,27 +52,8 @@ interface MessageDetail {
   billing?: BillingInfo;
 }
 
-const STATUS_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' | 'danger'> = {
-  pending: 'warning',
-  queued: 'info',
-  sent: 'info',
-  submitted: 'info',
-  delivered: 'success',
-  failed: 'danger',
-  expired: 'danger',
-  rejected: 'danger',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'Ожидает',
-  queued: 'В очереди',
-  sent: 'Отправлено',
-  submitted: 'Передано',
-  delivered: 'Доставлено',
-  failed: 'Ошибка',
-  expired: 'Истекло',
-  rejected: 'Отклонено',
-};
+// Статусы сообщения — словарь src/utils/messageStatus (labels/variants/
+// терминальность). DLR_STAT_LABEL ниже — wire-коды SMPP, не статусы Message.
 
 const DLR_STAT_LABEL: Record<string, string> = {
   DELIVRD: 'Доставлено',
@@ -93,7 +75,7 @@ const DLR_STAT_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'defau
   UNKNOWN: 'default',
 };
 
-const TERMINAL_STATUSES = new Set(['delivered', 'failed', 'expired', 'rejected']);
+// Терминальность — isTerminal из словаря статусов.
 
 interface TimelineStep {
   key: string;
@@ -104,8 +86,8 @@ interface TimelineStep {
 }
 
 function buildTimeline(msg: MessageDetail): TimelineStep[] {
-  const isFailed = ['failed', 'rejected', 'expired'].includes(msg.status);
-  const isDelivered = msg.status === 'delivered';
+  const isFailed = isFailureOutcome(msg.status);
+  const isDelivered = msg.status === 'delivered'; // glossary terminal outcome
 
   return [
     {
@@ -163,7 +145,7 @@ export function MessageDetailPage() {
   }, [loadMessage]);
 
   // SSE: subscribe while message is in a non-terminal state.
-  const streamEnabled = !!message && !TERMINAL_STATUSES.has(message.status);
+  const streamEnabled = !!message && !isTerminal(message.status);
   const { streamStatus, updates, close } = useMessageStream(streamEnabled);
 
   // Track the last status we acted on to avoid double-fetching.
@@ -178,7 +160,7 @@ export function MessageDetailPage() {
     lastHandledStatusRef.current = update.status;
     loadMessage();
 
-    if (TERMINAL_STATUSES.has(update.status)) {
+    if (isTerminal(update.status)) {
       close();
     }
   }, [updates, id, loadMessage, close]);
@@ -201,8 +183,8 @@ export function MessageDetailPage() {
   if (!message) return null;
 
   const timeline = buildTimeline(message);
-  const statusVariant = STATUS_VARIANT[message.status] ?? 'default';
-  const statusLabel = STATUS_LABEL[message.status] ?? message.status;
+  const statusVariant = messageStatusMeta(message.status).badgeVariant;
+  const statusLabel = messageStatusMeta(message.status).label;
 
   return (
     <div className="max-w-3xl">

@@ -25,6 +25,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
 	"github.com/smpp-server/smpp-server/internal/shared"
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 	"github.com/smpp-server/smpp-server/internal/smsc"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
@@ -367,7 +368,7 @@ func (s *Stage) processMessage(ctx context.Context, msg *sarama.ConsumerMessage,
 			if reason == "" {
 				reason = "Сообщение отклонено тарификацией"
 			}
-			trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "rejected").
+			trace.Warn(s.logger, traceID, routedMsg.MessageID.String(), "sender.tarify", "tarify_rejected").
 				Str("reason", reason).
 				Msg("tarification rejected")
 			monitoring.PipelineMessagesProcessed.WithLabelValues("sender", "tarification_rejected").Inc()
@@ -656,11 +657,11 @@ func (s *Stage) handleSendOutcome(ctx context.Context, in sendOutcomeInput) (*pi
 	}
 
 	if in.sendErr != nil {
-		sentMsg.Status = "failed"
+		sentMsg.Status = string(messagestatus.Failed)
 		errMsg := in.sendErr.Error()
 		sentMsg.ErrorMessage = &errMsg
 	} else {
-		sentMsg.Status = "sent"
+		sentMsg.Status = string(messagestatus.Sent)
 		sentMsg.SMPPMessageID = in.smppMsgID
 	}
 
@@ -708,7 +709,7 @@ func (s *Stage) publishRejectedStatus(routedMsg *pipeline.RoutedMessage, traceID
 		OperatorID:    routedMsg.OperatorID,
 		RouteID:       routedMsg.RouteID,
 		Channel:       "sms",
-		Status:        "rejected",
+		Status:        string(messagestatus.Rejected),
 		ErrorMessage:  &errMsg,
 		SentAt:        time.Now(),
 		SegmentsCount: len(segments),
@@ -727,7 +728,7 @@ func (s *Stage) publishRejectedStatus(routedMsg *pipeline.RoutedMessage, traceID
 		[]sarama.RecordHeader{
 			{Key: []byte("message_id"), Value: []byte(routedMsg.MessageID.String())},
 			{Key: []byte("provider_id"), Value: []byte(routedMsg.ProviderID.String())},
-			{Key: []byte("status"), Value: []byte("rejected")},
+			{Key: []byte("status"), Value: []byte(messagestatus.Rejected)},
 		},
 	)
 }

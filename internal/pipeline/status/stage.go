@@ -19,7 +19,7 @@ import (
 	"github.com/smpp-server/smpp-server/internal/pipeline"
 	"github.com/smpp-server/smpp-server/internal/pipeline/trace"
 	"github.com/smpp-server/smpp-server/internal/queue"
-	"github.com/smpp-server/smpp-server/internal/shared/dlr"
+	"github.com/smpp-server/smpp-server/internal/shared/messagestatus"
 	"github.com/smpp-server/smpp-server/internal/storage"
 )
 
@@ -129,6 +129,11 @@ func (s *Stage) handleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage,
 			monitoring.PipelineMessagesProcessed.WithLabelValues("status", "error").Inc()
 			continue
 		}
+		if rec == nil {
+			// Запись пропущена самой deserializeMessage (например, DLR с
+			// неизвестным stat) — статуса для upsert нет.
+			continue
+		}
 		records = append(records, rec)
 	}
 
@@ -211,7 +216,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		providerID := &sent.ProviderID
 		// Для rejected сообщение не уходило к провайдеру — submitted_at не проставляем.
 		var submittedAt *time.Time
-		if status != "rejected" {
+		if messagestatus.Status(status) != messagestatus.Rejected {
 			submittedAt = &sent.SentAt
 		}
 		var statusMsg string
@@ -239,7 +244,17 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		if err != nil {
 			return nil, fmt.Errorf("десериализация DLRMessage: %w", err)
 		}
-		status := mapDLRStat(dlr.Stat)
+		// Неизвестный stat не меняет сохранённый статус (unknown никогда не
+		// хранится — CONTEXT.md, Message Status): пропускаем запись, сообщение
+		// остаётся в sent до истечения DLR-timeout в messaging-service.
+		status, known := messagestatus.FromDLRStat(dlr.Stat)
+		if !known {
+			s.logger.Debug().
+				Str("smpp_message_id", dlr.SMPPMessageID).
+				Str("stat", dlr.Stat).
+				Msg("DLR с неизвестным stat — статус сообщения не меняется")
+			return nil, nil
+		}
 		updatedAt := time.Now()
 		if dlr.DoneDate != nil {
 			updatedAt = *dlr.DoneDate
@@ -247,7 +262,7 @@ func (s *Stage) deserializeMessage(msg *sarama.ConsumerMessage) (*statusRecord, 
 		return &statusRecord{
 			MessageID:     dlr.MessageID,
 			TraceID:       dlr.TraceID,
-			Status:        status,
+			Status:        string(status),
 			SMPPMessageID: dlr.SMPPMessageID,
 			ProviderID:    dlr.ProviderID,
 			SubmittedAt:   dlr.SubmitDate,
@@ -371,31 +386,16 @@ func (s *Stage) batchUpsert(ctx context.Context, records []*statusRecord) error 
 // Caller буферизует для retry.
 var errUpsertPartial = fmt.Errorf("batch upsert partial — message not yet persisted, retry queued")
 
-// mapStatus преобразует статус из SentMessage в статус для БД.
+// mapStatus нормализует статус из SentMessage в статус для БД.
+// Словарь статусов принадлежит messagestatus.
 func mapStatus(status string) string {
-	switch status {
-	case "sent":
-		return "sent"
-	case "failed":
-		return "failed"
-	default:
-		return status
-	}
+	return string(messagestatus.Status(status))
 }
 
-// mapDLRStat преобразует DLR stat в статус для БД.
-func mapDLRStat(stat string) string {
-	switch dlr.DLRStatus(stat) {
-	case dlr.DLRStatusDelivered:
-		return "delivered"
-	case dlr.DLRStatusUndeliv:
-		return "failed"
-	case dlr.DLRStatusExpired:
-		return "expired"
-	default:
-		return "unknown"
-	}
-}
+// mapDLRStat удалён: DLR stat → Message status маппинг принадлежит
+// messagestatus.FromDLRStat. Неизвестный stat НЕ меняет сохранённый статус
+// (unknown никогда не хранится — CONTEXT.md): deserializeMessage такие
+// записи пропускает, сообщение остаётся в sent до DLR-timeout.
 
 // publishStatusUpdates публикует StatusUpdate сообщения в sms.status
 // чтобы campaign-service мог обновить счётчики кампании.
