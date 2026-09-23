@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/smpp-server/smpp-server/internal/testutil"
 	authv1 "github.com/smpp-server/smpp-server/api/proto/authv1"
+	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
 	clientv1 "github.com/smpp-server/smpp-server/api/proto/clientv1"
 	messagingv1 "github.com/smpp-server/smpp-server/api/proto/messagingv1"
 	providerv1 "github.com/smpp-server/smpp-server/api/proto/providerv1"
 	routingv1 "github.com/smpp-server/smpp-server/api/proto/routingv1"
-	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
+	"github.com/smpp-server/smpp-server/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -63,16 +63,17 @@ func TestGRPCServices(t *testing.T) {
 				t.Skipf("Skipping test: authentication failed: %v", err)
 			}
 
-			require.NotEmpty(t, authResp.Token)
+			require.NotEmpty(t, authResp.AccessToken)
 
 			// Затем валидируем токен
 			validateResp, err := client.ValidateToken(ctx, &authv1.ValidateTokenRequest{
-				Token: authResp.Token,
+				Token: authResp.AccessToken,
 			})
 
 			require.NoError(t, err)
 			assert.True(t, validateResp.Valid)
-			assert.NotEmpty(t, validateResp.UserId)
+			require.NotNil(t, validateResp.User)
+			assert.NotEmpty(t, validateResp.User.Id)
 		})
 	})
 
@@ -89,7 +90,7 @@ func TestGRPCServices(t *testing.T) {
 
 			resp, err := client.SendMessage(ctx, &messagingv1.SendMessageRequest{
 				ClientId:    clientID,
-				MessageId:   msgID.String(),
+				ExternalId:  msgID.String(),
 				Source:      "12345",
 				Destination: "79001234567",
 				Text:        "Integration test message",
@@ -118,7 +119,7 @@ func TestGRPCServices(t *testing.T) {
 			// Сначала создаем сообщение
 			_, err := client.SendMessage(ctx, &messagingv1.SendMessageRequest{
 				ClientId:    clientID,
-				MessageId:   msgID.String(),
+				ExternalId:  msgID.String(),
 				Source:      "12345",
 				Destination: "79001234567",
 				Text:        "Status test message",
@@ -163,7 +164,8 @@ func TestGRPCServices(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.NotEmpty(t, resp.RouteId)
+			require.NotNil(t, resp.Route)
+			assert.NotEmpty(t, resp.Route.RouteId)
 		})
 	})
 
@@ -205,7 +207,7 @@ func TestGRPCServices(t *testing.T) {
 
 			testClient := testutil.NewTestClient()
 			testClient.ID = uuid.New()
-			err := db.ExecContext(ctx, `
+			_, err := db.ExecContext(ctx, `
 				INSERT INTO clients (id, name, api_key, status, created_at, updated_at)
 				VALUES ($1, $2, $3, $4, NOW(), NOW())
 			`, testClient.ID, testClient.Name, testClient.APIKey, "active")
@@ -224,7 +226,7 @@ func TestGRPCServices(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, testClient.ID.String(), resp.Client.Id)
+			assert.Equal(t, testClient.ID.String(), resp.Client.ClientId)
 			assert.Equal(t, testClient.Name, resp.Client.Name)
 		})
 	})
@@ -268,7 +270,7 @@ func TestGRPCServices(t *testing.T) {
 		// 1. Отправляем сообщение
 		sendResp, err := messagingClient.SendMessage(ctx, &messagingv1.SendMessageRequest{
 			ClientId:    clientID,
-			MessageId:   msgID.String(),
+			ExternalId:  msgID.String(),
 			Source:      "12345",
 			Destination: "79001234567",
 			Text:        "E2E test message",

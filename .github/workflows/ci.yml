@@ -57,3 +57,85 @@ jobs:
 
       - name: Lint
         run: npx eslint . --max-warnings=51
+
+      - name: Unit tests (vitest)
+        run: npm test
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: smpp
+          POSTGRES_PASSWORD: smpp
+          POSTGRES_DB: smpp_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smpp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Apply migrations (skip Directus + PG15-incompatible)
+        run: |
+          for f in migrations/*.up.sql; do
+            case "$f" in
+              migrations/000007_*|migrations/000103_*|migrations/000107_*) echo "skip $f"; continue;;
+            esac
+            echo "apply $f"
+            PGPASSWORD=smpp psql -h 127.0.0.1 -U smpp -d smpp_db -v ON_ERROR_STOP=1 -f "$f" >/dev/null || exit 1
+          done
+
+      - name: Integration tests (tags=integration)
+        env:
+          TEST_DATABASE_URL: postgres://smpp:smpp@127.0.0.1:5432/smpp_db?sslmode=disable&default_query_exec_mode=simple_protocol
+        run: go test -tags integration ./test/integration/... -count=1 -timeout 300s
+
+  functional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Start core data services (postgres, redis, kafka)
+        run: |
+          cat > deployments/.env <<'EOF'
+          POSTGRES_PASSWORD=ci-functional
+          REDIS_PASSWORD=ci-functional
+          EOF
+          docker compose -f deployments/docker-compose.yml up -d --build postgres redis zookeeper kafka
+
+      - name: Apply migrations (skip Directus + PG15-incompatible)
+        run: |
+          for i in $(seq 1 30); do
+            PGPASSWORD=ci-functional psql -h 127.0.0.1 -p 5432 -U smpp -d smpp_db -c 'SELECT 1' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          for f in migrations/*.up.sql; do
+            case "$f" in
+              migrations/000007_*|migrations/000103_*|migrations/000107_*) echo "skip $f"; continue;;
+            esac
+            PGPASSWORD=ci-functional psql -h 127.0.0.1 -U smpp -d smpp_db -v ON_ERROR_STOP=1 -f "$f" >/dev/null || exit 1
+          done
+
+      - name: Functional tests (tags=functional)
+        env:
+          TEST_DATABASE_URL: postgres://smpp:ci-functional@127.0.0.1:5432/smpp_db?sslmode=disable&default_query_exec_mode=simple_protocol
+          TEST_REDIS_ADDR: 127.0.0.1:6379
+          TEST_REDIS_PASSWORD: ci-functional
+        run: go test -tags functional ./test/functional/... -count=1 -timeout 300s

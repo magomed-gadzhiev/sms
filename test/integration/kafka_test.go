@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/smpp-server/smpp-server/internal/config"
 	"github.com/smpp-server/smpp-server/internal/queue"
-	"github.com/smpp-server/smpp-server/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestKafkaProducer_PublishOutgoing(t *testing.T) {
@@ -53,7 +52,7 @@ func TestKafkaConsumer_ConsumeOutgoing(t *testing.T) {
 	cfg := &config.KafkaConfig{
 		Brokers:           []string{"localhost:9092"},
 		TopicOutgoing:     "test.sms.outgoing",
-		ConsumerGroup:      "test-consumer-group",
+		ConsumerGroup:     "test-consumer-group",
 		SessionTimeout:    30 * time.Second,
 		HeartbeatInterval: 10 * time.Second,
 		MaxRetries:        3,
@@ -115,7 +114,7 @@ func TestKafkaMessage_EndToEnd(t *testing.T) {
 	cfg := &config.KafkaConfig{
 		Brokers:           []string{"localhost:9092"},
 		TopicOutgoing:     "test.sms.outgoing.e2e",
-		ConsumerGroup:      "test-consumer-group-e2e",
+		ConsumerGroup:     "test-consumer-group-e2e",
 		SessionTimeout:    30 * time.Second,
 		HeartbeatInterval: 10 * time.Second,
 		MaxRetries:        3,

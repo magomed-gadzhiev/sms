@@ -33,7 +33,8 @@ func (r *DomainRepository) Create(ctx context.Context, d *domain.ClientDomain) e
 func (r *DomainRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ClientDomain, error) {
 	var d domain.ClientDomain
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, client_id, domain, status, dns_txt_record, dns_verified_at, ssl_cert_path, ssl_expires_at, created_at, updated_at
+		`SELECT id, client_id, domain, status, dns_txt_record, dns_verified_at,
+			COALESCE(ssl_cert_path, '') AS ssl_cert_path, ssl_expires_at, created_at, updated_at
 		 FROM client_domains WHERE id = $1`, id,
 	).Scan(&d.ID, &d.ClientID, &d.Domain, &d.Status, &d.DNSTxtRecord, &d.DNSVerifiedAt,
 		&d.SSLCertPath, &d.SSLExpiresAt, &d.CreatedAt, &d.UpdatedAt)
@@ -45,7 +46,8 @@ func (r *DomainRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 
 func (r *DomainRepository) ListByClient(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientDomain, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, client_id, domain, status, dns_txt_record, dns_verified_at, ssl_cert_path, ssl_expires_at, created_at, updated_at
+		`SELECT id, client_id, domain, status, dns_txt_record, dns_verified_at,
+			COALESCE(ssl_cert_path, '') AS ssl_cert_path, ssl_expires_at, created_at, updated_at
 		 FROM client_domains WHERE client_id = $1 ORDER BY created_at DESC`, clientID,
 	)
 	if err != nil {

@@ -97,8 +97,8 @@ func TestAuthChain(t *testing.T) {
 	jwtSecret := "func-test-jwt-secret-32bytes!!"
 	tokenService := application.NewTokenService(
 		jwtSecret,
-		15*time.Minute,  // access token expiry
-		24*time.Hour,    // refresh token expiry
+		15*time.Minute, // access token expiry
+		24*time.Hour,   // refresh token expiry
 		refreshTokenRepo,
 	)
 

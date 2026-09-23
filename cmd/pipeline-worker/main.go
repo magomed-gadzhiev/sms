@@ -310,6 +310,10 @@ func runMaintenanceLoops(ctx context.Context, pool *pgxpool.Pool) {
 				{Name: "lookup_log", Naming: maintenancesvc.NamingYYYYMM},
 				{Name: "deliveries", Naming: maintenancesvc.NamingYYYYMM},
 				{Name: "delivery_attempts", Naming: maintenancesvc.NamingYYYYMM},
+				// click_events: миграция 000047 нарезала партиции только до
+				// 2026-05 — без maintenance INSERT падает "no partition found"
+				// (обнаружено functional-тестом RecordClick).
+				{Name: "click_events", Naming: maintenancesvc.NamingYYYYMM},
 			},
 			6, 24*time.Hour)
 

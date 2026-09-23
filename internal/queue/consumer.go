@@ -181,7 +181,23 @@ func (c *Consumer) handleFailedMessage(msg *sarama.ConsumerMessage) error {
 func (c *Consumer) Close() error {
 	c.logger.Info().Msg("закрытие consumer")
 	c.cancel()
-	c.wg.Wait()
+
+	// Горутины consume-цикла выходят по ctx.Done, но sarama может держать
+	// сессию до session timeout. Ждём ограниченно: зависшая сессия не должна
+	// блокировать shutdown сервиса (наблюдался deadlock в integration-тесте
+	// KafkaConsumer — wg.Wait висел бесконечно).
+	done := make(chan struct{})
+	go func() {
+		c.wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(consumerCloseTimeout):
+		c.logger.Warn().
+			Dur("timeout", consumerCloseTimeout).
+			Msg("таймаут ожидания consumer-горутин, закрываем группу принудительно")
+	}
 
 	if err := c.consumer.Close(); err != nil {
 		c.logger.Error().Err(err).Msg("ошибка закрытия consumer")
@@ -191,6 +207,9 @@ func (c *Consumer) Close() error {
 	c.logger.Info().Msg("Kafka consumer закрыт")
 	return nil
 }
+
+// consumerCloseTimeout ограничивает ожидание горутин consume-цикла при Close.
+const consumerCloseTimeout = 15 * time.Second
 
 // consumerGroupHandler реализует sarama.ConsumerGroupHandler
 type consumerGroupHandler struct {

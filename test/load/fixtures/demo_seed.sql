@@ -92,7 +92,8 @@ ON CONFLICT (client_id) DO UPDATE SET
     company_id = EXCLUDED.company_id;
 
 -- ---------- 6. Пользователи ----------
--- admin/example local password и demo-client/example local password
+-- Пароль для всех: Admin123! (комментарии "example local password" в старых
+-- файлах фикстур были неверными — хэш ниже проверен как bcrypt от Admin123!)
 INSERT INTO users (id, username, email, password_hash, role_id, active, client_id)
 VALUES
     ('d0000000-0000-0000-0000-000000000001', 'admin',       'admin@demo.local',
