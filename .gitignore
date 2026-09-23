@@ -114,6 +114,7 @@ e2e/playwright-report/
 
 # Local agent/tooling state
 .claude/
+.zcode/
 .superpowers/
 .worktrees/
 .playwright-mcp/

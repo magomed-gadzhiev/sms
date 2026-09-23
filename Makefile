@@ -1,4 +1,9 @@
-.PHONY: gen-proto-docs build-client-gateway test test-functional test-integration test-e2e demo-seed demo-clean
+.PHONY: gen-proto-docs build-client-gateway version test test-functional test-integration test-e2e demo-seed demo-clean
+
+# Release version stamped into binaries via ldflags (internal/version).
+# Falls back to the short commit hash between tags, with a -dirty suffix.
+VERSION ?= $(shell git describe --tags --always --dirty)
+VERSION_LDFLAGS := -X github.com/smpp-server/smpp-server/internal/version.Version=$(VERSION)
 
 # ─── Test-launch seam (architecture review, candidate 5) ────────────────────
 # The make targets own provisioning: build tags, env, and the host ports of
@@ -19,7 +24,10 @@ gen-proto-docs:
 	bash scripts/gen-proto-docs.sh
 
 build-client-gateway:
-	go build ./cmd/client-gateway/...
+	go build -ldflags "$(VERSION_LDFLAGS)" ./cmd/client-gateway/...
+
+version:
+	@echo $(VERSION)
 
 test:
 	go test ./... 2>&1

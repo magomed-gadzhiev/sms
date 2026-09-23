@@ -1,5 +1,9 @@
 # SMS Platform
 
+[![Release](https://img.shields.io/github/v/release/magomed-gadzhiev/sms)](https://github.com/magomed-gadzhiev/sms/releases)
+[![CI](https://github.com/magomed-gadzhiev/sms/actions/workflows/ci.yml/badge.svg)](https://github.com/magomed-gadzhiev/sms/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Open-source SMS and messaging platform built in Go and React. The project includes SMPP ingress, HTTP/gRPC APIs, routing, billing, delivery status handling, campaign tooling, a self-service portal, and operational Docker Compose manifests for local development.
 
 ## Features
