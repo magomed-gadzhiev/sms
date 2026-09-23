@@ -196,7 +196,7 @@ func (r *RouteRepo) Delete(ctx context.Context, id uuid.UUID) error {
 // LoadAllActive loads all active routes with full children for the RouteMatcher.
 func (r *RouteRepo) LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, error) {
 	query := `SELECT id, client_id, operator_id, provider_id, priority, weight, active,
-		COALESCE(name, ''), COALESCE(comment, ''), status, share, route_type, created_at, updated_at
+		COALESCE(name, ''), COALESCE(comment, ''), status, share, route_type, shared, created_at, updated_at
 		FROM client_routes WHERE status = 'active' ORDER BY priority ASC`
 
 	rows, err := r.pool.Query(ctx, query)
@@ -212,6 +212,7 @@ func (r *RouteRepo) LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, e
 			&route.ID, &route.ClientID, &route.OperatorID, &route.ProviderID,
 			&route.Priority, &route.Weight, &route.Active,
 			&route.Name, &route.Comment, &route.Status, &route.Share, &route.RouteType,
+			&route.Shared,
 			&route.CreatedAt, &route.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan route: %w", err)
@@ -235,6 +236,44 @@ func (r *RouteRepo) LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, e
 	}
 
 	return routes, nil
+}
+
+// ClientRoutingInfo carries the per-client fields Routing Resolution needs:
+// the reseller parent (for the shared-route level) and the Routing Mode gate.
+type ClientRoutingInfo struct {
+	ParentID *uuid.UUID
+	Mode     string
+}
+
+// LoadClientRouting loads parent_client_id + routing_mode for every client.
+// The matcher keeps this map in memory alongside the routes; both refresh on
+// Invalidate. Client count is portal-tenant scale, so a full load is cheap.
+func (r *RouteRepo) LoadClientRouting(ctx context.Context) (map[uuid.UUID]ClientRoutingInfo, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, parent_client_id, routing_mode FROM clients`)
+	if err != nil {
+		return nil, fmt.Errorf("load client routing info: %w", err)
+	}
+	defer rows.Close()
+
+	info := make(map[uuid.UUID]ClientRoutingInfo)
+	for rows.Next() {
+		var (
+			id       uuid.UUID
+			parentID uuid.NullUUID
+			mode     string
+		)
+		if err := rows.Scan(&id, &parentID, &mode); err != nil {
+			return nil, fmt.Errorf("scan client routing info: %w", err)
+		}
+		ci := ClientRoutingInfo{Mode: mode}
+		if parentID.Valid {
+			p := parentID.UUID
+			ci.ParentID = &p
+		}
+		info[id] = ci
+	}
+	return info, rows.Err()
 }
 
 // --- private helpers ---

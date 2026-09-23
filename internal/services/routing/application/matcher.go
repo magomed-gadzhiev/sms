@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"sort"
 	"strings"
@@ -27,26 +28,62 @@ type MatchContext struct {
 	SenderName  string
 }
 
-// RouteMatcher loads active routes into memory and matches them against a MatchContext.
-type RouteMatcher struct {
-	mu         sync.RWMutex
-	routes     []*domain.ClientRoute
-	regexCache map[string]*regexp.Regexp
-	repo       *infrastructure.RouteRepo
+// RouteStore is the persistence seam the matcher loads its world from.
+// *infrastructure.RouteRepo satisfies it; tests substitute fakes.
+type RouteStore interface {
+	LoadAllActive(ctx context.Context) ([]*domain.ClientRoute, error)
+	LoadClientRouting(ctx context.Context) (map[uuid.UUID]infrastructure.ClientRoutingInfo, error)
 }
 
-// NewRouteMatcher creates a new RouteMatcher backed by the given repository.
-func NewRouteMatcher(repo *infrastructure.RouteRepo) *RouteMatcher {
+// ErrNoRouteFound is returned by Resolve when no route at any allowed
+// resolution level matches the context.
+var ErrNoRouteFound = errors.New("no route found")
+
+// ResolutionLevel names which level of Routing Resolution produced the
+// decision (see CONTEXT.md: client's own routes, then the Reseller's shared
+// route sets, then the platform default — first match wins).
+type ResolutionLevel string
+
+const (
+	LevelClient   ResolutionLevel = "client"
+	LevelReseller ResolutionLevel = "reseller"
+	LevelPlatform ResolutionLevel = "platform"
+)
+
+// RoutingDecision is the outcome of Routing Resolution: the winning route and
+// the level it came from.
+type RoutingDecision struct {
+	Route *domain.ClientRoute
+	Level ResolutionLevel
+}
+
+// RouteMatcher is the single Routing Resolution engine. It holds all active
+// managed routes plus per-client routing info (parent, Routing Mode) in
+// memory and resolves a MatchContext to one route.
+type RouteMatcher struct {
+	mu          sync.RWMutex
+	routes      []*domain.ClientRoute
+	clientInfo  map[uuid.UUID]infrastructure.ClientRoutingInfo
+	regexCache  map[string]*regexp.Regexp
+	store       RouteStore
+}
+
+// NewRouteMatcher creates a new RouteMatcher backed by the given store.
+func NewRouteMatcher(store RouteStore) *RouteMatcher {
 	return &RouteMatcher{
-		repo:       repo,
+		store:      store,
 		regexCache: make(map[string]*regexp.Regexp),
 	}
 }
 
-// Load fetches all active routes from the database, compiles regex patterns,
-// and stores them in memory under a write lock.
+// Load fetches all active routes and client routing info from the database,
+// compiles regex patterns, and stores everything in memory under a write lock.
 func (m *RouteMatcher) Load(ctx context.Context) error {
-	routes, err := m.repo.LoadAllActive(ctx)
+	routes, err := m.store.LoadAllActive(ctx)
+	if err != nil {
+		return err
+	}
+	clientInfo, err := m.store.LoadClientRouting(ctx)
 	if err != nil {
 		return err
 	}
@@ -74,10 +111,11 @@ func (m *RouteMatcher) Load(ctx context.Context) error {
 
 	m.mu.Lock()
 	m.routes = routes
+	m.clientInfo = clientInfo
 	m.regexCache = cache
 	m.mu.Unlock()
 
-	log.Info().Int("routes", len(routes)).Int("regex_patterns", len(cache)).Msg("route matcher loaded")
+	log.Info().Int("routes", len(routes)).Int("clients", len(clientInfo)).Int("regex_patterns", len(cache)).Msg("route matcher loaded")
 	return nil
 }
 
@@ -88,84 +126,82 @@ func (m *RouteMatcher) Invalidate(ctx context.Context) {
 	}
 }
 
-// Match returns all routes that match the given context, sorted by priority (ascending).
-// It tries client-specific routes first; if none match, it falls back to default routes.
-func (m *RouteMatcher) Match(ctx MatchContext) []*domain.ClientRoute {
+// Resolve applies the domain rule of Routing Resolution (CONTEXT.md): the
+// Client's own routes first, then its Reseller's shared route sets, then the
+// platform default; first match wins. Within the winning level, routes are
+// ranked by Priority and split by Share via PickWeightedRoute.
+//
+// The per-Client Routing Mode (ADR-0002: a transition mechanism) gates which
+// levels are consulted — semantics folded from the retired UnifiedRouter:
+//
+//	legacy — platform defaults only
+//	new    — the client's own routes only, no fallback
+//	hybrid (and any unknown value) — full three-level fallback
+func (m *RouteMatcher) Resolve(ctx context.Context, mc MatchContext) (RoutingDecision, error) {
 	m.mu.RLock()
 	routes := m.routes
+	clientInfo := m.clientInfo
 	regexCache := m.regexCache
 	m.mu.RUnlock()
 
-	// Split routes by route_type, then by client-specific vs default.
-	var clientRoutes, defaultRoutes []*domain.ClientRoute
+	mode := "hybrid"
+	if info, ok := clientInfo[mc.ClientID]; ok {
+		mode = info.Mode
+	}
+
+	// Split routes by route_type into the three ownership buckets.
+	var clientRoutes, resellerRoutes, platformRoutes []*domain.ClientRoute
+	var parentID *uuid.UUID
+	if info, ok := clientInfo[mc.ClientID]; ok {
+		parentID = info.ParentID
+	}
 	for _, r := range routes {
-		if r.RouteType != ctx.RouteType {
+		if r.RouteType != mc.RouteType {
 			continue
 		}
-		if r.ClientID != nil && *r.ClientID == ctx.ClientID {
+		switch {
+		case r.ClientID != nil && *r.ClientID == mc.ClientID:
 			clientRoutes = append(clientRoutes, r)
-		} else if r.ClientID == nil {
-			defaultRoutes = append(defaultRoutes, r)
+		case r.ClientID != nil && parentID != nil && *r.ClientID == *parentID && r.Shared:
+			resellerRoutes = append(resellerRoutes, r)
+		case r.ClientID == nil:
+			platformRoutes = append(platformRoutes, r)
 		}
 	}
 
-	// Try client-specific first.
-	matched := m.filterMatching(clientRoutes, ctx, regexCache)
-	if len(matched) == 0 {
-		matched = m.filterMatching(defaultRoutes, ctx, regexCache)
+	var levels []ResolutionLevel
+	var buckets map[ResolutionLevel][]*domain.ClientRoute
+	switch mode {
+	case "legacy":
+		levels = []ResolutionLevel{LevelPlatform}
+	case "new":
+		levels = []ResolutionLevel{LevelClient}
+	default: // hybrid and unknown
+		levels = []ResolutionLevel{LevelClient, LevelReseller, LevelPlatform}
+	}
+	buckets = map[ResolutionLevel][]*domain.ClientRoute{
+		LevelClient:   clientRoutes,
+		LevelReseller: resellerRoutes,
+		LevelPlatform: platformRoutes,
 	}
 
-	sort.Slice(matched, func(i, j int) bool {
-		return matched[i].Priority < matched[j].Priority
-	})
-
-	return matched
-}
-
-// MatchResult holds the outcome of route matching with diagnostic details.
-type MatchResult struct {
-	Matched       []*domain.ClientRoute
-	ClientRoutes  int  // number of client-specific routes evaluated
-	DefaultRoutes int  // number of default routes evaluated
-	UsedDefault   bool // true if fell back to default routes
-}
-
-// MatchWithDetails returns matched routes plus diagnostic info for trace logging.
-func (m *RouteMatcher) MatchWithDetails(ctx MatchContext) MatchResult {
-	m.mu.RLock()
-	routes := m.routes
-	regexCache := m.regexCache
-	m.mu.RUnlock()
-
-	var clientRoutes, defaultRoutes []*domain.ClientRoute
-	for _, r := range routes {
-		if r.RouteType != ctx.RouteType {
+	for _, level := range levels {
+		matched := m.filterMatching(buckets[level], mc, regexCache)
+		if len(matched) == 0 {
 			continue
 		}
-		if r.ClientID != nil && *r.ClientID == ctx.ClientID {
-			clientRoutes = append(clientRoutes, r)
-		} else if r.ClientID == nil {
-			defaultRoutes = append(defaultRoutes, r)
+		sort.Slice(matched, func(i, j int) bool {
+			return matched[i].Priority < matched[j].Priority
+		})
+		route := PickWeightedRoute(matched)
+		if route == nil {
+			// Defensive: PickWeightedRoute returns nil only for empty input.
+			continue
 		}
+		return RoutingDecision{Route: route, Level: level}, nil
 	}
 
-	matched := m.filterMatching(clientRoutes, ctx, regexCache)
-	usedDefault := false
-	if len(matched) == 0 {
-		matched = m.filterMatching(defaultRoutes, ctx, regexCache)
-		usedDefault = true
-	}
-
-	sort.Slice(matched, func(i, j int) bool {
-		return matched[i].Priority < matched[j].Priority
-	})
-
-	return MatchResult{
-		Matched:       matched,
-		ClientRoutes:  len(clientRoutes),
-		DefaultRoutes: len(defaultRoutes),
-		UsedDefault:   usedDefault,
-	}
+	return RoutingDecision{}, ErrNoRouteFound
 }
 
 // filterMatching returns routes whose conditions and schedules pass.

@@ -325,21 +325,6 @@ type AuditLogEntry struct {
 	CreatedAt  time.Time              `json:"created_at" db:"created_at"`
 }
 
-// ClientRoute — маршрут клиента к провайдеру через оператора.
-// client_id = NULL означает платформенный дефолт.
-type ClientRoute struct {
-	ID         uuid.UUID  `db:"id"`
-	ClientID   *uuid.UUID `db:"client_id"`
-	OperatorID uuid.UUID  `db:"operator_id"`
-	ProviderID uuid.UUID  `db:"provider_id"`
-	Priority   int        `db:"priority"`
-	Weight     int        `db:"weight"`
-	Active     bool       `db:"active"`
-	Shared     bool       `db:"shared"`
-	CreatedAt  time.Time  `db:"created_at"`
-	UpdatedAt  time.Time  `db:"updated_at"`
-}
-
 // OperatorPrefix — префикс оператора для определения оператора по номеру.
 // CountryID заполняется JOIN'ом на operators и может быть nil, если оператор
 // в БД не имеет country_id.
@@ -348,12 +333,6 @@ type OperatorPrefix struct {
 	CountryID  *uuid.UUID
 	Prefix     string
 	Priority   int
-}
-
-// RoutingDecision — результат маршрутизации.
-type RoutingDecision struct {
-	ProviderID uuid.UUID
-	RouteID    uuid.UUID
 }
 
 // Company представляет юридическое лицо клиента
