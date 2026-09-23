@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/smpp-server/smpp-server/internal/api/http/response"
+	"github.com/smpp-server/smpp-server/internal/shared/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smpp-server/smpp-server/api/proto/authv1"
-	"github.com/smpp-server/smpp-server/internal/api/http/response"
+	"github.com/smpp-server/smpp-server/internal/shared/response"
 	"github.com/smpp-server/smpp-server/internal/shared"
 )
 

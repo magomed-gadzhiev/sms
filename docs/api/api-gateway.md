@@ -269,11 +269,11 @@ api:
 ## Запуск
 
 ```bash
-go run cmd/api/main.go
+go run cmd/client-gateway/main.go
 ```
 
 Или через Docker:
 
 ```bash
-docker-compose up api-gateway-1
+docker compose -f deployments/docker-compose.yml up client-gateway-1
 ```

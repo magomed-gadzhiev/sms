@@ -585,3 +585,66 @@ func TestHandleSendOutcome_UnreachableProvider_RetriesExhausted(t *testing.T) {
 	// SentMessage{failed} публикуется
 	require.Len(t, pub.byTopic("sms.sent"), 1)
 }
+
+// ---------------------------------------------------------------------------
+// Permanent-error classification (порт из legacy RetryManager cmd/worker):
+// перманентные ESME-ошибки не должны попадать в retry-цикл sms.failed.
+// ---------------------------------------------------------------------------
+
+func TestIsPermanentSendError(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"permanent dst", errors.New("submit failed: ESME_RINVDSTADR (0x0000000B)"), true},
+		{"permanent lowercase", errors.New("smpp error: esme_rinvmsglen"), true},
+		{"transient timeout", errors.New("context deadline exceeded"), false},
+		{"transient refused", errors.New("провайдер X недоступен: connection refused"), false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, isPermanentSendError(tc.err))
+		})
+	}
+}
+
+// TestHandleSendOutcome_PermanentError_NoRetryPublish: при перманентной
+// ESME-ошибке и неисчерпанном retry-бюджете sms.failed НЕ публикуется —
+// повторная отправка того же PDU бессмысленна; финальный failed уходит
+// в sms.sent как обычно.
+func TestHandleSendOutcome_PermanentError_NoRetryPublish(t *testing.T) {
+	t.Parallel()
+
+	pub := &capturingPublisher{}
+	stage := newTestStage(pub)
+
+	providerID := uuid.New()
+	clientID := uuid.New()
+	routedMsg := &pipeline.RoutedMessage{
+		MessageID:  uuid.New(),
+		ClientID:   &clientID,
+		ProviderID: providerID,
+		RetryCount: 0,
+		MaxRetries: 3, // бюджет есть, но ошибка перманентная
+	}
+
+	sentMsg, err := stage.handleSendOutcome(context.Background(), sendOutcomeInput{
+		routedMsg:      routedMsg,
+		traceID:        "trace-3",
+		sendErr:        errors.New("submit failed: ESME_RINVDSTADR"),
+		usedProviderID: providerID,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "failed", sentMsg.Status)
+
+	assert.Empty(t, pub.byTopic("sms.failed"),
+		"перманентная ошибка не должна публиковаться в sms.failed")
+	require.Len(t, pub.byTopic("sms.sent"), 1,
+		"финальный failed должен публиковаться в sms.sent")
+}

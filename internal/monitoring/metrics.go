@@ -167,24 +167,6 @@ var (
 		[]string{"topic", "consumer_group"},
 	)
 
-	// Worker метрики
-	WorkerMessagesProcessed = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "worker_messages_processed_total",
-			Help: "Общее количество обработанных сообщений worker",
-		},
-		[]string{"worker_id", "status"},
-	)
-
-	WorkerProcessingDuration = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "worker_processing_duration_seconds",
-			Help:    "Длительность обработки сообщений worker в секундах",
-			Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30},
-		},
-		[]string{"worker_id", "operation"},
-	)
-
 	// Multipart SMS метрики
 	SMSSegmentsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{

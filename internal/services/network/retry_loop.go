@@ -114,8 +114,8 @@ func RetryPendingOnce(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplie
 }
 
 // RunRetryLoop запускает RetryPendingOnce каждые `interval` до отмены ctx.
-// При ctx.Done — graceful exit. Используется в cmd/worker для фонового retry
-// SRA-rows с зафиксированной ошибкой материализации.
+// При ctx.Done — graceful exit. Запускается в cmd/pipeline-worker (maintenance
+// loops) для фонового retry SRA-rows с зафиксированной ошибкой материализации.
 func RunRetryLoop(ctx context.Context, pool *pgxpool.Pool, pm ProviderApplier, rm RouteApplier, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()

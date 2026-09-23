@@ -295,30 +295,15 @@ pending → queued → sent → delivered
 
 **Kafka consumer:** Подписка на `message.delivered`, `message.failed`
 
-### 3.3 Worker (`cmd/worker/`)
+### 3.3 Worker — RETIRED
 
-**Назначение:** Kafka consumer + SMPP sender — ядро обработки сообщений.
+`cmd/worker` (и его consumer group `worker-sender`) удалён 2026-09: он параллельно
+с pipeline-стадиями потреблял те же топики (`sms.outgoing`, `sms.dlr`) и дважды
+отправлял/тарифицировал каждое сообщение. Его живые обязанности перенесены:
 
-**Kafka topics (consumer group: `smpp-worker`):**
-| Топик           | Обработка                                   |
-|-----------------|----------------------------------------------|
-| `sms.outgoing`  | Маршрутизация → отправка через SMSC Pool    |
-| `sms.dlr`       | Обновление статуса по delivery receipt        |
-| `sms.failed`    | Финальная маркировка ошибки                  |
-
-**Компоненты:**
-- **Router** (`internal/router/router.go`) — выбор провайдера
-- **RetryManager** (`internal/router/retry.go`) — экспоненциальный backoff (`base * 2^retryCount`, cap = max)
-- **SMSC Pool** (`internal/smsc/pool.go`) — пул SMPP-соединений, keep-alive (`enquire_link`), throttling (token bucket)
-- **Sender** (`internal/smsc/sender.go`) — формирование `submit_sm` PDU, отправка, получение `submit_sm_resp`
-
-**Retry-политика:**
-- Максимум попыток: настраивается (default 5)
-- Backoff: экспоненциальный, base 1s, max 60s
-- Permanent errors (invalid address, auth failure) → сразу в DLQ (`sms.failed`)
-- Temporary errors → retry с задержкой
-
-**Масштабирование:** Несколько инстансов в одном consumer group; Kafka распределяет партиции автоматически
+- отправка/тарификация/retry — pipeline-стадии `pipeline-router/sender/status/persist` (`cmd/pipeline-worker`);
+- классификация permanent-ошибок SMPP — `internal/pipeline/sender` (isPermanentSendError);
+- фоновые maintenance-циклы (SRA retry, partition maintenance) — `cmd/pipeline-worker` (runMaintenanceLoops).
 
 ---
 
