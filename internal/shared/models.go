@@ -289,6 +289,7 @@ type Message struct {
 type DLRReceipt struct {
 	ID                 uuid.UUID  `json:"id" db:"id"`
 	MessageID          uuid.UUID  `json:"message_id" db:"message_id"`
+	MessageCreatedAt   time.Time  `json:"message_created_at" db:"message_created_at"`
 	SMPPMessageID      string     `json:"smpp_message_id" db:"smpp_message_id"`
 	ProviderID         *uuid.UUID `json:"provider_id,omitempty" db:"provider_id"`
 	ReceiptedMessageID string     `json:"receipted_message_id,omitempty" db:"receipted_message_id"`

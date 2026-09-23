@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- DLR receipt lookups (`GetByMessageID`, `GetBySMPPMessageID`) no longer fail with a sqlx scan error: `shared.DLRReceipt` lacked the `message_created_at` column that `dlr_receipts` carries for partition-aligned foreign keys.
+
 ## [0.1.0] - 2026-09-23
 
 Initial public release.
