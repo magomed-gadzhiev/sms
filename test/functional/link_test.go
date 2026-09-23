@@ -185,6 +185,20 @@ func TestLinkShortening(t *testing.T) {
 			codes[code] = true
 		}
 	})
+
+	t.Run("ShortenUsesActiveDomainWithNullSSLCertPath", func(t *testing.T) {
+		// Regression: GetClientActiveDomain swallowed the NULL ssl_cert_path
+		// scan error as "no active domain" and silently shortened on the
+		// default domain instead of the client's branded one.
+		d, err := svc.AddDomain(ctx, clientID, "null-ssl.example.com")
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx, `UPDATE client_domains SET status = 'active' WHERE id = $1`, d.ID)
+		require.NoError(t, err)
+
+		shortURL, _, err := svc.ShortenURL(ctx, clientID, "https://example.com/null-ssl", nil, nil, nil)
+		require.NoError(t, err)
+		assert.Contains(t, shortURL, "null-ssl.example.com")
+	})
 }
 
 func TestLinkDomainManagement(t *testing.T) {

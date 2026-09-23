@@ -46,8 +46,11 @@ func (r *LinkRepository) GetByCode(ctx context.Context, code string) (*domain.Sh
 
 func (r *LinkRepository) GetClientActiveDomain(ctx context.Context, clientID uuid.UUID) (*domain.ClientDomain, error) {
 	var d domain.ClientDomain
+	// COALESCE: ssl_cert_path is NULL until SSL is provisioned, and a plain
+	// string scan target errors on NULL — the caller would then treat the
+	// client's active branded domain as absent (mirrors the DomainRepository fix).
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, client_id, domain, status, dns_txt_record, dns_verified_at, ssl_cert_path, ssl_expires_at, created_at, updated_at
+		`SELECT id, client_id, domain, status, dns_txt_record, dns_verified_at, COALESCE(ssl_cert_path, ''), ssl_expires_at, created_at, updated_at
 		 FROM client_domains WHERE client_id = $1 AND status = 'active' LIMIT 1`, clientID,
 	).Scan(&d.ID, &d.ClientID, &d.Domain, &d.Status, &d.DNSTxtRecord, &d.DNSVerifiedAt,
 		&d.SSLCertPath, &d.SSLExpiresAt, &d.CreatedAt, &d.UpdatedAt)
