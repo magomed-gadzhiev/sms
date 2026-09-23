@@ -17,7 +17,7 @@ REDIS_PASSWORD   ?= $(shell grep -E '^REDIS_PASSWORD=' $(DEPLOYMENTS_ENV) | cut 
 
 # One DSN convention across integration tests (postgres:// URL).
 TEST_DATABASE_URL ?= postgres://smpp:$(POSTGRES_PASSWORD)@127.0.0.1:5432/smpp_db?sslmode=disable&default_query_exec_mode=simple_protocol
-TEST_PORTAL_URL   ?= http://127.0.0.1:8080
+TEST_PORTAL_URL   ?= http://127.0.0.1:8082
 TEST_REDIS_URL    ?= redis://:$(REDIS_PASSWORD)@127.0.0.1:6379/0
 
 gen-proto-docs:

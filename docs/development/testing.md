@@ -46,6 +46,25 @@ go test -tags=integration ./test/integration/...
 .\scripts\test.ps1 -Integration
 ```
 
+#### Опциональные сервисы: контракт деградации
+
+Часть integration-тестов работает с сервисами, которые есть не во всех
+окружениях. Такие тесты обязаны деградировать в явный SKIP, а не падать:
+
+- **Registration-тесты** (`test/integration/registration_test.go`) ходят по
+  HTTP в portal-gateway (`TEST_PORTAL_URL`, по умолчанию
+  `http://localhost:8082` — порт Portal Gateway HTTP из
+  `deployments/docker-compose.yml`). Если портал не развёрнут (connection
+  refused) или не экспонирует роут (404/405) — тест SKIP-ается. HTTP-покрытие
+  регистрации живёт в e2e (`e2e/tests/auth/auth-public.spec.ts`: успех,
+  дубликат email, невалидный ввод). Чтобы прогнать registration-тесты по-настоящему,
+  поднимите портал и задайте `TEST_PORTAL_URL` (make-таргет `test-integration`
+  уже проставляет `http://127.0.0.1:8082`).
+
+Решение (2026-09-23): в CI integration-джоба поднимает только postgres —
+registration-тесты там сознательно SKIP-аются; запуск портала в этой джобе
+не планируется до отдельного решения.
+
 ### Load тесты
 
 Load тесты требуют запущенного API Gateway.
