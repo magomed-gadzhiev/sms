@@ -74,6 +74,7 @@ func TestLinkShortening(t *testing.T) {
 	pool := testPgxPool(t)
 	rdb := testRedisClient(t)
 	db := setupTestDB(t)
+	ensureClickEventsPartition(t, db)
 
 	clientID := uuid.New()
 	ctx := context.Background()

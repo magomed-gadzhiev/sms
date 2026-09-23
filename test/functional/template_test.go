@@ -141,11 +141,20 @@ func TestTemplateApprovalWorkflow(t *testing.T) {
 		 ON CONFLICT DO NOTHING`, clientID.String())
 	require.NoError(t, err)
 
+	// reviewer_id references users(id); RequestRevision persists it, so the
+	// reviewer must exist. Admin role UUID is fixed by migration 000003.
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO users (id, username, email, password_hash, role_id)
+		 VALUES ($1, 'test-reviewer', $2, 'x', '00000000-0000-0000-0000-000000000001')
+		 ON CONFLICT DO NOTHING`, reviewerID.String(), reviewerID.String()+"@test.example")
+	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		bgCtx := context.Background()
 		_, _ = db.ExecContext(bgCtx, `DELETE FROM template_audit_log WHERE template_id IN (SELECT id FROM templates WHERE client_id = $1)`, clientID)
 		_, _ = db.ExecContext(bgCtx, `DELETE FROM templates WHERE client_id = $1`, clientID)
 		_, _ = db.ExecContext(bgCtx, `DELETE FROM clients WHERE id = $1`, clientID)
+		_, _ = db.ExecContext(bgCtx, `DELETE FROM users WHERE id = $1`, reviewerID)
 	})
 
 	tplRepo := templateRepo.NewTemplateRepository(db)
