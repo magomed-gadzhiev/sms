@@ -10,7 +10,7 @@ import (
 // EventConsumer реализует domain.EventConsumer
 // Это обертка над queue.Consumer для соответствия domain интерфейсу
 type EventConsumer struct {
-	consumer *queue.Consumer
+	consumer         *queue.Consumer
 	deliveredHandler domain.MessageDeliveredHandler
 	failedHandler    domain.MessageFailedHandler
 }
@@ -22,9 +22,9 @@ func NewEventConsumer(
 	failedHandler domain.MessageFailedHandler,
 ) *EventConsumer {
 	return &EventConsumer{
-		consumer:        consumer,
+		consumer:         consumer,
 		deliveredHandler: deliveredHandler,
-		failedHandler:   failedHandler,
+		failedHandler:    failedHandler,
 	}
 }
 

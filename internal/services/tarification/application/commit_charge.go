@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	billingv1 "github.com/smpp-server/smpp-server/api/proto/billingv1"
+	billingDomain "github.com/smpp-server/smpp-server/internal/services/billing/domain"
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
 )
 
@@ -23,20 +24,11 @@ type CommitChargeRequest struct {
 	IdempotencyKey string
 }
 
-// CommitChargeResult — результат CommitCharge. Набор boolean-флагов соответствует
-// enum CommitChargeError в proto: транспортный слой маппит флаги на enum.
-type CommitChargeResult struct {
-	Committed        bool
-	AlreadyCommitted bool
-	QuotaMissing     bool
-	SubInsufficient  bool
-	AggInsufficient  bool
-	NoTariff         bool
-
-	SubAccountTxID string
-	AggregatorTxID string
-	MarginLogID    string
-}
+// CommitCharge возвращает *billingDomain.ChargeResult — единый типизированный
+// словарь исходов списания (Committed / AlreadyCommitted / Rejected+причина /
+// Transient+Err), заменяющий прежние шесть boolean-флагов. Транспортный слой
+// (tarification/grpc) транслирует исход в enum proto; retry-worker — в
+// success/terminal/transient.
 
 // CommitCharge выполняет фактическое списание средств за сообщение.
 // Вызывается после подтверждения доставки в commit-on-submit flow.
@@ -53,26 +45,25 @@ type CommitChargeResult struct {
 //
 // Drift: между TarifyMessage и CommitCharge тариф мог измениться. Calculate
 // вернёт актуальные цены — это by design.
-func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitChargeRequest) (*CommitChargeResult, error) {
+func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitChargeRequest) *billingDomain.ChargeResult {
 	start := time.Now()
 	branch := "subaccount" // перезапишется в direct-ветке
 	defer func() {
 		commitChargeDuration.WithLabelValues(branch).Observe(time.Since(start).Seconds())
 	}()
 
-	// 1. Idempotency short-circuit. Если запись в tarification_log уже есть,
-	// значит CommitCharge (или legacy TarifyMessage) уже отработал —
-	// возвращаем AlreadyCommitted без обращения к billing.
-	// Это позволяет не расширять replay-ветку в Calculate (которая не хранит
-	// AggregatorID/SegmentCount для ChargeMessageDual).
+	// 1. Idempotency short-circuit (fast-path поверх guard'а billing: если
+	// запись в tarification_log уже есть, CommitCharge или legacy TarifyMessage
+	// уже отработал — в billing можно не ходить). Канонический guard —
+	// commit_idempotency_guard на стороне billing; этот check экономит RPC.
 	if req.IdempotencyKey != "" {
 		existing, err := s.logRepo.GetByIdempotencyKey(ctx, req.IdempotencyKey)
 		if err != nil {
-			return nil, fmt.Errorf("idempotency check failed: %w", err)
+			return commitTransient(fmt.Errorf("idempotency check failed: %w", err))
 		}
 		if existing != nil {
 			commitChargeResult.WithLabelValues("already_committed").Inc()
-			return &CommitChargeResult{AlreadyCommitted: true}, nil
+			return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeAlreadyCommitted}
 		}
 	}
 
@@ -86,28 +77,28 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 		IdempotencyKey: req.IdempotencyKey,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("calculate failed: %w", err)
+		return commitTransient(fmt.Errorf("calculate failed: %w", err))
 	}
 
 	if !calc.Approved {
-		result := &CommitChargeResult{}
+		var reason billingDomain.RejectionReason
 		switch calc.RejectionCode {
 		case RejectionCodeQuotaNotConfigured, RejectionCodeQuotaServiceMissing:
-			result.QuotaMissing = true
+			reason = billingDomain.RejectionQuotaMissing
 			commitChargeResult.WithLabelValues("quota_not_configured").Inc()
 		case RejectionCodeInsufficientBalance:
-			result.SubInsufficient = true
+			reason = billingDomain.RejectionInsufficientBalanceSub
 			commitChargeResult.WithLabelValues("insufficient_balance_subaccount").Inc()
 		case RejectionCodeNoTariffPlan, RejectionCodeNoPeriod, RejectionCodeNoTiers:
-			result.NoTariff = true
+			reason = billingDomain.RejectionNoTariff
 			commitChargeResult.WithLabelValues("no_tariff").Inc()
 		default:
 			// Unknown / empty — консервативно маркируем как NoTariff
 			// (поведение, идентичное legacy fallback).
-			result.NoTariff = true
+			reason = billingDomain.RejectionNoTariff
 			commitChargeResult.WithLabelValues("no_tariff").Inc()
 		}
-		return result, nil
+		return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: reason}
 	}
 
 	// 3. Direct-клиент — одиночное списание через legacy-сагу.
@@ -124,21 +115,24 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 		if err != nil {
 			commitChargeResult.WithLabelValues("transport_error").Inc()
 			s.enqueueRetryIfNeeded(ctx, req, err)
-			return nil, fmt.Errorf("billing charge failed: %w", err)
+			return commitTransient(fmt.Errorf("billing charge failed: %w", err))
 		}
 		if !chargeResult.Success {
 			commitChargeResult.WithLabelValues("insufficient_balance_subaccount").Inc()
-			return &CommitChargeResult{SubInsufficient: true}, nil
+			return &billingDomain.ChargeResult{
+				Outcome:   billingDomain.ChargeOutcomeRejected,
+				Rejection: billingDomain.RejectionInsufficientBalanceDirect,
+			}
 		}
 
 		// Post-charge side-effects (direct branch): log + publish + counter + recalc.
 		s.commitChargePostCharge(ctx, req, calc, calc.PlatformAmount)
 
 		commitChargeResult.WithLabelValues("committed").Inc()
-		return &CommitChargeResult{
-			Committed:      true,
-			SubAccountTxID: chargeResult.TransactionID,
-		}, nil
+		return &billingDomain.ChargeResult{
+			Outcome:       billingDomain.ChargeOutcomeCommitted,
+			TransactionID: uuid.MustParse(chargeResult.TransactionID),
+		}
 	}
 
 	// 4. Субаккаунт — атомарная dual-транзакция через billing.ChargeMessageDual.
@@ -162,45 +156,67 @@ func (s *TarificationService) CommitCharge(ctx context.Context, req *CommitCharg
 	if err != nil {
 		commitChargeResult.WithLabelValues("transport_error").Inc()
 		s.enqueueRetryIfNeeded(ctx, req, err)
-		return nil, fmt.Errorf("dual charge failed: %w", err)
+		return commitTransient(fmt.Errorf("dual charge failed: %w", err))
 	}
 
-	result := &CommitChargeResult{
-		SubAccountTxID: dualResp.SubAccountTxID,
-		AggregatorTxID: dualResp.AggregatorTxID,
-		MarginLogID:    dualResp.MarginLogID,
+	result := &billingDomain.ChargeResult{
+		SubAccountTxID: parseTxID(dualResp.SubAccountTxID),
+		AggregatorTxID: parseTxID(dualResp.AggregatorTxID),
+		MarginLogID:    parseTxID(dualResp.MarginLogID),
 	}
 
 	switch dualResp.Error {
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_UNSPECIFIED:
-		result.Committed = dualResp.Committed
-		if result.Committed {
+		if dualResp.Committed {
+			result.Outcome = billingDomain.ChargeOutcomeCommitted
 			commitChargeResult.WithLabelValues("committed").Inc()
 		}
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_ALREADY_COMMITTED:
-		result.AlreadyCommitted = true
+		result.Outcome = billingDomain.ChargeOutcomeAlreadyCommitted
 		commitChargeResult.WithLabelValues("already_committed").Inc()
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_QUOTA_NOT_CONFIGURED:
-		result.QuotaMissing = true
+		result.Outcome = billingDomain.ChargeOutcomeRejected
+		result.Rejection = billingDomain.RejectionQuotaMissing
 		commitChargeResult.WithLabelValues("quota_not_configured").Inc()
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT:
-		result.SubInsufficient = true
+		result.Outcome = billingDomain.ChargeOutcomeRejected
+		result.Rejection = billingDomain.RejectionInsufficientBalanceSub
 		commitChargeResult.WithLabelValues("insufficient_balance_subaccount").Inc()
 	case billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR:
-		result.AggInsufficient = true
+		result.Outcome = billingDomain.ChargeOutcomeRejected
+		result.Rejection = billingDomain.RejectionInsufficientBalanceAgg
 		commitChargeResult.WithLabelValues("insufficient_balance_aggregator").Inc()
 	default:
-		return nil, fmt.Errorf("unknown ChargeMessageDualError: %v", dualResp.Error)
+		return commitTransient(fmt.Errorf("unknown ChargeMessageDualError: %v", dualResp.Error))
 	}
 
 	// Post-charge side-effects (subaccount branch) — только при фактическом
 	// успешном списании. AlreadyCommitted сюда не попадает — это replay
 	// billing-стороны, log уже записан предыдущим вызовом.
-	if result.Committed {
+	if result.Outcome == billingDomain.ChargeOutcomeCommitted {
 		s.commitChargePostCharge(ctx, req, calc, calc.SubAccountTotal)
 	}
 
-	return result, nil
+	return result
+}
+
+// commitTransient — transport-level сбой: enqueue в retry-очередь делает
+// caller-ветка, здесь только типизированный исход.
+func commitTransient(err error) *billingDomain.ChargeResult {
+	return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeTransient, Err: err}
+}
+
+// parseTxID — best-effort парсинг UUID из ответа billing; пустая/битая строка
+// даёт нулевой UUID (чеки не-Committed исходов не читаются).
+func parseTxID(s string) uuid.UUID {
+	if s == "" {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
 }
 
 // commitChargePostCharge выполняет побочные эффекты, которые в legacy

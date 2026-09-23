@@ -60,17 +60,9 @@ type ChargeMessageDualInput struct {
 	ChargeMode      string // "pool" | "overage" | "split"
 }
 
-// ChargeMessageDualResult — результат. Флаги взаимоисключающие с Committed.
-type ChargeMessageDualResult struct {
-	Committed        bool
-	AlreadyCommitted bool
-	QuotaMissing     bool
-	SubInsufficient  bool
-	AggInsufficient  bool
-	SubTxID          uuid.UUID
-	AggTxID          uuid.UUID
-	MarginLogID      uuid.UUID
-}
+// ChargeMessageDual возвращает *billingDomain.ChargeResult — типизированный
+// исход (Committed / AlreadyCommitted / Rejected+причина / Transient+Err).
+// Идемпотентность — commit_idempotency_guard.ClaimTx в той же транзакции.
 
 // ErrCurrencyMismatch — валюта аккаунта не совпадает с запросом.
 var ErrCurrencyMismatch = errors.New("currency mismatch")
@@ -90,17 +82,17 @@ func ChargeMessageDual(
 	ctx context.Context,
 	deps DualChargeDeps,
 	in ChargeMessageDualInput,
-) (*ChargeMessageDualResult, error) {
+) *billingDomain.ChargeResult {
 	if in.Currency == "" {
 		in.Currency = "RUB"
 	}
 	if in.SegmentCount <= 0 {
-		return nil, fmt.Errorf("segment_count must be positive, got %d", in.SegmentCount)
+		return transientResult(fmt.Errorf("segment_count must be positive, got %d", in.SegmentCount))
 	}
 
 	tx, err := deps.DB.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
+		return transientResult(fmt.Errorf("begin tx: %w", err))
 	}
 	// Rollback идемпотентен — после Commit это no-op.
 	defer func() { _ = tx.Rollback() }()
@@ -115,25 +107,25 @@ func ChargeMessageDual(
 	// тоже — повторный вызов пройдёт заново.
 	claimed, err := deps.Guard.ClaimTx(ctx, tx, in.MessageID)
 	if err != nil {
-		return nil, fmt.Errorf("idempotency guard: %w", err)
+		return transientResult(fmt.Errorf("idempotency guard: %w", err))
 	}
 	if !claimed {
 		// Уже закоммичено — быстрый выход, балансы не трогаем.
-		return &ChargeMessageDualResult{AlreadyCommitted: true}, nil
+		return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeAlreadyCommitted}
 	}
 
 	// 2. Lazy-create квоты при необходимости.
 	quota, err := deps.QuotaRepo.GetActiveTx(ctx, tx, in.AggregatorID, now)
 	if err != nil {
-		return nil, fmt.Errorf("quota get active: %w", err)
+		return transientResult(fmt.Errorf("quota get active: %w", err))
 	}
 	if quota == nil {
 		prev, err := deps.QuotaRepo.GetLatestTx(ctx, tx, in.AggregatorID)
 		if err != nil {
-			return nil, fmt.Errorf("quota get latest: %w", err)
+			return transientResult(fmt.Errorf("quota get latest: %w", err))
 		}
 		if prev == nil || !prev.AutoRenew {
-			return &ChargeMessageDualResult{QuotaMissing: true}, nil
+			return rejectedResult(billingDomain.RejectionQuotaMissing)
 		}
 		// Создать квоту на текущий календарный месяц UTC, наследуя параметры.
 		periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -152,48 +144,48 @@ func ChargeMessageDual(
 			UpdatedAt:    now,
 		}
 		if err := deps.QuotaRepo.CreateTx(ctx, tx, newQuota); err != nil {
-			return nil, fmt.Errorf("quota lazy-create: %w", err)
+			return transientResult(fmt.Errorf("quota lazy-create: %w", err))
 		}
 		// Перечитать: ON CONFLICT DO NOTHING мог ничего не вставить (concurrent first-call
 		// с другим message_id) — тогда возьмём уже существующую строку.
 		quota, err = deps.QuotaRepo.GetActiveTx(ctx, tx, in.AggregatorID, now)
 		if err != nil {
-			return nil, fmt.Errorf("quota re-read after create: %w", err)
+			return transientResult(fmt.Errorf("quota re-read after create: %w", err))
 		}
 		if quota == nil {
-			return nil, fmt.Errorf("quota re-read after create: row not found (aggregator=%s)", in.AggregatorID)
+			return transientResult(fmt.Errorf("quota re-read after create: row not found (aggregator=%s)", in.AggregatorID))
 		}
 	}
 
 	// 3. Инкремент квоты.
 	if _, _, err := deps.QuotaRepo.IncrementUsageTx(ctx, tx, quota.ID, in.SegmentCount); err != nil {
-		return nil, fmt.Errorf("quota increment: %w", err)
+		return transientResult(fmt.Errorf("quota increment: %w", err))
 	}
 
 	// 4. Списание с субаккаунта.
 	subTxID, subErr := chargeBalanceTx(ctx, tx, in.SubAccountID, in.MessageID, in.SubAccountTotal, in.Currency, "SMS subaccount", nil)
 	if errors.Is(subErr, billingDomain.ErrInsufficientBalance) {
-		return &ChargeMessageDualResult{SubInsufficient: true}, nil
+		return rejectedResult(billingDomain.RejectionInsufficientBalanceSub)
 	}
 	if subErr != nil {
-		return nil, fmt.Errorf("charge subaccount: %w", subErr)
+		return transientResult(fmt.Errorf("charge subaccount: %w", subErr))
 	}
 
 	// 5. Списание с агрегатора (с attributed_sub_account_id = subaccount).
 	attributed := in.SubAccountID
 	aggTxID, aggErr := chargeBalanceTx(ctx, tx, in.AggregatorID, in.MessageID, in.AggregatorTotal, in.Currency, "SMS aggregator", &attributed)
 	if errors.Is(aggErr, billingDomain.ErrInsufficientBalance) {
-		return &ChargeMessageDualResult{AggInsufficient: true}, nil
+		return rejectedResult(billingDomain.RejectionInsufficientBalanceAgg)
 	}
 	if aggErr != nil {
-		return nil, fmt.Errorf("charge aggregator: %w", aggErr)
+		return transientResult(fmt.Errorf("charge aggregator: %w", aggErr))
 	}
 
 	// 5a. Margin log — analytics запись, ON CONFLICT не нужен (guard уже
 	// отсёк дубли выше). Вставляется в той же tx — атомарно с балансами.
 	margin, err := billingDomain.SubtractAmount(in.SubAccountTotal, in.AggregatorTotal)
 	if err != nil {
-		return nil, fmt.Errorf("compute margin: %w", err)
+		return transientResult(fmt.Errorf("compute margin: %w", err))
 	}
 	marginID := uuid.New()
 	marginEntry := &tarDomain.AggregatorMarginLog{
@@ -215,12 +207,12 @@ func ChargeMessageDual(
 		OverageSegments: in.OverageSegments,
 	}
 	if _, err := deps.MarginLogRepo.CreateTx(ctx, tx, marginEntry); err != nil {
-		return nil, fmt.Errorf("margin_log insert: %w", err)
+		return transientResult(fmt.Errorf("margin_log insert: %w", err))
 	}
 
 	// 6. COMMIT.
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit: %w", err)
+		return transientResult(fmt.Errorf("commit: %w", err))
 	}
 
 	// 6a. Метрика маржи по charge_mode. Инкремент на фактический margin-value
@@ -244,12 +236,22 @@ func ChargeMessageDual(
 		}
 	}
 
-	return &ChargeMessageDualResult{
-		Committed:   true,
-		SubTxID:     subTxID,
-		AggTxID:     aggTxID,
-		MarginLogID: marginID,
-	}, nil
+	return &billingDomain.ChargeResult{
+		Outcome:        billingDomain.ChargeOutcomeCommitted,
+		SubAccountTxID: subTxID,
+		AggregatorTxID: aggTxID,
+		MarginLogID:    marginID,
+	}
+}
+
+// transientResult — инфраструктурный сбой: retry безопасен.
+func transientResult(err error) *billingDomain.ChargeResult {
+	return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeTransient, Err: err}
+}
+
+// rejectedResult — бизнес-отказ: retry не изменит результат.
+func rejectedResult(reason billingDomain.RejectionReason) *billingDomain.ChargeResult {
+	return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: reason}
 }
 
 // chargeBalanceTx атомарно списывает amount с баланса client_id и создаёт запись в transactions.
@@ -271,9 +273,9 @@ func chargeBalanceTx(
 ) (uuid.UUID, error) {
 	// 1. Read with row lock для frozen/currency чек.
 	var (
-		oldBalance string
+		oldBalance  string
 		accCurrency string
-		frozen     bool
+		frozen      bool
 	)
 	err := tx.QueryRowxContext(ctx, `
 		SELECT balance::text, currency, frozen

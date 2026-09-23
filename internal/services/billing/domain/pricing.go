@@ -8,15 +8,15 @@ import (
 
 // PricingRule представляет доменную модель правила тарификации
 type PricingRule struct {
-	ID                uuid.UUID
-	ClientID          *uuid.UUID // NULL для глобальных правил
-	DestinationPattern string    // regex паттерн
-	PricePerMessage   string     // Цена за сообщение
-	Currency          string
-	Priority          int
-	Active            bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                 uuid.UUID
+	ClientID           *uuid.UUID // NULL для глобальных правил
+	DestinationPattern string     // regex паттерн
+	PricePerMessage    string     // Цена за сообщение
+	Currency           string
+	Priority           int
+	Active             bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // NewPricingRule создает новое правило тарификации
@@ -27,15 +27,15 @@ func NewPricingRule(
 ) *PricingRule {
 	now := time.Now()
 	return &PricingRule{
-		ID:                uuid.New(),
-		ClientID:          clientID,
+		ID:                 uuid.New(),
+		ClientID:           clientID,
 		DestinationPattern: destinationPattern,
-		PricePerMessage:   pricePerMessage,
-		Currency:          currency,
-		Priority:          priority,
-		Active:            true,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		PricePerMessage:    pricePerMessage,
+		Currency:           currency,
+		Priority:           priority,
+		Active:             true,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 }
 

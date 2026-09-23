@@ -14,10 +14,10 @@ import (
 
 // EventPublisher реализует domain.EventPublisher
 type EventPublisher struct {
-	producer sarama.SyncProducer
-	topicBalance    string
+	producer         sarama.SyncProducer
+	topicBalance     string
 	topicTransaction string
-	logger   zerolog.Logger
+	logger           zerolog.Logger
 }
 
 // NewEventPublisher создает новый publisher событий биллинга
@@ -31,12 +31,12 @@ func NewEventPublisher(cfg *config.KafkaConfig, balanceTopic, transactionTopic s
 	saramaConfig.Producer.Compression = sarama.CompressionSnappy
 	saramaConfig.Producer.Idempotent = true
 	saramaConfig.Net.MaxOpenRequests = 1
-	
+
 	syncProducer, err := sarama.NewSyncProducer(cfg.Brokers, saramaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
-	
+
 	return &EventPublisher{
 		producer:         syncProducer,
 		topicBalance:     balanceTopic,
@@ -48,10 +48,10 @@ func NewEventPublisher(cfg *config.KafkaConfig, balanceTopic, transactionTopic s
 // PublishBalanceChanged публикует событие изменения баланса
 func (p *EventPublisher) PublishBalanceChanged(ctx context.Context, clientID, balance, currency string) error {
 	event := map[string]interface{}{
-		"client_id": clientID,
-		"balance":   balance,
-		"currency":  currency,
-		"timestamp": time.Now().Unix(),
+		"client_id":  clientID,
+		"balance":    balance,
+		"currency":   currency,
+		"timestamp":  time.Now().Unix(),
 		"event_type": "balance.changed",
 	}
 
@@ -152,11 +152,11 @@ func (p *EventPublisher) PublishTransactionCompleted(ctx context.Context, transa
 // PublishBalanceLow публикует событие низкого баланса
 func (p *EventPublisher) PublishBalanceLow(ctx context.Context, clientID, balance, threshold, currency string) error {
 	event := map[string]interface{}{
-		"client_id": clientID,
-		"balance":   balance,
-		"threshold": threshold,
-		"currency":  currency,
-		"timestamp": time.Now().Unix(),
+		"client_id":  clientID,
+		"balance":    balance,
+		"threshold":  threshold,
+		"currency":   currency,
+		"timestamp":  time.Now().Unix(),
 		"event_type": "balance.low",
 	}
 

@@ -13,12 +13,12 @@ import (
 
 // TariffPlanService предоставляет бизнес-логику для управления тарифными планами
 type TariffPlanService struct {
-	planRepo      domain.TariffPlanRepository
-	periodRepo    domain.TariffPeriodRepository
-	tierRepo      domain.TariffTierRepository
-	pricingRepo   domain.PricingPeriodRepository
-	prepaidRepo   domain.PrepaidFeeRepository
-	logger        zerolog.Logger
+	planRepo    domain.TariffPlanRepository
+	periodRepo  domain.TariffPeriodRepository
+	tierRepo    domain.TariffTierRepository
+	pricingRepo domain.PricingPeriodRepository
+	prepaidRepo domain.PrepaidFeeRepository
+	logger      zerolog.Logger
 }
 
 // NewTariffPlanService создает новый сервис тарифных планов

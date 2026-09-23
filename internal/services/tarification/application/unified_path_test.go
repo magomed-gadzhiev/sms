@@ -114,9 +114,9 @@ func (r *callCountingRuleRepo) FindApplicable(_ context.Context, _ domain.Resolv
 	}
 	return r.fallback, nil
 }
-func (r *callCountingRuleRepo) Create(_ context.Context, _ *domain.PriceRule) error             { return nil }
-func (r *callCountingRuleRepo) Update(_ context.Context, _ *domain.PriceRule) error             { return nil }
-func (r *callCountingRuleRepo) Delete(_ context.Context, _ uuid.UUID) error                     { return nil }
+func (r *callCountingRuleRepo) Create(_ context.Context, _ *domain.PriceRule) error { return nil }
+func (r *callCountingRuleRepo) Update(_ context.Context, _ *domain.PriceRule) error { return nil }
+func (r *callCountingRuleRepo) Delete(_ context.Context, _ uuid.UUID) error         { return nil }
 func (r *callCountingRuleRepo) GetByID(_ context.Context, _ uuid.UUID) (*domain.PriceRule, error) {
 	return nil, nil
 }
@@ -159,14 +159,14 @@ func buildHappyDeps(
 	saga := &stubSaga{result: sagaResult}
 
 	deps := &unifiedDeps{
-		resolver:      resolver,
-		calc:          calc,
-		ruleRepo:      ruleRepo,
-		subUsageRepo:  subUsage,
-		marginLogRepo: marginLog,
-		saga:          saga,
-		logRepo:       logRepo,
-		senderRepo:    &stubSenderRepo{},
+		resolver:       resolver,
+		calc:           calc,
+		ruleRepo:       ruleRepo,
+		subUsageRepo:   subUsage,
+		marginLogRepo:  marginLog,
+		saga:           saga,
+		logRepo:        logRepo,
+		senderRepo:     &stubSenderRepo{},
 		operatorLookup: opLookup,
 	}
 	return deps, subUsage, logRepo, marginLog, opLookup, ruleRepo
@@ -223,14 +223,14 @@ func TestTarifyUnified_FallbackOnNotFound(t *testing.T) {
 	calc := NewCostCalculator(NewTiersCache(256))
 
 	deps := &unifiedDeps{
-		resolver:      resolver,
-		calc:          calc,
-		ruleRepo:      ruleRepo,
-		subUsageRepo:  &stubSubUsage{},
-		marginLogRepo: &stubMarginLog{},
-		saga:          &stubSaga{result: &ChargeResult{Success: true}},
-		logRepo:       &stubLogRepo{},
-		senderRepo:    &stubSenderRepo{},
+		resolver:       resolver,
+		calc:           calc,
+		ruleRepo:       ruleRepo,
+		subUsageRepo:   &stubSubUsage{},
+		marginLogRepo:  &stubMarginLog{},
+		saga:           &stubSaga{result: &ChargeResult{Success: true}},
+		logRepo:        &stubLogRepo{},
+		senderRepo:     &stubSenderRepo{},
 		operatorLookup: &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}},
 	}
 
@@ -275,14 +275,14 @@ func TestTarifyUnified_FallbackOnCalcError(t *testing.T) {
 	calc := NewCostCalculator(NewTiersCache(256))
 
 	deps := &unifiedDeps{
-		resolver:      resolver,
-		calc:          calc,
-		ruleRepo:      ruleRepo,
-		subUsageRepo:  &stubSubUsage{},
-		marginLogRepo: &stubMarginLog{},
-		saga:          &stubSaga{result: &ChargeResult{Success: true}},
-		logRepo:       &stubLogRepo{},
-		senderRepo:    &stubSenderRepo{},
+		resolver:       resolver,
+		calc:           calc,
+		ruleRepo:       ruleRepo,
+		subUsageRepo:   &stubSubUsage{},
+		marginLogRepo:  &stubMarginLog{},
+		saga:           &stubSaga{result: &ChargeResult{Success: true}},
+		logRepo:        &stubLogRepo{},
+		senderRepo:     &stubSenderRepo{},
 		operatorLookup: &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}},
 	}
 
@@ -338,9 +338,9 @@ func TestTarifyUnified_IdempotencyShortCircuits(t *testing.T) {
 	// Unified replay scenario: TariffPlanID is nil, SourceRuleID is set.
 	existingRuleID := uuid.New()
 	existing := &domain.TarificationLog{
-		ID:          uuid.New(),
-		TotalAmount: "7.000000",
-		Strategy:    domain.StrategyUnified,
+		ID:           uuid.New(),
+		TotalAmount:  "7.000000",
+		Strategy:     domain.StrategyUnified,
 		SourceRuleID: &existingRuleID,
 		// TariffPlanID intentionally nil — unified path does not set it.
 	}
@@ -351,14 +351,14 @@ func TestTarifyUnified_IdempotencyShortCircuits(t *testing.T) {
 	opLookup := &stubOperatorLookup{meta: domain.OperatorMeta{Code: "mts-ru", Currency: "RUB"}}
 
 	deps := &unifiedDeps{
-		resolver:      nil, // should not be reached
-		calc:          nil, // should not be reached
-		ruleRepo:      nil, // should not be reached
-		subUsageRepo:  subUsage,
-		marginLogRepo: marginLog,
-		saga:          &stubSaga{result: &ChargeResult{Success: true}},
-		logRepo:       logRepo,
-		senderRepo:    &stubSenderRepo{},
+		resolver:       nil, // should not be reached
+		calc:           nil, // should not be reached
+		ruleRepo:       nil, // should not be reached
+		subUsageRepo:   subUsage,
+		marginLogRepo:  marginLog,
+		saga:           &stubSaga{result: &ChargeResult{Success: true}},
+		logRepo:        logRepo,
+		senderRepo:     &stubSenderRepo{},
 		operatorLookup: opLookup,
 	}
 
@@ -402,14 +402,14 @@ func TestTarifyUnified_OperatorLookupError_Fallback(t *testing.T) {
 	opLookup := &stubOperatorLookup{err: domain.ErrOperatorNotFound}
 
 	deps := &unifiedDeps{
-		resolver:      resolver,
-		calc:          calc,
-		ruleRepo:      ruleRepo,
-		subUsageRepo:  &stubSubUsage{},
-		marginLogRepo: &stubMarginLog{},
-		saga:          &stubSaga{result: &ChargeResult{Success: true}},
-		logRepo:       &stubLogRepo{},
-		senderRepo:    &stubSenderRepo{},
+		resolver:       resolver,
+		calc:           calc,
+		ruleRepo:       ruleRepo,
+		subUsageRepo:   &stubSubUsage{},
+		marginLogRepo:  &stubMarginLog{},
+		saga:           &stubSaga{result: &ChargeResult{Success: true}},
+		logRepo:        &stubLogRepo{},
+		senderRepo:     &stubSenderRepo{},
 		operatorLookup: opLookup,
 	}
 

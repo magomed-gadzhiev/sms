@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smpp-server/smpp-server/internal/services/tarification/domain"
+
+	billingDomain "github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,17 +28,17 @@ func TestBackoffFor(t *testing.T) {
 		attempt int
 		want    time.Duration
 	}{
-		{attempt: 0, want: time.Second},            // защитная ветка — нулевой attempt
-		{attempt: 1, want: time.Second},            // 1s
-		{attempt: 2, want: 2 * time.Second},        // 2s
-		{attempt: 3, want: 4 * time.Second},        // 4s
-		{attempt: 6, want: 32 * time.Second},       // 32s
-		{attempt: 10, want: 512 * time.Second},     // 1<<9 = 512s
-		{attempt: 12, want: 2048 * time.Second},    // 1<<11 = 2048s < 3600s
-		{attempt: 13, want: time.Hour},             // 1<<12 = 4096s > cap → 1h
-		{attempt: 20, want: time.Hour},             // cap
-		{attempt: 100, want: time.Hour},            // cap после overflow protection
-		{attempt: -1, want: time.Second},           // защита от отрицательных
+		{attempt: 0, want: time.Second},         // защитная ветка — нулевой attempt
+		{attempt: 1, want: time.Second},         // 1s
+		{attempt: 2, want: 2 * time.Second},     // 2s
+		{attempt: 3, want: 4 * time.Second},     // 4s
+		{attempt: 6, want: 32 * time.Second},    // 32s
+		{attempt: 10, want: 512 * time.Second},  // 1<<9 = 512s
+		{attempt: 12, want: 2048 * time.Second}, // 1<<11 = 2048s < 3600s
+		{attempt: 13, want: time.Hour},          // 1<<12 = 4096s > cap → 1h
+		{attempt: 20, want: time.Hour},          // cap
+		{attempt: 100, want: time.Hour},         // cap после overflow protection
+		{attempt: -1, want: time.Second},        // защита от отрицательных
 	}
 	for _, tc := range cases {
 		got := backoffFor(tc.attempt)
@@ -50,7 +52,7 @@ func TestBackoffFor(t *testing.T) {
 
 type fakeCommitChargeInvoker struct {
 	mu      sync.Mutex
-	resp    map[uuid.UUID]*CommitChargeResult
+	resp    map[uuid.UUID]*billingDomain.ChargeResult
 	err     map[uuid.UUID]error
 	calls   map[uuid.UUID]int
 	callsMu sync.Mutex
@@ -58,13 +60,13 @@ type fakeCommitChargeInvoker struct {
 
 func newFakeInvoker() *fakeCommitChargeInvoker {
 	return &fakeCommitChargeInvoker{
-		resp:  make(map[uuid.UUID]*CommitChargeResult),
+		resp:  make(map[uuid.UUID]*billingDomain.ChargeResult),
 		err:   make(map[uuid.UUID]error),
 		calls: make(map[uuid.UUID]int),
 	}
 }
 
-func (f *fakeCommitChargeInvoker) setResp(id uuid.UUID, r *CommitChargeResult) {
+func (f *fakeCommitChargeInvoker) setResp(id uuid.UUID, r *billingDomain.ChargeResult) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.resp[id] = r
@@ -76,7 +78,7 @@ func (f *fakeCommitChargeInvoker) setErr(id uuid.UUID, err error) {
 	f.err[id] = err
 }
 
-func (f *fakeCommitChargeInvoker) CommitCharge(_ context.Context, req *CommitChargeRequest) (*CommitChargeResult, error) {
+func (f *fakeCommitChargeInvoker) CommitCharge(_ context.Context, req *CommitChargeRequest) *billingDomain.ChargeResult {
 	f.callsMu.Lock()
 	f.calls[req.MessageID]++
 	f.callsMu.Unlock()
@@ -84,12 +86,15 @@ func (f *fakeCommitChargeInvoker) CommitCharge(_ context.Context, req *CommitCha
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err, ok := f.err[req.MessageID]; ok {
-		return nil, err
+		return &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeTransient, Err: err}
 	}
 	if r, ok := f.resp[req.MessageID]; ok {
-		return r, nil
+		return r
 	}
-	return nil, errors.New("no fake response configured for " + req.MessageID.String())
+	return &billingDomain.ChargeResult{
+		Outcome: billingDomain.ChargeOutcomeTransient,
+		Err:     errors.New("no fake response configured for " + req.MessageID.String()),
+	}
 }
 
 func (f *fakeCommitChargeInvoker) callCount(id uuid.UUID) int {
@@ -228,7 +233,7 @@ func TestRunOnce_SuccessDeletesEntry(t *testing.T) {
 	id := uuid.New()
 
 	seed(repo, makeEntry(id, 0, time.Now().UTC().Add(-time.Second)))
-	inv.setResp(id, &CommitChargeResult{Committed: true})
+	inv.setResp(id, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeCommitted})
 
 	w := newWorker(repo, inv)
 	n, err := w.RunOnce(context.Background())
@@ -243,7 +248,7 @@ func TestRunOnce_AlreadyCommittedDeletesEntry(t *testing.T) {
 	id := uuid.New()
 
 	seed(repo, makeEntry(id, 2, time.Now().UTC().Add(-time.Second)))
-	inv.setResp(id, &CommitChargeResult{AlreadyCommitted: true})
+	inv.setResp(id, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeAlreadyCommitted})
 
 	w := newWorker(repo, inv)
 	_, err := w.RunOnce(context.Background())
@@ -254,12 +259,12 @@ func TestRunOnce_AlreadyCommittedDeletesEntry(t *testing.T) {
 func TestRunOnce_TerminalRejectionDeletesEntry(t *testing.T) {
 	cases := []struct {
 		name string
-		resp *CommitChargeResult
+		resp *billingDomain.ChargeResult
 	}{
-		{"quota_missing", &CommitChargeResult{QuotaMissing: true}},
-		{"sub_insufficient", &CommitChargeResult{SubInsufficient: true}},
-		{"agg_insufficient", &CommitChargeResult{AggInsufficient: true}},
-		{"no_tariff", &CommitChargeResult{NoTariff: true}},
+		{"quota_missing", &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: billingDomain.RejectionQuotaMissing}},
+		{"sub_insufficient", &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: billingDomain.RejectionInsufficientBalanceSub}},
+		{"agg_insufficient", &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: billingDomain.RejectionInsufficientBalanceAgg}},
+		{"no_tariff", &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: billingDomain.RejectionNoTariff}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -323,12 +328,12 @@ func TestRunOnce_NotReadyEntriesSkipped(t *testing.T) {
 	// ready сейчас
 	readyID := uuid.New()
 	seed(repo, makeEntry(readyID, 0, time.Now().UTC().Add(-time.Second)))
-	inv.setResp(readyID, &CommitChargeResult{Committed: true})
+	inv.setResp(readyID, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeCommitted})
 
 	// готов через 1 час
 	futureID := uuid.New()
 	seed(repo, makeEntry(futureID, 0, time.Now().UTC().Add(time.Hour)))
-	inv.setResp(futureID, &CommitChargeResult{Committed: true})
+	inv.setResp(futureID, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeCommitted})
 
 	w := newWorker(repo, inv)
 	n, err := w.RunOnce(context.Background())
@@ -359,12 +364,12 @@ func TestRunOnce_MixedBatch(t *testing.T) {
 	// 1. success
 	successID := uuid.New()
 	seed(repo, makeEntry(successID, 0, time.Now().UTC().Add(-time.Second)))
-	inv.setResp(successID, &CommitChargeResult{Committed: true})
+	inv.setResp(successID, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeCommitted})
 
 	// 2. terminal
 	termID := uuid.New()
 	seed(repo, makeEntry(termID, 0, time.Now().UTC().Add(-time.Second)))
-	inv.setResp(termID, &CommitChargeResult{QuotaMissing: true})
+	inv.setResp(termID, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeRejected, Rejection: billingDomain.RejectionQuotaMissing})
 
 	// 3. transient, не exhausted
 	transID := uuid.New()
@@ -413,7 +418,7 @@ func TestRunOnce_UnknownResponseTreatedAsTransient(t *testing.T) {
 	id := uuid.New()
 
 	seed(repo, makeEntry(id, 0, time.Now().UTC().Add(-time.Second)))
-	inv.setResp(id, &CommitChargeResult{}) // все флаги false
+	inv.setResp(id, &billingDomain.ChargeResult{Outcome: billingDomain.ChargeOutcomeTransient, Err: errors.New("unset outcome")}) // transient: retry
 
 	w := newWorker(repo, inv)
 	_, err := w.RunOnce(context.Background())

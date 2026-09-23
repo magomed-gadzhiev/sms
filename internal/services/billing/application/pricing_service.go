@@ -44,7 +44,7 @@ func (s *PricingService) CreatePricingRule(
 	active bool,
 ) (*domain.PricingRule, error) {
 	rule := domain.NewPricingRule(clientID, destinationPattern, pricePerMessage, currency, priority)
-	
+
 	// Устанавливаем активность правила
 	if !active {
 		rule.Deactivate()

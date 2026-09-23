@@ -277,16 +277,16 @@ func (s *Server) GetTransactionHistory(ctx context.Context, req *billingv1.GetTr
 		}
 
 		protoTransactions[i] = &billingv1.Transaction{
-			TransactionId:  tx.ID.String(),
-			ClientId:       tx.ClientID.String(),
-			Type:           string(tx.Type),
-			Amount:         tx.Amount,
-			Currency:       tx.Currency,
-			BalanceBefore:  tx.BalanceBefore,
-			BalanceAfter:   tx.BalanceAfter,
-			Description:    tx.Description,
-			MessageId:      messageIDStr,
-			CreatedAt:      timestamppb.New(tx.CreatedAt),
+			TransactionId: tx.ID.String(),
+			ClientId:      tx.ClientID.String(),
+			Type:          string(tx.Type),
+			Amount:        tx.Amount,
+			Currency:      tx.Currency,
+			BalanceBefore: tx.BalanceBefore,
+			BalanceAfter:  tx.BalanceAfter,
+			Description:   tx.Description,
+			MessageId:     messageIDStr,
+			CreatedAt:     timestamppb.New(tx.CreatedAt),
 		}
 	}
 
@@ -625,7 +625,7 @@ func (s *Server) ChargeMessageDual(ctx context.Context, req *billingv1.ChargeMes
 		return nil, status.Errorf(codes.InvalidArgument, "invalid operator_id: %v", err)
 	}
 
-	result, err := application.ChargeMessageDual(ctx, s.dualDeps, application.ChargeMessageDualInput{
+	result := application.ChargeMessageDual(ctx, s.dualDeps, application.ChargeMessageDualInput{
 		MessageID:       messageID,
 		SubAccountID:    subAccountID,
 		AggregatorID:    aggregatorID,
@@ -640,33 +640,39 @@ func (s *Server) ChargeMessageDual(ctx context.Context, req *billingv1.ChargeMes
 		OverageSegments: int(req.OverageSegments),
 		ChargeMode:      req.ChargeMode,
 	})
-	if err != nil {
-		s.logger.Error().Err(err).
+
+	// Transient — инфраструктурный сбой: транслируем в gRPC error, как это
+	// делала прежняя ошибка возврата. Остальные исходы — прото-enum.
+	if result.Outcome == domain.ChargeOutcomeTransient {
+		s.logger.Error().Err(result.Err).
 			Str("message_id", req.MessageId).
 			Str("sub_account_id", req.SubAccountId).
 			Str("aggregator_id", req.AggregatorId).
 			Msg("charge message dual failed")
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, result.Err.Error())
 	}
 
 	resp := &billingv1.ChargeMessageDualResponse{
-		Committed:      result.Committed,
-		SubAccountTxId: result.SubTxID.String(),
-		AggregatorTxId: result.AggTxID.String(),
+		Committed:      result.Outcome == domain.ChargeOutcomeCommitted,
+		SubAccountTxId: result.SubAccountTxID.String(),
+		AggregatorTxId: result.AggregatorTxID.String(),
 		MarginLogId:    result.MarginLogID.String(),
 	}
-	switch {
-	case result.AlreadyCommitted:
+	switch result.Rejection {
+	case "":
+		// no rejection
+	case domain.RejectionQuotaMissing:
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_QUOTA_NOT_CONFIGURED
+	case domain.RejectionInsufficientBalanceSub:
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT
+	case domain.RejectionInsufficientBalanceAgg:
+		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR
+	}
+	if result.Outcome == domain.ChargeOutcomeAlreadyCommitted {
 		// Идемпотентный re-entry: для клиента это успех — запись уже была закоммичена.
 		// Committed=true сохраняет семантику "заряд есть", error=ALREADY_COMMITTED информирует.
 		resp.Committed = true
 		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_ALREADY_COMMITTED
-	case result.QuotaMissing:
-		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_QUOTA_NOT_CONFIGURED
-	case result.SubInsufficient:
-		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_SUBACCOUNT
-	case result.AggInsufficient:
-		resp.Error = billingv1.ChargeMessageDualError_CHARGE_DUAL_ERROR_INSUFFICIENT_BALANCE_AGGREGATOR
 	}
 	return resp, nil
 }

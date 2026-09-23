@@ -11,7 +11,6 @@ import (
 	"github.com/smpp-server/smpp-server/internal/services/billing/domain"
 )
 
-
 // PricingRuleRepository реализует domain.PricingRuleRepository
 type PricingRuleRepository struct {
 	db *sqlx.DB

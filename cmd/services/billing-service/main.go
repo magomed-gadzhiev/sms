@@ -100,6 +100,8 @@ func main() {
 
 	// Инициализация сервисов
 	billingService := application.NewBillingService(accountRepo, transactionRepo, billingEventPublisher)
+	// Канонический владелец идемпотентности списаний за Message.
+	billingService.SetCommitGuard(commitGuardRepo)
 	pricingService := application.NewPricingService(pricingRepo)
 
 	// Зависимости для атомарного ChargeMessageDual (dual-списание + квота + margin log в одной tx).
