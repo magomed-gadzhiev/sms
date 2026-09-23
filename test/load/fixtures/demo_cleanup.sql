@@ -48,7 +48,8 @@ WHERE client_id = 'c0000000-0000-0000-0000-000000000001'
 DELETE FROM client_companies  WHERE client_id::text LIKE 'c0000000-%';
 DELETE FROM clients           WHERE id::text LIKE 'c0000000-%';
 DELETE FROM routes            WHERE id::text LIKE 'b0%';
-DELETE FROM providers         WHERE id::text LIKE 'a0%';
+-- Provider-Simulator (a0..08) не трогаем: нужен для живой отправки (см. demo_data.sql, секция 0.5)
+DELETE FROM providers         WHERE id::text LIKE 'a0%' AND id <> 'a0000000-0000-0000-0000-000000000008';
 DELETE FROM hlr_providers     WHERE id::text LIKE '11110000-%';
 DELETE FROM companies         WHERE id::text LIKE 'cc0%';
 

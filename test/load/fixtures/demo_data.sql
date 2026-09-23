@@ -33,6 +33,90 @@ BEGIN
     END LOOP;
 END $$;
 
+-- ---------- 0.5. Живая отправка (для работы нужны запущенные pipeline-воркеры) ----------
+-- 1) SIMULATOR-провайдер: stub-отправка без реального SMPP, DLR через 50мс
+--    (короткая задержка сужает окно гонки persist-стадии против DLR-статуса).
+INSERT INTO providers (id, name, host, port, system_id, password, system_type, bind_type,
+                       max_connections, active, priority, throughput_per_second)
+VALUES ('a0000000-0000-0000-0000-000000000008', 'Provider-Simulator', 'simulator.local', 2775,
+        'sim_sys', 'sim_pass', 'SIMULATOR', 'transceiver', 5, true, 50, 1000)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO stub_provider_config (provider_id, min_delay_ms, max_delay_ms, failure_rate_pct,
+                                  dlr_delay_ms, dlr_success_rate, dlr_statuses)
+VALUES ('a0000000-0000-0000-0000-000000000008', 5, 20, 0, 50, 100, '["DELIVRD"]'::jsonb)
+ON CONFLICT (provider_id) DO UPDATE
+SET min_delay_ms = 5, max_delay_ms = 20, failure_rate_pct = 0,
+    dlr_delay_ms = 50, dlr_success_rate = 100, dlr_statuses = '["DELIVRD"]'::jsonb;
+
+-- 2) Недостижимые демо-провайдеры деактивируем: sender при старте синхронно биндится
+--    ко всем active-провайдерам и без этого стартует ~минуты.
+UPDATE providers SET active = false
+WHERE id IN ('a0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002',
+             'a0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000004',
+             'a0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000006',
+             'a0000000-0000-0000-0000-000000000007');
+
+-- 3) Платформенный catch-all маршрут (без условий = матчит всё; клиенты в режиме
+--    legacy используют именно платформенный уровень).
+INSERT INTO client_routes (id, client_id, operator_id, provider_id, priority, weight, active,
+                           name, comment, status, share, route_type, source, owner_type, owner_id)
+VALUES ('ee000001-00da-0000-0000-000000000001', NULL, NULL,
+        'a0000000-0000-0000-0000-000000000008', 1000, 1, true,
+        'Demo-Simulator-Fallback', 'Платформенный catch-all на SIMULATOR (демо-стенд)',
+        'active', 100, 'sms', 'override', 'platform', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- 4) Префикс 7985 (МТС) отсутствует в справочнике — без него контакты на 985
+--    резолвятся в несуществующего оператора и отвергаются тарификацией.
+INSERT INTO operator_prefixes (operator_id, prefix, priority, active)
+SELECT id, '7985', 1, true FROM operators WHERE code = 'MTS'
+ON CONFLICT DO NOTHING;
+
+-- 5) Регистрации имён на легаси-операторах (MTS/BEELINE/MEGAFON/TELE2 — на них
+--    ссылается operator_prefixes): без них роутер подменяет sender на 'SMS'.
+INSERT INTO operator_registrations (id, sender_name_id, operator_id, registration_type, status, approved_type, approved_at, submitted_at, resolved_at)
+SELECT ('f3' || lpad((100 + row_number() OVER (ORDER BY s.id, o.code))::text, 6, '0')
+        || '-00da-0000-0000-' || lpad((100 + row_number() OVER (ORDER BY s.id, o.code))::text, 12, '0'))::uuid,
+       s.id, o.id,
+       CASE WHEN s.name = 'OTP' THEN 'paid' ELSE 'free' END, 'approved',
+       CASE WHEN s.name = 'OTP' THEN 'paid' ELSE 'free' END,
+       now() - interval '30 days', now() - interval '36 days', now() - interval '30 days'
+FROM sender_names s
+JOIN operators o ON o.code IN ('MTS', 'BEELINE', 'MEGAFON', 'TELE2')
+WHERE s.name IN ('Demo', 'OTP', 'Light')
+ON CONFLICT (sender_name_id, operator_id) DO NOTHING;
+
+-- 6) Тарифы легаси-операторов: пайплайн резолвит оператора по префиксу (коды
+--    MTS/BEELINE/MEGAFON/TELE2), а не по *_RU из mcc/mnc-справочника.
+INSERT INTO tariff_plans (id, operator_id, sender_category, strategy, active)
+SELECT ('f5' || lpad((4 + row_number() OVER (ORDER BY o.code))::text, 6, '0')
+        || '-00da-0000-0000-' || lpad((4 + row_number() OVER (ORDER BY o.code))::text, 12, '0'))::uuid,
+       o.id, 'shared', 'fixed', true
+FROM operators o WHERE o.code IN ('MTS', 'BEELINE', 'MEGAFON', 'TELE2')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tariff_periods (id, tariff_plan_id, start_date, end_date)
+SELECT ('f6' || lpad((4 + row_number() OVER (ORDER BY tp.id))::text, 6, '0')
+        || '-00da-0000-0000-' || lpad((4 + row_number() OVER (ORDER BY tp.id))::text, 12, '0'))::uuid,
+       tp.id, '2026-01-01', '2026-12-31'
+FROM tariff_plans tp
+WHERE tp.id::text LIKE 'f5______-00da-0000-0000-%'
+  AND NOT EXISTS (SELECT 1 FROM tariff_periods p WHERE p.tariff_plan_id = tp.id)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tariff_tiers (id, tariff_period_id, from_count, price_per_segment)
+SELECT ('f7' || lpad((4 + row_number() OVER (ORDER BY tp.id))::text, 6, '0')
+        || '-00da-0000-0000-' || lpad((4 + row_number() OVER (ORDER BY tp.id))::text, 12, '0'))::uuid,
+       tper.id, 0,
+       CASE o.code WHEN 'MTS' THEN 0.40 WHEN 'MEGAFON' THEN 0.38 WHEN 'BEELINE' THEN 0.35 ELSE 0.30 END
+FROM tariff_plans tp
+JOIN operators o ON o.id = tp.operator_id
+JOIN tariff_periods tper ON tper.tariff_plan_id = tp.id
+WHERE tp.id::text LIKE 'f5______-00da-0000-0000-%'
+  AND NOT EXISTS (SELECT 1 FROM tariff_tiers tt WHERE tt.tariff_period_id = tper.id)
+ON CONFLICT DO NOTHING;
+
 -- ---------- 1. Имена отправителя ----------
 -- company_id обязателен (миграция 000091): Main -> cc..01, Light -> cc..03.
 INSERT INTO sender_names (id, client_id, company_id, name, status, rejection_reason, reviewer_id, reviewed_at)
