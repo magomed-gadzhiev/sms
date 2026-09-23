@@ -25,40 +25,13 @@ func TestMessagingChain(t *testing.T) {
 	ensurePartition(t, db)
 
 	t.Run("SendMessage", func(t *testing.T) {
-		tx := beginTx(t, db)
 		ctx := context.Background()
 		clientID := uuid.New()
-		insertTestClient(t, tx, clientID.String())
-
-		// Build repos on top of the tx-wrapped DB.
-		// Infrastructure repos accept *sqlx.DB, but sqlx.Tx implements the
-		// same Ext interface. We wrap the tx into a thin *sqlx.DB-compatible
-		// layer by using the underlying connection directly.
-		// Since repos use *sqlx.DB we cannot pass a tx.
-		// Instead we create repos using the real DB and clean up via TRUNCATE-
-		// style helper or simply rely on each sub-test inserting unique UUIDs.
-		// Here we use the DB directly and roll back via tx for client row.
-
-		// Actually, the repos require *sqlx.DB. So we use the real DB for
-		// repos and insert the client outside a tx (clean up afterwards).
-		// To keep isolation, we use unique IDs per test.
-		_, err := db.ExecContext(ctx,
-			`INSERT INTO clients (id, name, api_key, secret)
-			 VALUES ($1, 'test-send-msg', $1, 'secret')
-			 ON CONFLICT DO NOTHING`, clientID.String())
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			_, _ = db.ExecContext(context.Background(),
-				`DELETE FROM messages WHERE client_id = $1`, clientID)
-			_, _ = db.ExecContext(context.Background(),
-				`DELETE FROM clients WHERE id = $1`, clientID)
-		})
 
 		messageRepo := msgRepo.NewMessageRepository(db)
 		dlrRepo := msgRepo.NewDLRRepository(db)
 
 		mockPublisher := &msgMocks.MockEventPublisher{}
-		mockPublisher.On("PublishMessageCreated", mock.Anything, mock.Anything).Return(nil)
 		mockPublisher.On("PublishMessageQueued", mock.Anything, mock.Anything).Return(nil)
 
 		svc := application.NewMessageService(messageRepo, dlrRepo, mockPublisher)
@@ -67,16 +40,14 @@ func TestMessagingChain(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msg)
 
-		// Verify message persisted in DB with QUEUED status
-		// (SendMessage creates with PENDING, publishes, then marks QUEUED)
-		fetched, err := messageRepo.GetByID(ctx, msg.ID)
-		require.NoError(t, err)
-		assert.Equal(t, shared.MessageStatusQueued, fetched.Status)
-		assert.Equal(t, "+79001234567", fetched.Destination)
-		assert.Equal(t, "Hello functional test", fetched.Text)
+		// Immediate sends are publish-only: the persist stage batch-inserts
+		// into the DB asynchronously (COPY), so there is no row to read back
+		// here. The seam's contract: the returned message is queued and the
+		// queued event was published.
+		assert.Equal(t, shared.MessageStatusQueued, msg.Status)
+		assert.Equal(t, "+79001234567", msg.Destination)
+		assert.Equal(t, "Hello functional test", msg.Text)
 
-		// Verify events were published
-		mockPublisher.AssertCalled(t, "PublishMessageCreated", mock.Anything, mock.Anything)
 		mockPublisher.AssertCalled(t, "PublishMessageQueued", mock.Anything, mock.Anything)
 	})
 

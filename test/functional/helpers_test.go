@@ -4,7 +4,6 @@ package functional_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"testing"
@@ -67,33 +66,22 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 	return db
 }
 
-// beginTx starts a transaction and registers t.Cleanup to roll it back,
-// so every test runs in isolation without side effects.
-func beginTx(t *testing.T, db *sqlx.DB) *sqlx.Tx {
-	t.Helper()
-
-	tx, err := db.BeginTxx(context.Background(), &sql.TxOptions{})
-	if err != nil {
-		t.Fatalf("failed to begin test transaction: %v", err)
-	}
-
-	t.Cleanup(func() { _ = tx.Rollback() })
-	return tx
-}
-
-// ensurePartition creates a monthly partition for the messages table covering
-// the current month if it doesn't already exist.
-func ensurePartition(t *testing.T, db *sqlx.DB) {
+// ensureMonthlyPartition creates the current-month partition of a monthly
+// RANGE-partitioned table when it doesn't already exist. Migrations only
+// pre-create a handful of months; in deployed environments the pipeline-worker
+// partition maintainer keeps them coming (internal/services/maintenance/
+// partition_maintainer.go), but test databases get migrations alone.
+func ensureMonthlyPartition(t *testing.T, db *sqlx.DB, table string, partitionName func(month time.Time) string) {
 	t.Helper()
 
 	now := time.Now()
-	partName := fmt.Sprintf("messages_y%dm%02d", now.Year(), now.Month())
+	partName := partitionName(now)
 	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	to := from.AddDate(0, 1, 0)
 
 	query := fmt.Sprintf(
-		`CREATE TABLE IF NOT EXISTS %s PARTITION OF messages FOR VALUES FROM ('%s') TO ('%s')`,
-		partName,
+		`CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')`,
+		partName, table,
 		from.Format("2006-01-02"),
 		to.Format("2006-01-02"),
 	)
@@ -101,22 +89,26 @@ func ensurePartition(t *testing.T, db *sqlx.DB) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := db.ExecContext(ctx, query); err != nil {
-		t.Fatalf("failed to ensure messages partition %s: %v", partName, err)
+		t.Fatalf("failed to ensure %s partition %s: %v", table, partName, err)
 	}
 }
 
-// insertTestClient inserts a minimal client row and returns its UUID string.
-// The client is needed because messages.client_id references clients(id).
-func insertTestClient(t *testing.T, tx *sqlx.Tx, clientID string) {
+// ensurePartition creates the current-month messages partition
+// (naming per migrations: messages_y2026m09).
+func ensurePartition(t *testing.T, db *sqlx.DB) {
 	t.Helper()
+	ensureMonthlyPartition(t, db, "messages", func(month time.Time) string {
+		return fmt.Sprintf("messages_y%dm%02d", month.Year(), month.Month())
+	})
+}
 
-	_, err := tx.ExecContext(context.Background(),
-		`INSERT INTO clients (id, name, api_key, secret)
-		 VALUES ($1, 'test-client', $1, 'secret')
-		 ON CONFLICT DO NOTHING`,
-		clientID,
-	)
-	if err != nil {
-		t.Fatalf("failed to insert test client: %v", err)
-	}
+// ensureClickEventsPartition creates the current-month click_events partition
+// (naming per migration 000047: click_events_2026_09). Without it RecordClick
+// fails with "no partition of relation click_events found" (SQLSTATE 23514)
+// on databases provisioned from migrations only.
+func ensureClickEventsPartition(t *testing.T, db *sqlx.DB) {
+	t.Helper()
+	ensureMonthlyPartition(t, db, "click_events", func(month time.Time) string {
+		return fmt.Sprintf("click_events_%d_%02d", month.Year(), month.Month())
+	})
 }
