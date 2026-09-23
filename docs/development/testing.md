@@ -54,8 +54,9 @@ go test -tags=integration ./test/integration/...
 - **Registration-тесты** (`test/integration/registration_test.go`) ходят по
   HTTP в portal-gateway (`TEST_PORTAL_URL`, по умолчанию
   `http://localhost:8082` — порт Portal Gateway HTTP из
-  `deployments/docker-compose.yml`). Если портал не развёрнут (connection
-  refused) или не экспонирует роут (404/405) — тест SKIP-ается. HTTP-покрытие
+  `deployments/docker-compose.yml`). Если портал не развёрнут (сетевая
+  ошибка — connection refused и прочие `net.OpError`) или не экспонирует
+  роут (404/405) — тест SKIP-ается. HTTP-покрытие
   регистрации живёт в e2e (`e2e/tests/auth/auth-public.spec.ts`: успех,
   дубликат email, невалидный ввод). Чтобы прогнать registration-тесты по-настоящему,
   поднимите портал и задайте `TEST_PORTAL_URL` (make-таргет `test-integration`
