@@ -1,0 +1,10 @@
+# Local-only overlay. Untracked, like deployments/.env.
+# Цель: согласовать аутентификацию postgres <-> pgbouncer (md5).
+# Применять:
+#   docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.local.yml --env-file deployments/.env up -d
+services:
+  postgres:
+    environment:
+      # PgBouncer (configs/pgbouncer.ini auth_type=md5) умеет ходить в postgres
+      # только по md5. PG15 по умолчанию использует scram-sha-256.
+      - POSTGRES_HOST_AUTH_METHOD=md5
